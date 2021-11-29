@@ -34,14 +34,14 @@ object LegacyTransactionCommitter extends TransactionCommitter {
     val prefix = "#" + transactionId + ":"
 
     val contractMapping =
-      transaction
+      transaction.unversioned
         .localContracts[Value.ContractId]
         .transform { case (_, (nid, _)) =>
           Value.ContractId.V0(Ref.ContractIdString.assertFromString(prefix + nid.index.toString))
         }
         .withDefault(identity)
 
-    CommittedTransaction(transaction.mapCid(contractMapping))
+    CommittedTransaction(transaction.map(_.mapCid(contractMapping)))
 
   }
 

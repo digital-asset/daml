@@ -18,81 +18,86 @@ private[replay] final class Adapter(
 
   private val interface = com.daml.lf.language.PackageInterface(packages)
 
-  def adapt(tx: VersionedTransaction): SubmittedTransaction =
-    tx.foldWithPathState(TxBuilder(pkgLangVersion), Option.empty[NodeId])(
-      (builder, parent, _, node) =>
-        (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))
-    ).buildSubmitted()
+  def adaptTransaction(tx: VersionedTransaction): SubmittedTransaction =
+    tx.unversioned
+      .foldWithPathState(TxBuilder(pkgLangVersion), Option.empty[NodeId])(
+        (builder, parent, _, node) =>
+          (
+            builder,
+            Some(parent.fold(builder.add(adaptNode(node)))(builder.add(adaptNode(node), _))),
+          )
+      )
+      .buildSubmitted()
 
   // drop value version and children
-  private[this] def adapt(node: Node): Node =
+  private[this] def adaptNode(node: Node): Node =
     node match {
       case rollback: Node.Rollback =>
         rollback.copy(children = ImmArray.Empty)
       case create: Node.Create =>
         create.copy(
-          templateId = adapt(create.templateId),
-          arg = adapt(create.arg),
-          key = create.key.map(adapt),
+          templateId = adaptId(create.templateId),
+          arg = adaptValue(create.arg),
+          key = create.key.map(adaptKey),
         )
       case exe: Node.Exercise =>
         exe.copy(
-          templateId = adapt(exe.templateId),
-          chosenValue = adapt(exe.chosenValue),
+          templateId = adaptId(exe.templateId),
+          chosenValue = adaptValue(exe.chosenValue),
           children = ImmArray.Empty,
-          exerciseResult = exe.exerciseResult.map(adapt),
-          key = exe.key.map(adapt),
+          exerciseResult = exe.exerciseResult.map(adaptValue),
+          key = exe.key.map(adaptKey),
         )
       case fetch: Node.Fetch =>
         fetch.copy(
-          templateId = adapt(fetch.templateId),
-          key = fetch.key.map(adapt),
+          templateId = adaptId(fetch.templateId),
+          key = fetch.key.map(adaptKey),
         )
       case lookup: Node.LookupByKey =>
         lookup
           .copy(
-            templateId = adapt(lookup.templateId),
-            key = adapt(lookup.key),
+            templateId = adaptId(lookup.templateId),
+            key = adaptKey(lookup.key),
           )
     }
 
   // drop value version
-  private[this] def adapt(
+  private[this] def adaptKey(
       k: Node.KeyWithMaintainers
   ): Node.KeyWithMaintainers =
-    k.copy(adapt(k.key))
+    k.copy(adaptValue(k.key))
 
-  def adapt(coinst: Value.VersionedContractInstance): Value.VersionedContractInstance =
+  def adaptCoinst(coinst: Value.VersionedContractInstance): Value.VersionedContractInstance =
     coinst.map(unversioned =>
-      unversioned.copy(template = adapt(unversioned.template), arg = adapt(unversioned.arg))
+      unversioned.copy(template = adaptId(unversioned.template), arg = adaptValue(unversioned.arg))
     )
 
-  def adapt(gkey: GlobalKey): GlobalKey =
-    GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key))
+  def adaptKey(gkey: GlobalKey): GlobalKey =
+    GlobalKey.assertBuild(adaptId(gkey.templateId), adaptValue(gkey.key))
 
-  private[this] def adapt(value: Value): Value =
+  private[this] def adaptValue(value: Value): Value =
     value match {
       case Value.ValueEnum(tycon, value) =>
-        Value.ValueEnum(tycon.map(adapt), value)
+        Value.ValueEnum(tycon.map(adaptId), value)
       case Value.ValueRecord(tycon, fields) =>
-        Value.ValueRecord(tycon.map(adapt), fields.map { case (f, v) => f -> adapt(v) })
+        Value.ValueRecord(tycon.map(adaptId), fields.map { case (f, v) => f -> adaptValue(v) })
       case Value.ValueVariant(tycon, variant, value) =>
-        Value.ValueVariant(tycon.map(adapt), variant, adapt(value))
+        Value.ValueVariant(tycon.map(adaptId), variant, adaptValue(value))
       case Value.ValueList(values) =>
-        Value.ValueList(values.map(adapt))
+        Value.ValueList(values.map(adaptValue))
       case Value.ValueOptional(value) =>
-        Value.ValueOptional(value.map(adapt))
+        Value.ValueOptional(value.map(adaptValue))
       case Value.ValueTextMap(value) =>
-        Value.ValueTextMap(value.mapValue(adapt))
+        Value.ValueTextMap(value.mapValue(adaptValue))
       case Value.ValueGenMap(entries) =>
-        Value.ValueGenMap(entries.map { case (k, v) => adapt(k) -> adapt(v) })
+        Value.ValueGenMap(entries.map { case (k, v) => adaptValue(k) -> adaptValue(v) })
       case _: Value.ValueCidlessLeaf | _: Value.ValueContractId =>
         value
     }
 
   private[this] val cache = mutable.Map.empty[Ref.Identifier, Ref.Identifier]
 
-  private[this] def adapt(id: Ref.Identifier): Ref.Identifier =
+  private[this] def adaptId(id: Ref.Identifier): Ref.Identifier =
     cache.getOrElseUpdate(id, assertRight(lookup(id)))
 
   private[this] def lookup(id: Ref.Identifier): Either[String, Ref.Identifier] = {

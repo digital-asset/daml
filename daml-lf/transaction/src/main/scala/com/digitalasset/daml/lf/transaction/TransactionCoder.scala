@@ -690,12 +690,13 @@ object TransactionCoder {
   def encodeTransaction(
       encodeNid: EncodeNid,
       encodeCid: ValueCoder.EncodeCid,
-      tx: VersionedTransaction,
+      tx: Versioned[Transaction],
   ): Either[EncodeError, TransactionOuterClass.Transaction] =
     encodeTransactionWithCustomVersion(
       encodeNid,
       encodeCid,
-      tx,
+      tx.version,
+      tx.unversioned,
     )
 
   /** Encode a transaction to protobuf using [[TransactionVersion]] provided by in the [[VersionedTransaction]] argument.
@@ -710,11 +711,12 @@ object TransactionCoder {
   private[transaction] def encodeTransactionWithCustomVersion(
       encodeNid: EncodeNid,
       encodeCid: ValueCoder.EncodeCid,
-      transaction: VersionedTransaction,
+      version: TransactionVersion,
+      transaction: Transaction,
   ): Either[EncodeError, TransactionOuterClass.Transaction] = {
     val builder = TransactionOuterClass.Transaction
       .newBuilder()
-      .setVersion(transaction.version.protoValue)
+      .setVersion(version.protoValue)
     transaction.roots.foreach(nid => discard(builder.addRoots(encodeNid.asString(nid))))
 
     transaction
@@ -726,7 +728,7 @@ object TransactionCoder {
           encodedNode <- encodeNode(
             encodeNid,
             encodeCid,
-            transaction.version,
+            version,
             nid,
             transaction.nodes(nid),
           )
@@ -777,7 +779,7 @@ object TransactionCoder {
       decodeNid: DecodeNid,
       decodeCid: ValueCoder.DecodeCid,
       protoTx: TransactionOuterClass.Transaction,
-  ): Either[DecodeError, VersionedTransaction] =
+  ): Either[DecodeError, Versioned[Transaction]] =
     for {
       version <- decodeVersion(protoTx.getVersion)
       tx <- decodeTransaction(
@@ -786,7 +788,7 @@ object TransactionCoder {
         version,
         protoTx,
       )
-    } yield tx
+    } yield Versioned(version, tx)
 
   /** Reads a [[Transaction[Nid]]] from protobuf. Does not check if
     * [[TransactionVersion]] passed in the protobuf is currently supported, if you need this check use
@@ -799,12 +801,12 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return decoded transaction
     */
-  private def decodeTransaction(
+  private[this] def decodeTransaction(
       decodeNid: DecodeNid,
       decodeCid: ValueCoder.DecodeCid,
       txVersion: TransactionVersion,
       protoTx: TransactionOuterClass.Transaction,
-  ): Either[DecodeError, VersionedTransaction] = {
+  ): Either[DecodeError, Transaction] = {
     val roots = protoTx.getRootsList.asScala
       .foldLeft[Either[DecodeError, BackStack[NodeId]]](Right(BackStack.empty[NodeId])) {
         case (Right(acc), s) => decodeNid.fromString(s).map(acc :+ _)
@@ -821,7 +823,7 @@ object TransactionCoder {
     for {
       rs <- roots
       ns <- nodes
-    } yield VersionedTransaction(txVersion, ns, rs)
+    } yield Transaction(ns, rs)
   }
 
   def toPartySet(strList: ProtocolStringList): Either[DecodeError, Set[Party]] = {

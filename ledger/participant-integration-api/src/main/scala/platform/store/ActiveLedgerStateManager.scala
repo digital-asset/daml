@@ -225,7 +225,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
       }
 
     val st =
-      transaction
+      transaction.unversioned
         .foldInExecutionOrder[AddTransactionState](AddTransactionState(initialState))(
           exerciseBegin = (acc, _, ne) => {
             acc.currentState.als match {
@@ -264,7 +264,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
             )
           },
         )
-    val divulgedContractIds = divulgence -- transaction.inactiveContracts
+    val divulgedContractIds = divulgence -- transaction.unversioned.inactiveContracts
     st.mapAcs(
       _.divulgeAlreadyCommittedContracts(transactionId, divulgedContractIds, divulgedContracts)
     ).mapAcs(_ addParties st.parties)

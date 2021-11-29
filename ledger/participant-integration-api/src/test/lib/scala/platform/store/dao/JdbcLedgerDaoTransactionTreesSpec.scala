@@ -57,8 +57,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
-        val (nodeId, createNode: Node.Create) =
-          tx.transaction.nodes.head
+        val List((nodeId, createNode: Node.Create)) =
+          tx.transaction.unversioned.nodes.toList
         transaction.commandId shouldBe tx.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
         TimestampConversion.toLf(
@@ -91,8 +91,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(exercise.transactionId, exercise.actAs.toSet)
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
-        val (nodeId, exerciseNode: Node.Exercise) =
-          exercise.transaction.nodes.head
+        val List((nodeId, exerciseNode: Node.Exercise)) =
+          exercise.transaction.unversioned.nodes.toList
         transaction.commandId shouldBe exercise.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
         TimestampConversion.toLf(
@@ -124,14 +124,14 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
-        val (createNodeId, createNode) =
-          tx.transaction.nodes.collectFirst { case (nodeId, node: Node.Create) =>
+        val List((createNodeId, createNode)) =
+          tx.transaction.unversioned.nodes.collect { case (nodeId, node: Node.Create) =>
             nodeId -> node
-          }.get
-        val (exerciseNodeId, exerciseNode) =
-          tx.transaction.nodes.collectFirst { case (nodeId, node: Node.Exercise) =>
+          }.toList
+        val List((exerciseNodeId, exerciseNode)) =
+          tx.transaction.unversioned.nodes.collect { case (nodeId, node: Node.Exercise) =>
             nodeId -> node
-          }.get
+          }.toList
 
         transaction.commandId shouldBe tx.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)

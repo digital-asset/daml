@@ -58,7 +58,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
           // Command execution was successful.
           // Check whether the ledger time used for input is consistent with the output,
           // and advance output time or re-execute the command if necessary.
-          val usedContractIds: Set[ContractId] = cer.transaction
+          val usedContractIds: Set[ContractId] = cer.transaction.unversioned
             .inputContracts[ContractId]
             .collect { case id: ContractId => id }
           if (usedContractIds.isEmpty)

@@ -76,7 +76,9 @@ object ScenarioLedger {
       transactionId: LedgerString,
       transaction: CommittedTransaction,
       blindingInfo: BlindingInfo,
-  )
+  ) {
+    def unversioned = transaction.unversioned
+  }
 
   object RichTransaction {
 
@@ -94,7 +96,7 @@ object ScenarioLedger {
         submittedTransaction: SubmittedTransaction,
     ): RichTransaction = {
       val blindingInfo =
-        BlindingTransaction.calculateBlindingInfo(submittedTransaction)
+        BlindingTransaction.calculateBlindingInfo(submittedTransaction.unversioned)
       new RichTransaction(
         actAs = actAs,
         readAs = readAs,
@@ -437,7 +439,7 @@ object ScenarioLedger {
                   optPrevState,
                 )) :: restENPs =>
               val eventId = EventId(trId.id, nodeId)
-              richTr.transaction.nodes.get(nodeId) match {
+              richTr.transaction.unversioned.nodes.get(nodeId) match {
                 case None =>
                   crash(s"processTransaction: non-existent node '$eventId'.")
                 case Some(node) =>
@@ -548,7 +550,7 @@ object ScenarioLedger {
     val mbCacheAfterProcess =
       processNodes(
         Right(ledgerData),
-        List(ProcessingNode(None, richTr.transaction.roots.toList, None)),
+        List(ProcessingNode(None, richTr.transaction.unversioned.roots.toList, None)),
       )
 
     mbCacheAfterProcess.map { cacheAfterProcess =>

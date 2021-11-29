@@ -38,7 +38,7 @@ private[platform] object TransactionConversion {
         case None => acc
         case Some(a) => acc :+ a
       }
-    tx.foldInExecutionOrder(Vector.empty[A])(
+    tx.unversioned.foldInExecutionOrder(Vector.empty[A])(
       exerciseBegin = (acc, nodeId, node) => (handle(acc, nodeId, node), true),
       rollbackBegin = (acc, _, _) => (acc, false),
       leaf = handle,
@@ -167,7 +167,7 @@ private[platform] object TransactionConversion {
     def go(toProcess: FrontStack[NodeId], acc: BackStack[NodeId]): Seq[NodeId] =
       toProcess match {
         case FrontStackCons(head, tail) =>
-          tx.nodes(head) match {
+          tx.unversioned.nodes(head) match {
             case _: Node.Create | _: Node.Exercise if disclosed(head) =>
               go(tail, acc :+ head)
             case exe: Node.Exercise =>
@@ -179,7 +179,7 @@ private[platform] object TransactionConversion {
           acc.toImmArray.toSeq
       }
 
-    go(tx.roots.toFrontStack, BackStack.empty)
+    go(tx.unversioned.roots.toFrontStack, BackStack.empty)
   }
 
   private def applyDisclosure(
@@ -188,7 +188,7 @@ private[platform] object TransactionConversion {
       disclosure: Relation[NodeId, Ref.Party],
       verbose: Boolean,
   ): Option[ApiTransactionTree] =
-    Some(collect(tx)(toTreeEvent(verbose, trId, disclosure, tx.nodes))).collect {
+    Some(collect(tx)(toTreeEvent(verbose, trId, disclosure, tx.unversioned.nodes))).collect {
       case events if events.nonEmpty =>
         ApiTransactionTree(
           eventsById = events.toMap,

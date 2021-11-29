@@ -121,7 +121,7 @@ private[appendonlydao] object PostCommitValidation {
     private def validateParties(
         transaction: CommittedTransaction
     )(implicit connection: Connection): Option[Rejection] = {
-      val informees = transaction.informees
+      val informees = transaction.unversioned.informees
       val allocatedInformees =
         partyStorageBackend.parties(informees.toSeq)(connection).iterator.map(_.party).toSet
       if (allocatedInformees == informees)
@@ -136,13 +136,13 @@ private[appendonlydao] object PostCommitValidation {
         transaction: CommittedTransaction,
         divulged: Set[ContractId],
     ): Set[ContractId] = {
-      transaction.inputContracts.diff(divulged)
+      transaction.unversioned.inputContracts.diff(divulged)
     }
 
     private def validateKeyUsages(
         transaction: CommittedTransaction
     )(implicit connection: Connection): Option[Rejection] =
-      transaction
+      transaction.unversioned
         .foldInExecutionOrder[Result](Right(State.empty(contractStorageBackend)))(
           exerciseBegin = (acc, _, exe) => {
             val newAcc = acc.flatMap(validateKeyUsages(exe, _))

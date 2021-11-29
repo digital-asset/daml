@@ -83,7 +83,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
       ) = result.splitAt(6)
 
       val contractKey =
-        t2.transaction.nodes.head._2.asInstanceOf[Node.Create].key.get.key
+        t2.transaction.unversioned.nodes.head._2.asInstanceOf[Node.Create].key.get.key
       val exercisedContractKey = Map(offset2 -> contractKey, offset3 -> contractKey)
 
       val eventSequentialIdGen = new AtomicLong(from.lastEventSeqId + 1L)
@@ -114,62 +114,59 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
 
     val actualEventsById = actual.events.map(ev => ev.eventId -> ev).toMap
 
-    actualEventsById.size shouldBe expected.transaction.nodes.size
+    actualEventsById.size shouldBe expected.transaction.unversioned.nodes.size
 
-    expected.transaction.nodes.toVector.sortBy(_._1.index).foreach { case (nodeId, value) =>
-      value match {
-        case nodeCreate: Node.Create =>
-          val expectedEventId = EventId(expected.transactionId, nodeId)
-          val Some(actualCreated: TransactionLogUpdate.CreatedEvent) =
-            actualEventsById.get(expectedEventId)
-          actualCreated.contractId shouldBe nodeCreate.coid
-          actualCreated.templateId shouldBe nodeCreate.templateId
-          actualCreated.submitters should contain theSameElementsAs expected.actAs
-            .map(_.toString)
-            .toSet
-          Ref.CommandId.fromString(actualCreated.commandId).toOption shouldBe expected.commandId
-          actualCreated.treeEventWitnesses shouldBe nodeCreate.informeesOfNode
-          actualCreated.flatEventWitnesses shouldBe nodeCreate.stakeholders
-          actualCreated.createSignatories shouldBe nodeCreate.signatories
-          actualCreated.createObservers shouldBe (nodeCreate.stakeholders diff nodeCreate.signatories)
-          actualCreated.createArgument.unversioned shouldBe nodeCreate.arg
-          actualCreated.createAgreementText.value shouldBe nodeCreate.agreementText
-          actualCreated.nodeIndex shouldBe nodeId.index
-          actualCreated.eventSequentialId shouldBe eventSequentialIdRef.getAndIncrement()
-        case nodeExercises: Node.Exercise =>
-          val expectedEventId = EventId(expected.transactionId, nodeId)
-          val Some(actualExercised: TransactionLogUpdate.ExercisedEvent) =
-            actualEventsById.get(expectedEventId)
+    expected.transaction.unversioned.nodes.toVector.sortBy(_._1.index).foreach {
+      case (nodeId, value) =>
+        value match {
+          case nodeCreate: Node.Create =>
+            val expectedEventId = EventId(expected.transactionId, nodeId)
+            val Some(actualCreated: TransactionLogUpdate.CreatedEvent) =
+              actualEventsById.get(expectedEventId)
+            actualCreated.contractId shouldBe nodeCreate.coid
+            actualCreated.templateId shouldBe nodeCreate.templateId
+            actualCreated.submitters should contain theSameElementsAs expected.actAs.toSet[String]
+            Ref.CommandId.fromString(actualCreated.commandId).toOption shouldBe expected.commandId
+            actualCreated.treeEventWitnesses shouldBe nodeCreate.informeesOfNode
+            actualCreated.flatEventWitnesses shouldBe nodeCreate.stakeholders
+            actualCreated.createSignatories shouldBe nodeCreate.signatories
+            actualCreated.createObservers shouldBe (nodeCreate.stakeholders diff nodeCreate.signatories)
+            actualCreated.createArgument.unversioned shouldBe nodeCreate.arg
+            actualCreated.createAgreementText.value shouldBe nodeCreate.agreementText
+            actualCreated.nodeIndex shouldBe nodeId.index
+            actualCreated.eventSequentialId shouldBe eventSequentialIdRef.getAndIncrement()
+          case nodeExercises: Node.Exercise =>
+            val expectedEventId = EventId(expected.transactionId, nodeId)
+            val Some(actualExercised: TransactionLogUpdate.ExercisedEvent) =
+              actualEventsById.get(expectedEventId)
 
-          actualExercised.contractId shouldBe nodeExercises.targetCoid
-          actualExercised.templateId shouldBe nodeExercises.templateId
-          actualExercised.submitters should contain theSameElementsAs expected.actAs
-            .map(_.toString)
-            .toSet
-          Ref.CommandId
-            .fromString(actualExercised.commandId)
-            .toOption shouldBe expected.commandId
-          if (actualExercised.consuming)
-            actualExercised.flatEventWitnesses shouldBe nodeExercises.stakeholders
-          else
-            actualExercised.flatEventWitnesses shouldBe empty
-          actualExercised.treeEventWitnesses shouldBe nodeExercises.informeesOfNode
-          actualExercised.exerciseArgument.unversioned shouldBe nodeExercises.chosenValue
-          actualExercised.exerciseResult.map(_.unversioned) shouldBe nodeExercises.exerciseResult
-          actualExercised.consuming shouldBe nodeExercises.consuming
-          actualExercised.choice shouldBe nodeExercises.choiceId
-          actualExercised.children should contain theSameElementsAs nodeExercises.children
-            .map(_.toString)
-            .toIndexedSeq
-          actualExercised.actingParties shouldBe nodeExercises.actingParties
-          actualExercised.nodeIndex shouldBe nodeId.index
-          actualExercised.contractKey.map(_.unversioned) shouldBe exercisedContractKey.get(
-            actual.offset
-          )
-          actualExercised.eventSequentialId shouldBe eventSequentialIdRef.getAndIncrement()
-        case Node.Rollback(_) => ()
-        case _ => ()
-      }
+            actualExercised.contractId shouldBe nodeExercises.targetCoid
+            actualExercised.templateId shouldBe nodeExercises.templateId
+            actualExercised.submitters should contain theSameElementsAs expected.actAs.toSet[String]
+            Ref.CommandId
+              .fromString(actualExercised.commandId)
+              .toOption shouldBe expected.commandId
+            if (actualExercised.consuming)
+              actualExercised.flatEventWitnesses shouldBe nodeExercises.stakeholders
+            else
+              actualExercised.flatEventWitnesses shouldBe empty
+            actualExercised.treeEventWitnesses shouldBe nodeExercises.informeesOfNode
+            actualExercised.exerciseArgument.unversioned shouldBe nodeExercises.chosenValue
+            actualExercised.exerciseResult.map(_.unversioned) shouldBe nodeExercises.exerciseResult
+            actualExercised.consuming shouldBe nodeExercises.consuming
+            actualExercised.choice shouldBe nodeExercises.choiceId
+            actualExercised.children should contain theSameElementsAs nodeExercises.children
+              .map(_.toString)
+              .toIndexedSeq
+            actualExercised.actingParties shouldBe nodeExercises.actingParties
+            actualExercised.nodeIndex shouldBe nodeId.index
+            actualExercised.contractKey.map(_.unversioned) shouldBe exercisedContractKey.get(
+              actual.offset
+            )
+            actualExercised.eventSequentialId shouldBe eventSequentialIdRef.getAndIncrement()
+          case Node.Rollback(_) => ()
+          case _ => ()
+        }
     }
     ()
   }

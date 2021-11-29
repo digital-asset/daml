@@ -91,7 +91,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               Some(meta.usedPackages),
               Some(meta.nodeSeeds),
               Some(
-                updateTx.nodes
+                updateTx.unversioned.nodes
                   .collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }
                   .to(ImmArray)
               ),

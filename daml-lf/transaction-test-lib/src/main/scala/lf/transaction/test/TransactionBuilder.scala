@@ -48,25 +48,22 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     nodeId
   }
 
-  def build(): VersionedTransaction = ids.synchronized {
-    import TransactionVersion.Ordering
-    val finalNodes = nodes.transform {
-      case (nid, rb: Node.Rollback) =>
-        rb.copy(children = children(nid).toImmArray)
-      case (nid, exe: Node.Exercise) =>
-        exe.copy(children = children(nid).toImmArray)
-      case (_, node: Node.LeafOnlyAction) =>
-        node
-    }
-    val finalRoots = roots.toImmArray
-    val txVersion = finalRoots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-      finalNodes(nodeId).optVersion match {
-        case Some(version) => acc max version
-        case None => acc max TransactionVersion.minExceptions
-      }
+  def buildUnversioned(): Transaction = ids.synchronized {
+    Transaction(
+      nodes = nodes.transform {
+        case (nid, rb: Node.Rollback) =>
+          rb.copy(children = children(nid).toImmArray)
+        case (nid, exe: Node.Exercise) =>
+          exe.copy(children = children(nid).toImmArray)
+        case (_, node: Node.LeafOnlyAction) =>
+          node
+      },
+      roots = roots.toImmArray,
     )
-    VersionedTransaction(txVersion, finalNodes, finalRoots)
   }
+
+  def build() =
+    TransactionVersion.asVersionedTransaction(buildUnversioned())
 
   def buildSubmitted(): SubmittedTransaction = SubmittedTransaction(build())
 
@@ -215,7 +212,7 @@ object TransactionBuilder {
 
   def newCid: ContractId = newV1Cid
 
-  def just(node: Node, nodes: Node*): VersionedTransaction = {
+  def just(node: Node, nodes: Node*): Versioned[Transaction] = {
     val builder = TransactionBuilder()
     val _ = builder.add(node)
     for (node <- nodes) {
@@ -230,13 +227,10 @@ object TransactionBuilder {
   def justCommitted(node: Node, nodes: Node*): CommittedTransaction =
     CommittedTransaction(just(node, nodes: _*))
 
+  val UnversionedEmpty = Transaction(Map.empty, ImmArray.Empty)
+
   // not valid transactions.
-  val Empty: VersionedTransaction =
-    VersionedTransaction(
-      TransactionVersion.minVersion, // A normalized empty tx is V10
-      HashMap.empty,
-      ImmArray.Empty,
-    )
+  val Empty: VersionedTransaction = TransactionVersion.asVersionedTransaction(UnversionedEmpty)
   val EmptySubmitted: SubmittedTransaction = SubmittedTransaction(Empty)
   val EmptyCommitted: CommittedTransaction = CommittedTransaction(Empty)
 

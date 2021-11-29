@@ -117,7 +117,7 @@ class ReinterpretTest
         ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
       val Right(tx) = reinterpretCommand(theCommand)
-      Shape.ofTransaction(tx.transaction) shouldBe Top(Exercise())
+      Shape.ofTransaction(tx.unversioned) shouldBe Top(Exercise())
     }
 
     "be a rollback for an exercise command which throws" in {
@@ -129,7 +129,7 @@ class ReinterpretTest
         ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
       val Right(tx) = reinterpretCommand(theCommand)
-      Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise()))
+      Shape.ofTransaction(tx.unversioned) shouldBe Top(Rollback(Exercise()))
     }
 
     "still fail for an uncatchable exception" in {
@@ -153,7 +153,7 @@ class ReinterpretTest
         ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
       }
       val Right(tx) = reinterpretCommand(theCommand)
-      Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise(Create())))
+      Shape.ofTransaction(tx.unversioned) shouldBe Top(Rollback(Exercise(Create())))
     }
 
     "not rollback version 13 contract creation" in {

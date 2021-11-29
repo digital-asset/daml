@@ -14,9 +14,7 @@ import com.daml.lf.speedy.PartialTransaction.{CompleteTransaction, IncompleteTra
 import com.daml.lf.speedy.SResult.SResultFinalValue
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.NodeId
-import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.lf.transaction.{Node, NodeId, SubmittedTransaction, Transaction}
 import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.{ValueRecord, ValueInt64}
 
@@ -241,7 +239,7 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       val arg: Expr = EPrimLit(lit)
       val example: Expr = EApp(e"M:$exp", arg)
       val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(example, party)
-      val ids: List[Tree] = shapeOfTransaction(tx)
+      val ids: List[Tree] = shapeOfTransaction(tx.unversioned)
       ids shouldBe expected
     }
   }
@@ -255,7 +253,7 @@ object RollbackTest {
   final case class X(x: List[Tree]) extends Tree //Exercise Node
   final case class R(x: List[Tree]) extends Tree //Rollback Node
 
-  private def shapeOfTransaction(tx: SubmittedTransaction): List[Tree] = {
+  private def shapeOfTransaction(tx: Transaction): List[Tree] = {
     def trees(nid: NodeId): List[Tree] = {
       tx.nodes(nid) match {
         case create: Node.Create =>

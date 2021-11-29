@@ -233,7 +233,7 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
       offset: Offset,
       transaction: Transaction,
   ): PreparedBatches =
-    transaction
+    transaction.unversioned
       .fold(AccumulatingBatches.empty) {
         case (batches, (nodeId, node: Create)) =>
           batches.addCreate(

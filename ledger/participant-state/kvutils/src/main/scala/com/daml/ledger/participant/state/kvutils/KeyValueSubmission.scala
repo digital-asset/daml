@@ -43,14 +43,16 @@ class KeyValueSubmission(metrics: Metrics) {
     */
   def transactionOutputs(tx: SubmittedTransaction): List[DamlStateKey] =
     metrics.daml.kvutils.submission.conversion.transactionOutputs.time { () =>
-      (tx.localContracts.keys ++ tx.consumedContracts).map(Conversions.contractIdToStateKey).toList
+      (tx.unversioned.localContracts.keys ++ tx.unversioned.consumedContracts)
+        .map(Conversions.contractIdToStateKey)
+        .toList
     }
 
   private def submissionParties(
       submitterInfo: SubmitterInfo,
       tx: SubmittedTransaction,
   ): Set[Ref.Party] =
-    tx.informees ++ submitterInfo.actAs
+    tx.unversioned.informees ++ submitterInfo.actAs
 
   /** Prepare a transaction submission. */
   def transactionToSubmission(
@@ -66,8 +68,9 @@ class KeyValueSubmission(metrics: Metrics) {
         )
         .map(Conversions.packageStateKey)
       val partyStates = submissionParties(submitterInfo, tx).toList.map(Conversions.partyStateKey)
-      val contractIdStates = tx.inputContracts[ContractId].map(Conversions.contractIdToStateKey)
-      val contractKeyStates = tx.contractKeys.map(Conversions.globalKeyToStateKey)
+      val contractIdStates =
+        tx.unversioned.inputContracts[ContractId].map(Conversions.contractIdToStateKey)
+      val contractKeyStates = tx.unversioned.contractKeys.map(Conversions.globalKeyToStateKey)
 
       DamlSubmission.newBuilder
         .addInputDamlState(commandDedupKey(encodedSubInfo))

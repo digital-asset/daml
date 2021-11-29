@@ -188,7 +188,10 @@ private[lf] object Pretty {
     step match {
       case ScenarioLedger.Commit(txId, rtx, optLoc) =>
         val children =
-          intercalate(line + line, rtx.transaction.roots.toList.map(prettyEventInfo(l, txId)))
+          intercalate(
+            line + line,
+            rtx.transaction.unversioned.roots.toList.map(prettyEventInfo(l, txId)),
+          )
         text("TX") & char('#') + str(txId.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) & text(
           "version:"
         ) & str(rtx.transaction.version.protoValue) /

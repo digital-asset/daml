@@ -60,10 +60,10 @@ package object benchmark {
     assertDecode(decode(value))
 
   private[lf] def assertEncode(transaction: DecodedTransaction): EncodedTransaction =
-    assertEncode(encode(transaction))
+    assertEncode(encodeTransaction(NidEncoder, CidEncoder, transaction))
 
   private[lf] def assertEncode(value: DecodedValue): EncodedValue =
-    assertEncode(encode(value))
+    assertEncode(encodeVersionedValue(CidEncoder, value))
 
   private type DecodeResult[A] = Either[DecodeError, A]
   private type EncodeResult[A] = Either[EncodeError, A]
@@ -81,11 +81,5 @@ package object benchmark {
 
   private def assertEncode[A](result: EncodeResult[A]): A =
     result.fold(e => sys.error(e.errorMessage), identity)
-
-  private def encode(transaction: DecodedTransaction): EncodeResult[EncodedTransaction] =
-    encodeTransaction(NidEncoder, CidEncoder, transaction)
-
-  private def encode(versionedValue: DecodedValue): EncodeResult[EncodedValue] =
-    encodeVersionedValue(CidEncoder, versionedValue)
 
 }

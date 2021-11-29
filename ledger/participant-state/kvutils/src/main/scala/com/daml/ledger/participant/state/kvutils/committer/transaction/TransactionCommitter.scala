@@ -241,7 +241,7 @@ private[kvutils] class TransactionCommitter(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-      val parties = transactionEntry.transaction.informees
+      val parties = transactionEntry.transaction.unversioned.informees
       val missingParties = parties.filter(party => commitContext.get(partyStateKey(party)).isEmpty)
       if (missingParties.isEmpty)
         StepContinue(transactionEntry)
@@ -261,9 +261,9 @@ private[kvutils] class TransactionCommitter(
   )(implicit
       loggingContext: LoggingContext
   ): Map[ContractId, TransactionOuterClass.ContractInstance] = {
-    val localContracts = transactionEntry.transaction.localContracts
-    val consumedContracts = transactionEntry.transaction.consumedContracts
-    val contractKeys = transactionEntry.transaction.updatedContractKeys
+    val localContracts = transactionEntry.transaction.unversioned.localContracts
+    val consumedContracts = transactionEntry.transaction.unversioned.consumedContracts
+    val contractKeys = transactionEntry.transaction.unversioned.updatedContractKeys
     // Add contract state entries to mark contract activeness (checked by 'validateModelConformance').
     for ((cid, (nid, createNode)) <- localContracts) {
       val cs = DamlContractState.newBuilder

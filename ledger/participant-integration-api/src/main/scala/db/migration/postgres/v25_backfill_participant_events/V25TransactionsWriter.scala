@@ -18,7 +18,7 @@ private[migration] object V25TransactionsWriter extends V25TransactionsWriter {
       transactionId: Ref.TransactionId,
       transaction: Transaction,
   ): WitnessRelation[EventId] =
-    transaction.nodes.collect {
+    transaction.unversioned.nodes.collect {
       case (nodeId, c: Create) =>
         EventId(transactionId, nodeId) -> c.stakeholders
       case (nodeId, e: Exercise) if e.consuming =>
@@ -31,7 +31,7 @@ private[migration] object V25TransactionsWriter extends V25TransactionsWriter {
       blinding: BlindingInfo,
   ): WitnessRelation[EventId] = {
     val disclosed =
-      transaction.nodes.collect {
+      transaction.unversioned.nodes.collect {
         case p @ (_, _: Create) => p
         case p @ (_, _: Exercise) => p
       }.keySet

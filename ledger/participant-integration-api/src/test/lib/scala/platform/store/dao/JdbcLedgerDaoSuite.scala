@@ -251,7 +251,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   // Ids of all contracts created in a transaction - both transient and non-transient
   protected def created(tx: LedgerEntry.Transaction): Set[ContractId] =
-    tx.transaction.fold(Set.empty[ContractId]) {
+    tx.transaction.unversioned.fold(Set.empty[ContractId]) {
       case (set, (_, create: Node.Create)) =>
         set + create.coid
       case (set, _) =>
@@ -260,7 +260,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   // All non-transient contracts created in a transaction
   protected def nonTransient(tx: LedgerEntry.Transaction): Set[ContractId] =
-    tx.transaction.fold(Set.empty[ContractId]) {
+    tx.transaction.unversioned.fold(Set.empty[ContractId]) {
       case (set, (_, create: Node.Create)) =>
         set + create.coid
       case (set, (_, exercise: Node.Exercise)) if exercise.consuming =>

@@ -96,7 +96,7 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
   }
 
   private def getParties(transaction: VersionedTransaction): Set[Ref.Party] = {
-    transaction
+    transaction.unversioned
       .fold[Set[Ref.Party]](Set.empty) { case (parties, (_, node)) =>
         node match {
           case _: Node.Rollback => Set.empty

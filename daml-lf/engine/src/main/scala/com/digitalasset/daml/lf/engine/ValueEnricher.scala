@@ -8,9 +8,9 @@ import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{
   IncompleteTransaction,
-  Transaction,
   Node,
   NodeId,
+  Transaction,
   VersionedTransaction,
 }
 import com.daml.lf.value.Value
@@ -181,11 +181,8 @@ final class ValueEnricher(
       roots = tx.roots,
     )
 
-  def enrichVersionedTransaction(versionedTx: VersionedTransaction): Result[VersionedTransaction] =
-    enrichTransaction(Transaction(versionedTx.nodes, versionedTx.roots)).map {
-      case Transaction(nodes, roots) =>
-        VersionedTransaction(versionedTx.version, nodes, roots)
-    }
+  def enrichVersionedTransaction(tx: VersionedTransaction): Result[VersionedTransaction] =
+    enrichTransaction(tx.unversioned).map(utx => tx.copy(unversioned = utx))
 
   def enrichIncompleteTransaction(
       incompleteTx: IncompleteTransaction

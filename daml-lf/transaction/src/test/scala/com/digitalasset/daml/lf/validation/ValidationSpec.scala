@@ -158,7 +158,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     (someCreates ++ someFetches ++ someLookups ++ someExercises).map { node =>
       val nid = NodeId(0)
       val version = TransactionVersion.minExceptions
-      VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
+      Versioned(version, Transaction(HashMap(nid -> node), ImmArray(nid)))
     }
 
   private def nestedVTXs: Seq[VTX] =
@@ -170,10 +170,12 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       val nid1 = NodeId(1)
       val parent = exe.copy(children = ImmArray(nid1))
       val version = TransactionVersion.minExceptions
-      VersionedTransaction(
+      Versioned(
         version,
-        HashMap(nid0 -> parent, nid1 -> child),
-        ImmArray(nid0),
+        Transaction(
+          HashMap(nid0 -> parent, nid1 -> child),
+          ImmArray(nid0),
+        ),
       )
     }
 
@@ -422,14 +424,14 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   private def tweakTxNodes(tweakNode: Tweak[Node]) = Tweak[VTX] { vtx =>
     // tweak any node in a transaction
-    vtx.transaction match {
+    vtx.unversioned match {
       case Transaction(nodeMapA, roots) =>
         for {
           nid <- nodeMapA.keys.toList
           nodeB <- tweakNode.run(nodeMapA(nid))
         } yield {
           val nodeMapB = nodeMapA + (nid -> nodeB)
-          VersionedTransaction(vtx.version, nodeMapB, roots)
+          TransactionVersion.asVersionedTransaction(Transaction(nodeMapB, roots))
         }
     }
   }

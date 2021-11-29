@@ -19,9 +19,10 @@ class TransactionNormalizerSpec
 
     "only keeps Create and Exercise nodes" in {
       forAll(noDanglingRefGenVersionedTransaction) { tx =>
-        val normalized = TransactionNormalizer.normalize(CommittedTransaction(tx))
+        val utx = tx.unversioned
+        val normalized = TransactionNormalizer.normalize(CommittedTransaction(tx)).unversioned
 
-        val nidsBefore: Set[NodeId] = tx.nodes.keySet
+        val nidsBefore: Set[NodeId] = utx.nodes.keySet
         val nidsAfter: Set[NodeId] = normalized.nodes.keySet
 
         // Every kept nid existed before
@@ -39,7 +40,7 @@ class TransactionNormalizerSpec
 
         // Everything kept is unchanged (except children may be dropped)
         def unchangedByNormalization(nid: NodeId): Boolean = {
-          val before = tx.nodes(nid)
+          val before = utx.nodes(nid)
           val after = normalized.nodes(nid)
           // the node is unchanged when disregarding the children
           nodeSansChildren(after) == nodeSansChildren(before)
@@ -54,7 +55,7 @@ class TransactionNormalizerSpec
 
         // Does a Nid reference a create/exercise node (in the before tx) ?
         def isNidCE(nid: NodeId): Boolean = {
-          isCreateOrExercise(tx.nodes(nid))
+          isCreateOrExercise(utx.nodes(nid))
         }
 
         // Is a Nid kept in the after transaction ?
@@ -64,7 +65,7 @@ class TransactionNormalizerSpec
 
         // Create/exercise root nodes are kept
         assert(
-          tx.roots.toList
+          utx.roots.toList
             .filter(isNidCE)
             .forall(isKept)
         )
@@ -72,7 +73,7 @@ class TransactionNormalizerSpec
         // Create/exercise children of kept nodes should also be kept
         assert(
           nidsAfter
-            .flatMap(nid => nodeChildren(tx.nodes(nid)))
+            .flatMap(nid => nodeChildren(utx.nodes(nid)))
             .filter(isNidCE)
             .forall(isKept)
         )

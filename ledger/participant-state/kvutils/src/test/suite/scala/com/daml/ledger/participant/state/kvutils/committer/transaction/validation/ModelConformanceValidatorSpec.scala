@@ -264,7 +264,7 @@ class ModelConformanceValidatorSpec
   }
 
   "lookupKey" should {
-    val contractKeyInputs = aTransactionEntry.transaction.contractKeyInputs match {
+    val contractKeyInputs = aTransactionEntry.transaction.unversioned.contractKeyInputs match {
       case Left(_) => fail()
       case Right(contractKeyInputs) => contractKeyInputs
     }

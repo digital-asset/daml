@@ -76,7 +76,7 @@ private[transaction] object TransactionConsistencyValidator extends TransactionV
     import scalaz.std.list._
     import scalaz.syntax.foldable._
     val keysValidationOutcome = for {
-      keyInputs <- transaction.contractKeyInputs.left.map {
+      keyInputs <- transaction.unversioned.contractKeyInputs.left.map {
         case DuplicateKeys(_) => Duplicate
         case InconsistentKeys(_) => Inconsistent
       }
@@ -125,9 +125,10 @@ private[transaction] object TransactionConsistencyValidator extends TransactionV
           Conversions.stateKeyToContractId(key) -> value.getContractState
       }
 
-    val areContractsConsistent = transactionEntry.transaction.inputContracts.forall(contractId =>
-      !inputContracts(contractId).hasArchivedAt
-    )
+    val areContractsConsistent =
+      transactionEntry.transaction.unversioned.inputContracts.forall(contractId =>
+        !inputContracts(contractId).hasArchivedAt
+      )
 
     if (areContractsConsistent)
       StepContinue(transactionEntry)

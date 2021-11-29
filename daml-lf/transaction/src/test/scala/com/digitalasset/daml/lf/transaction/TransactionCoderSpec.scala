@@ -161,14 +161,16 @@ class TransactionCoderSpec
 
     "do transactions" in
       forAll(noDanglingRefGenVersionedTransaction, minSuccessful(50)) { tx =>
-        val tx2 = VersionedTransaction(
+        val tx2 = Versioned(
           tx.version,
-          tx.nodes.transform((_, node) => normalizeNode(node)),
-          tx.roots,
+          Transaction(
+            tx.unversioned.nodes.transform((_, node) => normalizeNode(node)),
+            tx.unversioned.roots,
+          ),
         )
         inside(
           TransactionCoder
-            .encodeTransactionWithCustomVersion(
+            .encodeTransaction(
               TransactionCoder.NidEncoder,
               ValueCoder.CidEncoder,
               tx2,
@@ -176,7 +178,7 @@ class TransactionCoderSpec
         ) {
           case Left(EncodeError(msg)) =>
             // fuzzy sort of "failed because of the version override" test
-            msg should include(tx2.version.protoValue)
+            msg should include(tx.version.protoValue)
           case Right(encodedTx) =>
             val decodedVersionedTx = assertRight(
               TransactionCoder
@@ -196,13 +198,15 @@ class TransactionCoderSpec
           whenever(TransactionVersion.fromString(badTxVer).isLeft) {
             val encodedTxWithBadTxVer: proto.Transaction = assertRight(
               TransactionCoder
-                .encodeTransactionWithCustomVersion(
+                .encodeTransaction(
                   TransactionCoder.NidEncoder,
                   ValueCoder.CidEncoder,
-                  VersionedTransaction(
+                  Versioned(
                     TransactionVersion.VDev,
-                    tx.nodes.view.mapValues(updateVersion(_, TransactionVersion.VDev)).toMap,
-                    tx.roots,
+                    Transaction(
+                      tx.nodes.transform((_, n) => updateVersion(n, TransactionVersion.VDev)),
+                      tx.roots,
+                    ),
                   ),
                 )
             ).toBuilder.setVersion(badTxVer).build()
@@ -238,10 +242,12 @@ class TransactionCoderSpec
         val versionedNode = node.updateVersion(version)
         val roots = ImmArray.ImmArraySeq.range(0, 10000).map(NodeId(_)).toImmArray
         val nodes = roots.iterator.map(nid => nid -> versionedNode).toMap
-        val tx = VersionedTransaction(
+        val tx = Versioned(
           version,
-          nodes = nodes.view.mapValues(_.copy(version = version)).toMap,
-          roots = roots,
+          Transaction(
+            nodes = nodes.transform((_, n) => n.copy(version = version)),
+            roots = roots,
+          ),
         )
 
         val decoded = TransactionCoder

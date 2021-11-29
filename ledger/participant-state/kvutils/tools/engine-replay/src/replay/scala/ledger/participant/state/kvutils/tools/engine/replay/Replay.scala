@@ -179,7 +179,7 @@ private[replay] object Replay {
 
       val createsNodes: Seq[Node.Create] =
         transactions.flatMap(entry =>
-          entry.tx.nodes.values.collect { case create: Node.Create =>
+          entry.tx.unversioned.nodes.values.collect { case create: Node.Create =>
             create
           }
         )
@@ -192,9 +192,9 @@ private[replay] object Replay {
       }.toMap
 
       val benchmarks = transactions.flatMap { entry =>
-        entry.tx.roots.map(entry.tx.nodes) match {
+        entry.tx.unversioned.roots.map(entry.tx.unversioned.nodes) match {
           case ImmArray(exe: Node.Exercise) =>
-            val inputContracts = entry.tx.inputContracts
+            val inputContracts = entry.tx.unversioned.inputContracts
             List(
               BenchmarkState(
                 name = exe.templateId.qualifiedName.toString + ":" + exe.choiceId,
@@ -223,9 +223,11 @@ private[replay] object Replay {
   ): BenchmarkState = {
     val adapter = new Adapter(pkgs, pkgLangVersion)
     state.copy(
-      transaction = state.transaction.copy(tx = adapter.adapt(state.transaction.tx)),
-      contracts = state.contracts.transform((_, v) => adapter.adapt(v)),
-      contractKeys = state.contractKeys.iterator.map { case (k, v) => adapter.adapt(k) -> v }.toMap,
+      transaction = state.transaction.copy(tx = adapter.adaptTransaction(state.transaction.tx)),
+      contracts = state.contracts.transform((_, v) => adapter.adaptCoinst(v)),
+      contractKeys = state.contractKeys.map { case (k, v) =>
+        adapter.adaptKey(k) -> v
+      },
     )
   }
 

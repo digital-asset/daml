@@ -28,7 +28,7 @@ object Projections {
       blindingInfo: BlindingInfo,
   ): List[ProjectionRoots] = {
 
-    val perPartyRoots = tx.foldWithPathState(
+    val perPartyRoots = tx.unversioned.foldWithPathState(
       globalState0 = Map.empty[Party, BackStack[NodeId]],
       // On the path through the transaction tree we keep track of which
       // parties this part of the tree has been disclosed to.

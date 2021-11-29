@@ -244,7 +244,7 @@ private[v25_backfill_participant_events] object V25EventsTableInsert {
       offset: Offset,
       transaction: Transaction,
   ): PreparedBatches =
-    transaction
+    transaction.unversioned
       .fold(AccumulatingBatches.empty) {
         case (batches, (nodeId, node: Create)) =>
           batches.addCreate(

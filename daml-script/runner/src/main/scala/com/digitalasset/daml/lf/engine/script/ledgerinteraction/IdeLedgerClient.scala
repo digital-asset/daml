@@ -162,7 +162,7 @@ class IdeLedgerClient(
       case ScenarioRunner.Commit(result, _, _) =>
         _currentSubmission = None
         _ledger = result.newLedger
-        val transaction = result.richTransaction.transaction
+        val transaction = result.richTransaction.unversioned
         def convRootEvent(id: NodeId): ScriptLedgerClient.CommandResult = {
           val node = transaction.nodes.getOrElse(
             id,
@@ -219,7 +219,7 @@ class IdeLedgerClient(
         _ledger = result.newLedger
         val transaction = result.richTransaction.transaction
         def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
-          transaction.nodes(id) match {
+          transaction.unversioned.nodes(id) match {
             case create: Node.Create =>
               Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg))
             case exercise: Node.Exercise =>
@@ -235,7 +235,7 @@ class IdeLedgerClient(
             case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback => None
           }
         ScriptLedgerClient.TransactionTree(
-          transaction.roots.collect(Function.unlift(convEvent(_))).toList
+          transaction.unversioned.roots.collect(Function.unlift(convEvent(_))).toList
         )
       case ScenarioRunner.SubmissionError(err, tx) =>
         _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))

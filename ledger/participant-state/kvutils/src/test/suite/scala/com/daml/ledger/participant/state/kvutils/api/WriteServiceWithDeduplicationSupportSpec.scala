@@ -98,9 +98,7 @@ class WriteServiceWithDeduplicationSupportSpec
       )(any[LoggingContext], any[TelemetryContext])
     ).thenReturn(Future.successful[SubmissionResult](Acknowledged).asJava)
 
-    val submittedTransaction = SubmittedTransaction(
-      VersionedTransaction(TransactionVersion.minVersion, Map.empty, ImmArray.empty)
-    )
+    val submittedTransaction = com.daml.lf.transaction.test.TransactionBuilder.EmptySubmitted
     service
       .submitTransaction(
         submitterInfo,

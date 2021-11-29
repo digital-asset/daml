@@ -9,7 +9,7 @@ import java.util
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.lf.transaction.{SubmittedTransaction, Transaction}
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 
@@ -188,6 +188,12 @@ private[engine] final class Preprocessor(
   /** Translates a complete transaction. Assumes no contract ID suffixes are used */
   def translateTransactionRoots(
       tx: SubmittedTransaction
+  ): Result[ImmArray[speedy.Command]] =
+    translateTransactionRoots(tx.unversioned)
+
+  /** Translates a complete transaction. Assumes no contract ID suffixes are used */
+  private[this] def translateTransactionRoots(
+      tx: Transaction
   ): Result[ImmArray[speedy.Command]] =
     safelyRun(
       getDependencies(

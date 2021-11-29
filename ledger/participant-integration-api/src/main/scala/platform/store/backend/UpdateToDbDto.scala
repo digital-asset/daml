@@ -135,7 +135,7 @@ object UpdateToDbDto {
         //   Unit tests also need to cover the full semantic contract regarding fetch and lookup node removal as well
         //   Investigate possibility to encapsulate this logic in a common place
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
-        val preorderTraversal = u.transaction
+        val preorderTraversal = u.transaction.unversioned
           .foldInExecutionOrder(List.empty[(NodeId, Node)])(
             exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, true),
             // Rollback nodes are not included in the indexer

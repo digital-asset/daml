@@ -72,8 +72,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         transaction.transactionId shouldBe tx.transactionId
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.created) { case Some(created) =>
-          val (nodeId, createNode: Node.Create) =
-            tx.transaction.nodes.head
+          val List((nodeId, createNode: Node.Create)) = tx.transaction.unversioned.nodes.toList
           created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
           created.witnessParties should contain only (tx.actAs: _*)
           created.agreementText.getOrElse("") shouldBe createNode.agreementText
@@ -106,8 +105,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         ) shouldBe exercise.ledgerEffectiveTime
         transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.archived) { case Some(archived) =>
-          val (nodeId, exerciseNode: Node.Exercise) =
-            exercise.transaction.nodes.head
+          val List((nodeId, exerciseNode: Node.Exercise)) =
+            exercise.transaction.unversioned.nodes.toList
           archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
           archived.witnessParties should contain only (exercise.actAs: _*)
           archived.contractId shouldBe exerciseNode.targetCoid.coid

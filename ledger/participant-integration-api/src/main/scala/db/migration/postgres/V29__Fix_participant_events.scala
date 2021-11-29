@@ -53,7 +53,7 @@ private[migration] class V29__Fix_participant_events extends BaseJavaMigration {
         transactionId,
         commandId,
         submitter,
-        transaction.roots.toSeq.toSet,
+        transaction.unversioned.roots.toSeq.toSet,
         let,
         offset,
         transaction,

@@ -6,7 +6,7 @@ package engine
 package preprocessing
 
 import com.daml.lf.data.{BackStack, ImmArray}
-import com.daml.lf.transaction.{Node, NodeId, SubmittedTransaction}
+import com.daml.lf.transaction.{Node, NodeId, SubmittedTransaction, Transaction}
 
 private[preprocessing] final class TransactionPreprocessor(
     commandPreprocessor: CommandPreprocessor
@@ -64,6 +64,11 @@ private[preprocessing] final class TransactionPreprocessor(
   @throws[Error.Preprocessing.Error]
   def unsafeTranslateTransactionRoots(
       tx: SubmittedTransaction
+  ): ImmArray[speedy.Command] = unsafeTranslateTransactionRoots(tx.unversioned)
+
+  @throws[Error.Preprocessing.Error]
+  def unsafeTranslateTransactionRoots(
+      tx: Transaction
   ): ImmArray[speedy.Command] = {
 
     val result = tx.roots.foldLeft(BackStack.empty[speedy.Command]) { (acc, id) =>

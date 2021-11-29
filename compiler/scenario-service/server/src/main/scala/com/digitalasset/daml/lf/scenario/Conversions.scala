@@ -438,8 +438,12 @@ final class Conversions(
       .addAllActAs(rtx.actAs.map(convertParty(_)).asJava)
       .addAllReadAs(rtx.readAs.map(convertParty(_)).asJava)
       .setEffectiveAt(rtx.effectiveAt.micros)
-      .addAllRoots(rtx.transaction.roots.map(convertNodeId(rtx.transactionId, _)).toSeq.asJava)
-      .addAllNodes(rtx.transaction.nodes.keys.map(convertNodeId(rtx.transactionId, _)).asJava)
+      .addAllRoots(
+        rtx.transaction.unversioned.roots.map(convertNodeId(rtx.transactionId, _)).toSeq.asJava
+      )
+      .addAllNodes(
+        rtx.transaction.unversioned.nodes.keys.map(convertNodeId(rtx.transactionId, _)).asJava
+      )
       .setFailedAuthorizations(
         proto.FailedAuthorizations.newBuilder.build
       )

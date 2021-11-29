@@ -13,36 +13,35 @@ object TransactionNormalizer {
   def normalize(
       tx: CommittedTransaction
   ): CommittedTransaction = {
-
-    val keepNids: Set[NodeId] =
-      tx.foldInExecutionOrder[Set[NodeId]](Set.empty)(
-        (acc, nid, _) => (acc + nid, true),
-        (acc, _, _) => (acc, false),
-        (acc, nid, node) =>
-          node match {
-            case _: Node.Create => acc + nid
-            case _: Node.Fetch => acc
-            case _: Node.LookupByKey => acc
-          },
-        (acc, _, _) => acc,
-        (acc, _, _) => acc,
-      )
-    val filteredNodes =
-      tx.nodes
-        .filter { case (nid, _) => keepNids.contains(nid) }
-        .transform {
-          case (_, node: Node.Exercise) =>
-            node.copy(children = node.children.filter(keepNids.contains))
-          case (_, node: Node.Rollback) =>
-            node.copy(children = node.children.filter(keepNids.contains))
-          case (_, keep) =>
-            keep
-        }
-
-    val filteredRoots = tx.roots.filter(keepNids.contains)
-    CommittedTransaction(
-      VersionedTransaction(tx.version, filteredNodes, filteredRoots)
-    )
+    val filteredTx = tx.map { utx =>
+      val keepNids: Set[NodeId] =
+        utx.foldInExecutionOrder[Set[NodeId]](Set.empty)(
+          (acc, nid, _) => (acc + nid, true),
+          (acc, _, _) => (acc, false),
+          (acc, nid, node) =>
+            node match {
+              case _: Node.Create => acc + nid
+              case _: Node.Fetch => acc
+              case _: Node.LookupByKey => acc
+            },
+          (acc, _, _) => acc,
+          (acc, _, _) => acc,
+        )
+      val filteredNodes =
+        utx.nodes
+          .filter { case (nid, _) => keepNids.contains(nid) }
+          .transform {
+            case (_, node: Node.Exercise) =>
+              node.copy(children = node.children.filter(keepNids.contains))
+            case (_, node: Node.Rollback) =>
+              node.copy(children = node.children.filter(keepNids.contains))
+            case (_, keep) =>
+              keep
+          }
+      val filteredRoots = utx.roots.filter(keepNids.contains)
+      Transaction(filteredNodes, filteredRoots)
+    }
+    CommittedTransaction(filteredTx)
   }
 
 }

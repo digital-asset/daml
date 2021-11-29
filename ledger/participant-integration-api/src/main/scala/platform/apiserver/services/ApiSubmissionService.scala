@@ -254,7 +254,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
       telemetryContext: TelemetryContext,
   ): Future[Seq[state.SubmissionResult]] =
     if (configuration.implicitPartyAllocation) {
-      val partiesInTransaction = transaction.informees.toSeq
+      val partiesInTransaction = transaction.unversioned.informees.toSeq
       for {
         fetchedParties <- partyManagementService.getParties(partiesInTransaction)
         knownParties = fetchedParties.iterator.map(_.party).toSet

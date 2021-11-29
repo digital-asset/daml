@@ -18,9 +18,10 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   SubmittedTransaction,
-  VersionedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersions,
+  VersionedTransaction,
+  Versioned,
 }
 import com.daml.lf.transaction.{Normalization, Validation, ReplayMismatch}
 import com.daml.lf.value.Value
@@ -183,7 +184,7 @@ class EngineTest
         reinterpret(
           suffixStrictEngine,
           Set(party),
-          stx.roots,
+          stx.unversioned.roots,
           stx,
           txMeta,
           let,
@@ -195,7 +196,7 @@ class EngineTest
 
     "be validated" in {
       val Right((tx, meta)) = interpretResult
-      val Right(submitter) = tx.guessSubmitter
+      val Right(submitter) = tx.unversioned.guessSubmitter
       val submitters = Set(submitter)
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
@@ -272,7 +273,7 @@ class EngineTest
           reinterpret(
             suffixStrictEngine,
             signatories.map(_._2),
-            stx.roots,
+            stx.unversioned.roots,
             stx,
             txMeta,
             let,
@@ -374,7 +375,7 @@ class EngineTest
             )
         }
     val Right((tx, txMeta)) = interpretResult
-    val Right(submitter) = tx.guessSubmitter
+    val Right(submitter) = tx.unversioned.guessSubmitter
 
     "be translated" in {
       val Right((rtx, _)) = suffixLenientEngine
@@ -400,7 +401,7 @@ class EngineTest
         reinterpret(
           suffixStrictEngine,
           Set(party),
-          stx.roots,
+          stx.unversioned.roots,
           stx,
           txMeta,
           let,
@@ -534,7 +535,7 @@ class EngineTest
         reinterpret(
           suffixStrictEngine,
           Set(alice),
-          stx.roots,
+          stx.unversioned.roots,
           stx,
           txMeta,
           let,
@@ -563,7 +564,7 @@ class EngineTest
     }
 
     "mark all the exercise nodes as performed byKey" in {
-      val expectedNodes = tx.nodes.collect { case (id, _: Node.Exercise) =>
+      val expectedNodes = tx.unversioned.nodes.collect { case (id, _: Node.Exercise) =>
         id
       }
       val actualNodes = byKeyNodes(tx)
@@ -783,12 +784,12 @@ class EngineTest
         }
 
     val Right((tx, txMeta)) = interpretResult
-    val Right(submitter) = tx.guessSubmitter
+    val Right(submitter) = tx.unversioned.guessSubmitter
 
     "be translated" in {
-      tx.roots should have length 2
-      tx.nodes.keySet.toList should have length 2
-      val ImmArray(create, exercise) = tx.roots.map(tx.nodes)
+      tx.unversioned.roots should have length 2
+      tx.unversioned.nodes.keySet.toList should have length 2
+      val ImmArray(create, exercise) = tx.unversioned.roots.map(tx.unversioned.nodes)
       create shouldBe a[Node.Create]
       exercise shouldBe a[Node.Exercise]
     }
@@ -797,7 +798,15 @@ class EngineTest
       val stx = suffix(tx)
 
       val Right((rtx, _)) =
-        reinterpret(suffixStrictEngine, Set(party), stx.roots, stx, txMeta, let, lookupPackage)
+        reinterpret(
+          suffixStrictEngine,
+          Set(party),
+          stx.unversioned.roots,
+          stx,
+          txMeta,
+          let,
+          lookupPackage,
+        )
 
       isReplayedBy(stx, rtx) shouldBe Right(())
     }
@@ -1062,8 +1071,6 @@ class EngineTest
       isReplayedBy(tx, rtx) shouldBe Right(())
     }
 
-    val blindingInfo = Blinding.blind(tx)
-
     "reinterpret to the same result" in {
       val stx = suffix(tx)
 
@@ -1071,7 +1078,7 @@ class EngineTest
         reinterpret(
           suffixStrictEngine,
           Set(bob),
-          stx.transaction.roots,
+          stx.unversioned.roots,
           stx,
           txMeta,
           let,
@@ -1080,57 +1087,6 @@ class EngineTest
         )
 
       isReplayedBy(rtx, stx) shouldBe Right(())
-    }
-
-    "blinded correctly" in {
-
-      // Bob sees both the archive and the create
-      val bobView = Blinding.divulgedTransaction(blindingInfo.disclosure, bob, tx.transaction)
-      bobView.nodes.size shouldBe 2
-      findNodeByIdx(bobView.nodes, 0).getOrElse(fail("node not found")) match {
-        case Node.Exercise(
-              coid,
-              _,
-              choice,
-              consuming,
-              actingParties,
-              _,
-              _,
-              _,
-              _,
-              children,
-              _,
-              _,
-              _,
-              _,
-              _,
-            ) =>
-          coid shouldBe originalCoid
-          consuming shouldBe true
-          actingParties shouldBe Set(bob)
-          children.map(_.index) shouldBe ImmArray(1)
-          choice shouldBe "Transfer"
-        case _ => fail("exercise expected first for Bob")
-      }
-
-      findNodeByIdx(bobView.nodes, 1).getOrElse(fail("node not found")) match {
-        case create: Node.Create =>
-          create.templateId shouldBe templateId
-          create.stakeholders shouldBe Set(alice, clara)
-        case _ => fail("create event is expected")
-      }
-
-      // clara only sees create
-      val claraView =
-        Blinding.divulgedTransaction(blindingInfo.disclosure, clara, tx.transaction)
-
-      claraView.nodes.size shouldBe 1
-      findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {
-        case create: Node.Create =>
-          create.templateId shouldBe templateId
-          create.stakeholders shouldBe Set(alice, clara)
-        case _ => fail("create event is expected")
-      }
     }
   }
 
@@ -1238,24 +1194,24 @@ class EngineTest
     "propagate the parent's signatories and actors (but not observers) when stakeholders" in {
 
       val Right((tx, _)) = runExample(fetcher1Cid, clara)
-      txFetchActors(tx.transaction) shouldBe Set(alice, clara)
+      txFetchActors(tx.unversioned) shouldBe Set(alice, clara)
     }
 
     "not propagate the parent's signatories nor actors when not stakeholders" in {
 
       val Right((tx, _)) = runExample(fetcher2Cid, clara)
-      txFetchActors(tx.transaction) shouldBe Set(clara)
+      txFetchActors(tx.unversioned) shouldBe Set(clara)
     }
 
     "be retained when reinterpreting single fetch nodes" in {
       val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
-      val fetchNodes = tx.nodes.iterator.collect { case (nid, fetch: Node.Fetch) =>
+      val fetchNodes = tx.unversioned.nodes.iterator.collect { case (nid, fetch: Node.Fetch) =>
         nid -> fetch
       }
 
       fetchNodes.foreach { case (_, n) =>
         val nid = NodeId(0) //we must use node-0 so the constructed tx is normalized
-        val fetchTx = VersionedTransaction(n.version, Map(nid -> n), ImmArray(nid))
+        val fetchTx = Versioned(n.version, Tx(Map(nid -> n), ImmArray(nid)))
         val Right((reinterpreted, _)) =
           suffixLenientEngine
             .reinterpret(
@@ -1392,7 +1348,7 @@ class EngineTest
           lookupKey,
         )
 
-      val expectedByKeyNodes = tx.transaction.nodes.collect { case (id, _: Node.LookupByKey) =>
+      val expectedByKeyNodes = tx.unversioned.nodes.collect { case (id, _: Node.LookupByKey) =>
         id
       }
       val actualByKeyNodes = byKeyNodes(tx)
@@ -1419,7 +1375,7 @@ class EngineTest
         )
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
-      val Some((nid, lookupNode)) = firstLookupNode(tx.transaction)
+      val Some((nid, lookupNode)) = firstLookupNode(tx.unversioned)
       lookupNode.result shouldBe Some(lookedUpCid)
 
       val Right((reinterpreted, _)) =
@@ -1437,7 +1393,7 @@ class EngineTest
             lookupKey,
           )
 
-      firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
+      firstLookupNode(reinterpreted.unversioned).map(_._2) shouldEqual Some(lookupNode)
     }
 
     "be reinterpreted to the same node when lookup doesn't find a contract" in {
@@ -1460,7 +1416,7 @@ class EngineTest
 
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
-      val Some((nid, lookupNode)) = firstLookupNode(tx.transaction)
+      val Some((nid, lookupNode)) = firstLookupNode(tx.unversioned)
       lookupNode.result shouldBe None
 
       val Right((reinterpreted, _)) =
@@ -1478,7 +1434,7 @@ class EngineTest
             lookupKey,
           )
 
-      firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
+      firstLookupNode(reinterpreted.unversioned).map(_._2) shouldEqual Some(lookupNode)
     }
 
     "crash if use a contract key with an empty set of maintainers" in {
@@ -1573,7 +1529,7 @@ class EngineTest
           lookupKey,
         )
 
-      tx.transaction.nodes.values.headOption match {
+      tx.unversioned.nodes.values.headOption match {
         case Some(Node.Fetch(_, _, _, _, _, key, _, _, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
@@ -1646,7 +1602,7 @@ class EngineTest
           lookupKey,
         )
 
-      tx.transaction.nodes
+      tx.unversioned.nodes
         .collectFirst { case (id, nf: Node.Fetch) =>
           nf.key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
@@ -1760,16 +1716,16 @@ class EngineTest
     }
 
     "produce a quadratic number of nodes" in {
-      run(0).map(_._1.transaction.nodes.size) shouldBe Right(2)
-      run(1).map(_._1.transaction.nodes.size) shouldBe Right(6)
-      run(2).map(_._1.transaction.nodes.size) shouldBe Right(14)
-      run(3).map(_._1.transaction.nodes.size) shouldBe Right(30)
+      run(0).map(_._1.unversioned.nodes.size) shouldBe Right(2)
+      run(1).map(_._1.unversioned.nodes.size) shouldBe Right(6)
+      run(2).map(_._1.unversioned.nodes.size) shouldBe Right(14)
+      run(3).map(_._1.unversioned.nodes.size) shouldBe Right(30)
     }
 
     "be validable in whole" in {
       def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) =
         for {
-          submitter <- tx.guessSubmitter
+          submitter <- tx.unversioned.guessSubmitter
           ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
           res <- suffixLenientEngine
             .validate(
@@ -1797,9 +1753,9 @@ class EngineTest
       val Right((tx, txMeta)) = run(3)
       val stx = suffix(tx)
 
-      val ImmArray(_, exeNode1) = tx.transaction.roots
+      val ImmArray(_, exeNode1) = tx.unversioned.roots
       val Node.Exercise(_, _, _, _, _, _, _, _, _, children, _, _, _, _, _) =
-        tx.transaction.nodes(exeNode1)
+        tx.unversioned.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
       reinterpret(
@@ -1987,16 +1943,16 @@ class EngineTest
         ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
       )
       inside(run(command)) { case Right((tx, meta)) =>
-        tx.nodes.size shouldBe 9
-        tx.nodes(NodeId(0)) shouldBe a[Node.Create]
-        tx.nodes(NodeId(1)) shouldBe a[Node.Exercise]
-        tx.nodes(NodeId(2)) shouldBe a[Node.Fetch]
-        tx.nodes(NodeId(3)) shouldBe a[Node.LookupByKey]
-        tx.nodes(NodeId(4)) shouldBe a[Node.Create]
-        tx.nodes(NodeId(5)) shouldBe a[Node.Rollback]
-        tx.nodes(NodeId(6)) shouldBe a[Node.Fetch]
-        tx.nodes(NodeId(7)) shouldBe a[Node.LookupByKey]
-        tx.nodes(NodeId(8)) shouldBe a[Node.Create]
+        tx.unversioned.nodes.size shouldBe 9
+        tx.unversioned.nodes(NodeId(0)) shouldBe a[Node.Create]
+        tx.unversioned.nodes(NodeId(1)) shouldBe a[Node.Exercise]
+        tx.unversioned.nodes(NodeId(2)) shouldBe a[Node.Fetch]
+        tx.unversioned.nodes(NodeId(3)) shouldBe a[Node.LookupByKey]
+        tx.unversioned.nodes(NodeId(4)) shouldBe a[Node.Create]
+        tx.unversioned.nodes(NodeId(5)) shouldBe a[Node.Rollback]
+        tx.unversioned.nodes(NodeId(6)) shouldBe a[Node.Fetch]
+        tx.unversioned.nodes(NodeId(7)) shouldBe a[Node.LookupByKey]
+        tx.unversioned.nodes(NodeId(8)) shouldBe a[Node.Create]
         meta.nodeSeeds.map(_._1.index) shouldBe ImmArray(0, 1, 4, 8)
       }
     }
@@ -2143,7 +2099,7 @@ object EngineTest {
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
   private def byKeyNodes(tx: VersionedTransaction) =
-    tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
+    tx.unversioned.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
 
   private val party = Party.assertFromString("Party")
   private val alice = Party.assertFromString("Alice")
@@ -2176,9 +2132,6 @@ object EngineTest {
     a
   }
 
-  private def findNodeByIdx[Cid](nodes: Map[NodeId, Node], idx: Int) =
-    nodes.collectFirst { case (nodeId, node) if nodeId.index == idx => node }
-
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private implicit def resultEq: Equality[Either[Error, SValue]] = {
     case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
@@ -2195,7 +2148,7 @@ object EngineTest {
   }
 
   private def suffix(tx: VersionedTransaction) =
-    data.assertRight(tx.suffixCid(_ => dummySuffix))
+    data.assertRight(tx.traverse(_.suffixCid(_ => dummySuffix)))
 
   private[this] case class ReinterpretState(
       contracts: Map[ContractId, VersionedContractInstance],
@@ -2253,7 +2206,7 @@ object EngineTest {
         case (acc, nodeId) =>
           for {
             state <- acc
-            cmd = tx.transaction.nodes(nodeId) match {
+            cmd = tx.unversioned.nodes(nodeId) match {
               case create: Node.Create =>
                 CreateCommand(create.templateId, create.arg)
               case fetch: Node.Fetch if fetch.byKey =>
@@ -2288,7 +2241,7 @@ object EngineTest {
             tr1 = suffix(tr0)
             n = state.nodes.size
             nodeRenaming = (nid: NodeId) => NodeId(nid.index + n)
-            tr = tr1.transaction.mapNodeId(nodeRenaming)
+            tr = tr1.unversioned.mapNodeId(nodeRenaming)
             meta = meta0.copy(nodeSeeds = meta0.nodeSeeds.map { case (nid, seed) =>
               nodeRenaming(nid) -> seed
             })

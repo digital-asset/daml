@@ -44,7 +44,7 @@ private[migration] class V25__Backfill_Participant_Events extends BaseJavaMigrat
         transactionId,
         commandId,
         submitter,
-        transaction.roots.toSeq.toSet,
+        transaction.unversioned.roots.toSeq.toSet,
         let,
         offset,
         transaction,
