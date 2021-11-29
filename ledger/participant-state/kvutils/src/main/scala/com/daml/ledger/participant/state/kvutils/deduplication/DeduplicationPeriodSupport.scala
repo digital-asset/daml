@@ -15,7 +15,7 @@ import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, Er
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class DeduplicationPeriodService(
+class DeduplicationPeriodSupport(
     converter: DeduplicationPeriodConverter,
     validation: DeduplicationPeriodValidator,
     errorFactories: ErrorFactories,
@@ -35,7 +35,7 @@ class DeduplicationPeriodService(
   ): Future[DeduplicationPeriod] = {
     val validatedDeduplicationPeriod = deduplicationPeriod match {
       case period: DeduplicationPeriod.DeduplicationDuration =>
-        Future.successful(validation.validate(period, maxDeduplicationDuration))
+        Future.successful(Right(period))
       case DeduplicationPeriod.DeduplicationOffset(offset) =>
         converter
           .convertOffsetToDuration(offset.toHexString, applicationId, actAs, submittedAt)
@@ -62,7 +62,6 @@ class DeduplicationPeriodService(
                 ),
             )
           )
-
     }
     validatedDeduplicationPeriod.map(_.fold(throw _, identity))
   }

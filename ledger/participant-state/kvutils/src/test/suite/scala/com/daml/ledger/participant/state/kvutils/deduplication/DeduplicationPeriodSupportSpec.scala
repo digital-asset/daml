@@ -22,7 +22,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-class DeduplicationPeriodServiceSpec
+class DeduplicationPeriodSupportSpec
     extends AsyncWordSpec
     with MockitoSugar
     with Matchers
@@ -33,7 +33,7 @@ class DeduplicationPeriodServiceSpec
   private val periodConverter: DeduplicationPeriodConverter = mock[DeduplicationPeriodConverter]
   private val periodValidator: DeduplicationPeriodValidator = mock[DeduplicationPeriodValidator]
   private val errorFactories: ErrorFactories = mock[ErrorFactories]
-  private val service = new DeduplicationPeriodService(
+  private val service = new DeduplicationPeriodSupport(
     periodConverter,
     periodValidator,
     errorFactories,

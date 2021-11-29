@@ -12,7 +12,7 @@ import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.kvutils.deduplication.DeduplicationPeriodService
+import com.daml.ledger.participant.state.kvutils.deduplication.DeduplicationPeriodSupport
 import com.daml.ledger.participant.state.v2.SubmissionResult.Acknowledged
 import com.daml.ledger.participant.state.v2.{
   SubmissionResult,
@@ -44,14 +44,14 @@ class WriteServiceWithDeduplicationSupportSpec
     with BeforeAndAfterEach {
   implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
   private val mockWriteService: WriteService = mock[WriteService]
-  private val mockDeduplicationPeriodService: DeduplicationPeriodService =
-    mock[DeduplicationPeriodService]
+  private val mockDeduplicationPeriodSupport: DeduplicationPeriodSupport =
+    mock[DeduplicationPeriodSupport]
   val service = new WriteServiceWithDeduplicationSupport(
     mockWriteService,
-    mockDeduplicationPeriodService,
+    mockDeduplicationPeriodSupport,
   )
 
-  override protected def afterEach(): Unit = reset(mockWriteService, mockDeduplicationPeriodService)
+  override protected def afterEach(): Unit = reset(mockWriteService, mockDeduplicationPeriodSupport)
 
   "use the returned deduplication period" in {
     val submitterInfo = SubmitterInfo(
@@ -76,7 +76,7 @@ class WriteServiceWithDeduplicationSupportSpec
     val convertedDeduplicationPeriod =
       DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(4))
     when(
-      mockDeduplicationPeriodService.supportedDeduplicationPeriod(
+      mockDeduplicationPeriodSupport.supportedDeduplicationPeriod(
         eqTo(submitterInfo.deduplicationPeriod),
         eqTo(Configuration.reasonableMaxDeduplicationTime),
         eqTo(ApplicationId(submitterInfo.applicationId)),

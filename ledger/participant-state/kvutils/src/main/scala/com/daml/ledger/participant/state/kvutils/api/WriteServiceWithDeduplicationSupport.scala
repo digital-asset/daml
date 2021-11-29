@@ -12,7 +12,7 @@ import com.daml.ledger.api.domain.ApplicationId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kvutils.deduplication.DeduplicationPeriodService
+import com.daml.ledger.participant.state.kvutils.deduplication.DeduplicationPeriodSupport
 import com.daml.ledger.participant.state.v2.{
   PruningResult,
   SubmissionResult,
@@ -31,7 +31,7 @@ import scala.jdk.FutureConverters._
 
 class WriteServiceWithDeduplicationSupport(
     delegate: WriteService,
-    deduplicationPeriodService: DeduplicationPeriodService,
+    deduplicationPeriodSupport: DeduplicationPeriodSupport,
 )(implicit mat: Materializer, ec: ExecutionContext)
     extends WriteService {
 
@@ -48,7 +48,7 @@ class WriteServiceWithDeduplicationSupport(
   ): CompletionStage[SubmissionResult] = {
     implicit val contextualizedLogger: DamlContextualizedErrorLogger =
       new DamlContextualizedErrorLogger(logger, loggingContext, submitterInfo.submissionId)
-    deduplicationPeriodService
+    deduplicationPeriodSupport
       .supportedDeduplicationPeriod(
         submitterInfo.deduplicationPeriod,
         submitterInfo.ledgerConfiguration.maxDeduplicationTime,
