@@ -31,8 +31,6 @@ main = do
     setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
-    repl <- locateRunfiles (mainWorkspace </> "daml-lf" </> "repl" </> exe "repl")
-    davlDar <- locateRunfiles ("davl-v3" </> "released" </> "davl-v3.dar")
     oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     defaultMain $ tests Tools{..}
@@ -40,9 +38,7 @@ main = do
 data Tools = Tools -- and places
   { damlc :: FilePath
   , damlcLegacy :: FilePath
-  , repl :: FilePath
   , validate :: FilePath -> IO ()
-  , davlDar :: FilePath
   , oldProjDar :: FilePath
   }
 
@@ -69,7 +65,7 @@ lfVersionTestPairs =
     in legacyPairs ++ zip versions (tail versions)
 
 tests :: Tools -> TestTree
-tests tools@Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependencies" $
+tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
     [ testCaseSteps ("Cross DAML-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
@@ -156,56 +152,7 @@ tests tools@Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Depe
               (if targetLfVer /= depLfVer then 2 else 0) -- different daml-stdlib/daml-prim
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
-    [ testCaseSteps "Cross-SDK dependency on DAVL" $ \step -> withTempDir $ \tmpDir -> do
-          step "Building DAR"
-          writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
-              , "version: 0.0.1"
-              , "name: foobar"
-              , "source: ."
-              , "dependencies: [daml-prim, daml-stdlib]"
-              , "data-dependencies: [" <> show davlDar <> "]"
-              ]
-          writeFileUTF8 (tmpDir </> "Main.daml") $ unlines
-              [ "module Main where"
-
-              , "import DAVL"
-              , "import DA.Assert"
-              , "import qualified OldStdlib.DA.Internal.Template as OldStdlib"
-
-              -- We exploit internals of the template desugaring here
-              -- until we can reconstruct typeclasses or at least functions.
-              , "instance HasCreate EmployeeProposal where"
-              , "  create = GHC.Types.primitive @\"UCreate\""
-              , "instance HasFetch EmployeeProposal where"
-              , "  fetch = GHC.Types.primitive @\"UFetch\""
-              , "instance HasExercise EmployeeProposal OldStdlib.Archive () where"
-              , "  exercise = GHC.Types.primitive @\"UExercise\""
-
-              , "test = scenario do"
-              , "  alice <- getParty \"Alice\""
-              , "  bob <- getParty \"Bob\""
-              , "  eve <- getParty \"eve\""
-              , "  let role = EmployeeRole bob alice eve"
-              , "  cid <- submit alice $ create (EmployeeProposal role 42)"
-              , "  EmployeeProposal{employeeRole} <- submit bob $ fetch cid"
-              , "  employee employeeRole === bob"
-              , "  company employeeRole === alice"
-              , "  () <- submit alice $ exercise cid OldStdlib.Archive"
-              , "  pure ()"
-              ]
-          callProcessSilent damlc
-            [ "build"
-            , "--project-root", tmpDir
-            , "-o", tmpDir </> "foobar.dar"
-            -- We need to use the old stdlib for the Archive type
-            , "--package", "daml-stdlib-cc6d52aa624250119006cd19d51c60006762bd93ca5a6d288320a703024b33da (DA.Internal.Template as OldStdlib.DA.Internal.Template)"
-            ]
-          step "Validating DAR"
-          validate $ tmpDir </> "foobar.dar"
-          step "Testing scenario"
-          callProcessSilent repl ["test", "Main:test", tmpDir </> "foobar.dar"]
-    , testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
+    [ testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'lib'"
           createDirectoryIfMissing True (tmpDir </> "lib")
           writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
@@ -503,8 +450,8 @@ tests tools@Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Depe
           , "version: 0.1.0"
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib]"
-          , "data-dependencies: [simple-dalf-0.0.0.dalf]"
-          , "build-options: [--package=simple-dalf-0.0.0]"
+          , "data-dependencies: [simple-dalf-1.0.0.dalf]"
+          , "build-options: [--package=simple-dalf-1.0.0]"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "module A where"
@@ -542,7 +489,7 @@ tests tools@Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Depe
             ]
         callProcessSilent genSimpleDalf $
             ["--with-archive-choice" | withArchiveChoice ] <>
-            [projDir </> "simple-dalf-0.0.0.dalf"]
+            [projDir </> "simple-dalf-1.0.0.dalf"]
         callProcess damlc
             [ "build"
             , "--project-root", projDir

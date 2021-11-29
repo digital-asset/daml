@@ -26,7 +26,7 @@ main = do
                 [file] -> (file,False)
                 ["--with-archive-choice",file] -> (file,True)
                 _ -> error $ "unexpected command line args: " <> show args
-    let version = V1 (PointStable 6)
+    let version = versionDefault
     let modName = ModuleName ["Module"]
     let modRef = Qualified PRSelf modName
     let tplFields = map FieldName ["this", "arg"]
@@ -124,7 +124,7 @@ main = do
     let pkg = Package
             { packageLfVersion = version
             , packageModules = NM.fromList [mod]
-            , packageMetadata = Nothing
+            , packageMetadata = Just $ PackageMetadata (PackageName "simple-dalf") (PackageVersion "1.0.0")
             }
     let (bytes, PackageId hash) = encodeArchiveAndHash pkg
     BSL.writeFile file bytes
