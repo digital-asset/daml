@@ -200,6 +200,14 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   ): Future[Unit] =
     delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
 
+  override def getCompletions(
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset,
+      applicationId: ApplicationId,
+      parties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
+    delegate.getCompletions(startExclusive, endInclusive, applicationId, parties)
+
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
 }
