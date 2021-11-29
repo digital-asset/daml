@@ -49,25 +49,13 @@ class DeduplicationPeriodSupportSpec
   override protected def afterEach(): Unit = reset(periodConverter, periodValidator, errorFactories)
 
   "using deduplication duration" should {
-    "validate and return it" in {
+    "passthrough without validation" in {
       val period = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1))
-      when(periodValidator.validate(period, maxDeduplicationDuration)).thenReturn(Right(period))
       callServiceWithDeduplicationPeriod(period)
         .map { result =>
-          verify(periodValidator).validate(period, maxDeduplicationDuration)
           verifyNoMoreInteractions(periodConverter)
+          verifyNoMoreInteractions(periodValidator)
           result shouldBe period
-        }
-    }
-
-    "return validation failure" in {
-      val period = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1))
-      when(periodValidator.validate(period, maxDeduplicationDuration))
-        .thenReturn(Left(statusRuntimeException))
-      recoverToExceptionIf[StatusRuntimeException](callServiceWithDeduplicationPeriod(period))
-        .map { result =>
-          verify(periodValidator).validate(period, maxDeduplicationDuration)
-          result shouldBe statusRuntimeException
         }
     }
   }
