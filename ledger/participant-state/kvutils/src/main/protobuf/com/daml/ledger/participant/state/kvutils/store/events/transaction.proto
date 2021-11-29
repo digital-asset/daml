@@ -19,7 +19,6 @@ option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils.Store.Event
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
-import "com/daml/lf/transaction.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/rejection_reason.proto";
 
 message DamlSubmitterInfo {
@@ -40,8 +39,8 @@ message DamlSubmitterInfo {
 // with submitter information and metadata (see Ledger API `commands.proto` for
 // their source).
 message DamlTransactionEntry {
-  // The original submitted transaction, with relative identifiers.
-  com.daml.lf.transaction.Transaction transaction = 1;
+  // The originally submitted transaction (see com.daml.lf.transaction.Transaction).
+  bytes raw_transaction = 1;
 
   // The submitting party and metadata about the submitted command.
   // The submitting party is authorized against the submitting participant
@@ -87,7 +86,8 @@ message DamlTransactionBlindingInfo {
   message DivulgenceEntry {
     string contract_id = 1;
     repeated string divulged_to_local_parties = 2;
-    com.daml.lf.transaction.ContractInstance contract_instance = 3;
+    // Stores com.daml.lf.transaction.ContractInstance as bytes.
+    bytes raw_contract_instance = 3;
   }
 
   // Disclosure, specified in terms of local transaction node IDs.

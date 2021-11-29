@@ -66,4 +66,11 @@ object Raw {
 
   type StateEntry = (StateKey, Envelope)
 
+  final case class Transaction(override val bytes: ByteString) extends Bytes
+
+  object Transaction extends Companion[Transaction]
+
+  final case class ContractInstance(override val bytes: ByteString) extends Bytes
+
+  object ContractInstance extends Companion[ContractInstance]
 }

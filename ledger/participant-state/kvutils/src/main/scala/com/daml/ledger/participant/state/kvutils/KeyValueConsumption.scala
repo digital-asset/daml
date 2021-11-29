@@ -265,7 +265,7 @@ object KeyValueConsumption {
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp,
   )(implicit loggingContext: LoggingContext): Update.TransactionAccepted = {
-    val transaction = Conversions.decodeTransaction(txEntry.getTransaction)
+    val transaction = Conversions.decodeTransaction(Raw.Transaction(txEntry.getRawTransaction))
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
     )

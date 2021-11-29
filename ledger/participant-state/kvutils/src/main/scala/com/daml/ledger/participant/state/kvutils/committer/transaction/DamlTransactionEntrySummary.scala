@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
-import com.daml.ledger.participant.state.kvutils.Conversions
+import com.daml.ledger.participant.state.kvutils.{Conversions, Raw}
 import com.daml.ledger.participant.state.kvutils.Conversions.parseTimestamp
 import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlSubmitterInfo,
@@ -44,6 +44,6 @@ private[transaction] object DamlTransactionEntrySummary {
   ): DamlTransactionEntrySummary =
     new DamlTransactionEntrySummary(
       submission,
-      Conversions.decodeTransaction(submission.getTransaction),
+      Conversions.decodeTransaction(Raw.Transaction(submission.getRawTransaction)),
     )
 }

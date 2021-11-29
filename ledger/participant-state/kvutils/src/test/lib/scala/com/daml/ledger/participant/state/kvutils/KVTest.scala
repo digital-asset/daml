@@ -210,7 +210,9 @@ object KVTest {
             state.damlState
               .get(Conversions.contractIdToStateKey(contractId))
               .map { v =>
-                Conversions.decodeContractInstance(v.getContractState.getContractInstance)
+                Conversions.decodeContractInstance(
+                  Raw.ContractInstance(v.getContractState.getRawContractInstance)
+                )
               },
           packages = state.uploadedPackages.get,
           keys = globalKey =>

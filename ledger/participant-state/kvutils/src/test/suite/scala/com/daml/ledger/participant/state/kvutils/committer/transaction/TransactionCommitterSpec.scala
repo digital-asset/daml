@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateKey,
   DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.{Conversions, committer}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Raw, committer}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
@@ -139,7 +139,8 @@ class TransactionCommitterSpec
 
       actual match {
         case StepContinue(logEntry) =>
-          val transaction = logEntry.submission.getTransaction
+          val rawTransaction = Raw.Transaction(logEntry.submission.getRawTransaction)
+          val transaction = Conversions.parseTransaction(rawTransaction)
           transaction.getRootsList.asScala should contain theSameElementsInOrderAs Seq(
             "Exercise-1",
             "Create-1",
@@ -243,7 +244,7 @@ class TransactionCommitterSpec
                 (
                   entry.getContractId,
                   entry.getDivulgedToLocalPartiesList.asScala.toSet,
-                  entry.getContractInstance,
+                  entry.getRawContractInstance,
                 )
               )
 
@@ -363,7 +364,7 @@ object TransactionCommitterSpec {
       .addAllRoots(roots.asJava)
       .addAllNodes(nodes.asJava)
       .build()
-    val outTx = aDamlTransactionEntry.toBuilder.setTransaction(tx).build()
+    val outTx = aDamlTransactionEntry.toBuilder.setRawTransaction(tx.toByteString).build()
     DamlTransactionEntrySummary(outTx)
   }
 
