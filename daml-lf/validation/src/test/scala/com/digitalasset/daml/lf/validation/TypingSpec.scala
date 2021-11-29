@@ -354,7 +354,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           T"Mod:I → (( Update (ContractId Mod:I) ))",
         E"λ (e₁: ContractId Mod:T) (e₂: Int64) → (( exercise @Mod:T Ch e₁ e₂ ))" ->
           T"ContractId Mod:T → Int64 → (( Update Decimal ))",
-        E"λ (e₁: ContractId Mod:I) (e₂: Int64) → (( exercise_by_interface @Mod:I ChIface e₁ e₂ ))" ->
+        E"λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Optional TypeRep) (e₄: Mod:I → Bool) → (( exercise_by_interface @Mod:I ChIface e₁ e₂ e₃ e₄ ))" ->
           T"ContractId Mod:I → Int64 → (( Update Decimal ))",
         E"λ (e₁: Party) (e₂: Int64) → (( exercise_by_key @Mod:T Ch e₁ e₂ ))" ->
           T"Party → Int64 → (( Update Decimal ))",
@@ -800,28 +800,36 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             assert(env.interface.lookupTemplateChoice(conTi, n"ChTmpl").isRight)
         },
         // UpdExerciseInterface
-        E"λ (e₁: ContractId Mod:U) (e₂: Int64) → ⸨ exercise_by_interface @Mod:U ChIface e₁ e₂ ⸩" -> //
+        E"λ (e₁: ContractId Mod:U) (e₂: Int64) (e₃: Optional TypeRep) (e₄: Mod:U → Bool) → ⸨ exercise_by_interface @Mod:U ChIface e₁ e₂ e₃ e₄ ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.Interface(_), Reference.InterfaceChoice(_, _)),
                 ) =>
           },
-        E"λ (e₁: ContractId Mod:I) (e₂: Int64) → ⸨ exercise_by_interface @Mod:I Not e₁ e₂ ⸩" -> //
+        E"λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Optional TypeRep) (e₄: Mod:I → Bool)  → ⸨ exercise_by_interface @Mod:I Not e₁ e₂ e₃ e₄ ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.TemplateChoice(_, _), Reference.InterfaceChoice(_, _)),
                 ) =>
           },
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: σ) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: σ) (e₃: Optional TypeRep) (e₄: Mod:I → Bool) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ e₃ e₄ ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Optional TypeRep) (e₄: Mod:T → Bool) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ e₃ e₄ ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (σ : ⋆).λ (e₁: ContractId σ) (e₂: Int64) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId σ) (e₂: Int64) (e₃: Optional TypeRep) (e₄: Mod:I → Bool) → ⸨ exercise_by_interface @Mod:I ChIface e₁ e₂ e₃ e₄ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: σ) (e₄: Mod:I → Bool) → ⸨ exercise_by_interface @Mod:I ChIface e₁ e₂ e₃ e₄ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Optional σ) (e₄: Mod:I → Bool) → ⸨ exercise_by_interface @Mod:I ChIface e₁ e₂ e₃ e₄ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Optional TypeRep) (e₄: σ) → ⸨ exercise_by_interface @Mod:I ChIface e₁ e₂ e₃ e₄ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Optional TypeRep) (e₄: σ → Bool) → ⸨ exercise_by_interface @Mod:I ChIface e₁ e₂ e₃ e₄ ⸩" -> //
           { case _: ETypeMismatch => },
         // This verifies that interface choice cannot be exercise by template
-        E"""λ (e₁: ContractId Mod:Ti) (e: Mod:Ti) (e₂: Int64) → ⸨ exercise_by_interface @Mod:Ti ChIface e₁ e₂ ⸩""" -> //
+        E"""λ (e₁: ContractId Mod:Ti) (e: Mod:Ti) (e₂: Int64) (e₃: Optional TypeRep) (e₄: Mod:Ti → Bool) → ⸨ exercise_by_interface @Mod:Ti ChIface e₁ e₂ e₃ e₄ ⸩""" -> //
           {
             case EUnknownDefinition(
                   _,
@@ -1007,7 +1015,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_PreconditionShouldBeBoolean{
              record @serializable T = {person: Party, name: Text};
-              
+
              template (this : T) =  {
               precondition ();                               // precondition should be a boolean
               signatories Cons @Party ['Bob'] (Nil @Party);
@@ -1036,7 +1044,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               signatories Cons @Party ['Bob'] (Nil @Party);
               observers ();                                  // should be of type (List Party)
               agreement "Agreement";
-              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();              
+              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
             } ;
           }
 
@@ -1050,7 +1058,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit
                 , controllers ()                                  // should be of type (List Party)
-                to upure @Unit ();             
+                to upure @Unit ();
             } ;
           }
 
@@ -1077,7 +1085,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               signatories Cons @Party ['Bob'] (Nil @Party);
               observers Cons @Party ['Alice'] (Nil @Party);
               agreement ();                                 // should be of type Text
-              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();              
+              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
             } ;
           }
 
@@ -1110,7 +1118,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           module PositiveTestCase_KeyBodyShouldBeProperType {
             record @serializable T = {person: Party, name: Text};
             record @serializable Key = {person: Text, party: Party};
-         
+
             template (this : T) =  {
               precondition True;
               signatories Cons @Party ['Bob'] (Nil @Party);
@@ -1119,19 +1127,19 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
               key @Mod:Key
                 // In the next line, the declared type do not match body
-                (PositiveTestCase_KeyBodyShouldBeProperType:Key { 
-                  person = (PositiveTestCase_KeyBodyShouldBeProperType:T {name} this), 
-                  party = (PositiveTestCase_KeyBodyShouldBeProperType:T {person} this) 
+                (PositiveTestCase_KeyBodyShouldBeProperType:Key {
+                  person = (PositiveTestCase_KeyBodyShouldBeProperType:T {name} this),
+                  party = (PositiveTestCase_KeyBodyShouldBeProperType:T {person} this)
                 })
                 (\ (key: Mod:Key) -> Cons @Party [(Mod:Key {party} key), 'Alice'] (Nil @Party)  );
               } ;
           }
-         
-         
+
+
            module PositiveTestCase_MaintainersShouldBeProperType {
             record @serializable T = {person: Party, name: Text};
             record @serializable Key = {person: Text, party: Party};
-         
+
             template (this : T) =  {
               precondition True;
               signatories Cons @Party ['Bob'] (Nil @Party);
@@ -1140,19 +1148,19 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
               key @Mod:Key
                 // In the next line, the declared type do not match body
-                (Mod:Key { 
-                  person = (PositiveTestCase_MaintainersShouldBeProperType:T {name} this), 
-                  party = (PositiveTestCase_MaintainersShouldBeProperType:T {person} this) 
+                (Mod:Key {
+                  person = (PositiveTestCase_MaintainersShouldBeProperType:T {name} this),
+                  party = (PositiveTestCase_MaintainersShouldBeProperType:T {person} this)
                 })
-                (\ (key: PositiveTestCase_MaintainersShouldBeProperType:Key) -> 
+                (\ (key: PositiveTestCase_MaintainersShouldBeProperType:Key) ->
                   Cons @Party [(PositiveTestCase_MaintainersShouldBeProperType:Key {party} key), 'Alice'] (Nil @Party)  );
               } ;
           }
-         
+
            module PositiveTestCase_MaintainersShouldBeListParty {
             record @serializable T = {person: Party, name: Text};
             record @serializable Key = {person: Text, party: Party};
-         
+
             template (this : T) =  {
               precondition True;
               signatories Cons @Party ['Bob'] (Nil @Party);
@@ -1161,18 +1169,18 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
               key @Mod:Key
                 // In the next line, the declared type do not match body
-                (Mod:Key { 
-                  person = (PositiveTestCase_MaintainersShouldBeListParty:T {name} this), 
-                  party = (PositiveTestCase_MaintainersShouldBeListParty:T {person} this) 
+                (Mod:Key {
+                  person = (PositiveTestCase_MaintainersShouldBeListParty:T {name} this),
+                  party = (PositiveTestCase_MaintainersShouldBeListParty:T {person} this)
                 })
                 (\ (key: Mod:Key) -> ()  );
               } ;
           }
-         
+
           module PositiveTestCase_MaintainersShouldNotUseThis {
             record @serializable T = {person: Party, name: Text};
             record @serializable TBis = {person: Text, party: Party};
-         
+
             template (this : T) =  {
               precondition True;
               signatories Cons @Party ['Bob'] (Nil @Party);
@@ -1180,16 +1188,16 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
               key @PositiveTestCase_MaintainersShouldNotUseThis:TBis
-                (PositiveTestCase_MaintainersShouldNotUseThis:TBis { 
-                  person = (PositiveTestCase_MaintainersShouldNotUseThis:T {name} this), 
-                  party = (PositiveTestCase_MaintainersShouldNotUseThis:T {person} this) 
+                (PositiveTestCase_MaintainersShouldNotUseThis:TBis {
+                  person = (PositiveTestCase_MaintainersShouldNotUseThis:T {name} this),
+                  party = (PositiveTestCase_MaintainersShouldNotUseThis:T {person} this)
                 })
                 // In the next line, cannot use `this`
-                (\ (key: PositiveTestCase_MaintainersShouldNotUseThis:TBis) -> 
+                (\ (key: PositiveTestCase_MaintainersShouldNotUseThis:TBis) ->
                   Cons @Party [(PositiveTestCase_MaintainersShouldNotUseThis:T {person} this), 'Alice'] (Nil @Party)  );
             };
           }
-     
+
           module PositiveCase_InterfaceMethodShouldBeProperType {
             record @serializable T = {person: Party, name: Text};
 
@@ -1202,11 +1210,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   , controllers Cons @Party ['Alice'] (Nil @Party)
                   to upure @Unit ();
               implements Mod:I {
-                method getParties = \(self: PositiveCase_InterfaceMethodShouldBeProperType:T) -> (); // should Be of type 
+                method getParties = \(self: PositiveCase_InterfaceMethodShouldBeProperType:T) -> (); // should Be of type
               };
             };
           }
-        
+
           module PositiveCase_ImplementsShouldOverrideAllMethods {
             record @serializable T = {person: Party, name: Text};
 
@@ -1222,7 +1230,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               };
             };
           }
-          
+
           module PositiveCase_ImplementsShouldOverrideOnlyMethods {
             record @serializable T = {person: Party, name: Text};
 
@@ -1235,10 +1243,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   , controllers Cons @Party ['Alice'] (Nil @Party)
                   to upure @Unit ();
               implements Mod:I {
-                method getParties = \(self: PositiveCase_ImplementsShouldOverrideOnlyMethods:T) -> 
+                method getParties = \(self: PositiveCase_ImplementsShouldOverrideOnlyMethods:T) ->
                   Cons @Party [(PositiveCase_ImplementsShouldOverrideOnlyMethods:T {person} this), 'Alice'] (Nil @Party);
-                method getName = \(self: PositiveCase_ImplementsShouldOverrideOnlyMethods:T) -> 
-                  PositiveCase_ImplementsShouldOverrideOnlyMethods:T {name} this;   
+                method getName = \(self: PositiveCase_ImplementsShouldOverrideOnlyMethods:T) ->
+                  PositiveCase_ImplementsShouldOverrideOnlyMethods:T {name} this;
               };
             };
           }
@@ -1324,7 +1332,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase_PreconditionShouldBeBoolean {
             interface (this : I) =  {
-              precondition (); // Precondition should be a boolean              
+              precondition (); // Precondition should be a boolean
             } ;
           }
 
@@ -1333,7 +1341,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               precondition True;
               choice Ch (self) (i : Unit) : Unit,
                   controllers ()                                  // should be of type (List Party)
-                to upure @Unit ();             
+                to upure @Unit ();
             } ;
           }
 
@@ -1665,14 +1673,14 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               precondition True;
               method getParties: List Party;
               choice ChIface (self) (x: Int64) : Decimal,
-                  controllers 'Bob' 
+                  controllers 'Bob'
                 to upure @INT64 (DECIMAL_TO_INT64 x);
          };
-         
+
           interface (this : J) = {
               precondition True;
          };
-         
+
          record @serializable Ti = { person: Party, name: Text };
          template (this: Ti) = {
            precondition True;

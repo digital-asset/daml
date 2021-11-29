@@ -1304,7 +1304,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             choice = handleInternedName(exercise.getChoiceInternedStr),
             cidE = decodeExpr(exercise.getCid, definition),
             argE = decodeExpr(exercise.getArg, definition),
-            guardE = None, // TODO https://github.com/digital-asset/daml/issues/11703
+            typeRepE = decodeExpr(exercise.getTypeRep, definition),
+            guardE = decodeExpr(exercise.getGuard, definition),
           )
 
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>
