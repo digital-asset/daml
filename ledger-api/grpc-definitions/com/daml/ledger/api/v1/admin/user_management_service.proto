@@ -39,7 +39,7 @@ service UserManagementService {
     rpc GetUser (GetUserRequest) returns (User);
 
     // Delete an existing user and all its rights.
-    rpc DeleteUser (DeleteUserRequest) returns (google.protobuf.Empty);
+    rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse);
 
     // List the all existing users.
     rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
@@ -72,13 +72,26 @@ message User {
     // The primary party as which this user reads and acts by default on the ledger
     // _provided_ it has the corresponding ``CanReadAs(primary_party)`` or 
     // ``CanActAs(primary_party)`` rights.
+    //
+    // Ledger API clients SHOULD set this field to a non-empty value for all users to
+    // enable the users to act on the ledger using their own Daml party.
+    // Ledger API clients MAY set this field to empty for special users; e.g., a user
+    // that is granted ``CanReadAsAnyParty`` so that it can export the data for all parties
+    // hosted on the participant node.
     string primary_party = 2;
 }
+
 
 // A right granted to a user.
 message Right {
     // The user is allowed to administrate the participant node.
     message ParticipantAdmin {}
+
+    // The user can authorize commands for any party hosted on this participant node.
+    message CanActAsAnyParty {}
+
+    // The user can all read ledger data visible to some party on this participant node.
+    message CanReadAsAnyParty {}
 
     // The user can authorize commands for the given party.
     message CanActAs {
@@ -92,8 +105,10 @@ message Right {
 
     oneof kind {
         ParticipantAdmin participant_admin = 1;
-        CanActAs can_act_as = 2;
-        CanReadAs can_read_as = 3;
+        CanActAsAnyParty can_act_as_any_party = 2;
+        CanReadAsAnyParty can_read_as_any_party = 3;
+        CanActAs can_act_as = 4;
+        CanReadAs can_read_as = 5;
     }
 }
 
@@ -121,6 +136,9 @@ message GetUserRequest {
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message DeleteUserRequest {
     string user_id = 1;
+}
+
+message DeleteUserResponse {
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
