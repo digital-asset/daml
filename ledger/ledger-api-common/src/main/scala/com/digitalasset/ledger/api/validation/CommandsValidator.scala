@@ -234,7 +234,7 @@ final class CommandsValidator(
   ): Either[StatusRuntimeException, DeduplicationPeriod] =
     optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
       Left(missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer = Some(false)))
-    )(maxDeduplicationDuration => {
+    ) { maxDeduplicationDuration =>
       val convertedDeduplicationPeriod = deduplicationPeriod match {
         case commands.Commands.DeduplicationPeriod.Empty =>
           maxDeduplicationDuration
@@ -249,7 +249,7 @@ final class CommandsValidator(
           maxDeduplicationDuration,
         )
         .map(DeduplicationPeriod.DeduplicationDuration)
-    })
+    }
 }
 
 object CommandsValidator {
