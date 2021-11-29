@@ -17,6 +17,7 @@ da_haskell_library(
         "either",
         "text",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
