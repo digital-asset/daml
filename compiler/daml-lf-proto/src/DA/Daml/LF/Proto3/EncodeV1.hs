@@ -761,6 +761,8 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseInterfaceChoiceInternedStr <- encodeNameId unChoiceName exeChoice
         update_ExerciseInterfaceCid <- encodeExpr exeContractId
         update_ExerciseInterfaceArg <- encodeExpr exeArg
+        update_ExerciseInterfaceTypeRep <- encodeExpr exeTypeRep
+        update_ExerciseInterfaceGuard <- encodeExpr exeGuard
         pure $ P.UpdateSumExerciseInterface P.Update_ExerciseInterface{..}
     UExerciseByKey{..} -> do
         update_ExerciseByKeyTemplate <- encodeQualTypeConName exeTemplate
