@@ -128,6 +128,17 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
         }
       }
     }
+    {
+      // Run the 2nd set at 2000 as well as 1000, to really see the quadratic effect on timing
+      val depth = 2000
+      s"depth = $depth" - {
+        forEvery(testCases2) { (name: String, recursionPoint: SExpr => SExpr) =>
+          name in {
+            runTest(depth, recursionPoint)
+          }
+        }
+      }
+    }
   }
 
   private val leaf = SEValue(v.SText("leaf"))

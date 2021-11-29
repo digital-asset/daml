@@ -18,44 +18,109 @@ import scala.annotation.tailrec
 
 private[speedy] object ClosureConversion {
 
+  case class Abs(a: Int) {
+    def pp: String = s"A$a"
+  }
+
+  case class Rel(r: Int) {
+    def pp: String = s"R$r"
+    def shift(n: Int): Rel = Rel(r + n)
+  }
+
+  case class Key(rel: Rel, abs: Abs) {
+    def pp: String = s"${rel.pp}/${abs.pp}"
+    def shift(n: Int): Key = Key(rel.shift(n), abs)
+  }
+
   private[speedy] def closureConvert(source0: source.SExpr): target.SExpr = {
 
     // TODO: Recode the 'Env' management to avoid the polynomial-complexity of 'shift'. Issue #11830
-    case class Env(depth: Int, mapping: Map[Int, target.SELoc]) {
+    case class Env(sourceDepth: Int, mapping: Map[Key, target.SELoc], targetDepth: Int) {
 
-      def lookup(i: Int): target.SELoc =
-        mapping.get(i) match {
+      def pp(loc: target.SELoc): String = loc match {
+        case target.SELocA(x) => s"a$x"
+        case target.SELocF(x) => s"f$x"
+        case target.SELocAbsoluteS(x) => s"s$x"
+      }
+
+      def pp(opt: Option[target.SELoc]): String = opt match {
+        case Some(x) => pp(x)
+        case None => "NONE"
+      }
+
+      def pp: String = {
+        val m: List[(Key, target.SELoc)] = mapping.toList.sortBy(_._1.rel.r)
+        val mstr: String = m.map { case (k, v) => s"${k.pp}--${pp(v)} " }.mkString
+        s"$sourceDepth{$mstr}$targetDepth"
+      }
+
+      def lookupByRel(rel: Rel): Option[target.SELoc] = {
+        mapping.map { case (Key(rel, _), v) => (rel, v) }.get(rel)
+      }
+
+      def lookupByAbs(abs: Abs): Option[target.SELoc] = {
+        mapping.map { case (Key(_, abs), v) => (abs, v) }.get(abs)
+      }
+
+      def lookup(key: Key): target.SELoc = {
+        val Key(rel, abs) = key
+        val res1 = lookupByRel(rel)
+        val res2 = lookupByAbs(abs)
+        //println(s"lookup: ${key.pp}, ${this.pp} --> ${pp(res1)} / ${pp(res2)}")
+        if (res1 != res2) {
+          println(s"**DIFF* lookup: ${key.pp}, ${this.pp} --> ${pp(res1)} / ${pp(res2)}")
+          sys.error(s"**DIFF* lookup: ${key.pp}, ${this.pp} --> ${pp(res1)} / ${pp(res2)}")
+        }
+
+        res2 match {
           case Some(loc) => loc
           case None =>
-            throw sys.error(s"lookup($i),in:$mapping")
+            throw sys.error(s"lookup($key),in:$mapping")
         }
+      }
 
       def shift(n: Int): Env = {
         // We just update the keys of the map (the relative-indexes from the original SEVar)
-        val m1 = mapping.map { case (k, loc) => (n + k, loc) }
+        val m1 = mapping.map { case (key, loc) => (key.shift(n), loc) }
         // And create mappings for the `n` new stack items
-        val m2 = (1 to n).view.map { rel =>
-          val abs = this.depth + n - rel
-          (rel, target.SELocAbsoluteS(abs))
+        val m2 = (1 to n).view.map { i =>
+          val rel = Rel(i)
+          val abs = Abs(this.sourceDepth + (n - i))
+          val key = Key(rel, abs)
+          val targetLoc = target.SELocAbsoluteS(this.targetDepth + n - i)
+          (key, targetLoc)
         }
-        Env(this.depth + n, m1 ++ m2)
+        val res = Env(this.sourceDepth + n, m1 ++ m2, this.targetDepth + n)
+        //if (n >= 1) println(s"shift($n): ${this.pp} --> ${res.pp}")
+        res
+      }
+
+      def pp(fvs: List[Key]) = {
+        val mstr: String = fvs.map { case key => s"${key.pp} " }.mkString
+        "[" ++ mstr ++ "]"
+      }
+
+      def absBody(arity: Int, fvs: List[Key]): Env = {
+        val newRemapsF: Map[Key, target.SELoc] = fvs.view.zipWithIndex.map { case (key, i) =>
+          key.shift(arity) -> target.SELocF(i)
+        }.toMap
+        val newRemapsA = (1 to arity).view.map { case i =>
+          val abs = Abs(arity - i + sourceDepth)
+          Key(Rel(i), abs) -> target.SELocA(arity - i)
+        }
+        // The keys in newRemapsF and newRemapsA are disjoint
+        val m1 = newRemapsF ++ newRemapsA
+        val res = Env(this.sourceDepth + arity, m1, 0)
+        //println(s"absBody($arity,fvs=${pp(fvs)}) --> ${res.pp}")
+        res
       }
     }
 
     object Env {
       def apply(): Env = {
-        Env(0, Map.empty)
-      }
-      def absBody(arity: Int, fvs: List[Int]): Env = {
-        val newRemapsF: Map[Int, target.SELoc] = fvs.view.zipWithIndex.map { case (orig, i) =>
-          (orig + arity) -> target.SELocF(i)
-        }.toMap
-        val newRemapsA = (1 to arity).view.map { case i =>
-          i -> target.SELocA(arity - i)
-        }
-        // The keys in newRemapsF and newRemapsA are disjoint
-        val m1 = newRemapsF ++ newRemapsA
-        Env(0, m1)
+        val res = Env(0, Map.empty, 0)
+        //println(s"**empty --> ${res.pp}")
+        res
       }
     }
 
@@ -173,7 +238,12 @@ private[speedy] object ClosureConversion {
         // Going Down: match on expression form...
         case Down(exp, env) =>
           exp match {
-            case source.SEVar(i) => loop(Up(env.lookup(i)), conts)
+            case source.SEVar(r) =>
+              val rel = Rel(r)
+              val abs = Abs(env.sourceDepth - r)
+              val key = Key(rel, abs)
+              loop(Up(env.lookup(key)), conts)
+
             case source.SEVal(x) => loop(Up(target.SEVal(x)), conts)
             case source.SEBuiltin(x) => loop(Up(target.SEBuiltin(x)), conts)
             case source.SEValue(x) => loop(Up(target.SEValue(x)), conts)
@@ -182,9 +252,16 @@ private[speedy] object ClosureConversion {
               loop(Down(body, env), Cont.Location(loc) :: conts)
 
             case source.SEAbs(arity, body) =>
-              val fvsAsListInt = freeVars(body, arity).toList.sorted
-              val fvs = fvsAsListInt.map(i => env.lookup(i))
-              loop(Down(body, Env.absBody(arity, fvsAsListInt)), Cont.Abs(arity, fvs) :: conts)
+              val fvsAsListRel: List[Rel] = freeVars(body, arity).toList.sortBy(_.r)
+              val fvsAsListKey: List[Key] = fvsAsListRel.map { rel =>
+                val Rel(r) = rel
+                val abs = Abs(env.sourceDepth - r)
+                Key(rel, abs)
+              }
+              val fvs = fvsAsListKey.map { key =>
+                env.lookup(key)
+              }
+              loop(Down(body, env.absBody(arity, fvsAsListKey)), Cont.Abs(arity, fvs) :: conts)
 
             case source.SEApp(fun, args) =>
               loop(Down(fun, env), Cont.App1(env, args) :: conts)
@@ -316,12 +393,17 @@ private[speedy] object ClosureConversion {
     * The returned free variables are de bruijn indices
     * adjusted to the stack of the caller.
     */
-  private[this] def freeVars(expr: source.SExpr, initiallyBound: Int): Set[Int] = {
+  private[this] def freeVars(expr: source.SExpr, initiallyBound: Int): Set[Rel] = {
     // @tailrec // TODO: This implementation is not stack-safe. Issue #11830
-    def go(expr: source.SExpr, bound: Int, free: Set[Int]): Set[Int] =
+    def go(expr: source.SExpr, bound: Int, free: Set[Rel]): Set[Rel] =
       expr match {
         case source.SEVar(i) =>
-          if (i > bound) free + (i - bound) else free /* adjust to caller's environment */
+          if (i > bound) {
+            val rel = Rel(i - bound) /* adjust to caller's environment */
+            free + rel
+          } else {
+            free
+          }
         case _: source.SEVal => free
         case _: source.SEBuiltin => free
         case _: source.SEValue => free
