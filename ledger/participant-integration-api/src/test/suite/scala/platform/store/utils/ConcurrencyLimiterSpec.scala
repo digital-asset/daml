@@ -69,63 +69,6 @@ final class ConcurrencyLimiterSpec extends AsyncFlatSpec {
     )
   }
 
-  behavior of "ThreadPoolBasedConcurrencyLimiter"
-
-  it should "work with parallelism of 1" in {
-    ConcurrencyLimiterSpec.runTest(
-      createLimiter = _ => new ThreadPoolBasedConcurrencyLimiter(1),
-      waitTimeMillis = 1,
-      threads = 32,
-      items = 100,
-      parallelism = 1,
-      expectedParallelism = Some(1),
-    )
-  }
-
-  it should "work with parallelism of 4" in {
-    ConcurrencyLimiterSpec.runTest(
-      createLimiter = _ => new ThreadPoolBasedConcurrencyLimiter(4),
-      waitTimeMillis = 1,
-      threads = 32,
-      items = 100,
-      parallelism = 4,
-      expectedParallelism = Some(4),
-    )
-  }
-
-  it should "work with a parallelism higher than that of the execution context" in {
-    ConcurrencyLimiterSpec.runTest(
-      createLimiter = _ => new ThreadPoolBasedConcurrencyLimiter(8),
-      waitTimeMillis = 1,
-      threads = 4,
-      items = 100,
-      parallelism = 8,
-      expectedParallelism = Some(4),
-    )
-  }
-
-  it should "work with a parallelism higher than the number of work items" in {
-    ConcurrencyLimiterSpec.runTest(
-      createLimiter = _ => new ThreadPoolBasedConcurrencyLimiter(8),
-      waitTimeMillis = 100,
-      threads = 16,
-      items = 4,
-      parallelism = 8,
-      expectedParallelism = Some(4),
-    )
-  }
-
-  it should "work if the futures complete instantly" in {
-    ConcurrencyLimiterSpec.runTest(
-      createLimiter = _ => new ThreadPoolBasedConcurrencyLimiter(4),
-      waitTimeMillis = 0, // Test futures complete instantly
-      threads = 32,
-      items = 100000,
-      parallelism = 4,
-      expectedParallelism = None, // Futures complete too fast to reach target parallelism
-    )
-  }
-
   behavior of "NoConcurrencyLimiter"
 
   it should "not work" in {

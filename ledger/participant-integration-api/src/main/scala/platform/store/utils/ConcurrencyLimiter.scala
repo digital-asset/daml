@@ -3,10 +3,8 @@
 
 package com.daml.platform.store.utils
 
-import java.util.concurrent.Executors
 import scala.collection.mutable
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 trait ConcurrencyLimiter[T] {
   def execute(task: () => Future[T]): Future[T]
@@ -52,18 +50,5 @@ class QueueBasedConcurrencyLimiter[T](
         head.task().andThen { case result => head.promise.tryComplete(result) }(executionContext)
       )
     }
-  }
-}
-
-class ThreadPoolBasedConcurrencyLimiter[T](
-    parallelism: Int
-) extends ConcurrencyLimiter[T] {
-  assert(parallelism > 0)
-
-  private val limitingEc: ExecutionContext =
-    ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(parallelism))
-
-  override def execute(task: () => Future[T]): Future[T] = {
-    Future { Await.result(task(), Duration.Inf) }(limitingEc)
   }
 }
