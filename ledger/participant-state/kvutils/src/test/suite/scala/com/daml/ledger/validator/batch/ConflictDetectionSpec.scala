@@ -13,7 +13,6 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateKey,
   DamlStateValue,
 }
-import com.daml.lf.transaction.TransactionOuterClass
 import com.daml.lf.value.ValueOuterClass
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -263,16 +262,12 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
   }
 
   private val aTransactionLogEntry = {
-    val transaction = TransactionOuterClass.Transaction
-      .newBuilder()
-      .addRoots("foo")
-      .build()
-    val logEntryBuilder = DamlLogEntry.newBuilder
+    val builder = DamlLogEntry.newBuilder
       .setRecordTime(com.google.protobuf.Timestamp.getDefaultInstance)
-    logEntryBuilder.getTransactionEntryBuilder
+    builder.getTransactionEntryBuilder
       .setLedgerEffectiveTime(com.google.protobuf.Timestamp.getDefaultInstance)
-      .setRawTransaction(transaction.toByteString)
-    logEntryBuilder.build
+      .setRawTransaction(ByteString.copyFromUtf8("invalid transaction"))
+    builder.build
   }
 
 }
