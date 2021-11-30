@@ -509,6 +509,15 @@ object Config {
             config.copy(acsContractFetchingParallelism = acsContractFetchingParallelism)
           )
 
+        opt[Int]("acs-global-parallelism-limit")
+          .optional()
+          .text(
+            s"Maximum number of concurrent ACS queries to the index database. Default is ${IndexConfiguration.DefaultAcsGlobalParallelism}."
+          )
+          .action((acsContractFetchingParallelism, config) =>
+            config.copy(acsContractFetchingParallelism = acsContractFetchingParallelism)
+          )
+
         opt[Long]("max-state-value-cache-size")
           .optional()
           .text(

@@ -63,7 +63,7 @@ final class ConcurrencyLimiterSpec extends AsyncFlatSpec {
       createLimiter = ec => new QueueBasedConcurrencyLimiter(4, ec),
       waitTimeMillis = 0, // Test futures complete instantly
       threads = 32,
-      items = 100000,
+      items = 10000,
       parallelism = 4,
       expectedParallelism = None, // Futures complete too fast to reach target parallelism
     )
