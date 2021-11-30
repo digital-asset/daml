@@ -26,7 +26,19 @@ jobs:
       LIB_STATUS="$(curl -Is "$URL_BASE/$LIB" | head -1 | awk '{print $2}')"
       PARSER_STATUS="$(curl -Is "$URL_BASE/$PARSER" | head -1 | awk '{print $2}')"
       if [ "200" = "$LIB_STATUS" ] && [ "200" = "$PARSER_STATUS" ]; then
+          curl -s "$URL_BASE/$LIB" --output lib.tar.gz
+          curl -s "$URL_BASE/$PARSER" --output parser.tar.gz
+
           echo "Both artifacts exist; no need to run."
+          echo "Check the following lines of bazel-haskell-deps.bzl:"
+          echo "GHC_LIB_REV = \"$CACHE_KEY\""
+          echo "GHC_LIB_SHA256 = \"$(sha256sum lib.tar.gz | awk '{print $1}')\""
+          echo "GHC_LIB_VERSION = \"8.8.1\""
+          echo "GHC_LIB_PARSER_REV = \"$CACHE_KEY\""
+          echo "GHC_LIB_PARSER_SHA256 = \"$(sha256sum parser.tar.gz | awk '{print $1}')\""
+          echo "GHC_LIB_PARSER_VERSION = \"8.8.1\""
+
+          rm -f lib.tar.gz parser.tar.gz
           exit 0
       fi
 
