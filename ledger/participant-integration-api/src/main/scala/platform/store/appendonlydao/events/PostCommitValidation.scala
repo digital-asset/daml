@@ -351,9 +351,9 @@ private[appendonlydao] object PostCommitValidation {
     }
 
     final case class CausalMonotonicityViolation(
-        contractLedgerEffectiveTime: Timestamp,
-        transactionLedgerEffectiveTime: Timestamp,
-    ) extends Rejection {
+                                                  contractLedgerEffectiveTime: Timestamp,
+                                                  transactionLedgerEffectiveTime: Timestamp,
+                                                ) extends Rejection {
       override lazy val description: String =
         s"Encountered contract with LET [$contractLedgerEffectiveTime] greater than the LET of the transaction [$transactionLedgerEffectiveTime]"
 

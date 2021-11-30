@@ -3,9 +3,6 @@
 
 package com.daml.ledger.sandbox
 
-import java.util.UUID
-import java.util.concurrent.{CompletableFuture, CompletionStage}
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
@@ -18,36 +15,220 @@ import com.daml.ledger.configuration.{
   LedgerTimeModel,
 }
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.{
-  PruningResult,
-  ReadService,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  Update,
-  WriteService,
-}
+import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
+import com.daml.ledger.participant.state.v2._
+import com.daml.ledger.sandbox.ReadWriteServiceBridge.Submission._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
-import com.daml.lf.transaction.{CommittedTransaction, SubmittedTransaction}
+import com.daml.lf.engine.Blinding
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, GlobalKey, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.execution.MissingContracts
+import com.daml.platform.store.appendonlydao.events._
 import com.daml.telemetry.TelemetryContext
 import com.google.common.primitives.Longs
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
+
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.{CompletableFuture, CompletionStage}
+import scala.collection.Searching
+import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.util.{Failure, Success, Try}
 
 case class ReadWriteServiceBridge(
     participantId: Ref.ParticipantId,
     ledgerId: LedgerId,
     maxDedupSeconds: Int,
     submissionBufferSize: Int,
+    contractStore: ContractStore,
+    cacheIndex: () => Offset,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends ReadService
     with WriteService
     with AutoCloseable {
+  private val offsetIdx = new AtomicLong(0L)
+
   import ReadWriteServiceBridge._
+  private implicit val ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
 
   private[this] val logger = ContextualizedLogger.get(getClass)
+
+  private val (conflictCheckingQueue, source) = Source
+    .queue[Submission.Transaction](128)
+    .mapAsyncUnordered(64) { tx =>
+      val enqueuedAt = cacheIndex()
+      parallelConflictCheck(tx).map(enqueuedAt -> _)
+    }
+    .statefulMapConcat(sequence)
+    .preMaterialize()
+
+  private def conflictCheckSlice(
+      delta: Vector[(Offset, Submission.Transaction)],
+      transaction: Submission.Transaction,
+  ): Either[SoxRejection, Submission.Transaction] = {
+    val (cKeys, _, archives) = collectDelta(delta)
+    transaction.transaction
+      .fold[Either[SoxRejection, Unit]](Right(())) {
+        case (Right(_), (_, c: Create)) =>
+          c.key
+            .map(convert(c.templateId, _))
+            .map { key =>
+              if (cKeys.get(key).flatten.nonEmpty) Left(DuplicateKey(key)(transaction)) else Right()
+            }
+            .getOrElse(Right(()))
+        case (Right(_), (_, exercise: Exercise)) =>
+          if (archives(exercise.targetCoid))
+            Left(UnknownContracts(Set(exercise.targetCoid))(transaction))
+          else Right(())
+        case (Right(_), (_, lookupByKey: LookupByKey)) =>
+          cKeys.get(convert(lookupByKey.templateId, lookupByKey.key)) match {
+            case Some(result) =>
+              if (result == lookupByKey.result) Right(())
+              else Left(InconsistentContracts(lookupByKey.result, result)(transaction))
+            case None => Right(())
+          }
+        case (Right(_), (_, fetch: Fetch)) =>
+          if (archives(fetch.coid)) Left(UnknownContracts(Set(fetch.coid))(transaction))
+          else Right(())
+        case (left @ Left(_), _) => left
+      }
+      .map(_ => transaction)
+  }
+
+  private def sequence: () => ((Offset, Either[SoxRejection, Transaction])) => Iterable[
+    (Offset, Update)
+  ] = () => {
+    var sequencerQueue = Vector.empty[(Offset, Submission.Transaction)]
+    val newIndex = offsetIdx.getAndIncrement()
+    val newOffset = toOffset(newIndex)
+
+    {
+      case (_, Left(rejection)) => Iterable(newOffset -> toRejection(rejection))
+      case (enqueuedAt, Right(transaction)) =>
+        checkSequential(enqueuedAt, transaction, sequencerQueue) match {
+          case Left(rejection) =>
+            Iterable(
+              newOffset -> toRejection(rejection)
+            )
+          case Right(acceptedTx) =>
+            sequencerQueue = sequencerQueue :+ (newOffset -> transaction)
+            Iterable(newOffset -> successMapper(acceptedTx, newIndex, participantId))
+        }
+    }
+  }
+
+  private def toRejection(rejection: SoxRejection) = {
+    Update.CommandRejected(
+      recordTime = Timestamp.now(),
+      completionInfo = rejection.originalTx.submitterInfo.toCompletionInfo,
+      reasonTemplate = FinalReason({
+        Status.of(Code.INVALID_ARGUMENT.value, rejection.toString, Seq.empty)
+      }),
+    )
+  }
+
+  private def checkSequential(
+      noConflictUpTo: Offset,
+      transaction: Submission.Transaction,
+      sequencerQueue: Vector[(Offset, Submission.Transaction)],
+  ): Either[SoxRejection, Submission.Transaction] = {
+    val idx = sequencerQueue.view.map(_._1).search(noConflictUpTo) match {
+      case Searching.Found(foundIndex) => foundIndex + 1
+      case Searching.InsertionPoint(insertionPoint) => insertionPoint
+    }
+
+    if (sequencerQueue.size > idx) {
+      conflictCheckSlice(sequencerQueue.slice(idx, sequencerQueue.length), transaction)
+    } else Right(transaction)
+  }
+
+  private def parallelConflictCheck(
+      transaction: Submission.Transaction
+  ): Future[Either[SoxRejection, Submission.Transaction]] =
+    validateCausalMonotonicity(
+      transaction,
+      transaction.transactionMeta.ledgerEffectiveTime,
+      transaction.blindingInfo.divulgence.keySet,
+    ).flatMap {
+      case Right(_) => validateKeyUsages(transaction)
+      case rejection => Future.successful(rejection)
+    }.flatMap {
+      case Right(_) => validateParties(transaction.transaction)
+      case rejection => Future.successful(rejection)
+    }.map(_.map(_ => transaction))
+
+  private def validateParties(
+      transaction: SubmittedTransaction
+  ): Future[Either[SoxRejection, Unit]] = {
+    val _ = transaction
+    // TODO implement
+    Future.successful(Right(()))
+  }
+
+  private def collectDelta(
+      delta: Vector[(Offset, Submission.Transaction)]
+  ): (Map[Key, Option[ContractId]], Set[ContractId], Set[ContractId]) = {
+    delta.view
+      .map(_._2)
+      .foldLeft(
+        (Map.empty[GlobalKey, Option[ContractId]], Set.empty[ContractId], Set.empty[ContractId])
+      ) { case (map, tx) =>
+        tx.transaction.fold(map) {
+          case (s @ (cKeys, creates, archives), (_, c: Create)) =>
+            c.key.fold(s) { k =>
+              (
+                cKeys.updated(convert(c.templateId, k), Some(c.coid)),
+                creates.incl(c.coid),
+                archives,
+              )
+            }
+
+          case (s @ (cKeys, creates, archives), (_, consume: Exercise)) if consume.consuming =>
+            consume.key.fold(s)(key =>
+              (
+                cKeys.updated(convert(consume.templateId, key), None),
+                creates,
+                archives.incl(consume.targetCoid),
+              )
+            )
+          case (s, _) => s
+        }
+      }
+  }
+
+  private def validateCausalMonotonicity(
+      transaction: Transaction,
+      transactionLedgerEffectiveTime: Timestamp,
+      divulged: Set[ContractId],
+  ): Future[Either[SoxRejection, Unit]] = {
+    val referredContracts = transaction.transaction.inputContracts.diff(divulged)
+    if (referredContracts.isEmpty) {
+      Future.successful(Right(()))
+    } else
+      contractStore.lookupMaximumLedgerTime(referredContracts).transform {
+        case Failure(MissingContracts(missingContractIds)) =>
+          Success(Left(UnknownContracts(missingContractIds.map(_.coid))(transaction)))
+        case Failure(err) => Success(Left(GenericRejectionFailure(err.getMessage)(transaction)))
+        case Success(maximumLedgerEffectiveTime) =>
+          maximumLedgerEffectiveTime
+            .filter(_ > transactionLedgerEffectiveTime)
+            .fold[Try[Either[SoxRejection, Unit]]](Success(Right(())))(
+              contractLedgerEffectiveTime => {
+                Success(
+                  Left(
+                    CausalMonotonicityViolation(
+                      contractLedgerEffectiveTime = contractLedgerEffectiveTime,
+                      transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
+                    )(transaction)
+                  )
+                )
+              }
+            )
+      }
+  }
 
   override def isApiDeduplicationEnabled: Boolean = true
 
@@ -60,12 +241,15 @@ case class ReadWriteServiceBridge(
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult] =
-    submit(
-      Submission.Transaction(
-        submitterInfo = submitterInfo,
-        transactionMeta = transactionMeta,
-        transaction = transaction,
-        estimatedInterpretationCost = estimatedInterpretationCost,
+    toSubmissionResult(
+      conflictCheckingQueue.offer(
+        Submission.Transaction(
+          submitterInfo = submitterInfo,
+          transactionMeta = transactionMeta,
+          transaction = transaction,
+          estimatedInterpretationCost = estimatedInterpretationCost,
+          blindingInfo = Blinding.blind(transaction),
+        )
       )
     )
 
@@ -160,15 +344,17 @@ case class ReadWriteServiceBridge(
         s"Indexer subscribed from a specific offset $offset. This offset is not taking into consideration, and does not change the behavior of the ReadWriteServiceBridge. Only valid use case supported: service starting from an already ingested database, and indexer subscribes from exactly the ledger-end."
       )
     )
-    queueSource
+
+    queueSource.merge(source)
   }
 
   val (queue: BoundedSourceQueue[Submission], queueSource: Source[(Offset, Update), NotUsed]) =
     Source
       .queue[Submission](submissionBufferSize)
-      .zipWithIndex
-      .map { case (submission, index) =>
-        (toOffset(index), successMapper(submission, index, participantId))
+      .map { submission =>
+        val newOffsetIdx = offsetIdx.getAndIncrement()
+        val newOffset = toOffset(newOffsetIdx)
+        (newOffset, successMapper(submission, newOffsetIdx, participantId))
       }
       .preMaterialize()
 
@@ -179,6 +365,54 @@ case class ReadWriteServiceBridge(
   private def submit(submission: Submission): CompletionStage[SubmissionResult] =
     toSubmissionResult(queue.offer(submission))
 
+  private def validateKeyUsages(
+      transaction: Transaction
+  ) = {
+    val readers = transaction.transaction.informees // Is it informees??
+    transaction.transaction
+      .foldInExecutionOrder[Future[Either[SoxRejection, Unit]]](Future.successful(Right(())))(
+        exerciseBegin = (acc, _, exe) => {
+          acc.flatMap(_ => validateKeyUsages(transaction, readers, exe)) -> true
+        },
+        exerciseEnd = (acc, _, _) => acc,
+        rollbackBegin = (acc, _, _) => acc -> false, // Do we care about rollback nodes?
+        rollbackEnd = (acc, _, _) => acc,
+        leaf = (acc, _, leaf) => acc.flatMap(_ => validateKeyUsages(transaction, readers, leaf)),
+      )
+  }
+
+  private def validateKeyUsages(
+      transaction: Transaction,
+      readers: Set[Ref.Party],
+      node: Node,
+  ): Future[Either[SoxRejection, Unit]] =
+    node match {
+      case c: Create =>
+        val maybeKey = c.key.map(convert(c.templateId, _))
+        maybeKey.fold[Future[Either[SoxRejection, Unit]]](Future.successful(Right(()))) { key =>
+          contractStore
+            .lookupContractKey(readers, key)
+            .map(
+              _.fold[Either[SoxRejection, Unit]](Right(()))(_ =>
+                Left(DuplicateKey(key)(transaction))
+              )
+            )
+        }
+      case l: LookupByKey =>
+        val key = convert(l.templateId, l.key)
+        contractStore.lookupContractKey(readers, key).map { result =>
+          Either.cond(result == l.result, (), InconsistentContracts(l.result, result)(transaction))
+        }
+      case _ =>
+        // fetch and non-consuming exercise nodes don't need to validate
+        // anything with regards to contract keys and do not alter the
+        // state in a way which is relevant for the validation of
+        // subsequent nodes
+        //
+        // `causalMonotonicity` already reports unknown contracts, no need to check it here
+        Future.successful(Right(()))
+    }
+
   override def close(): Unit = {
     logger.info("Shutting down BridgeLedgerFactory.")
     queue.complete()
@@ -188,11 +422,32 @@ case class ReadWriteServiceBridge(
 object ReadWriteServiceBridge {
   trait Submission
   object Submission {
+    sealed trait SoxRejection extends Submission {
+      val originalTx: Submission.Transaction
+    }
+    final case class DuplicateKey(key: GlobalKey)(override val originalTx: Transaction)
+        extends SoxRejection
+    final case class InconsistentContracts(
+        expectation: Option[ContractId],
+        result: Option[ContractId],
+    )(override val originalTx: Transaction)
+        extends SoxRejection
+    final case class GenericRejectionFailure(details: String)(override val originalTx: Transaction)
+        extends SoxRejection
+    final case class CausalMonotonicityViolation(
+        contractLedgerEffectiveTime: Timestamp,
+        transactionLedgerEffectiveTime: Timestamp,
+    )(override val originalTx: Transaction)
+        extends SoxRejection
+    final case class UnknownContracts(ids: Set[ContractId])(override val originalTx: Transaction)
+        extends SoxRejection
+
     case class Transaction(
         submitterInfo: SubmitterInfo,
         transactionMeta: TransactionMeta,
         transaction: SubmittedTransaction,
         estimatedInterpretationCost: Long,
+        blindingInfo: BlindingInfo,
     ) extends Submission
     case class Config(
         maxRecordTime: Time.Timestamp,
@@ -210,6 +465,8 @@ object ReadWriteServiceBridge {
         archives: List[Archive],
         sourceDescription: Option[String],
     ) extends Submission
+
+    case class Rejection(rejection: SoxRejection) extends Submission
   }
 
   private[this] val logger = ContextualizedLogger.get(getClass)
