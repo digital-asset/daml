@@ -269,6 +269,7 @@ client_server_build(
         "localhost:%PORT%",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=HealthServiceIT",  # Does not make sense to run it for the export
+        "--additional=KVCommandDeduplicationIT",
     ],
     output_env = "KVUTILS_LEDGER_EXPORT",
     server = "//ledger/ledger-on-memory:app",
