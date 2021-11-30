@@ -55,24 +55,21 @@ class KeyValueParticipantState(
 )(implicit mat: Materializer, ec: ExecutionContext)
     extends ReadService
     with WriteService {
-  private val errorFactories = ErrorFactories(
-    enableSelfServiceErrorCodes
-  )
+
+  private val errorFactories = ErrorFactories(enableSelfServiceErrorCodes)
   private val readerAdapter =
     KeyValueParticipantStateReader(reader, metrics, enableSelfServiceErrorCodes)
-  private val writerAdapter = {
-    new WriteServiceWithDeduplicationSupport(
-      new KeyValueParticipantStateWriter(
-        new TimedLedgerWriter(writer, metrics),
-        metrics,
-      ),
-      new DeduplicationPeriodSupport(
-        deduplicationPeriodConverter,
-        new DeduplicationPeriodValidator(errorFactories),
-        errorFactories,
-      ),
-    )
-  }
+  private val writerAdapter = new WriteServiceWithDeduplicationSupport(
+    new KeyValueParticipantStateWriter(
+      new TimedLedgerWriter(writer, metrics),
+      metrics,
+    ),
+    new DeduplicationPeriodSupport(
+      deduplicationPeriodConverter,
+      new DeduplicationPeriodValidator(errorFactories),
+      errorFactories,
+    ),
+  )
 
   override def isApiDeduplicationEnabled: Boolean = writerAdapter.isApiDeduplicationEnabled
 
