@@ -69,6 +69,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "BigNumeric" -> BTBigNumeric,
         "RoundingMode" -> BTRoundingMode,
         "AnyException" -> BTAnyException,
+        "TypeRep" -> BTTypeRep,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltinType) =>
