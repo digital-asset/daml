@@ -77,6 +77,8 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       loggingContext: LoggingContext
   ): Future[Option[ContractId]]
 
+  def cacheOffset(): Offset = throw new NotImplementedError("not implemented")
+
   def lookupFlatTransactionById(
       transactionId: Ref.TransactionId,
       requestingParties: Set[Ref.Party],

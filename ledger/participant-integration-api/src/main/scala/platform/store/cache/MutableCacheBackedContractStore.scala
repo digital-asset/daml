@@ -54,6 +54,8 @@ private[platform] class MutableCacheBackedContractStore(
     updateOffsets(event)
   }
 
+  override def cacheOffset(): Offset = cacheIndex.get._1
+
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Contract]] =

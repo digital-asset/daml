@@ -4,19 +4,23 @@
 package com.daml.ledger.sandbox
 
 import akka.stream.Materializer
+import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, ParticipantConfig}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import scopt.OptionParser
 
+import java.util.concurrent.atomic.AtomicReference
+
 case class BridgeConfig(maxDedupSeconds: Int, submissionBufferSize: Int)
 
 object BridgeLedgerFactory extends LedgerFactory[ReadWriteServiceBridge, BridgeConfig] {
   override final def readWriteServiceOwner(
-      config: Config[BridgeConfig],
-      participantConfig: ParticipantConfig,
-      engine: Engine,
+                                            config: Config[BridgeConfig],
+                                            participantConfig: ParticipantConfig,
+                                            engine: Engine,
+                                            contractStore: AtomicReference[Option[ContractStore]],
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -27,6 +31,7 @@ object BridgeLedgerFactory extends LedgerFactory[ReadWriteServiceBridge, BridgeC
         ledgerId = config.ledgerId,
         maxDedupSeconds = config.extra.maxDedupSeconds,
         submissionBufferSize = config.extra.submissionBufferSize,
+        contractStore = contractStore,
       )
     )
 

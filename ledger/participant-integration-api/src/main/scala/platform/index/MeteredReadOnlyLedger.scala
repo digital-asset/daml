@@ -87,6 +87,8 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   ): Future[Option[ContractId]] =
     Timed.future(metrics.daml.index.lookupKey, ledger.lookupKey(key, forParties))
 
+  override def cacheOffset(): Offset = ledger.cacheOffset()
+
   override def lookupFlatTransactionById(
       transactionId: Ref.TransactionId,
       requestingParties: Set[Ref.Party],

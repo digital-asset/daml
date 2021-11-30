@@ -22,6 +22,7 @@ import com.daml.ledger.sandbox.ReadWriteServiceBridge.Submission._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
+import com.daml.lf.transaction.Node.Rollback
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, GlobalKey, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.execution.MissingContracts
@@ -32,7 +33,7 @@ import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.collection.Searching
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -43,8 +44,7 @@ case class ReadWriteServiceBridge(
     ledgerId: LedgerId,
     maxDedupSeconds: Int,
     submissionBufferSize: Int,
-    contractStore: ContractStore,
-    cacheIndex: () => Offset,
+    contractStore: AtomicReference[Option[ContractStore]],
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends ReadService
     with WriteService
@@ -59,7 +59,10 @@ case class ReadWriteServiceBridge(
   private val (conflictCheckingQueue, source) = Source
     .queue[Submission.Transaction](128)
     .mapAsyncUnordered(64) { tx =>
-      val enqueuedAt = cacheIndex()
+      val enqueuedAt = contractStore
+        .get()
+        .getOrElse(throw new RuntimeException("ContractStore not there yet"))
+        .cacheOffset()
       parallelConflictCheck(tx).map(enqueuedAt -> _)
     }
     .statefulMapConcat(sequence)
@@ -76,7 +79,8 @@ case class ReadWriteServiceBridge(
           c.key
             .map(convert(c.templateId, _))
             .map { key =>
-              if (cKeys.get(key).flatten.nonEmpty) Left(DuplicateKey(key)(transaction)) else Right()
+              if (cKeys.get(key).flatten.nonEmpty) Left(DuplicateKey(key)(transaction))
+              else Right(())
             }
             .getOrElse(Right(()))
         case (Right(_), (_, exercise: Exercise)) =>
@@ -93,6 +97,7 @@ case class ReadWriteServiceBridge(
         case (Right(_), (_, fetch: Fetch)) =>
           if (archives(fetch.coid)) Left(UnknownContracts(Set(fetch.coid))(transaction))
           else Right(())
+        case (Right(_), (_, Rollback(_))) => Right(())
         case (left @ Left(_), _) => left
       }
       .map(_ => transaction)
@@ -208,26 +213,30 @@ case class ReadWriteServiceBridge(
     if (referredContracts.isEmpty) {
       Future.successful(Right(()))
     } else
-      contractStore.lookupMaximumLedgerTime(referredContracts).transform {
-        case Failure(MissingContracts(missingContractIds)) =>
-          Success(Left(UnknownContracts(missingContractIds.map(_.coid))(transaction)))
-        case Failure(err) => Success(Left(GenericRejectionFailure(err.getMessage)(transaction)))
-        case Success(maximumLedgerEffectiveTime) =>
-          maximumLedgerEffectiveTime
-            .filter(_ > transactionLedgerEffectiveTime)
-            .fold[Try[Either[SoxRejection, Unit]]](Success(Right(())))(
-              contractLedgerEffectiveTime => {
-                Success(
-                  Left(
-                    CausalMonotonicityViolation(
-                      contractLedgerEffectiveTime = contractLedgerEffectiveTime,
-                      transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
-                    )(transaction)
+      contractStore
+        .get()
+        .getOrElse(throw new RuntimeException("ContractStore not there yet"))
+        .lookupMaximumLedgerTime(referredContracts)
+        .transform {
+          case Failure(MissingContracts(missingContractIds)) =>
+            Success(Left(UnknownContracts(missingContractIds)(transaction)))
+          case Failure(err) => Success(Left(GenericRejectionFailure(err.getMessage)(transaction)))
+          case Success(maximumLedgerEffectiveTime) =>
+            maximumLedgerEffectiveTime
+              .filter(_ > transactionLedgerEffectiveTime)
+              .fold[Try[Either[SoxRejection, Unit]]](Success(Right(())))(
+                contractLedgerEffectiveTime => {
+                  Success(
+                    Left(
+                      CausalMonotonicityViolation(
+                        contractLedgerEffectiveTime = contractLedgerEffectiveTime,
+                        transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
+                      )(transaction)
+                    )
                   )
-                )
-              }
-            )
-      }
+                }
+              )
+        }
   }
 
   override def isApiDeduplicationEnabled: Boolean = true
@@ -367,7 +376,7 @@ case class ReadWriteServiceBridge(
 
   private def validateKeyUsages(
       transaction: Transaction
-  ) = {
+  ): Future[Either[SoxRejection, Unit]] = {
     val readers = transaction.transaction.informees // Is it informees??
     transaction.transaction
       .foldInExecutionOrder[Future[Either[SoxRejection, Unit]]](Future.successful(Right(())))(
@@ -391,6 +400,8 @@ case class ReadWriteServiceBridge(
         val maybeKey = c.key.map(convert(c.templateId, _))
         maybeKey.fold[Future[Either[SoxRejection, Unit]]](Future.successful(Right(()))) { key =>
           contractStore
+            .get()
+            .getOrElse(throw new RuntimeException("ContractStore not there yet"))
             .lookupContractKey(readers, key)
             .map(
               _.fold[Either[SoxRejection, Unit]](Right(()))(_ =>
@@ -400,9 +411,17 @@ case class ReadWriteServiceBridge(
         }
       case l: LookupByKey =>
         val key = convert(l.templateId, l.key)
-        contractStore.lookupContractKey(readers, key).map { result =>
-          Either.cond(result == l.result, (), InconsistentContracts(l.result, result)(transaction))
-        }
+        contractStore
+          .get()
+          .getOrElse(throw new RuntimeException("ContractStore not there yet"))
+          .lookupContractKey(readers, key)
+          .map { result =>
+            Either.cond(
+              result == l.result,
+              (),
+              InconsistentContracts(l.result, result)(transaction),
+            )
+          }
       case _ =>
         // fetch and non-consuming exercise nodes don't need to validate
         // anything with regards to contract keys and do not alter the

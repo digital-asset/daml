@@ -202,4 +202,6 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
+
+  override def cacheOffset(): Offset = delegate.cacheOffset()
 }

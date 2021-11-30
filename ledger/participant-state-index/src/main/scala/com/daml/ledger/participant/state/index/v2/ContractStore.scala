@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.index.v2
 
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
@@ -33,4 +34,6 @@ trait ContractStore {
   def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
   ): Future[Option[Timestamp]]
+
+  def cacheOffset(): Offset = throw new NotImplementedError("not implemented")
 }
