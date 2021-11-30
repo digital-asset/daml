@@ -39,10 +39,12 @@ abstract class DbTriggerDao protected (
   protected implicit def uuidPut: Put[UUID]
   protected implicit def uuidGet: Get[UUID]
 
-  implicit val readAsPut: Put[Set[Party]] =
-    implicitly[Put[String]].contramap { (readAs: Set[Party]) =>
-      readAs.map(Tag.unwrap).mkString(",")
-    }
+  implicit val readAsPut: Put[Set[Party]] = {
+    type F[A] = Put[Set[A]]
+    Party.subst[F, String](implicitly[Put[String]].contramap {
+      _.mkString(",")
+    })
+  }
 
   implicit val readAsGet: Get[Set[Party]] = implicitly[Get[String]].map {
     _.split(",").map(_.trim).toSet.filter(_.nonEmpty).map(Party.apply)
