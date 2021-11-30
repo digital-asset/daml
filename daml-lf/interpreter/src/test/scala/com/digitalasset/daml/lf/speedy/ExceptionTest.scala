@@ -12,7 +12,8 @@ import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SError.SErrorDamlException
-import com.daml.lf.speedy.SValue.SUnit
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SValue.{SUnit, SParty}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.Validation
@@ -23,6 +24,11 @@ import org.scalatest.wordspec.AnyWordSpec
 
 // TEST_EVIDENCE: Semantics: Exceptions, throw/catch.
 class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+
+  private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
+    val se = pkgs.compiler.unsafeCompile(e)
+    SEApp(se, Array(SEValue(SParty(p))))
+  }
 
   "unhandled throw" should {
 
@@ -464,12 +470,14 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   "rollback of creates" should {
 
     val party = Party.assertFromString("Alice")
-    val example: Expr = EApp(e"M:causeRollback", EPrimLit(PLParty(party)))
+    val example: Expr = e"M:causeRollback"
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
     "works as expected for a contract version POST-dating exceptions" in {
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_dev)
-      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, example, party).run()
+      val res = Speedy.Machine
+        .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), party)
+        .run()
       res shouldBe SResultFinalValue(SUnit)
     }
 
@@ -482,7 +490,9 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
         IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
 
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11)
-      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, example, party).run()
+      val res = Speedy.Machine
+        .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), party)
+        .run()
       res shouldBe SResultError(SErrorDamlException(anException))
     }
 
@@ -683,22 +693,23 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
-    val causeRollback: Expr = EApp(e"NewM:causeRollback", EPrimLit(PLParty(party)))
-    val causeUncatchable: Expr = EApp(e"NewM:causeUncatchable", EPrimLit(PLParty(party)))
-    val causeUncatchable2: Expr = EApp(e"NewM:causeUncatchable2", EPrimLit(PLParty(party)))
+    val causeRollback: SExpr = applyToParty(pkgs, e"NewM:causeRollback", party)
+    val causeUncatchable: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable", party)
+    val causeUncatchable2: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable2", party)
 
     "create rollback when old contacts are not within try-catch context" in {
-      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeRollback, party).run()
+      val res = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, party).run()
       res shouldBe SResultFinalValue(SUnit)
     }
 
     "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
-      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeUncatchable, party).run()
+      val res = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, party).run()
       res shouldBe SResultError(SErrorDamlException(anException))
     }
 
     "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
-      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeUncatchable2, party).run()
+      val res =
+        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, party).run()
       res shouldBe SResultError(SErrorDamlException(anException))
     }
 

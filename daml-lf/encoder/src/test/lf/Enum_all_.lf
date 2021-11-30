@@ -15,7 +15,10 @@ module EnumMod {
   };
 
   val createColoredContract: EnumMod:Color -> Scenario (ContractId EnumMod:Box) = \ (color: EnumMod:Color) ->
-    commit @(ContractId EnumMod:Box) 'Bob' (create @EnumMod:Box (EnumMod:Box { x = color, party = 'Bob' }));
+    sbind
+      bob : Party <- sget_party "Bob"
+    in
+      commit @(ContractId EnumMod:Box) bob (create @EnumMod:Box (EnumMod:Box { x = color, party = bob }));
 
   enum Nothing = ;
 

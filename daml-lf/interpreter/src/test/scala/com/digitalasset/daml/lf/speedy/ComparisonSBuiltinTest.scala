@@ -114,7 +114,9 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
             e"1970-01-01T00:00:00.000000Z",
             e"2020-02-02T20:20:02.020000Z",
           ),
-          t"Party" -> List(e"'alice'", e"'bob'", e"'carol'"),
+          // Parties cannot be built from expressions.
+          // We map at runtime the `party1`, `party2` and, `party3` two 3 party IDS in increasing order.
+          t"Party" -> List(e"party1", e"party2", e"party3"),
           t"Mod:Color" -> List(e"Mod:Color:Red", e"Mod:Color:Green", e"Mod:Color:Blue"),
           t"Mod:MyUnit" -> List(e"Mod:MyUnit {}"),
           // Contract IDs cannot be built from expressions.
@@ -619,37 +621,69 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
   private[this] val compiledPackages =
     PureCompiledPackages.assertBuild(Map(pkgId1 -> pkg1, pkgId2 -> pkg2))
 
-  private[this] val binderType = {
+  private[this] val cidBinderType = {
     implicit def parserParameters: ParserParameters[this.type] = parserParameters1
     t"ContractId Mod:Template"
   }
 
-  private[this] val binder1 = Ref.Name.assertFromString("cid1") -> binderType
-  private[this] val binder2 = Ref.Name.assertFromString("cid2") -> binderType
-  private[this] val binder3 = Ref.Name.assertFromString("cid3") -> binderType
+  private[this] val partyBinderType = {
+    implicit def parserParameters: ParserParameters[this.type] = parserParameters1
+    t"Party"
+  }
+
+  private[this] val cidBinder1 = Ref.Name.assertFromString("cid1") -> cidBinderType
+  private[this] val cidBinder2 = Ref.Name.assertFromString("cid2") -> cidBinderType
+  private[this] val cidBinder3 = Ref.Name.assertFromString("cid3") -> cidBinderType
+
+  private[this] val partyBinder1 = Ref.Name.assertFromString("party1") -> partyBinderType
+  private[this] val partyBinder2 = Ref.Name.assertFromString("party2") -> partyBinderType
+  private[this] val partyBinder3 = Ref.Name.assertFromString("party3") -> partyBinderType
 
   private[this] val contractIds =
-    Array(
+    Seq(
       ContractId.V1.assertFromString("00" * 32 + "0000"),
       ContractId.V1.assertFromString("00" * 32 + "0001"),
       ContractId.V1.assertFromString("00" + "ff" * 32),
     ).map(cid => SEValue(SValue.SContractId(cid)): SExpr)
 
+  private[this] val parties =
+    Seq(
+      Ref.Party.assertFromString("alice"),
+      Ref.Party.assertFromString("bob"),
+      Ref.Party.assertFromString("carol"),
+    ).map(p => SEValue(SValue.SParty(p)): SExpr)
+
   private[this] def eval(bi: Ast.BuiltinFunction, t: Ast.Type, x: Ast.Expr, y: Ast.Expr) = {
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     val sexpr = compiledPackages.compiler.unsafeCompile(
       Ast.EAbs(
-        binder1,
+        partyBinder1,
         Ast.EAbs(
-          binder2,
-          Ast.EAbs(binder3, Ast.EApp(Ast.EApp(Ast.ETyApp(Ast.EBuiltin(bi), t), x), y), None),
+          partyBinder2,
+          Ast.EAbs(
+            partyBinder3,
+            Ast.EAbs(
+              cidBinder1,
+              Ast.EAbs(
+                cidBinder2,
+                Ast.EAbs(
+                  cidBinder3,
+                  Ast.EApp(Ast.EApp(Ast.ETyApp(Ast.EBuiltin(bi), t), x), y),
+                  None,
+                ),
+                None,
+              ),
+              None,
+            ),
+            None,
+          ),
           None,
         ),
         None,
       )
     )
     val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(sexpr, contractIds))
+      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(sexpr, (parties ++ contractIds).toArray))
     try {
       machine.run() match {
         case SResult.SResultFinalValue(v) => Right(v)

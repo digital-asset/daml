@@ -731,8 +731,10 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
     "EQUAL @ContractId" - {
       "works as expected" in {
-        eval(e"EQUAL @(ContractId Mod:T) 'contract1' 'contract1'") shouldBe Right(SBool(true))
-        eval(e"EQUAL @(ContractId Mod:T) 'contract1' 'contract2'") shouldBe Right(SBool(false))
+        val cid1 = SContractId(Value.ContractId.assertFromString("#contract1"))
+        val cid2 = SContractId(Value.ContractId.assertFromString("#contract2"))
+        evalApp(e"EQUAL @(ContractId Mod:T)", Array(cid1, cid1)) shouldBe Right(SBool(true))
+        evalApp(e"EQUAL @(ContractId Mod:T)", Array(cid1, cid2)) shouldBe Right(SBool(false))
       }
     }
 
@@ -1213,11 +1215,17 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
     "Text Operations" - {
       "PARTY_TO_QUOTED_TEXT single quotes" in {
-        eval(e"PARTY_TO_QUOTED_TEXT 'alice'") shouldBe Right(SText("'alice'"))
+        evalApp(
+          e"PARTY_TO_QUOTED_TEXT",
+          Array(SParty(Ref.Party.assertFromString("alice"))),
+        ) shouldBe Right(SText("'alice'"))
       }
 
       "PARTY_TO_TEXT does not single quote" in {
-        eval(e"PARTY_TO_TEXT 'alice'") shouldBe Right(SText("alice"))
+        evalApp(
+          e"PARTY_TO_TEXT",
+          Array(SParty(Ref.Party.assertFromString("alice"))),
+        ) shouldBe Right(SText("alice"))
       }
 
       "TEXT_TO_PARTY" - {
@@ -1615,7 +1623,11 @@ object SBuiltinTest {
     evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)
   }
 
-  private def evalApp(e: Expr, args: Array[SValue], onLedger: Boolean): Either[SError, SValue] = {
+  private def evalApp(
+      e: Expr,
+      args: Array[SValue],
+      onLedger: Boolean = true,
+  ): Either[SError, SValue] = {
     evalSExpr(SEApp(compiledPackages.compiler.unsafeCompile(e), args.map(SEValue(_))), onLedger)
   }
 

@@ -1636,12 +1636,8 @@ message DefValue {
 
   Expr expr = 2;
 
-  // If true, the value must not contain any party literals and not reference
-  // values which contain party literals.
-  // This flag is used to simplify package validation by not requiring an
-  // inference but only a check. Such a check must validate that this flag is
-  // set correctly and that templates do not reference values which have this
-  // flag set to false.
+  // Always true for SDK > 1.18. Setting it to false
+  // will result in the package being rejected.
   bool no_party_literals = 3;
 
   bool is_test = 4;

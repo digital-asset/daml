@@ -175,7 +175,7 @@ private[validation] object TypeIterable {
         Iterator.empty
       case DDataType(serializable @ _, params @ _, DataInterface) =>
         Iterator.empty
-      case DValue(typ, noPartyLiterals @ _, body, isTest @ _) =>
+      case DValue(typ, body, isTest @ _) =>
         Iterator(typ) ++ iterator(body)
 
     }

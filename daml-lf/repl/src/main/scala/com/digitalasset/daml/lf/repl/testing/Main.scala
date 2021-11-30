@@ -326,7 +326,7 @@ object Repl {
     defn match {
       case DTypeSyn(_, _) => "<type synonym>" // FIXME: pp this
       case DDataType(_, _, _) => "<data type>" // FIXME(JM): pp this
-      case DValue(typ, _, _, _) => prettyType(typ, pkgId, modId)
+      case DValue(typ, _, _) => prettyType(typ, pkgId, modId)
     }
 
   def prettyQualified(pkgId: PackageId, modId: ModuleName, m: Identifier): String = {
@@ -464,7 +464,7 @@ object Repl {
           case None =>
             println("Error: definition '" + id + "' not found. Try :list.")
             usage()
-          case Some(DValue(_, _, body, _)) =>
+          case Some(DValue(_, body, _)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
             val compiledPackages = PureCompiledPackages.assertBuild(state.packages)
@@ -503,7 +503,7 @@ object Repl {
           case None =>
             println("Error: " + id + " not found.")
             None
-          case Some(DValue(_, _, body, true)) =>
+          case Some(DValue(_, body, true)) =>
             val argExprs = args.map(s => assertRight(parser.parseExpr(s)))
             Some(argExprs.foldLeft(body)((e, arg) => EApp(e, arg)))
           case Some(_) =>
@@ -542,7 +542,7 @@ object Repl {
         (modName, mod) = module
         definition <- mod.definitions
         (dfnName, dfn) = definition
-        bodyTest <- List(dfn).collect { case DValue(TScenario(_), _, body, true) => body }
+        bodyTest <- List(dfn).collect { case DValue(TScenario(_), body, true) => body }
       } yield QualifiedName(modName, dfnName).toString -> bodyTest
     var failures = 0
     var successes = 0

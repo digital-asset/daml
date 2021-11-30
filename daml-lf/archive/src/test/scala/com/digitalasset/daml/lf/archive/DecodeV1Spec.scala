@@ -956,9 +956,8 @@ class DecodeV1Spec
           pkg
             .modules(Ref.DottedName.assertFromString("DarReaderTest"))
             .definitions(Ref.DottedName.assertFromString("reverseCopy"))
-        ) {
-          case Ast.DValue(_, _, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _))), _) =>
-            (resolvedExtId: String) should ===(extId: String)
+        ) { case Ast.DValue(_, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _))), _) =>
+          (resolvedExtId: String) should ===(extId: String)
         }
       }
     }
@@ -1244,4 +1243,40 @@ class DecodeV1Spec
     }
   }
 
+  s"reject DefValue with no_party_literals = false" in {
+    val defValue =
+      DamlLf1.DefValue
+        .newBuilder()
+        .setNoPartyLiterals(false)
+        .build()
+    forEveryVersion { version =>
+      val decoder = moduleDecoder(version)
+      val ex = the[Error.Parsing] thrownBy decoder.decodeDefValue(defValue)
+      ex.msg shouldBe "DefValue must have no_party_literals set to true"
+    }
+  }
+
+  s"reject Feature flags set to false" in {
+    def featureFlags(
+        forbidPartyLits: Boolean,
+        dontDivulgeCids: Boolean,
+        dontDiscloseNonConsuming: Boolean,
+    ) = DamlLf1.FeatureFlags
+      .newBuilder()
+      .setForbidPartyLiterals(forbidPartyLits)
+      .setDontDivulgeContractIdsInCreateArguments(dontDivulgeCids)
+      .setDontDiscloseNonConsumingChoicesToObservers(dontDiscloseNonConsuming)
+      .build()
+    forEveryVersion { version =>
+      val decoder = moduleDecoder(version)
+      decoder.decodeFeatureFlags(featureFlags(true, true, true)) shouldBe Ast.FeatureFlags.default
+      Seq(
+        featureFlags(false, true, true),
+        featureFlags(true, false, true),
+        featureFlags(true, true, false),
+      ).foreach { flags =>
+        an[Error.Parsing] shouldBe thrownBy(decoder.decodeFeatureFlags(flags))
+      }
+    }
+  }
 }
