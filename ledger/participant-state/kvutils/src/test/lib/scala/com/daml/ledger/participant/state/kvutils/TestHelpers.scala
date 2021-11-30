@@ -68,7 +68,7 @@ object TestHelpers {
       tx: SubmittedTransaction,
   ): DamlTransactionEntry =
     DamlTransactionEntry.newBuilder
-      .setRawTransaction(Conversions.encodeTransaction(tx).toByteString)
+      .setRawTransaction(Conversions.encodeTransaction(tx).bytes)
       .setSubmitterInfo(
         DamlSubmitterInfo.newBuilder
           .setCommandId("commandId")

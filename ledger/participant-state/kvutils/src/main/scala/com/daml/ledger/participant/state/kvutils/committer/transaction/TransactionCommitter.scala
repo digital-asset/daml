@@ -272,7 +272,7 @@ private[kvutils] class TransactionCommitter(
       val localDisclosure = blindingInfo.disclosure(nid)
       cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
       cs.setRawContractInstance(
-        Conversions.encodeContractInstance(createNode.versionedCoinst).toByteString
+        Conversions.encodeContractInstance(createNode.versionedCoinst).bytes
       )
       createNode.key.foreach { keyWithMaintainers =>
         cs.setContractKey(

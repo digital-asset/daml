@@ -257,11 +257,13 @@ private[state] object Conversions {
   private def assertEncode[X](context: => String, x: Either[ValueCoder.EncodeError, X]): X =
     x.fold(err => throw Err.EncodeError(context, err.errorMessage), identity)
 
-  def encodeTransaction(tx: VersionedTransaction): TransactionOuterClass.Transaction =
-    assertEncode(
+  def encodeTransaction(tx: VersionedTransaction): Raw.Transaction = {
+    val transaction = assertEncode(
       "Transaction",
       TransactionCoder.encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx),
     )
+    Raw.Transaction(transaction.toByteString)
+  }
 
   def decodeTransaction(rawTx: Raw.Transaction): VersionedTransaction = {
     val tx = parseTransaction(rawTx)
@@ -299,11 +301,13 @@ private[state] object Conversions {
 
   def encodeContractInstance(
       coinst: Value.VersionedContractInstance
-  ): TransactionOuterClass.ContractInstance =
-    assertEncode(
+  ): Raw.ContractInstance = {
+    val contractInstance = assertEncode(
       "ContractInstance",
       TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst),
     )
+    Raw.ContractInstance(contractInstance.toByteString)
+  }
 
   def contractIdStructOrStringToStateKey[A](
       coidStruct: ValueOuterClass.ContractId
