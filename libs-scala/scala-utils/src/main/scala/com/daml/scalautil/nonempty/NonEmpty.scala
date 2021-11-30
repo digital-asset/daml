@@ -124,14 +124,35 @@ object NonEmptyColl extends NonEmptyCollInstances {
     private type ESelf = IterableOps[A, imm.Iterable, C with imm.Iterable[A]]
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
     def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
-    def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf) match {
-      case is: imm.Seq[A] => is
-      case other => other.to(imm.Seq)
-    }) // can just use .toSeq in scala 2.13
+    def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf).toSeq)
     def toSet: NonEmpty[Set[A]] = un((self: ESelf).toSet)
     def toMap[K, V](implicit isPair: A <:< (K, V)): NonEmpty[Map[K, V]] = un((self: ESelf).toMap)
-    // ideas for extension: safe head/tail (not valuable unless also using
-    // wartremover to disable partial Seq ops)
+    // (not so valuable unless also using wartremover to disable partial Seq ops)
+    @`inline` def head1: A = self.head
+    @`inline` def tail1: C = self.tail
+  }
+
+  /*
+    def map[B](f: A => B): NonEmpty[CC[B]] = un((self: ESelf) map f)
+    def flatMap[B](f: A => NonEmpty[IterableOnce[B]]): NonEmpty[CC[B]] = {
+      type K[F[_]] = (A => F[IterableOnce[B]]) => F[CC[B]]
+      NonEmpty.subst[K]((self: ESelf).flatMap)(f)
+    }
+   */
+
+  implicit final class NEPreservingSeqOps[A, CC[X] <: imm.Seq[X], C](
+      private val self: NonEmpty[SeqOps[A, CC, C with imm.Seq[A]]]
+  ) extends AnyVal {
+    import NonEmpty.{unsafeNarrow => un}
+    private type ESelf = SeqOps[A, CC, C with imm.Iterable[A]]
+    // the +: :+ set here is so you don't needlessly "lose" your NE-ness
+    def +:[B >: A](elem: B): NonEmpty[CC[B]] = un(elem +: (self: ESelf))
+    def :+[B >: A](elem: B): NonEmpty[CC[B]] = un((self: ESelf) :+ elem)
+    // the +-: :-+ set here is to mirror the patterns, as the ones in
+    // `NE Seq Ops` are unreachable in normal usage, since implicit conversions
+    // do not compose
+    @`inline` def +-:[B >: A](elem: B): NonEmpty[CC[B]] = elem +: self
+    @`inline` def :-+[B >: A](elem: B): NonEmpty[CC[B]] = self :+ elem
   }
 
   // Why not `map`?  Because it's a little tricky to do portably.  I suggest
