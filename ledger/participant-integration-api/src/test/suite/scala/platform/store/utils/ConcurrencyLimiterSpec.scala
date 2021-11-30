@@ -36,7 +36,7 @@ final class ConcurrencyLimiterSpec extends AsyncFlatSpec {
     )
   }
 
-  it should "work with a parallelism higher than that of the execution context" in {
+  it should "limit the parallelism to the level of the execution context" in {
     ConcurrencyLimiterSpec.runTest(
       createLimiter = ec => new QueueBasedConcurrencyLimiter(8, ec),
       waitTimeMillis = 1,
@@ -47,7 +47,7 @@ final class ConcurrencyLimiterSpec extends AsyncFlatSpec {
     )
   }
 
-  it should "work with a parallelism higher than the number of work items" in {
+  it should "limit the parallelism to the number of work items" in {
     ConcurrencyLimiterSpec.runTest(
       createLimiter = ec => new QueueBasedConcurrencyLimiter(8, ec),
       waitTimeMillis = 100,
@@ -87,7 +87,7 @@ final class ConcurrencyLimiterSpec extends AsyncFlatSpec {
 
 object ConcurrencyLimiterSpec extends Assertions {
   def runTest(
-      createLimiter: ExecutionContext => ConcurrencyLimiter[Int],
+      createLimiter: ExecutionContext => ConcurrencyLimiter,
       waitTimeMillis: Long,
       threads: Int,
       items: Int,

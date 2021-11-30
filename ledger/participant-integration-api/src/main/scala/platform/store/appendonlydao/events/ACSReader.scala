@@ -41,7 +41,7 @@ class FilterTableACSReader(
     acsFetchingparallelism: Int,
     metrics: Metrics,
     materializer: Materializer,
-    idQuerylimiter: ConcurrencyLimiter[Vector[Long]],
+    idQuerylimiter: ConcurrencyLimiter,
 ) extends ACSReader {
   import FilterTableACSReader._
 

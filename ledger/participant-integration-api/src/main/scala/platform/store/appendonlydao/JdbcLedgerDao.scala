@@ -672,7 +672,7 @@ private class JdbcLedgerDao(
         metrics = metrics,
         materializer = materializer,
         // TODO: properly parametrize the parallelism. Currently using 8, because the default connection pool size is 16.
-        idQuerylimiter = new QueueBasedConcurrencyLimiter[Vector[Long]](8, servicesExecutionContext),
+        idQuerylimiter = new QueueBasedConcurrencyLimiter(8, servicesExecutionContext),
       ),
     )(
       servicesExecutionContext
