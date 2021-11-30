@@ -17,10 +17,10 @@ case class BridgeConfig(maxDedupSeconds: Int, submissionBufferSize: Int)
 
 object BridgeLedgerFactory extends LedgerFactory[ReadWriteServiceBridge, BridgeConfig] {
   override final def readWriteServiceOwner(
-                                            config: Config[BridgeConfig],
-                                            participantConfig: ParticipantConfig,
-                                            engine: Engine,
-                                            contractStore: AtomicReference[Option[ContractStore]],
+      config: Config[BridgeConfig],
+      participantConfig: ParticipantConfig,
+      engine: Engine,
+      contractStore: AtomicReference[Option[ContractStore]],
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,

@@ -150,7 +150,7 @@ conformance_test(
         "--additional=CommandDeduplicationParallelIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-#        "--additional=ContractIdIT:Accept", ???
+        #        "--additional=ContractIdIT:Accept", ???
         "--additional=ParticipantPruningIT",
         "--exclude=ClosedWorldIT",
         "--exclude=ExceptionRaceConditionIT",
