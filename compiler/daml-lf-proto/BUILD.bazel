@@ -47,6 +47,7 @@ da_haskell_library(
     deps = [
         ":daml-lf-util",
         "//compiler/daml-lf-ast",
+        "//compiler/damlc/stable-packages:stable-packages-list",
         "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],

@@ -17,8 +17,10 @@ import DA.Daml.LF.Ast
 import DA.Daml.LF.Proto3.Archive.Encode
 import DA.Daml.UtilLF
 
-allStablePackages :: [Package]
+allStablePackages :: MS.Map PackageId Package
 allStablePackages =
+    MS.fromList $
+    map (\pkg  -> (encodePackageHash pkg, pkg))
     [ ghcTypes
     , ghcPrim
     , ghcTuple
@@ -43,18 +45,18 @@ allStablePackages =
     , daExceptionPreconditionFailed
     ]
 
-allStablePackagesForVersion :: Version -> [Package]
+allStablePackagesForVersion :: Version -> MS.Map PackageId Package
 allStablePackagesForVersion v =
-    filter (\p -> packageLfVersion p <= v) allStablePackages
+    MS.filter (\p -> packageLfVersion p <= v) allStablePackages
 
 numStablePackagesForVersion :: Version -> Int
-numStablePackagesForVersion v = length (allStablePackagesForVersion v)
+numStablePackagesForVersion v = MS.size (allStablePackagesForVersion v)
 
 stablePackageByModuleName :: MS.Map ModuleName Package
 stablePackageByModuleName = MS.fromListWithKey
     (\k -> error $ "Duplicate module among stable packages: " <> show k)
     [ (moduleName m, p)
-    | p <- allStablePackages
+    | p <- MS.elems allStablePackages
     , m <- NM.toList (packageModules p) ]
 
 ghcTypes :: Package
