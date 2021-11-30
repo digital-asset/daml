@@ -63,14 +63,12 @@ message Commands {
   oneof deduplication_period {
     // Specifies the length of the deduplication period.
     // Same semantics apply as for `deduplication_duration`.
-    //
     // Must be non-negative. Must not exceed the maximum deduplication time (see
     // ``ledger_configuration_service.proto``).
     google.protobuf.Duration deduplication_time = 9 [deprecated = true];
 
     // Specifies the length of the deduplication period.
     // It is interpreted relative to the local clock at some point during the submission's processing.
-    //
     // Must be non-negative. Must not exceed the maximum deduplication time (see
     // ``ledger_configuration_service.proto``).
     google.protobuf.Duration deduplication_duration = 15;
