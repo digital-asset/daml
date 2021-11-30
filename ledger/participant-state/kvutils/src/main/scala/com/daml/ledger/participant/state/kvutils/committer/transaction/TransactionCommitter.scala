@@ -160,8 +160,8 @@ private[kvutils] class TransactionCommitter(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-      val rawTransaction = Raw.Transaction(transactionEntry.submission.getRawTransaction)
-      val transaction = Conversions.parseTransaction(rawTransaction)
+      val transaction =
+        TransactionOuterClass.Transaction.parseFrom(transactionEntry.submission.getRawTransaction)
       val nodes = transaction.getNodesList.asScala
       val nodeMap: Map[String, TransactionOuterClass.Node] =
         nodes.view.map(n => n.getNodeId -> n).toMap

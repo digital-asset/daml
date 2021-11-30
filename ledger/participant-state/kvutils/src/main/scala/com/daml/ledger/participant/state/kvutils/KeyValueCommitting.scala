@@ -214,8 +214,8 @@ object KeyValueCommitting {
       transactionEntry: DamlTransactionEntry
   ): Set[DamlStateKey] = {
     val outputs = Set.newBuilder[DamlStateKey]
-    val rawTransaction = Raw.Transaction(transactionEntry.getRawTransaction)
-    val transaction = Conversions.parseTransaction(rawTransaction)
+    val transaction =
+      TransactionOuterClass.Transaction.parseFrom(transactionEntry.getRawTransaction)
     val txVersion =
       TransactionCoder.decodeVersion(transaction.getVersion) match {
         case Right(value) => value

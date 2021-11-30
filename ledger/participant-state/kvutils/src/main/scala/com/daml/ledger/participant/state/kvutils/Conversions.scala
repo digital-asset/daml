@@ -266,7 +266,7 @@ private[state] object Conversions {
   }
 
   def decodeTransaction(rawTx: Raw.Transaction): VersionedTransaction = {
-    val tx = parseTransaction(rawTx)
+    val tx = TransactionOuterClass.Transaction.parseFrom(rawTx.bytes)
     assertDecode(
       "Transaction",
       TransactionCoder
@@ -277,9 +277,6 @@ private[state] object Conversions {
         ),
     )
   }
-
-  def parseTransaction(rawTx: Raw.Transaction): TransactionOuterClass.Transaction =
-    TransactionOuterClass.Transaction.parseFrom(rawTx.bytes)
 
   def decodeVersionedValue(protoValue: ValueOuterClass.VersionedValue): VersionedValue =
     assertDecode(
