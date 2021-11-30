@@ -99,7 +99,10 @@ trait AbstractTriggerServiceTest
     import Request.PartyFormat
     val readAsContent =
       if (readAs.isEmpty) "null"
-      else spray.json.DefaultJsonProtocol.listFormat.write(readAs.toList).toString
+      else {
+        import spray.json.DefaultJsonProtocol._
+        readAs.toJson.compactPrint
+      }
     val req = HttpRequest(
       method = HttpMethods.POST,
       uri = uri.withPath(Uri.Path("/v1/triggers")),
