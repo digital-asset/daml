@@ -34,25 +34,25 @@ private[speedy] object ClosureConversion {
 
       def extend(n: Int): Env = {
         // Create mappings for `n` new stack items, and combine with the (unshifted!) existing mapping.
-        val m2 = (1 to n).view.map { i =>
-          val abs = Abs(this.sourceDepth + (n - i))
-          (abs, target.SELocAbsoluteS(this.targetDepth + n - i))
+        val m2 = (0 to n - 1).view.map { i =>
+          val abs = Abs(sourceDepth + i)
+          (abs, target.SELocAbsoluteS(targetDepth + i))
         }
-        Env(this.sourceDepth + n, mapping ++ m2, this.targetDepth + n)
+        Env(sourceDepth + n, mapping ++ m2, targetDepth + n)
       }
 
       def absBody(arity: Int, fvs: List[Abs]): Env = {
         val newRemapsF: Map[Abs, target.SELoc] = fvs.view.zipWithIndex.map { case (abs, i) =>
           abs -> target.SELocF(i)
         }.toMap
-        val newRemapsA = (1 to arity).view.map { case i =>
-          val abs = Abs(arity - i + sourceDepth)
-          abs -> target.SELocA(arity - i)
+        val newRemapsA = (0 to arity - 1).view.map { case i =>
+          val abs = Abs(sourceDepth + i)
+          abs -> target.SELocA(i)
         }
         // The keys in newRemapsF and newRemapsA are disjoint
         val m1 = newRemapsF ++ newRemapsA
         // Only targetDepth is reset to 0 in an abstraction body
-        Env(this.sourceDepth + arity, m1, 0)
+        Env(sourceDepth + arity, m1, 0)
       }
     }
 
