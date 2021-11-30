@@ -4,8 +4,7 @@
 package com.daml.scalautil
 package nonempty
 
-import scala.collection.compat._
-import scala.collection.{immutable => imm}, imm.Map, imm.Set
+import scala.collection.{Factory, IterableOnce, immutable => imm}, imm.Map, imm.Set
 import scalaz.Id.Id
 import scalaz.{Foldable, Foldable1, OneAnd, Semigroup, Traverse}
 import scalaz.Leibniz, Leibniz.===
