@@ -71,10 +71,12 @@ jobs:
       gcloud auth activate-service-account --key-file=$GCS_KEY
       BOTO_CONFIG=/dev/null gsutil cp -n "ghc-lib-${VERSION}.tar.gz" "gs://daml-binaries/$LIB"
       BOTO_CONFIG=/dev/null gsutil cp -n "ghc-lib-parser-${VERSION}.tar.gz" "gs://daml-binaries/$PARSER"
-      echo "Please add(/replace) the following lines to stack-snapshot.yaml:"
-      echo "  - archive: $URL_BASE/$LIB"
-      echo "    sha256: \"$(sha256sum ghc-lib-${VERSION}.tar.gz | awk '{print $1}')\""
-      echo "  - archive: $URL_BASE/$PARSER"
-      echo "    sha256: \"$(sha256sum ghc-lib-parser-${VERSION}.tar.gz | awk '{print $1}')\""
+      echo "Please add(/replace) the following lines to bazel-haskell-deps.bzl:"
+      echo "GHC_LIB_REV = \"$CACHE_KEY\""
+      echo "GHC_LIB_SHA256 = \"$(sha256sum ghc-lib-${VERSION}.tar.gz | awk '{print $1}')\""
+      echo "GHC_LIB_VERSION = \"8.8.1\""
+      echo "GHC_LIB_PARSER_REV = \"$CACHE_KEY\""
+      echo "GHC_LIB_PARSER_SHA256 = \"$(sha256sum ghc-lib-parser-${VERSION}.tar.gz | awk '{print $1}')\""
+      echo "GHC_LIB_PARSER_VERSION = \"8.8.1\""
     env:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)

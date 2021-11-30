@@ -17,6 +17,12 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
+GHC_LIB_REV = "c394ef861cfe69b3264a10c5cc402ad9"
+GHC_LIB_SHA256 = "8e7cb590d2371a86d034f2ee34b49abe84a03629ab6a3275aefeee22b952d5d9"
+GHC_LIB_VERSION = "8.8.1"
+GHC_LIB_PARSER_REV = "c394ef861cfe69b3264a10c5cc402ad9"
+GHC_LIB_PARSER_SHA256 = "5e50b7f3eb7b4f40ae976477172d1cf39c94d8b3749513b44df7754f425fb94f"
+GHC_LIB_PARSER_VERSION = "8.8.1"
 GHCIDE_REV = "e04b5386b3741b839eb5c3d2a2586fd2aa97229c"
 GHCIDE_SHA256 = "1d27926e0ad3c2a9536f23b454875a385ecc766ae68ce48a0ec88d0867884b46"
 JS_JQUERY_VERSION = "3.3.1"
@@ -118,6 +124,48 @@ haskell_library(
         sha256 = GHCIDE_SHA256,
         strip_prefix = "daml-ghcide-%s" % GHCIDE_REV,
         urls = ["https://github.com/digital-asset/daml-ghcide/archive/%s.tar.gz" % GHCIDE_REV],
+    )
+
+    http_archive(
+        name = "ghc_lib",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "ghc-lib",
+    version = packages["ghc-lib"].version,
+    srcs = glob(["**"]),
+    haddock = False,
+    flags = packages["ghc-lib"].flags,
+    deps = packages["ghc-lib"].deps,
+    visibility = ["//visibility:public"],
+    tools = packages["ghc-lib"].tools,
+)
+""",
+        sha256 = GHC_LIB_SHA256,
+        strip_prefix = "ghc-lib-%s" % GHC_LIB_VERSION,
+        urls = ["https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-%s.tar.gz" % GHC_LIB_REV],
+    )
+
+    http_archive(
+        name = "ghc_lib_parser",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "ghc-lib-parser",
+    version = packages["ghc-lib-parser"].version,
+    srcs = glob(["**"]),
+    haddock = False,
+    flags = packages["ghc-lib-parser"].flags,
+    deps = packages["ghc-lib-parser"].deps,
+    visibility = ["//visibility:public"],
+    tools = packages["ghc-lib-parser"].tools,
+)
+""",
+        sha256 = GHC_LIB_PARSER_SHA256,
+        strip_prefix = "ghc-lib-parser-%s" % GHC_LIB_PARSER_VERSION,
+        urls = ["https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-parser-%s.tar.gz" % GHC_LIB_PARSER_REV],
     )
 
     cbit_dep = ":fat_cbits" if is_windows else ":needed-cbits-clib" if is_linux else ":cbits"
@@ -490,8 +538,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "filelock",
             "filepath",
             "filepattern",
-            "ghc-lib",
-            "ghc-lib-parser",
             "ghc-lib-parser-ex",
             "gitrev",
             "hashable",
@@ -590,6 +636,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         stack = "@stack_windows//:stack.exe" if is_windows else None,
         vendored_packages = {
             "ghcide": "@ghcide_ghc_lib//:ghcide",
+            "ghc-lib": "@ghc_lib//:ghc-lib",
+            "ghc-lib-parser": "@ghc_lib_parser//:ghc-lib-parser",
             "grpc-haskell-core": "@grpc_haskell_core//:grpc-haskell-core",
             "grpc-haskell": "@grpc_haskell//:grpc-haskell",
             "js-dgtable": "@js_dgtable//:js-dgtable",
