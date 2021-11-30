@@ -86,7 +86,7 @@ message DamlTransactionBlindingInfo {
   message DivulgenceEntry {
     string contract_id = 1;
     repeated string divulged_to_local_parties = 2;
-    // Stores com.daml.lf.transaction.ContractInstance as bytes.
+    // The contract instance stored as bytes (see com.daml.lf.transaction.ContractInstance).
     bytes raw_contract_instance = 3;
   }
 
