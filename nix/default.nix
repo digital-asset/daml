@@ -138,7 +138,7 @@ in rec {
 
     sass = bazel_dependencies.sass;
 
-    graphviz  = pkgs.graphviz_2_32;
+    graphviz  = pkgs.graphviz;
     dot       = graphviz;
     tred      = graphviz;
     unflatten = graphviz;
