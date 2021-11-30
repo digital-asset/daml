@@ -25,7 +25,7 @@ import com.daml.lf.engine.Engine
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractId, ValueRecord, ValueText}
-import com.daml.lf.value.{Value, ValueOuterClass}
+import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.Duration
@@ -222,7 +222,7 @@ class TransactionCommitterSpec
       val builder = TransactionBuilder()
       val cid = builder.newCid
 
-      val (expectedContractInstance, txEntry) = txEntryWithDivulgedContract(builder, cid)
+      val (expectedRawContractInstance, txEntry) = txEntryWithDivulgedContract(builder, cid)
       val txEntryBuilder = txEntry.toBuilder
       // deduplication duration is mandatory as we set the context dedup entry during blinding
       txEntryBuilder.getSubmitterInfoBuilder.setDeduplicationDuration(
@@ -249,7 +249,7 @@ class TransactionCommitterSpec
               )
 
           actualDivulgencesList should contain theSameElementsAs {
-            Vector((cid.coid, Set("ChoiceObserver"), expectedContractInstance))
+            Vector((cid.coid, Set("ChoiceObserver"), expectedRawContractInstance))
           }
 
           val actualDisclosureList =
@@ -372,15 +372,13 @@ object TransactionCommitterSpec {
       builder: TransactionBuilder,
       divulgedContractId: Value.ContractId,
   ) = {
-    val moduleName = "DummyModule"
-    val templateName = "DummyTemplate"
-
-    val argValue = "DummyText"
+    val templateId = "DummyModule:DummyTemplate"
+    val textArgument = ValueText("DummyText")
 
     val createNode = builder.create(
       id = divulgedContractId,
-      templateId = s"$moduleName:$templateName",
-      argument = ValueText(argValue),
+      templateId = templateId,
+      argument = textArgument,
       signatories = Set("Alice"),
       observers = Set.empty,
       key = None,
@@ -397,27 +395,18 @@ object TransactionCommitterSpec {
     builder.add(createNode)
     builder.add(exerciseNode)
 
-    val expectedContractInstance =
-      TransactionOuterClass.ContractInstance
-        .newBuilder()
-        .setTemplateId(
-          ValueOuterClass.Identifier
-            .newBuilder()
-            .setPackageId(defaultPackageId)
-            .addModuleName(moduleName)
-            .addName(templateName)
+    val expectedRawContractInstance = Conversions
+      .encodeContractInstance(
+        Value.VersionedContractInstance(
+          version = TransactionVersion.StableVersions.max,
+          template = templateId,
+          arg = textArgument,
+          agreementText = "",
         )
-        .setArgVersioned(
-          ValueOuterClass.VersionedValue
-            .newBuilder()
-            .setVersion(TransactionVersion.StableVersions.max.protoValue)
-            .setValue(
-              ValueOuterClass.Value.newBuilder().setText(argValue).build().toByteString
-            )
-        )
-        .build()
+      )
+      .bytes
 
-    expectedContractInstance -> createTransactionEntry(
+    expectedRawContractInstance -> createTransactionEntry(
       List("aSubmitter"),
       SubmittedTransaction(builder.build()),
     )
