@@ -36,6 +36,9 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
   override protected def daoOwner(
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
+      acsIdPageSize: Int,
+      acsIdFetchingParallelism: Int,
+      acsContractFetchingParallelism: Int,
       errorFactories: ErrorFactories,
   )(implicit
       loggingContext: LoggingContext
@@ -76,6 +79,9 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
           ),
           eventsPageSize = eventsPageSize,
           eventsProcessingParallelism = eventsProcessingParallelism,
+          acsIdPageSize = acsIdPageSize,
+          acsIdFetchingParallelism = acsIdFetchingParallelism,
+          acsContractFetchingParallelism = acsContractFetchingParallelism,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,

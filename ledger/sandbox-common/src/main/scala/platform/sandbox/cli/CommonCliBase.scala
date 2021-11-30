@@ -257,6 +257,31 @@ class CommonCliBase(name: LedgerName) {
           config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
         )
 
+      opt[Int]("acs-id-page-size")
+        .optional()
+        .text(
+          s"Number of contract ids fetched from the index for every round trip when serving ACS calls. Default is ${SandboxConfig.DefaultAcsIdPageSize}."
+        )
+        .action((acsIdPageSize, config) => config.copy(acsIdPageSize = acsIdPageSize))
+
+      opt[Int]("acs-id-fetching-parallelism")
+        .optional()
+        .text(
+          s"Number of contract id pages fetched in parallel when serving ACS calls. Default is ${SandboxConfig.DefaultAcsIdFetchingParallelism}."
+        )
+        .action((acsIdFetchingParallelism, config) =>
+          config.copy(acsIdFetchingParallelism = acsIdFetchingParallelism)
+        )
+
+      opt[Int]("acs-contract-fetching-parallelism")
+        .optional()
+        .text(
+          s"Number of event pages fetched in parallel when serving ACS calls. Default is ${SandboxConfig.DefaultAcsContractFetchingParallelism}."
+        )
+        .action((acsContractFetchingParallelism, config) =>
+          config.copy(acsContractFetchingParallelism = acsContractFetchingParallelism)
+        )
+
       opt[Int]("max-commands-in-flight")
         .optional()
         .action((value, config) =>
