@@ -33,7 +33,7 @@ import scala.util.{Failure, Success}
 
 final class Runner[T <: ReadWriteService, Extra](
     name: String,
-    factory: LedgerFactory[ReadWriteService, Extra],
+    factory: LedgerFactory[Extra],
 ) {
   def owner(args: collection.Seq[String]): ResourceOwner[Unit] =
     Config
@@ -122,19 +122,13 @@ final class Runner[T <: ReadWriteService, Extra](
                     .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
                     .acquire()
                 )
-                ledger <- factory
-                  .readWriteServiceOwner(config, participantConfig, sharedEngine)
+                packageService <- factory
+                  .writePackageOwner(config, participantConfig, sharedEngine)
                   .acquire()
-                readService = new TimedReadService(ledger, metrics)
-                writeService = new TimedWriteService(ledger, metrics)
-                healthChecks = new HealthChecks(
-                  "read" -> readService,
-                  "write" -> writeService,
-                )
                 _ <- Resource.sequence(
                   config.archiveFiles.map(path =>
                     Resource.fromFuture(
-                      uploadDar(path, writeService)(
+                      uploadDar(path, packageService)(
                         loggingContext,
                         resourceContext.executionContext,
                       )
@@ -153,15 +147,29 @@ final class Runner[T <: ReadWriteService, Extra](
                   .acquire()
                 healthChecksWithIndexer <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
-                    new StandaloneIndexerServer(
-                      readService = readService,
-                      config = factory.indexerConfig(participantConfig, config),
-                      servicesExecutionContext = servicesExecutionContext,
-                      metrics = metrics,
-                      lfValueTranslationCache = lfValueTranslationCache,
-                    ).acquire().map(indexerHealth => healthChecks + ("indexer" -> indexerHealth))
+                    for {
+                      readLedger <- factory
+                        .readServiceOwner(config, participantConfig, sharedEngine)
+                        .acquire()
+                      readService = new TimedReadService(readLedger, metrics)
+                      healthChecksWithIndexer <- new StandaloneIndexerServer(
+                        readService = readService,
+                        config = factory.indexerConfig(participantConfig, config),
+                        servicesExecutionContext = servicesExecutionContext,
+                        metrics = metrics,
+                        lfValueTranslationCache = lfValueTranslationCache,
+                      ).acquire()
+                        .map(indexerHealth =>
+                          new HealthChecks(
+                            "read" -> readService,
+                            "indexer" -> indexerHealth,
+                          )
+                        )
+                    } yield {
+                      healthChecksWithIndexer
+                    }
                   case ParticipantRunMode.LedgerApiServer =>
-                    Resource.successful(healthChecks)
+                    Resource.successful(new HealthChecks())
                 }
                 apiServerConfig = factory.apiServerConfig(participantConfig, config)
                 indexService <- StandaloneIndexService(
@@ -174,22 +182,28 @@ final class Runner[T <: ReadWriteService, Extra](
                 ).acquire()
                 _ <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
-                    StandaloneApiServer(
-                      indexService = indexService,
-                      ledgerId = config.ledgerId,
-                      config = apiServerConfig,
-                      commandConfig = config.commandConfig,
-                      submissionConfig = config.submissionConfig,
-                      partyConfig = factory.partyConfig(config),
-                      optWriteService = Some(writeService),
-                      authService = factory.authService(config),
-                      healthChecks = healthChecksWithIndexer,
-                      metrics = metrics,
-                      timeServiceBackend = factory.timeServiceBackend(config),
-                      otherInterceptors = factory.interceptors(config),
-                      engine = sharedEngine,
-                      servicesExecutionContext = servicesExecutionContext,
-                    ).acquire()
+                    for {
+                      ledger <- factory
+                        .writeServiceOwner(config, participantConfig, sharedEngine)
+                        .acquire()
+                      writeService = new TimedWriteService(ledger, metrics)
+                      _ <- StandaloneApiServer(
+                        indexService = indexService,
+                        ledgerId = config.ledgerId,
+                        config = apiServerConfig,
+                        commandConfig = config.commandConfig,
+                        submissionConfig = config.submissionConfig,
+                        partyConfig = factory.partyConfig(config),
+                        optWriteService = Some(writeService),
+                        authService = factory.authService(config),
+                        healthChecks = healthChecksWithIndexer + ("write" -> writeService),
+                        metrics = metrics,
+                        timeServiceBackend = factory.timeServiceBackend(config),
+                        otherInterceptors = factory.interceptors(config),
+                        engine = sharedEngine,
+                        servicesExecutionContext = servicesExecutionContext,
+                      ).acquire()
+                    } yield {}
                   case ParticipantRunMode.Indexer =>
                     Resource.unit
                 }
