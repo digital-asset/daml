@@ -132,14 +132,6 @@ object NonEmptyColl extends NonEmptyCollInstances {
     @`inline` def tail1: C = self.tail
   }
 
-  /*
-    def map[B](f: A => B): NonEmpty[CC[B]] = un((self: ESelf) map f)
-    def flatMap[B](f: A => NonEmpty[IterableOnce[B]]): NonEmpty[CC[B]] = {
-      type K[F[_]] = (A => F[IterableOnce[B]]) => F[CC[B]]
-      NonEmpty.subst[K]((self: ESelf).flatMap)(f)
-    }
-   */
-
   implicit final class NEPreservingSeqOps[A, CC[X] <: imm.Seq[X], C](
       private val self: NonEmpty[SeqOps[A, CC, C with imm.Seq[A]]]
   ) extends AnyVal {
@@ -155,17 +147,25 @@ object NonEmptyColl extends NonEmptyCollInstances {
     @`inline` def :-+[B >: A](elem: B): NonEmpty[CC[B]] = self :+ elem
   }
 
-  // Why not `map`?  Because it's a little tricky to do portably.  I suggest
-  // importing the appropriate Scalaz instances and using `.toF.map` if you need
-  // it; we can add collection-like `map` later if it seems to be really
-  // important.
-
   implicit final class `Seq Ops`[A, CC[_], C](
       private val self: NonEmpty[SeqOps[A, CC, C with CC[A]]]
   ) extends AnyVal {
     def toOneAnd: OneAnd[CC, A] = {
       val h +-: t = self
       OneAnd(h, t)
+    }
+  }
+
+  implicit final class NEPseudofunctorOps[A, CC[X] <: imm.Iterable[X], C](
+      private val self: NonEmpty[IterableOps[A, CC, C with imm.Iterable[A]]]
+  ) extends AnyVal {
+    import NonEmpty.{unsafeNarrow => un}
+    private type ESelf = IterableOps[A, CC, C with imm.Iterable[A]]
+
+    def map[B](f: A => B): NonEmpty[CC[B]] = un((self: ESelf) map f)
+    def flatMap[B](f: A => NonEmpty[IterableOnce[B]]): NonEmpty[CC[B]] = {
+      type K[F[_]] = (F[ESelf], A => F[IterableOnce[B]]) => F[CC[B]]
+      NonEmpty.subst[K](_ flatMap _)(self, f)
     }
   }
 
