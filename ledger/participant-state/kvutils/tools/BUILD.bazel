@@ -168,7 +168,6 @@ da_scala_library(
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction-test-lib",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:daml_kvutils_proto_java",

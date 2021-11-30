@@ -12,7 +12,6 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "com/daml/daml_lf_dev/daml_lf.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/configuration.proto";
-import "com/daml/lf/transaction.proto";
 import "com/daml/lf/value.proto";
 
 
@@ -117,8 +116,8 @@ message DamlContractState {
   // The contract key set by the contract. Optional.
   DamlContractKey contract_key = 6;
 
-  // The contract instance.
-  com.daml.lf.transaction.ContractInstance contract_instance = 7;
+  // The contract instance stored as bytes (see com.daml.lf.transaction.ContractInstance).
+  bytes raw_contract_instance = 7;
 }
 
 message DamlContractKey {

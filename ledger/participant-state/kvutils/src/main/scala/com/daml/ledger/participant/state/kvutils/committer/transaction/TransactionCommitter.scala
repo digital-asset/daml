@@ -24,7 +24,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err, Raw}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Blinding, Engine}
 import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
@@ -160,7 +160,8 @@ private[kvutils] class TransactionCommitter(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-      val transaction = transactionEntry.submission.getTransaction
+      val transaction =
+        TransactionOuterClass.Transaction.parseFrom(transactionEntry.submission.getRawTransaction)
       val nodes = transaction.getNodesList.asScala
       val nodeMap: Map[String, TransactionOuterClass.Node] =
         nodes.view.map(n => n.getNodeId -> n).toMap
@@ -217,7 +218,7 @@ private[kvutils] class TransactionCommitter(
         .build()
 
       val newTransactionEntry = transactionEntry.submission.toBuilder
-        .setTransaction(newTransaction)
+        .setRawTransaction(newTransaction.toByteString)
         .build()
 
       StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
@@ -260,7 +261,7 @@ private[kvutils] class TransactionCommitter(
       commitContext: CommitContext,
   )(implicit
       loggingContext: LoggingContext
-  ): Map[ContractId, TransactionOuterClass.ContractInstance] = {
+  ): Map[ContractId, Raw.ContractInstance] = {
     val localContracts = transactionEntry.transaction.localContracts
     val consumedContracts = transactionEntry.transaction.consumedContracts
     val contractKeys = transactionEntry.transaction.updatedContractKeys
@@ -270,8 +271,8 @@ private[kvutils] class TransactionCommitter(
       cs.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
       val localDisclosure = blindingInfo.disclosure(nid)
       cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
-      cs.setContractInstance(
-        Conversions.encodeContractInstance(createNode.versionedCoinst)
+      cs.setRawContractInstance(
+        Conversions.encodeContractInstance(createNode.versionedCoinst).bytes
       )
       createNode.key.foreach { keyWithMaintainers =>
         cs.setContractKey(
@@ -299,7 +300,7 @@ private[kvutils] class TransactionCommitter(
     }
     // Update contract state of divulged contracts.
     val divulgedContractsBuilder = {
-      val builder = Map.newBuilder[ContractId, TransactionOuterClass.ContractInstance]
+      val builder = Map.newBuilder[ContractId, Raw.ContractInstance]
       builder.sizeHint(blindingInfo.divulgence.size)
       builder
     }
@@ -307,7 +308,7 @@ private[kvutils] class TransactionCommitter(
     for ((coid, parties) <- blindingInfo.divulgence) {
       val key = contractIdToStateKey(coid)
       val cs = getContractState(commitContext, key)
-      divulgedContractsBuilder += (coid -> cs.getContractInstance)
+      divulgedContractsBuilder += (coid -> Raw.ContractInstance(cs.getRawContractInstance))
       val divulged: Set[String] = cs.getDivulgedToList.asScala.toSet
       val newDivulgences: Set[String] = parties.toSet[String] -- divulged
       if (newDivulgences.nonEmpty) {

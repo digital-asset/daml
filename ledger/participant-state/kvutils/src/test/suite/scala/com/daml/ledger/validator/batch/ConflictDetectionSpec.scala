@@ -266,8 +266,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       .setRecordTime(com.google.protobuf.Timestamp.getDefaultInstance)
     builder.getTransactionEntryBuilder
       .setLedgerEffectiveTime(com.google.protobuf.Timestamp.getDefaultInstance)
-      .getTransactionBuilder
-      .addRoots("foo")
+      .setRawTransaction(ByteString.copyFromUtf8("invalid transaction"))
     builder.build
   }
 
