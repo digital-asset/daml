@@ -319,7 +319,8 @@ object KeyValueConsumption {
     if (!damlTransactionBlindingInfo.getDivulgencesList.isEmpty) {
       Conversions.extractDivulgedContracts(damlTransactionBlindingInfo) match {
         case Right(divulgedContractsIndex) =>
-          divulgedContractsIndex.view.map { case (contractId, contractInstance) =>
+          divulgedContractsIndex.view.map { case (contractId, rawContractInstance) =>
+            val contractInstance = Conversions.decodeContractInstance(rawContractInstance)
             DivulgedContract(contractId, contractInstance)
           }.toList
         case Left(missingContractIds) =>

@@ -362,14 +362,14 @@ private[state] object Conversions {
 
   def extractDivulgedContracts(
       damlTransactionBlindingInfo: DamlTransactionBlindingInfo
-  ): Either[Seq[String], Map[ContractId, Value.VersionedContractInstance]] = {
+  ): Either[Seq[String], Map[ContractId, Raw.ContractInstance]] = {
     val divulgences = damlTransactionBlindingInfo.getDivulgencesList.asScala.toVector
     if (divulgences.isEmpty) {
       Right(Map.empty)
     } else {
       val resultAccumulator: Either[Seq[String], mutable.Builder[
-        (ContractId, Value.VersionedContractInstance),
-        Map[ContractId, Value.VersionedContractInstance],
+        (ContractId, Raw.ContractInstance),
+        Map[ContractId, Raw.ContractInstance],
       ]] = Right(Map.newBuilder)
       divulgences
         .foldLeft(resultAccumulator) {
@@ -378,9 +378,8 @@ private[state] object Conversions {
               Left(Vector(divulgenceEntry.getContractId))
             } else {
               val contractId = decodeContractId(divulgenceEntry.getContractId)
-              val contractInstance =
-                decodeContractInstance(Raw.ContractInstance(divulgenceEntry.getRawContractInstance))
-              Right(contractInstanceIndex += (contractId -> contractInstance))
+              val rawContractInstance = Raw.ContractInstance(divulgenceEntry.getRawContractInstance)
+              Right(contractInstanceIndex += (contractId -> rawContractInstance))
             }
           case (Left(missingContracts), divulgenceEntry) =>
             // If populated by an older version of the KV WriteService, the contract instances will be missing.
