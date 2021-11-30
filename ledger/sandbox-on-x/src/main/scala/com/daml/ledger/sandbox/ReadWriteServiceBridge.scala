@@ -79,7 +79,8 @@ case class ReadWriteServiceBridge(
           c.key
             .map(convert(c.templateId, _))
             .map { key =>
-              if (cKeys.get(key).flatten.nonEmpty) Left(DuplicateKey(key)(transaction))
+              if (cKeys.get(key).flatten.nonEmpty)
+                Left(DuplicateKey(key)(transaction))
               else Right(())
             }
             .getOrElse(Right(()))
@@ -107,12 +108,15 @@ case class ReadWriteServiceBridge(
     (Offset, Update)
   ] = () => {
     var sequencerQueue = Vector.empty[(Offset, Submission.Transaction)]
-    val newIndex = offsetIdx.getAndIncrement()
-    val newOffset = toOffset(newIndex)
 
     {
-      case (_, Left(rejection)) => Iterable(newOffset -> toRejection(rejection))
+      case (_, Left(rejection)) =>
+        val newIndex = offsetIdx.getAndIncrement()
+        val newOffset = toOffset(newIndex)
+        Iterable(newOffset -> toRejection(rejection))
       case (enqueuedAt, Right(transaction)) =>
+        val newIndex = offsetIdx.getAndIncrement()
+        val newOffset = toOffset(newIndex)
         checkSequential(enqueuedAt, transaction, sequencerQueue) match {
           case Left(rejection) =>
             Iterable(
@@ -379,57 +383,106 @@ case class ReadWriteServiceBridge(
   ): Future[Either[SoxRejection, Unit]] = {
     val readers = transaction.transaction.informees // Is it informees??
     transaction.transaction
-      .foldInExecutionOrder[Future[Either[SoxRejection, Unit]]](Future.successful(Right(())))(
+      .foldInExecutionOrder[Future[Either[SoxRejection, KeyValidationState]]](
+        Future.successful(Right(KeyValidationState(Map.empty)))
+      )(
         exerciseBegin = (acc, _, exe) => {
-          acc.flatMap(_ => validateKeyUsages(transaction, readers, exe)) -> true
+          acc.flatMap {
+            case Right(keyValidationState) =>
+              validateKeyUsages(transaction, readers, exe, keyValidationState)
+            case left => Future.successful(left)
+          } -> true
         },
         exerciseEnd = (acc, _, _) => acc,
         rollbackBegin = (acc, _, _) => acc -> false, // Do we care about rollback nodes?
         rollbackEnd = (acc, _, _) => acc,
-        leaf = (acc, _, leaf) => acc.flatMap(_ => validateKeyUsages(transaction, readers, leaf)),
+        leaf = (acc, _, leaf) =>
+          acc.flatMap {
+            case Right(keyValidationState) =>
+              validateKeyUsages(transaction, readers, leaf, keyValidationState)
+            case left => Future.successful(left)
+          },
       )
+      .map(_.map(_ => ()))
+  }
+
+  case class KeyValidationState(keyStates: Map[Key, Option[ContractId]]) {
+    def archive(key: Key): KeyValidationState =
+      KeyValidationState(keyStates.updated(key, None))
+
+    def create(key: Key, contractId: ContractId): KeyValidationState =
+      KeyValidationState(keyStates.updated(key, Some(contractId)))
   }
 
   private def validateKeyUsages(
       transaction: Transaction,
       readers: Set[Ref.Party],
       node: Node,
-  ): Future[Either[SoxRejection, Unit]] =
+      keyValidationState: KeyValidationState,
+  ): Future[Either[SoxRejection, KeyValidationState]] =
     node match {
       case c: Create =>
+        println(s"Create: $c")
         val maybeKey = c.key.map(convert(c.templateId, _))
-        maybeKey.fold[Future[Either[SoxRejection, Unit]]](Future.successful(Right(()))) { key =>
-          contractStore
-            .get()
-            .getOrElse(throw new RuntimeException("ContractStore not there yet"))
-            .lookupContractKey(readers, key)
-            .map(
-              _.fold[Either[SoxRejection, Unit]](Right(()))(_ =>
-                Left(DuplicateKey(key)(transaction))
-              )
-            )
+        maybeKey.fold[Future[Either[SoxRejection, KeyValidationState]]](
+          Future.successful(Right(keyValidationState))
+        ) { key =>
+          keyValidationState.keyStates.get(key) match {
+            case Some(Some(_)) =>
+              Future.successful(Left(DuplicateKey(key)(transaction)))
+            case Some(None) =>
+              Future.successful(Right(keyValidationState.create(key, c.coid)))
+            case None =>
+              contractStore
+                .get()
+                .getOrElse(throw new RuntimeException("ContractStore not there yet"))
+                .lookupContractKey(readers, key)
+                .map(
+                  _.fold[Either[SoxRejection, KeyValidationState]](
+                    Right(keyValidationState.create(key, c.coid))
+                  )(_ => Left(DuplicateKey(key)(transaction)))
+                )
+          }
         }
       case l: LookupByKey =>
         val key = convert(l.templateId, l.key)
-        contractStore
-          .get()
-          .getOrElse(throw new RuntimeException("ContractStore not there yet"))
-          .lookupContractKey(readers, key)
-          .map { result =>
-            Either.cond(
-              result == l.result,
-              (),
-              InconsistentContracts(l.result, result)(transaction),
+        keyValidationState.keyStates.get(key) match {
+          case Some(result) =>
+            Future.successful(
+              Either.cond(
+                result == l.result,
+                keyValidationState,
+                InconsistentContracts(l.result, result)(transaction),
+              )
             )
-          }
-      case _ =>
+          case None =>
+            contractStore
+              .get()
+              .getOrElse(throw new RuntimeException("ContractStore not there yet"))
+              .lookupContractKey(readers, key)
+              .map { result =>
+                Either.cond(
+                  result == l.result,
+                  keyValidationState,
+                  InconsistentContracts(l.result, result)(transaction),
+                )
+              }
+        }
+      case exercise: Exercise if exercise.consuming =>
+        println(s"Exercise: $exercise")
+        Future.successful(Right(exercise.key.fold(keyValidationState) { k =>
+          val key = convert(exercise.templateId, k)
+          keyValidationState.archive(key)
+        }))
+      case other =>
+        println(s"Other events: $other")
         // fetch and non-consuming exercise nodes don't need to validate
         // anything with regards to contract keys and do not alter the
         // state in a way which is relevant for the validation of
         // subsequent nodes
         //
         // `causalMonotonicity` already reports unknown contracts, no need to check it here
-        Future.successful(Right(()))
+        Future.successful(Right(keyValidationState))
     }
 
   override def close(): Unit = {

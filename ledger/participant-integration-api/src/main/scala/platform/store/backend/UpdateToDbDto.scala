@@ -146,6 +146,7 @@ object UpdateToDbDto {
           )
           .reverse
 
+        println(s"TransactionAccepted: $u at $offset")
         val events: Iterator[DbDto] = preorderTraversal.iterator
           .flatMap {
             case (nodeId, create: Create) =>
