@@ -34,7 +34,7 @@ private[speedy] object ClosureConversion {
 
       def extend(n: Int): Env = {
         // Create mappings for `n` new stack items, and combine with the (unshifted!) existing mapping.
-        val m2 = (0 to n - 1).view.map { i =>
+        val m2 = (0 until n).view.map { i =>
           val abs = Abs(sourceDepth + i)
           (abs, target.SELocAbsoluteS(targetDepth + i))
         }
@@ -45,7 +45,7 @@ private[speedy] object ClosureConversion {
         val newRemapsF: Map[Abs, target.SELoc] = fvs.view.zipWithIndex.map { case (abs, i) =>
           abs -> target.SELocF(i)
         }.toMap
-        val newRemapsA = (0 to arity - 1).view.map { case i =>
+        val newRemapsA = (0 until arity).view.map { case i =>
           val abs = Abs(sourceDepth + i)
           abs -> target.SELocA(i)
         }
