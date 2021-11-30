@@ -105,9 +105,45 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
       ((h, t): (Int, Vector[Int])) should ===((1, Vector(2)))
     }
 
+    "restructure when used as a method" in {
+      val h +-: t = s
+      import NonEmptyReturningOps._
+      (h +-: t: NonEmpty[Vector[Int]]) should ===(s)
+    }
+
     "have ±: alias" in {
       val h ±: t = s
       ((h, t): (Int, Vector[Int])) should ===((1, Vector(2)))
+    }
+  }
+
+  "map" should {
+    "'work' on sets, so to speak" in {
+      val r = NonEmpty(Set, 1, 2) map (_ + 2)
+      (r: NonEmpty[Set[Int]]) should ===(NonEmpty(Set, 3, 4))
+    }
+
+    "turn Maps into non-Maps" in {
+      val m: NonEmpty[Map[Int, Int]] = NonEmpty(Map, 1 -> 2, 3 -> 4)
+      val r = m map (_._2)
+      ((r: NonEmpty[imm.Iterable[Int]]): imm.Iterable[Int]) should contain theSameElementsAs Seq(
+        2,
+        4,
+      )
+    }
+  }
+
+  "flatMap" should {
+    "'work' on sets, so to speak" in {
+      val r = NonEmpty(Set, 1, 2) flatMap (n => NonEmpty(List, n + 3, n + 5))
+      (r: NonEmpty[Set[Int]]) should ===(NonEmpty(Set, 1 + 3, 1 + 5, 2 + 3, 2 + 5))
+    }
+
+    "reject possibly-empty function returns" in {
+      illTyped(
+        "(_: NonEmpty[List[Int]]) flatMap (x => List(x))",
+        "(?s)type mismatch.*?found.*?List.*?required.*?NonEmpty.*",
+      )
     }
   }
 
