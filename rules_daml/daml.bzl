@@ -231,25 +231,28 @@ $$DAMLC validate-dar $$(canonicalize_rlocation $(rootpath {dar}))
         **kwargs
     )
 
-def _inspect_dar(base, damlc):
-    name = base + "-inspect"
-    dar = base + ".dar"
-    pp = base + ".dar.pp"
-    native.genrule(
-        name = name,
-        srcs = [
-            dar,
-            damlc,
-        ],
-        outs = [pp],
-        cmd = """
-set -eoux pipefail
-# For some reason the sh_binary resolves to two locations,
-# we just take the first one.
-LOCS=($(locations {damlc}))
-DAMLC=$${{LOCS[0]}}
-$$DAMLC inspect $(location :{dar}) > $@""".format(damlc = damlc, dar = dar),
+def _inspect_dar_impl(ctx):
+    dar = ctx.file.dar
+    damlc = ctx.executable.damlc
+    pp = ctx.outputs.pp
+    ctx.actions.run(
+      executable = damlc,
+      inputs = [dar],
+      outputs = [pp],
+      arguments = ["inspect", dar.path, "-o", pp.path],
     )
+
+_inspect_dar = rule(
+  implementation = _inspect_dar_impl,
+  attrs = {
+    "dar": attr.label(
+      allow_single_file = True,
+      mandatory = True
+    ),
+    "damlc": _damlc,
+    "pp": attr.output(mandatory = True),
+  },
+)
 
 _default_project_version = "1.0.0"
 
@@ -292,7 +295,9 @@ def daml_compile(
         **kwargs
     )
     _inspect_dar(
-        base = name,
+        name = "{}-inspect".format(name),
+        dar = "{}.dar".format(name),
+        pp = "{}.dar.pp".format(name),
         damlc = damlc_for_target(target),
     )
 
