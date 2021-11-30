@@ -4,7 +4,7 @@
 .. _ledger-structure:
 
 Structure
----------
+#########
 
 This section looks at the structure of a Daml ledger and the associated ledger
 changes. The basic building blocks of changes are *actions*, which get grouped
@@ -13,7 +13,7 @@ into *transactions*.
 .. _actions-and-transactions:
 
 Actions and Transactions
-++++++++++++++++++++++++
+************************
 
 One of the main features of the Daml ledger model is a *hierarchical action
 structure*.
@@ -197,7 +197,7 @@ So if the painter retracts its `PaintOffer` and later Alice tries to accept it, 
 
 
 Ledgers
-+++++++
+*******
 
 The transaction structure records the contents of the
 changes, but not *who requested them*. This information is added by the notion

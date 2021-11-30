@@ -26,7 +26,7 @@ To set up the example projects, clone the public GitHub repository at `github.co
 This project contains three examples of the PingPong application, built with gRPC (non-reactive), Reactive and Reactive Component bindings respectively.
 
 Example project
-********************************************************
+***************
 
 PingPongMain.java
 =================
