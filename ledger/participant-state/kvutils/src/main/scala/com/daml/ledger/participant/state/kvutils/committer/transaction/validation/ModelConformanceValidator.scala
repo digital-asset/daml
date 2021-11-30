@@ -146,10 +146,11 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
   ): Option[Value.VersionedContractInstance] =
     commitContext
       .read(contractIdToStateKey(contractId))
-      .map(_.getContractState)
-      .map(_.getRawContractInstance)
-      .map(Raw.ContractInstance(_))
-      .map(Conversions.decodeContractInstance)
+      .map { stateValue =>
+        val rawContractInstance =
+          Raw.ContractInstance(stateValue.getContractState.getRawContractInstance)
+        Conversions.decodeContractInstance(rawContractInstance)
+      }
 
   // Helper to lookup package from the state. The package contents are stored in the [[DamlLogEntry]],
   // which we find by looking up the Daml state entry at `DamlStateKey(packageId = pkgId)`.
