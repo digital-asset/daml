@@ -10,10 +10,10 @@ jobs:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    ghc-lib-sha: '42e5c306dcfbc84b83336fdd531023e93bfcc5b2'
+    ghc-lib-sha: '362d4f38a7ac10521393de9b7ad942a77a2605be'
     base-sha: '9c787d4d24f2b515934c8503ee2bbd7cfac4da20'
     patches: '65f50a6f72097324de23d6168e3cb9efe734c181 833ca63be2ab14871874ccb6974921e8952802e9'
-    flavor: 'ghc-8.8.1'
+    flavor: 'da-ghc-8.8.1'
   steps:
   - checkout: self
   - bash: |
@@ -53,6 +53,7 @@ jobs:
                          --merge-base-sha=$(base-sha) \
                          $(for p in $(patches); do echo -n "--patch $p "; done) \
                          --gen-flavor=$(flavor) \
+                         --version-suffix= \
             | tee log"
       export NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/cc855b133100a956d4587079e27c5704cbc8342b.tar.gz
       # We need GHC 8.10.4 for running ghc-lib-gen and GHC 8.6.5 to build GHC.
