@@ -8,7 +8,6 @@ import com.daml.http.domain.{Party, TemplateId}
 import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.scalautil.Statement.discard
 import com.daml.scalautil.nonempty.NonEmpty
-import doobie.implicits._
 import org.openjdk.jmh.annotations._
 import scalaz.std.vector._
 
@@ -51,7 +50,8 @@ trait QueryBenchmark extends ContractDaoBenchmark {
       .foreach { batch =>
         val inserted =
           insertContracts(batch.view.zipWithIndex.map { case ((p, t), i) =>
-            contract(offset + i, p, t)
+            import spray.json._, DefaultJsonProtocol._
+            contract(offset + i, p, t, Map("v" -> i).toJson.asJsObject)
           }.toVector)
         assert(inserted == batch.size)
         offset += batch.size
@@ -61,10 +61,12 @@ trait QueryBenchmark extends ContractDaoBenchmark {
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime))
   def run(): Unit = {
     implicit val driver: SupportedJdbcDriver.TC = dao.jdbcDriver
+    import QueryPayloadBenchmark.predicate
     val /*result*/ _ = instanceUUIDLogCtx(implicit lc =>
       dao
         .transact(
-          ContractDao.selectContracts(NonEmpty.pour(Party(party)) into Set, tpid, fr"1 = 1")
+          ContractDao
+            .selectContracts(NonEmpty.pour(Party(party)) into Set, tpid, predicate.toSqlWhereClause)
         )
         .unsafeRunSync()
     )
