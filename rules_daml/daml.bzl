@@ -236,22 +236,22 @@ def _inspect_dar_impl(ctx):
     damlc = ctx.executable.damlc
     pp = ctx.outputs.pp
     ctx.actions.run(
-      executable = damlc,
-      inputs = [dar],
-      outputs = [pp],
-      arguments = ["inspect", dar.path, "-o", pp.path],
+        executable = damlc,
+        inputs = [dar],
+        outputs = [pp],
+        arguments = ["inspect", dar.path, "-o", pp.path],
     )
 
 _inspect_dar = rule(
-  implementation = _inspect_dar_impl,
-  attrs = {
-    "dar": attr.label(
-      allow_single_file = True,
-      mandatory = True
-    ),
-    "damlc": _damlc,
-    "pp": attr.output(mandatory = True),
-  },
+    implementation = _inspect_dar_impl,
+    attrs = {
+        "dar": attr.label(
+            allow_single_file = True,
+            mandatory = True,
+        ),
+        "damlc": _damlc,
+        "pp": attr.output(mandatory = True),
+    },
 )
 
 _default_project_version = "1.0.0"
