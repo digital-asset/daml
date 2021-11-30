@@ -154,6 +154,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
   /** Helper to lookup package from the state. The package contents are stored
     * in the [[com.daml.ledger.participant.state.kvutils.store.DamlLogEntry]],
     * which we find by looking up the Daml state entry at `DamlStateKey(packageId = pkgId)`.
+    *
     * Note that there is no committer pruning of packages, so [[Rejection.MissingInputState]]
     * can only arise from a malicious or buggy participant.
     */
