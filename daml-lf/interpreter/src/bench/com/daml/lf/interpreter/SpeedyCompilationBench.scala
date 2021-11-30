@@ -10,7 +10,7 @@ import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.PackageInterface
-import com.daml.lf.speedy
+import com.daml.lf.speedy.Compiler.{compilePackages, Config, NoPackageValidation}
 import java.io.File
 import org.openjdk.jmh.annotations.{Param, Setup, Level, Benchmark, State, Scope}
 
@@ -38,8 +38,8 @@ class SpeedyCompilation {
 
   @Benchmark
   def bench(): Unit = {
-    val config = speedy.Compiler.Config.Default
-    val res = speedy.Compiler.compilePackages(interface, darMap, config)
+    val config = Config.Default.copy(packageValidation = NoPackageValidation)
+    val res = compilePackages(interface, darMap, config)
     assert(res.isRight)
   }
 }
