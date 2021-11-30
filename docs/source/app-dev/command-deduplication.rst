@@ -280,7 +280,7 @@ We recommend the following strategy for using deduplication offsets:
    (Analogous to :ref:`step 2 above <dedup-bounded-step-offset>`)
 
    .. note::
-      Unless error handling retries from this step, you can use ``OFF1 = OFF0`.
+      Unless error handling retries from this step, you can use ``OFF1 = OFF0``.
 
 #. Submit the command with the following parameters (analogous to :ref:`step 3 above <dedup-bounded-step-submit>` except for the deduplication period):
 
