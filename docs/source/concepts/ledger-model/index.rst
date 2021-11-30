@@ -4,7 +4,7 @@
 .. _da-ledgers:
 
 Daml Ledger Model
-=================
+#################
 
 Daml Ledgers enable multi-party workflows by providing
 parties with a virtual *shared ledger*, which encodes the current

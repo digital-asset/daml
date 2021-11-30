@@ -2,12 +2,12 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Feature and Component Statuses
-==============================
+##############################
 
 This page gives an overview of the statuses of released components and features according to :doc:`status-definitions`. Anything not listed here implicitly has status "Labs", but it's possible that something accidentally slipped the list so if in doubt, please :doc:`contact us <support>`.
 
 Ledger API
-----------
+**********
 
 .. list-table::
    :widths: 80 10 10
@@ -30,7 +30,7 @@ Ledger API
      - 2021-06-16
 
 Integration Components
-----------------------
+**********************
 
 .. list-table::
    :widths: 80 10 10
@@ -49,7 +49,7 @@ Integration Components
 .. _runtime-components:
 
 Runtime components
-------------------
+******************
 
 .. list-table::
    :widths: 80 10 10
@@ -92,7 +92,7 @@ Runtime components
 .. _libraries:
 
 Libraries
----------
+*********
 
 .. list-table::
    :widths: 80 10 10
@@ -174,7 +174,7 @@ Libraries
 .. _dev-tools:
 
 Developer Tools
----------------
+***************
 
 .. list-table::
    :widths: 80 10 10

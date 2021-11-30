@@ -4,7 +4,7 @@
 .. _da-model-exceptions:
 
 Exceptions
-----------
+##########
 
 The introduction of exceptions, a new Daml feature, has many implications
 for the ledger model. This page describes the changes to the ledger model
@@ -15,7 +15,7 @@ introduced as part of this new feature.
    incorporated into the rest of the ledger model.
 
 Structure
-+++++++++
+*********
 
 Under the new feature, Daml programs can raise and catch exceptions.
 When an exception is caught in a `catch` block, the subtransaction
@@ -71,7 +71,7 @@ moment, for some reason, and a "cancel" exercise has been issued in response.
    :width: 80%
 
 Consistency
-+++++++++++
+***********
 
 In the previous section on :ref:`consistency <da-model-consistency>`,
 we defined a "before-after" relation on ledger actions. This notion needs
@@ -123,7 +123,7 @@ And the third:
 As you can see, in each of these continuities, no contract was consumed twice.
 
 Transaction Normalization
-+++++++++++++++++++++++++
+*************************
 
 The same "before-after" relation can be represented in more than one way using
 rollback nodes. For example, the following three transactions have the same
@@ -205,7 +205,7 @@ contain normalized transactions. This also applies to projected transactions.
 An unnormalized transaction is always invalid.
 
 Authorization
-+++++++++++++
+*************
 
 Since they are not ledger actions, rollback nodes do not have authorizers
 directly. Instead, a ledger is well-authorized exactly when the same ledger
@@ -232,7 +232,7 @@ This is captured in the following rules:
   the required authorizers of its children.
 
 Privacy
-+++++++
+*******
 
 Rollback nodes also have an interesting effect on the notion of privacy in
 the ledger model. When projecting a transaction for a party `p`, it's
@@ -279,7 +279,7 @@ closed under projections for any party 'p'. This is a weaker requirement
 that matches what we actually need.
 
 Relation to Daml Exceptions
-+++++++++++++++++++++++++++
+***************************
 
 Rollback nodes are created when an exception is thrown and caught within
 the same transaction. In particular, any exception that is caught within
