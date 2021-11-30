@@ -10,8 +10,13 @@ import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.kvutils.api.{KeyValueLedger, KeyValueParticipantState}
-import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
+import com.daml.ledger.participant.state.kvutils.api.{
+  KeyValueLedger,
+  KeyValueParticipantState,
+  KeyValueParticipantStateReader,
+  KeyValueParticipantStateWriter,
+}
+import com.daml.ledger.participant.state.v2.{ReadService, WritePackagesService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
@@ -124,7 +129,10 @@ trait ConfigProvider[ExtraConfig] {
   }
 }
 
-trait ReadServiceOwner[+RS <: ReadService, ExtraConfig] extends ConfigProvider[ExtraConfig] {
+trait ReadServiceOwner[ExtraConfig] extends ConfigProvider[ExtraConfig] {
+
+  type RS <: ReadService
+
   def readServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
@@ -132,68 +140,127 @@ trait ReadServiceOwner[+RS <: ReadService, ExtraConfig] extends ConfigProvider[E
   )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RS]
 }
 
-trait WriteServiceOwner[+WS <: WriteService, ExtraConfig] extends ConfigProvider[ExtraConfig] {
+trait WriteServiceOwner[ExtraConfig] extends ConfigProvider[ExtraConfig] {
+
+  type WS <: WriteService
+
+  def writePackageOwner(
+      config: Config[ExtraConfig],
+      participantConfig: ParticipantConfig,
+      engine: Engine,
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[WritePackagesService]
+
   def writeServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[WS]
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[WriteService]
 }
 
-trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
-    extends ReadServiceOwner[RWS, ExtraConfig]
-    with WriteServiceOwner[RWS, ExtraConfig] {
+trait LedgerFactory[ExtraConfig]
+    extends ReadServiceOwner[ExtraConfig]
+    with WriteServiceOwner[ExtraConfig] {
 
-  override final def readServiceOwner(
-      config: Config[ExtraConfig],
-      participantConfig: ParticipantConfig,
-      engine: Engine,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RWS] =
-    readWriteServiceOwner(config, participantConfig, engine)
-
-  override final def writeServiceOwner(
-      config: Config[ExtraConfig],
-      participantConfig: ParticipantConfig,
-      engine: Engine,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RWS] =
-    readWriteServiceOwner(config, participantConfig, engine)
+  type RWS <: ReadWriteService
 
   def readWriteServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RWS]
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[RWS]
 }
 
 object LedgerFactory {
-  abstract class KeyValueLedgerFactory[KVL <: KeyValueLedger]
-      extends LedgerFactory[KeyValueParticipantState, Unit] {
-    override final val defaultExtraConfig: Unit = ()
 
-    override final def readWriteServiceOwner(
-        config: Config[Unit],
+  abstract class KeyValueLedgerFactory[KVL <: KeyValueLedger, ExtraConfig]
+      extends LedgerFactory[ExtraConfig] {
+
+    override type RS = KeyValueParticipantStateReader
+    override type WS = KeyValueParticipantStateWriter
+    override type RWS = KeyValueParticipantState
+
+    override def readServiceOwner(
+        config: Config[ExtraConfig],
         participantConfig: ParticipantConfig,
         engine: Engine,
     )(implicit
         materializer: Materializer,
         loggingContext: LoggingContext,
-    ): ResourceOwner[KeyValueParticipantState] =
+    ): ResourceOwner[RS] = {
+      owner(config, participantConfig, engine).map(ledgerReaderWriter => {
+        val metrics = createMetrics(participantConfig, config)
+        KeyValueParticipantStateReader(
+          ledgerReaderWriter,
+          metrics,
+          config.enableSelfServiceErrorCodes,
+        )
+      })
+    }
+
+    override def writePackageOwner(
+        config: Config[ExtraConfig],
+        participantConfig: ParticipantConfig,
+        engine: Engine,
+    )(implicit
+        materializer: Materializer,
+        loggingContext: LoggingContext,
+    ): ResourceOwner[WritePackagesService] =
+      owner(config, participantConfig, engine).map(ledgerReaderWriter => {
+        val metrics = createMetrics(participantConfig, config)
+        new KeyValueParticipantStateWriter(
+          ledgerReaderWriter,
+          metrics,
+        )
+      })
+
+    override def writeServiceOwner(
+        config: Config[ExtraConfig],
+        participantConfig: ParticipantConfig,
+        engine: Engine,
+    )(implicit
+        materializer: Materializer,
+        loggingContext: LoggingContext,
+    ): ResourceOwner[WS] =
+      owner(config, participantConfig, engine).map(ledgerReaderWriter => {
+        val metrics = createMetrics(participantConfig, config)
+        new KeyValueParticipantStateWriter(
+          ledgerReaderWriter,
+          metrics,
+        )
+      })
+
+    override final def readWriteServiceOwner(
+        config: Config[ExtraConfig],
+        participantConfig: ParticipantConfig,
+        engine: Engine,
+    )(implicit
+        materializer: Materializer,
+        loggingContext: LoggingContext,
+    ): ResourceOwner[RWS] =
       for {
-        readerWriter <- owner(config, participantConfig, engine)
+        readService <- readServiceOwner(config, participantConfig, engine)
+        writeService <- writeServiceOwner(config, participantConfig, engine)
       } yield new KeyValueParticipantState(
-        readerWriter,
-        readerWriter,
-        createMetrics(participantConfig, config),
-        config.enableSelfServiceErrorCodes,
+        readService,
+        writeService,
       )
 
     def owner(
-        value: Config[Unit],
-        config: ParticipantConfig,
+        config: Config[ExtraConfig],
+        participantConfig: ParticipantConfig,
         engine: Engine,
     )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[KVL]
 
-    override final def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =
+    override def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit =
       ()
   }
 }

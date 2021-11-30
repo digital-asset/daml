@@ -5,6 +5,7 @@ package com.daml.ledger.sandbox
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, ParticipantConfig}
+import com.daml.ledger.participant.state.v2.{ReadService, WritePackagesService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
@@ -12,7 +13,42 @@ import scopt.OptionParser
 
 case class BridgeConfig(maxDedupSeconds: Int, submissionBufferSize: Int)
 
-object BridgeLedgerFactory extends LedgerFactory[ReadWriteServiceBridge, BridgeConfig] {
+object BridgeLedgerFactory extends LedgerFactory[BridgeConfig] {
+
+  override type RWS = ReadWriteServiceBridge
+  override type RS = ReadService
+  override type WS = WriteService
+
+  override def readServiceOwner(
+      config: Config[BridgeConfig],
+      participantConfig: ParticipantConfig,
+      engine: Engine,
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[RS] =
+    readWriteServiceOwner(config, participantConfig, engine)
+
+  override def writePackageOwner(
+      config: Config[BridgeConfig],
+      participantConfig: ParticipantConfig,
+      engine: Engine,
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[WritePackagesService] =
+    readWriteServiceOwner(config, participantConfig, engine)
+
+  override def writeServiceOwner(
+      config: Config[BridgeConfig],
+      participantConfig: ParticipantConfig,
+      engine: Engine,
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[WS] =
+    readWriteServiceOwner(config, participantConfig, engine)
+
   override final def readWriteServiceOwner(
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
@@ -20,7 +56,7 @@ object BridgeLedgerFactory extends LedgerFactory[ReadWriteServiceBridge, BridgeC
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
-  ): ResourceOwner[ReadWriteServiceBridge] =
+  ): ResourceOwner[RWS] =
     ResourceOwner.forCloseable(() =>
       ReadWriteServiceBridge(
         participantId = participantConfig.participantId,

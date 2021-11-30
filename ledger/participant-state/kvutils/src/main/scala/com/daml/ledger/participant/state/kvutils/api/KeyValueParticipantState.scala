@@ -23,44 +23,32 @@ import com.daml.ledger.participant.state.v2.{
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
 
 /** Implements read and write operations required for running a participant server.
   *
-  * Adapts [[LedgerReader]] and [[LedgerWriter]] interfaces to [[com.daml.ledger.participant.state.v2.ReadService]] and
-  * [[com.daml.ledger.participant.state.v2.WriteService]], respectively.
+  * Unifies [[KeyValueParticipantStateReader]] and [[KeyValueParticipantStateWriter]] interfaces
   * Will report [[com.daml.ledger.api.health.Healthy]] as health status only if both
   * `reader` and `writer` are healthy.
   *
-  * @param reader       [[LedgerReader]] instance to adapt
-  * @param writer       [[LedgerWriter]] instance to adapt
-  * @param metrics      used to record timing metrics for [[LedgerWriter]] calls
+  * @param reader       [[LedgerReader]] instance to delegate to
+  * @param writer       [[LedgerWriter]] instance to delegate to
   */
 class KeyValueParticipantState(
-    reader: LedgerReader,
-    writer: LedgerWriter,
-    metrics: Metrics,
-    enableSelfServiceErrorCodes: Boolean,
+    reader: KeyValueParticipantStateReader,
+    writer: KeyValueParticipantStateWriter,
 ) extends ReadService
     with WriteService {
-  private val readerAdapter =
-    KeyValueParticipantStateReader(reader, metrics, enableSelfServiceErrorCodes)
-  private val writerAdapter =
-    new KeyValueParticipantStateWriter(
-      new TimedLedgerWriter(writer, metrics),
-      metrics,
-    )
 
-  override def isApiDeduplicationEnabled: Boolean = writerAdapter.isApiDeduplicationEnabled
+  override def isApiDeduplicationEnabled: Boolean = writer.isApiDeduplicationEnabled
 
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
-    readerAdapter.ledgerInitialConditions()
+    reader.ledgerInitialConditions()
 
   override def stateUpdates(
       beginAfter: Option[Offset]
   )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
-    readerAdapter.stateUpdates(beginAfter)
+    reader.stateUpdates(beginAfter)
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -71,7 +59,7 @@ class KeyValueParticipantState(
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult] =
-    writerAdapter.submitTransaction(
+    writer.submitTransaction(
       submitterInfo,
       transactionMeta,
       transaction,
@@ -86,7 +74,7 @@ class KeyValueParticipantState(
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult] =
-    writerAdapter.submitConfiguration(maxRecordTime, submissionId, config)
+    writer.submitConfiguration(maxRecordTime, submissionId, config)
 
   override def uploadPackages(
       submissionId: Ref.SubmissionId,
@@ -96,7 +84,7 @@ class KeyValueParticipantState(
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult] =
-    writerAdapter.uploadPackages(submissionId, archives, sourceDescription)
+    writer.uploadPackages(submissionId, archives, sourceDescription)
 
   override def allocateParty(
       hint: Option[Ref.Party],
@@ -106,14 +94,14 @@ class KeyValueParticipantState(
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult] =
-    writerAdapter.allocateParty(hint, displayName, submissionId)
+    writer.allocateParty(hint, displayName, submissionId)
 
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
       pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =
-    writerAdapter.prune(pruneUpToInclusive, submissionId, pruneAllDivulgedContracts)
+    writer.prune(pruneUpToInclusive, submissionId, pruneAllDivulgedContracts)
 
   override def currentHealth(): HealthStatus =
     reader.currentHealth() and writer.currentHealth()

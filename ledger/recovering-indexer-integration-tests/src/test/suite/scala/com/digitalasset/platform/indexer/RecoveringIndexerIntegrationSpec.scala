@@ -16,7 +16,11 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.on.memory
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.api.{
+  KeyValueParticipantState,
+  KeyValueParticipantStateReader,
+  KeyValueParticipantStateWriter,
+}
 import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.ledger.validator.StateKeySerializationStrategy
@@ -29,15 +33,15 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao, LedgerReadDao}
-import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
+import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
-import org.mockito.{ArgumentMatchers, MockitoSugar}
 import org.mockito.Mockito._
+import org.mockito.{ArgumentMatchers, MockitoSugar}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -308,10 +312,15 @@ object RecoveringIndexerIntegrationSpec {
           committerExecutionContext = committerExecutionContext,
         )
       } yield new KeyValueParticipantState(
-        readerWriter,
-        readerWriter,
-        metrics,
-        enableSelfServiceErrorCodes = true,
+        KeyValueParticipantStateReader(
+          reader = readerWriter,
+          metrics = metrics,
+          enableSelfServiceErrorCodes = true,
+        ),
+        new KeyValueParticipantStateWriter(
+          writer = readerWriter,
+          metrics = metrics,
+        ),
       )
     }
   }

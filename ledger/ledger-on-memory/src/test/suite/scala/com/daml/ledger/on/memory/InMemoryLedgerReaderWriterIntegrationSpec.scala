@@ -8,7 +8,11 @@ import java.util.concurrent.Executors
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.api.{
+  KeyValueParticipantState,
+  KeyValueParticipantStateReader,
+  KeyValueParticipantStateWriter,
+}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.data.Ref
@@ -57,9 +61,14 @@ class InMemoryLedgerReaderWriterIntegrationSpec
         committerExecutionContext = committerExecutionContext,
       )
     } yield new KeyValueParticipantState(
-      readerWriter,
-      readerWriter,
-      metrics,
-      enableSelfServiceErrorCodes = true,
+      KeyValueParticipantStateReader(
+        reader = readerWriter,
+        metrics = metrics,
+        enableSelfServiceErrorCodes = true,
+      ),
+      new KeyValueParticipantStateWriter(
+        writer = readerWriter,
+        metrics = metrics,
+      ),
     )
 }
