@@ -131,13 +131,14 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
     }
   }
 
-  // Helper to lookup contract instances. Since we look up every contract that was
-  // an input to a transaction, we do not need to verify the inputs separately.
-  //
-  // Note that for an honest participant, a contract may not be in the state only if it was archived and pruned
-  // on the committer. Then, an honest participant is able to produce such a transaction only by using
-  // a divulged contract that appeared as active, because it didn't learn about the archival.
-  // On the other hand, using divulged contracts for interpretation is deprecated so we turn it into Inconsistent.
+  /** Helper to lookup contract instances. Since we look up every contract that was
+    * an input to a transaction, we do not need to verify the inputs separately.
+    *
+    * Note that for an honest participant, a contract may not be in the state only if it was archived and pruned
+    * on the committer. Then, an honest participant is able to produce such a transaction only by using
+    * a divulged contract that appeared as active, because it didn't learn about the archival.
+    * On the other hand, using divulged contracts for interpretation is deprecated so we turn it into [[Rejection.MissingInputState]].
+    */
   @throws[Err.MissingInputState]
   private[validation] def lookupContract(
       commitContext: CommitContext
@@ -150,11 +151,12 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       .map(_.getContractInstance)
       .map(Conversions.decodeContractInstance)
 
-  // Helper to lookup package from the state. The package contents are stored in the [[DamlLogEntry]],
-  // which we find by looking up the Daml state entry at `DamlStateKey(packageId = pkgId)`.
-  //
-  // Note that there is no committer pruning of packages, so MissingInputState can only arise from a malicious
-  // or buggy participant.
+  /** Helper to lookup package from the state. The package contents are stored
+    * in the [[com.daml.ledger.participant.state.kvutils.store.DamlLogEntry]],
+    * which we find by looking up the Daml state entry at `DamlStateKey(packageId = pkgId)`.
+    * Note that there is no committer pruning of packages, so [[Rejection.MissingInputState]]
+    * can only arise from a malicious or buggy participant.
+    */
   @throws[Err.MissingInputState]
   @throws[Err.ArchiveDecodingFailed]
   private[validation] def lookupPackage(
