@@ -696,6 +696,8 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> decodeNameId ChoiceName update_ExerciseInterfaceChoiceInternedStr
       <*> mayDecode "update_ExerciseInterfaceCid" update_ExerciseInterfaceCid decodeExpr
       <*> mayDecode "update_ExerciseInterfaceArg" update_ExerciseInterfaceArg decodeExpr
+      <*> mayDecode "update_ExerciseInterfaceTypeRep" update_ExerciseInterfaceTypeRep decodeExpr
+      <*> mayDecode "update_ExerciseInterfaceGuard" update_ExerciseInterfaceGuard decodeExpr
   LF1.UpdateSumExerciseByKey LF1.Update_ExerciseByKey{..} ->
     fmap EUpdate $ UExerciseByKey
       <$> mayDecode "update_ExerciseByKeyTemplate" update_ExerciseByKeyTemplate decodeTypeConName

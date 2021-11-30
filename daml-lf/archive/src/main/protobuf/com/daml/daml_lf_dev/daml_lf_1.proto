@@ -1230,6 +1230,10 @@ message Update {
     Expr cid = 3;
     // argument
     Expr arg = 4;
+    // optional type rep for expected template id
+    Expr type_rep = 5;
+    // exercise guard (Interface -> Bool)
+    Expr guard = 6;
   }
 
  // ExerciseByKey Update

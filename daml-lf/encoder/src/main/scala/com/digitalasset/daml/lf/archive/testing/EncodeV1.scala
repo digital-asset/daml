@@ -380,14 +380,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           builder.setExercise(b)
-        case UpdateExerciseInterface(interface, choice, cid, arg, guard @ _) =>
-          // TODO https://github.com/digital-asset/daml/issues/11703
-          //   Encode guard.
+        case UpdateExerciseInterface(interface, choice, cid, arg, typeRep, guard) =>
           val b = PLF.Update.ExerciseInterface.newBuilder()
           b.setInterface(interface)
           setInternedString(choice, b.setChoiceInternedStr)
           b.setCid(cid)
           b.setArg(arg)
+          b.setTypeRep(typeRep)
+          b.setGuard(guard)
           builder.setExerciseInterface(b)
         case UpdateExerciseByKey(templateId, choice, key, arg) =>
           assertSince(LV.Features.exerciseByKey, "exerciseByKey")
