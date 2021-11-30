@@ -214,13 +214,7 @@ object LedgerFactory {
         materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[WritePackagesService] =
-      owner(config, participantConfig, engine).map(ledgerReaderWriter => {
-        val metrics = createMetrics(participantConfig, config)
-        new KeyValueParticipantStateWriter(
-          ledgerReaderWriter,
-          metrics,
-        )
-      })
+      writeServiceOwner(config, participantConfig, engine)
 
     override def writeServiceOwner(
         config: Config[ExtraConfig],
