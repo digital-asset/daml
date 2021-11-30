@@ -120,7 +120,6 @@ in rec {
     python3     = python37;
     python37    = pkgs.python37Packages.python;
 
-    flake8 = pkgs.python37Packages.flake8;
     yapf = pkgs.python37Packages.yapf;
 
     pex = pkgs.python37Packages.pex;
