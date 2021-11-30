@@ -61,16 +61,20 @@ The on-ledger effect of the command execution will be reported via the `transact
 Change ID
 ---------
 
-Each intended ledger change is identified by its **change ID**, consisting of of the submitting parties (i.e., the union of :ref:`party <com.daml.ledger.api.v1.Commands.party>` and :ref:`act_as <com.daml.ledger.api.v1.Commands.act_as>`), :ref:`application ID <com.daml.ledger.api.v1.Commands.application_id>` and :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`.
+Each intended ledger change is identified by its **change ID**, consisting of the following three components:
+
+- The submitting parties, i.e., the union of :ref:`party <com.daml.ledger.api.v1.Commands.party>` and :ref:`act_as <com.daml.ledger.api.v1.Commands.act_as>`
+- the :ref:`application ID <com.daml.ledger.api.v1.Commands.application_id>`
+- The :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`
 
 Application-specific IDs
 ------------------------
 
 The following application-specific IDs, all of which are included in completion events, can be set in commands:
 
-- A :ref:`submissionId <com.daml.ledger.api.v1.Commands.submission_id>`, returned to the submitting application only. It may be used to correlate specific submissions to specific completions.
-- A :ref:`commandId <com.daml.ledger.api.v1.Commands.command_id>`, returned to the submitting application only; it can be used to correlate commands to completions.
-- A :ref:`workflowId <com.daml.ledger.api.v1.Commands.workflow_id>`, returned as part of the resulting transaction to all applications receiving it. It can be used to track workflows between parties, consisting of several transactions.
+- A :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>`, returned to the submitting application only. It may be used to correlate specific submissions to specific completions.
+- A :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`, returned to the submitting application only; it can be used to correlate commands to completions.
+- A :ref:`workflow ID <com.daml.ledger.api.v1.Commands.workflow_id>`, returned as part of the resulting transaction to all applications receiving it. It can be used to track workflows between parties, consisting of several transactions.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandSubmissionService>`.
 
@@ -79,38 +83,15 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 Command deduplication
 ---------------------
 
-The command submission service deduplicates submitted commands based on their :ref:`change ID <change-id>`:
+The command submission service deduplicates submitted commands based on their :ref:`change ID <change-id>`.
 
-- Applications can provide a :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` for each command. If this parameter is not set, the default maximum deduplication period is used.
+- Applications can provide a :ref:`deduplication period <com.daml.ledger.api.v1.Commands.deduplication_period>` for each command. If this parameter is not set, the default maximum deduplication time is used.
 - A command submission is considered a duplicate submission if the ledger API server is aware of another command within the deduplication period and with the same :ref:`change ID <change-id>`.
 - A command resubmission will generate a rejection until the original submission was rejected (i.e. the command failed and resulted in a rejected transaction) or until the effective deduplication period has elapsed since the completion of the original command, whichever comes first.
 - Command deduplication is only *guaranteed* to work if all commands are submitted to the same participant. Ledgers are free to perform additional command deduplication across participants. Consult the respective ledger's manual for more details.
-- A command submission will return:
 
-  - The result of the submission (``Empty`` or a gRPC error), if the command was submitted outside of the deduplication period of a previous command with the same :ref:`change ID <change-id>` on the same participant.
-  - The status error ``ALREADY_EXISTS``, if the command was discarded by the ledger server because it was sent within the deduplication period of a previous command with the same :ref:`change ID <change-id>`.
-
-- If the ledger provides additional command deduplication across participants, the initial command submission might be successful, but ultimately the command can be rejected if the deduplication check fails on the ledger.
-
-  - At this time, only `Daml Driver for VMware Blockchain <https://www.digitalasset.com/daml-for-vmware-blockchain/>`__ supports command deduplication across participants.
-
-For details on how to use command deduplication, see the :ref:`Application Architecture Guide <command-deduplication>`.
-
-.. note::
-
-  - The ledger may extend the deduplication period specified in the request arbitrarily, even beyond the maximum deduplication duration specified in the :ref:`ledger configuration <ledger-configuration-service>`.
-    The deduplication period chosen by the ledger is the *effective deduplication period*.
-
-  - Regardless, the deduplication period specified in the request is always checked against the configured maximum deduplication duration.
-
-  - A command submission is considered a duplicate submission if the ledger is aware of another command within the *effective* deduplication period and with the same :ref:`change ID <change-id>`.
-
-  - The following ledger integrations always extend the deduplication period to the configured maximum deduplication duration:
-
-    - `Daml Driver for VMware Blockchain <https://www.digitalasset.com/daml-for-vmware-blockchain/>`__
-
-    - :ref:`Daml Sandbox <sandbox-manual>`
-
+For details on how to use command deduplication, see the :doc:`Command Deduplication Guide <command-deduplication>`.
+  
 .. _command-completion-service:
 
 Command completion service
@@ -118,7 +99,7 @@ Command completion service
 
 Use the **command completion service** to find out the completion status of commands you have submitted.
 
-Completions contain the ``commandId`` of the completed command, and the completion status of the command. This status indicates failure or success, and your application should use it to update what it knows about commands in flight, and implement any application-specific error recovery.
+Completions contain the :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` of the completed command, and the completion status of the command. This status indicates failure or success, and your application should use it to update what it knows about commands in flight, and implement any application-specific error recovery.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandCompletionService>`.
 
@@ -145,7 +126,7 @@ Use the **transaction service** to listen to changes in the ledger state, report
 
 Transactions detail the changes on the ledger, and contains all the events (create, exercise, archive of contracts) that had an effect in that transaction.
 
-Transactions contain a :ref:`transactionId <com.daml.ledger.api.v1.Transaction.transaction_id>` (assigned by the server), the ``workflowId``, the ``commandId``, and the events in the transaction.
+Transactions contain a :ref:`transaction ID <com.daml.ledger.api.v1.Transaction.transaction_id>` (assigned by the server), the :ref:`workflow ID <com.daml.ledger.api.v1.Commands.workflow_id>`, the :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`, and the events in the transaction.
 
 Subscribe to the transaction service to read events from an arbitrary point on the ledger. This arbitrary point is specified by the ledger offset. This is important when starting or restarting and application, and to work in conjunction with the `active contracts service <#active-contract-service>`__.
 
