@@ -21,8 +21,8 @@ cleanup()
   rm -rf ../source/getting-started/code
   rm -rf ../source/daml/stdlib
   rm -f ../source/app-dev/grpc/proto-docs.rst
-  rm -f ../source/app-dev/grpc/error-codes-inventory.rst
-  rm -f ../source/app-dev/grpc/error-categories-inventory.rst
+  rm -f ../source/app-dev/grpc/error-codes-inventory.rst.inc
+  rm -f ../source/app-dev/grpc/error-categories-inventory.rst.inc
   rm -f ../source/LICENSE
   rm -f ../source/NOTICES
   echo "Done cleanup ... quitting."
@@ -69,9 +69,9 @@ do
 
         # Error codes and error categories
         bazel build //docs:generate-docs-error-codes-inventory-into-rst-file
-        cp -L ../../bazel-bin/docs/error-codes-inventory.rst $BUILD_DIR/source/app-dev/grpc/error-codes-inventory.rst
+        cp -L ../../bazel-bin/docs/error-codes-inventory.rst $BUILD_DIR/source/app-dev/grpc/error-codes-inventory.rst.inc
         bazel build //docs:generate-docs-error-categories-inventory-into-rst-file
-        cp -L ../../bazel-bin/docs/error-categories-inventory.rst $BUILD_DIR/source/app-dev/grpc/error-categories-inventory.rst
+        cp -L ../../bazel-bin/docs/error-categories-inventory.rst $BUILD_DIR/source/app-dev/grpc/error-categories-inventory.rst.inc
 
         # Hoogle
         bazel build //compiler/damlc:daml-base-hoogle.txt

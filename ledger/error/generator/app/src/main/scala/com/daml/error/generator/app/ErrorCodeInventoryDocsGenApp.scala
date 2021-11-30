@@ -190,7 +190,7 @@ object ErrorGroupTree {
          |    """.stripMargin)
     val errorCodeReferenceName = s"error_code_${e.code}"
     s"""
-       |.. _${errorCodeReferenceName}:
+       |.. _$errorCodeReferenceName:
        |
        |${e.code}
        |---------------------------------------------------------------------------------------------------------------------------------------
