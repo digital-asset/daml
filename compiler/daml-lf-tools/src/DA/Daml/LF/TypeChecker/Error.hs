@@ -122,7 +122,6 @@ data Error
   | EDataTypeCycle         ![TypeConName] -- TODO: implement check for this error
   | EValueCycle            ![ExprValName]
   | EImpredicativePolymorphism !Type
-  | EForbiddenPartyLiterals ![PartyLiteral] ![Qualified ExprValName]
   | EContext               !Context !Error
   | EKeyOperationOnTemplateWithNoKey !(Qualified TypeConName)
   | EUnsupportedFeature !Feature
@@ -353,17 +352,6 @@ instance Pretty Error where
       [ "impredicative polymorphism is not supported:"
       , "* found:" <-> pretty typ
       ]
-    EForbiddenPartyLiterals parties badRefs ->
-      vcat $ [partiesDoc | not (null parties)] ++ [badRefsDoc | not (null badRefs)]
-      where
-        partiesDoc =
-          vcat $
-            "Found forbidden party literals:"
-            : map (\party -> "*" <-> pretty party) parties
-        badRefsDoc =
-          vcat $
-            "Found forbidden references to functions containing party literals:"
-            : map (\badRef -> "*" <-> pretty badRef) badRefs
     EKeyOperationOnTemplateWithNoKey tpl -> do
       "tried to perform key lookup or fetch on template " <> pretty tpl
     EExpectedOptionalType typ -> do
