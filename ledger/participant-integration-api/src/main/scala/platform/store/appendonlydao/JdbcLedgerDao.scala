@@ -672,7 +672,7 @@ private class JdbcLedgerDao(
         acsFetchingparallelism = acsContractFetchingParallelism,
         metrics = metrics,
         materializer = materializer,
-        idQuerylimiter =
+        querylimiter =
           new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext),
       ),
     )(

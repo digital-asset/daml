@@ -41,7 +41,7 @@ class FilterTableACSReader(
     acsFetchingparallelism: Int,
     metrics: Metrics,
     materializer: Materializer,
-    idQuerylimiter: ConcurrencyLimiter,
+    querylimiter: ConcurrencyLimiter,
 ) extends ACSReader {
   import FilterTableACSReader._
 
@@ -71,18 +71,15 @@ class FilterTableACSReader(
       materializer = materializer,
     )(
       query =>
-        idQuerylimiter
-          .execute(() =>
-            dispatcher
-              .executeSql(metrics.daml.index.db.getActiveContractIds)(
-                eventStorageBackend.activeContractEventIds(
-                  partyFilter = query.filter.party,
-                  templateIdFilter = query.filter.templateId,
-                  startExclusive = query.fromExclusiveEventSeqId,
-                  endInclusive = activeAt._2,
-                  limit = idPageSize,
-                )
-              )
+        dispatcher
+          .executeSql(metrics.daml.index.db.getActiveContractIds)(
+            eventStorageBackend.activeContractEventIds(
+              partyFilter = query.filter.party,
+              templateIdFilter = query.filter.templateId,
+              startExclusive = query.fromExclusiveEventSeqId,
+              endInclusive = activeAt._2,
+              limit = idPageSize,
+            )
           )
           .map { result =>
             val newTasks =
@@ -106,25 +103,27 @@ class FilterTableACSReader(
       )
       .async
       .mapAsync(acsFetchingparallelism) { ids =>
-        dispatcher
-          .executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
-            val result = queryNonPruned.executeSql(
-              eventStorageBackend.activeContractEventBatch(
-                eventSequentialIds = ids,
-                allFilterParties = allFilterParties,
-                endInclusive = activeAt._2,
-              )(connection),
-              activeAt._1,
-              pruned =>
-                s"Active contracts request after ${activeAt._1.toHexString} precedes pruned offset ${pruned.toHexString}",
-            )(connection, implicitly)
-            logger.debug(
-              s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
-                .map(last => s"until $last")
-                .getOrElse("")}"
-            )
-            result
-          }
+        querylimiter.execute(() =>
+          dispatcher
+            .executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
+              val result = queryNonPruned.executeSql(
+                eventStorageBackend.activeContractEventBatch(
+                  eventSequentialIds = ids,
+                  allFilterParties = allFilterParties,
+                  endInclusive = activeAt._2,
+                )(connection),
+                activeAt._1,
+                pruned =>
+                  s"Active contracts request after ${activeAt._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+              )(connection, implicitly)
+              logger.debug(
+                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
+                  .map(last => s"until $last")
+                  .getOrElse("")}"
+              )
+              result
+            }
+        )
       }
   }
 
