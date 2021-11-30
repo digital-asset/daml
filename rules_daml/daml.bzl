@@ -243,7 +243,7 @@ def _inspect_dar(base, damlc):
         ],
         outs = [pp],
         cmd = """
-set -eou pipefail
+set -eoux pipefail
 # For some reason the sh_binary resolves to two locations,
 # we just take the first one.
 LOCS=($(locations {damlc}))
