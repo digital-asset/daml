@@ -19,6 +19,7 @@ import scala.collection.compat._
 
 trait QueryPayloadBenchmark extends ContractDaoBenchmark {
   self: BenchmarkDbConnection =>
+  import QueryPayloadBenchmark._
 
   @Param(Array("1", "10", "100"))
   var extraParties: Int = _
@@ -29,28 +30,6 @@ trait QueryPayloadBenchmark extends ContractDaoBenchmark {
   private val tpid = TemplateId("-pkg-", "M", "T")
   private var surrogateTpid: SurrogateTpId = _
   val party = "Alice"
-
-  private[this] val dummyPackageId = Ref.PackageId.assertFromString("dummy-package-id")
-  private[this] val dummyId = Ref.Identifier(
-    dummyPackageId,
-    Ref.QualifiedName.assertFromString("Foo:Bar"),
-  )
-  private[this] val dummyTypeCon = iface.TypeCon(iface.TypeConName(dummyId), ImmArraySeq.empty)
-
-  val predicate = ValuePredicate.fromJsObject(
-    Map("v" -> JsNumber(0)),
-    dummyTypeCon,
-    Map(
-      dummyId -> iface.DefDataType(
-        ImmArraySeq.empty,
-        iface.Record(
-          ImmArraySeq(
-            (Ref.Name.assertFromString("v"), iface.TypePrim(iface.PrimType.Int64, ImmArraySeq()))
-          )
-        ),
-      )
-    ).lift,
-  )
 
   def whereClause = predicate.toSqlWhereClause(dao.jdbcDriver)
 
@@ -84,6 +63,30 @@ trait QueryPayloadBenchmark extends ContractDaoBenchmark {
   }
 
   discard(IterableOnce) // only needed for scala 2.12
+}
+
+object QueryPayloadBenchmark {
+  private[this] val dummyPackageId = Ref.PackageId.assertFromString("dummy-package-id")
+  private[this] val dummyId = Ref.Identifier(
+    dummyPackageId,
+    Ref.QualifiedName.assertFromString("Foo:Bar"),
+  )
+  private[this] val dummyTypeCon = iface.TypeCon(iface.TypeConName(dummyId), ImmArraySeq.empty)
+
+  val predicate = ValuePredicate.fromJsObject(
+    Map("v" -> JsNumber(0)),
+    dummyTypeCon,
+    Map(
+      dummyId -> iface.DefDataType(
+        ImmArraySeq.empty,
+        iface.Record(
+          ImmArraySeq(
+            (Ref.Name.assertFromString("v"), iface.TypePrim(iface.PrimType.Int64, ImmArraySeq()))
+          )
+        ),
+      )
+    ).lift,
+  )
 }
 
 class QueryPayloadBenchmarkOracle extends QueryPayloadBenchmark with OracleBenchmarkDbConn
