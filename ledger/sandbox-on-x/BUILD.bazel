@@ -30,6 +30,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/caching",
+        "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
@@ -145,19 +146,19 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        "--exclude=CommandDeduplicationIT",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
+#        "--additional=ContractIdIT:Accept", ???
+        "--additional=ParticipantPruningIT",
         "--exclude=ClosedWorldIT",
-        "--exclude=ContractKeysIT",
-        "--exclude=SemanticTests",
-        "--exclude=RaceConditionIT",
         "--exclude=ExceptionRaceConditionIT",
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
         "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
         # Disable tests targeting only append-only schema functionality
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -172,7 +173,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--include=TransactionServiceArgumentsIT",
+        "--include=CommandDeduplicationIT:ParticipantCommandDeduplicationStopOnCompletionFailure",
     ],
 )
 
