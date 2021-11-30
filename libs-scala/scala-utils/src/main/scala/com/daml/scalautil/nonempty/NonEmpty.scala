@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.scalautil.nonempty
+package com.daml.scalautil
+package nonempty
 
 import scala.collection.compat._
 import scala.collection.{immutable => imm}, imm.Map, imm.Set
@@ -11,14 +12,13 @@ import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.std.option._
 
-import com.daml.scalautil.FoldableContravariant
+import Statement.discard
 import NonEmptyCollCompat._
 
 /** The visible interface of [[NonEmpty]]; use that value to access
   * these members.
   */
 sealed abstract class NonEmptyColl {
-  import NonEmptyColl.Pouring
 
   /** Use its alias [[com.daml.scalautil.nonempty.NonEmpty]]. */
   type NonEmpty[+A]
@@ -43,17 +43,17 @@ sealed abstract class NonEmptyColl {
     */
   def equiv[F[_], A]: NonEmpty[F[A]] === NonEmptyF[F, A]
 
-  /** Check whether `self` is non-empty; if so, return it as the non-empty subtype. */
-  @deprecated("misleading apply, use `case NonEmpty(xs)` instead", since = "1.18.0")
-  final def apply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = unapply(self)
-
   /** {{{
-    *  NonEmpty.pour(1, 2, 3) into List : NonEmpty[List[Int]] // with (1, 2, 3) as elements
+    *  NonEmpty(List, 1, 2, 3) : NonEmpty[List[Int]] // with (1, 2, 3) as elements
     * }}}
-    *
-    * The weird argument order is to support Scala 2.12.
     */
-  final def pour[A](x: A, xs: A*): Pouring[A] = new Pouring(x, xs: _*)
+  final def apply[Fct, A, C <: imm.Iterable[A]](into: Fct, hd: A, tl: A*)(implicit
+      fct: Fct => Factory[A, C]
+  ): NonEmpty[C] = {
+    val bb = into.newBuilder
+    discard { (bb += hd) ++= tl }
+    unsafeNarrow(bb.result())
+  }
 
   /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every
     * [[imm.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
@@ -83,18 +83,6 @@ object NonEmptyColl extends NonEmptyCollInstances {
     override def unapply[Self](self: Self with imm.Iterable[_]) =
       if (self.nonEmpty) Some(self) else None
     private[nonempty] override def unsafeNarrow[Self <: imm.Iterable[Any]](self: Self) = self
-  }
-
-  final class Pouring[A](hd: A, tl: A*) {
-    import NonEmpty.{unsafeNarrow => un}
-    // XXX SC this can be done more efficiently by not supporting 2.12
-    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-    def into[C <: imm.Iterable[A]](into: Factory[A, C]): NonEmpty[C] = un {
-      val bb = into.newBuilder
-      bb += hd
-      bb ++= tl
-      bb.result()
-    }
   }
 
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
