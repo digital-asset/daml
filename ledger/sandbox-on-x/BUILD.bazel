@@ -153,9 +153,6 @@ conformance_test(
         #        "--additional=ContractIdIT:Accept", ???
         "--additional=ParticipantPruningIT",
         "--exclude=ClosedWorldIT",
-        "--exclude=ExceptionRaceConditionIT",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
         "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
         # Disable tests targeting only append-only schema functionality
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
@@ -173,7 +170,10 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--include=CommandDeduplicationIT:ParticipantCommandDeduplicationStopOnCompletionFailure",
+        "--include=RaceConditionIT",
+        #        "--include=ExceptionsIT",
+        #        "--include=ExceptionRaceConditionIT",
+        #        "--include=ContractKeysIT:CKMaintainerScoped",
     ],
 )
 

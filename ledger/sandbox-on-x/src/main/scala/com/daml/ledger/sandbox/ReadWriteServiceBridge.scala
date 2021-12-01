@@ -7,8 +7,8 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{
   Configuration,
@@ -24,7 +24,7 @@ import com.daml.ledger.sandbox.ReadWriteServiceBridge.Submission._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.Node.Rollback
+import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate, KeyInactive, NegativeKeyLookup}
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, GlobalKey, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.execution.MissingContracts
@@ -95,38 +95,59 @@ case class ReadWriteServiceBridge(
     }
   }
 
+  def invalidInputFromParticipant(
+      originalTx: Submission.Transaction
+  ): com.daml.lf.transaction.Transaction.KeyInputError => SoxRejection = {
+    case com.daml.lf.transaction.Transaction.InconsistentKeys(key) =>
+      GenericRejectionFailure(s"Inconsistent keys for $key")(originalTx)
+    case com.daml.lf.transaction.Transaction.DuplicateKeys(key) =>
+      GenericRejectionFailure(s"Duplicate key for $key")(originalTx)
+  }
+
   private def conflictCheckSlice(
       delta: Vector[(Offset, Submission.Transaction)],
       transaction: Submission.Transaction,
   ): Either[SoxRejection, Submission.Transaction] = {
-    val (cKeys, _, archives) = collectDelta(delta)
-    transaction.transaction
-      .fold[Either[SoxRejection, Unit]](Right(())) {
-        case (Right(_), (_, c: Create)) =>
-          c.key
-            .map(convert(c.templateId, _))
-            .map { key =>
-              if (cKeys.get(key).flatten.nonEmpty)
-                Left(DuplicateKey(key)(transaction))
-              else Right(())
-            }
-            .getOrElse(Right(()))
-        case (Right(_), (_, exercise: Exercise)) =>
-          if (archives(exercise.targetCoid))
-            Left(UnknownContracts(Set(exercise.targetCoid))(transaction))
-          else Right(())
-        case (Right(_), (_, lookupByKey: LookupByKey)) =>
-          cKeys.get(convert(lookupByKey.templateId, lookupByKey.key)) match {
-            case Some(result) =>
-              if (result == lookupByKey.result) Right(())
-              else Left(InconsistentContracts(lookupByKey.result, result)(transaction))
-            case None => Right(())
+    val (updatedKeys, archives) = collectDelta(delta)
+
+    transaction.transaction.contractKeyInputs.left
+      .map(invalidInputFromParticipant(transaction))
+      .flatMap(_.foldLeft[Either[SoxRejection, Unit]](Right(())) {
+        case (Right(_), (key, KeyCreate)) =>
+          updatedKeys.get(key) match {
+            case Some(None) =>
+              Right(())
+            case Some(Some(_)) =>
+              Left(DuplicateKey(key)(transaction))
+            case None =>
+              Right(())
           }
-        case (Right(_), (_, fetch: Fetch)) =>
-          if (archives(fetch.coid)) Left(UnknownContracts(Set(fetch.coid))(transaction))
-          else Right(())
-        case (Right(_), (_, Rollback(_))) => Right(())
-        case (left @ Left(_), _) => left
+        case (Right(_), (key, NegativeKeyLookup)) =>
+          updatedKeys.get(key) match {
+            case Some(None) =>
+              Right(())
+            case Some(Some(actual)) =>
+              Left(InconsistentContracts(None, Some(actual))(transaction))
+            case None =>
+              Right(())
+          }
+        case (Right(_), (key, KeyActive(cid))) =>
+          updatedKeys.get(key) match {
+            case Some(Some(`cid`)) =>
+              Right(())
+            case Some(other) =>
+              Left(InconsistentContracts(other, Some(cid))(transaction))
+            case None =>
+              Right(()) // It hasn't changed in delta so it's fine
+          }
+        case (left, _) => left
+      })
+      .flatMap { _ =>
+        val alreadyArchived = transaction.transaction.inputContracts.intersect(archives)
+        if (alreadyArchived.nonEmpty)
+          Left(UnknownContracts(alreadyArchived)(transaction))
+        else
+          Right(())
       }
       .map(_ => transaction)
   }
@@ -178,30 +199,13 @@ case class ReadWriteServiceBridge(
 
   private def collectDelta(
       delta: Vector[(Offset, Submission.Transaction)]
-  ): (Map[Key, Option[ContractId]], Set[ContractId], Set[ContractId]) = {
+  ): (Map[Key, Option[ContractId]], Set[ContractId]) =
     delta.view
-      .map(_._2)
-      .foldLeft(
-        (Map.empty[GlobalKey, Option[ContractId]], Set.empty[ContractId], Set.empty[ContractId])
-      ) { case (map, tx) =>
-        tx.transaction.fold(map) {
-          case ((cKeys, creates, archives), (_, c: Create)) =>
-            (
-              c.key.fold(cKeys)(k => cKeys.updated(convert(c.templateId, k), Some(c.coid))),
-              creates.incl(c.coid),
-              archives,
-            )
-
-          case ((cKeys, creates, archives), (_, consume: Exercise)) if consume.consuming =>
-            (
-              consume.key.fold(cKeys)(key => cKeys.updated(convert(consume.templateId, key), None)),
-              creates,
-              archives.incl(consume.targetCoid),
-            )
-          case (s, _) => s
-        }
+      .map(_._2.transaction)
+      .foldLeft((Map.empty[GlobalKey, Option[ContractId]], Set.empty[ContractId])) {
+        case ((updatedKeys, archived), tx) =>
+          (updatedKeys ++ tx.updatedContractKeys) -> (archived ++ tx.consumedContracts)
       }
-  }
 
   private def validateCausalMonotonicity(
       transaction: Transaction,
@@ -377,105 +381,44 @@ case class ReadWriteServiceBridge(
       transaction: Transaction
   ): Future[Either[SoxRejection, Unit]] = {
     val readers = transaction.transaction.informees // Is it informees??
-    transaction.transaction
-      .foldInExecutionOrder[Future[Either[SoxRejection, KeyValidationState]]](
-        Future.successful(Right(KeyValidationState(Map.empty)))
-      )(
-        exerciseBegin = (acc, _, exe) => {
-          acc.flatMap {
-            case Right(keyValidationState) =>
-              validateKeyUsages(transaction, readers, exe, keyValidationState)
-            case left => Future.successful(left)
-          } -> true
-        },
-        exerciseEnd = (acc, _, _) => acc,
-        rollbackBegin = (acc, _, _) => acc -> false, // Do we care about rollback nodes?
-        rollbackEnd = (acc, _, _) => acc,
-        leaf = (acc, _, leaf) =>
-          acc.flatMap {
-            case Right(keyValidationState) =>
-              validateKeyUsages(transaction, readers, leaf, keyValidationState)
-            case left => Future.successful(left)
-          },
-      )
-      .map(_.map(_ => ()))
-  }
-
-  case class KeyValidationState(keyStates: Map[Key, Option[ContractId]]) {
-    def archive(key: Key): KeyValidationState =
-      KeyValidationState(keyStates.updated(key, None))
-
-    def create(key: Key, contractId: ContractId): KeyValidationState =
-      KeyValidationState(keyStates.updated(key, Some(contractId)))
-  }
-
-  private def validateKeyUsages(
-      transaction: Transaction,
-      readers: Set[Ref.Party],
-      node: Node,
-      keyValidationState: KeyValidationState,
-  ): Future[Either[SoxRejection, KeyValidationState]] =
-    node match {
-      case c: Create =>
-        val maybeKey = c.key.map(convert(c.templateId, _))
-        maybeKey.fold[Future[Either[SoxRejection, KeyValidationState]]](
-          Future.successful(Right(keyValidationState))
-        ) { key =>
-          keyValidationState.keyStates.get(key) match {
-            case Some(Some(_)) =>
-              Future.successful(Left(DuplicateKey(key)(transaction)))
-            case Some(None) =>
-              Future.successful(Right(keyValidationState.create(key, c.coid)))
-            case None =>
-              contractStore
-                .get()
-                .getOrElse(throw new RuntimeException("ContractStore not there yet"))
-                .lookupContractKey(readers, key)
-                .map(
-                  _.fold[Either[SoxRejection, KeyValidationState]](
-                    Right(keyValidationState.create(key, c.coid))
-                  )(_ => Left(DuplicateKey(key)(transaction)))
-                )
-          }
-        }
-      case l: LookupByKey =>
-        val key = convert(l.templateId, l.key)
-        keyValidationState.keyStates.get(key) match {
-          case Some(result) =>
-            Future.successful(
-              Either.cond(
-                result == l.result,
-                keyValidationState,
-                InconsistentContracts(l.result, result)(transaction),
-              )
-            )
-          case None =>
-            contractStore
-              .get()
-              .getOrElse(throw new RuntimeException("ContractStore not there yet"))
-              .lookupContractKey(readers, key)
-              .map { result =>
-                Either.cond(
-                  result == l.result,
-                  keyValidationState,
-                  InconsistentContracts(l.result, result)(transaction),
-                )
+    val contractKeyInputs = transaction.transaction.contractKeyInputs
+    contractKeyInputs.fold(
+      err => Future.successful(Left(GenericRejectionFailure(err.toString)(transaction))),
+      _.foldLeft(Future.successful[Either[SoxRejection, Unit]](Right(()))) {
+        case (f, (key, inputState)) =>
+          f.flatMap {
+            case Right(_) =>
+              inputState match {
+                case _: KeyInactive =>
+                  contractStore
+                    .get()
+                    .getOrElse(throw new RuntimeException("ContractStore not there yet"))
+                    .lookupContractKey(readers, key)
+                    .flatMap {
+                      case Some(actual) =>
+                        Future(Left(InconsistentContracts(None, Some(actual))(transaction)))
+                      case None =>
+                        Future.successful(Right(()))
+                    }
+                case KeyActive(expected) =>
+                  contractStore
+                    .get()
+                    .getOrElse(throw new RuntimeException("ContractStore not there yet"))
+                    .lookupContractKey(readers, key)
+                    .flatMap {
+                      case Some(actual) if actual == expected =>
+                        Future.successful(Right(()))
+                      case actual =>
+                        Future.successful(
+                          Left(InconsistentContracts(Some(expected), actual)(transaction))
+                        )
+                    }
               }
-        }
-      case exercise: Exercise if exercise.consuming =>
-        Future.successful(Right(exercise.key.fold(keyValidationState) { k =>
-          val key = convert(exercise.templateId, k)
-          keyValidationState.archive(key)
-        }))
-      case _ =>
-        // fetch and non-consuming exercise nodes don't need to validate
-        // anything with regards to contract keys and do not alter the
-        // state in a way which is relevant for the validation of
-        // subsequent nodes
-        //
-        // `causalMonotonicity` already reports unknown contracts, no need to check it here
-        Future.successful(Right(keyValidationState))
-    }
+            case left => Future.successful(left)
+          }
+      },
+    )
+  }
 
   override def close(): Unit = {
     logger.info("Shutting down BridgeLedgerFactory.")
@@ -496,7 +439,7 @@ object ReadWriteServiceBridge {
         extends SoxRejection {
       override def toStatus: Status =
         LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
-          .RejectWithContractKeyArg("contract key is not unique", key)
+          .RejectWithContractKeyArg("DuplicateKey: contract key is not unique", key)
           .rpcStatus(None)
     }
     final case class InconsistentContracts(

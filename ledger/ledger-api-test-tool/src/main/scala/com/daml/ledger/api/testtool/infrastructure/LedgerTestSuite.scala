@@ -19,7 +19,7 @@ private[testtool] abstract class LedgerTestSuite {
       shortIdentifier: String,
       description: String,
       participants: ParticipantAllocation,
-      timeoutScale: Double = 1.0,
+      timeoutScale: Double = 8.0,
       runConcurrently: Boolean = true,
       repeated: Int = 1,
   )(testCase: ExecutionContext => PartialFunction[Participants, Future[Unit]]): Unit = {
