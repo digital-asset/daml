@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 
@@ -16,6 +15,7 @@ module DA.Internal.Desugar (
     concat, magic,
     Party, ContractId, Update, Any,
     NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..),
+    HasInterfaceTypeRep(..),
     Implements(..),
     TypeRep,
     HasMethod,
@@ -39,12 +39,14 @@ data PreConsuming t = PreConsuming {}
 data Consuming t = Consuming {}
 data PostConsuming t = PostConsuming {}
 
-class Implements t i where
+class HasInterfaceTypeRep i where
+  interfaceTypeRep : i -> TypeRep
+
+class HasInterfaceTypeRep i => Implements t i where
   toInterface : t -> i
   fromInterface : i -> Optional t
   toInterfaceContractId : ContractId t -> ContractId i
   fromInterfaceContractId : ContractId i -> Update (Optional (ContractId t))
-  interfaceTypeRep : t -> TypeRep
 
 {-
 Together, `HasMethod`, `Method` and `mkMethod` allow us to desugar the methods of

@@ -99,6 +99,6 @@ main = scenario do
       interfaceCreate token
       interfaceSignatory token === [alice]
       interfaceObserver token === [bob, alice]
-      unless (interfaceTypeRep @_ @Token token == interfaceTypeRep @_ @Token asset) $ abort "TypeReps are not equal"
-      unless (interfaceTypeRep @_ @Token token /= interfaceTypeRep @_ @Token notAsset) $ abort "TypeReps are equal"
+      unless (interfaceTypeRep token == templateTypeRep asset) $ abort "TypeReps are not equal"
+      unless (interfaceTypeRep token /= templateTypeRep notAsset) $ abort "TypeReps are equal"
       pure ()
