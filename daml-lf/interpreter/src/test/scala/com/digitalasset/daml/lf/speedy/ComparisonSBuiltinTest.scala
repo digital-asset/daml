@@ -372,7 +372,6 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
       }
     }
 
-    // FIXME: comparison is broken for struct.
     "should not distinguish struct built in different order" in {
 
       val typ = t"""<first: Int64, second: Int64, third: Int64>"""
