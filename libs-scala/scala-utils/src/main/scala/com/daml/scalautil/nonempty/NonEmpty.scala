@@ -4,7 +4,7 @@
 package com.daml.scalautil
 package nonempty
 
-import scala.collection.{Factory, IterableOnce, immutable => imm}, imm.Map, imm.Set
+import scala.collection.{Factory, IterableOnce, immutable => imm}, imm.Iterable, imm.Map, imm.Set
 import scalaz.Id.Id
 import scalaz.{Foldable, Foldable1, OneAnd, Semigroup, Traverse}
 import scalaz.Leibniz, Leibniz.===
@@ -88,32 +88,32 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def toF: NonEmptyF[F, A] = NonEmpty.equiv[F, A](nfa)
   }
 
-  // many of these Map and Set operations can return more specific map and set types;
-  // however, the way to do that is incompatible between Scala 2.12 and 2.13.
-  // So we won't do it at least until 2.12 support is removed
-
   /** Operations that can ''return'' new maps.  There is no reason to include any other
     * kind of operation here, because they are covered by `#widen`.
     */
-  implicit final class MapOps[K, V](private val self: NonEmpty[Map[K, V]]) extends AnyVal {
-    private type ESelf = Map[K, V]
+  implicit final class `Map Ops`[K, V, CC[X, +Y] <: imm.Map[X, Y] with imm.MapOps[X, Y, CC, _]](
+      private val self: NonEmpty[imm.MapOps[K, V, CC, _]]
+  ) extends AnyVal {
+    private type ESelf = imm.MapOps[K, V, CC, _]
     import NonEmpty.{unsafeNarrow => un}
     // You can't have + because of the dumb string-converting thing in stdlib
-    def updated(key: K, value: V): NonEmpty[Map[K, V]] = un((self: ESelf).updated(key, value))
-    def ++(xs: Iterable[(K, V)]): NonEmpty[Map[K, V]] = un((self: ESelf) ++ xs)
+    def updated(key: K, value: V): NonEmpty[CC[K, V]] = un((self: ESelf).updated(key, value))
+    def ++(xs: IterableOnce[(K, V)]): NonEmpty[CC[K, V]] = un((self: ESelf) ++ xs)
     def keySet: NonEmpty[Set[K]] = un((self: ESelf).keySet)
-    def transform[W](f: (K, V) => W): NonEmpty[Map[K, W]] = un((self: ESelf) transform f)
+    def transform[W](f: (K, V) => W): NonEmpty[CC[K, W]] = un((self: ESelf) transform f)
   }
 
   /** Operations that can ''return'' new sets.  There is no reason to include any other
     * kind of operation here, because they are covered by `#widen`.
     */
-  implicit final class SetOps[A](private val self: NonEmpty[Set[A]]) extends AnyVal {
-    private type ESelf = Set[A]
+  implicit final class `Set Ops`[A, CC[_], C <: imm.SetOps[A, CC, C] with Iterable[A]](
+      private val self: NonEmpty[imm.SetOps[A, CC, C]]
+  ) extends AnyVal {
+    private type ESelf = imm.SetOps[A, CC, C]
     import NonEmpty.{unsafeNarrow => un}
     // You can't have + because of the dumb string-converting thing in stdlib
-    def incl(elem: A): NonEmpty[Set[A]] = un((self: ESelf) + elem)
-    def ++(that: Iterable[A]): NonEmpty[Set[A]] = un((self: ESelf) ++ that)
+    def incl(elem: A): NonEmpty[C] = un((self: ESelf) + elem)
+    def ++(that: IterableOnce[A]): NonEmpty[C] = un((self: ESelf) ++ that)
   }
 
   implicit final class NEPreservingOps[A, C](
