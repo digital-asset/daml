@@ -24,7 +24,7 @@ import com.daml.ledger.sandbox.ReadWriteServiceBridge.Submission._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate, KeyInactive, NegativeKeyLookup}
+import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate, NegativeKeyLookup}
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, GlobalKey, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.execution.MissingContracts
@@ -115,39 +115,25 @@ case class ReadWriteServiceBridge(
       .flatMap(_.foldLeft[Either[SoxRejection, Unit]](Right(())) {
         case (Right(_), (key, KeyCreate)) =>
           updatedKeys.get(key) match {
-            case Some(None) =>
-              Right(())
-            case Some(Some(_)) =>
-              Left(DuplicateKey(key)(transaction))
-            case None =>
-              Right(())
+            case Some(None) | None => Right(())
+            case Some(Some(_)) => Left(DuplicateKey(key)(transaction))
           }
         case (Right(_), (key, NegativeKeyLookup)) =>
           updatedKeys.get(key) match {
-            case Some(None) =>
-              Right(())
-            case Some(Some(actual)) =>
-              Left(InconsistentContracts(None, Some(actual))(transaction))
-            case None =>
-              Right(())
+            case Some(None) | None => Right(())
+            case Some(Some(actual)) => Left(InconsistentContracts(None, Some(actual))(transaction))
           }
         case (Right(_), (key, KeyActive(cid))) =>
           updatedKeys.get(key) match {
-            case Some(Some(`cid`)) =>
-              Right(())
-            case Some(other) =>
-              Left(InconsistentContracts(other, Some(cid))(transaction))
-            case None =>
-              Right(()) // It hasn't changed in delta so it's fine
+            case Some(Some(`cid`)) | None => Right(())
+            case Some(other) => Left(InconsistentContracts(other, Some(cid))(transaction))
           }
         case (left, _) => left
       })
       .flatMap { _ =>
         val alreadyArchived = transaction.transaction.inputContracts.intersect(archives)
-        if (alreadyArchived.nonEmpty)
-          Left(UnknownContracts(alreadyArchived)(transaction))
-        else
-          Right(())
+        if (alreadyArchived.nonEmpty) Left(UnknownContracts(alreadyArchived)(transaction))
+        else Right(())
       }
       .map(_ => transaction)
   }
@@ -381,39 +367,27 @@ case class ReadWriteServiceBridge(
       transaction: Transaction
   ): Future[Either[SoxRejection, Unit]] = {
     val readers = transaction.transaction.informees // Is it informees??
-    val contractKeyInputs = transaction.transaction.contractKeyInputs
-    contractKeyInputs.fold(
+    transaction.transaction.contractKeyInputs.fold(
       err => Future.successful(Left(GenericRejectionFailure(err.toString)(transaction))),
       _.foldLeft(Future.successful[Either[SoxRejection, Unit]](Right(()))) {
         case (f, (key, inputState)) =>
           f.flatMap {
             case Right(_) =>
-              inputState match {
-                case _: KeyInactive =>
-                  contractStore
-                    .get()
-                    .getOrElse(throw new RuntimeException("ContractStore not there yet"))
-                    .lookupContractKey(readers, key)
-                    .flatMap {
-                      case Some(actual) =>
-                        Future(Left(InconsistentContracts(None, Some(actual))(transaction)))
-                      case None =>
-                        Future.successful(Right(()))
-                    }
-                case KeyActive(expected) =>
-                  contractStore
-                    .get()
-                    .getOrElse(throw new RuntimeException("ContractStore not there yet"))
-                    .lookupContractKey(readers, key)
-                    .flatMap {
-                      case Some(actual) if actual == expected =>
-                        Future.successful(Right(()))
-                      case actual =>
-                        Future.successful(
-                          Left(InconsistentContracts(Some(expected), actual)(transaction))
-                        )
-                    }
-              }
+              contractStore
+                .get()
+                .getOrElse(throw new RuntimeException("ContractStore not there yet"))
+                .lookupContractKey(readers, key)
+                .map { lookupResult =>
+                  (inputState, lookupResult) match {
+                    case (NegativeKeyLookup, Some(actual)) =>
+                      Left(InconsistentContracts(None, Some(actual))(transaction))
+                    case (KeyCreate, Some(_)) =>
+                      Left(DuplicateKey(key)(transaction))
+                    case (KeyActive(expected), actual) if !actual.contains(expected) =>
+                      Left(InconsistentContracts(Some(expected), actual)(transaction))
+                    case _ => Right(())
+                  }
+                }
             case left => Future.successful(left)
           }
       },

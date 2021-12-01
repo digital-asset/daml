@@ -170,10 +170,8 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--include=RaceConditionIT",
-        #        "--include=ExceptionsIT",
-        #        "--include=ExceptionRaceConditionIT",
-        #        "--include=ContractKeysIT:CKMaintainerScoped",
+        "--include=ExceptionsIT",
+        "--include=ContractKeysIT",
     ],
 )
 
