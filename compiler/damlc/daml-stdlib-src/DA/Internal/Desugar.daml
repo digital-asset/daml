@@ -19,8 +19,10 @@ module DA.Internal.Desugar (
     NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..),
     TypeRep,
     ImplementsT(..),
+    HasIsInterfaceType(..),
     HasMethod,
     mkMethod,
+    _typeRepForInterfaceExercise,
 ) where
 
 import DA.Internal.Prelude
@@ -44,6 +46,15 @@ data PostConsuming t = PostConsuming {}
 -- Used to construct markers representing the fact that
 -- a template `t` implements an interface `i`.
 data ImplementsT t i = ImplementsT
+
+class HasIsInterfaceType t where
+  isInterfaceType : proxy t -> Bool
+
+_typeRepForInterfaceExercise : (HasTemplateTypeRep t, HasIsInterfaceType t) => Optional TypeRep
+_typeRepForInterfaceExercise p =
+  if isInterfaceType p
+    then None
+    else Some (templateTypeRep )
 
 {-
 Together, `HasMethod`, `Method` and `mkMethod` allow us to desugar the methods of
