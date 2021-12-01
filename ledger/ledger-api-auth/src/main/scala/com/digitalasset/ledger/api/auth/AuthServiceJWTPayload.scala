@@ -40,6 +40,7 @@ case class AuthServiceJWTPayload(
     admin: Boolean,
     actAs: List[String],
     readAs: List[String],
+    isCustomDamlToken: Boolean // FIXME: better way to represent that
 ) {
 
   /** If this token is associated with exactly one party, returns that party name.
@@ -93,7 +94,7 @@ object AuthServiceJWTCodec {
   private[this] final val propExp: String = "exp"
   private[this] final val propParty: String = "party" // Legacy JSON API payload
 
-  // The presence of any of these properties signals that a custom JWT token is being used.
+  // The presence of any of these properties signals that a legacy JWT token with custom claims is being used.
   private[this] final val customProperties =
     Array(propLedgerId, propParticipantId, propApplicationId, propReadAs, propActAs)
 
@@ -152,6 +153,7 @@ object AuthServiceJWTCodec {
           actAs =
             readOptionalStringList(propActAs, fields) ++ readOptionalString(propParty, fields).toList,
           readAs = readOptionalStringList(propReadAs, fields),
+          isCustomDamlToken = true
         )
       } else {
         // FIXME: consider whether this is really the right place
@@ -163,7 +165,8 @@ object AuthServiceJWTCodec {
           exp = readInstant("exp", fields),
           admin = false,
           actAs = List.empty,
-          readAs = List.empty
+          readAs = List.empty,
+          isCustomDamlToken = false
         )
       }
     case JsObject(fields) =>
@@ -187,6 +190,7 @@ object AuthServiceJWTCodec {
         admin = readOptionalBoolean(propAdmin, customClaims).getOrElse(false),
         actAs = readOptionalStringList(propActAs, customClaims),
         readAs = readOptionalStringList(propReadAs, customClaims),
+        isCustomDamlToken = true
       )
     case _ =>
       deserializationError(

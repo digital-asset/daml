@@ -12,6 +12,7 @@ object UserManagement {
       primaryParty: Option[Ref.Party],
   )
 
+  // FIXME: consider whether this is the right location to define this type
   sealed trait UserRight
   object UserRight {
     final case object ParticipantAdmin extends UserRight
