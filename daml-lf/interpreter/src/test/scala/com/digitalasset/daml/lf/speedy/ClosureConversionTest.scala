@@ -58,15 +58,10 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
       true
     }
 
-    /* The testcases are split into two sets:
-     *
-     * For both sets the code under test is stack-safe, but the 2nd set provokes an
-     * unrelated quadratic-or-worse time-issue in the handling of 'Env' management and the
-     * free-vars computation, during the closure-conversion transform.
-     */
-    val testCases1 = {
+    val testCases = {
       Table[String, SExpr => SExpr](
         ("name", "recursion-point"),
+        ("Abs", abs1),
         ("Location", location),
         ("AppF", appF),
         ("App1", app1),
@@ -84,32 +79,10 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
       )
     }
 
-    // These 'quadratic' testcases pertain to recursion-points under a binder.
-    val testCases2 = {
-      Table[String, SExpr => SExpr](
-        ("name", "recursion-point"),
-        ("Abs", abs1),
-      )
-    }
-
     {
-      val depth = 100000
-      s"depth = $depth" - {
-        forEvery(testCases1) { (name: String, recursionPoint: SExpr => SExpr) =>
-          name in {
-            runTest(depth, recursionPoint)
-          }
-        }
-      }
-    }
-
-    {
-      // TODO: There remains a quadratic issue with the freeVars calculation (#11830).
-      // This affects only Abs testcase. It takes 12s when run to a larger depth of 100k.
-      // So we only run to 10k.
       val depth = 10000
       s"depth = $depth" - {
-        forEvery(testCases2) { (name: String, recursionPoint: SExpr => SExpr) =>
+        forEvery(testCases) { (name: String, recursionPoint: SExpr => SExpr) =>
           name in {
             runTest(depth, recursionPoint)
           }
