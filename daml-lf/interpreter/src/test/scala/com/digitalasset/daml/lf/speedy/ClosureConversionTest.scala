@@ -35,6 +35,7 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
   private val letBody = (x: SExpr) => SELet(List(leaf, leaf), x)
   private val tryCatch1 = (x: SExpr) => SETryCatch(leaf, x)
   private val tryCatch2 = (x: SExpr) => SETryCatch(x, leaf)
+  private val scopeExercise = (x: SExpr) => SEScopeExercise(x)
   private val labelClosure = (x: SExpr) => SELabelClosure(label, x)
 
   "closure conversion" - {
@@ -73,6 +74,7 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
         ("Scrut", scrut),
         ("Let1", let1),
         ("TryCatch2", tryCatch2),
+        ("scopeExercise", scopeExercise),
         ("Labelclosure", labelClosure),
         ("Alt1", alt1),
         ("Alt2", alt2),
