@@ -738,34 +738,6 @@ abstract class EventStorageBackendTemplate(
 trait EventStrategy {
 
   /** This populates the following part of the query:
-    *   SELECT ..., [THIS PART] as event_witnesses
-    * Should boil down to an intersection between the set of the witnesses-column and the parties.
-    *
-    * @param witnessesColumnName name of the witnesses column in the query
-    * @param parties which is all the parties we are interested in in the resul
-    * @return the composable SQL
-    */
-  def filteredEventWitnessesClause(
-      witnessesColumnName: String,
-      parties: Set[Ref.Party],
-      stringInterning: StringInterning,
-  ): CompositeSql
-
-  /** This populates the following part of the query:
-    *   SELECT ...,case when [THIS PART] then command_id else "" end as command_id
-    * Should boil down to a do-intersect? query between the submittersColumName column and the parties
-    *
-    * @param submittersColumnName name of the Array column holding submitters
-    * @param parties which is all the parties we are interested in in the resul
-    * @return the composable SQL
-    */
-  def submittersArePartiesClause(
-      submittersColumnName: String,
-      parties: Set[Ref.Party],
-      stringInterning: StringInterning,
-  ): CompositeSql
-
-  /** This populates the following part of the query:
     *   SELECT ... WHERE ... AND [THIS PART]
     * This strategy is responsible to generate appropriate SQL cod based on the filterParams, so that results match the criteria
     *

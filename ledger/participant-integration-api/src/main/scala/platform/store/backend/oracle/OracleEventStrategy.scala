@@ -5,43 +5,12 @@ package com.daml.platform.store.backend.oracle
 
 import anorm.{Row, SimpleSql}
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.EventStrategy
 import com.daml.platform.store.interning.StringInterning
 
 object OracleEventStrategy extends EventStrategy {
-
-  override def filteredEventWitnessesClause(
-      witnessesColumnName: String,
-      parties: Set[Ref.Party],
-      stringInterning: StringInterning,
-  ): CompositeSql = {
-    val internedParties =
-      parties.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
-    internedParties.size match {
-      case 0 => cSQL"json_array()"
-      case 1 => cSQL"(json_array(${internedParties.head}))"
-      case _ =>
-        cSQL"""
-           (select json_arrayagg(value) from (select value
-           from json_table(#$witnessesColumnName, '$$[*]' columns (value NUMBER PATH '$$'))
-           where value IN ($internedParties)))
-           """
-    }
-  }
-
-  override def submittersArePartiesClause(
-      submittersColumnName: String,
-      parties: Set[Ref.Party],
-      stringInterning: StringInterning,
-  ): CompositeSql =
-    OracleQueryStrategy.arrayIntersectionNonEmptyClause(
-      submittersColumnName,
-      parties,
-      stringInterning,
-    )
 
   override def witnessesWhereClause(
       witnessesColumnName: String,

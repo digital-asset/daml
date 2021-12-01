@@ -5,37 +5,12 @@ package com.daml.platform.store.backend.postgresql
 
 import anorm.{Row, SimpleSql}
 import com.daml.ledger.offset.Offset
-import com.daml.platform.store.appendonlydao.events.Party
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.EventStrategy
 import com.daml.platform.store.interning.StringInterning
 
 object PostgresEventStrategy extends EventStrategy {
-  override def filteredEventWitnessesClause(
-      witnessesColumnName: String,
-      parties: Set[Party],
-      stringInterning: StringInterning,
-  ): CompositeSql = {
-    val internedParties: Array[java.lang.Integer] = parties.view
-      .flatMap(party => stringInterning.party.tryInternalize(party).map(Int.box).toList)
-      .toArray
-    if (internedParties.length == 1)
-      cSQL"array[${internedParties.head}]::integer[]"
-    else
-      cSQL"array(select unnest(#$witnessesColumnName) intersect select unnest($internedParties::integer[]))"
-  }
-
-  override def submittersArePartiesClause(
-      submittersColumnName: String,
-      parties: Set[Party],
-      stringInterning: StringInterning,
-  ): CompositeSql = {
-    val partiesArray: Array[java.lang.Integer] = parties.view
-      .flatMap(party => stringInterning.party.tryInternalize(party).map(Int.box).toList)
-      .toArray
-    cSQL"(#$submittersColumnName::integer[] && $partiesArray::integer[])"
-  }
 
   override def witnessesWhereClause(
       witnessesColumnName: String,
