@@ -961,7 +961,7 @@ private[lf] object SBuiltin {
           byInterface = byInterface,
         )
 
-      machine.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
+      onLedger.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
       onLedger.ptx = newPtx
       checkAborted(onLedger.ptx)
       machine.returnValue = SContractId(coid)
@@ -1002,8 +1002,9 @@ private[lf] object SBuiltin {
       val sigs = cached.signatories
       val templateObservers = cached.observers
       val ctrls = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
-      val choiceObservers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
-
+      onLedger.enforceChoiceControllersLimit(ctrls, coid, templateId, choiceId, chosenValue)
+      val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
+      onLedger.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
       val mbKey = cached.key
       val auth = machine.auth
 
@@ -1018,7 +1019,7 @@ private[lf] object SBuiltin {
           actingParties = ctrls,
           signatories = sigs,
           stakeholders = sigs union templateObservers,
-          choiceObservers = choiceObservers,
+          choiceObservers = obsrs,
           mbKey = mbKey,
           byKey = byKey,
           chosenValue = chosenValue,

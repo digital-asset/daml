@@ -476,7 +476,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     "works as expected for a contract version POST-dating exceptions" in {
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_dev)
       val res = Speedy.Machine
-        .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), party)
+        .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
         .run()
       res shouldBe SResultFinalValue(SUnit)
     }
@@ -491,7 +491,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11)
       val res = Speedy.Machine
-        .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), party)
+        .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
         .run()
       res shouldBe SResultError(SErrorDamlException(anException))
     }
@@ -557,7 +557,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
   private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("ExceptionTest.scala")
-    Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, party).run()
+    Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party)).run()
   }
 
   "rollback of creates (mixed versions)" should {
@@ -698,18 +698,20 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     val causeUncatchable2: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable2", party)
 
     "create rollback when old contacts are not within try-catch context" in {
-      val res = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, party).run()
+      val res =
+        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party)).run()
       res shouldBe SResultFinalValue(SUnit)
     }
 
     "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
-      val res = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, party).run()
+      val res =
+        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, Set(party)).run()
       res shouldBe SResultError(SErrorDamlException(anException))
     }
 
     "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
       val res =
-        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, party).run()
+        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, Set(party)).run()
       res shouldBe SResultError(SErrorDamlException(anException))
     }
 

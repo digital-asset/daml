@@ -58,7 +58,7 @@ class EvaluationOrderTest extends AnyWordSpec with Matchers {
     val se = pkgs.compiler.unsafeCompile(e)
     val traceLog = new TestTraceLog()
     val res = Speedy.Machine
-      .fromUpdateSExpr(pkgs, seed, SEApp(se, args.map(SEValue(_))), party, traceLog)
+      .fromUpdateSExpr(pkgs, seed, SEApp(se, args.map(SEValue(_))), Set(party), traceLog = traceLog)
       .run()
     val msgs = traceLog.getMessages
     (res, msgs)
