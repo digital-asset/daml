@@ -105,22 +105,6 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def transform[W](f: (K, V) => W): NonEmpty[Map[K, W]] = un((self: ESelf) transform f)
   }
 
-  implicit final class MapPseudofunctorOps[
-      K,
-      V,
-      CC[X, +Y] <: imm.Iterable[(X, Y)] with imm.MapOps[X, Y, CC, _],
-  ](
-      private val self: NonEmpty[imm.MapOps[K, V, CC, _]]
-  ) extends AnyVal {
-    private type ESelf = imm.MapOps[K, V, CC, _]
-    import NonEmpty.{unsafeNarrow => un}
-    def map[K2, V2](f: ((K, V)) => (K2, V2)): NonEmpty[CC[K2, V2]] = un((self: ESelf) map f)
-    def flatMap[K2, V2](f: ((K, V)) => NonEmpty[IterableOnce[(K2, V2)]]): NonEmpty[CC[K2, V2]] = {
-      type Kont[F[_]] = (F[ESelf], ((K, V)) => F[IterableOnce[(K2, V2)]]) => F[CC[K2, V2]]
-      NonEmpty.subst[Kont](_ flatMap _)(self, f)
-    }
-  }
-
   /** Operations that can ''return'' new sets.  There is no reason to include any other
     * kind of operation here, because they are covered by `#widen`.
     */
