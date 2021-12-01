@@ -29,14 +29,9 @@ The first three form the :ref:`change ID <change-id>` that identifies the intend
 
 #. The :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` is chosen by the application to identify the intended ledger change.
 
-<<<<<<< Updated upstream
 #. The :ref:`deduplication period <com.daml.ledger.api.v1.Commands.deduplication_period>` specifies the period for which, in order for the current submission to be accepted, no earlier submissions with the same change ID should have been accepted, as witnessed by a completion event on the :ref:`command completion service <command-completion-service>`.
-   The period is specified either as a :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` or as a :ref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_offset>`.
-=======
-#. The :ref:`deduplication period <com.daml.ledger.api.v1.Commands.deduplication_period>` specifies the period for which no earlier submissions with the same change ID should have been accepted, as witnessed by a completion event on the :ref:`command completion service <command-completion-service>`.
    Otherwise, the current submission shall be rejected.
    The period is specified either as a :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` or as a :ref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_offset>` (inclusive).
->>>>>>> Stashed changes
 
 #. The :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` progapates into the completion events so that the application can correlate specific submissions to specific completions.
    An application should never reuse a submission ID.
@@ -52,13 +47,8 @@ A command submission is considered a **duplicate submission** if at least one of
 
 - The participant or Daml ledger are aware of another command submission in-flight with the same :ref:`change ID <change-id>` when they perform command deduplication.
 
-<<<<<<< Updated upstream
-Command submissions via the :ref:`command service <command-service>` indicate the command deduplication outcome as a synchronous gRPC response (except when the gRPC deadline was exceeded before).
-Submissions via the :ref:`command submission service <command-submission-service>` can indicate the outcome either synchronously or asynchronously through the :ref:`command completion service <command-completion-service>` completion events.
-=======
-Command submissions via the :ref:`command service <command-service>` indicate the command deduplication outcome as a synchronous gRPC response unless when the gRPC deadline <https://grpc.io/blog/deadlines/>`_ was exceeded.
+Command submissions via the :ref:`command service <command-service>` indicate the command deduplication outcome as a synchronous gRPC response unless when the `gRPC deadline <https://grpc.io/blog/deadlines/>`_ was exceeded.
 Submissions via the :ref:`command submission service <command-submission-service>` can indicate the outcome synchronously or asynchronously in the event on the :ref:`command completion service <command-completion-service>`.
->>>>>>> Stashed changes
 In particular, the submission may be a duplicate even if the command submission service acknowledges the submission with the gRPC status code ``OK``.
 Command deduplication generates the following outcomes of a command submission:
 
