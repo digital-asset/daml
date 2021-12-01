@@ -73,4 +73,6 @@ object Raw {
   final case class ContractInstance(override val bytes: ByteString) extends Bytes
 
   object ContractInstance extends Companion[ContractInstance]
+
+  final case class NodeId(value: String) extends AnyVal
 }
