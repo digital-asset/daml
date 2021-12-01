@@ -29,8 +29,7 @@ The first three form the :ref:`change ID <change-id>` that identifies the intend
 
 #. The :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` is chosen by the application to identify the intended ledger change.
 
-#. The :ref:`deduplication period <com.daml.ledger.api.v1.Commands.deduplication_period>` specifies the period for which no earlier submissions with the same change ID should have been accepted, as witnessed by a completion event on the :ref:`command completion service <command-completion-service>`.
-   Otherwise, the current submission shall be rejected.
+#. The :ref:`deduplication period <com.daml.ledger.api.v1.Commands.deduplication_period>` specifies the period for which, in order for the current submission to be accepted, no earlier submissions with the same change ID should have been accepted, as witnessed by a completion event on the :ref:`command completion service <command-completion-service>`.
    The period is specified either as a :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` or as a :ref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_offset>`.
 
 #. The :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` is returned to the submitting application and allows it to correlate specific submissions to specific completions.
@@ -45,16 +44,16 @@ A command submission is considered a **duplicate submission** if at least one of
 
 - The submitting participant's completion service contains a successful completion event for the same :ref:`change ID <change-id>` within the *effective* deduplication period.
 
-- The participant or Daml ledger are aware of another command submission in-flight with the same :ref:`change ID <change-id>` when they performs command deduplication.
+- The participant or Daml ledger are aware of another command submission in-flight with the same :ref:`change ID <change-id>` when they perform command deduplication.
 
 Command submissions via the :ref:`command service <command-service>` indicate the command deduplication outcome as a synchronous gRPC response (except when the gRPC deadline was exceeded before).
-Submissions via the :ref:`command submission service <command-submission-service>` can indicate the outcome synchronously or asynchronously in the event on the :ref:`command completion service <command-completion-service>`.
+Submissions via the :ref:`command submission service <command-submission-service>` can indicate the outcome either synchronously or asynchronously through the :ref:`command completion service <command-completion-service>` completion events.
 In particular, the submission may be a duplicate even if the command submission service acknowledges the submission with the gRPC status code ``OK``.
 Command deduplication generates the following outcomes of a command submission:
 
-- If no conflicting submission with the same :ref:`change ID <change-id>` was found, the completion event and the response convey the result of the submission (success or a gRPC error).
+- If no conflicting submission with the same :ref:`change ID <change-id>` was found, the completion event and possibly the response convey the result of the submission (success or a gRPC error).
 
-- The gRPC status code ``ALREADY_EXISTS`` with error code id :ref:`DUPLICATE_COMMAND <error_code_DUPLICATE_COMMAND>` if there is an earlier command completion for the same :ref:`change ID <change-id>` within the effective deduplication period.
+- The gRPC status code ``ALREADY_EXISTS`` with error code ID :ref:`DUPLICATE_COMMAND <error_code_DUPLICATE_COMMAND>` if there is an earlier command completion for the same :ref:`change ID <change-id>` within the effective deduplication period.
 
 - The gRPC status code ``ABORTED`` with error code id :ref:`SUBMISSION_ALREADY_IN_FLIGHT <error_code_SUBMISSION_ALREADY_IN_FLIGHT>` if another submission for the same :ref:`change ID <change-id>` was in flight when this submission was processed.
 
@@ -66,7 +65,7 @@ Command deduplication generates the following outcomes of a command submission:
   Participants may accept longer periods at their discretion.
 
 For deduplication to work as intended, all submissions for the same ledger change must be submitted via the same participants.
-This is because a participant outputs by default only the completion events for submissions that were requested via this participant;
+This is because a participant outputs by default only the completion events for submissions that were requested via the very same participant,
 and whether a submission is considered a duplicate is determined by the completion events.
 
 On some ledgers, every participant outputs the completion events for all the hosted parties, not just for the submissions that went through the participant.
@@ -82,14 +81,13 @@ When an application wants to effectuate a ledger change exactly once, the applic
 However, the application typically cannot distinguish a lost submission from a Daml ledger that is just slow in processing the submissions.
 So the application should just resubmit the command until it is executed against the ledger, and rely on command deduplication to reject all duplicate submissions that do make it to the ledger.
 
-Some ledger changes can be executed at most once anyway.
-No command deduplication is needed for them.
+Some ledger changes can be executed at most once anyway, so no command deduplication is needed for them.
 For example, if the submitted command exercises a consuming choice on a given contract ID, this command can be accepted at most once because every contract can be archived at most once.
-All duplicate submissions are rejected with :ref:`CONTRACT_NOT_ACTIVE <error_code_CONTRACT_NOT_ACTIVE>`.
+All duplicate submissions of such a change will be rejected with :ref:`CONTRACT_NOT_ACTIVE <error_code_CONTRACT_NOT_ACTIVE>`.
 
 In contrast, a :ref:`Create command <com.daml.ledger.api.v1.CreateCommand>` would create a fresh contract instance of the given :ref:`template <com.daml.ledger.api.v1.CreateCommand.template_id>` for each submission that reaches the ledger (unless other constraints such as the :ref:`template preconditions <daml-ref-preconditions>` or contract key uniqueness are violated).
 Similarly, an :ref:`Exercise command <com.daml.ledger.api.v1.ExerciseCommand>` on a non-consuming choice or an :ref:`Exercise-By-Key command <com.daml.ledger.api.v1.ExercisebyKeyCommand>` may be executed multiple times if submitted multiple times.
-With command deduplication, applications can ensure such intended ledger changes are executed only once, even if the application resubmits within the deduplication period, say because it considers the earlier submissions to be lost or forgot during a crash that it had already submitted the command.
+With command deduplication, applications can ensure such intended ledger changes are executed only once within the deduplication period, even if the application resubmits, say because it considers the earlier submissions to be lost or forgot during a crash that it had already submitted the command.
 
 As a typical example, the application wants to create exactly one contract instance of template ``T`` via the corresponding :ref:`Create command <com.daml.ledger.api.v1.CreateCommand>`.
 We assume that the ledger is correctly set up so that the Create command should be accepted, i.e., Daml packages are uploaded and vetted, the parties are allocated, and the application has a valid access token for the submission.
@@ -98,7 +96,7 @@ We assume that the ledger is correctly set up so that the Create command should 
 Known processing time bounds
 ============================
 
-For now, we assume that the application knows a bound ``B`` on the processing time and forward clock drifts (against the application’s clock) in the Daml ledger.
+For now, we assume that the application knows a bound ``B`` on the processing time and forward clock drifts in the Daml ledger w.r.t. the application’s clock.
 If processing measured across all retries takes longer than the bound ``B``, the ledger change may take effect several times.
 Under this assumption, the following strategy works for applications that use the :ref:`Command Service <command-service>` or the :ref:`Command Submission <command-submission-service>` and :ref:`Command Completion Service <command-completion-service>`.
 
@@ -137,15 +135,15 @@ Under this assumption, the following strategy works for applications that use th
    
 #. Wait until the RPC call returns a response.
    
-   - Status codes other than ``OK`` trigger :ref:`error handling <dedup-bounded-error-handling>`.
+   - Status codes other than ``OK`` should be handled according to :ref:`error handling <dedup-bounded-error-handling>`.
 
    - When you use the :ref:`Command Service <command-service>` and the response carries the status code ``OK``, the ledger change took place.
      You can report success.
      
-   - When you use the :ref:`Command Completion Service <command-completion-service>`,
-     subscribe with the :ref:`Command Completion Service <command-submission-service>` for completions for ``actAs`` from ``OFF1`` exclusive until you see a completion event for the change ID and the submission ID chosen in :ref:`step 3 <dedup-bounded-step-submit>`.
+   - When you use the :ref:`Command Submission Service <command-submission-service>`,
+     subscribe with the :ref:`Command Completion Service <command-submission-service>` for completions for ``actAs`` from ``OFF1`` (exclusive) until you see a completion event for the change ID and the submission ID chosen in :ref:`step 3 <dedup-bounded-step-submit>`.
      If the completion’s status is ``OK``, the ledger change took place and you can report success.
-     Other status codes trigger :ref:`error handling <dedup-bounded-error-handling>`.
+     Other status codes should be handled according to :ref:`error handling <dedup-bounded-error-handling>`.
    
      This step needs no timeout as the :ref:`Command Submission Service <command-submission-service>` acknowledges a submission only if there will eventually be a completion event, unless relevant parts of the system become permanently unavailable.
 
@@ -177,12 +175,12 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
        
    - * Application crashed
      
-     * Retry from obtaining a completion offset (:ref:`step 2 <dedup-bounded-step-offset>`).
+     * Retry by restarting the submission process from "obtaining a completion offset" (:ref:`step 2 <dedup-bounded-step-offset>`).
 
 
    - * ``ALREADY_EXISTS`` / :ref:`DUPLICATE_COMMAND <error_code_DUPLICATE_COMMAND>`
      
-     * The change ID has already been accepted on the ledger within the reported deduplication period.
+     * The change ID has already been accepted by the ledger within the reported deduplication period.
        The optional field ``completion_offset`` contains the precise offset.
        Report success for the ledger change.
        
@@ -191,7 +189,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
        
    - * ``FAILED_PRECONDITION`` / :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>`
      
-     * The specified deduplication duration is longer than what the Daml ledger supports.
+     * The specified deduplication period is longer than what the Daml ledger supports.
        ``earliest_offset`` contains the earliest deduplication offset or ``longest_duration`` contains the longest deduplication duration that can be used (at least one of the two must be provided).
 
        Options:
@@ -199,7 +197,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
        - Negotiate support for longer deduplication periods with the ledger operator.
 
        - Set the deduplication offset to ``earliest_offset`` or the deduplication duration to ``longest_duration`` and retry from obtaining a completion offset (:ref:`step 2 <dedup-bounded-step-offset>`).
-	 This may lead to accepting the change twice.
+	 This may lead to accepting the change twice within the originally intended deduplication period.
 
 	 
    - * ``ABORTED`` / :ref:`SUBMISSION_ALREADY_IN_FLIGHT <error_code_SUBMISSION_ALREADY_IN_FLIGHT>`
@@ -267,12 +265,12 @@ We recommend the following strategy for using deduplication offsets:
 
    .. _dedup-unbounded-step-dedup-offset:
    
-#. Obtain a recent offset ``OFF0`` on the completion event stream and remember across crashes that you use ``OFF0`` with the chosen command ID.
+#. Obtain a recent offset ``OFF0`` on the completion event stream and remember across crashes that you use ``OFF0`` with the chosen command ID. There are several ways to do so:
 
-   - When you use the :ref:`Command Service <command-service>`, to obtain a recent offset, repeatedly submit a dummy command, e.g., a :ref:`Create-And-Exercise command <com.daml.ledger.api.v1.CreateAndExerciseCommand>` of some single-signatory template with the :ref:`Archive <function-da-internal-template-functions-archive-52202>` choice, until you get a successful response.
+   - Use the :ref:`Command Service <command-service>` to obtain a recent offset by repeatedly submitting a dummy command, e.g., a :ref:`Create-And-Exercise command <com.daml.ledger.api.v1.CreateAndExerciseCommand>` of some single-signatory template with the :ref:`Archive <function-da-internal-template-functions-archive-52202>` choice, until you get a successful response.
      The response contains the :ref:`completion offset <com.daml.ledger.api.v1.SubmitAndWaitForTransactionIdResponse.completion_offset>`.
 
-   - When you use the :ref:`Command Completion Service <command-completion-service>`, ask for the :ref:`current ledger end <com.daml.ledger.api.v1.CommandCompletionService.CompletionEnd>`.
+   - Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :ref:`current ledger end <com.daml.ledger.api.v1.CommandCompletionService.CompletionEnd>`.
 
    .. _dedup-unbounded-step-offset:
 
@@ -294,16 +292,16 @@ We recommend the following strategy for using deduplication offsets:
 
 #. Wait until the RPC call returns a response.
    
-   - Status codes other than ``OK`` trigger :ref:`error handling <dedup-bounded-error-handling>`.
+   - Status codes other than ``OK`` should be handled according to :ref:`error handling <dedup-bounded-error-handling>`.
 
    - When you use the :ref:`Command Service <command-service>` and the response carries the status code ``OK``, the ledger change took place.
      You can report success.
      The response contains a :ref:`completion offset <com.daml.ledger.api.v1.SubmitAndWaitForTransactionIdResponse.completion_offset>` that you can use in :ref:`step 2 <dedup-unbounded-step-dedup-offset>` of later submissions.
      
-   - When you use the :ref:`Command Completion Service <command-completion-service>`,
-     subscribe with the :ref:`Command Completion Service <command-submission-service>` for completions for ``actAs`` from ``OFF1`` exclusive until you see a completion event for the change ID and the submission ID chosen in :ref:`step 3 <dedup-bounded-step-submit>`.
+   - When you use the :ref:`Command Submission Service <command-submission-service>`,
+     subscribe with the :ref:`Command Completion Service <command-submission-service>` for completions for ``actAs`` from ``OFF1`` (exclusive) until you see a completion event for the change ID and the submission ID chosen in :ref:`step 3 <dedup-bounded-step-submit>`.
      If the completion’s status is ``OK``, the ledger change took place and you can report success.
-     Other status codes trigger :ref:`error handling <dedup-bounded-error-handling>`.
+     Other status codes should be handled according to :ref:`error handling <dedup-bounded-error-handling>`.
    
 
 Error handling
@@ -319,7 +317,7 @@ The above strategy can fail in the following scenarios:
 
 #. No success within the supported deduplication period
    
-   When the application receives a :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>` error, it cannot achieve exactly once execution any more.
+   When the application receives a :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>` error, it cannot achieve exactly once execution any more within the originally intended deduplication period.
 
 
 #. Unacceptable changes cause infinite retries
