@@ -118,7 +118,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
 
   implicit final class NEPreservingOps[A, C](
       private val self: NonEmpty[IterableOps[A, imm.Iterable, C with imm.Iterable[A]]]
-  ) {
+  ) extends AnyVal {
     import NonEmpty.{unsafeNarrow => un}
     private type ESelf = IterableOps[A, imm.Iterable, C with imm.Iterable[A]]
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
