@@ -442,7 +442,6 @@ typeSynTests =
     let definition = DefValue
           { dvalLocation = Nothing
           , dvalBinder = (ExprValName "MyFun", ty1 :-> TUnit)
-          , dvalNoPartyLiterals = HasNoPartyLiterals True
           , dvalIsTest = IsTest False
           , dvalBody = ETmLam (ExprVarName "ignored", ty2) EUnit
           }
@@ -453,7 +452,7 @@ typeSynTests =
     Module
       { moduleName
       , moduleSource = Nothing
-      , moduleFeatureFlags = FeatureFlags {forbidPartyLiterals = True}
+      , moduleFeatureFlags = FeatureFlags
       , moduleSynonyms = NM.fromList synDefs
       , moduleDataTypes = NM.fromList []
       , moduleValues = NM.fromList valDefs
@@ -506,7 +505,6 @@ typeSynTests =
     identityDef = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (ExprValName "identity", TForall (a,KStar) $ TVar a :-> TVar a)
-      , dvalNoPartyLiterals = HasNoPartyLiterals True
       , dvalIsTest = IsTest False
       , dvalBody = ETyLam (a,KStar) $ ETmLam (opt,TVar a) (EVar opt)
       }
@@ -515,7 +513,6 @@ typeSynTests =
     mapOptionalDef = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (mapOptional, mapOptionalType)
-      , dvalNoPartyLiterals = HasNoPartyLiterals True
       , dvalIsTest = IsTest False
       , dvalBody = mapOptionalExp
       }
@@ -541,7 +538,6 @@ typeSynTests =
     optionalFunctorDef = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (optionalFunctor, TSynApp (q functor) [TBuiltin BTOptional])
-      , dvalNoPartyLiterals = HasNoPartyLiterals True
       , dvalIsTest = IsTest False
       , dvalBody = EStructCon [(FieldName "fmap", EVal (q mapOptional))]
       }
@@ -549,7 +545,6 @@ typeSynTests =
     optionalPointedDef = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (ExprValName "optionalPointed", TSynApp (q pointed) [TBuiltin BTOptional])
-      , dvalNoPartyLiterals = HasNoPartyLiterals True
       , dvalIsTest = IsTest False
       , dvalBody = EStructCon [(FieldName "super", EVal (q optionalFunctor))
                               ,(FieldName "pure",
@@ -559,7 +554,6 @@ typeSynTests =
     fmapDef = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (ExprValName "fmap", fmapType)
-      , dvalNoPartyLiterals = HasNoPartyLiterals True
       , dvalIsTest = IsTest False
       , dvalBody =
         ETyLam (f,KStar `KArrow` KStar) $
@@ -580,7 +574,6 @@ typeSynTests =
     pureDef = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (ExprValName "pure", pureType)
-      , dvalNoPartyLiterals = HasNoPartyLiterals True
       , dvalIsTest = IsTest False
       , dvalBody =
         ETyLam (f,KStar `KArrow` KStar) $

@@ -110,13 +110,13 @@ main = do
     let mod = Module
             { moduleName = ModuleName ["Module"]
             , moduleSource = Nothing
-            , moduleFeatureFlags = FeatureFlags{forbidPartyLiterals = True}
             , moduleSynonyms = NM.fromList []
             , moduleDataTypes = NM.fromList ([tplRec, chcArg, chcArg2] <> [emptyRec | withArchiveChoice])
             , moduleValues = NM.empty
             , moduleTemplates = NM.fromList [tpl]
             , moduleExceptions = NM.empty
             , moduleInterfaces = NM.empty
+            , moduleFeatureFlags = FeatureFlags
             }
     case checkModule (initWorld [] version) version mod of
         [] -> pure ()

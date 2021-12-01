@@ -254,12 +254,10 @@ decodeMethodName = decodeNameId MethodName
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
-  if not featureFlagsDontDivulgeContractIdsInCreateArguments || not featureFlagsDontDiscloseNonConsumingChoicesToObservers
+  if not featureFlagsDontDivulgeContractIdsInCreateArguments || not featureFlagsDontDiscloseNonConsumingChoicesToObservers || not featureFlagsForbidPartyLiterals
     -- We do not support these anymore -- see #157
-    then throwError (ParseError "Package uses unsupported flags dontDivulgeContractIdsInCreateArguments or dontDiscloseNonConsumingChoicesToObservers")
+    then throwError (ParseError "Package uses unsupported flags dontDivulgeContractIdsInCreateArguments, dontDiscloseNonConsumingChoicesToObservers or featureFlagsForbidPartyLiterals")
     else pure FeatureFlags
-      { forbidPartyLiterals = featureFlagsForbidPartyLiterals
-      }
 
 decodeDefTypeSyn :: LF1.DefTypeSyn -> Decode DefTypeSyn
 decodeDefTypeSyn LF1.DefTypeSyn{..} =
@@ -305,11 +303,12 @@ decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
 decodeDefValue :: LF1.DefValue -> Decode DefValue
-decodeDefValue (LF1.DefValue mbBinder mbBody noParties isTest mbLoc) =
+decodeDefValue (LF1.DefValue mbBinder mbBody noParties isTest mbLoc) = do
+  when (not noParties) $
+    throwError (ParseError "DefValue uses unsupported no_party_literals flag")
   DefValue
     <$> traverse decodeLocation mbLoc
     <*> mayDecode "defValueName" mbBinder decodeDefValueNameWithType
-    <*> pure (HasNoPartyLiterals noParties)
     <*> pure (IsTest isTest)
     <*> mayDecode "defValueExpr" mbBody decodeExpr
 
@@ -822,8 +821,10 @@ decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
   LF1.PrimLitSumTextStr x -> pure $ BEText $ decodeString x
   LF1.PrimLitSumTextInternedStr strId ->  BEText . fst <$> lookupString strId
-  LF1.PrimLitSumPartyStr p -> pure $ BEParty $ PartyLiteral $ decodeString p
-  LF1.PrimLitSumPartyInternedStr strId -> BEParty . PartyLiteral . fst <$> lookupString strId
+  LF1.PrimLitSumPartyStr _ ->
+      throwError (ParseError "Party literals are not supported")
+  LF1.PrimLitSumPartyInternedStr _ ->
+      throwError (ParseError "Party literals are not supported")
   LF1.PrimLitSumDate days -> pure $ BEDate days
   LF1.PrimLitSumRoundingMode enum -> case enum of
     Proto.Enumerated (Right mode) -> pure $ case mode of

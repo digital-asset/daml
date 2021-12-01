@@ -210,7 +210,6 @@ typeOfBuiltin = \case
   BENumeric n        -> pure (TNumeric (TNat (typeLevelNat (numericScale n))))
   BEText    _        -> pure TText
   BETimestamp _      -> pure TTimestamp
-  BEParty   _        -> pure TParty
   BEDate _           -> pure TDate
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
@@ -853,7 +852,7 @@ checkDefDataType m (DefDataType _loc name _serializable params dataCons) = do
         void $ inWorld $ lookupInterface (Qualified PRSelf (moduleName m) name)
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
-checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do
+checkDefValue (DefValue _loc (_, typ) (IsTest isTest) expr) = do
   checkType typ KStar
   checkExpr expr typ
   when isTest $
