@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:haskell.bzl",
     "da_haskell_library",
+    "da_haskell_test",
 )
 
 da_haskell_library(
@@ -25,5 +26,24 @@ da_haskell_library(
         "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//daml-assistant:daml-project-config",
+    ],
+)
+
+da_haskell_test(
+    name = "tests",
+    srcs = glob(["test/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "containers",
+        "tasty",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Daml.Package.ConfigTest.main",
+    src_strip_prefix = "src",
+    deps = [
+        ":daml-package-config",
+        "//compiler/daml-lf-ast",
+        "//libs-haskell/test-utils",
     ],
 )
