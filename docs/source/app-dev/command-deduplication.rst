@@ -37,6 +37,10 @@ The first three form the :ref:`change ID <change-id>` that identifies the intend
    An application should never reuse a submission ID.
 
 The ledger may arbitrarily extend the deduplication period specified in the submission, even beyond the maximum deduplication time specified in the :ref:`ledger configuration <ledger-configuration-service>`.
+
+.. note::
+   The maximum deduplication time specifies a lower bound on the length of deduplication periods that the ledger accepts.
+   
 The deduplication period chosen by the ledger is the *effective deduplication period*.
 The ledger may also convert a requested deduplication duration into an effective deduplication offset or vice versa.
 The effective deduplication period is reported in the the command completion event in the :ref:`deduplication duration <com.daml.ledger.api.v1.Completion.deduplication_duration>` or :ref:`deduplication offset <com.daml.ledger.api.v1.Completion.deduplication_offset>` fields.
@@ -47,10 +51,10 @@ A command submission is considered a **duplicate submission** if at least one of
 
 - The participant or Daml ledger are aware of another command submission in-flight with the same :ref:`change ID <change-id>` when they perform command deduplication.
 
+Command deduplication generates the following outcomes of a command submission.
 Command submissions via the :ref:`command service <command-service>` indicate the command deduplication outcome as a synchronous gRPC response unless when the `gRPC deadline <https://grpc.io/blog/deadlines/>`_ was exceeded.
 Submissions via the :ref:`command submission service <command-submission-service>` can indicate the outcome synchronously or asynchronously in the event on the :ref:`command completion service <command-completion-service>`.
 In particular, the submission may be a duplicate even if the command submission service acknowledges the submission with the gRPC status code ``OK``.
-Command deduplication generates the following outcomes of a command submission:
 
 - If no conflicting submission with the same :ref:`change ID <change-id>` was found, the completion event and possibly the response convey the result of the submission (success or a gRPC error).
 
@@ -65,7 +69,7 @@ Command deduplication generates the following outcomes of a command submission:
   Neither deduplication durations up to the :ref:`maximum deduplication time <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_time>` nor deduplication offsets published within that time SHOULD not result in this error.
   Participants may accept longer periods at their discretion.
 
-For deduplication to work as intended, all submissions for the same ledger change must be submitted via the same participants.
+For deduplication to work as intended, all submissions for the same ledger change must be submitted via the same participant.
 This is because a participant outputs by default only the completion events for submissions that were requested via the very same participant,
 and whether a submission is considered a duplicate is determined by the completion events.
 
@@ -129,10 +133,10 @@ Under this assumption, the following strategy works for applications that use th
 
    - Set the :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` to a fresh value, e.g., a random UUID.
 
-   - Set the timeout (gRPC deadline) to the expected processing (Command Service) or submission (Command Submission Service) delay.
+   - Set the timeout (gRPC deadline) to the expected submission processing time (Command Service) or submission hand-off time (Command Submission Service).
 
-     The **processing delay** measures the time between when the application sends off a submission to the :ref:`Command Service <command-service>` and when it receives the acceptance or rejection.
-     The **submission delay** measures the time between when the application sends off a submission to the :ref:`Command Submission Service <command-submission-service>` and when it obtains a synchronous response for this gRPC call.
+     The **submission processing time** is time between when the application sends off a submission to the :ref:`Command Service <command-service>` and when it receives (synchronously, unless it times out) the acceptance or rejection.
+     The **submission hand-off time** is the time between when the application sends off a submission to the :ref:`Command Submission Service <command-submission-service>` and when it obtains a synchronous response for this gRPC call.
      After the RPC timeout, the application considers the submission as lost and enters a retry loop.
      This timeout is typically much shorter than the deduplication duration.
 
@@ -158,7 +162,7 @@ Under this assumption, the following strategy works for applications that use th
 Error handling
 --------------
 
-Error handling is needed when the status code of the RPC call or in the :ref:`in the completion event <com.daml.ledger.api.v1Completion.status>` is not ``OK``.
+Error handling is needed when the status code of the command submission RPC call or in the :ref:`in the completion event <com.daml.ledger.api.v1Completion.status>` is not ``OK``.
 The following table lists appropriate reactions by status code (written as ``STATUS_CODE``) and error code (written in capital letters with a link to the error code documentation).
 Fields in the error metadata are written as ``field`` in lowercase letters.
 
@@ -214,6 +218,11 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
 
        - When you use the :ref:`Command Service <command-service>`, wait a bit and retry from submitting the command (:ref:`step 3 <dedup-bounded-step-submit>`).
 
+	 Since the in-flight submission might still be rejected, (repeated) resubmission ensures that you (eventually) learns the outcome:
+         If an earlier submission was accepted, you will eventually receive a :ref:`DUPLICATE_COMMAND <error_code_DUPLICATE_COMMAND>` rejection.
+	 Otherwise, you have a second change to get the ledger change accepted on the ledger and learn the outcome.
+	 
+
        - When you use the :ref:`Command Completion Service <command-completion-service>`, look for a completion for ``existing_submission_id`` instead of the chosen submission ID in :ref:`step 4 <dedup-bounded-step-await>`.
 
 
@@ -248,6 +257,7 @@ The above strategy can fail in the following scenarios:
    - There are unexpected network delays.
 
    - Submissions are retried internally in the participant or Daml ledger and those retries do not stop before ``B`` is over.
+     Refer to the specific ledger's documentation for more information on such behaviour.
 
 #. Unacceptable changes cause infinite retries
 
@@ -293,7 +303,7 @@ We recommend the following strategy for using deduplication offsets:
 
    - Set the :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` to a fresh value, e.g., a random UUID.
 
-   - Set the timeout (gRPC deadline) to the expected processing (Command Service) or submission (Command Submission Service) delay.
+   - Set the timeout (gRPC deadline) to the expected submission processing time (Command Service) or submission hand-off time (Command Submission Service).
 
 #. Wait until the RPC call returns a response.
    
