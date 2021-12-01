@@ -40,8 +40,8 @@ main = scenario do
     p `submit` do
         templateCid1 <- create template1
         templateCid2 <- create template2
-        let ifaceCid1 = toInterfaceContractId @_ @Iface templateCid1
-            ifaceCid2 = toInterfaceContractId @_ @Iface templateCid2
+        let ifaceCid1 = toInterfaceContractId @Iface templateCid1
+            ifaceCid2 = toInterfaceContractId @Iface templateCid2
 
         x1 <- fromInterfaceContractId @Template1 ifaceCid1
         x2 <- fromInterfaceContractId @Template2 ifaceCid1

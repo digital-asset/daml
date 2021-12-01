@@ -28,4 +28,6 @@ import DA.Internal.Assert as X
 import DA.Internal.Desugar as X
   ( HasInterfaceTypeRep(..)
   , Implements (..)
+  , toInterfaceContractId
+  , fromInterfaceContractId
   )

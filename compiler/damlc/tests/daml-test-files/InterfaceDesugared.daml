@@ -25,10 +25,6 @@ instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
 instance DA.Internal.Desugar.Implements Token Token where
   toInterface = GHC.Types.primitive @"EToInterface"
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  toInterfaceContractId
-    = GHC.Types.primitive @"EToInterfaceContractId"
-  fromInterfaceContractId
-    = GHC.Types.primitive @"UFromInterfaceContractId"
 
 instance DA.Internal.Desugar.HasFetch Token where
   fetch = GHC.Types.primitive @"UFetchInterface"
@@ -106,7 +102,7 @@ instance (DA.Internal.Desugar.Implements t Token) =>
   exercise cid
     = GHC.Types.primitive
         @"UExerciseInterface"
-        (DA.Internal.Desugar.toInterfaceContractId @t @Token cid)
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
 
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Noop (()) where
@@ -119,7 +115,7 @@ instance (DA.Internal.Desugar.Implements t Token) =>
   exercise cid
     = GHC.Types.primitive
         @"UExerciseInterface"
-        (DA.Internal.Desugar.toInterfaceContractId @t @Token cid)
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
 
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Transfer (ContractId Token) where
@@ -132,7 +128,7 @@ instance (DA.Internal.Desugar.Implements t Token) =>
   exercise cid
     = GHC.Types.primitive
         @"UExerciseInterface"
-        (DA.Internal.Desugar.toInterfaceContractId @t @Token cid)
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
 
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Split ((ContractId Token,
@@ -148,7 +144,7 @@ instance (DA.Internal.Desugar.Implements t Token) =>
   exercise cid
     = GHC.Types.primitive
         @"UExerciseInterface"
-        (DA.Internal.Desugar.toInterfaceContractId @t @Token cid)
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
 
 data GHC.Types.DamlTemplate => GetRich
   = GetRich {byHowMuch : Int}
@@ -305,10 +301,6 @@ _choice_AssetArchive
 instance DA.Internal.Desugar.Implements Asset Token where
   toInterface = GHC.Types.primitive @"EToInterface"
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  toInterfaceContractId
-    = GHC.Types.primitive @"EToInterfaceContractId"
-  fromInterfaceContractId
-    = GHC.Types.primitive @"UFromInterfaceContractId"
 
 _method_Asset_Token_getOwner
   = DA.Internal.Desugar.mkMethod
@@ -346,8 +338,8 @@ _method_Asset_Token_splitImpl
                       cid1 <- create this {amount = splitAmount}
                       cid2 <- create this {amount = amount - splitAmount}
                       pure
-                        (toInterfaceContractId @_ @Token cid1,
-                         toInterfaceContractId @_ @Token cid2))
+                        (toInterfaceContractId @Token cid1,
+                         toInterfaceContractId @Token cid2))
 
 _method_Asset_Token_transferImpl
   = DA.Internal.Desugar.mkMethod
@@ -359,7 +351,7 @@ _method_Asset_Token_transferImpl
             in
               \ newOwner
                 -> do cid <- create this {owner = newOwner}
-                      pure (toInterfaceContractId @_ @Token cid))
+                      pure (toInterfaceContractId @Token cid))
 
 _method_Asset_Token_noopImpl
   = DA.Internal.Desugar.mkMethod
@@ -375,7 +367,7 @@ main
              do create Asset {issuer = p, owner = p, amount = - 1}
          p `submit`
              do cidAsset1 <- create Asset {issuer = p, owner = p, amount = 15}
-                let cidToken1 = toInterfaceContractId @_ @Token cidAsset1
+                let cidToken1 = toInterfaceContractId @Token cidAsset1
                 _ <- exercise cidToken1 (Noop ())
                 (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
                 token2 <- fetch cidToken2
