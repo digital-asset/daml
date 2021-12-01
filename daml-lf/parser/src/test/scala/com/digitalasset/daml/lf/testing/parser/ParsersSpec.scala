@@ -152,8 +152,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "1970-01-02" -> PLDate(Time.Date.assertFromDaysSinceEpoch(1)),
         "1970-01-01T00:00:00.000001Z" -> PLTimestamp(Time.Timestamp.assertFromLong(1)),
         "1970-01-01T00:00:01Z" -> PLTimestamp(Time.Timestamp.assertFromLong(1000000)),
-        "'party'" -> PLParty(Party.assertFromString("party")),
-        """ ' aB0-_ ' """ -> PLParty(Party.assertFromString(" aB0-_ ")),
         "ROUNDING_UP" -> PLRoundingMode(java.math.RoundingMode.UP),
       )
 
@@ -517,13 +515,13 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         """
          module Mod {
 
-           val @noPartyLiterals fact : Int64 -> Int64 = \(x: Int64) -> ERROR @INT64 "not implemented";
+           val fact : Int64 -> Int64 = \(x: Int64) -> ERROR @INT64 "not implemented";
 
          }
         """
 
       val valDef =
-        DValue(t"Int64 -> Int64", true, e"""\(x: Int64) -> ERROR @INT64 "not implemented"""", false)
+        DValue(t"Int64 -> Int64", e"""\(x: Int64) -> ERROR @INT64 "not implemented"""", false)
 
       parseModules(p) shouldBe Right(
         List(
@@ -551,7 +549,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           template (this : Person) =  {
             precondition True;
             signatories Cons @Party [person] (Nil @Party);
-            observers Cons @Party ['Alice'] (Nil @Party);
+            observers Cons @Party [Mod:Person {person} this] (Nil @Party);
             agreement "Agreement";
             choice Sleep (self) (u:Unit) : ContractId Mod:Person
               , controllers Cons @Party [person] (Nil @Party)
@@ -622,7 +620,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                 update = e"upure @Int64 i",
               ),
           ),
-          observers = e"Cons @Party ['Alice'] (Nil @Party)",
+          observers = e"Cons @Party [Mod:Person {person} this] (Nil @Party)",
           key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p""")),
           implements = Map(
             human ->

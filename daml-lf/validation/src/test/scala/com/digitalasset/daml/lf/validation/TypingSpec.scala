@@ -158,8 +158,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         E"(( 1879-03-14 ))" -> T"(( Date ))",
         //ExpLitTimestamp
         E"(( 1969-07-20T20:17:00.000000Z ))" -> T"(( Timestamp ))",
-        //ExpLitParty
-        E"(( 'party' ))" -> T"(( Party ))",
         //TextMap
         E"Λ (τ : ⋆) . (( TEXTMAP_EMPTY @τ ))" -> T"∀ (τ : ⋆) . (( TextMap τ ))",
         //GenMap
@@ -364,7 +362,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           T"ContractId Mod:I → (( Update Mod:I ))",
         E"λ (e: Party) → (( fetch_by_key @Mod:T e ))" ->
           T"Party → (( Update (⟨ contract: Mod:T, contractId: ContractId Mod:T ⟩) ))",
-        E"λ (e: Party) →  (( lookup_by_key @Mod:T 'Bob' ))" ->
+        E"λ (e: Party) →  (( lookup_by_key @Mod:T e ))" ->
           T"Party → (( Update (Option (ContractId Mod:T)) ))",
         E"(( uget_time ))" ->
           T"(( Update Timestamp ))",
@@ -955,26 +953,26 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
               choice Ch1 (self) (i : Unit) : Unit
-                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  , controllers Nil @Party
                   to upure @Unit ();
               choice Ch2 (self) (i : Unit) : Unit
-                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  , controllers Nil @Party
                   , observers Nil @Party
                   to upure @Unit ();
               choice Ch3 (self) (i : Unit) : Unit
-                  , controllers Cons @Party ['Alice'] (Nil @Party)
-                  , observers Cons @Party ['Alice'] (Nil @Party)
+                  , controllers Nil @Party
+                  , observers Nil @Party
                   to upure @Unit ();
               implements Mod:I {
                 method getParties = \(self: NegativeTestCase:T) -> Cons @Party [NegativeTestCase:T {person} self] (Nil @Party);
               };
               key @Mod:Key
                   (Mod:Key { person = (NegativeTestCase:T {name} this), party = (NegativeTestCase:T {person} this) })
-                  (\ (key: Mod:Key) -> Cons @Party [(Mod:Key {party} key), 'Alice'] (Nil @Party)  );
+                  (\ (key: Mod:Key) -> Cons @Party [(Mod:Key {party} key)] (Nil @Party)  );
             } ;
           }
 
@@ -985,8 +983,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             // in the next line, T should be of type *.
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
             };
           }
@@ -997,8 +995,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             // in the next line, V should be of record.
             template (this : V) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
             };
           }
@@ -1007,8 +1005,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
              // template without data type
              template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
             } ;
           }
@@ -1018,8 +1016,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
              template (this : T) =  {
               precondition ();                               // precondition should be a boolean
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
             } ;
           }
@@ -1030,9 +1028,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             template (this : T) =  {
               precondition True;
               signatories ();                                 // should be of (type List Party)
-              observers Cons @Party ['Alice'] (Nil @Party);
+              observers Nil @Party;
               agreement "Agreement";
-              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
+              choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
             } ;
           }
 
@@ -1041,10 +1039,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
+              signatories Nil @Party;
               observers ();                                  // should be of type (List Party)
               agreement "Agreement";
-              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
+              choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
             } ;
           }
 
@@ -1053,8 +1051,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Bob'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit
                 , controllers ()                                  // should be of type (List Party)
@@ -1067,11 +1065,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Bob'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit
-                , controllers Cons @Party ['Alice'] (Nil @Party)
+                , controllers Nil @Party
                 , observers ()                                  // should be of type (List Party)
                 to upure @Unit ();
             } ;
@@ -1082,10 +1080,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement ();                                 // should be of type Text
-              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
+              choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
             } ;
           }
 
@@ -1094,11 +1092,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
               choice Ch (self) (i : List) : Unit   // the type of i (here List) should be of kind * (here it is * -> *)
-                , controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
+                , controllers Nil @Party to upure @Unit ();
             } ;
           }
 
@@ -1107,11 +1105,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
               choice Ch (self) (i : Unit) : List   // the return type (here List) should be of kind * (here it is * -> *)
-                , controllers Cons @Party ['Alice'] (Nil @Party) to upure @(List) (/\ (tau : *). Nil @tau);
+                , controllers Nil @Party to upure @(List) (/\ (tau : *). Nil @tau);
             } ;
           }
 
@@ -1121,17 +1119,17 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
-              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
+              choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
               key @Mod:Key
                 // In the next line, the declared type do not match body
                 (PositiveTestCase_KeyBodyShouldBeProperType:Key {
                   person = (PositiveTestCase_KeyBodyShouldBeProperType:T {name} this),
                   party = (PositiveTestCase_KeyBodyShouldBeProperType:T {person} this)
                 })
-                (\ (key: Mod:Key) -> Cons @Party [(Mod:Key {party} key), 'Alice'] (Nil @Party)  );
+                (\ (key: Mod:Key) -> Cons @Party [(Mod:Key {party} key)] (Nil @Party)  );
               } ;
           }
 
@@ -1142,10 +1140,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
-              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
+              choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
               key @Mod:Key
                 // In the next line, the declared type do not match body
                 (Mod:Key {
@@ -1153,7 +1151,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   party = (PositiveTestCase_MaintainersShouldBeProperType:T {person} this)
                 })
                 (\ (key: PositiveTestCase_MaintainersShouldBeProperType:Key) ->
-                  Cons @Party [(PositiveTestCase_MaintainersShouldBeProperType:Key {party} key), 'Alice'] (Nil @Party)  );
+                  Cons @Party [(PositiveTestCase_MaintainersShouldBeProperType:Key {party} key)] (Nil @Party)  );
               } ;
           }
 
@@ -1163,10 +1161,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
-              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
+              choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
               key @Mod:Key
                 // In the next line, the declared type do not match body
                 (Mod:Key {
@@ -1183,10 +1181,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
-              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
+              choice Ch (self) (i : Unit) : Unit, controllers Nil @Party to upure @Unit ();
               key @PositiveTestCase_MaintainersShouldNotUseThis:TBis
                 (PositiveTestCase_MaintainersShouldNotUseThis:TBis {
                   person = (PositiveTestCase_MaintainersShouldNotUseThis:T {name} this),
@@ -1194,7 +1192,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                 })
                 // In the next line, cannot use `this`
                 (\ (key: PositiveTestCase_MaintainersShouldNotUseThis:TBis) ->
-                  Cons @Party [(PositiveTestCase_MaintainersShouldNotUseThis:T {person} this), 'Alice'] (Nil @Party)  );
+                  Cons @Party [(PositiveTestCase_MaintainersShouldNotUseThis:T {person} this)] (Nil @Party)  );
             };
           }
 
@@ -1203,11 +1201,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit
-                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  , controllers Nil @Party
                   to upure @Unit ();
               implements Mod:I {
                 method getParties = \(self: PositiveCase_InterfaceMethodShouldBeProperType:T) -> (); // should Be of type
@@ -1220,11 +1218,11 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit
-                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  , controllers Nil @Party
                   to upure @Unit ();
               implements Mod:I {
               };
@@ -1236,15 +1234,15 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
             template (this : T) =  {
               precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
+              signatories Nil @Party;
+              observers Nil @Party;
               agreement "Agreement";
               choice Ch (self) (i : Unit) : Unit
-                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  , controllers Nil @Party
                   to upure @Unit ();
               implements Mod:I {
                 method getParties = \(self: PositiveCase_ImplementsShouldOverrideOnlyMethods:T) ->
-                  Cons @Party [(PositiveCase_ImplementsShouldOverrideOnlyMethods:T {person} this), 'Alice'] (Nil @Party);
+                  Cons @Party [(PositiveCase_ImplementsShouldOverrideOnlyMethods:T {person} this)] (Nil @Party);
                 method getName = \(self: PositiveCase_ImplementsShouldOverrideOnlyMethods:T) ->
                   PositiveCase_ImplementsShouldOverrideOnlyMethods:T {name} this;
               };
@@ -1317,7 +1315,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               precondition True;
               method getParties: List Party;
               choice Ch1 (self) (i : Unit) : Unit,
-                  controllers Cons @Party ['Alice'] (Nil @Party)
+                  controllers Nil @Party
                 to upure @Unit ();
               choice Ch2 (self) (i : Unit) : Unit,
                  controllers call_method @NegativeTestCase:I getParties this,
@@ -1662,18 +1660,18 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
          record @serializable T = { person: Party, name: Text };
          template (this : T) =  {
            precondition True;
-           signatories Cons @Party ['Bob'] Nil @Party;
-           observers Cons @Party ['Alice'] (Nil @Party);
+           signatories Nil @Party;
+           observers Nil @Party;
            agreement "Agreement";
-           choice Ch (self) (x: Int64) : Decimal, controllers 'Bob' to upure @INT64 (DECIMAL_TO_INT64 x);
-           key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party ['Alice', p] (Nil @Party));
+           choice Ch (self) (x: Int64) : Decimal, controllers Nil @Party to upure @INT64 (DECIMAL_TO_INT64 x);
+           key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
          };
 
          interface (this : I) = {
               precondition True;
               method getParties: List Party;
               choice ChIface (self) (x: Int64) : Decimal,
-                  controllers 'Bob'
+                  controllers Nil @Party
                 to upure @INT64 (DECIMAL_TO_INT64 x);
          };
 
@@ -1684,10 +1682,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
          record @serializable Ti = { person: Party, name: Text };
          template (this: Ti) = {
            precondition True;
-           signatories Cons @Party ['Bob'] Nil @Party;
-           observers Cons @Party ['Alice'] (Nil @Party);
+           signatories Nil @Party;
+           observers Nil @Party;
            agreement "Agreement";
-           choice ChTmpl (self) (x: Int64) : Decimal, controllers 'Bob' to upure @INT64 (DECIMAL_TO_INT64 x);
+           choice ChTmpl (self) (x: Int64) : Decimal, controllers Nil @Party to upure @INT64 (DECIMAL_TO_INT64 x);
            implements Mod:I {
               method getParties = Cons @Party [(Mod:Ti {person} this)] (Nil @Party);
            };

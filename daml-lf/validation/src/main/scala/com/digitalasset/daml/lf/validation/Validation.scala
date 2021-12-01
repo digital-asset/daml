@@ -67,6 +67,5 @@ object Validation {
   ): Unit = {
     Typing.checkModule(interface, pkgId, mod)
     Serializability.checkModule(interface, pkgId, mod)
-    PartyLiterals.checkModule(interface, pkgId, mod)
   }
 }

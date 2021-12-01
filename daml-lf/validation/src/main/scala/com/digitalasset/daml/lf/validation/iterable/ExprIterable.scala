@@ -129,7 +129,7 @@ private[validation] object ExprIterable {
     x match {
       case DTypeSyn(params @ _, typ @ _) => Iterator.empty
       case DDataType(serializable @ _, params @ _, dataCons @ _) => Iterator.empty
-      case DValue(typ @ _, noPartyLiterals @ _, body, isTest @ _) =>
+      case DValue(typ @ _, body, isTest @ _) =>
         Iterator(body)
     }
 

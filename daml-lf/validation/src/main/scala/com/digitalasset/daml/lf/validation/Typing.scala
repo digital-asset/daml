@@ -39,7 +39,6 @@ private[validation] object Typing {
     case PLNumeric(s) => TNumeric(TNat(Numeric.scale(s)))
     case PLText(_) => TText
     case PLTimestamp(_) => TTimestamp
-    case PLParty(_) => TParty
     case PLDate(_) => TDate
     case PLRoundingMode(_) => TRoundingMode
   }
@@ -383,7 +382,7 @@ private[validation] object Typing {
     }
 
     def checkDValue(dfn: DValue): Unit = dfn match {
-      case DValue(typ, _, body, isTest) =>
+      case DValue(typ, body, isTest) =>
         checkType(typ, KStar)
         checkExpr(body, typ)
         if (isTest) {
