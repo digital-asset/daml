@@ -82,10 +82,15 @@ object ValueGenerators {
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$".toVector
     val mainChars =
       firstChars ++ "1234567890"
+    val suffixLengthGen = Gen.frequency(
+      90 -> Gen.choose(0, 9),
+      8 -> Gen.choose(0, 99),
+      2 -> Gen.choose(0, 999),
+    )
     for {
       h <- Gen.oneOf(firstChars)
-      suffixLength <- Gen.choose(0, 999)
-      t <- Gen.listOfN(suffixLength, Gen.oneOf(mainChars)) //Name is max 999 characters
+      suffixLength <- suffixLengthGen
+      t <- Gen.listOfN(suffixLength, Gen.oneOf(mainChars))
     } yield Name.assertFromString((h :: t).mkString)
   }
 
