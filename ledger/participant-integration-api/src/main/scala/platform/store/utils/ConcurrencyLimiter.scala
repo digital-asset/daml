@@ -25,18 +25,9 @@ class QueueBasedConcurrencyLimiter(
   private var running: Int = 0
 
   override def execute[T](task: () => Future[T]): Future[T] = synchronized {
-    val result = enqueueTask(task)
-    startTasks()
-    result
-  }
-
-  private def enqueueTask[T](task: () => Future[T]): Future[T] = synchronized {
     val promise = Promise[T]()
 
-    // Note: tasks are started sequentially (see startTasks), but they can finish concurrently.
-    // Only the block withing `andThen` needs to be synchronized.
     val waitingTask = () => {
-      running = running + 1
       task()
         .andThen { case result =>
           synchronized {
@@ -49,12 +40,15 @@ class QueueBasedConcurrencyLimiter(
     }
 
     waiting.enqueue(waitingTask)
+    startTasks()
+
     promise.future
   }
 
   private def startTasks(): Unit = synchronized {
     while (running < parallelism && waiting.nonEmpty) {
       val head = waiting.dequeue()
+      running = running + 1
       head()
     }
   }
