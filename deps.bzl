@@ -220,7 +220,7 @@ def daml_deps():
             name = "com_github_grpc_grpc",
             strip_prefix = "grpc-1.42.0",
             urls = ["https://github.com/grpc/grpc/archive/v1.42.0.tar.gz"],
-            sha256 = "e5fb30aae1fa1cffa4ce00aa0bbfab908c0b899fcf0bbc30e268367d660d8656",
+            sha256 = "b2f2620c762427bfeeef96a68c1924319f384e877bc0e084487601e4cc6e434c",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
