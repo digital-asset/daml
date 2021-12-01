@@ -14,7 +14,7 @@ def migration_test(name, versions, tags, quick_tags, **kwargs):
             "//sandbox-migration:migration-step",
         ] + ["@daml-sdk-{}//:daml".format(ver) for ver in versions],
         args = versions,
-        tags = tags + ["head-quick"],
+        tags = tags + quick_tags,
         **kwargs
     )
 
