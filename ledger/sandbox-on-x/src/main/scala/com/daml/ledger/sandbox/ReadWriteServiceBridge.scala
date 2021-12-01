@@ -38,6 +38,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.collection.Searching
+import scala.collection.immutable.VectorMap
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -58,13 +59,21 @@ case class ReadWriteServiceBridge(
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
+  @volatile private var minQueue = VectorMap.empty[Submission.Transaction, Offset]
+
   private val (conflictCheckingQueue, source) = Source
     .queue[Submission.Transaction](128)
-    .mapAsyncUnordered(64) { tx =>
+    .map { tx =>
       val enqueuedAt = contractStore
         .get()
         .getOrElse(throw new RuntimeException("ContractStore not there yet"))
         .cacheOffset()
+      minQueue.synchronized {
+        minQueue = minQueue.updated(tx, enqueuedAt)
+      }
+      enqueuedAt -> tx
+    }
+    .mapAsyncUnordered(64) { case (enqueuedAt, tx) =>
       parallelConflictCheck(tx).map(enqueuedAt -> _)
     }
     .statefulMapConcat(sequence)
@@ -79,17 +88,30 @@ case class ReadWriteServiceBridge(
       case (_, Left(rejection)) =>
         val newIndex = offsetIdx.getAndIncrement()
         val newOffset = toOffset(newIndex)
+        minQueue.synchronized {
+          minQueue = minQueue.removed(rejection.originalTx)
+        }
         Iterable(newOffset -> toRejection(rejection))
       case (enqueuedAt, Right(transaction)) =>
         val newIndex = offsetIdx.getAndIncrement()
         val newOffset = toOffset(newIndex)
         checkSequential(enqueuedAt, transaction, sequencerQueue) match {
           case Left(rejection) =>
-            Iterable(
-              newOffset -> toRejection(rejection)
-            )
+            minQueue.synchronized {
+              minQueue = minQueue.removed(transaction)
+            }
+            Iterable(newOffset -> toRejection(rejection))
           case Right(acceptedTx) =>
-            sequencerQueue = sequencerQueue :+ (newOffset -> transaction)
+            minQueue.synchronized {
+              sequencerQueue = sequencerQueue :+ (newOffset -> transaction)
+              val smallestHead = minQueue.head._2
+              val pruneFrom = sequencerQueue.view.map(_._1).search(smallestHead) match {
+                case Searching.Found(foundIndex) => foundIndex - 1
+                case Searching.InsertionPoint(insertionPoint) => insertionPoint - 1
+              }
+              sequencerQueue = sequencerQueue.slice(pruneFrom, sequencerQueue.length)
+              minQueue = minQueue.removed(transaction)
+            }
             Iterable(newOffset -> successMapper(acceptedTx, newIndex, participantId))
         }
     }
