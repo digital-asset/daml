@@ -319,50 +319,56 @@ private[speedy] object ClosureConversion {
     loop(Down(source0, Env()), Nil)
   }
 
-  // TODO: Recode to avoid polynomial-complexity of 'freeVars' computation. Issue #11830
-
   /** Compute the free variables in a speedy expression.
-    * The returned free variables are de bruijn indices
-    * adjusted to the stack of the caller.
+    * The returned free variables are de bruijn indices adjusted to the stack of the caller.
     */
-  private[this] def freeVars(expr: source.SExpr, initiallyBound: Int): Set[Int] = {
-    // @tailrec // TODO: This implementation is not stack-safe. Issue #11830
-    def go(expr: source.SExpr, bound: Int, free: Set[Int]): Set[Int] =
-      expr match {
-        case source.SEVar(i) =>
-          if (i > bound) {
-            val rel = (i - bound) /* adjust to caller's environment */
-            free + rel
-          } else {
-            free
+  private[this] def freeVars(expr0: source.SExpr, depth0: Int): Set[Int] = {
+    @tailrec // woo hoo, stack safe!
+    def go(acc: Set[Int], work: List[(source.SExpr, Int)]): Set[Int] = {
+      // 'acc' is the (accumulated) set of free variables we have found so far.
+      // 'work' is a list of source expressions (paired with their depth) which we still have to process.
+      work match {
+        case Nil => acc // final result
+        case (expr, depth) :: work => {
+          expr match {
+            case source.SEVar(rel) =>
+              if (rel > depth) {
+                val callerRel = rel - depth // adjust to caller's environment
+                go(acc + callerRel, work)
+              } else {
+                go(acc, work)
+              }
+            case _: source.SEVal => go(acc, work)
+            case _: source.SEBuiltin => go(acc, work)
+            case _: source.SEValue => go(acc, work)
+            case source.SELocation(_, body) =>
+              go(acc, (body, depth) :: work)
+            case source.SEApp(fun, args) =>
+              go(acc, (fun :: args).map(e => (e, depth)) ++ work)
+            case source.SEAbs(n, body) =>
+              go(acc, (body, depth + n) :: work)
+            case source.SECase(scrut, alts) =>
+              val moreWork = alts.map { case source.SCaseAlt(pat, body) =>
+                val n = pat.numArgs
+                (body, depth + n)
+              }
+              go(acc, (scrut, depth) :: moreWork ++ work)
+            case source.SELet(bounds, body) =>
+              val moreWork = bounds.zipWithIndex.map { case (bound, n) =>
+                (bound, depth + n)
+              }
+              go(acc, (body, depth + bounds.length) :: moreWork ++ work)
+            case source.SELabelClosure(_, expr) =>
+              go(acc, (expr, depth) :: work)
+            case source.SETryCatch(body, handler) =>
+              go(acc, (handler, 1 + depth) :: (body, depth) :: work)
+            case source.SEScopeExercise(body) =>
+              go(acc, (body, depth) :: work)
           }
-        case _: source.SEVal => free
-        case _: source.SEBuiltin => free
-        case _: source.SEValue => free
-        case source.SELocation(_, body) =>
-          go(body, bound, free)
-        case source.SEApp(fun, args) =>
-          args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
-        case source.SEAbs(n, body) =>
-          go(body, bound + n, free)
-        case source.SECase(scrut, alts) =>
-          alts.foldLeft(go(scrut, bound, free)) { case (acc, source.SCaseAlt(pat, body)) =>
-            val n = pat.numArgs
-            go(body, bound + n, acc)
-          }
-        case source.SELet(bounds, body) =>
-          bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
-            case (acc, (expr, idx)) => go(expr, bound + idx, acc)
-          }
-        case source.SELabelClosure(_, expr) =>
-          go(expr, bound, free)
-        case source.SETryCatch(body, handler) =>
-          go(body, bound, go(handler, 1 + bound, free))
-        case source.SEScopeExercise(body) =>
-          go(body, bound, free)
+        }
       }
-
-    go(expr, initiallyBound, Set.empty)
+    }
+    go(Set.empty, List((expr0, depth0)))
   }
 
 }

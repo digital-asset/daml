@@ -38,7 +38,7 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
   private val scopeExercise = (x: SExpr) => SEScopeExercise(x)
   private val labelClosure = (x: SExpr) => SELabelClosure(label, x)
 
-  "closure conversion" - {
+  "closure conversion (stack-safety)" - {
 
     // This is the code under test...
     def transform(e: SExpr): target.SExpr = {
@@ -67,15 +67,15 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
         ("App1", app1),
         ("App2", app2),
         ("Scrut", scrut),
-        ("Let1", let1),
-        ("TryCatch2", tryCatch2),
-        ("scopeExercise", scopeExercise),
-        ("Labelclosure", labelClosure),
         ("Alt1", alt1),
         ("Alt2", alt2),
+        ("Let1", let1),
         ("Let2", let2),
         ("LetBody", letBody),
         ("TryCatch1", tryCatch1),
+        ("TryCatch2", tryCatch2),
+        ("scopeExercise", scopeExercise),
+        ("Labelclosure", labelClosure),
       )
     }
 
@@ -85,6 +85,47 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
         forEvery(testCases) { (name: String, recursionPoint: SExpr => SExpr) =>
           name in {
             runTest(depth, recursionPoint)
+          }
+        }
+      }
+    }
+
+    "freeVars" - {
+      def runTest(depth: Int, cons: SExpr => SExpr) = {
+        // Make an expression by iterating the 'cons' function, 'depth' times..
+        @tailrec def loop(x: SExpr, n: Int): SExpr = if (n == 0) x else loop(cons(x), n - 1)
+        val exp: SExpr = abs1(loop(leaf, depth)) // ..embedded within a top-level abstraction..
+        val _: target.SExpr = transform(exp)
+        true
+      }
+      // ..to test stack-safety of the freeVars computation.
+      {
+        val depth = 10000
+        val testCases = {
+          Table[String, SExpr => SExpr](
+            ("name", "recursion-point"),
+            ("Location", location),
+            ("Abs", abs1),
+            ("AppF", appF),
+            ("App1", app1),
+            ("App2", app2),
+            ("Scrut", scrut),
+            ("Alt1", alt1),
+            ("Alt2", alt2),
+            ("Let1", let1),
+            ("Let2", let2),
+            ("LetBody", letBody),
+            ("TryCatch1", tryCatch1),
+            ("TryCatch2", tryCatch2),
+            ("scopeExercise", scopeExercise),
+            ("Labelclosure", labelClosure),
+          )
+        }
+        s"depth = $depth" - {
+          forEvery(testCases) { (name: String, recursionPoint: SExpr => SExpr) =>
+            name in {
+              runTest(depth, recursionPoint)
+            }
           }
         }
       }
