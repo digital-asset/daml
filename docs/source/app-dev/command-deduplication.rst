@@ -7,7 +7,13 @@ Command deduplication
 #####################
 
 The interaction of a Daml application with the ledger is inherently asynchronous: applications send commands to the ledger, and some time later they see the effect of that command on the ledger.
-Many things can fail during this time window: the application can crash, the participant node can crash, messages can be lost on the network, or the ledger may be just slow to respond due to a high load.
+Many things can fail during this time window:
+
+- The application can crash.
+- The participant node can crash.
+- Messages can be lost on the network
+- The ledger may be just slow to respond due to a high load.
+
 If you want to make sure that an intended ledger change is not executed twice, your application needs to robustly handle these failure scenarios.
 This guide covers the following topics:
 
@@ -33,7 +39,8 @@ The first three form the :ref:`change ID <change-id>` that identifies the intend
    Otherwise, the current submission shall be rejected.
    The period is specified either as a :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` or as a :ref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_offset>` (inclusive).
 
-#. The :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` progapates into the completion events so that the application can correlate specific submissions to specific completions.
+#. The :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` is chosen by the application to identify a specific submission.
+   It is included in the corresponding completion event so that the application can correlate specific submissions to specific completions.
    An application should never reuse a submission ID.
 
 The ledger may arbitrarily extend the deduplication period specified in the submission, even beyond the maximum deduplication time specified in the :ref:`ledger configuration <ledger-configuration-service>`.
@@ -107,13 +114,11 @@ Under this assumption, the following strategy works for applications that use th
 
 .. _dedup-bounded-step-command-id:
 
-#. Choose a fresh command ID for the ledger change and the ``actAs`` parties, which (together with the application ID) determine the change ID.
-   Remember the chosen command ID for the ledger change across application crashes.
+#. Choose a command ID for the ledger change, in a way that makes sure the same ledger change is always assigned the same command ID.
+   Either determine the command ID deterministically (e.g., if your contract payload contains a globally unique identifier, you can use that as your command ID), or choose command IDs randomly and remember them across application crashes.
 
    .. note::
       Make sure that you assign the same command ID to all command (re-)submissions of the same ledger change.
-      If you derive the command ID deterministically from the ledger change, you must only remember the ledger change, but not the command ID because you can always derive the command ID.
-
       This is useful for the recovery procedure after an application crash/restart.
       After a crash, the application in general cannot know whether it has submitted a set of commands before the crash.
       If in doubt, resubmit the commands using the same command ID.
