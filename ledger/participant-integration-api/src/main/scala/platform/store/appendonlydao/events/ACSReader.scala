@@ -290,6 +290,8 @@ private[events] object FilterTableACSReader {
   /** Helper class to encapsulate stateful output batching, and deduplication.
     */
   class BatchedDistinctOutputQueue(batchSize: Int) {
+    assert(batchSize > 0)
+
     private var last: Long = -1
     private var buff: Array[Long] = Array.ofDim(batchSize)
     private var buffIndex: Int = 0
@@ -371,6 +373,8 @@ private[events] object FilterTableACSReader {
   /** Helper class to encapsulate stateful tracking of task streams.
     */
   class TaskTracker[TASK](allTasks: Iterable[TASK], inputBatchSize: Int) {
+    assert(inputBatchSize > 0)
+
     private val idle: mutable.Set[TASK] = mutable.Set.empty
     private val queuedRanges: mutable.Map[TASK, Vector[Iterable[Long]]] = mutable.Map.empty
 
