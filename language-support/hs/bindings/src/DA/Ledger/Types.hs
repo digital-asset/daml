@@ -104,7 +104,7 @@ data Command
     deriving (Eq,Ord,Show)
 
 data DeduplicationPeriod
-    = DeduplicationTime LL.Duration
+    = DeduplicationDuration LL.Duration
     | DeduplicationOffset AbsOffset
   deriving (Eq, Ord, Show)
 

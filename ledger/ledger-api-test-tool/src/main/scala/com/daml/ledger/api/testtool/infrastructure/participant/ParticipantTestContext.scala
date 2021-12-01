@@ -678,13 +678,19 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def findCompletion(
       request: CompletionStreamRequest
-  )(p: Completion => Boolean): Future[Option[Completion]] =
+  )(p: Completion => Boolean): Future[Option[(LedgerOffset, Completion)]] =
     new StreamConsumer[CompletionStreamResponse](
       services.commandCompletion.completionStream(request, _)
     ).find(_.completions.exists(p))
-      .map(_.completions.find(p))
+      .map(response =>
+        response.checkpoint
+          .flatMap(_.offset)
+          .flatMap(offset => response.completions.find(p).map(offset -> _))
+      )
 
-  def findCompletion(parties: Party*)(p: Completion => Boolean): Future[Option[Completion]] =
+  def findCompletion(parties: Party*)(
+      p: Completion => Boolean
+  ): Future[Option[(LedgerOffset, Completion)]] =
     findCompletion(completionStreamRequest()(parties: _*))(p)
 
   def checkpoints(n: Int, request: CompletionStreamRequest): Future[Vector[Checkpoint]] =

@@ -144,9 +144,11 @@ private[testtool] object CompletionDeduplicationInfoIT {
       ledger: ParticipantTestContext,
       party: binding.Primitive.Party,
       offset: LedgerOffset,
-  ): Future[Option[Completion]] =
+  )(implicit ec: ExecutionContext): Future[Option[Completion]] =
     WithTimeout(5.seconds)(
-      ledger.findCompletion(ledger.completionStreamRequest(offset)(party))(_ => true)
+      ledger
+        .findCompletion(ledger.completionStreamRequest(offset)(party))(_ => true)
+        .map(_.map(_._2))
     )
 
   private def assertSubmissionIdIsPreserved(

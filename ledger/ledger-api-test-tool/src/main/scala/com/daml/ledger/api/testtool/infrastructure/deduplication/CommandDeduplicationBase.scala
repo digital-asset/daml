@@ -3,10 +3,10 @@
 
 package com.daml.ledger.api.testtool.infrastructure.deduplication
 
-import com.daml.error.ErrorCode
-import com.daml.error.definitions.LedgerApiErrors
 import java.util.UUID
 
+import com.daml.error.ErrorCode
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -21,6 +21,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, TextKeyOperations}
+import com.daml.lf.data.Ref
 import com.daml.timer.Delayed
 import io.grpc.Status.Code
 
@@ -35,6 +36,9 @@ private[testtool] abstract class CommandDeduplicationBase(
     ledgerTimeInterval: FiniteDuration,
     staticTime: Boolean,
 ) extends LedgerTestSuite {
+
+  type OffsetWithCompletion = (LedgerOffset, Completion)
+
   val deduplicationDuration: FiniteDuration = scaledDuration(3.seconds)
 
   val ledgerWaitInterval: FiniteDuration = ledgerTimeInterval * 2
@@ -68,7 +72,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           // Submit command (first deduplication window)
           // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
           // only one submission is therefore sent to the ledger.
-          completion1 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
+          (_, completion1) <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           _ <- submitRequestAndAssertDeduplication(ledger)(request, party)
           // Wait until the end of first deduplication window
           _ <- delay.delayForEntireDeduplicationPeriod()
@@ -78,7 +82,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           // the ledger API server and the ledger itself, since the test waited more than
           // `deduplicationSeconds` after receiving the first command *completion*.
           // The first submit() in this block should therefore lead to an accepted transaction.
-          completion2 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
+          (_, completion2) <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           _ <- submitRequestAndAssertDeduplication(ledger)(request, party)
           // Inspect created contracts
           _ <- assertPartyHasActiveContracts(ledger)(
@@ -332,6 +336,63 @@ private[testtool] abstract class CommandDeduplicationBase(
     } yield {}
   })
 
+  testGivenAllParticipants(
+    s"${testNamingPrefix}DeduplicateUsingOffsets",
+    "Deduplicate commands within the deduplication period defined by the offset",
+    allocate(SingleParty),
+  )(implicit ec =>
+    configuredParticipants => { case Participants(Participant(ledger, party)) =>
+      val request = ledger
+        .submitRequest(party, DummyWithAnnotation(party, "Duplicate command").create.command)
+      runWithDeduplicationDelay(configuredParticipants) { delay =>
+        for {
+          (offset1, _) <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
+          // Wait for any ledgers that might adjust based on time skews
+          // This is done so that we can validate that the third command is accepted
+          _ <- delayForOffsetIfRequired(ledger, delay)
+          // Submit command again using the first offset as the deduplication offset
+          (offset2, _) <- submitRequestAndAssertAsyncDeduplication(ledger)(
+            request.update(
+              _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationOffset(
+                Ref.HexString.assertFromString(offset1.getAbsolute)
+              )
+            ),
+            party,
+          )
+          // Submit command again using the rejection offset as a deduplication period
+          _ <- submitRequestAndAssertCompletionAccepted(ledger)(
+            request.update(
+              _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationOffset(
+                Ref.HexString.assertFromString(offset2.getAbsolute)
+              )
+            ),
+            party,
+          )
+        } yield {}
+      }
+    }
+  )
+
+  private def delayForOffsetIfRequired(
+      participantTestContext: ParticipantTestContext,
+      delayMechanism: DelayMechanism,
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    deduplicationFeatures.deduplicationOffsetSupport match {
+      case DeduplicationOffsetSupport.PassThroughOffsetSupport =>
+        Future.successful(())
+      case DeduplicationOffsetSupport.OffsetConversionToDurationSupport =>
+        // the converted duration is calculated as the interval between submission time and offset record time
+        // the duration is extended with maxSkew when determining if the command is a duplicate or not (pre-execution)
+        participantTestContext
+          .getTimeModel()
+          .flatMap(response => {
+            delayMechanism.delayBy(
+              response.getTimeModel.getMaxSkew.asScala +
+                response.getTimeModel.getMinSkew.asScala
+            )
+          })
+    }
+
   protected def assertPartyHasActiveContracts(
       ledger: ParticipantTestContext
   )(party: Party, noOfActiveContracts: Int)(implicit ec: ExecutionContext): Future[Unit] = {
@@ -347,7 +408,9 @@ private[testtool] abstract class CommandDeduplicationBase(
 
   protected def submitRequestAndAssertCompletionAccepted(
       ledger: ParticipantTestContext
-  )(request: SubmitRequest, parties: Party*)(implicit ec: ExecutionContext): Future[Completion] = {
+  )(request: SubmitRequest, parties: Party*)(implicit
+      ec: ExecutionContext
+  ): Future[OffsetWithCompletion] = {
     submitRequestAndAssertCompletionStatus(ledger)(request, Code.OK, parties: _*)
   }
 
@@ -412,26 +475,29 @@ private[testtool] abstract class CommandDeduplicationBase(
   protected def submitRequestAndAssertAsyncDeduplication(ledger: ParticipantTestContext)(
       request: SubmitRequest,
       parties: Party*
-  )(implicit ec: ExecutionContext): Future[Completion] = submitRequestAndAssertCompletionStatus(
-    ledger
-  )(request, Code.ALREADY_EXISTS, parties: _*)
+  )(implicit ec: ExecutionContext): Future[OffsetWithCompletion] =
+    submitRequestAndAssertCompletionStatus(
+      ledger
+    )(request, Code.ALREADY_EXISTS, parties: _*)
 
   private def submitRequestAndAssertCompletionStatus(
       ledger: ParticipantTestContext
   )(request: SubmitRequest, statusCode: Code, parties: Party*)(implicit
       ec: ExecutionContext
-  ): Future[Completion] =
-    submitRequestAndFindCompletion(ledger)(request, parties: _*).map(completion => {
+  ): Future[OffsetWithCompletion] =
+    submitRequestAndFindCompletion(ledger)(request, parties: _*).map { case (offset, completion) =>
       assert(
         completion.getStatus.code == statusCode.value(),
         s"Expecting completion with status code $statusCode but completion has status ${completion.status}",
       )
-      completion
-    })
+      offset -> completion
+    }
 
   protected def submitRequestAndFindCompletion(
       ledger: ParticipantTestContext
-  )(request: SubmitRequest, parties: Party*)(implicit ec: ExecutionContext): Future[Completion] = {
+  )(request: SubmitRequest, parties: Party*)(implicit
+      ec: ExecutionContext
+  ): Future[OffsetWithCompletion] = {
     val submissionId = UUID.randomUUID().toString
     submitRequest(ledger)(request.update(_.commands.submissionId := submissionId))
       .flatMap(ledgerEnd => {
@@ -439,7 +505,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           .findCompletion(ledger.completionStreamRequest(ledgerEnd)(parties: _*))(
             _.submissionId == submissionId
           )
-          .map[Seq[Completion]](_.toList)
+          .map(_.toList)
       })
       .map { completions =>
         assertSingleton("Expected only one completion", completions)
@@ -476,16 +542,14 @@ object CommandDeduplicationBase {
     def delayForEntireDeduplicationPeriod(): Future[Unit] =
       delayBy(deduplicationDuration + extraWait)
 
-    /** Delay with [[duration]]
-      */
-    protected def delayBy(duration: Duration): Future[Unit]
+    def delayBy(duration: Duration): Future[Unit]
   }
 
   class TimeDelayMechanism(val deduplicationDuration: Duration, val extraWait: Duration)(implicit
       ec: ExecutionContext
   ) extends DelayMechanism {
 
-    override protected def delayBy(duration: Duration): Future[Unit] = Delayed.by(duration)(())
+    override def delayBy(duration: Duration): Future[Unit] = Delayed.by(duration)(())
   }
 
   class StaticTimeDelayMechanism(
@@ -494,17 +558,24 @@ object CommandDeduplicationBase {
       val extraWait: Duration,
   )(implicit ec: ExecutionContext)
       extends DelayMechanism {
-    override protected def delayBy(duration: Duration): Future[Unit] =
+    override def delayBy(duration: Duration): Future[Unit] =
       ledger
         .time()
         .flatMap { currentTime =>
           ledger.setTime(currentTime, currentTime.plusMillis(duration.toMillis))
         }
   }
+  sealed trait DeduplicationOffsetSupport
+
+  object DeduplicationOffsetSupport {
+    case object PassThroughOffsetSupport extends DeduplicationOffsetSupport
+    case object OffsetConversionToDurationSupport extends DeduplicationOffsetSupport
+  }
 
   /** @param participantDeduplication If participant deduplication is enabled then we will receive synchronous rejections
     */
   case class DeduplicationFeatures(
-      participantDeduplication: Boolean
+      participantDeduplication: Boolean,
+      deduplicationOffsetSupport: DeduplicationOffsetSupport,
   )
 }

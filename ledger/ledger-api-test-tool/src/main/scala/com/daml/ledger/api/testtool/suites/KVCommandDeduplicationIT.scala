@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase
+import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.DeduplicationOffsetSupport.OffsetConversionToDurationSupport
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.{
   DeduplicationFeatures,
   DelayMechanism,
@@ -36,7 +37,8 @@ class KVCommandDeduplicationIT(
 
   override def deduplicationFeatures: CommandDeduplicationBase.DeduplicationFeatures =
     DeduplicationFeatures(
-      participantDeduplication = false
+      participantDeduplication = false,
+      deduplicationOffsetSupport = OffsetConversionToDurationSupport,
     )
 
   protected override def runWithDeduplicationDelay(
