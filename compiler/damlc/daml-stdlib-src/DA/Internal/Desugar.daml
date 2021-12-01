@@ -17,10 +17,13 @@ module DA.Internal.Desugar (
     Party, ContractId, Update, Any,
     NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..),
     HasInterfaceTypeRep(..),
-    Implements(..),
+    HasToInterface(..),
+    HasFromInterface(..),
+    Implements,
     toInterfaceContractId,
     fromInterfaceContractId,
     TypeRep,
+    ImplementsT(..),
     HasMethod,
     mkMethod,
 ) where
@@ -45,19 +48,31 @@ data PostConsuming t = PostConsuming {}
 class HasInterfaceTypeRep i where
   interfaceTypeRep : i -> TypeRep
 
-class HasInterfaceTypeRep i => Implements t i where
+class HasToInterface t i where
   toInterface : t -> i
+
+class HasFromInterface t i where
   fromInterface : i -> Optional t
 
-toInterfaceContractId : forall i t. Implements t i => ContractId t -> ContractId i
+type Implements t i =
+  ( HasInterfaceTypeRep i
+  , HasToInterface t i
+  , HasFromInterface t i
+  )
+
+toInterfaceContractId : forall i t. HasToInterface t i => ContractId t -> ContractId i
 toInterfaceContractId = coerceContractId
 
-fromInterfaceContractId : forall t i. (Implements t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t))
+fromInterfaceContractId : forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t))
 fromInterfaceContractId cid = do
   iface <- fetch cid
   pure $ case fromInterface iface of
     None -> None
     Some (_ : t) -> Some (coerceContractId cid)
+
+-- Used to construct markers representing the fact that
+-- a template `t` implements an interface `i`.
+data ImplementsT t i = ImplementsT
 
 {-
 Together, `HasMethod`, `Method` and `mkMethod` allow us to desugar the methods of

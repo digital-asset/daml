@@ -27,7 +27,10 @@ import DA.Internal.Compatible as X
 import DA.Internal.Assert as X
 import DA.Internal.Desugar as X
   ( HasInterfaceTypeRep(..)
-  , Implements (..)
+  , HasToInterface(..)
+  , HasFromInterface(..)
+  , Implements
+  , ImplementsT(..)
   , toInterfaceContractId
   , fromInterfaceContractId
   )

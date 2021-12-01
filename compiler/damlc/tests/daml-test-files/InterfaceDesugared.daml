@@ -22,8 +22,10 @@ data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
   interfaceTypeRep = GHC.Types.primitive @"$TO_TYPE_REP"
 
-instance DA.Internal.Desugar.Implements Token Token where
+instance DA.Internal.Desugar.HasToInterface Token Token where
   toInterface = GHC.Types.primitive @"EToInterface"
+
+instance DA.Internal.Desugar.HasFromInterface Token Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
 
 instance DA.Internal.Desugar.HasFetch Token where
@@ -298,8 +300,14 @@ _choice_AssetArchive
        -> let _ = self in let _ = this in let _ = arg in pure (),
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 
-instance DA.Internal.Desugar.Implements Asset Token where
+_implements_Asset_Token :
+  DA.Internal.Desugar.ImplementsT Asset Token
+_implements_Asset_Token = DA.Internal.Desugar.ImplementsT
+
+instance DA.Internal.Desugar.HasToInterface Asset Token where
   toInterface = GHC.Types.primitive @"EToInterface"
+
+instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
 
 _method_Asset_Token_getOwner
@@ -372,18 +380,18 @@ main
                 (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
                 token2 <- fetch cidToken2
                 getAmount token2 === 10
-                case fromInterface @_ @Token token2 of
+                case fromInterface token2 of
                   None -> abort "expected Asset"
                   Some Asset {amount} -> amount === 10
                 token3 <- fetch cidToken3
                 getAmount token3 === 5
-                case fromInterface @_ @Token token3 of
+                case fromInterface token3 of
                   None -> abort "expected Asset"
                   Some Asset {amount} -> amount === 5
                 cidToken4 <- exercise cidToken3 (GetRich 20)
                 token4 <- fetch cidToken4
                 getAmount token4 === 25
-                case fromInterface @_ @Token token4 of
+                case fromInterface token4 of
                   None -> abort "expected Asset"
                   Some Asset {amount} -> amount === 25
                 pure ()
