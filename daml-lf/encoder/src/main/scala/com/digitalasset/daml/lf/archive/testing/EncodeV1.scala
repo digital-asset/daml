@@ -92,7 +92,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       builder.setFlags(
         PLF.FeatureFlags
           .newBuilder()
-          .setForbidPartyLiterals(module.featureFlags.forbidPartyLiterals)
+          .setForbidPartyLiterals(true)
           .setDontDivulgeContractIdsInCreateArguments(true)
           .setDontDiscloseNonConsumingChoicesToObservers(true)
       )
@@ -467,8 +467,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           setString(value, builder.setTextStr, builder.setTextInternedStr)
         case PLTimestamp(value) =>
           builder.setTimestamp(value.micros)
-        case PLParty(party) =>
-          setString(party, builder.setPartyStr, builder.setPartyInternedStr)
         case PLDate(date) =>
           builder.setDate(date.days)
         case PLRoundingMode(rounding) =>
@@ -772,7 +770,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         .newBuilder()
         .setNameWithType(dottedName -> value.typ)
         .setExpr(value.body)
-        .setNoPartyLiterals(value.noPartyLiterals)
+        .setNoPartyLiterals(true)
         .setIsTest(value.isTest)
         .build()
     }

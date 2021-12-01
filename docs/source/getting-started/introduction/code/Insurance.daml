@@ -23,31 +23,31 @@ template Policy
     agreement show doctor  <> " must treat " <>
               show patient <> " whenever requested."
 
-    controller insurer can
-      InvoiceFee : ContractId Policy
-        do
-          after feeNext
-          create Invoice with
-            payer    = patient
-            receiver = insurer
-            amount   = feeAmount
-          create this with
-            feeNext  = addRelTime feeNext (days 30)
+    choice InvoiceFee : ContractId Policy
+      controller insurer
+      do
+        after feeNext
+        create Invoice with
+          payer    = patient
+          receiver = insurer
+          amount   = feeAmount
+        create this with
+          feeNext  = addRelTime feeNext (days 30)
 
-    controller doctor can
-      nonconsuming InvoiceTreatment : ()
-        with
-          amount : Decimal
-        do
-          create Invoice with
-            payer    = insurer
-            receiver = doctor
-            amount
-          create Invoice with
-            payer    = patient
-            receiver = insurer
-            amount   = min amount deductible
-          return ()
+    nonconsuming choice InvoiceTreatment : ()
+      with
+        amount : Decimal
+      controller doctor
+      do
+        create Invoice with
+          payer    = insurer
+          receiver = doctor
+          amount
+        create Invoice with
+          payer    = patient
+          receiver = insurer
+          amount   = min amount deductible
+        return ()
 
 
 template Invoice

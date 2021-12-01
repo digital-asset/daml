@@ -190,11 +190,11 @@ object Script {
     def getScriptIds(ty: Type): Either[String, ScriptIds] =
       ScriptIds.fromType(ty).toRight(s"Expected type 'Daml.Script.Script a' but got $ty")
     script.flatMap {
-      case GenDValue(TApp(TApp(TBuiltin(BTArrow), param), result), _, _, _) =>
+      case GenDValue(TApp(TApp(TBuiltin(BTArrow), param), result), _, _) =>
         for {
           scriptIds <- getScriptIds(result)
         } yield Script.Function(scriptExpr, param, scriptIds)
-      case GenDValue(ty, _, _, _) =>
+      case GenDValue(ty, _, _) =>
         for {
           scriptIds <- getScriptIds(ty)
         } yield Script.Action(scriptExpr, scriptIds)

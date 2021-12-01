@@ -16,9 +16,9 @@ template NoKey
   where
     signatory owner
 
-    controller owner can
-      NoKey_Choice : ()
-        do return ()
+    choice NoKey_Choice : ()
+      controller owner
+      do return ()
 
 template PartyKey
   with
@@ -29,9 +29,9 @@ template PartyKey
     key owner: Party
     maintainer key
 
-    controller owner can
-      PartyKey_Choice : ()
-        do return ()
+    choice PartyKey_Choice : ()
+      controller owner
+      do return ()
 
 template RecordKey
   with
@@ -43,9 +43,9 @@ template RecordKey
     key PartyAndInt owner number : PartyAndInt
     maintainer key.party
 
-    controller owner can
-      RecordKey_Choice : ()
-        do return ()
+    choice RecordKey_Choice : ()
+      controller owner
+      do return ()
 
 template TupleKey
   with
@@ -57,9 +57,9 @@ template TupleKey
     key (owner, number): (Party, Int)
     maintainer key._1
 
-    controller owner can
-      TupleKey_Choice : ()
-        do return ()
+    choice TupleKey_Choice : ()
+      controller owner
+      do return ()
 
 template NestedTupleKey
   with
@@ -76,6 +76,6 @@ template NestedTupleKey
     key ((t1_1, t1_2, t1_3), (t2_1, t2_2, t2_3, t2_4)): ((Party, Int, Text), (Int, Bool, Text, Int))
     maintainer key._1._1
 
-    controller t1_1 can
-      NestedTupleKey_Choice : ()
-        do return ()
+    choice NestedTupleKey_Choice : ()
+      controller t1_1
+      do return ()

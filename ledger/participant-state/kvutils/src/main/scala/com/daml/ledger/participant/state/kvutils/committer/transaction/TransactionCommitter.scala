@@ -74,7 +74,7 @@ private[kvutils] class TransactionCommitter(
     "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
     "validate_model_conformance" -> modelConformanceValidator.createValidationStep(rejections),
     "validate_consistency" -> TransactionConsistencyValidator.createValidationStep(rejections),
-    "set_deduplication_entry" -> CommandDeduplication.setDeduplicationEntryStep(),
+    "set_deduplication_entry" -> CommandDeduplication.setDeduplicationEntryStep(defaultConfig),
     "blind" -> blind,
     "trim_unnecessary_nodes" -> trimUnnecessaryNodes,
     "build_final_log_entry" -> buildFinalLogEntry,

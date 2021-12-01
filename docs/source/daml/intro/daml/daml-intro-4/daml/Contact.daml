@@ -15,26 +15,27 @@ template Contact
     telephone : Text
   where
     signatory owner
+    observer party
 
-    controller owner can
-      UpdateTelephone
-        : ContractId Contact
-        with
-          newTelephone : Text
-        do
-          create this with
-            telephone = newTelephone
+    choice UpdateTelephone
+      : ContractId Contact
+      with
+        newTelephone : Text
+      controller owner
+      do
+        create this with
+          telephone = newTelephone
 -- CHOICE_END
 
 -- DELEGATION_BEGIN
-    controller party can
-      UpdateAddress
-        : ContractId Contact
-        with
-          newAddress : Text
-        do
-          create this with
-            address = newAddress
+    choice UpdateAddress
+      : ContractId Contact
+      with
+        newAddress : Text
+      controller party
+      do
+        create this with
+          address = newAddress
 -- DELEGATION_END
 
 -- CHOICE_TEST_BEGIN

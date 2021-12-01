@@ -85,6 +85,6 @@ template AssetMirrorProposal
   where
     signatory issuer
 
-    controller issuer can
-      Accept : ContractId AssetMirror
-        do create AssetMirror { issuer = issuer }
+    choice Accept : ContractId AssetMirror
+      controller issuer
+      do create AssetMirror { issuer = issuer }

@@ -72,7 +72,7 @@ template body
 
     	``controller nameOfParty can NameOfChoice : ReturnType do``
 
-        Defines choices that can be exercised. See `Choice structure`_ for what can go in a choice.
+        Defines choices that can be exercised. See `Choice structure`_ for what can go in a choice. Note that ``controller``-first syntax is deprecated and will be removed in a future version of Daml.
 
 .. _daml-ref-choice-structure:
 

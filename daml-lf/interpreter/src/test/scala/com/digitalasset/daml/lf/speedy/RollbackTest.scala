@@ -7,11 +7,13 @@ package speedy
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.language.Ast.{Package, Expr, PrimLit, PLParty, EPrimLit, EApp}
+import com.daml.lf.language.Ast.{Package, Expr}
 import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.PartialTransaction.{CompleteTransaction, IncompleteTransaction}
 import com.daml.lf.speedy.SResult.SResultFinalValue
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.Node
@@ -47,7 +49,9 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       pkgs1: PureCompiledPackages
   )(e: Expr, party: Party): SubmittedTransaction = {
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("RollbackTest.scala")
-    val machine = Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, party)
+    val se = pkgs1.compiler.unsafeCompile(e)
+    val example = SEApp(se, Array(SEValue(SParty(party))))
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs1, transactionSeed, example, party)
     val res = machine.run()
     res match {
       case _: SResultFinalValue =>
@@ -237,10 +241,7 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
   forEvery(testCases) { (exp: String, expected: List[Tree]) =>
     s"""$exp, contracts expected: $expected """ in {
       val party = Party.assertFromString("Alice")
-      val lit: PrimLit = PLParty(party)
-      val arg: Expr = EPrimLit(lit)
-      val example: Expr = EApp(e"M:$exp", arg)
-      val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(example, party)
+      val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(e"M:$exp", party)
       val ids: List[Tree] = shapeOfTransaction(tx)
       ids shouldBe expected
     }

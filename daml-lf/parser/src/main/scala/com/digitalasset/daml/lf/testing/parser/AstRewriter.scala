@@ -227,8 +227,8 @@ private[daml] class AstRewriter(
         x
       case DDataType(serializable @ _, params @ _, DataInterface) =>
         x
-      case DValue(typ, noPartyLiterals, body, isTest) =>
-        DValue(apply(typ), noPartyLiterals, apply(body), isTest)
+      case DValue(typ, body, isTest) =>
+        DValue(apply(typ), apply(body), isTest)
 
       case DTypeSyn(params @ _, typ @ _) =>
         throw new RuntimeException("TODO #3616,AstRewriter,DTypeSyn")

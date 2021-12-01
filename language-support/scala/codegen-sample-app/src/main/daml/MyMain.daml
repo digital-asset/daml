@@ -174,12 +174,14 @@ template CallablePayout
     receiver: Party
   where
     signatory giver
-    controller receiver can
-      Call2 : ContractId PayOut
-        do create PayOut with receiver; giver
-      Transfer : ContractId CallablePayout
-        with newReceiver: Party
-        do create this with receiver = newReceiver
+    observer receiver
+    choice Call2 : ContractId PayOut
+      controller receiver
+      do create PayOut with receiver; giver
+    choice Transfer : ContractId CallablePayout
+      with newReceiver: Party
+      controller receiver
+      do create this with receiver = newReceiver
 
 
 template BuyOption
@@ -189,9 +191,10 @@ template BuyOption
     option: Option OptionPrice OptionPrice
   where
     signatory owner
-    controller seller can
-      Sell : Option (ContractId ExerciseCall) (ContractId ExercisePut)
-        do mkOption owner seller option
+    observer seller
+    choice Sell : Option (ContractId ExerciseCall) (ContractId ExercisePut)
+      controller seller
+      do mkOption owner seller option
 
 -- bi-traversal
 bitOptionUpdate (f: a -> Update b)
@@ -225,10 +228,11 @@ template ExerciseCall
     optionPrice: OptionPrice
   where
     signatory seller
-    controller owner can
-      ExerciseOption : ContractId OptionCall
-        with newPrice: Decimal
-        do create OptionCall with owner; seller; optionPrice; newPrice
+    observer owner
+    choice ExerciseOption : ContractId OptionCall
+      with newPrice: Decimal
+      controller owner
+      do create OptionCall with owner; seller; optionPrice; newPrice
 
 
 template ExercisePut
@@ -238,10 +242,11 @@ template ExercisePut
     optionPrice: OptionPrice
   where
     signatory seller
-    controller owner can
-      ExerciseOption2 : ContractId OptionPut
-        with newPrice: Decimal
-        do create OptionPut with owner; seller; optionPrice; newPrice
+    observer owner
+    choice ExerciseOption2 : ContractId OptionPut
+      with newPrice: Decimal
+      controller owner
+      do create OptionPut with owner; seller; optionPrice; newPrice
 
 
 template OptionCall
@@ -280,9 +285,9 @@ template SimpleListExample
     xs: [Int]
   where
     signatory p
-    controller p can
-      Go : ContractId MkListExample
-        do create MkListExample with p; xs
+    choice Go : ContractId MkListExample
+      controller p
+      do create MkListExample with p; xs
 
 
 template MkListExample
@@ -447,10 +452,10 @@ template KeyedNumber
     signatory owner
     key owner : Party
     maintainer key
-    controller owner can
-      Increment: ContractId KeyedNumber
-        with delta: Int
-        do create KeyedNumber with owner; number = number + delta
+    choice Increment: ContractId KeyedNumber
+      with delta: Int
+      controller owner
+      do create KeyedNumber with owner; number = number + delta
 
 data Enum = E1 | E2 Unit | E3
   deriving (Show, Eq)

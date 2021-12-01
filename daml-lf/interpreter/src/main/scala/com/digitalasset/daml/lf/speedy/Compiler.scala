@@ -376,7 +376,7 @@ private[lf] final class Compiler(
     }
 
     module.definitions.foreach {
-      case (defName, DValue(_, _, body, _)) =>
+      case (defName, DValue(_, body, _)) =>
         val ref = t.LfDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
         builder += (ref -> SDefinition(withLabelT(ref, unsafeCompile(body))))
       case _ =>
@@ -724,7 +724,6 @@ private[lf] final class Compiler(
       case PLNumeric(d) => SNumeric(d)
       case PLText(t) => SText(t)
       case PLTimestamp(ts) => STimestamp(ts)
-      case PLParty(p) => SParty(p)
       case PLDate(d) => SDate(d)
       case PLRoundingMode(roundingMode) => SInt64(roundingMode.ordinal.toLong)
     })

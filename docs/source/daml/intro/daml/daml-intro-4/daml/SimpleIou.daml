@@ -18,14 +18,15 @@ template SimpleIou
     cash : Cash
   where
     signatory issuer
+    observer owner
 
-    controller owner can
-      Transfer
-        : ContractId SimpleIou
-        with
-          newOwner : Party
-        do
-          create this with owner = newOwner
+    choice Transfer
+      : ContractId SimpleIou
+      with
+        newOwner : Party
+      controller owner
+      do
+        create this with owner = newOwner
 
 test_iou = script do
   alice <- allocateParty "Alice"

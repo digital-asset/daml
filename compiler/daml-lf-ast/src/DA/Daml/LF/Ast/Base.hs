@@ -111,11 +111,6 @@ newtype ExprValName = ExprValName{unExprValName :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
--- | Literal representing a party.
-newtype PartyLiteral = PartyLiteral{unPartyLiteral :: T.Text}
-    deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData)
-
 -- | Human-readable name of a package. Must match the regex
 --
 -- > [a-zA-Z0-9_-]+
@@ -247,7 +242,6 @@ data BuiltinExpr
   | BENumeric    !Numeric        -- :: Numeric, precision 38, scale 0 through 37
   | BEText       !T.Text         -- :: Text
   | BETimestamp  !Int64          -- :: Timestamp, microseconds since unix epoch
-  | BEParty      !PartyLiteral   -- :: Party
   | BEDate       !Int32          -- :: Date, days since unix epoch
   | BEUnit                       -- :: Unit
   | BEBool       !Bool           -- :: Bool
@@ -847,10 +841,6 @@ data DataCons
   | DataInterface
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
-newtype HasNoPartyLiterals = HasNoPartyLiterals{getHasNoPartyLiterals :: Bool}
-  deriving stock (Eq, Data, Generic, Ord, Show)
-  deriving anyclass (NFData)
-
 newtype IsTest = IsTest{getIsTest :: Bool}
   deriving stock (Eq, Data, Generic, Ord, Show)
   deriving anyclass (NFData)
@@ -861,9 +851,6 @@ data DefValue = DefValue
     -- ^ Location of the definition in the source file.
   , dvalBinder :: !(ExprValName, Type)
     -- ^ Name to bind the value to together with its type.
-  , dvalNoPartyLiterals :: !HasNoPartyLiterals
-    -- ^ If 'True', the value must not contain any party literals and not
-    -- reference any value which contain party literals.
   , dvalIsTest :: !IsTest
     -- ^ Is the value maked as a test to be run as a scenario?
   , dvalBody   :: !Expr
@@ -994,25 +981,11 @@ data TemplateChoice = TemplateChoice
 
 -- | Feature flags for a module.
 data FeatureFlags = FeatureFlags
-  { forbidPartyLiterals :: !Bool
-  -- ^ If set to true, party literals are forbidden to appear in daml-lf packages.
-  {-
-  DAML-LF has these but our ecosystem does not support them anymore, see #157
-  , dontDivulgeContractIdsInCreateArguments :: !Bool
-  -- ^ If set to true, arguments to creates are not divulged. Instead target contract id's of
-  -- exercises are divulged and fetch is checked for authorization.
-  , dontDiscloseNonConsumingChoicesToObservers :: !Bool
-  -- ^ If set to true, exercise nodes of non-consuming choices are only disclosed to the signatories
-  -- and controllers of the target contract/choice and not to the observers of the target contract.
-  -}
-  }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Feature flags for DAML 1.2.
 daml12FeatureFlags :: FeatureFlags
 daml12FeatureFlags = FeatureFlags
-  { forbidPartyLiterals = True
-  }
 
 -- | A module.
 data Module = Module

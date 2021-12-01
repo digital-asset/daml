@@ -86,7 +86,6 @@ safetyStep = \case
       BENumeric _         -> Safe 0
       BEText _            -> Safe 0
       BETimestamp _       -> Safe 0
-      BEParty _           -> Safe 0
       BEDate _            -> Safe 0
       BEUnit              -> Safe 0
       BEBool _            -> Safe 0
@@ -327,13 +326,6 @@ getTypeClassDictionary world = \case
     _ ->
         Nothing
 
-calcPartyLiterals :: Expr -> HasNoPartyLiterals
-calcPartyLiterals e = HasNoPartyLiterals (cata go e)
-  where
-    go = \case
-        EBuiltinF (BEParty _) -> False
-        f -> and f
-
 -- | Attempt to lift a closed expression to the top level. Returns either
 -- a variable expression that references the lifted expression, or
 -- returns the original expression.
@@ -354,7 +346,6 @@ liftClosedExpr e = do
                         { dvalBinder = (name, ty)
                         , dvalBody = e
                         , dvalLocation = Nothing
-                        , dvalNoPartyLiterals = calcPartyLiterals e
                         , dvalIsTest = IsTest False
                         }
                     EVal <$> selfQualify name

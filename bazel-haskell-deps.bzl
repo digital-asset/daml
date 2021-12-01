@@ -17,11 +17,11 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHC_LIB_REV = "ded0a9e82e5d4bdf47e568ee83f26959"
-GHC_LIB_SHA256 = "cee47f49c8f26feba53d3d90bc6d306f9a832b199096e06c3cadc1b021792269"
+GHC_LIB_REV = "87dda21236dc010afa5cf075d413335d"
+GHC_LIB_SHA256 = "8d1e90cd6af1641ca13198e216fd38ff8bfcf69c4cfd5294cdd7589fcf7d2640"
 GHC_LIB_VERSION = "8.8.1"
-GHC_LIB_PARSER_REV = "ded0a9e82e5d4bdf47e568ee83f26959"
-GHC_LIB_PARSER_SHA256 = "869452c0158186928eb20540818eec69d6d76c1f7cf8a96de98be4150bebdd66"
+GHC_LIB_PARSER_REV = "87dda21236dc010afa5cf075d413335d"
+GHC_LIB_PARSER_SHA256 = "a7e1e79956a5b93db5ae61150063a3e44256014bab5722381b9639cd6ee5708d"
 GHC_LIB_PARSER_VERSION = "8.8.1"
 GHCIDE_REV = "e04b5386b3741b839eb5c3d2a2586fd2aa97229c"
 GHCIDE_SHA256 = "1d27926e0ad3c2a9536f23b454875a385ecc766ae68ce48a0ec88d0867884b46"
@@ -226,7 +226,7 @@ genrule(
   CBITS=$$(echo $(locations :cbits) | cut -f 3 -d ' ')
   OLD_RPATH=$$($(location @patchelf_nix//:bin/patchelf) --print-rpath $$CBITS)
   GRPC_RPATH=$$(dirname $$(readlink -f $$(echo $(locations @grpc_nix//:grpc_file) | cut -f 1 -d ' ')))
-  $(location @patchelf_nix//:bin/patchelf) $$CBITS --add-needed libgrpc.so.19 --output $(location libneeded-cbits.so)
+  $(location @patchelf_nix//:bin/patchelf) $$CBITS --add-needed libgrpc.so.20 --output $(location libneeded-cbits.so)
   $(location @patchelf_nix//:bin/patchelf) $(location libneeded-cbits.so) --set-rpath "$$OLD_RPATH:$$GRPC_RPATH"
   '''
 )

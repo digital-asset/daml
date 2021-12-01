@@ -258,7 +258,7 @@ Observers have guarantees in Daml. In particular, they are guaranteed to see act
 
 Since observers are calculated from the arguments of the contract, they always know about each other. That's why, rather than adding Bob as an observer on Alice's ``AssetHolder`` contract, and using that to authorize the transfer in ``Trade_Settle``, Alice creates a one-time authorization in the form of a ``TransferAuthorization``. If Alice had lots of counterparties, she would otherwise end up leaking them to each other.
 
-Controllers declared via the ``controller cs can`` syntax are automatically made observers. Controllers declared in the ``choice`` syntax are not, as they can only be calculated at the point in time when the choice arguments are known.
+Controllers declared in the ``choice`` syntax are not automatically made observers, as they can only be calculated at the point in time when the choice arguments are known. On the contrary, controllers declared via the ``controller cs can`` syntax are automatically made observers, but this syntax is deprecated and will be removed in a future version of Daml.
 
 .. _privacy:
 
