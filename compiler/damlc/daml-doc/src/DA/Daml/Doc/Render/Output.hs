@@ -83,7 +83,7 @@ instance RenderDoc TemplateDoc where
 instance RenderDoc ImplDoc where
     renderDoc ImplDoc {..} =
         RenderParagraph $
-            RenderPlain "Interface " <> renderType impl_iface
+            renderUnwords [ RenderStrong "implements", renderType impl_iface ]
 
 instance RenderDoc ChoiceDoc where
     renderDoc ChoiceDoc{..} = mconcat
