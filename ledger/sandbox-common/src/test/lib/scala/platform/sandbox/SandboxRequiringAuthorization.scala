@@ -32,6 +32,7 @@ trait SandboxRequiringAuthorization {
     admin = false,
     actAs = Nil,
     readAs = Nil,
+    isCustomDamlToken = true,
   )
 
   protected val adminToken: AuthServiceJWTPayload = emptyToken.copy(admin = true)
