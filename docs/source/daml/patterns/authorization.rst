@@ -20,7 +20,13 @@ Here is an implementation of a *Coin transfer* without any authorization:
 
 .. literalinclude:: daml/CoinIssuance.daml
   :language: daml
-  :lines: 52-82
+  :start-after: -- BEGIN_COIN_TEMPLATE_DATATYPE
+  :end-before: -- END_COIN_TEMPLATE_DATATYPE
+
+.. literalinclude:: daml/CoinIssuance.daml
+  :language: daml
+  :start-after: -- BEGIN_COIN_TEMPLATE_ARCHIVE
+  :end-before: -- END_COIN_TEMPLATE_ARCHIVE
 
 This is may be insufficient since the issuer has no means to ensure the newOwner is an accredited company. The following changes fix this deficiency.
 
@@ -29,7 +35,8 @@ Authorization contract
 
     .. literalinclude:: daml/CoinTransferWithAuthorization.daml
         :language: daml
-        :lines: 47-58
+        :start-after: -- BEGIN_COIN_OWNER_AUTH_TEMPLATE
+        :end-before: -- END_COIN_OWNER_AUTH_TEMPLATE
 
     Authorization contracts can have much more advanced business logic, but in its simplest form, *CoinOwnerAuthorization* serves its main purpose, which is to prove the owner is a warranted coin owner.
 
@@ -38,7 +45,8 @@ TransferProposal contract
 
     .. literalinclude:: daml/CoinTransferWithAuthorization.daml
         :language: daml
-        :lines: 74-82
+        :start-after: -- BEGIN_ACCEPT_COIN_TRANSFER
+        :end-before: -- END_ACCEPT_COIN_TRANSFER
 
 .. figure:: images/authorization.png
 

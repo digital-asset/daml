@@ -20,11 +20,12 @@ template SimpleTemplate
     where
         signatory owner
 
-        controller owner can
-          TestTemplate_Unit : ()
-            do return ()
+        choice TestTemplate_Unit : ()
+          controller owner
+          do return ()
 
-          TestTemplate_Int : ()
-            with x : Int
-            do return ()
+        choice TestTemplate_Int : ()
+          with x : Int
+          controller owner
+          do return ()
 

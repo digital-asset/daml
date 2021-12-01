@@ -9,6 +9,9 @@
 -- rule's name in the error message itself. If there are multiple tests for
 -- the same rule, we use `R_1`, `R_2`, `R_3`, and so on. This is why there is
 -- `evExpRecUpdErr1`, `evExpRecUpdErr2_1`, and `evExpRecUpdErr2_2`, for example.)
+
+{-# OPTIONS_GHC -Wno-controller-can #-}
+
 module SemanticsEvalOrder where
 
 -- @ERROR EvTyAbsErasableErr OK
@@ -294,7 +297,7 @@ evUpdCreateErr1 = scenario do
     create (T_EvUpdCreateErr1 p)
     error "EvUpdCreateErr1 failed (4)"
 
--- @ERROR range=307:1-307:16; Template precondition violated
+-- @ERROR range=310:1-310:16; Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party
@@ -421,6 +424,9 @@ template T_ControllerCanAddsObserver
     p : Party
   where
     signatory p
+    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
+    -- This tests that `controller X can` implicitly adds `X` as an observer, so we keep
+    -- it until it is removed.
     controller (error @Party "controllerCanAddsObserver OK") can
       C_ControllerCanAddsObserver: ()
         do pure ()

@@ -53,7 +53,8 @@ Here's an example of passing time:
 
 .. literalinclude:: ../code-snippets/Snippets.daml
    :language: daml
-   :lines: 61-72
+   :start-after: -- BEGIN_TIME_TRAVEL_EXAMPLE
+   :end-before: -- END_TIME_TRAVEL_EXAMPLE
 
 Binding variables
 =================

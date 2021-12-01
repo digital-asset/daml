@@ -39,11 +39,12 @@ template RightOfUseOffer
     expirationDate: Date
   where
     signatory landlord
+    observer tenant
 
-    controller tenant can
-      Accept: ContractId RightOfUseAgreement
-        do
-          create RightOfUseAgreement with landlord; tenant; address; expirationDate
+    choice Accept: ContractId RightOfUseAgreement
+      controller tenant
+      do
+        create RightOfUseAgreement with landlord; tenant; address; expirationDate
 
 --------------------------------------------------------------------------------
 -- Helpers for creating lots of contracts
@@ -84,7 +85,7 @@ createCounter p i = do
   return ()
 createManyCounters : Party -> Script ()
 createManyCounters p = do
-  mapS (\i -> createCounter p i) manyStrings 
+  mapS (\i -> createCounter p i) manyStrings
   return ()
 -}
 
@@ -95,15 +96,15 @@ template Counter
   where
     signatory owner
 
-    controller owner can
-      CArchive: ()
-        do
-          return ()
+    choice CArchive: ()
+      controller owner
+      do
+        return ()
 
-    controller owner can
-      Recreate: ContractId Counter
-        do
-          create Counter with index; owner
+    choice Recreate: ContractId Counter
+      controller owner
+      do
+        create Counter with index; owner
 
 
 createCounters : Int -> Text -> Party -> Commands ()
@@ -178,7 +179,7 @@ data Record3 a = Record3
 
 -- Example values
 valDate = date 1970 Jan 1
-valTime = time valDate 0 0 0 
+valTime = time valDate 0 0 0
 valListT: [Text] = ["A"]
 valMaybeT: UserMaybe Text = UserJust "A"
 valRecord3T: Record3 Text = Record3 with
@@ -228,10 +229,10 @@ template ParameterShowcase
   where
     signatory foperator
 
-    controller foperator can
-      SCArchive: ()
-        do
-          return ()
+    choice SCArchive: ()
+      controller foperator
+      do
+        return ()
 
 --------------------------------------------------------------------------------
 -- Non-serializable types
@@ -259,12 +260,12 @@ template TList
   where
     signatory owner
 
-    controller owner can
-      Append: ContractId TList
-        with
-          newValue : Text
-        do
-          create TList with owner; value = Cons {value=newValue, next=value}
+    choice Append: ContractId TList
+      with
+        newValue : Text
+      controller owner
+      do
+        create TList with owner; value = Cons {value=newValue, next=value}
 
 createRList : Int -> Text -> RList Text
 createRList 0 t = Nil

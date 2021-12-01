@@ -25,6 +25,7 @@ template SimpleIou
     cash : Cash
   where
     signatory issuer
+    observer owner
 
     ensure cash.amount > 0.0
         && T.length cash.currency == 3
@@ -32,34 +33,34 @@ template SimpleIou
 -- RESTRICTED_IOU_END
 
 -- TRANSFER_CHOICE_BEGIN
-    controller owner can
-      Transfer
-        : ContractId SimpleIou
-        with
-          newOwner : Party
-        do
-          assertMsg "newOwner cannot be equal to owner." (owner /= newOwner)
-          create this with owner = newOwner
+    choice Transfer
+      : ContractId SimpleIou
+      with
+        newOwner : Party
+      controller owner
+      do
+        assertMsg "newOwner cannot be equal to owner." (owner /= newOwner)
+        create this with owner = newOwner
 -- TRANSFER_CHOICE_END
 
 -- REDEEM_CHOICE_BEGIN
-    controller owner can
-      Redeem
-        : ()
-        do
-          now <- getTime
-          let
-            today = toDateUTC now
-            dow = dayOfWeek today
-            timeofday = now `subTime` time today 0 0 0
-            hrs = convertRelTimeToMicroseconds timeofday / 3600000000
-          assertMsg
-            ("Cannot redeem outside business hours. Current time: " <> show timeofday)
-            (hrs >= 8 && hrs <= 18)
-          case dow of
-            Saturday -> abort "Cannot redeem on a Saturday."
-            Sunday -> abort "Cannot redeem on a Sunday."
-            _ -> return ()
+    choice Redeem
+      : ()
+      controller owner
+      do
+        now <- getTime
+        let
+          today = toDateUTC now
+          dow = dayOfWeek today
+          timeofday = now `subTime` time today 0 0 0
+          hrs = convertRelTimeToMicroseconds timeofday / 3600000000
+        assertMsg
+          ("Cannot redeem outside business hours. Current time: " <> show timeofday)
+          (hrs >= 8 && hrs <= 18)
+        case dow of
+          Saturday -> abort "Cannot redeem on a Saturday."
+          Sunday -> abort "Cannot redeem on a Sunday."
+          _ -> return ()
 -- REDEEM_CHOICE_END
 
 -- RESTRICTIONS_TEST_BEGIN

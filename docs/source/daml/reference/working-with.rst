@@ -107,7 +107,8 @@ As an example, to sum up a list of integers in Daml:
 
 .. literalinclude:: ../code-snippets/Snippets.daml
    :language: daml
-   :lines: 56-58
+   :start-after: -- BEGIN_SUM_LIST_EXAMPLE
+   :end-before: -- END_SUM_LIST_EXAMPLE
 
 .. To be more precise, the type of ``foldl`` is ``(acc -> a - > acc) -> acc -> List a -> acc``. ``acc`` and ``a`` are any types, and the value of ``foldl op acc1 [e1, e2, ..., eN]`` is defined by ``acc2 = op acc1 e1``, ``acc3 = op acc2 e2``, ``...``, ``accN+1 = op accN eN``, where ``accN+1`` is the resulting value.
 

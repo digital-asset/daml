@@ -53,7 +53,7 @@ template NameOfTemplate
         do
           return () -- replace this line with the choice body
 
-    -- option 2 for specifying choices: controller first
+    -- option 2 for specifying choices (deprecated syntax): controller first
     controller exampleParty can
       NameOfChoice2
           : () -- replace () with the actual return type
@@ -107,6 +107,8 @@ template NameOfTemplate
           do
             return ()
 
+-- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
+-- We keep it here for documentation purposes until it is removed.
 -- start controller-first controller snippet
     controller exampleParty can
 -- end controller-first controller snippet
