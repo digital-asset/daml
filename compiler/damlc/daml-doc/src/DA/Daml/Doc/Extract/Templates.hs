@@ -5,6 +5,7 @@ module DA.Daml.Doc.Extract.Templates
     ( getTemplateDocs
     , getTemplateData
     , getInstanceDocs
+    , getInterfaceDocs
     , stripInstanceSuffix
     ) where
 
@@ -88,6 +89,61 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
                       [] -> [] -- catching the dummy case here, see above
                       _other -> error "getFields: found multiple constructors"
 
+-- | Build interface docs up from class docs.
+getInterfaceDocs :: DocCtx
+    -> MS.Map Typename ADTDoc -- ^ maps template names to their ADT docs
+    -> [InterfaceDoc]
+getInterfaceDocs DocCtx{..} typeMap =
+    map mkInterfaceDoc $ Set.toList dc_interfaces
+  where
+    -- The following functions use the type map and choice map in scope, so
+    -- defined internally, and not expected to fail on consistent arguments.
+    mkInterfaceDoc :: Typename -> InterfaceDoc
+    mkInterfaceDoc name = InterfaceDoc
+      { if_anchor = ad_anchor tmplADT
+      , if_name = ad_name tmplADT
+      , if_descr = ad_descr tmplADT
+      , if_choices = map mkChoiceDoc choices
+      , if_methods = [] -- TODO (drsk)
+      }
+      where
+        tmplADT = asADT name
+        choices = Set.toList . fromMaybe Set.empty $ MS.lookup name dc_choices
+
+    mkChoiceDoc :: Typename -> ChoiceDoc
+    mkChoiceDoc name = ChoiceDoc
+      { cd_name = ad_name choiceADT
+      , cd_descr = ad_descr choiceADT
+      -- assumes exactly one constructor (syntactic in the template syntax), or
+      -- uses a dummy value otherwise.
+      , cd_fields = getFields choiceADT
+      }
+      where choiceADT = asADT name
+
+    asADT n = fromMaybe dummyDT $
+              MS.lookup n typeMap
+    -- returns a dummy ADT if the choice argument is not in the local type map
+    -- (possible if choice instances are defined directly outside the template).
+    -- This wouldn't be necessary if we used the type-checked AST.
+      where dummyDT = ADTDoc { ad_anchor = Nothing
+                             , ad_name = dummyName n
+                             , ad_descr = Nothing
+                             , ad_args = []
+                             , ad_constrs = []
+                             , ad_instances = Nothing
+                             }
+
+            dummyName (Typename "Archive") = Typename "Archive"
+            dummyName (Typename t) = Typename $ "External:" <> t
+
+    -- Assuming one constructor (record or prefix), extract the fields, if any.
+    -- For choices without arguments, GHC returns a prefix constructor, so we
+    -- need to cater for this case specially.
+    getFields adt = case ad_constrs adt of
+                      [PrefixC{}] -> []
+                      [RecordC{ ac_fields = fields }] -> fields
+                      [] -> [] -- catching the dummy case here, see above
+                      _other -> error "getFields: found multiple constructors"
 
 -- | Extracts all names of templates defined in a module,
 -- and a map of template names to its set of choices
@@ -103,7 +159,8 @@ getTemplateData ParsedModule{..} =
     interfaces = mapMaybe isInterface dataDs
     choiceMap = MS.fromListWith (<>) $
                 map (second Set.singleton) $
-                mapMaybe isChoice instDs
+                mapMaybe isChoice instDs ++
+                mapMaybe isIfaceChoice instDs
   in
     (Set.fromList templates, Set.fromList interfaces, choiceMap)
     where
@@ -147,6 +204,29 @@ isChoice ClsInstDecl{..}
   , moduleNameString classModule == "DA.Internal.Desugar"
   , occNameString classOcc == "HasExercise"
   = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
+
+  | otherwise = Nothing
+
+isIfaceChoice :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
+isIfaceChoice (XClsInstDecl _) = Nothing
+isIfaceChoice ClsInstDecl{..}
+  | (L _ [L _ ctx], L _ ty) <- splitLHsQualTy $ hsSigType cid_poly_ty
+  , HsParTy _ (L _ (HsAppTy _ (L _ app1) (L _ iface))) <- ctx
+  , HsTyVar _ _ (L _ ifaceName) <- iface
+  , HsAppTy _ (L _ impl) (L _ _t) <- app1
+  , HsTyVar _ _ (L _ implCls) <- impl
+  , Qual implClsModule implClassOcc <- implCls
+  , moduleNameString implClsModule == "DA.Internal.Desugar"
+  , occNameString implClassOcc == "Implements"
+  , HsAppTy _ (L _ cApp1) (L _ _cArgs) <- ty
+  , HsAppTy _ (L _ cApp2) (L _ cName) <- cApp1
+  , HsAppTy _ (L _ choice) _tplVar <- cApp2
+  , HsTyVar _ _ (L _ choiceClass) <- choice
+  , HsTyVar _ _ (L _ choiceName) <- cName
+  , Qual classModule classOcc <- choiceClass
+  , moduleNameString classModule == "DA.Internal.Desugar"
+  , occNameString classOcc == "HasExercise"
+  = Just (Typename . packRdrName $ ifaceName, Typename . packRdrName $ choiceName)
 
   | otherwise = Nothing
 

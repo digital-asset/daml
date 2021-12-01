@@ -94,6 +94,7 @@ data ModuleDoc = ModuleDoc
   , md_name      :: Modulename
   , md_descr     :: Maybe DocText
   , md_templates :: [TemplateDoc]
+  , md_interfaces :: [InterfaceDoc]
   , md_adts      :: [ADTDoc]
   , md_functions :: [FunctionDoc]
   , md_classes   :: [ClassDoc]
@@ -125,6 +126,7 @@ data InterfaceDoc = InterfaceDoc
   , if_methods :: [ClassMethodDoc]
   , if_descr :: Maybe DocText
   }
+  deriving (Eq, Show, Generic)
 
 data ImplDoc = ImplDoc
   { impl_iface :: Type
@@ -325,6 +327,12 @@ instance ToJSON TemplateDoc where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON TemplateDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON InterfaceDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON InterfaceDoc where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON InstanceDoc where
