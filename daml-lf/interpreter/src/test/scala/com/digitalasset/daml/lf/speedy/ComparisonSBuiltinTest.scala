@@ -116,7 +116,11 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
           ),
           // Parties cannot be built from expressions.
           // We map at runtime the `party1`, `party2` and, `party3` two 3 party IDS in increasing order.
-          t"Party" -> List(e"party1", e"party2", e"party3"),
+           t"Party" -> List(
+            e"""TEXT_TO_PARTY "alice"""",
+            e"""TEXT_TO_PARTY "bob"""",
+            e"""TEXT_TO_PARTY "carol"""",
+          ),
           t"Mod:Color" -> List(e"Mod:Color:Red", e"Mod:Color:Green", e"Mod:Color:Blue"),
           t"Mod:MyUnit" -> List(e"Mod:MyUnit {}"),
           // Contract IDs cannot be built from expressions.
