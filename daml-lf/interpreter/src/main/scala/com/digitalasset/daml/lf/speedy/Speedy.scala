@@ -826,6 +826,7 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateSE: SExpr,
         committer: Party,
+        traceLog: TraceLog = newTraceLog,
     ): Machine = {
       Machine(
         compiledPackages = compiledPackages,
@@ -834,6 +835,7 @@ private[lf] object Speedy {
         expr = SEApp(updateSE, Array(SEValue.Token)),
         committers = Set(committer),
         readAs = Set.empty,
+        traceLog = traceLog,
       )
     }
 
