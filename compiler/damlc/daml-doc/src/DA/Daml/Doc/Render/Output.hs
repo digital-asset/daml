@@ -75,9 +75,11 @@ instance RenderDoc TemplateDoc where
             , fieldTable td_payload
             , RenderList (map renderDoc td_choices)
             ]
-        , RenderBlock $ mconcat
-            [ RenderList (map renderDoc td_impls)
-            ]
+        , if null td_impls
+          then mempty
+          else RenderBlock $ mconcat
+                [ RenderList (map renderDoc td_impls)
+                ]
         ]
 
 instance RenderDoc ImplDoc where
