@@ -73,13 +73,12 @@ final class AuthorizationInterceptor(
         // no claims embedded in the token and applicationId given ==> lookup user rights
         getUserClaims(applicationId).map({
           case None => {
-            logger.warn(s"Authorization error: cannot resolve rights for unknown user-id '$applicationId'.")
-            // FIXME: consider whether this case should be reported as an UNAUTHENTICATED or PERMISSION_DENIED error, as right now it is the latter
+            logger.warn(s"Authorization error: cannot resolve rights for unknown user '$applicationId'.")
             ClaimSet.Unauthenticated
           }
           case Some(userClaims) =>
             ClaimSet.Claims(
-              claims = userClaims,
+              claims = userClaims.prepended(ClaimPublic),
               ledgerId = ledgerId,
               participantId = participantId,
               applicationId = Some(applicationId),

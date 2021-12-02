@@ -67,27 +67,36 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
   }
 
   private[this] def payloadToClaims(payload: AuthServiceJWTPayload): ClaimSet.Claims = {
-    val claims = ListBuffer[Claim]()
+    if (payload.isCustomDamlToken) {
+      val claims = ListBuffer[Claim]()
 
-    // Any valid token authorizes the user to use public services
-    claims.append(ClaimPublic)
+      // Any valid token authorizes the user to use public services
+      claims.append(ClaimPublic)
 
-    if (payload.admin)
-      claims.append(ClaimAdmin)
+      if (payload.admin)
+        claims.append(ClaimAdmin)
 
-    payload.actAs
-      .foreach(party => claims.append(ClaimActAsParty(Ref.Party.assertFromString(party))))
+      payload.actAs
+        .foreach(party => claims.append(ClaimActAsParty(Ref.Party.assertFromString(party))))
 
-    payload.readAs
-      .foreach(party => claims.append(ClaimReadAsParty(Ref.Party.assertFromString(party))))
+      payload.readAs
+        .foreach(party => claims.append(ClaimReadAsParty(Ref.Party.assertFromString(party))))
 
-    ClaimSet.Claims(
-      claims = claims.toList,
-      ledgerId = payload.ledgerId,
-      participantId = payload.participantId,
-      applicationId = payload.applicationId,
-      expiration = payload.exp,
-    )
+      ClaimSet.Claims(
+        claims = claims.toList,
+        ledgerId = payload.ledgerId,
+        participantId = payload.participantId,
+        applicationId = payload.applicationId,
+        expiration = payload.exp,
+      )
+    } else
+      ClaimSet.Claims(
+        claims = List.empty,  // FIXME: remove this ugly hack of using this field to signal that standard token
+        ledgerId = payload.ledgerId,
+        participantId = payload.participantId,
+        applicationId = payload.applicationId,
+        expiration = payload.exp,
+      )
   }
 }
 

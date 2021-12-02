@@ -35,7 +35,20 @@ trait SandboxRequiringAuthorization {
     isCustomDamlToken = true,
   )
 
+  protected def standardToken(userId: String) = AuthServiceJWTPayload(
+    ledgerId = None,
+    participantId = None,
+    applicationId = Some(userId),
+    exp = None,
+    admin = false,
+    actAs = Nil,
+    readAs = Nil,
+    isCustomDamlToken = false,
+  )
+
   protected val adminToken: AuthServiceJWTPayload = emptyToken.copy(admin = true)
+  protected val adminTokenStandardJWT: AuthServiceJWTPayload = standardToken("participant_admin")
+  protected val unknownUserTokenStandardJWT: AuthServiceJWTPayload = standardToken("unknown_user")
 
   protected lazy val wrappedLedgerId: LedgerId = ledgerId(Some(toHeader(adminToken)))
   protected lazy val unwrappedLedgerId: String = wrappedLedgerId.unwrap

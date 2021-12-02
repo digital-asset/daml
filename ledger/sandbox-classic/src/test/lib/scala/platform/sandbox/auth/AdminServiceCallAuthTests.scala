@@ -27,7 +27,12 @@ trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "allow calls with admin token without expiration" in {
     expectSuccess(serviceCallWithToken(canReadAsAdmin))
   }
-
+  it should "allow calls with standard token for 'participant_admin' without expiration" in {
+    expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
+  }
+  it should "deny calls with standard token for 'unknown_user' without expiration" in {
+    expectUnauthenticated(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
+  }
   it should "allow calls with the correct ledger ID" in {
     expectSuccess(serviceCallWithToken(canReadAsAdminActualLedgerId))
   }

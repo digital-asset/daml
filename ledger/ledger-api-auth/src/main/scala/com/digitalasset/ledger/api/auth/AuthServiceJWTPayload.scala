@@ -101,17 +101,25 @@ object AuthServiceJWTCodec {
   def writeToString(v: AuthServiceJWTPayload): String =
     writePayload(v).compactPrint
 
-  def writePayload(v: AuthServiceJWTPayload): JsValue = JsObject(
-    oidcNamespace -> JsObject(
-      propLedgerId -> writeOptionalString(v.ledgerId),
-      propParticipantId -> writeOptionalString(v.participantId),
-      propApplicationId -> writeOptionalString(v.applicationId),
-      propAdmin -> JsBoolean(v.admin),
-      propActAs -> writeStringList(v.actAs),
-      propReadAs -> writeStringList(v.readAs),
-    ),
-    propExp -> writeOptionalInstant(v.exp),
-  )
+  def writePayload(v: AuthServiceJWTPayload): JsValue =
+    if (v.isCustomDamlToken)
+      JsObject(
+        oidcNamespace -> JsObject(
+          propLedgerId -> writeOptionalString(v.ledgerId),
+          propParticipantId -> writeOptionalString(v.participantId),
+          propApplicationId -> writeOptionalString(v.applicationId),
+          propAdmin -> JsBoolean(v.admin),
+          propActAs -> writeStringList(v.actAs),
+          propReadAs -> writeStringList(v.readAs),
+        ),
+        propExp -> writeOptionalInstant(v.exp),
+      )
+    else
+      JsObject(
+        "aud" -> writeOptionalString(v.participantId),
+        "sub" -> writeOptionalString(v.applicationId),
+        "exp" -> writeOptionalInstant(v.exp),
+      )
 
   /** Writes the given payload to a compact JSON string */
   def compactPrint(v: AuthServiceJWTPayload): String = writePayload(v).compactPrint

@@ -80,7 +80,7 @@ object InMemoryUserManagementService {
     def toStateEntry: (String, UserInfo) = user.id -> this
   }
   private val AdminUser = UserInfo(
-    user = User("admin", None),
+    user = User("participant_admin", None),
     rights = Set(UserRight.ParticipantAdmin),
   )
 }

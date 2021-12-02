@@ -15,6 +15,14 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
     expectSuccess(serviceCallWithToken(canReadAsRandomParty))
   }
 
+  it should "allow calls with non-expired 'participant_admin' standard token" in {
+    expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
+  }
+  it should "deny calls with non-expired 'unknown_user' standard token" in {
+    expectUnauthenticated(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
+  }
+
+
   it should "deny calls with an expired read/write token" in {
     expectUnauthenticated(serviceCallWithToken(canActAsRandomPartyExpired))
   }

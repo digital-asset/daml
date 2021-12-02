@@ -55,9 +55,23 @@ class AuthServiceJWTCodecSpec
       "work for arbitrary values" in forAll(
         Gen.resultOf(AuthServiceJWTPayload),
         minSuccessful(100),
-      )(value0 => {
+      )(v0 => {
         // FIXME: remove this hack, which is due to not serializing a new JWT token the right way
-        val value = value0.copy(isCustomDamlToken = true)
+        val value =
+          if (v0.isCustomDamlToken)
+            v0
+          else
+            AuthServiceJWTPayload(
+              ledgerId = None,
+              participantId = v0.participantId,
+              applicationId = Some(v0.applicationId.getOrElse("default-user")),
+              exp = v0.exp,
+              admin = false,
+              actAs = List.empty,
+              readAs = List.empty,
+              isCustomDamlToken = false
+            )
+
         serializeAndParse(value) shouldBe Success(value)
       })
 

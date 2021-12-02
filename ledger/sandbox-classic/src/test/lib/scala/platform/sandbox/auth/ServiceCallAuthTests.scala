@@ -75,6 +75,12 @@ trait ServiceCallAuthTests
 
   protected val canReadAsAdmin: Option[String] =
     Option(toHeader(adminToken))
+
+  protected val canReadAsAdminStandardJWT: Option[String] =
+    Option(toHeader(adminTokenStandardJWT))
+  protected val canReadAsUnknownUserStandardJWT: Option[String] =
+    Option(toHeader(unknownUserTokenStandardJWT))
+
   protected val canReadAsAdminExpired: Option[String] =
     Option(toHeader(expiringIn(Duration.ofDays(-1), adminToken)))
   protected val canReadAsAdminExpiresTomorrow: Option[String] =
