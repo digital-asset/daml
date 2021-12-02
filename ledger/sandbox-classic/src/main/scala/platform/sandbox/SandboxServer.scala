@@ -308,6 +308,8 @@ final class SandboxServer(
       case None => "in-memory"
     }
 
+    val userManagementService = new InMemoryUserManagementService
+
     for {
       servicesExecutionContext <- ResourceOwner
         .forExecutorService(() => Executors.newWorkStealingPool())
@@ -403,7 +405,7 @@ final class SandboxServer(
         managementServiceTimeout = config.managementServiceTimeout,
         enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         checkOverloaded = _ => None,
-        userManagementService = new InMemoryUserManagementService,
+        userManagementService = userManagementService,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(
@@ -416,6 +418,7 @@ final class SandboxServer(
         List(
           AuthorizationInterceptor(
             authService,
+            userManagementService,
             executionContext,
             errorCodesVersionSwitcher,
           ),

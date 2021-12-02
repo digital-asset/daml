@@ -88,6 +88,8 @@ object StandaloneApiServer {
     )
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
 
+    val userManagementService = new InMemoryUserManagementService
+
     for {
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
       apiServicesOwner = new ApiServices.Owner(
@@ -114,7 +116,7 @@ object StandaloneApiServer {
         managementServiceTimeout = config.managementServiceTimeout,
         enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         checkOverloaded = checkOverloaded,
-        userManagementService = new InMemoryUserManagementService,
+        userManagementService = userManagementService
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(
@@ -125,6 +127,7 @@ object StandaloneApiServer {
         config.tlsConfig,
         AuthorizationInterceptor(
           authService,
+          userManagementService,
           servicesExecutionContext,
           errorCodesVersionSwitcher,
         ) :: otherInterceptors,
