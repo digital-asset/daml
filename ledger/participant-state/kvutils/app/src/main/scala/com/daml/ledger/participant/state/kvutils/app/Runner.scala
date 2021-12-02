@@ -141,11 +141,11 @@ final class Runner[T <: ReadWriteService, Extra](
                     metrics,
                   )(materializer, servicesExecutionContext, loggingContext)
                   .acquire()
-                packageService = ledgerFactory.writePackageService()
+                writePackageService = ledgerFactory.writePackageService()
                 _ <- Resource.sequence(
                   config.archiveFiles.map(path =>
                     Resource.fromFuture(
-                      uploadDar(path, packageService)(
+                      uploadDar(path, writePackageService)(
                         loggingContext,
                         resourceContext.executionContext,
                       )
