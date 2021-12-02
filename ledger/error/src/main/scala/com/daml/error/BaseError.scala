@@ -96,7 +96,7 @@ object BaseError {
 
   def isSanitizedSecuritySensitiveMessage(msg: String): Boolean = {
     // TODO error codes: Check that suffix is a correlation id and nothing else.
-   msg.startsWith(SanitizedSecuritySensitiveMessageOnApiPrefix)
+    msg.startsWith(SanitizedSecuritySensitiveMessageOnApiPrefix)
   }
 
   def extractContext[D](obj: D): Map[String, String] =

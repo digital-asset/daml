@@ -18,8 +18,8 @@ import io.grpc.{BindableService, ServerServiceDefinition}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class HelloService_AkkaImplementation(implicit
-                                      executionSequencerFactory: ExecutionSequencerFactory,
-                                      materializer: Materializer,
+    executionSequencerFactory: ExecutionSequencerFactory,
+    materializer: Materializer,
 ) extends HelloService
     with HelloService_Responding
     with BindableService {

@@ -55,7 +55,9 @@ case class TlsFixture(
   }
 
   private final class EmptyApiServices extends ApiServices {
-    override val services: Iterable[BindableService] = List(new HelloService_ReferenceImplementation)
+    override val services: Iterable[BindableService] = List(
+      new HelloService_ReferenceImplementation
+    )
     override def withServices(otherServices: immutable.Seq[BindableService]): ApiServices = this
   }
 

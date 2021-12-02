@@ -8,7 +8,14 @@ import java.util.concurrent.TimeUnit
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
-import com.daml.error.{BaseError, ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCategory, ErrorClass, ErrorCode}
+import com.daml.error.{
+  BaseError,
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCategory,
+  ErrorClass,
+  ErrorCode,
+}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.akka.ServerAdapter
 import com.daml.grpc.sampleservice.HelloService_Responding
@@ -32,7 +39,7 @@ import scala.concurrent.Future
 
 // TODO error codes: Assert also on what is logged?
 final class ErrorInterceptorSpec
-  extends AsyncFreeSpec
+    extends AsyncFreeSpec
     with AkkaBeforeAndAfterAll
     with Matchers
     with Eventually
@@ -41,7 +48,8 @@ final class ErrorInterceptorSpec
 
   import ErrorInterceptorSpec._
 
-  private val bypassMsg: String = "(should still intercept the error to bypass default gRPC error handling)"
+  private val bypassMsg: String =
+    "(should still intercept the error to bypass default gRPC error handling)"
 
   classOf[ErrorInterceptor].getSimpleName - {
 
@@ -70,7 +78,8 @@ final class ErrorInterceptorSpec
             .map { t: StatusRuntimeException =>
               assertFooMissingError(
                 actualError = t,
-                expectedMsg = "Non-Status.INTERNAL self-service error inside a Future")
+                expectedMsg = "Non-Status.INTERNAL self-service error inside a Future",
+              )
             }
         }
 
@@ -79,7 +88,8 @@ final class ErrorInterceptorSpec
             .map { t: StatusRuntimeException =>
               assertFooMissingError(
                 actualError = t,
-                expectedMsg = "Non-Status.INTERNAL self-service error outside a Future")
+                expectedMsg = "Non-Status.INTERNAL self-service error outside a Future",
+              )
             }
         }
       }
@@ -109,7 +119,8 @@ final class ErrorInterceptorSpec
             .map { t: StatusRuntimeException =>
               assertFooMissingError(
                 actualError = t,
-                expectedMsg = "Non-Status.INTERNAL self-service error inside a Stream")
+                expectedMsg = "Non-Status.INTERNAL self-service error inside a Stream",
+              )
             }
         }
 
@@ -118,7 +129,8 @@ final class ErrorInterceptorSpec
             .map { t: StatusRuntimeException =>
               assertFooMissingError(
                 actualError = t,
-                expectedMsg = "Non-Status.INTERNAL self-service error outside a Stream")
+                expectedMsg = "Non-Status.INTERNAL self-service error outside a Stream",
+              )
             }
         }
       }
@@ -126,29 +138,39 @@ final class ErrorInterceptorSpec
     }
   }
 
-  private def exerciseUnaryFutureEndpoint(useSelfService: Boolean, insideFuture: Boolean): Future[StatusRuntimeException] = {
+  private def exerciseUnaryFutureEndpoint(
+      useSelfService: Boolean,
+      insideFuture: Boolean,
+  ): Future[StatusRuntimeException] = {
     val response: Future[HelloResponse] = server(
       tested = new ErrorInterceptor(),
-      service = new HelloService_Failing(useSelfService = useSelfService, insideFutureOrStream = insideFuture)
-    ).use {
-      channel =>
-        HelloServiceGrpc.stub(channel).single(HelloRequest(1))
+      service = new HelloService_Failing(
+        useSelfService = useSelfService,
+        insideFutureOrStream = insideFuture,
+      ),
+    ).use { channel =>
+      HelloServiceGrpc.stub(channel).single(HelloRequest(1))
     }
     recoverToExceptionIf[StatusRuntimeException] {
       response
     }
   }
 
-  private def exerciseStreamingAkkaEndpoint(useSelfService: Boolean, insideStream: Boolean): Future[StatusRuntimeException] = {
+  private def exerciseStreamingAkkaEndpoint(
+      useSelfService: Boolean,
+      insideStream: Boolean,
+  ): Future[StatusRuntimeException] = {
     val response: Future[Vector[HelloResponse]] = server(
       tested = new ErrorInterceptor(),
-      service = new HelloService_Failing(useSelfService = useSelfService, insideFutureOrStream = insideStream)
-    ).use {
-      channel =>
-        val streamConsumer = new StreamConsumer[HelloResponse](
-          observer => HelloServiceGrpc.stub(channel).serverStreaming(HelloRequest(1), observer)
-        )
-        streamConsumer.all()
+      service = new HelloService_Failing(
+        useSelfService = useSelfService,
+        insideFutureOrStream = insideStream,
+      ),
+    ).use { channel =>
+      val streamConsumer = new StreamConsumer[HelloResponse](observer =>
+        HelloServiceGrpc.stub(channel).serverStreaming(HelloRequest(1), observer)
+      )
+      streamConsumer.all()
     }
     recoverToExceptionIf[StatusRuntimeException] {
       response
@@ -158,12 +180,18 @@ final class ErrorInterceptorSpec
   private def assertSecuritySanitizedError(actualError: StatusRuntimeException): Assertion = {
     val actualStatus = actualError.getStatus
     val actual = (actualStatus.getCode, actualStatus.getDescription)
-    val expected = (Status.Code.INTERNAL, "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>")
+    val expected = (
+      Status.Code.INTERNAL,
+      "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>",
+    )
     actual shouldBe expected
     // TODO error-codes: Assert also on error's metadata.
   }
 
-  private def assertFooMissingError(actualError: StatusRuntimeException, expectedMsg: String): Assertion = {
+  private def assertFooMissingError(
+      actualError: StatusRuntimeException,
+      expectedMsg: String,
+  ): Assertion = {
     val actualStatus = actualError.getStatus
     val actual = (actualStatus.getCode, actualStatus.getDescription)
     val expectedDescription = s"FOO_MISSING_ERROR_CODE(11,0): Foo is missing: $expectedMsg"
@@ -183,9 +211,9 @@ object ErrorInterceptorSpec {
   }
 
   private def serverOwner(
-                           interceptor: ServerInterceptor,
-                           service: BindableService,
-                         ): ResourceOwner[Server] =
+      interceptor: ServerInterceptor,
+      service: BindableService,
+  ): ResourceOwner[Server] =
     new ResourceOwner[Server] {
       def acquire()(implicit context: ResourceContext): Resource[Server] =
         Resource(Future {
@@ -202,32 +230,30 @@ object ErrorInterceptorSpec {
     }
 
   object FooMissingErrorCode
-    extends ErrorCode(
-      id = "FOO_MISSING_ERROR_CODE",
-      ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-    )(ErrorClass.root()) {
+      extends ErrorCode(
+        id = "FOO_MISSING_ERROR_CODE",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      )(ErrorClass.root()) {
 
-    case class Error(msg: String
-                    )(implicit
-                      override val loggingContext: ContextualizedErrorLogger
-                    ) extends BaseError.Impl(
-      cause = s"Foo is missing: $msg"
-    )
+    case class Error(msg: String)(implicit
+        override val loggingContext: ContextualizedErrorLogger
+    ) extends BaseError.Impl(
+          cause = s"Foo is missing: $msg"
+        )
 
   }
 
   object FooUnknownErrorCode
-    extends ErrorCode(
-      id = "FOO_UNKNOWN_ERROR_CODE",
-      ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-    )(ErrorClass.root()) {
+      extends ErrorCode(
+        id = "FOO_UNKNOWN_ERROR_CODE",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      )(ErrorClass.root()) {
 
-    case class Error(msg: String
-                    )(implicit
-                      override val loggingContext: ContextualizedErrorLogger
-                    ) extends BaseError.Impl(
-      cause = s"Foo is unknown: $msg"
-    )
+    case class Error(msg: String)(implicit
+        override val loggingContext: ContextualizedErrorLogger
+    ) extends BaseError.Impl(
+          cause = s"Foo is unknown: $msg"
+        )
 
   }
 
@@ -237,7 +263,8 @@ object ErrorInterceptorSpec {
     private val logger = ContextualizedLogger.get(getClass)
     private val emptyLoggingContext = LoggingContext.newLoggingContext(identity)
 
-    implicit protected val damlLogger: DamlContextualizedErrorLogger = new DamlContextualizedErrorLogger(logger, emptyLoggingContext, None)
+    implicit protected val damlLogger: DamlContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, emptyLoggingContext, None)
 
     override def bindService(): ServerServiceDefinition =
       HelloServiceGrpc.bindService(this, scala.concurrent.ExecutionContext.Implicits.global)
@@ -245,33 +272,33 @@ object ErrorInterceptorSpec {
     override def fails(request: HelloRequest): Future[HelloResponse] = ??? // not used in this test
   }
 
-  /**
-   * @param useSelfService       - whether to use self service error codes or a "rouge" exception
-   * @param insideFutureOrStream - whether to signal the exception inside a Future or a Stream, or outside to them
-   */
+  /** @param useSelfService       - whether to use self service error codes or a "rouge" exception
+    * @param insideFutureOrStream - whether to signal the exception inside a Future or a Stream, or outside to them
+    */
   // TODO error codes: Extend a HelloService generated by our Akka streaming scalapb plugin. (~HelloServiceAkkaGrpc)
-  class HelloService_Failing(useSelfService: Boolean,
-                             insideFutureOrStream: Boolean)
-                            (implicit
-                             executionSequencerFactory: ExecutionSequencerFactory,
-                             materializer: Materializer) extends HelloService
-    with HelloService_Responding
-    with HelloService_Base {
+  class HelloService_Failing(useSelfService: Boolean, insideFutureOrStream: Boolean)(implicit
+      executionSequencerFactory: ExecutionSequencerFactory,
+      materializer: Materializer,
+  ) extends HelloService
+      with HelloService_Responding
+      with HelloService_Base {
 
-    override def serverStreaming(request: HelloRequest, responseObserver: StreamObserver[HelloResponse]): Unit = {
+    override def serverStreaming(
+        request: HelloRequest,
+        responseObserver: StreamObserver[HelloResponse],
+    ): Unit = {
       val where = if (insideFutureOrStream) "inside" else "outside"
       val t: Throwable = if (useSelfService) {
-        FooMissingErrorCode.Error(s"Non-Status.INTERNAL self-service error $where a Stream").asGrpcError
+        FooMissingErrorCode
+          .Error(s"Non-Status.INTERNAL self-service error $where a Stream")
+          .asGrpcError
       } else {
         new IllegalArgumentException(s"Failure $where a Stream")
       }
       if (insideFutureOrStream) {
         val _ = Source
           .single(request)
-          .via(Flow[HelloRequest].mapConcat(_ =>
-
-            throw t
-          ))
+          .via(Flow[HelloRequest].mapConcat(_ => throw t))
           .runWith(ServerAdapter.toSink(responseObserver))
       } else {
         throw t
@@ -281,7 +308,9 @@ object ErrorInterceptorSpec {
     override def single(request: HelloRequest): Future[HelloResponse] = {
       val where = if (insideFutureOrStream) "inside" else "outside"
       val t: Throwable = if (useSelfService) {
-        FooMissingErrorCode.Error(s"Non-Status.INTERNAL self-service error $where a Future").asGrpcError
+        FooMissingErrorCode
+          .Error(s"Non-Status.INTERNAL self-service error $where a Future")
+          .asGrpcError
       } else {
         new IllegalArgumentException(s"Failure $where a Future")
       }
