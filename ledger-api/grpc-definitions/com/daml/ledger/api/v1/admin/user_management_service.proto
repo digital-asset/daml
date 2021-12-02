@@ -105,10 +105,8 @@ message Right {
 
     oneof kind {
         ParticipantAdmin participant_admin = 1;
-        CanActAsAnyParty can_act_as_any_party = 2;
-        CanReadAsAnyParty can_read_as_any_party = 3;
-        CanActAs can_act_as = 4;
-        CanReadAs can_read_as = 5;
+        CanActAs can_act_as = 2;
+        CanReadAs can_read_as = 3;
     }
 }
 

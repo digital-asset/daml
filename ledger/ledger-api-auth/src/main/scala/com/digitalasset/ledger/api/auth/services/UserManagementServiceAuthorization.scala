@@ -94,10 +94,10 @@ private[daml] final class UserManagementServiceAuthorization(
         else {
           // Custom JWT token: deliver the decoded rights.
           val claimToRight: Claim => Option[Right] = {
-            case ClaimActAsAnyParty => Some(Right(Right.Kind.CanActAsAnyParty(Right.CanActAsAnyParty())))
             case ClaimActAsParty(p) => Some(Right(Right.Kind.CanActAs(Right.CanActAs(p))))
             case ClaimReadAsParty(p) => Some(Right(Right.Kind.CanReadAs(Right.CanReadAs(p))))
             case ClaimAdmin => Some(Right(Right.Kind.ParticipantAdmin(Right.ParticipantAdmin())))
+            case ClaimActAsAnyParty => None
             case ClaimPublic => None
           }
 
