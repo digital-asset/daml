@@ -12,7 +12,7 @@ import io.grpc.Status
 
 final class UserManagementServiceIT extends LedgerTestSuite {
   test(
-    "AllRpcs_SuccessAndFail",
+    "TestAllUserManagementRpcs",
     "Exercise every rpc once with success and once with a failure",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
