@@ -18,5 +18,6 @@ object UserManagement {
     final case object ParticipantAdmin extends UserRight
     final case class CanActAs(party: Ref.Party) extends UserRight
     final case class CanReadAs(party: Ref.Party) extends UserRight
+    final case object CanActAsAnyParty extends UserRight
   }
 }

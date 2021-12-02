@@ -94,6 +94,7 @@ final class AuthorizationInterceptor(
   private[this] def userRightToClaim(r: UserRight): Claim = r match {
     case UserRight.CanActAs(p) => ClaimActAsParty(Ref.Party.assertFromString(p))
     case UserRight.CanReadAs(p) => ClaimReadAsParty(Ref.Party.assertFromString(p))
+    case UserRight.CanActAsAnyParty => ClaimActAsAnyParty
     case UserRight.ParticipantAdmin => ClaimAdmin
   }
 

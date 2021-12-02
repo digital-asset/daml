@@ -123,6 +123,8 @@ object ApiUserManagementService {
       Right(Right.Kind.CanActAs(Right.CanActAs(party)))
     case UserManagement.UserRight.CanReadAs(party) =>
       Right(Right.Kind.CanReadAs(Right.CanReadAs(party)))
+    case UserManagement.UserRight.CanActAsAnyParty =>
+      Right(Right.Kind.CanActAsAnyParty(Right.CanActAsAnyParty()))
   }
 
   val fromApiRight: Right => UserManagement.UserRight = {
@@ -131,6 +133,8 @@ object ApiUserManagementService {
       UserManagement.UserRight.CanActAs(Ref.Party.assertFromString(x.party))
     case Right(Right.Kind.CanReadAs(x)) =>
       UserManagement.UserRight.CanReadAs(Ref.Party.assertFromString(x.party))
+    case Right(Right.Kind.CanActAsAnyParty(_)) =>
+      UserManagement.UserRight.CanActAsAnyParty
     case _ => throw new Exception // TODO FIXME validation
   }
 }
