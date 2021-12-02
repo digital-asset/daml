@@ -93,7 +93,7 @@ main = scenario do
     alice <- getParty "Alice"
     bob <- getParty "Bob"
     let asset = Asset alice bob 15
-    let token = toInterface @_ @Token asset
+    let token = toInterface @Token asset
     submit alice do
       interfaceCreate token
       interfaceSignatory token === [alice]

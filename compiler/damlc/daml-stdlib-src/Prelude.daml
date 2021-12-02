@@ -31,6 +31,7 @@ import DA.Internal.Desugar as X
   , HasFromInterface(..)
   , Implements
   , ImplementsT(..)
+  , toInterface
   , toInterfaceContractId
   , fromInterfaceContractId
   )
