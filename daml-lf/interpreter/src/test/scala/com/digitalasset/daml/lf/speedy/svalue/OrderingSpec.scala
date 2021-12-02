@@ -180,13 +180,16 @@ class OrderingSpec
     }
   }
 
+  private[this] val txSeed = crypto.Hash.hashPrivateKey("OrderingSpec")
+  private[this] val committers = Set(Ref.Party.assertFromString("Alice"))
+
   private def translatePrimValue(typ: iface.Type, v: Value) = {
-    val seed = crypto.Hash.hashPrivateKey("OrderingSpec")
+
     val machine = Speedy.Machine.fromUpdateSExpr(
       PureCompiledPackages.Empty,
-      transactionSeed = seed,
+      transactionSeed = txSeed,
       updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(SEImportValue(toAstType(typ), v))),
-      committer = Ref.Party.assertFromString("Alice"),
+      committers = committers,
     )
 
     machine.run() match {

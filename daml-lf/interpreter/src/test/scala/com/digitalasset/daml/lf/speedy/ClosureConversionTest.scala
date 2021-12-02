@@ -35,9 +35,10 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
   private val letBody = (x: SExpr) => SELet(List(leaf, leaf), x)
   private val tryCatch1 = (x: SExpr) => SETryCatch(leaf, x)
   private val tryCatch2 = (x: SExpr) => SETryCatch(x, leaf)
+  private val scopeExercise = (x: SExpr) => SEScopeExercise(x)
   private val labelClosure = (x: SExpr) => SELabelClosure(label, x)
 
-  "closure conversion" - {
+  "closure conversion (stack-safety)" - {
 
     // This is the code under test...
     def transform(e: SExpr): target.SExpr = {
@@ -57,43 +58,31 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
       true
     }
 
-    /* The testcases are split into two sets:
-     *
-     * For both sets the code under test is stack-safe, but the 2nd set provokes an
-     * unrelated quadratic-or-worse time-issue in the handling of 'Env' management and the
-     * free-vars computation, during the closure-conversion transform.
-     */
-    val testCases1 = {
+    val testCases = {
       Table[String, SExpr => SExpr](
         ("name", "recursion-point"),
+        ("Abs", abs1),
         ("Location", location),
         ("AppF", appF),
         ("App1", app1),
         ("App2", app2),
         ("Scrut", scrut),
-        ("Let1", let1),
-        ("TryCatch2", tryCatch2),
-        ("Labelclosure", labelClosure),
         ("Alt1", alt1),
         ("Alt2", alt2),
+        ("Let1", let1),
         ("Let2", let2),
         ("LetBody", letBody),
         ("TryCatch1", tryCatch1),
-      )
-    }
-
-    // These 'quadratic' testcases pertain to recursion-points under a binder.
-    val testCases2 = {
-      Table[String, SExpr => SExpr](
-        ("name", "recursion-point"),
-        ("Abs", abs1),
+        ("TryCatch2", tryCatch2),
+        ("scopeExercise", scopeExercise),
+        ("Labelclosure", labelClosure),
       )
     }
 
     {
-      val depth = 100000
+      val depth = 10000
       s"depth = $depth" - {
-        forEvery(testCases1) { (name: String, recursionPoint: SExpr => SExpr) =>
+        forEvery(testCases) { (name: String, recursionPoint: SExpr => SExpr) =>
           name in {
             runTest(depth, recursionPoint)
           }
@@ -101,15 +90,42 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
       }
     }
 
-    {
-      // TODO: There remains a quadratic issue with the freeVars calculation (#11830).
-      // This affects only Abs testcase. It takes 12s when run to a larger depth of 100k.
-      // So we only run to 10k.
-      val depth = 10000
-      s"depth = $depth" - {
-        forEvery(testCases2) { (name: String, recursionPoint: SExpr => SExpr) =>
-          name in {
-            runTest(depth, recursionPoint)
+    "freeVars" - {
+      def runTest(depth: Int, cons: SExpr => SExpr) = {
+        // Make an expression by iterating the 'cons' function, 'depth' times..
+        @tailrec def loop(x: SExpr, n: Int): SExpr = if (n == 0) x else loop(cons(x), n - 1)
+        val exp: SExpr = abs1(loop(leaf, depth)) // ..embedded within a top-level abstraction..
+        val _: target.SExpr = transform(exp)
+        true
+      }
+      // ..to test stack-safety of the freeVars computation.
+      {
+        val depth = 10000
+        val testCases = {
+          Table[String, SExpr => SExpr](
+            ("name", "recursion-point"),
+            ("Location", location),
+            ("Abs", abs1),
+            ("AppF", appF),
+            ("App1", app1),
+            ("App2", app2),
+            ("Scrut", scrut),
+            ("Alt1", alt1),
+            ("Alt2", alt2),
+            ("Let1", let1),
+            ("Let2", let2),
+            ("LetBody", letBody),
+            ("TryCatch1", tryCatch1),
+            ("TryCatch2", tryCatch2),
+            ("scopeExercise", scopeExercise),
+            ("Labelclosure", labelClosure),
+          )
+        }
+        s"depth = $depth" - {
+          forEvery(testCases) { (name: String, recursionPoint: SExpr => SExpr) =>
+            name in {
+              runTest(depth, recursionPoint)
+            }
           }
         }
       }

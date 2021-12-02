@@ -63,6 +63,8 @@ data DocCtx = DocCtx
         -- ^ command line options that affect the doc extractor
     , dc_exports :: ExportSet
         -- ^ set of export, unless everything is exported
+    , dc_interfaces :: Set.Set Typename
+        -- ^ interfaces defined in this module
     }
 
 -- | Parsed declaration with associated docs.
