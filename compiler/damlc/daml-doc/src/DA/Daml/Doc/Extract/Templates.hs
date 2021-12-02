@@ -160,8 +160,10 @@ stripInstanceSuffix (Typename t) = Typename <$> T.stripSuffix "Instance" t
 getInstanceDocs :: DocCtx -> ClsInst -> InstanceDoc
 getInstanceDocs ctx ClsInst{..} =
     let ty = varType is_dfun
+        modname = Modulename $ T.pack $ moduleNameString $ moduleName $ nameModule is_cls_nm
     in InstanceDoc
         { id_context = typeToContext ctx ty
+        , id_module = modname
         , id_type = typeToType ctx ty
         , id_isOrphan = isOrphan is_orphan
         }

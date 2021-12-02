@@ -81,11 +81,12 @@ distributeInstanceDocs opts docs =
     addIfaceImpls imap td = td
         { td_impls =
             [ ImplDoc iface_type
-            | InstanceDoc {id_type} <-
+            | InstanceDoc {id_type, id_module} <-
                 maybe [] Set.toList $ do
                   anchor <- td_anchor td
                   Map.lookup anchor imap
             , Just "Implements" == getTypeAppName id_type
+            , "DA.Internal.Desugar" == id_module
             , Just args <- [getTypeAppArgs id_type]
             , Just iface_type <- [lastMay args]
             ]

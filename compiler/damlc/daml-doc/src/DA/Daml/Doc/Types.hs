@@ -253,6 +253,7 @@ data FunctionDoc = FunctionDoc
 -- | Documentation on a typeclass instance.
 data InstanceDoc = InstanceDoc
     { id_type :: Type
+    , id_module :: Modulename
     , id_context :: Maybe Type
     , id_isOrphan :: Bool
     } deriving (Eq, Ord, Show, Generic)
