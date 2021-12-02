@@ -1,0 +1,49 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
+-- | MOVE Prelude interface functionality
+module DA.Internal.Interface (
+  HasInterfaceTypeRep(..),
+  HasToInterface(..),
+  HasFromInterface(..),
+  Implements,
+  toInterface,
+  toInterfaceContractId,
+  fromInterfaceContractId,
+) where
+
+import DA.Internal.Prelude
+import DA.Internal.Template.Functions
+import DA.Internal.LF
+
+class HasInterfaceTypeRep i where
+  interfaceTypeRep : i -> TypeRep
+
+class HasToInterface t i where
+  _toInterface : t -> i
+
+toInterface : forall i t. HasToInterface t i => t -> i
+toInterface = _toInterface
+
+class HasFromInterface t i where
+  fromInterface : i -> Optional t
+
+type Implements t i =
+  ( HasInterfaceTypeRep i
+  , HasToInterface t i
+  , HasFromInterface t i
+  )
+
+toInterfaceContractId : forall i t. HasToInterface t i => ContractId t -> ContractId i
+toInterfaceContractId = coerceContractId
+
+fromInterfaceContractId : forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t))
+fromInterfaceContractId cid = do
+  iface <- fetch cid
+  pure $ case fromInterface iface of
+    None -> None
+    Some (_ : t) -> Some (coerceContractId cid)

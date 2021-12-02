@@ -11,18 +11,12 @@ module DA.Internal.Desugar (
     module DA.Internal.Template,
     module DA.Internal.Template.Functions,
     module DA.Internal.Exception,
+    module DA.Internal.Interface,
     Eq(..), Show(..),
     Bool(..), Text, Optional(..),
     concat, magic,
     Party, ContractId, Update, Any,
     NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..),
-    HasInterfaceTypeRep(..),
-    HasToInterface(..),
-    HasFromInterface(..),
-    Implements,
-    toInterface,
-    toInterfaceContractId,
-    fromInterfaceContractId,
     TypeRep,
     ImplementsT(..),
     HasMethod,
@@ -32,6 +26,7 @@ module DA.Internal.Desugar (
 import DA.Internal.Prelude
 import DA.Internal.Template
 import DA.Internal.Template.Functions
+import DA.Internal.Interface
 import DA.Internal.LF
 #ifndef DAML_EXCEPTIONS
 import DA.Internal.Exception ()
@@ -45,34 +40,6 @@ data NonConsuming t = NonConsuming {}
 data PreConsuming t = PreConsuming {}
 data Consuming t = Consuming {}
 data PostConsuming t = PostConsuming {}
-
-class HasInterfaceTypeRep i where
-  interfaceTypeRep : i -> TypeRep
-
-class HasToInterface t i where
-  _toInterface : t -> i
-
-toInterface : forall i t. HasToInterface t i => t -> i
-toInterface = _toInterface
-
-class HasFromInterface t i where
-  fromInterface : i -> Optional t
-
-type Implements t i =
-  ( HasInterfaceTypeRep i
-  , HasToInterface t i
-  , HasFromInterface t i
-  )
-
-toInterfaceContractId : forall i t. HasToInterface t i => ContractId t -> ContractId i
-toInterfaceContractId = coerceContractId
-
-fromInterfaceContractId : forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t))
-fromInterfaceContractId cid = do
-  iface <- fetch cid
-  pure $ case fromInterface iface of
-    None -> None
-    Some (_ : t) -> Some (coerceContractId cid)
 
 -- Used to construct markers representing the fact that
 -- a template `t` implements an interface `i`.
