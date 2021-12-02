@@ -34,15 +34,16 @@ import scala.util.{Failure, Success}
 final class Runner[T <: ReadWriteService, Extra](
     name: String,
     factory: LedgerFactory[Extra],
+    configProvider: ConfigProvider[Extra],
 ) {
   def owner(args: collection.Seq[String]): ResourceOwner[Unit] =
     Config
-      .owner(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
+      .owner(name, configProvider.extraConfigParser, configProvider.defaultExtraConfig, args)
       .flatMap(owner)
 
   def owner(originalConfig: Config[Extra]): ResourceOwner[Unit] = new ResourceOwner[Unit] {
     override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
-      val config = factory.manipulateConfig(originalConfig)
+      val config = configProvider.manipulateConfig(originalConfig)
       val errorFactories = ErrorFactories(
         new ErrorCodesVersionSwitcher(originalConfig.enableSelfServiceErrorCodes)
       )
@@ -108,7 +109,7 @@ final class Runner[T <: ReadWriteService, Extra](
         _ <- Resource.sequence(config.participants.map { participantConfig =>
           withEnrichedLoggingContext("participantId" -> participantConfig.participantId) {
             implicit loggingContext =>
-              val metrics = factory.createMetrics(participantConfig, config)
+              val metrics = configProvider.createMetrics(participantConfig, config)
               metrics.registry.registerAll(new JvmMetricSet)
               val lfValueTranslationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
                 eventConfiguration = config.lfValueTranslationEventCache,
@@ -122,19 +123,6 @@ final class Runner[T <: ReadWriteService, Extra](
                     .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
                     .acquire()
                 )
-                packageService <- factory
-                  .writePackageOwner(config, participantConfig, sharedEngine)
-                  .acquire()
-                _ <- Resource.sequence(
-                  config.archiveFiles.map(path =>
-                    Resource.fromFuture(
-                      uploadDar(path, packageService)(
-                        loggingContext,
-                        resourceContext.executionContext,
-                      )
-                    )
-                  )
-                )
                 servicesExecutionContext <- ResourceOwner
                   .forExecutorService(() =>
                     new InstrumentedExecutorService(
@@ -145,16 +133,32 @@ final class Runner[T <: ReadWriteService, Extra](
                   )
                   .map(ExecutionContext.fromExecutorService)
                   .acquire()
+                ledgerFactory <- factory
+                  .ledgerFactory(
+                    config,
+                    participantConfig,
+                    sharedEngine,
+                    metrics,
+                  )(materializer, servicesExecutionContext, loggingContext)
+                  .acquire()
+                packageService = ledgerFactory.writePackageService()
+                _ <- Resource.sequence(
+                  config.archiveFiles.map(path =>
+                    Resource.fromFuture(
+                      uploadDar(path, packageService)(
+                        loggingContext,
+                        resourceContext.executionContext,
+                      )
+                    )
+                  )
+                )
                 healthChecksWithIndexer <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
+                    val readService = new TimedReadService(ledgerFactory.readService(), metrics)
                     for {
-                      readLedger <- factory
-                        .readServiceOwner(config, participantConfig, sharedEngine)
-                        .acquire()
-                      readService = new TimedReadService(readLedger, metrics)
                       healthChecksWithIndexer <- new StandaloneIndexerServer(
                         readService = readService,
-                        config = factory.indexerConfig(participantConfig, config),
+                        config = configProvider.indexerConfig(participantConfig, config),
                         servicesExecutionContext = servicesExecutionContext,
                         metrics = metrics,
                         lfValueTranslationCache = lfValueTranslationCache,
@@ -171,7 +175,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   case ParticipantRunMode.LedgerApiServer =>
                     Resource.successful(new HealthChecks())
                 }
-                apiServerConfig = factory.apiServerConfig(participantConfig, config)
+                apiServerConfig = configProvider.apiServerConfig(participantConfig, config)
                 indexService <- StandaloneIndexService(
                   ledgerId = config.ledgerId,
                   config = apiServerConfig,
@@ -182,24 +186,21 @@ final class Runner[T <: ReadWriteService, Extra](
                 ).acquire()
                 _ <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
+                    val writeService = new TimedWriteService(ledgerFactory.writeService(), metrics)
                     for {
-                      ledger <- factory
-                        .writeServiceOwner(config, participantConfig, sharedEngine)
-                        .acquire()
-                      writeService = new TimedWriteService(ledger, metrics)
                       _ <- StandaloneApiServer(
                         indexService = indexService,
                         ledgerId = config.ledgerId,
                         config = apiServerConfig,
                         commandConfig = config.commandConfig,
                         submissionConfig = config.submissionConfig,
-                        partyConfig = factory.partyConfig(config),
+                        partyConfig = configProvider.partyConfig(config),
                         optWriteService = Some(writeService),
-                        authService = factory.authService(config),
+                        authService = configProvider.authService(config),
                         healthChecks = healthChecksWithIndexer + ("write" -> writeService),
                         metrics = metrics,
-                        timeServiceBackend = factory.timeServiceBackend(config),
-                        otherInterceptors = factory.interceptors(config),
+                        timeServiceBackend = configProvider.timeServiceBackend(config),
+                        otherInterceptors = configProvider.interceptors(config),
                         engine = sharedEngine,
                         servicesExecutionContext = servicesExecutionContext,
                       ).acquire()
