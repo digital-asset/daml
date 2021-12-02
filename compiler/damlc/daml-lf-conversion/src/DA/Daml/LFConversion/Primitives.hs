@@ -339,7 +339,7 @@ convertPrim _ "UExerciseInterface"
     ETmLam (mkVar "this", TContractId (TCon iface)) $
     ETmLam (mkVar "arg", TCon choice) $
     ETmLam (mkVar "typeRep", TOptional TTypeRep) $
-    EUpdate $ UExerciseInterface iface choiceName (EVar (mkVar "this")) (EVar (mkVar "arg")) (EVar "typeRep")
+    EUpdate $ UExerciseInterface iface choiceName (EVar (mkVar "this")) (EVar (mkVar "arg")) (EVar (mkVar "typeRep"))
         -- TODO https://github.com/digital-asset/daml/issues/11703
         --   Pass the guard argument in from daml.
         (ETmLam (mkVar "payload", TCon iface) (EBuiltin (BEBool True)))
