@@ -52,7 +52,7 @@ class InMemoryLedgerReaderWriterIntegrationSpec
         .forExecutorService(() => Executors.newCachedThreadPool())
         .map(ExecutionContext.fromExecutorService)
       state = InMemoryState.empty
-      offsetBuilder = new KVOffsetBuilder(version = 0)
+      offsetBuilder = new KVOffsetBuilder(version = offsetVersion)
       writer <- new InMemoryLedgerWriter.Owner(
         participantId = participantId,
         keySerializationStrategy = StateKeySerializationStrategy.createDefault(),
