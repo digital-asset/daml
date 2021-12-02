@@ -8,7 +8,7 @@ import com.daml.platform.hello.{HelloRequest, HelloResponse}
 
 import scala.concurrent.Future
 
-trait Responding extends HelloService {
+trait HelloService_Responding extends HelloService {
 
   override def single(request: HelloRequest): Future[HelloResponse] =
     Future.successful(response(request))

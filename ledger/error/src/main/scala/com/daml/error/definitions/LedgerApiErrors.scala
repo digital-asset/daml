@@ -585,6 +585,13 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
 
+    case class UnexpectedOrUnknownException(t: Throwable)(implicit
+                                                     loggingContext: ContextualizedErrorLogger
+    )  extends LoggingTransactionErrorImpl(
+      cause = "Unexpected or unknown exception occurred.",
+      throwableO = Some(t)
+    )
+
     case class CommandTrackerInternalError(
         message: String,
         override val throwableO: Option[Throwable] = None,

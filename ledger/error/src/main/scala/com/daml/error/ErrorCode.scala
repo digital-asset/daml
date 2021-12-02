@@ -167,7 +167,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     val correlationId = loggingContext.correlationId
     val message =
       if (code.category.securitySensitive)
-        s"${BaseError.SecuritySensitiveMessageOnApi} ${correlationId.getOrElse("<no-correlation-id>")}"
+        s"${BaseError.SanitizedSecuritySensitiveMessageOnApiPrefix} ${correlationId.getOrElse("<no-correlation-id>")}"
       else
         code.toMsg(err.cause, loggingContext.correlationId)
     val codeGrpc = category.grpcCode

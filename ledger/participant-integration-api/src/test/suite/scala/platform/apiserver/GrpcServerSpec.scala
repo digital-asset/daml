@@ -6,7 +6,7 @@ package com.daml.platform.apiserver
 import java.util.concurrent.Executors
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.grpc.sampleservice.implementations.ReferenceImplementation
+import com.daml.grpc.sampleservice.implementations.HelloService_ReferenceImplementation
 import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -111,7 +111,7 @@ object GrpcServerSpec {
         maxInboundMessageSize = maxInboundMessageSize,
         metrics = new Metrics(new MetricRegistry),
         servicesExecutor = executor,
-        services = Seq(new ReferenceImplementation),
+        services = Seq(new HelloService_ReferenceImplementation),
       )
       channel <- new GrpcChannel.Owner(Port(server.getPort), clientConfiguration)
     } yield channel

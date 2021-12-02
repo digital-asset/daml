@@ -9,7 +9,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.akka.ServerAdapter
-import com.daml.grpc.sampleservice.Responding
+import com.daml.grpc.sampleservice.HelloService_Responding
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import io.grpc.stub.StreamObserver
@@ -17,11 +17,11 @@ import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class AkkaImplementation(implicit
-    executionSequencerFactory: ExecutionSequencerFactory,
-    materializer: Materializer,
+class HelloService_AkkaImplementation(implicit
+                                      executionSequencerFactory: ExecutionSequencerFactory,
+                                      materializer: Materializer,
 ) extends HelloService
-    with Responding
+    with HelloService_Responding
     with BindableService {
 
   private val serverStreamingCalls = new AtomicInteger()

@@ -7,7 +7,7 @@ import java.io.File
 import java.util.concurrent.Executors
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.grpc.sampleservice.implementations.ReferenceImplementation
+import com.daml.grpc.sampleservice.implementations.HelloService_ReferenceImplementation
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.{
@@ -55,7 +55,7 @@ case class TlsFixture(
   }
 
   private final class EmptyApiServices extends ApiServices {
-    override val services: Iterable[BindableService] = List(new ReferenceImplementation)
+    override val services: Iterable[BindableService] = List(new HelloService_ReferenceImplementation)
     override def withServices(otherServices: immutable.Seq[BindableService]): ApiServices = this
   }
 

@@ -113,8 +113,13 @@ public class ServerSubscriber<Resp> implements Subscriber<Resp> {
     executionSequencer.sequence(
         () -> {
           if (!responseObserver.isCancelled()) {
-            responseObserver.onError(throwable);
-            completionPromise.completeExceptionally(throwable);
+            Throwable newThrowable = translateThrowableInOnError(throwable);
+            responseObserver.onError(newThrowable);
+            // TODO error codes: Complete with thrownable or newThrowable?
+            //                   This promise seems to to used only to fail materialized
+            // Future[Unit] in streaming endpoints.
+            //                   Is that materialized Future[Unit] used anywhere anyway?
+            completionPromise.completeExceptionally(newThrowable);
           }
         });
   }
@@ -129,6 +134,10 @@ public class ServerSubscriber<Resp> implements Subscriber<Resp> {
             completionPromise.complete(null);
           }
         });
+  }
+
+  protected Throwable translateThrowableInOnError(Throwable throwable) {
+    return throwable;
   }
 
   private class BufferingEventHandler implements Runnable {
