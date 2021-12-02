@@ -159,6 +159,20 @@ final class Authorizer(
       }
     }
 
+  // FIXME: make this function prettier, easier to understand and use
+  def withClaims[Req, Res](call: ClaimSet.Claims => Future[Res]): Future[Res] =
+    authenticatedClaimsFromContext()
+      .fold(
+        ex => {
+          // TODO error codes: Remove once fully relying on self-service error codes with logging on creation
+          logger.debug(
+            s"No authenticated claims found in the request context. Returning UNAUTHENTICATED"
+          )
+          Future.failed(ex)
+        },
+        claims => call(claims)
+      )
+
   /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */
   def requireReadClaimsForTransactionFilterOnStream[Req, Res](
       filter: Option[TransactionFilter],

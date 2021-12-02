@@ -217,7 +217,7 @@ private[daml] object ApiServices {
           apiReflectionService,
           apiHealthService,
           apiVersionService,
-          apiUserManagementService,
+          new UserManagementServiceAuthorization(apiUserManagementService, authorizer),
         )
     }
 

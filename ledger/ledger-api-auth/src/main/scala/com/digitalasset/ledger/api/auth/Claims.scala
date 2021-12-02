@@ -153,6 +153,10 @@ object ClaimSet {
         AuthorizationError.MissingReadClaim(party),
       )
     }
+
+    /** Returns true if the claims likely stem from a standard JWT token. */
+    // FIXME: make this functionality more stable; and name this function better
+    def isStandardJwtToken: Boolean = claims.isEmpty
   }
 
   object Claims {
