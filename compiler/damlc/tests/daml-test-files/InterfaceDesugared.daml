@@ -105,6 +105,7 @@ instance (DA.Internal.Desugar.Implements t Token) =>
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        (DA.Internal.Desugar._typeRepForInterfaceExercise cid)
 
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Noop (()) where
@@ -118,6 +119,7 @@ instance (DA.Internal.Desugar.Implements t Token) =>
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        (DA.Internal.Desugar._typeRepForInterfaceExercise cid)
 
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Transfer (ContractId Token) where
@@ -131,6 +133,7 @@ instance (DA.Internal.Desugar.Implements t Token) =>
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        (DA.Internal.Desugar._typeRepForInterfaceExercise cid)
 
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Split ((ContractId Token,
@@ -147,6 +150,7 @@ instance (DA.Internal.Desugar.Implements t Token) =>
     = GHC.Types.primitive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
+        (DA.Internal.Desugar._typeRepForInterfaceExercise cid)
 
 data GHC.Types.DamlTemplate => GetRich
   = GetRich {byHowMuch : Int}

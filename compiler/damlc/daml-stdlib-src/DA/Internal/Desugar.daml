@@ -5,7 +5,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-
 -- | HIDE Automatically imported qualified in every module.
 module DA.Internal.Desugar (
     module DA.Internal.Template,
@@ -50,11 +49,11 @@ data ImplementsT t i = ImplementsT
 class HasIsInterfaceType t where
   isInterfaceType : proxy t -> Bool
 
-_typeRepForInterfaceExercise : (HasTemplateTypeRep t, HasIsInterfaceType t) => Optional TypeRep
+_typeRepForInterfaceExercise : (HasTemplateTypeRep t, HasIsInterfaceType t) => proxy t -> Optional TypeRep
 _typeRepForInterfaceExercise p =
   if isInterfaceType p
     then None
-    else Some (templateTypeRep )
+    else Some (_templateTypeRep p)
 
 {-
 Together, `HasMethod`, `Method` and `mkMethod` allow us to desugar the methods of
