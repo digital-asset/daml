@@ -765,8 +765,60 @@ object ParticipantStateIntegrationSpecBase {
 
   private val alice = Ref.Party.assertFromString("alice")
 
-  def participantStateFrom(readService: ReadService, writeService: WriteService) = new ReadService
-    with WriteService {
+  private def newLedgerId(): LedgerId =
+    Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
+
+  private def newSubmissionId(): Ref.SubmissionId =
+    Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
+
+  private def transactionMeta(let: Timestamp) =
+    TransactionMeta(
+      ledgerEffectiveTime = let,
+      workflowId = Some(Ref.LedgerString.assertFromString("tests")),
+      submissionTime = let.addMicros(-1000),
+      submissionSeed = crypto.Hash.assertFromString(
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      ),
+      optUsedPackages = Some(Set.empty),
+      optNodeSeeds = None,
+      optByKeyNodes = None,
+    )
+
+  private def matchPackageUpload(
+      update: Update,
+      expectedSubmissionId: Ref.SubmissionId,
+      expectedArchives: List[DamlLf.Archive],
+  ): Assertion =
+    inside(update) {
+      case PublicPackageUpload(
+            actualArchives,
+            actualSourceDescription,
+            _,
+            Some(actualSubmissionId),
+          ) =>
+        actualArchives.map(_.getHash).toSet should be(expectedArchives.map(_.getHash).toSet)
+        actualSourceDescription should be(sourceDescription)
+        actualSubmissionId should be(expectedSubmissionId)
+    }
+
+  private def matchTransaction(update: Update, expectedCommandId: String): Assertion =
+    inside(update) {
+      case TransactionAccepted(
+            Some(CompletionInfo(_, _, actualCommandId, _, _)),
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+          ) =>
+        actualCommandId should be(expectedCommandId)
+    }
+
+  def participantStateFrom(
+      readService: ReadService,
+      writeService: WriteService,
+  ): ReadService with WriteService = new ReadService with WriteService {
     override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
       readService.ledgerInitialConditions()
 
@@ -830,53 +882,4 @@ object ParticipantStateIntegrationSpecBase {
       writeService.allocateParty(hint, displayName, submissionId)
   }
 
-  private def newLedgerId(): LedgerId =
-    Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
-
-  private def newSubmissionId(): Ref.SubmissionId =
-    Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
-
-  private def transactionMeta(let: Timestamp) =
-    TransactionMeta(
-      ledgerEffectiveTime = let,
-      workflowId = Some(Ref.LedgerString.assertFromString("tests")),
-      submissionTime = let.addMicros(-1000),
-      submissionSeed = crypto.Hash.assertFromString(
-        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-      ),
-      optUsedPackages = Some(Set.empty),
-      optNodeSeeds = None,
-      optByKeyNodes = None,
-    )
-
-  private def matchPackageUpload(
-      update: Update,
-      expectedSubmissionId: Ref.SubmissionId,
-      expectedArchives: List[DamlLf.Archive],
-  ): Assertion =
-    inside(update) {
-      case PublicPackageUpload(
-            actualArchives,
-            actualSourceDescription,
-            _,
-            Some(actualSubmissionId),
-          ) =>
-        actualArchives.map(_.getHash).toSet should be(expectedArchives.map(_.getHash).toSet)
-        actualSourceDescription should be(sourceDescription)
-        actualSubmissionId should be(expectedSubmissionId)
-    }
-
-  private def matchTransaction(update: Update, expectedCommandId: String): Assertion =
-    inside(update) {
-      case TransactionAccepted(
-            Some(CompletionInfo(_, _, actualCommandId, _, _)),
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-          ) =>
-        actualCommandId should be(expectedCommandId)
-    }
 }
