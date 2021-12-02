@@ -87,12 +87,6 @@ message Right {
     // The user is allowed to administrate the participant node.
     message ParticipantAdmin {}
 
-    // The user can authorize commands for any party hosted on this participant node.
-    message CanActAsAnyParty {}
-
-    // The user can all read ledger data visible to some party on this participant node.
-    message CanReadAsAnyParty {}
-
     // The user can authorize commands for the given party.
     message CanActAs {
         string party = 1;
@@ -105,9 +99,8 @@ message Right {
 
     oneof kind {
         ParticipantAdmin participant_admin = 1;
-        CanActAsAnyParty can_act_as_any_party = 2;
-        CanActAs can_act_as = 3;
-        CanReadAs can_read_as = 4;
+        CanActAs can_act_as = 2;
+        CanReadAs can_read_as = 3;
     }
 }
 
