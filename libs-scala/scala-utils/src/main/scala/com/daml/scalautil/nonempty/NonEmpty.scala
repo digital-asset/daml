@@ -126,6 +126,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf).toSeq)
     def toSet: NonEmpty[Set[A]] = un((self: ESelf).toSet)
     def toMap[K, V](implicit isPair: A <:< (K, V)): NonEmpty[Map[K, V]] = un((self: ESelf).toMap)
+    def to[C1 <: imm.Iterable[A]](factory: Factory[A, C1]) = un((self: ESelf) to factory)
     // (not so valuable unless also using wartremover to disable partial Seq ops)
     @`inline` def head1: A = self.head
     @`inline` def tail1: C = self.tail

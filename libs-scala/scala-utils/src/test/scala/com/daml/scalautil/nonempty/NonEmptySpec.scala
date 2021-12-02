@@ -114,6 +114,13 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
     }
   }
 
+  "to" should {
+    "accept weird type shapes" in {
+      val sm = NonEmpty(Map, 1 -> 2).to(imm.HashMap)
+      (sm: NonEmpty[imm.HashMap[Int, Int]]) shouldBe an[imm.HashMap[_, _]]
+    }
+  }
+
   "+-:" should {
     val NonEmpty(s) = Vector(1, 2)
 
