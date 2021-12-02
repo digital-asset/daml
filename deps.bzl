@@ -41,6 +41,9 @@ rules_haskell_patches = [
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+    # This can be removed once the following upstream PR has been merged:
+    # https://github.com/tweag/rules_haskell/pull/1648
+    "@com_github_digital_asset_daml//bazel_tools:haskell-cabal-reproducible.patch",
 ]
 rules_nixpkgs_version = "81f61c4b5afcf50665b7073f7fce4c1755b4b9a3"
 rules_nixpkgs_sha256 = "33fd540d0283cf9956d0a5a640acb1430c81539a84069114beaf9640c96d221a"
