@@ -45,6 +45,9 @@ Building applications
    upgrade/index
    app-dev/authorization
    app-dev/ledger-api
+   triggers/index
+   tools/trigger-service/index
+   tools/auth-middleware/index
 
 Deploying to Daml ledgers
 -------------------------
@@ -65,6 +68,7 @@ Operating Daml
    :maxdepth: 2
 
    ops/index
+   ops/connect/index
 
 Developer Tools
 ---------------
@@ -110,11 +114,11 @@ Early Access Features
    :maxdepth: 2
 
    tools/extractor
+   tools/export/index
    daml-integration-kit/index
-   triggers/index
    tools/visual
-   tools/trigger-service
    concepts/interoperability
+   tools/non-repudiation
 
 Daml Ecosystem
 --------------

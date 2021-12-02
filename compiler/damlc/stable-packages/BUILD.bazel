@@ -15,7 +15,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-proto:daml-lf-proto-encode",
         "//compiler/damlc/daml-lf-util",
         "//libs-haskell/da-hs-base",
     ],
@@ -36,7 +36,7 @@ da_haskell_binary(
     deps = [
         ":stable-packages-lib",
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-proto:daml-lf-proto-encode",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -125,4 +125,29 @@ filegroup(
         "daml-stdlib/DA-Validation-Types.dalf",
     ],
     visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "stable-packages-list-srcs",
+    outs = ["DA/Daml/StablePackagesList.hs"],
+    cmd = """
+    $(location :generate-stable-package) gen-package-list -o $(location DA/Daml/StablePackagesList.hs)
+  """,
+    tools = [":generate-stable-package"],
+)
+
+# We generate this as a library rather than depending on :stable-packages-lib
+# to avoid a cyclical dependency between the daml-lf-proto and :stable-packages-lib
+# and to avoid having to encode the packages at runtime to get their package id.
+da_haskell_library(
+    name = "stable-packages-list",
+    srcs = ["DA/Daml/StablePackagesList.hs"],
+    hackage_deps = [
+        "base",
+        "containers",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+    ],
 )

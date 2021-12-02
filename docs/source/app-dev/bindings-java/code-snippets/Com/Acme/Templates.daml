@@ -20,10 +20,10 @@ template Bar
 
     key BarKey owner name : BarKey
     maintainer key.p
-    
-    controller owner can
-      Bar_SomeChoice: Bool
-        with
+
+    choice Bar_SomeChoice: Bool
+      with
         aName: Text
-          do return True
+      controller owner
+      do return True
 -- end snippet: template example

@@ -8,7 +8,18 @@ Safekeeping is a realistic way to model locking as it is a common practice in ma
 
 .. literalinclude:: ../daml/CoinIssuance.daml
   :language: daml
-  :lines: 52-68,77-82
+  :start-after: -- BEGIN_COIN_TEMPLATE_DATATYPE
+  :end-before: -- END_COIN_TEMPLATE_DATATYPE
+
+.. literalinclude:: ../daml/CoinIssuance.daml
+  :language: daml
+  :start-after: -- BEGIN_COIN_TEMPLATE_TRANSFER
+  :end-before: -- END_COIN_TEMPLATE_TRANSFER
+
+.. literalinclude:: ../daml/CoinIssuance.daml
+  :language: daml
+  :start-after: -- BEGIN_COIN_TEMPLATE_ARCHIVE
+  :end-before: -- END_COIN_TEMPLATE_ARCHIVE
 
 There is no need to make a change to the original contract. With two additional contracts, we can transfer the *Coin* ownership to a locker party.
 
@@ -20,13 +31,15 @@ There is no need to make a change to the original contract. With two additional 
 
 .. literalinclude:: ../daml/LockingBySafekeeping.daml
   :language: daml
-  :lines: 49-66
+  :start-after: -- BEGIN_LOCK_REQUEST_TEMPLATE
+  :end-before: -- END_LOCK_REQUEST_TEMPLATE
 
 * *LockedCoinV2* represents *Coin* in the locked state. It is fairly similar to the *LockedCoin* described in :ref:`lockingbyConsumingChoice`.  The additional logic is to transfer ownership from the locker back to the owner when *Unlock* or *Clawback* is called.
 
 .. literalinclude:: ../daml/LockingBySafekeeping.daml
   :language: daml
-  :lines: 19-47
+  :start-after: -- BEGIN_LOCKED_COIN_V2_TEMPLATE
+  :end-before: -- END_LOCKED_COIN_V2_TEMPLATE
 
 .. figure:: ../images/lockingBySafekeeping.png
 

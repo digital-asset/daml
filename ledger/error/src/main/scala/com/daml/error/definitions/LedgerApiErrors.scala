@@ -542,13 +542,18 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "INVALID_DEDUPLICATION_PERIOD",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      case class Reject(_reason: String, _maxDeduplicationDuration: Duration)(implicit
+      case class Reject(
+          _reason: String,
+          _maxDeduplicationDuration: Option[Duration],
+      )(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause = s"The submitted command had an invalid deduplication period: ${_reason}"
           ) {
         override def context: Map[String, String] =
-          super.context + ("max_deduplication_duration" -> _maxDeduplicationDuration.toString)
+          super.context ++ _maxDeduplicationDuration
+            .map("max_deduplication_duration" -> _.toString)
+            .toList
       }
     }
 

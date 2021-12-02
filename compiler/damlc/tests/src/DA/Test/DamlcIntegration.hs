@@ -11,7 +11,6 @@ module DA.Test.DamlcIntegration
 import           DA.Bazel.Runfiles
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
-import           DA.Daml.UtilLF
 import           DA.Test.Util (standardizeQuotes)
 
 import           DA.Daml.LF.Ast as LF hiding (IsTest)
@@ -24,6 +23,7 @@ import           Control.Exception.Extra
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           DA.Daml.LF.Proto3.EncodeV1
+import qualified DA.Daml.LF.Proto3.Archive.Encode as Archive
 import           DA.Pretty hiding (first)
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Service.Logger as Logger
@@ -34,6 +34,7 @@ import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..))
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
 import qualified Data.Aeson.Encode.Pretty as A
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.Char
 import qualified Data.DList as DList
@@ -383,7 +384,7 @@ mainProj service outdir log file = do
     -- NOTE (MK): For some reason ghcide’s `prettyPrint` seems to fall over on Windows with `commitBuffer: invalid argument`.
     -- With `fakeDynFlags` things seem to work out fine.
     let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . showSDoc fakeDynFlags . ppr
-    let lfSave = timed log "LF saving" . liftIO . writeFileLf (outdir </> proj <.> "dalf")
+    let lfSave = timed log "LF saving" . liftIO . BS.writeFile (outdir </> proj <.> "dalf") . Archive.encodeArchive
     let lfPrettyPrint = timed log "LF pretty-printing" . liftIO . writeFile (outdir </> proj <.> "pdalf") . renderPretty
     let jsonSave pkg =
             let json = A.encodePretty $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions

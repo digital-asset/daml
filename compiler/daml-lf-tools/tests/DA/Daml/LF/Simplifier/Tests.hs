@@ -89,7 +89,6 @@ constantLiftingTests = testGroup "Constant Lifting"
     dval name ty body = DefValue
         { dvalLocation = Nothing
         , dvalBinder = (ExprValName name, ty)
-        , dvalNoPartyLiterals = HasNoPartyLiterals True
         , dvalIsTest = IsTest False
         , dvalBody = body
         }

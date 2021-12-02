@@ -106,8 +106,14 @@ genrule(
     cmd = """
         cp -rL docs/source source
 
-        cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file)      source/app-dev/grpc/error-codes-inventory.rst
-        cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) source/app-dev/grpc/error-categories-inventory.rst
+        # Copy in error inventories
+        #
+        # These files are meant to be only included into other .rst files and so
+        # in order to prevent Sphinx from recognizing them as source files
+        # we append an '.inc' suffix. (See `source_suffix` in `conf.py`.)
+        cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file)      source/app-dev/grpc/error-codes-inventory.rst.inc
+        cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) source/app-dev/grpc/error-categories-inventory.rst.inc
+
         # Copy in Stdlib
         mkdir -p source/daml/stdlib
         tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \\

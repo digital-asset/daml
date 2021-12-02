@@ -320,7 +320,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       fieldName: String,
       message: String,
       definiteAnswer: Option[Boolean],
-      maxDeduplicationDuration: Duration,
+      maxDeduplicationDuration: Option[Duration],
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       legacyInvalidField(fieldName, message, definiteAnswer),

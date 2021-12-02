@@ -164,6 +164,10 @@ final class Conversions(
                     .setContractRef(mkContractRef(coid, actual))
                     .setExpected(convertIdentifier(expected))
                 )
+              case _: ContractDoesNotImplementInterface =>
+                // TODO https://github.com/digital-asset/daml/issues/10810
+                //   Implement this.
+                builder.setCrash(s"ContractDoesNotImplementInterface unhandled in scenario service")
               case FailedAuthorization(nid, fa) =>
                 builder.setScenarioCommitError(
                   proto.CommitError.newBuilder
@@ -180,8 +184,16 @@ final class Conversions(
                 builder.setCrash(s"Contract Id comparability Error")
               case NonComparableValues =>
                 builder.setComparableValueError(proto.Empty.newBuilder)
-              case ValueExceedsMaxNesting =>
-                builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
+              case Limit(limitError) =>
+                limitError match {
+                  case Limit.ValueNesting(_) =>
+                    builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
+                  // TODO https://github.com/digital-asset/daml/issues/11691
+                  //   Handle the other cases properly.
+                  case _ =>
+                    builder.setCrash(s"A limit was overpass when building the transaction")
+                }
+
               case _: ChoiceGuardFailed =>
                 // TODO https://github.com/digital-asset/daml/issues/11703
                 //   Implement this.

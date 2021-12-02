@@ -961,7 +961,7 @@ private[lf] object SBuiltin {
           byInterface = byInterface,
         )
 
-      machine.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
+      onLedger.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
       onLedger.ptx = newPtx
       checkAborted(onLedger.ptx)
       machine.returnValue = SContractId(coid)
@@ -1002,8 +1002,9 @@ private[lf] object SBuiltin {
       val sigs = cached.signatories
       val templateObservers = cached.observers
       val ctrls = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
-      val choiceObservers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
-
+      onLedger.enforceChoiceControllersLimit(ctrls, coid, templateId, choiceId, chosenValue)
+      val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
+      onLedger.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
       val mbKey = cached.key
       val auth = machine.auth
 
@@ -1018,7 +1019,7 @@ private[lf] object SBuiltin {
           actingParties = ctrls,
           signatories = sigs,
           stakeholders = sigs union templateObservers,
-          choiceObservers = choiceObservers,
+          choiceObservers = obsrs,
           mbKey = mbKey,
           byKey = byKey,
           chosenValue = chosenValue,
@@ -1097,27 +1098,54 @@ private[lf] object SBuiltin {
   }
 
   // Similar to SBUFetch but is never performed "by key".
-  final case class SBUFetchInterface(ifaceId: TypeConName) extends OnLedgerBuiltin(1) {
+  final case class SBUFetchInterface(ifaceId: TypeConName) extends OnLedgerBuiltin(2) {
     override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
     ): Unit = {
       val coid = getSContractId(args, 0)
+      val expectedTemplateIdOpt = getSOptional(args, 1).map(typeRep =>
+        typeRep match {
+          case STypeRep(Ast.TTyCon(tpl)) => tpl
+          case STypeRep(_) =>
+            throw SErrorDamlException(IE.UserError("unexpected typerep during interface fetch"))
+          case _ =>
+            crash(s"expected a typerep in SBUFetchInterface")
+        }
+      )
+
+      def checkTemplateId(actualTemplateId: TypeConName)(onSuccess: => Unit): Unit = {
+        // NOTE(Sofia): We can't throw directly here, because this is run
+        // in the SpeedyHungry callback. See the comment on SEDamlException.
+        val expectedTemplateId = expectedTemplateIdOpt.getOrElse(actualTemplateId)
+        if (actualTemplateId != expectedTemplateId) {
+          machine.ctrl = SEDamlException(
+            IE.WronglyTypedContract(coid, expectedTemplateId, actualTemplateId)
+          )
+        } else if (
+          machine.compiledPackages
+            .getDefinition(ImplementsDefRef(actualTemplateId, ifaceId))
+            .isEmpty
+        ) {
+          machine.ctrl = SEDamlException(
+            IE.ContractDoesNotImplementInterface(
+              interfaceId = ifaceId,
+              coid = coid,
+              templateId = actualTemplateId,
+            )
+          )
+        } else {
+          onSuccess
+        }
+      }
+
       onLedger.cachedContracts.get(coid) match {
-        case Some(cached) =>
-          machine.compiledPackages.getDefinition(
-            ImplementsDefRef(cached.templateId, ifaceId)
-          ) match {
-            case Some(_) =>
-              machine.returnValue = cached.value
-            case None =>
-              machine.ctrl = SEDamlException(
-                // TODO https://github.com/digital-asset/daml/issues/10810:
-                //   Create a more specific exception.
-                IE.WronglyTypedContract(coid, ifaceId, cached.templateId)
-              )
+        case Some(cached) => {
+          checkTemplateId(cached.templateId) {
+            machine.returnValue = cached.value
           }
+        }
         case None =>
           throw SpeedyHungry(
             SResultNeedContract(
@@ -1125,25 +1153,17 @@ private[lf] object SBuiltin {
               ifaceId,
               onLedger.committers,
               { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
-                machine.compiledPackages.getDefinition(
-                  ImplementsDefRef(actualTmplId, ifaceId)
-                ) match {
-                  case Some(_) =>
-                    machine.pushKont(KCacheContract(machine, actualTmplId, coid))
-                    machine.ctrl = SELet1(
-                      SEImportValue(Ast.TTyCon(actualTmplId), arg),
-                      cachedContractStruct(
-                        SELocS(1),
-                        SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
-                        SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
-                        SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1))),
-                      ),
-                    )
-                  case None =>
-                    machine.ctrl =
-                      // TODO https://github.com/digital-asset/daml/issues/10810:
-                      //   Create a more specific exception.
-                      SEDamlException(IE.WronglyTypedContract(coid, ifaceId, actualTmplId))
+                checkTemplateId(actualTmplId) {
+                  machine.pushKont(KCacheContract(machine, actualTmplId, coid))
+                  machine.ctrl = SELet1(
+                    SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                    cachedContractStruct(
+                      SELocS(1),
+                      SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
+                      SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
+                      SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1))),
+                    ),
+                  )
                 }
               },
             )
@@ -1170,19 +1190,12 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case class SBGuardTemplateId(
-      templateId: TypeConName
-  ) extends SBuiltin(2) {
-    override private[speedy] def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Unit = {
-      val coid = getSContractId(args, 0)
-      val record = getSRecord(args, 1)
-      if (record.id != templateId)
-        machine.ctrl = SEDamlException(IE.WronglyTypedContract(coid, templateId, record.id))
-      else
-        machine.returnValue = SBool(true)
+  final case object SBGuardConstTrue extends SBuiltinPure(1) {
+    override private[speedy] def executePure(
+        args: util.ArrayList[SValue]
+    ): SBool = {
+      discard(getSRecord(args, 0))
+      SBool(true)
     }
   }
 

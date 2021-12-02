@@ -3,6 +3,8 @@
 
 package com.daml.platform.server.api.services.grpc
 
+import java.time.{Duration, Instant}
+
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
@@ -16,7 +18,6 @@ import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 
-import java.time.{Duration, Instant}
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcCommandService(
@@ -39,58 +40,30 @@ class GrpcCommandService(
     FieldValidations(ErrorFactories(errorCodesVersionSwitcher)),
   )
 
-  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
-    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
-    validator
-      .validate(
-        requestWithSubmissionId,
-        currentLedgerTime(),
-        currentUtcTime(),
-        maxDeduplicationTime(),
-      )(contextualizedErrorLogger(requestWithSubmissionId))
-      .fold(
-        t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
-        _ => service.submitAndWait(requestWithSubmissionId),
-      )
-  }
+  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
+    enrichRequestAndSubmit(request)(service.submitAndWait)
 
   override def submitAndWaitForTransactionId(
       request: SubmitAndWaitRequest
-  ): Future[SubmitAndWaitForTransactionIdResponse] = {
-    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
-    validator
-      .validate(
-        requestWithSubmissionId,
-        currentLedgerTime(),
-        currentUtcTime(),
-        maxDeduplicationTime(),
-      )(contextualizedErrorLogger(requestWithSubmissionId))
-      .fold(
-        t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
-        _ => service.submitAndWaitForTransactionId(requestWithSubmissionId),
-      )
-  }
+  ): Future[SubmitAndWaitForTransactionIdResponse] =
+    enrichRequestAndSubmit(request)(service.submitAndWaitForTransactionId)
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest
-  ): Future[SubmitAndWaitForTransactionResponse] = {
-    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
-    validator
-      .validate(
-        requestWithSubmissionId,
-        currentLedgerTime(),
-        currentUtcTime(),
-        maxDeduplicationTime(),
-      )(contextualizedErrorLogger(requestWithSubmissionId))
-      .fold(
-        t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
-        _ => service.submitAndWaitForTransaction(requestWithSubmissionId),
-      )
-  }
+  ): Future[SubmitAndWaitForTransactionResponse] =
+    enrichRequestAndSubmit(request)(service.submitAndWaitForTransaction)
 
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
-  ): Future[SubmitAndWaitForTransactionTreeResponse] = {
+  ): Future[SubmitAndWaitForTransactionTreeResponse] =
+    enrichRequestAndSubmit(request)(service.submitAndWaitForTransactionTree)
+
+  override def bindService(): ServerServiceDefinition =
+    CommandServiceGrpc.bindService(this, executionContext)
+
+  private def enrichRequestAndSubmit[T](
+      request: SubmitAndWaitRequest
+  )(submit: SubmitAndWaitRequest => Future[T]): Future[T] = {
     val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
     validator
       .validate(
@@ -101,12 +74,9 @@ class GrpcCommandService(
       )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
-        _ => service.submitAndWaitForTransactionTree(requestWithSubmissionId),
+        _ => submit(requestWithSubmissionId),
       )
   }
-
-  override def bindService(): ServerServiceDefinition =
-    CommandServiceGrpc.bindService(this, executionContext)
 
   private def generateSubmissionIdIfEmpty(request: SubmitAndWaitRequest): SubmitAndWaitRequest =
     if (request.commands.exists(_.submissionId.isEmpty)) {

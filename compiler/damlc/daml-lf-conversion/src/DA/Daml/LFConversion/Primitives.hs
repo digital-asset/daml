@@ -339,6 +339,10 @@ convertPrim _ "UExerciseInterface"
     ETmLam (mkVar "this", TContractId (TCon iface)) $
     ETmLam (mkVar "arg", TCon choice) $
     EUpdate $ UExerciseInterface iface choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
+        -- TODO https://github.com/digital-asset/daml/issues/11703
+        --   Pass the typeRep and guard arguments in from daml.
+        (ENone TTypeRep)
+        (ETmLam (mkVar "payload", TCon iface) (EBuiltin (BEBool True)))
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 

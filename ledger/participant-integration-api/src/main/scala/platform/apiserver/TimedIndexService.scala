@@ -29,6 +29,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
@@ -229,6 +230,17 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
     Timed.future(
       metrics.daml.services.index.prune,
       delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
+    )
+
+  override def getCompletions(
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset,
+      applicationId: ApplicationId,
+      parties: Set[Party],
+  )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
+    Timed.source(
+      metrics.daml.services.index.getCompletionsLimited,
+      delegate.getCompletions(startExclusive, endInclusive, applicationId, parties),
     )
 
   override def currentHealth(): HealthStatus =

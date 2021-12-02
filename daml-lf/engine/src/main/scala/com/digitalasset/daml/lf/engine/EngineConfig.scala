@@ -35,6 +35,7 @@ final case class EngineConfig(
     contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
     forbidV0ContractId: Boolean = false,
     requireSuffixedGlobalContractId: Boolean = false,
+    limits: interpretation.Limits = interpretation.Limits.Lenient,
 ) {
 
   private[lf] def getCompilerConfig: speedy.Compiler.Config =

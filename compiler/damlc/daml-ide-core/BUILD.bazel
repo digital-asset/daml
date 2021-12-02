@@ -54,6 +54,8 @@ da_haskell_library(
         "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-proto:daml-lf-proto-decode",
+        "//compiler/daml-lf-proto:daml-lf-proto-encode",
         "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
         "//compiler/damlc/daml-doctest",

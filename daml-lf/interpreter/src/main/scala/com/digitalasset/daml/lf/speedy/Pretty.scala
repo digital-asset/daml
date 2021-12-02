@@ -81,6 +81,12 @@ private[lf] object Pretty {
           ) & prettyTypeConName(
             actual
           )
+      case ContractDoesNotImplementInterface(interfaceId, coid, templateId) =>
+        text("Update failed due to contract") & prettyContractId(coid) & text(
+          "not implementing an interface"
+        ) /
+          text("Expected contract to implement interface") & prettyTypeConName(interfaceId) &
+          text("but contract has type") & prettyTypeConName(templateId)
       case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
         text("Update failed due to a contract key with an empty sey of maintainers when creating") &
           prettyTypeConName(tid) & text("with") & prettyValue(true)(arg) /
@@ -101,8 +107,44 @@ private[lf] object Pretty {
       case ContractIdInContractKey(key) =>
         text("Contract IDs are not supported in contract keys:") &
           prettyContractId(key.cids.head)
-      case ValueExceedsMaxNesting =>
-        text(s"Value exceeds maximum nesting value of 100")
+      case Limit(error) =>
+        error match {
+          case Limit.ValueNesting(limit) =>
+            text(s"Value exceeds maximum nesting value of $limit")
+          case Limit.ContractSignatories(cid @ _, templateId, arg @ _, signatories, limit) =>
+            text(
+              s"Create Fetch or exercise a Contract of type $templateId with ${signatories.size} signatories but the limit is $limit"
+            )
+          case Limit.ContractObservers(cid @ _, templateId, arg @ _, observers, limit) =>
+            text(
+              s"Create Fetch or exercise a Contract of type $templateId  ${observers.size} observes but the limit is $limit"
+            )
+          case Limit.ChoiceControllers(
+                cid @ _,
+                templateId,
+                choiceName,
+                arg @ _,
+                controllers,
+                limit,
+              ) =>
+            text(
+              s"Exercise the choice $templateId:$choiceName with ${controllers.size} controllers but the limit is $limit"
+            )
+          case Limit.ChoiceObservers(
+                cid @ _,
+                templateId,
+                choiceName,
+                arg @ _,
+                observers,
+                limit,
+              ) =>
+            text(
+              s"Exercise the choice $templateId:$choiceName with ${observers.size} observers but the limit is $limit"
+            )
+          case Limit.TransactionInputContracts(limit) =>
+            text(s"Transaction exceeds maximum input contract number of $limit")
+        }
+
       case ChoiceGuardFailed(cid, templateId, choiceName, byInterface) => (
         text(s"Choice guard failed for") & prettyTypeConName(templateId) &
           text(s"contract") & prettyContractId(cid) &

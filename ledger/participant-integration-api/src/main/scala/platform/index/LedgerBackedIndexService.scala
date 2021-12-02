@@ -194,6 +194,17 @@ private[platform] final class LedgerBackedIndexService(
     }
   }
 
+  override def getCompletions(
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset,
+      applicationId: ApplicationId,
+      parties: Set[Party],
+  )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] = {
+    between(startExclusive, Some(endInclusive))((start, end) =>
+      ledger.completions(start, end, applicationId, parties).map(_._2)
+    )
+  }
+
   // IndexPackagesService
   override def listLfPackages()(implicit
       loggingContext: LoggingContext

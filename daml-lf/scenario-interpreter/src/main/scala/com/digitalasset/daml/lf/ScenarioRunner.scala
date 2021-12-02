@@ -174,7 +174,7 @@ object ScenarioRunner {
       scenarioDef: Ast.Definition,
   ): Ast.Expr = {
     scenarioDef match {
-      case Ast.DValue(_, _, body, _) => body
+      case Ast.DValue(_, body, _) => body
       case _: Ast.DTypeSyn =>
         throw new RuntimeException(
           s"Requested scenario $scenarioRef is a type synonym, not a definition"
@@ -435,6 +435,7 @@ object ScenarioRunner {
       traceLog = traceLog,
       warningLog = warningLog,
       commitLocation = location,
+      limits = interpretation.Limits.Lenient,
     )
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     val enricher = if (doEnrichment) new EnricherImpl(compiledPackages) else NoEnricher

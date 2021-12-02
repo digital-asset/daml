@@ -653,6 +653,7 @@ final class Metrics(val registry: MetricRegistry) {
         val getLedgerConfiguration: Timer = registry.timer(Prefix :+ "get_ledger_configuration")
         val currentLedgerEnd: Timer = registry.timer(Prefix :+ "current_ledger_end")
         val getCompletions: Timer = registry.timer(Prefix :+ "get_completions")
+        val getCompletionsLimited: Timer = registry.timer(Prefix :+ "get_completions_limited")
         val transactions: Timer = registry.timer(Prefix :+ "transactions")
         val transactionTrees: Timer = registry.timer(Prefix :+ "transaction_trees")
         val getTransactionById: Timer = registry.timer(Prefix :+ "get_transaction_by_id")

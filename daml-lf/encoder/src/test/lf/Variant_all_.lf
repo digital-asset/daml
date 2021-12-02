@@ -18,7 +18,10 @@ module VariantMod {
     VariantMod:Either Int64 (Numeric 10)->
       Scenario (ContractId VariantMod:Box)
     = \ (x: VariantMod:Either Int64 (Numeric 10)) ->
-        commit @(ContractId VariantMod:Box) 'Bob' (create @VariantMod:Box (VariantMod:Box { x = x, party = 'Bob' }));
+        sbind
+          bob : Party <- sget_party "Bob"
+        in
+          commit @(ContractId VariantMod:Box) bob (create @VariantMod:Box (VariantMod:Box { x = x, party = bob }));
 
   val either1: VariantMod:Either Int64 (Numeric 10) =
     VariantMod:Either:Left @Int64 @(Numeric 10) 0;

@@ -47,13 +47,13 @@ Choice name
    :language: daml
    :start-after: -- start controller-first choice name snippet
    :end-before: -- end controller-first choice name snippet
-   :caption: Option 2 for specifying choices: controller first
+   :caption: Option 2 for specifying choices (deprecated syntax): controller first
 
 
 - The name of the choice. Must begin with a capital letter.
 - If you're using choice-first, preface with ``choice``. Otherwise, this isn't needed.
 - Must be unique in your project. Choices in different templates can't have the same name.
-- If you're using controller-first, you can have multiple choices after one ``can``, for tidiness.
+- If you're using controller-first, you can have multiple choices after one ``can``, for tidiness. However, note that this syntax is deprecated and will be removed in a future version of Daml.
 
 .. _daml-ref-controllers:
 
@@ -70,7 +70,7 @@ Controllers
    :language: daml
    :start-after: -- start controller-first controller snippet
    :end-before: -- end controller-first controller snippet
-   :caption: Option 2 for specifying choices: controller first
+   :caption: Option 2 for specifying choices (deprecated syntax): controller first
 
 - ``controller`` keyword
 - The controller is a comma-separated list of values, where each value is either a party or a collection of parties.
@@ -97,7 +97,7 @@ Preconsuming choices
    :language: daml
    :start-after: -- start controller-first preconsuming snippet
    :end-before: -- end controller-first preconsuming snippet
-   :caption: Option 2 for specifying choices: controller first
+   :caption: Option 2 for specifying choices (deprecated syntax): controller first
 
 - ``preconsuming`` keyword. Optional.
 - Makes a choice pre-consuming: the contract is archived before the body of the exercise is executed.
@@ -119,7 +119,7 @@ Postconsuming choices
    :language: daml
    :start-after: -- start controller-first postconsuming snippet
    :end-before: -- end controller-first postconsuming snippet
-   :caption: Option 2 for specifying choices: controller first
+   :caption: Option 2 for specifying choices (deprecated syntax): controller first
 
 - ``postconsuming`` keyword. Optional.
 - Makes a choice post-consuming: the contract is archived after the body of the exercise is executed.
@@ -140,7 +140,7 @@ Non-consuming choices
    :language: daml
    :start-after: -- start controller-first nonconsuming snippet
    :end-before: -- end controller-first nonconsuming snippet
-   :caption: Option 2 for specifying choices: controller first
+   :caption: Option 2 for specifying choices (deprecated syntax): controller first
 
 - ``nonconsuming`` keyword. Optional.
 - Makes a choice non-consuming: that is, exercising the choice does not archive the contract.
@@ -179,4 +179,4 @@ Choice body
 - Introduced with ``do``
 - The logic in this section is what is executed when the choice gets exercised.
 - The choice body contains ``Update`` expressions. For detail on this, see :doc:`updates`.
-- By default, the last expression in the choice is returned. You can return multiple updates in tuple form or in a custom data type. To return something that isn't of type ``Update``, use the ``return`` keyword. 
+- By default, the last expression in the choice is returned. You can return multiple updates in tuple form or in a custom data type. To return something that isn't of type ``Update``, use the ``return`` keyword.

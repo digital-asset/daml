@@ -24,7 +24,8 @@ This error occurs when you're using a function as a parameter to a template. For
 
 .. literalinclude:: code-snippets/troubleshooting/ObligableErrors.daml
   :language: daml
-  :lines: 125-135
+  :start-after: -- BEGIN_NOT_SERIALIZABLE_TEMPLATE
+  :end-before: -- END_NOT_SERIALIZABLE_TEMPLATE
 
 Hovering over the compilation error displays:
 

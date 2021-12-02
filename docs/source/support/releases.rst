@@ -2,12 +2,12 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Releases and Versioning
-=======================
+#######################
 
 .. _versioning:
 
 Versioning
-----------
+**********
 
 All Daml components follow `Semantic Versioning <https://semver.org/>`_. In short, this means that there is a well defined "public API", changes or breakages to which are indicated by the version number.
 
@@ -20,7 +20,7 @@ Stable releases have versions MAJOR.MINOR.PATCH. Segments of the version are inc
 Daml's "public API" is laid out in the :doc:`overview`.
 
 Cadence
--------
+*******
 
 Regular snapshot releases are made every Wednesday, with additional snapshots released as needed. These releases contain Daml Connect and Integration Components, both from the `daml repository <https://github.com/digital-asset/daml>`_ as well as some others.
 
@@ -33,28 +33,28 @@ Individual Daml drivers follow their own release cadence, using already released
 .. _support_duration:
 
 Support Duration
-----------------
+****************
 
 Major versions will be supported for a minimum of one year after a subsequent Major version is release. Within a major version, only the latest minor version receives security and bug fixes.
 
 .. _release-notes:
 
 Release Notes
--------------
+*************
 
 Release notes for each release are published on the `Release Notes section of the Daml Driven blog <https://daml.com/release-notes/>`_.
 
 .. _roadmap:
 
 Roadmap
--------
+*******
 
 Once a month Digital Asset publishes a community update to accompany the announcement of the release candidate for the next release. The community update contains a section outlining the next priorities for development. You can find community updates on the `Daml Driven Blog <https://daml.com/blog/engineering>`_, or subscribe to the mailing list or social media profiles on `https://daml.com/ <https://daml.com/>`_ to stay up to date.
 
 .. _release_process:
 
 Process
--------
+*******
 
 Weekly snapshot and monthly stable releases follow a regular process and schedule. The process is documented `in the Daml repository <https://github.com/digital-asset/daml/blob/main/release/RELEASE.md>`_ so only the schedule for monthly releases is covered here.
 

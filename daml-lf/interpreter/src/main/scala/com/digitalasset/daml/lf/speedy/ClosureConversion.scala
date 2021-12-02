@@ -20,42 +20,45 @@ private[speedy] object ClosureConversion {
 
   private[speedy] def closureConvert(source0: source.SExpr): target.SExpr = {
 
-    // TODO: Recode the 'Env' management to avoid the polynomial-complexity of 'shift'. Issue #11830
-    case class Env(depth: Int, mapping: Map[Int, target.SELoc]) {
+    case class Abs(a: Int) // absolute variable index, determined by tracking sourceDepth
 
-      def lookup(i: Int): target.SELoc =
-        mapping.get(i) match {
+    case class Env(sourceDepth: Int, mapping: Map[Abs, target.SELoc], targetDepth: Int) {
+
+      def lookup(abs: Abs): target.SELoc = {
+        mapping.get(abs) match {
           case Some(loc) => loc
           case None =>
-            throw sys.error(s"lookup($i),in:$mapping")
+            throw sys.error(s"lookup($abs),in:$mapping")
         }
+      }
 
-      def shift(n: Int): Env = {
-        // We just update the keys of the map (the relative-indexes from the original SEVar)
-        val m1 = mapping.map { case (k, loc) => (n + k, loc) }
-        // And create mappings for the `n` new stack items
-        val m2 = (1 to n).view.map { rel =>
-          val abs = this.depth + n - rel
-          (rel, target.SELocAbsoluteS(abs))
+      def extend(n: Int): Env = {
+        // Create mappings for `n` new stack items, and combine with the (unshifted!) existing mapping.
+        val m2 = (0 until n).view.map { i =>
+          val abs = Abs(sourceDepth + i)
+          (abs, target.SELocAbsoluteS(targetDepth + i))
         }
-        Env(this.depth + n, m1 ++ m2)
+        Env(sourceDepth + n, mapping ++ m2, targetDepth + n)
+      }
+
+      def absBody(arity: Int, fvs: List[Abs]): Env = {
+        val newRemapsF: Map[Abs, target.SELoc] = fvs.view.zipWithIndex.map { case (abs, i) =>
+          abs -> target.SELocF(i)
+        }.toMap
+        val newRemapsA = (0 until arity).view.map { case i =>
+          val abs = Abs(sourceDepth + i)
+          abs -> target.SELocA(i)
+        }
+        // The keys in newRemapsF and newRemapsA are disjoint
+        val m1 = newRemapsF ++ newRemapsA
+        // Only targetDepth is reset to 0 in an abstraction body
+        Env(sourceDepth + arity, m1, 0)
       }
     }
 
     object Env {
       def apply(): Env = {
-        Env(0, Map.empty)
-      }
-      def absBody(arity: Int, fvs: List[Int]): Env = {
-        val newRemapsF: Map[Int, target.SELoc] = fvs.view.zipWithIndex.map { case (orig, i) =>
-          (orig + arity) -> target.SELocF(i)
-        }.toMap
-        val newRemapsA = (1 to arity).view.map { case i =>
-          i -> target.SELocA(arity - i)
-        }
-        // The keys in newRemapsF and newRemapsA are disjoint
-        val m1 = newRemapsF ++ newRemapsA
-        Env(0, m1)
+        Env(0, Map.empty, 0)
       }
     }
 
@@ -173,7 +176,10 @@ private[speedy] object ClosureConversion {
         // Going Down: match on expression form...
         case Down(exp, env) =>
           exp match {
-            case source.SEVar(i) => loop(Up(env.lookup(i)), conts)
+            case source.SEVar(r) =>
+              val abs = Abs(env.sourceDepth - r)
+              loop(Up(env.lookup(abs)), conts)
+
             case source.SEVal(x) => loop(Up(target.SEVal(x)), conts)
             case source.SEBuiltin(x) => loop(Up(target.SEBuiltin(x)), conts)
             case source.SEValue(x) => loop(Up(target.SEValue(x)), conts)
@@ -182,9 +188,11 @@ private[speedy] object ClosureConversion {
               loop(Down(body, env), Cont.Location(loc) :: conts)
 
             case source.SEAbs(arity, body) =>
-              val fvsAsListInt = freeVars(body, arity).toList.sorted
-              val fvs = fvsAsListInt.map(i => env.lookup(i))
-              loop(Down(body, Env.absBody(arity, fvsAsListInt)), Cont.Abs(arity, fvs) :: conts)
+              val fvsAsListAbs = freeVars(body, arity).toList.sorted.map { r =>
+                Abs(env.sourceDepth - r)
+              }
+              val fvs = fvsAsListAbs.map { abs => env.lookup(abs) }
+              loop(Down(body, env.absBody(arity, fvsAsListAbs)), Cont.Abs(arity, fvs) :: conts)
 
             case source.SEApp(fun, args) =>
               loop(Down(fun, env), Cont.App1(env, args) :: conts)
@@ -255,7 +263,8 @@ private[speedy] object ClosureConversion {
                       loop(Up(target.SECase(scrut, Nil)), conts)
                     case source.SCaseAlt(pat, rhs) :: alts =>
                       val n = pat.numArgs
-                      loop(Down(rhs, env.shift(n)), Cont.Case2(scrut, Nil, pat, env, alts) :: conts)
+                      val env1 = env.extend(n)
+                      loop(Down(rhs, env1), Cont.Case2(scrut, Nil, pat, env, alts) :: conts)
                   }
 
                 case Cont.Case2(scrut, altsDone0, pat, env, alts) =>
@@ -265,14 +274,14 @@ private[speedy] object ClosureConversion {
                       loop(Up(target.SECase(scrut, altsDone.reverse)), conts)
                     case source.SCaseAlt(pat, rhs) :: alts =>
                       val n = pat.numArgs
-                      val env1 = env.shift(n)
+                      val env1 = env.extend(n)
                       loop(Down(rhs, env1), Cont.Case2(scrut, altsDone, pat, env, alts) :: conts)
                   }
 
                 case Cont.Let1(boundsDone0, env, bounds, body) =>
                   val boundsDone = result :: boundsDone0
-                  val depth = boundsDone.length
-                  val env1 = env.shift(depth)
+                  val n = boundsDone.length
+                  val env1 = env.extend(n)
                   bounds match {
                     case Nil =>
                       loop(Down(body, env1), Cont.Let2(boundsDone) :: conts)
@@ -286,7 +295,7 @@ private[speedy] object ClosureConversion {
 
                 case Cont.TryCatch1(env, handler) =>
                   val body = result
-                  loop(Down(handler, env.shift(1)), Cont.TryCatch2(body) :: conts)
+                  loop(Down(handler, env.extend(1)), Cont.TryCatch2(body) :: conts)
 
                 case Cont.TryCatch2(body) =>
                   val handler = result
@@ -310,45 +319,56 @@ private[speedy] object ClosureConversion {
     loop(Down(source0, Env()), Nil)
   }
 
-  // TODO: Recode to avoid polynomial-complexity of 'freeVars' computation. Issue #11830
-
   /** Compute the free variables in a speedy expression.
-    * The returned free variables are de bruijn indices
-    * adjusted to the stack of the caller.
+    * The returned free variables are de bruijn indices adjusted to the stack of the caller.
     */
-  private[this] def freeVars(expr: source.SExpr, initiallyBound: Int): Set[Int] = {
-    // @tailrec // TODO: This implementation is not stack-safe. Issue #11830
-    def go(expr: source.SExpr, bound: Int, free: Set[Int]): Set[Int] =
-      expr match {
-        case source.SEVar(i) =>
-          if (i > bound) free + (i - bound) else free /* adjust to caller's environment */
-        case _: source.SEVal => free
-        case _: source.SEBuiltin => free
-        case _: source.SEValue => free
-        case source.SELocation(_, body) =>
-          go(body, bound, free)
-        case source.SEApp(fun, args) =>
-          args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
-        case source.SEAbs(n, body) =>
-          go(body, bound + n, free)
-        case source.SECase(scrut, alts) =>
-          alts.foldLeft(go(scrut, bound, free)) { case (acc, source.SCaseAlt(pat, body)) =>
-            val n = pat.numArgs
-            go(body, bound + n, acc)
+  private[this] def freeVars(expr0: source.SExpr, depth0: Int): Set[Int] = {
+    @tailrec // woo hoo, stack safe!
+    def go(acc: Set[Int], work: List[(source.SExpr, Int)]): Set[Int] = {
+      // 'acc' is the (accumulated) set of free variables we have found so far.
+      // 'work' is a list of source expressions (paired with their depth) which we still have to process.
+      work match {
+        case Nil => acc // final result
+        case (expr, depth) :: work => {
+          expr match {
+            case source.SEVar(rel) =>
+              if (rel > depth) {
+                val callerRel = rel - depth // adjust to caller's environment
+                go(acc + callerRel, work)
+              } else {
+                go(acc, work)
+              }
+            case _: source.SEVal => go(acc, work)
+            case _: source.SEBuiltin => go(acc, work)
+            case _: source.SEValue => go(acc, work)
+            case source.SELocation(_, body) =>
+              go(acc, (body, depth) :: work)
+            case source.SEApp(fun, args) =>
+              go(acc, (fun :: args).map(e => (e, depth)) ++ work)
+            case source.SEAbs(n, body) =>
+              go(acc, (body, depth + n) :: work)
+            case source.SECase(scrut, alts) =>
+              val moreWork = alts.map { case source.SCaseAlt(pat, body) =>
+                val n = pat.numArgs
+                (body, depth + n)
+              }
+              go(acc, (scrut, depth) :: moreWork ++ work)
+            case source.SELet(bounds, body) =>
+              val moreWork = bounds.zipWithIndex.map { case (bound, n) =>
+                (bound, depth + n)
+              }
+              go(acc, (body, depth + bounds.length) :: moreWork ++ work)
+            case source.SELabelClosure(_, expr) =>
+              go(acc, (expr, depth) :: work)
+            case source.SETryCatch(body, handler) =>
+              go(acc, (handler, 1 + depth) :: (body, depth) :: work)
+            case source.SEScopeExercise(body) =>
+              go(acc, (body, depth) :: work)
           }
-        case source.SELet(bounds, body) =>
-          bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
-            case (acc, (expr, idx)) => go(expr, bound + idx, acc)
-          }
-        case source.SELabelClosure(_, expr) =>
-          go(expr, bound, free)
-        case source.SETryCatch(body, handler) =>
-          go(body, bound, go(handler, 1 + bound, free))
-        case source.SEScopeExercise(body) =>
-          go(body, bound, free)
+        }
       }
-
-    go(expr, initiallyBound, Set.empty)
+    }
+    go(Set.empty, List((expr0, depth0)))
   }
 
 }
