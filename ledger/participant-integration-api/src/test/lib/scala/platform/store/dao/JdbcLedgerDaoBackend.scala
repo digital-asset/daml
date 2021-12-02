@@ -55,6 +55,9 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   protected def daoOwner(
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
+      acsIdPageSize: Int,
+      acsIdFetchingParallelism: Int,
+      acsContractFetchingParallelism: Int,
       errorFactories: ErrorFactories,
   )(implicit
       loggingContext: LoggingContext
@@ -85,6 +88,9 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           ),
           eventsPageSize = eventsPageSize,
           eventsProcessingParallelism = eventsProcessingParallelism,
+          acsIdPageSize = acsIdPageSize,
+          acsIdFetchingParallelism = acsIdFetchingParallelism,
+          acsContractFetchingParallelism = acsContractFetchingParallelism,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -120,7 +126,14 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         _ <- Resource.fromFuture(
           new FlywayMigrations(jdbcUrl).migrate()
         )
-        dao <- daoOwner(100, 4, errorFactories).acquire()
+        dao <- daoOwner(
+          eventsPageSize = 100,
+          eventsProcessingParallelism = 4,
+          acsIdPageSize = 2000,
+          acsIdFetchingParallelism = 2,
+          acsContractFetchingParallelism = 2,
+          errorFactories,
+        ).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))
         initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
         _ = ledgerEndCache.set(initialLedgerEnd.lastOffset -> initialLedgerEnd.lastEventSeqId)

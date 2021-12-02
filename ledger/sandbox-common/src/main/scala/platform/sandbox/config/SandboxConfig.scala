@@ -57,6 +57,9 @@ final case class SandboxConfig(
     maxParallelSubmissions: Int, // only used by Sandbox Classic
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
+    acsIdPageSize: Int,
+    acsIdFetchingParallelism: Int,
+    acsContractFetchingParallelism: Int,
     lfValueTranslationEventCacheConfiguration: SizedCache.Configuration,
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
     profileDir: Option[Path],
@@ -93,6 +96,9 @@ object SandboxConfig {
 
   val DefaultEventsPageSize: Int = 1000
   val DefaultEventsProcessingParallelism: Int = 8
+  val DefaultAcsIdPageSize: Int = 20000
+  val DefaultAcsIdFetchingParallelism: Int = 2
+  val DefaultAcsContractFetchingParallelism: Int = 2
 
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
 
@@ -144,6 +150,9 @@ object SandboxConfig {
       maxParallelSubmissions = 512,
       eventsPageSize = DefaultEventsPageSize,
       eventsProcessingParallelism = DefaultEventsProcessingParallelism,
+      acsIdPageSize = DefaultAcsIdPageSize,
+      acsIdFetchingParallelism = DefaultAcsIdFetchingParallelism,
+      acsContractFetchingParallelism = DefaultAcsContractFetchingParallelism,
       lfValueTranslationEventCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,
