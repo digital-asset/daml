@@ -241,6 +241,16 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
+    if "com_google_protobuf" not in native.existing_rules():
+        http_archive(
+            name = "com_google_protobuf",
+            sha256 = "c6003e1d2e7fefa78a3039f19f383b4f3a61e81be8c19356f85b6461998ad3db",
+            strip_prefix = "protobuf-3.17.3",
+            urls = [
+                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.17.3.tar.gz",
+            ],
+        )
+
     if "io_grpc_grpc_java" not in native.existing_rules():
         http_archive(
             name = "io_grpc_grpc_java",
