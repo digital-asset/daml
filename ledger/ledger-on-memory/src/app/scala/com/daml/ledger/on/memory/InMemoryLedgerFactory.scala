@@ -38,6 +38,8 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       loggingContext: LoggingContext,
   ): ResourceOwner[ReadWriteServiceFactory] = {
     val offsetBuilder = new KVOffsetBuilder(version = 0)
+    lazy val reader: LedgerReader =
+      new InMemoryLedgerReader(config.ledgerId, dispatcher, offsetBuilder, state, metrics)
     new InMemoryLedgerWriter.Owner(
       participantId = participantConfig.participantId,
       keySerializationStrategy = DefaultStateKeySerializationStrategy,
@@ -51,10 +53,8 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       offsetBuilder = offsetBuilder,
       state = state,
       engine = engine,
-      committerExecutionContext = executionContext,
+      committerExecutionContext = materializer.executionContext,
     ).map(writer => {
-      lazy val reader: LedgerReader =
-        new InMemoryLedgerReader(config.ledgerId, dispatcher, offsetBuilder, state, metrics)
       new KeyValueReadWriteFactory(
         config,
         metrics,
