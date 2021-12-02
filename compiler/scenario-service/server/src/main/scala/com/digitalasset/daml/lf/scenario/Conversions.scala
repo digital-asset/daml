@@ -184,8 +184,16 @@ final class Conversions(
                 builder.setCrash(s"Contract Id comparability Error")
               case NonComparableValues =>
                 builder.setComparableValueError(proto.Empty.newBuilder)
-              case ValueExceedsMaxNesting =>
-                builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
+              case Limit(limitError) =>
+                limitError match {
+                  case Limit.ValueNesting(_) =>
+                    builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
+                  // TODO https://github.com/digital-asset/daml/issues/11691
+                  //   Handle the other cases properly.
+                  case _ =>
+                    builder.setCrash(s"A limit was overpass when building the transaction")
+                }
+
               case _: ChoiceGuardFailed =>
                 // TODO https://github.com/digital-asset/daml/issues/11703
                 //   Implement this.

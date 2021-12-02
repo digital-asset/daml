@@ -1631,6 +1631,8 @@ object SBuiltinTest {
     evalSExpr(SEApp(compiledPackages.compiler.unsafeCompile(e), args.map(SEValue(_))), onLedger)
   }
 
+  private[this] val committers = Set(Ref.Party.assertFromString("Alice"))
+
   private def evalSExpr(e: SExpr, onLedger: Boolean): Either[SError, SValue] = {
     val machine = if (onLedger) {
       val seed = crypto.Hash.hashPrivateKey("SBuiltinTest")
@@ -1638,7 +1640,7 @@ object SBuiltinTest {
         compiledPackages,
         transactionSeed = seed,
         updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
-        committer = Ref.Party.assertFromString("Alice"),
+        committers = committers,
       )
     } else {
       Speedy.Machine.fromPureSExpr(compiledPackages, e)
