@@ -114,8 +114,21 @@ data TemplateDoc = TemplateDoc
   , td_descr   :: Maybe DocText
   , td_payload :: [FieldDoc]
   , td_choices :: [ChoiceDoc]
+  , td_impls :: [ImplDoc]
   }
   deriving (Eq, Show, Generic)
+
+data InterfaceDoc = InterfaceDoc
+  { if_anchor :: Maybe Anchor
+  , if_name :: Typename
+  , if_choices :: [ChoiceDoc]
+  , if_methods :: [ClassMethodDoc]
+  , if_descr :: Maybe DocText
+  }
+
+data ImplDoc = ImplDoc
+  { impl_iface :: Type
+  } deriving (Eq, Show, Generic)
 
 data ClassDoc = ClassDoc
   { cl_anchor :: Maybe Anchor
@@ -240,6 +253,7 @@ data FunctionDoc = FunctionDoc
 -- | Documentation on a typeclass instance.
 data InstanceDoc = InstanceDoc
     { id_type :: Type
+    , id_module :: Modulename
     , id_context :: Maybe Type
     , id_isOrphan :: Bool
     } deriving (Eq, Ord, Show, Generic)
@@ -299,6 +313,12 @@ instance ToJSON ChoiceDoc where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON ChoiceDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON ImplDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON ImplDoc where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON TemplateDoc where
