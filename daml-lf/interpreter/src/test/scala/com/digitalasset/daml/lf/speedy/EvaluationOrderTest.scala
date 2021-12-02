@@ -6,21 +6,14 @@ package speedy
 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Location, Party}
-// import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{PackageInterface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
-// import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
-// import com.daml.lf.speedy.SError.SErrorDamlException
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
-// import com.daml.lf.speedy.SValue.{SUnit, SParty}
 import com.daml.lf.testing.parser.Implicits._
-// import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.Validation
-// import com.daml.lf.value.Value.{ValueRecord, ValueText}
-import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import scala.collection.mutable.ArrayBuffer
@@ -37,7 +30,7 @@ class TestTraceLog extends TraceLog {
   def getMessages: Seq[String] = messages.view.map(_._1).toSeq
 }
 
-class EvaluationOrderTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class EvaluationOrderTest extends AnyWordSpec with Matchers {
 
   val pkgs: PureCompiledPackages = typeAndCompile(p"""
     module M {
