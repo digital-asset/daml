@@ -509,6 +509,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsIdPageSize = 2,
         acsIdFetchingParallelism = 2,
         acsContractFetchingParallelism = 2,
+        acsGlobalParallelism = 10,
       )
 
       response <- ledgerDao.transactionsReader
@@ -645,6 +646,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       acsIdPageSize: Int,
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
+      acsGlobalParallelism: Int,
   ) =
     LoggingContext.newLoggingContext { implicit loggingContext =>
       daoOwner(
@@ -653,6 +655,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsIdPageSize = acsIdPageSize,
         acsIdFetchingParallelism = acsIdFetchingParallelism,
         acsContractFetchingParallelism = acsContractFetchingParallelism,
+        acsGlobalParallelism = acsGlobalParallelism,
         MockitoSugar.mock[ErrorFactories],
       ).acquire()(ResourceContext(executionContext))
     }.asFuture
