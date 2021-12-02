@@ -65,6 +65,14 @@ case class ReadWriteServiceBridge(
 
   @volatile private var minQueue = VectorMap.empty[Submission.Transaction, Offset]
 
+  private type KeyInputs = Either[
+    com.daml.lf.transaction.Transaction.KeyInputError,
+    Map[Key, com.daml.lf.transaction.Transaction.KeyInput],
+  ]
+
+  private type SequencerQueue =
+    Vector[(Offset, (Submission.Transaction, Map[GlobalKey, Option[ContractId]], Set[ContractId]))]
+
   private val (conflictCheckingQueue, source) =
     InstrumentedSource
       .queue[Submission.Transaction](
@@ -85,18 +93,38 @@ case class ReadWriteServiceBridge(
         enqueuedAt -> tx
       }
       .mapAsyncUnordered(64) { case (enqueuedAt, tx) =>
-        parallelConflictCheck(tx).map(enqueuedAt -> _)
+        Future {
+          (
+            tx.transaction.contractKeyInputs,
+            tx.transaction.inputContracts,
+            tx.transaction.updatedContractKeys,
+            tx.transaction.consumedContracts,
+          )
+        }.flatMap { case (keyInputs, inputContracts, updatedKeys, consumedContracts) =>
+          parallelConflictCheck(tx, inputContracts, keyInputs).map(tx =>
+            (enqueuedAt, keyInputs, inputContracts, updatedKeys, consumedContracts, tx)
+          )
+        }
       }
       .statefulMapConcat(sequence)
       .preMaterialize()
 
-  private def sequence: () => ((Offset, Either[SoxRejection, Transaction])) => Iterable[
+  private def sequence: () => (
+      (
+          Offset,
+          KeyInputs,
+          Set[ContractId],
+          Map[GlobalKey, Option[ContractId]],
+          Set[ContractId],
+          Either[SoxRejection, Transaction],
+      )
+  ) => Iterable[
     (Offset, Update)
   ] = () => {
-    @volatile var sequencerQueue = Vector.empty[(Offset, Submission.Transaction)]
+    @volatile var sequencerQueue: SequencerQueue = Vector.empty
 
     {
-      case (_, Left(rejection)) =>
+      case (_, _, _, _, _, Left(rejection)) =>
         Timed.value(
           metrics.daml.SoX.sequenceDuration, {
             val newIndex = offsetIdx.getAndIncrement()
@@ -108,12 +136,25 @@ case class ReadWriteServiceBridge(
             Iterable(newOffset -> toRejection(rejection))
           },
         )
-      case (enqueuedAt, Right(transaction)) =>
+      case (
+            enqueuedAt,
+            keyInputs,
+            inputContracts,
+            updatedKeys,
+            consumedContracts,
+            Right(transaction),
+          ) =>
         Timed.value(
           metrics.daml.SoX.sequenceDuration, {
             val newIndex = offsetIdx.getAndIncrement()
             val newOffset = toOffset(newIndex)
-            checkSequential(enqueuedAt, transaction, sequencerQueue) match {
+            checkSequential(
+              enqueuedAt,
+              keyInputs,
+              inputContracts,
+              transaction,
+              sequencerQueue,
+            ) match {
               case Left(rejection) =>
                 minQueue.synchronized {
                   minQueue = minQueue.removed(transaction)
@@ -122,7 +163,8 @@ case class ReadWriteServiceBridge(
                 Iterable(newOffset -> toRejection(rejection))
               case Right(acceptedTx) =>
                 minQueue.synchronized {
-                  sequencerQueue = sequencerQueue :+ (newOffset -> transaction)
+                  sequencerQueue =
+                    sequencerQueue :+ (newOffset -> (transaction, updatedKeys, consumedContracts))
                   val smallestHead = minQueue.head._2
                   val pruneFrom = sequencerQueue.view.map(_._1).search(smallestHead) match {
                     case Searching.Found(foundIndex) => foundIndex - 1
@@ -150,13 +192,15 @@ case class ReadWriteServiceBridge(
   }
 
   private def conflictCheckSlice(
-      delta: Vector[(Offset, Submission.Transaction)],
+      delta: SequencerQueue,
+      keyInputs: KeyInputs,
+      inputContracts: Set[ContractId],
       transaction: Submission.Transaction,
   ): Either[SoxRejection, Submission.Transaction] = {
     metrics.daml.SoX.deltaConflictCheckingSize.update(delta.length)
     val (updatedKeys, archives) = collectDelta(delta)
 
-    transaction.transaction.contractKeyInputs.left
+    keyInputs.left
       .map(invalidInputFromParticipant(transaction))
       .flatMap(_.foldLeft[Either[SoxRejection, Unit]](Right(())) {
         case (Right(_), (key, KeyCreate)) =>
@@ -177,7 +221,7 @@ case class ReadWriteServiceBridge(
         case (left, _) => left
       })
       .flatMap { _ =>
-        val alreadyArchived = transaction.transaction.inputContracts.intersect(archives)
+        val alreadyArchived = inputContracts.intersect(archives)
         if (alreadyArchived.nonEmpty) Left(UnknownContracts(alreadyArchived)(transaction))
         else Right(())
       }
@@ -193,8 +237,10 @@ case class ReadWriteServiceBridge(
 
   private def checkSequential(
       noConflictUpTo: Offset,
+      keyInputs: KeyInputs,
+      inputContracts: Set[ContractId],
       transaction: Submission.Transaction,
-      sequencerQueue: Vector[(Offset, Submission.Transaction)],
+      sequencerQueue: SequencerQueue,
   ): Either[SoxRejection, Submission.Transaction] = {
     val idx = sequencerQueue.view.map(_._1).search(noConflictUpTo) match {
       case Searching.Found(foundIndex) => foundIndex + 1
@@ -202,19 +248,27 @@ case class ReadWriteServiceBridge(
     }
 
     if (sequencerQueue.size > idx) {
-      conflictCheckSlice(sequencerQueue.slice(idx, sequencerQueue.length), transaction)
+      conflictCheckSlice(
+        sequencerQueue.slice(idx, sequencerQueue.length),
+        keyInputs,
+        inputContracts,
+        transaction,
+      )
     } else Right(transaction)
   }
 
   private def parallelConflictCheck(
-      transaction: Submission.Transaction
+      transaction: Submission.Transaction,
+      inputContracts: Set[ContractId],
+      keyInputs: KeyInputs,
   ): Future[Either[SoxRejection, Submission.Transaction]] =
     validateCausalMonotonicity(
       transaction,
+      inputContracts,
       transaction.transactionMeta.ledgerEffectiveTime,
       transaction.blindingInfo.divulgence.keySet,
     ).flatMap {
-      case Right(_) => validateKeyUsages(transaction)
+      case Right(_) => validateKeyUsages(transaction, keyInputs)
       case rejection => Future.successful(rejection)
     }.flatMap {
       case Right(_) => validateParties(transaction.transaction)
@@ -230,21 +284,24 @@ case class ReadWriteServiceBridge(
   }
 
   private def collectDelta(
-      delta: Vector[(Offset, Submission.Transaction)]
-  ): (Map[Key, Option[ContractId]], Set[ContractId]) =
-    delta.view
-      .map(_._2.transaction)
-      .foldLeft((Map.empty[GlobalKey, Option[ContractId]], Set.empty[ContractId])) {
-        case ((updatedKeys, archived), tx) =>
-          (updatedKeys ++ tx.updatedContractKeys) -> (archived ++ tx.consumedContracts)
+      delta: SequencerQueue
+  ): (Map[Key, Option[ContractId]], Set[ContractId]) = {
+    val (updatedKeysBuilder, consumedContractBuilder) = delta.view
+      .map(_._2)
+      .foldLeft((Map.newBuilder[GlobalKey, Option[ContractId]], Set.newBuilder[ContractId])) {
+        case ((updatedKeys, archived), (_, txUpdatedKeys, txConsumedContracts)) =>
+          updatedKeys.addAll(txUpdatedKeys) -> archived.addAll(txConsumedContracts)
       }
+    updatedKeysBuilder.result() -> consumedContractBuilder.result()
+  }
 
   private def validateCausalMonotonicity(
       transaction: Transaction,
+      inputContracts: Set[ContractId],
       transactionLedgerEffectiveTime: Timestamp,
       divulged: Set[ContractId],
   ): Future[Either[SoxRejection, Unit]] = {
-    val referredContracts = transaction.transaction.inputContracts.diff(divulged)
+    val referredContracts = inputContracts.diff(divulged)
     if (referredContracts.isEmpty) {
       Future.successful(Right(()))
     } else
@@ -410,10 +467,11 @@ case class ReadWriteServiceBridge(
     toSubmissionResult(queue.offer(submission))
 
   private def validateKeyUsages(
-      transaction: Transaction
+      transaction: Transaction,
+      keyInputs: KeyInputs,
   ): Future[Either[SoxRejection, Unit]] = {
     val readers = transaction.transaction.informees // Is it informees??
-    transaction.transaction.contractKeyInputs.fold(
+    keyInputs.fold(
       err => Future.successful(Left(GenericRejectionFailure(err.toString)(transaction))),
       _.foldLeft(Future.successful[Either[SoxRejection, Unit]](Right(()))) {
         case (f, (key, inputState)) =>

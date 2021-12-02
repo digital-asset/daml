@@ -24,15 +24,16 @@ final class Metrics(val registry: MetricRegistry) {
 
     object SoX {
       val Prefix: MetricName = daml.Prefix :+ "sox"
-      val sequencerQueueLengthCounter: Histogram = registry.histogram("sequencer_queue_length")
-      val minQueueSizeCounter: Counter = registry.counter("min_queue_length")
-      val sequenceDuration: Timer = registry.timer("sequence_duration")
+      val sequencerQueueLengthCounter: Histogram =
+        registry.histogram(Prefix :+ "sequencer_queue_length")
+      val minQueueSizeCounter: Counter = registry.counter(Prefix :+ "min_queue_length")
+      val sequenceDuration: Timer = registry.timer(Prefix :+ "sequence_duration")
       val deltaConflictCheckingSize: Histogram =
-        registry.histogram("sequence_conflict_slice_size")
+        registry.histogram(Prefix :+ "sequence_conflict_slice_size")
 
-      val conflictQueueCapacity: Counter = registry.counter("queue_capacity")
-      val conflictQueueLength: Counter = registry.counter("queue_length")
-      val conflictQueueDelay: Timer = registry.timer("queue_delay")
+      val conflictQueueCapacity: Counter = registry.counter(Prefix :+ "queue_capacity")
+      val conflictQueueLength: Counter = registry.counter(Prefix :+ "queue_length")
+      val conflictQueueDelay: Timer = registry.timer(Prefix :+ "queue_delay")
     }
 
     object commands {
