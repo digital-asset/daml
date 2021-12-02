@@ -88,6 +88,7 @@ final class StandaloneApiServer(
           acsIdPageSize = config.acsIdPageSize,
           acsIdFetchingParallelism = config.acsIdFetchingParallelism,
           acsContractFetchingParallelism = config.acsContractFetchingParallelism,
+          acsGlobalParallelism = config.acsGlobalParallelism,
           servicesExecutionContext = servicesExecutionContext,
           metrics = metrics,
           lfValueTranslationCache = lfValueTranslationCache,

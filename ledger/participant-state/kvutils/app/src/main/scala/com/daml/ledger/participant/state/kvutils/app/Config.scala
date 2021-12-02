@@ -45,6 +45,7 @@ final case class Config[Extra](
     acsIdPageSize: Int,
     acsIdFetchingParallelism: Int,
     acsContractFetchingParallelism: Int,
+    acsGlobalParallelism: Int,
     stateValueCache: caching.WeightedCache.Configuration,
     lfValueTranslationEventCache: caching.SizedCache.Configuration,
     lfValueTranslationContractCache: caching.SizedCache.Configuration,
@@ -82,6 +83,7 @@ object Config {
       acsIdPageSize = IndexConfiguration.DefaultAcsIdPageSize,
       acsIdFetchingParallelism = IndexConfiguration.DefaultAcsIdFetchingParallelism,
       acsContractFetchingParallelism = IndexConfiguration.DefaultAcsContractFetchingParallelism,
+      acsGlobalParallelism = IndexConfiguration.DefaultAcsGlobalParallelism,
       stateValueCache = caching.WeightedCache.Configuration.none,
       lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
       lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
@@ -507,6 +509,15 @@ object Config {
           }
           .action((acsContractFetchingParallelism, config) =>
             config.copy(acsContractFetchingParallelism = acsContractFetchingParallelism)
+          )
+
+        opt[Int]("acs-global-parallelism-limit")
+          .optional()
+          .text(
+            s"Maximum number of concurrent ACS queries to the index database. Default is ${IndexConfiguration.DefaultAcsGlobalParallelism}."
+          )
+          .action((acsGlobalParallelism, config) =>
+            config.copy(acsGlobalParallelism = acsGlobalParallelism)
           )
 
         opt[Long]("max-state-value-cache-size")
