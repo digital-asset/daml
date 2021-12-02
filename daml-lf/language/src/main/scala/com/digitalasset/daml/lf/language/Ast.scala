@@ -224,13 +224,13 @@ object Ast {
         case TSynApp(syn, args) =>
           maybeParens(
             prec > precTApp,
-            syn.qualifiedName.name.toString + " " +
+            syn.qualifiedName.toString + " " +
               args
                 .map(t => prettyType(t, precTApp + 1))
                 .toSeq
                 .mkString(" "),
           )
-        case TTyCon(con) => con.qualifiedName.name.toString
+        case TTyCon(con) => con.qualifiedName.toString
         case TBuiltin(BTArrow) => "(->)"
         case TBuiltin(bt) => bt.toString.stripPrefix("BT")
         case TApp(TApp(TBuiltin(BTArrow), param), result) =>
