@@ -40,7 +40,7 @@ trait ReadWriteServiceFactory {
   def writeService(): WriteService
 }
 
-class KeyValueReadWriteOwner(
+class KeyValueReadWriteFactory(
     config: Config[_],
     metrics: Metrics,
     ledgerReader: LedgerReader,

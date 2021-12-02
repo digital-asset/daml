@@ -8,7 +8,7 @@ import com.daml.caching
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
   ConfigProvider,
-  KeyValueReadWriteOwner,
+  KeyValueReadWriteFactory,
   LedgerFactory,
   ParticipantConfig,
   ReadWriteServiceFactory,
@@ -51,7 +51,7 @@ object SqlLedgerFactory extends LedgerFactory[ExtraConfig] {
         metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
       ),
     ).map(ledgerReaderWriter =>
-      new KeyValueReadWriteOwner(
+      new KeyValueReadWriteFactory(
         config,
         metrics,
         ledgerReaderWriter,

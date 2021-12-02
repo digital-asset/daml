@@ -14,10 +14,14 @@ package com.daml.ledger.participant.state.kvutils
   *
   * =Running a Participant Server=
   * In order to spin up a participant server there are a few key classes:
-  *   - [[com.daml.ledger.participant.state.kvutils.app.LedgerOwner]]: Defines how you
-  *     instantiate your `LedgerReader` and `LedgerWriter` implementations.
+  *   - [[com.daml.ledger.participant.state.kvutils.app.LedgerFactory]]:
+  *   - [[com.daml.ledger.participant.state.kvutils.app.ReadWriteServiceFactory]]: Defines how you
+  *     instantiate your `ReadService` and `WriteService` implementations.
   *   - [[com.daml.ledger.participant.state.kvutils.app.Runner]]: Helper class for spinning up a fully functional
-  *    participant server, including the indexer, gRPC interface, etc.
+  *     participant server, including the indexer, gRPC interface, etc.
+  *   - [[com.daml.ledger.participant.state.kvutils.app.KeyValueReadWriteFactory]]:
+  *     [[com.daml.ledger.participant.state.kvutils.app.ReadWriteServiceFactory]] helper implementation,
+  *     which uses a [[LedgerReader]] and a [[LedgerWriter]] to instantiate the `ReadService` and the `WriteService`
   * For an example ledger that implements the above interfaces please see the package [[com.daml.ledger.on.memory]].
   *
   * For implementing a validator/committer component please see the below references:

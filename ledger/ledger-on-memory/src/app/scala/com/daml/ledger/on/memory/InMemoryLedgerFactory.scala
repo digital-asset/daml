@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
-  KeyValueReadWriteOwner,
+  KeyValueReadWriteFactory,
   LedgerFactory,
   ParticipantConfig,
   ReadWriteServiceFactory,
@@ -55,7 +55,7 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
     ).map(writer => {
       lazy val reader: LedgerReader =
         new InMemoryLedgerReader(config.ledgerId, dispatcher, offsetBuilder, state, metrics)
-      new KeyValueReadWriteOwner(
+      new KeyValueReadWriteFactory(
         config,
         metrics,
         reader,
