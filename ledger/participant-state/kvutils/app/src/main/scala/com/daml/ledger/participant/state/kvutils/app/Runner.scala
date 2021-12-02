@@ -156,21 +156,18 @@ final class Runner[T <: ReadWriteService, Extra](
                   case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
                     val readService = new TimedReadService(ledgerFactory.readService(), metrics)
                     for {
-                      healthChecksWithIndexer <- new StandaloneIndexerServer(
+                      indexerHealth <- new StandaloneIndexerServer(
                         readService = readService,
                         config = configProvider.indexerConfig(participantConfig, config),
                         servicesExecutionContext = servicesExecutionContext,
                         metrics = metrics,
                         lfValueTranslationCache = lfValueTranslationCache,
                       ).acquire()
-                        .map(indexerHealth =>
-                          new HealthChecks(
-                            "read" -> readService,
-                            "indexer" -> indexerHealth,
-                          )
-                        )
                     } yield {
-                      healthChecksWithIndexer
+                      new HealthChecks(
+                        "read" -> readService,
+                        "indexer" -> indexerHealth,
+                      )
                     }
                   case ParticipantRunMode.LedgerApiServer =>
                     Resource.successful(new HealthChecks())
