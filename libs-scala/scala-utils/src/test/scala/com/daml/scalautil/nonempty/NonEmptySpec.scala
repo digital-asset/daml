@@ -97,6 +97,23 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
     }
   }
 
+  "updated" should {
+    val m = NonEmpty(imm.HashMap, 1 -> 2)
+
+    "preserve the map type" in {
+      (m.updated(1, 2): NonEmpty[imm.HashMap[Int, Int]]) should ===(m)
+    }
+
+    "preserve a wider map type" in {
+      val nhm = (m: NonEmpty[Map[Int, Int]]).updated(1, 2)
+      illTyped(
+        "nhm: NonEmpty[imm.HashMap[Int, Int]]",
+        "(?s)type mismatch.*?found.*?\\.Map.*?required.*?HashMap.*",
+      )
+      (nhm: NonEmpty[Map[Int, Int]]) should ===(m)
+    }
+  }
+
   "+-:" should {
     val NonEmpty(s) = Vector(1, 2)
 
