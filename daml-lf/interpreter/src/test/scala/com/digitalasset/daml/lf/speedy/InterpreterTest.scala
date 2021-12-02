@@ -194,7 +194,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
                   name = modName,
                   definitions = Map(
                     DottedName.assertFromString("bar") ->
-                      DValue(TBuiltin(BTBool), true, ETrue, false)
+                      DValue(TBuiltin(BTBool), ETrue, false)
                   ),
                   templates = Map.empty,
                   exceptions = Map.empty,

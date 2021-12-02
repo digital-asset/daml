@@ -1,0 +1,17 @@
+-- Copyright (c) 2021, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @WARN range=14:5-17:18; The syntax 'controller ... can' is deprecated
+
+module WarnControllerCan where
+
+template T with
+    p : Party
+    q : Party
+  where
+    signatory p
+
+    controller q can
+      nonconsuming Pass : ()
+        do
+          pure ()

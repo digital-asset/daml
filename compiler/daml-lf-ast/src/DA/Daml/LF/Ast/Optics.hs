@@ -13,7 +13,6 @@ module DA.Daml.LF.Ast.Optics(
     moduleExpr,
     dataConsType,
     _PRSelfModule,
-    exprPartyLiteral,
     exprValueRef,
     packageRefs,
     templateExpr,
@@ -191,7 +190,6 @@ instance MonoTraversable ModuleRef InterfaceChoice
 instance MonoTraversable ModuleRef InterfaceMethod
 instance MonoTraversable ModuleRef DefInterface
 
-instance MonoTraversable ModuleRef HasNoPartyLiterals
 instance MonoTraversable ModuleRef IsTest
 instance MonoTraversable ModuleRef DefValue
 
@@ -209,16 +207,6 @@ instance MonoTraversable ModuleRef Module
 instance MonoTraversable ModuleRef PackageMetadata
 instance MonoTraversable ModuleRef Package
 instance MonoTraversable ModuleRef T.Text where monoTraverse _ = pure
-
-exprPartyLiteral
-  :: forall f. Applicative f
-  => (PartyLiteral -> f PartyLiteral) -> (Expr -> f Expr)
-exprPartyLiteral f = cata go
-  where
-    go :: ExprF (f Expr) -> f Expr
-    go = \case
-      EBuiltinF (BEParty pty) -> EBuiltin . BEParty <$> f pty
-      e -> embed <$> sequenceA e
 
 -- | Traverse over all references to top-level values in an expression.
 exprValueRef

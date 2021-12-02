@@ -26,7 +26,7 @@ Ledger API Reference
    {{range .Fields -}}
    * - .. _{{$full_name}}.{{.Name}}: 
 
-       {{.Name}}
+       {{if .IsOneof}}`oneof <https://developers.google.com/protocol-buffers/docs/proto3#oneof>`_ {{.OneofDecl}}.{{end}}{{.Name}}
      - :ref:`{{.LongType}} <{{.FullType}}>`
      - {{.Label}}
      - {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}

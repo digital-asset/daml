@@ -15,7 +15,6 @@ import           DA.Daml.LF.Ast
 import qualified DA.Daml.LF.TypeChecker.Check      as Check
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
-import qualified DA.Daml.LF.TypeChecker.PartyLiterals as PartyLits
 import qualified DA.Daml.LF.TypeChecker.Recursion as Recursion
 import qualified DA.Daml.LF.TypeChecker.Serializability as Serializability
 import qualified DA.Daml.LF.TypeChecker.NameCollision as NameCollision
@@ -51,7 +50,6 @@ checkModuleInWorld world version m =
         Recursion.checkModule m
         Check.checkModule m
         Serializability.checkModule m
-        PartyLits.checkModule m
 
 -- | Check whether the whole package satisfies the name collision condition.
 nameCheckPackage :: Package -> [Diagnostic]

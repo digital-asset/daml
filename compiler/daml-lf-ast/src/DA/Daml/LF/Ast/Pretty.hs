@@ -201,9 +201,6 @@ docTmLambdaDot = "."
 docTyLambdaDot = "."
 docAltArrow = "->"
 
-instance Pretty PartyLiteral where
-  pPrint = quotes . text . unPartyLiteral
-
 prettyRounding :: RoundingModeLiteral -> String
 prettyRounding = \case
   LitRoundingUp -> "ROUNDING_UP"
@@ -221,7 +218,6 @@ instance Pretty BuiltinExpr where
     BEDecimal dec -> string (show dec)
     BENumeric n -> string (show n)
     BEText t -> string (show t) -- includes the double quotes, and escapes characters
-    BEParty p -> pPrint p
     BEUnit -> keyword_ "unit"
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     BERoundingMode r -> keyword_ $ prettyRounding r
@@ -418,10 +414,10 @@ instance Pretty Update where
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
-    UExerciseInterface interface choice cid arg ->
+    UExerciseInterface interface choice cid arg typeRep guard ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise_interface"
-      [interfaceArg interface, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
+      [interfaceArg interface, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg, TmArg typeRep, TmArg guard]
     UExerciseByKey tpl choice key arg ->
       pPrintAppKeyword lvl prec "exercise_by_key"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]
@@ -586,13 +582,12 @@ instance Pretty DefDataType where
       pPrintEnumCon name = "|" <-> pPrint name
 
 instance Pretty DefValue where
-  pPrintPrec lvl _prec (DefValue mbLoc binder (HasNoPartyLiterals noParties) (IsTest isTest) body) =
+  pPrintPrec lvl _prec (DefValue mbLoc binder (IsTest isTest) body) =
     withSourceLoc lvl mbLoc $
     vcat
-      [ hang (keyword_ kind <-> annot <-> pPrintAndType lvl precBinding binder <-> "=") 2 (pPrintPrec lvl 0 body) ]
+      [ hang (keyword_ kind <-> pPrintAndType lvl precBinding binder <-> "=") 2 (pPrintPrec lvl 0 body) ]
     where
       kind = if isTest then "test" else "def"
-      annot = if noParties then empty else "@partyliterals"
 
 pPrintTemplateChoice ::
   PrettyLevel -> ModuleName -> TypeConName -> TemplateChoice -> Doc ann
@@ -647,9 +642,7 @@ pPrintTemplateImplementsMethod lvl (TemplateImplementsMethod name expr) =
     pPrintPrec lvl 0 name <-> keyword_ "=" <-> pPrintPrec lvl 0 expr
 
 pPrintFeatureFlags :: FeatureFlags -> Doc ann
-pPrintFeatureFlags flags
-  | forbidPartyLiterals flags = empty
-  | otherwise = "@allowpartyliterals"
+pPrintFeatureFlags FeatureFlags = mempty
 
 instance Pretty Module where
   pPrintPrec lvl _prec (Module modName _path flags synonyms dataTypes values templates exceptions _interfaces) = -- TODO interfaces

@@ -38,7 +38,7 @@ template NameOfTemplate
         do
           return () -- replace this line with the choice body
 
-    -- option 2 for specifying choices: controller first
+    -- option 2 for specifying choices (deprecated syntax): controller first
     controller exampleParty can
       NameOfAnotherChoice :
           () -- replace () with the actual return type

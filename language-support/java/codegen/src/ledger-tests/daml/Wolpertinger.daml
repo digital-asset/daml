@@ -35,22 +35,22 @@ template Wolpertinger
 
         agreement name <> " has " <> show wings <> " wings and is " <> show age <> " years old."
 
-        controller owner can
-            Reproduce : ContractId Wolpertinger
-                with mateId : ContractId Wolpertinger
-                     tob : Time
-                do
-                    mate <- fetch mateId
-                    create Wolpertinger with
-                        owner = owner
-                        wings = this.wings + mate.wings
-                        age = 0.0
-                        name = this.name <> "-" <> mate.name
-                        alive = True
-                        dayOfBirth = toDateUTC tob
-                        timeOfBirth = tob
-                        parents = [self, mateId]
-                        colors = dedup (this.colors ++ mate.colors)
+        choice Reproduce : ContractId Wolpertinger
+            with mateId : ContractId Wolpertinger
+                 tob : Time
+            controller owner
+            do
+                mate <- fetch mateId
+                create Wolpertinger with
+                    owner = owner
+                    wings = this.wings + mate.wings
+                    age = 0.0
+                    name = this.name <> "-" <> mate.name
+                    alive = True
+                    dayOfBirth = toDateUTC tob
+                    timeOfBirth = tob
+                    parents = [self, mateId]
+                    colors = dedup (this.colors ++ mate.colors)
 
 
 primitiveTest =

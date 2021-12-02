@@ -17,8 +17,10 @@ import DA.Daml.LF.Ast
 import DA.Daml.LF.Proto3.Archive.Encode
 import DA.Daml.UtilLF
 
-allStablePackages :: [Package]
+allStablePackages :: MS.Map PackageId Package
 allStablePackages =
+    MS.fromList $
+    map (\pkg  -> (encodePackageHash pkg, pkg))
     [ ghcTypes
     , ghcPrim
     , ghcTuple
@@ -43,18 +45,18 @@ allStablePackages =
     , daExceptionPreconditionFailed
     ]
 
-allStablePackagesForVersion :: Version -> [Package]
+allStablePackagesForVersion :: Version -> MS.Map PackageId Package
 allStablePackagesForVersion v =
-    filter (\p -> packageLfVersion p <= v) allStablePackages
+    MS.filter (\p -> packageLfVersion p <= v) allStablePackages
 
 numStablePackagesForVersion :: Version -> Int
-numStablePackagesForVersion v = length (allStablePackagesForVersion v)
+numStablePackagesForVersion v = MS.size (allStablePackagesForVersion v)
 
 stablePackageByModuleName :: MS.Map ModuleName Package
 stablePackageByModuleName = MS.fromListWithKey
     (\k -> error $ "Duplicate module among stable packages: " <> show k)
     [ (moduleName m, p)
-    | p <- allStablePackages
+    | p <- MS.elems allStablePackages
     , m <- NM.toList (packageModules p) ]
 
 ghcTypes :: Package
@@ -91,7 +93,6 @@ ghcPrim = package version1_6 $ NM.singleton (emptyModule modName)
     valVoid = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (mkVal "void#", TCon (qual (dataTypeCon dataVoid)))
-      , dvalNoPartyLiterals= HasNoPartyLiterals True
       , dvalIsTest = IsTest False
       , dvalBody = EEnumCon (qual (dataTypeCon dataVoid)) conName
       }
@@ -125,9 +126,9 @@ daTypes = package version1_6 $ NM.singleton (emptyModule modName)
     eitherTy = typeConAppToType eitherTyConApp
     values = NM.fromList $ eitherWorkers ++ tupleWorkers
     eitherWorkers =
-      [ DefValue Nothing (mkWorkerName "Left", mkTForalls eitherTyVars (TVar aTyVar :-> eitherTy)) (HasNoPartyLiterals True) (IsTest False) $
+      [ DefValue Nothing (mkWorkerName "Left", mkTForalls eitherTyVars (TVar aTyVar :-> eitherTy)) (IsTest False) $
           mkETyLams eitherTyVars (ETmLam (mkVar "a", TVar aTyVar) (EVariantCon eitherTyConApp (mkVariantCon "Left") (EVar $ mkVar "a")))
-      , DefValue Nothing (mkWorkerName "Right", mkTForalls eitherTyVars (TVar bTyVar :-> eitherTy)) (HasNoPartyLiterals True) (IsTest False) $
+      , DefValue Nothing (mkWorkerName "Right", mkTForalls eitherTyVars (TVar bTyVar :-> eitherTy)) (IsTest False) $
           mkETyLams eitherTyVars (ETmLam (mkVar "b", TVar bTyVar) (EVariantCon eitherTyConApp (mkVariantCon "Right") (EVar $ mkVar "b")))
       ]
     tupleTyVar i = mkTypeVar ("t" <> T.pack (show i))
@@ -136,7 +137,7 @@ daTypes = package version1_6 $ NM.singleton (emptyModule modName)
     tupleTyConApp n = TypeConApp (Qualified PRSelf modName (tupleTyName n)) (map (TVar . tupleTyVar) [1..n])
     tupleTy = typeConAppToType . tupleTyConApp
     tupleTmVar i = mkVar $ "a" <> T.pack (show i)
-    tupleWorker n = DefValue Nothing (mkWorkerName $ "Tuple" <> T.pack (show n), mkTForalls (tupleTyVars n) (mkTFuns (map (TVar . tupleTyVar) [1..n]) $ tupleTy n)) (HasNoPartyLiterals True) (IsTest False) $
+    tupleWorker n = DefValue Nothing (mkWorkerName $ "Tuple" <> T.pack (show n), mkTForalls (tupleTyVars n) (mkTFuns (map (TVar . tupleTyVar) [1..n]) $ tupleTy n)) (IsTest False) $
       mkETyLams (tupleTyVars n) $ mkETmLams [(tupleTmVar i, TVar $ tupleTyVar i) | i <- [1..n]] $
       ERecCon (tupleTyConApp n) [(mkIndexedField i, EVar $ tupleTmVar i) | i <- [1..n]]
     tupleWorkers = map tupleWorker [2..20]
@@ -506,21 +507,21 @@ builtinExceptionPackage name = Package
 
 mkSelectorDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> FieldName -> Type -> DefValue
 mkSelectorDef modName tyCon tyVars fieldName fieldTy =
-    DefValue Nothing (mkSelectorName (T.intercalate "." $ unTypeConName tyCon) (unFieldName fieldName), mkTForalls tyVars (ty :-> fieldTy)) (HasNoPartyLiterals True) (IsTest False) $
+    DefValue Nothing (mkSelectorName (T.intercalate "." $ unTypeConName tyCon) (unFieldName fieldName), mkTForalls tyVars (ty :-> fieldTy)) (IsTest False) $
       mkETyLams tyVars $ mkETmLams [(mkVar "x", ty)] $ ERecProj tyConApp fieldName (EVar $ mkVar "x")
   where tyConApp = TypeConApp (Qualified PRSelf modName tyCon) (map (TVar . fst) tyVars)
         ty = typeConAppToType tyConApp
 
 mkWorkerDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> [(FieldName, Type)] -> DefValue
 mkWorkerDef modName tyCon tyVars fields =
-    DefValue Nothing (mkWorkerName (T.intercalate "." $ unTypeConName tyCon), mkTForalls tyVars $ mkTFuns (map snd fields) ty) (HasNoPartyLiterals True) (IsTest False) $
+    DefValue Nothing (mkWorkerName (T.intercalate "." $ unTypeConName tyCon), mkTForalls tyVars $ mkTFuns (map snd fields) ty) (IsTest False) $
       mkETyLams tyVars $ mkETmLams (map (first (mkVar . unFieldName)) fields) $ ERecCon tyConApp (map (\(field, _) -> (field, EVar $ mkVar $ unFieldName field)) fields)
   where tyConApp = TypeConApp (Qualified PRSelf modName tyCon) (map (TVar . fst) tyVars)
         ty = typeConAppToType tyConApp
 
 mkVariantWorkerDef :: ModuleName -> TypeConName -> VariantConName -> [(TypeVarName, Kind)] -> Type -> DefValue
 mkVariantWorkerDef modName tyCon constr tyVars argTy =
-    DefValue Nothing (mkWorkerName (unVariantConName constr), mkTForalls tyVars $ argTy :-> ty) (HasNoPartyLiterals True) (IsTest False) $
+    DefValue Nothing (mkWorkerName (unVariantConName constr), mkTForalls tyVars $ argTy :-> ty) (IsTest False) $
       mkETyLams tyVars $ mkETmLams [(mkVar "x", argTy)] $ EVariantCon tyConApp constr (EVar $ mkVar "x")
   where tyConApp = TypeConApp (Qualified PRSelf modName tyCon) (map (TVar . fst) tyVars)
         ty = typeConAppToType tyConApp

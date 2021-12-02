@@ -18,14 +18,15 @@ template Boo
     p : Party
   where
     signatory p
-    controller p can
-      nonconsuming ArchiveFoo: ()
-        with
-          fooCids : [ContractId Foo]
-        do mapA_ archive fooCids
-           assert (length fooCids == 2)
-           create Done with p
-           pure ()
+    nonconsuming choice ArchiveFoo: ()
+      with
+        fooCids : [ContractId Foo]
+      controller p
+      do
+        mapA_ archive fooCids
+        assert (length fooCids == 2)
+        create Done with p
+        pure ()
 
 template Done
   with

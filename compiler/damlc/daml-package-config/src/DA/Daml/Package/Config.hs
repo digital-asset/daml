@@ -87,7 +87,7 @@ checkPkgConfig PackageConfigFields {pName, pVersion} =
       , "use them as dependencies in other projects. Unsupported package names or versions may"
       , "start causing compilation errors without warning."
       ]
-    versionRegex = "^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?)?$" :: T.Text
+    versionRegex = "^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))*$" :: T.Text
     packageNameRegex = "^[A-Za-z][A-Za-z0-9]*(\\-[A-Za-z][A-Za-z0-9]*)*$" :: T.Text
 
 overrideSdkVersion :: PackageConfigFields -> IO PackageConfigFields

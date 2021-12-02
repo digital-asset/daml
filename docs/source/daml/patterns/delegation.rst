@@ -20,27 +20,36 @@ Implementation
 
 .. literalinclude:: daml/CoinIssuance.daml
   :language: daml
-  :lines: 51-82
+  :start-after: -- BEGIN_COIN_TEMPLATE_DATATYPE
+  :end-before: -- END_COIN_TEMPLATE_DATATYPE
+
+.. literalinclude:: daml/CoinIssuance.daml
+  :language: daml
+  :start-after: -- BEGIN_COIN_TEMPLATE_ARCHIVE
+  :end-before: -- END_COIN_TEMPLATE_ARCHIVE
 
 Delegation Contract
   - *Principal*, the original coin owner, is the signatory of delegation contract *CoinPoA*. This signatory is required to authorize the *Transfer* choice on *coin*.
 
   .. literalinclude:: daml/CoinDelegation.daml
     :language: daml
-    :lines: 19-29
+    :start-after: -- BEGIN_COIN_POA
+    :end-before: -- END_COIN_POA
 
   - Whether or not the *Attorney* party should be a signatory of *CoinPoA* is subject to the business agreements between *Principal* and *Attorney*. For simplicity, in this example, *Attorney* is not a signatory.
   - *Attorney* is the controller of the Delegation choice on the contract. Within the choice, *Principal* exercises the choice *Transfer* on the Coin contract.
 
   .. literalinclude:: daml/CoinDelegation.daml
     :language: daml
-    :lines: 33-40
+    :start-after: -- BEGIN_COIN_POA_TRANSFER
+    :end-before: -- END_COIN_POA_TRANSFER
 
   - *Coin* contracts need to be disclosed to *Attorney* before they can be used in an exercise of *Transfer*. This can be done by adding *Attorney* to *Coin* as an Observer. This can be done dynamically, for any specific *Coin*, by making the observers a *List*, and adding a choice to add a party to that List:
 
   .. literalinclude:: daml/CoinIssuance.daml
     :language: daml
-    :lines: 74-76
+    :start-after: -- BEGIN_COIN_TEMPLATE_DISCLOSE
+    :end-before: -- END_COIN_TEMPLATE_DISCLOSE
 
 .. note:: The technique is likely to change in the future. Daml is actively researching future language features for contract disclosure.
 

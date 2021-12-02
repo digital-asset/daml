@@ -89,7 +89,7 @@ in a sensible way to automatically deal with errors and decide whether to retry
 a request or escalate to the operator.
 
 .. This file is generated:
-.. include:: error-categories-inventory.rst
+.. include:: error-categories-inventory.rst.inc
 
 
 Anatomy of an Error
@@ -162,7 +162,7 @@ Error Codes Inventory
 
 
 .. This file is generated:
-.. include:: error-codes-inventory.rst
+.. include:: error-codes-inventory.rst.inc
 
 
 Error Codes Migration Guide

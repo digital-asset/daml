@@ -48,11 +48,10 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     }
 
   lazy val mod: Parser[Module] =
-    Id("module") ~! tags(modTags) ~ dottedName ~ `{` ~ rep(definition <~ `;`) <~ `}` ^^ {
-      case _ ~ modTag ~ modName ~ _ ~ defs =>
+    Id("module") ~! dottedName ~ `{` ~ rep(definition <~ `;`) <~ `}` ^^ {
+      case _ ~ modName ~ _ ~ defs =>
         val (definitions, templates, exceptions, interfaces) = split(defs)
-        val flags = FeatureFlags(forbidPartyLiterals = modTag(noPartyLitsTag))
-        Module.build(modName, definitions, templates, exceptions, interfaces, flags)
+        Module.build(modName, definitions, templates, exceptions, interfaces, FeatureFlags.default)
     }
 
   private lazy val definition: Parser[Def] =
@@ -115,7 +114,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private lazy val valDefinition: Parser[DataDef] =
     Id("val") ~>! tags(valDefTags) ~ dottedName ~ `:` ~ typ ~ `=` ~ expr ^^ {
       case defTags ~ id ~ _ ~ typ ~ _ ~ expr =>
-        DataDef(id, DValue(typ, defTags(noPartyLitsTag), expr, defTags(isTestTag)))
+        DataDef(id, DValue(typ, expr, defTags(isTestTag)))
     }
 
   private lazy val templateKey: Parser[TemplateKey] =
@@ -223,14 +222,12 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")
-  private val noPartyLitsTag = Ref.Name.assertFromString("noPartyLiterals")
   private val isTestTag = Ref.Name.assertFromString("isTest")
   private val nonConsumingTag = Ref.Name.assertFromString("nonConsuming")
 
   private val dataDefTags = Set(serializableTag)
   private val templateChoiceTags = Set(nonConsumingTag)
-  private val valDefTags = Set(noPartyLitsTag, isTestTag)
-  private val modTags = Set(noPartyLitsTag)
+  private val valDefTags = Set(isTestTag)
 
 }
 

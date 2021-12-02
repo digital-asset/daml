@@ -81,8 +81,9 @@ Contract templates are represented as records with the same identifier as the te
 This first example template below contains only the signatory party and a simple choice to exercise:
 
 .. literalinclude:: ../code-snippets/Templates.daml
-    :language: daml
-    :lines: 6-18
+  :language: daml
+  :start-after: -- BEGIN_SIMPLE_TEMPLATE
+  :end-before: -- END_SIMPLE_TEMPLATE
 
 Creating a contract
 ===================

@@ -218,9 +218,9 @@ def daml_deps():
         # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.41.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.41.0.tar.gz"],
-            sha256 = "e5fb30aae1fa1cffa4ce00aa0bbfab908c0b899fcf0bbc30e268367d660d8656",
+            strip_prefix = "grpc-1.42.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.42.0.tar.gz"],
+            sha256 = "b2f2620c762427bfeeef96a68c1924319f384e877bc0e084487601e4cc6e434c",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
@@ -312,30 +312,6 @@ def daml_deps():
                 "https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.3.1/grpc_health_probe-linux-amd64",
             ],
             executable = True,
-        )
-
-    if "davl-v3" not in native.existing_rules():
-        http_archive(
-            name = "davl-v3",
-            strip_prefix = "davl-{}".format(davl_v3_version),
-            urls = ["https://github.com/digital-asset/davl/archive/{}.tar.gz".format(davl_v3_version)],
-            sha256 = davl_v3_sha256,
-            build_file_content = """
-package(default_visibility = ["//visibility:public"])
-exports_files(["released/davl-v3.dar"])
-            """,
-        )
-
-    if "davl" not in native.existing_rules():
-        http_archive(
-            name = "davl",
-            strip_prefix = "davl-{}".format(davl_version),
-            urls = ["https://github.com/digital-asset/davl/archive/{}.tar.gz".format(davl_version)],
-            sha256 = davl_sha256,
-            build_file_content = """
-package(default_visibility = ["//visibility:public"])
-exports_files(["released/davl-v4.dar", "released/davl-v5.dar", "released/davl-upgrade-v3-v4.dar", "released/davl-upgrade-v4-v5.dar"])
-            """,
         )
 
     if "daml-cheat-sheet" not in native.existing_rules():

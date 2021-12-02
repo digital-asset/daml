@@ -61,7 +61,7 @@ you run the benchmarks that are relevant to you with the proper settings.
 
 #### Terminology
 
-* _serialize_: translate from a Protobuf object to its serialized from
+* _serialize_: translate from a Protobuf object to its serialized form
 * _deserialize_: translate a serialized Protobuf message into its object representation
 * _encode_: translate a Protobuf object to a Daml-LF object
 * _decode_: translate a Daml-LF object to a Protobuf object

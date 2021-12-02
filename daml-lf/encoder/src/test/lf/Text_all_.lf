@@ -12,9 +12,10 @@ module TextMod {
     agreement "Agreement for TextMod:Box";
   };
 
-  val build: TextMod:Box = TextMod:Box {
-    x  = "some text",
-    party = 'Alice'
-  };
+  val build: Party -> TextMod:Box = \(p : Party) ->
+    TextMod:Box {
+      x  = "some text",
+      party = p
+    };
 
 }

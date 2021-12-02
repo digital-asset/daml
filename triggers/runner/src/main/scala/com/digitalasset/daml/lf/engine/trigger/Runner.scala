@@ -173,9 +173,9 @@ object Trigger extends StrictLogging {
     for {
       definition <- compiledPackages.interface.lookupDefinition(triggerId).left.map(_.pretty)
       expr <- definition match {
-        case GenDValue(TApp(TTyCon(tcon), stateTy), _, _, _) =>
+        case GenDValue(TApp(TTyCon(tcon), stateTy), _, _) =>
           detectTriggerType(tcon, stateTy)
-        case GenDValue(ty, _, _, _) => Left(s"$ty is not a valid type for a trigger")
+        case GenDValue(ty, _, _) => Left(s"$ty is not a valid type for a trigger")
         case _ => Left(s"Trigger must points to a value but points to $definition")
       }
       triggerIds = TriggerIds(expr.ty.tycon.packageId)

@@ -330,7 +330,6 @@ object Ast {
   // Text should be treated as Utf8, data.Utf8 provide emulation functions for that
   final case class PLText(override val value: String) extends PrimLit
   final case class PLTimestamp(override val value: Time.Timestamp) extends PrimLit
-  final case class PLParty(override val value: Party) extends PrimLit
   final case class PLDate(override val value: Time.Date) extends PrimLit
   final case class PLRoundingMode(override val value: java.math.RoundingMode) extends PrimLit
 
@@ -504,11 +503,14 @@ object Ast {
       choice: ChoiceName,
       cidE: Expr,
       argE: Expr,
-      guardE: Option[Expr],
-      // `guardE` is an optional expression of type Interface -> Bool which is evaluated
-      // after fetching the contract but before running the exercise body. If the guard
-      // returns false, or an exception is raised during evaluation, the transaction is
-      // aborted.
+      typeRepE: Expr,
+      // `typeRepE` is an expression of type Optional TypeRep. If a typerep is given,
+      // the fetched contract's template id is compared against the typerep, and a
+      // WronglyTypedContract error is raised if they don't match.
+      guardE: Expr,
+      // `guardE` is an expression of type Interface -> Bool which is evaluated after
+      // fetching the contract but before running the exercise body. If the guard returns
+      // false, or an exception is raised during evaluation, the transaction is aborted.
   ) extends Update
   final case class UpdateExerciseByKey(
       templateId: TypeConName,
@@ -588,17 +590,16 @@ object Ast {
 
   final case class GenDValue[E](
       typ: Type,
-      noPartyLiterals: Boolean,
       body: E,
       isTest: Boolean,
   ) extends GenDefinition[E]
 
   final class GenDValueCompanion[E] private[Ast] {
-    def apply(typ: Type, noPartyLiterals: Boolean, body: E, isTest: Boolean): GenDValue[E] =
-      GenDValue(typ = typ, noPartyLiterals = noPartyLiterals, body = body, isTest = isTest)
+    def apply(typ: Type, body: E, isTest: Boolean): GenDValue[E] =
+      GenDValue(typ = typ, body = body, isTest = isTest)
 
-    def unapply(arg: GenDValue[E]): Some[(Type, Boolean, E, Boolean)] =
-      Some((arg.typ, arg.noPartyLiterals, arg.body, arg.isTest))
+    def unapply(arg: GenDValue[E]): Some[(Type, E, Boolean)] =
+      Some((arg.typ, arg.body, arg.isTest))
   }
 
   type DValue = GenDValue[Expr]
@@ -944,25 +945,10 @@ object Ast {
   type DefExceptionSignature = GenDefException[Unit]
   val DefExceptionSignature = GenDefException(())
 
-  final case class FeatureFlags(
-      forbidPartyLiterals: Boolean // If set to true, party literals are not allowed to appear in daml-lf packages.
-      /*
-      These flags are present in Daml-LF, but our ecosystem does not support them anymore:
-      dontDivulgeContractIdsInCreateArguments: Boolean, // If set to true, arguments to creates are not divulged.
-      // Instead target contract id's of exercises are divulged
-      // and fetches are authorized.
-      dontDiscloseNonConsumingChoicesToObservers: Boolean // If set to true, exercise nodes of
-      // non-consuming choices are only
-      // disclosed to the signatories and
-      // controllers of the target contract/choice
-      // and not to the observers of the target contract.
-       */
-  )
+  final case class FeatureFlags()
 
   object FeatureFlags {
-    val default = FeatureFlags(
-      forbidPartyLiterals = false
-    )
+    val default = FeatureFlags()
   }
 
   //

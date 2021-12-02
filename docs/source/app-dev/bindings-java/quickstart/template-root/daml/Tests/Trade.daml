@@ -17,6 +17,7 @@ trade_test = do
   usBank <- allocateParty "USD_Bank"
   eurBank <- allocateParty "EUR_Bank"
 
+-- BEGIN_SCENARIO
   -- Banks issue IOU transfers.
   iouTransferAliceCid <- submit eurBank do
     createAndExerciseCmd
@@ -28,6 +29,7 @@ trade_test = do
         observers = []
       Iou_Transfer with
         newOwner = alice
+-- END_SCENARIO
 
   iouTransferBobCid <- submit usBank do
     createAndExerciseCmd

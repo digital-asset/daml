@@ -257,13 +257,16 @@ private[state] object Conversions {
   private def assertEncode[X](context: => String, x: Either[ValueCoder.EncodeError, X]): X =
     x.fold(err => throw Err.EncodeError(context, err.errorMessage), identity)
 
-  def encodeTransaction(tx: VersionedTransaction): TransactionOuterClass.Transaction =
-    assertEncode(
+  def encodeTransaction(tx: VersionedTransaction): Raw.Transaction = {
+    val transaction = assertEncode(
       "Transaction",
       TransactionCoder.encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx),
     )
+    Raw.Transaction(transaction.toByteString)
+  }
 
-  def decodeTransaction(tx: TransactionOuterClass.Transaction): VersionedTransaction =
+  def decodeTransaction(rawTx: Raw.Transaction): VersionedTransaction = {
+    val tx = TransactionOuterClass.Transaction.parseFrom(rawTx.bytes)
     assertDecode(
       "Transaction",
       TransactionCoder
@@ -273,6 +276,7 @@ private[state] object Conversions {
           tx,
         ),
     )
+  }
 
   def decodeVersionedValue(protoValue: ValueOuterClass.VersionedValue): VersionedValue =
     assertDecode(
@@ -281,21 +285,26 @@ private[state] object Conversions {
     )
 
   def decodeContractInstance(
-      coinst: TransactionOuterClass.ContractInstance
-  ): Value.VersionedContractInstance =
+      rawContractInstance: Raw.ContractInstance
+  ): Value.VersionedContractInstance = {
+    val contractInstance =
+      TransactionOuterClass.ContractInstance.parseFrom(rawContractInstance.bytes)
     assertDecode(
       "ContractInstance",
       TransactionCoder
-        .decodeVersionedContractInstance(ValueCoder.CidDecoder, coinst),
+        .decodeVersionedContractInstance(ValueCoder.CidDecoder, contractInstance),
     )
+  }
 
   def encodeContractInstance(
       coinst: Value.VersionedContractInstance
-  ): TransactionOuterClass.ContractInstance =
-    assertEncode(
+  ): Raw.ContractInstance = {
+    val contractInstance = assertEncode(
       "ContractInstance",
       TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst),
     )
+    Raw.ContractInstance(contractInstance.toByteString)
+  }
 
   def contractIdStructOrStringToStateKey[A](
       coidStruct: ValueOuterClass.ContractId
@@ -320,7 +329,7 @@ private[state] object Conversions {
     */
   def encodeBlindingInfo(
       blindingInfo: BlindingInfo,
-      divulgedContracts: Map[ContractId, TransactionOuterClass.ContractInstance],
+      divulgedContracts: Map[ContractId, Raw.ContractInstance],
   ): DamlTransactionBlindingInfo =
     DamlTransactionBlindingInfo.newBuilder
       .addAllDisclosures(encodeDisclosure(blindingInfo.disclosure).asJava)
@@ -354,32 +363,32 @@ private[state] object Conversions {
 
   def extractDivulgedContracts(
       damlTransactionBlindingInfo: DamlTransactionBlindingInfo
-  ): Either[Seq[String], Map[ContractId, Value.VersionedContractInstance]] = {
+  ): Either[Seq[String], Map[ContractId, Raw.ContractInstance]] = {
     val divulgences = damlTransactionBlindingInfo.getDivulgencesList.asScala.toVector
     if (divulgences.isEmpty) {
       Right(Map.empty)
     } else {
       val resultAccumulator: Either[Seq[String], mutable.Builder[
-        (ContractId, Value.VersionedContractInstance),
-        Map[ContractId, Value.VersionedContractInstance],
+        (ContractId, Raw.ContractInstance),
+        Map[ContractId, Raw.ContractInstance],
       ]] = Right(Map.newBuilder)
       divulgences
         .foldLeft(resultAccumulator) {
           case (Right(contractInstanceIndex), divulgenceEntry) =>
-            if (divulgenceEntry.hasContractInstance) {
-              val contractId = decodeContractId(divulgenceEntry.getContractId)
-              val contractInstance = decodeContractInstance(divulgenceEntry.getContractInstance)
-              Right(contractInstanceIndex += (contractId -> contractInstance))
-            } else {
+            if (divulgenceEntry.getRawContractInstance.isEmpty) {
               Left(Vector(divulgenceEntry.getContractId))
+            } else {
+              val contractId = decodeContractId(divulgenceEntry.getContractId)
+              val rawContractInstance = Raw.ContractInstance(divulgenceEntry.getRawContractInstance)
+              Right(contractInstanceIndex += (contractId -> rawContractInstance))
             }
           case (Left(missingContracts), divulgenceEntry) =>
             // If populated by an older version of the KV WriteService, the contract instances will be missing.
             // Hence, we assume that, if one is missing, all are and return the list of missing ids.
-            if (divulgenceEntry.hasContractInstance) {
-              Left(missingContracts)
-            } else {
+            if (divulgenceEntry.getRawContractInstance.isEmpty) {
               Left(missingContracts :+ divulgenceEntry.getContractId)
+            } else {
+              Left(missingContracts)
             }
         }
         .map(_.result())
@@ -554,17 +563,17 @@ private[state] object Conversions {
   private def encodeDivulgenceEntry(
       contractId: ContractId,
       divulgedTo: Set[Ref.Party],
-      contractInstance: TransactionOuterClass.ContractInstance,
+      rawContractInstance: Raw.ContractInstance,
   ): DivulgenceEntry =
     DivulgenceEntry.newBuilder
       .setContractId(contractIdToString(contractId))
       .addAllDivulgedToLocalParties(encodeParties(divulgedTo).asJava)
-      .setContractInstance(contractInstance)
+      .setRawContractInstance(rawContractInstance.bytes)
       .build
 
   private def encodeDivulgence(
       divulgence: Relation[ContractId, Ref.Party],
-      divulgedContractsIndex: Map[ContractId, TransactionOuterClass.ContractInstance],
+      divulgedContractsIndex: Map[ContractId, Raw.ContractInstance],
   ): List[DivulgenceEntry] =
     divulgence.toList
       .sortBy(_._1.coid)

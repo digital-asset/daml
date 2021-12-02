@@ -174,7 +174,7 @@ object ScenarioRunner {
       scenarioDef: Ast.Definition,
   ): Ast.Expr = {
     scenarioDef match {
-      case Ast.DValue(_, _, body, _) => body
+      case Ast.DValue(_, body, _) => body
       case _: Ast.DTypeSyn =>
         throw new RuntimeException(
           s"Requested scenario $scenarioRef is a type synonym, not a definition"
