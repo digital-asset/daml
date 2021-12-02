@@ -280,7 +280,7 @@ class CommandDeduplicationSpec
           .build()
       }
 
-      "set expire time based on max record time" in {
+      "set pruning time based on max record time" in {
         val (context, transactionEntrySummary) =
           buildContextAndTransaction(
             submissionTime,
@@ -294,7 +294,7 @@ class CommandDeduplicationSpec
         parseTimestamp(
           deduplicateValueStoredInContext(context, transactionEntrySummary)
             .map(
-              _.getExpireAt
+              _.getPrunableFrom
             )
             .value
         ) shouldBe maximumRecordTime
@@ -341,7 +341,7 @@ class CommandDeduplicationSpec
         ) shouldBe recordTime
       }
 
-      "set expire time based on record time" in {
+      "set pruning time based on record time" in {
         val recordTime = timestamp
         val (context, transactionEntrySummary) =
           buildContextAndTransaction(
@@ -353,7 +353,7 @@ class CommandDeduplicationSpec
         parseTimestamp(
           deduplicateValueStoredInContext(context, transactionEntrySummary)
             .map(
-              _.getExpireAt
+              _.getPrunableFrom
             )
             .value
         ) shouldBe recordTime
