@@ -47,11 +47,11 @@ data PostConsuming t = PostConsuming {}
 data ImplementsT t i = ImplementsT
 
 class HasIsInterfaceType t where
-  isInterfaceType : proxy t -> Bool
+  _isInterfaceType : proxy t -> Bool
 
 _typeRepForInterfaceExercise : (HasTemplateTypeRep t, HasIsInterfaceType t) => proxy t -> Optional TypeRep
 _typeRepForInterfaceExercise p =
-  if isInterfaceType p
+  if _isInterfaceType p
     then None
     else Some (_templateTypeRep p)
 
