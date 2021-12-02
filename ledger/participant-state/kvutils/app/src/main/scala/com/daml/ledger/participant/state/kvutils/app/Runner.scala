@@ -134,7 +134,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   .map(ExecutionContext.fromExecutorService)
                   .acquire()
                 ledgerFactory <- factory
-                  .ledgerFactory(
+                  .readWriteServiceFactoryOwner(
                     config,
                     participantConfig,
                     sharedEngine,

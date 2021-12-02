@@ -24,7 +24,7 @@ import scala.concurrent.ExecutionContext
 
 object SqlLedgerFactory extends LedgerFactory[ExtraConfig] {
 
-  override def ledgerFactory(
+  override def readWriteServiceFactoryOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,

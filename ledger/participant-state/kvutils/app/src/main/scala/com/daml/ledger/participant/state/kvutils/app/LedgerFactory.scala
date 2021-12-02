@@ -19,7 +19,7 @@ import com.daml.metrics.Metrics
 import scala.concurrent.ExecutionContext
 
 trait LedgerFactory[ExtraConfig] {
-  def ledgerFactory(
+  def readWriteServiceFactoryOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,

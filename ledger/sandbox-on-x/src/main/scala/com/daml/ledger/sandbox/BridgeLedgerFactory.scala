@@ -24,7 +24,7 @@ case class BridgeConfig(maxDedupSeconds: Int, submissionBufferSize: Int)
 
 object BridgeLedgerFactory extends LedgerFactory[BridgeConfig] {
 
-  override def ledgerFactory(
+  override def readWriteServiceFactoryOwner(
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
