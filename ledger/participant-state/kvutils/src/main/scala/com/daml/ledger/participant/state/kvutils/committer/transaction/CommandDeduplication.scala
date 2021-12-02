@@ -215,14 +215,14 @@ private[transaction] object CommandDeduplication {
             val minRecordTime = commitContext.minimumRecordTime.getOrElse(
               throw Err.InternalError("Minimum record time is not set for pre-execution")
             )
-            val expireAt = maxRecordTime.add(pruningInterval)
+            val prunableFrom = maxRecordTime.add(pruningInterval)
             commandDedupBuilder
               .setRecordTimeBounds(
                 PreExecutionDeduplicationBounds.newBuilder
                   .setMaxRecordTime(Conversions.buildTimestamp(maxRecordTime))
                   .setMinRecordTime(Conversions.buildTimestamp(minRecordTime))
               )
-              .setPrunableFrom(Conversions.buildTimestamp(expireAt))
+              .setPrunableFrom(Conversions.buildTimestamp(prunableFrom))
         }
 
         // Set a deduplication entry.
