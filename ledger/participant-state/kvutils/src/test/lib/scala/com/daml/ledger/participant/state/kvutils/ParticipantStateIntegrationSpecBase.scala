@@ -5,14 +5,21 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.{Clock, Duration}
 import java.util.UUID
+import java.util.concurrent.CompletionStage
 
-import akka.Done
-import akka.stream.scaladsl.Sink
+import akka.{Done, NotUsed}
+import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod
+import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerTimeModel}
+import com.daml.ledger.configuration.{
+  Configuration,
+  LedgerId,
+  LedgerInitialConditions,
+  LedgerTimeModel,
+}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
@@ -23,8 +30,10 @@ import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.Decode
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.Ref.Party.ordering
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -755,6 +764,71 @@ object ParticipantStateIntegrationSpecBase {
       .toList
 
   private val alice = Ref.Party.assertFromString("alice")
+
+  def participantStateFrom(readService: ReadService, writeService: WriteService) = new ReadService
+    with WriteService {
+    override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+      readService.ledgerInitialConditions()
+
+    override def stateUpdates(beginAfter: Option[Offset])(implicit
+        loggingContext: LoggingContext
+    ): Source[(Offset, Update), NotUsed] = readService.stateUpdates(beginAfter)
+
+    override def submitTransaction(
+        submitterInfo: SubmitterInfo,
+        transactionMeta: TransactionMeta,
+        transaction: SubmittedTransaction,
+        estimatedInterpretationCost: Long,
+    )(implicit
+        loggingContext: LoggingContext,
+        telemetryContext: TelemetryContext,
+    ): CompletionStage[SubmissionResult] = writeService.submitTransaction(
+      submitterInfo,
+      transactionMeta,
+      transaction,
+      estimatedInterpretationCost,
+    )
+
+    override def currentHealth(): HealthStatus =
+      readService.currentHealth().and(writeService.currentHealth())
+
+    override def prune(
+        pruneUpToInclusive: Offset,
+        submissionId: SubmissionId,
+        pruneAllDivulgedContracts: Boolean,
+    ): CompletionStage[PruningResult] =
+      writeService.prune(pruneUpToInclusive, submissionId, pruneAllDivulgedContracts)
+
+    override def submitConfiguration(
+        maxRecordTime: Timestamp,
+        submissionId: SubmissionId,
+        config: Configuration,
+    )(implicit
+        loggingContext: LoggingContext,
+        telemetryContext: TelemetryContext,
+    ): CompletionStage[SubmissionResult] =
+      writeService.submitConfiguration(maxRecordTime, submissionId, config)
+
+    override def uploadPackages(
+        submissionId: SubmissionId,
+        archives: List[DamlLf.Archive],
+        sourceDescription: Option[String],
+    )(implicit
+        loggingContext: LoggingContext,
+        telemetryContext: TelemetryContext,
+    ): CompletionStage[SubmissionResult] =
+      writeService.uploadPackages(submissionId, archives, sourceDescription)
+
+    override def allocateParty(
+        hint: Option[Party],
+        displayName: Option[String],
+        submissionId: SubmissionId,
+    )(implicit
+        loggingContext: LoggingContext,
+        telemetryContext: TelemetryContext,
+    ): CompletionStage[SubmissionResult] =
+      writeService.allocateParty(hint, displayName, submissionId)
+  }
 
   private def newLedgerId(): LedgerId =
     Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")

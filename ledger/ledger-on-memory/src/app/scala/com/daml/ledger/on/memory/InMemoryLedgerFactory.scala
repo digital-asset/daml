@@ -5,42 +5,63 @@ package com.daml.ledger.on.memory
 
 import akka.stream.Materializer
 import com.daml.caching
-import com.daml.ledger.participant.state.kvutils.api.KeyValueLedger
-import com.daml.ledger.participant.state.kvutils.app.LedgerFactory.KeyValueLedgerFactory
-import com.daml.ledger.participant.state.kvutils.app.{Config, ParticipantConfig}
+import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
+import com.daml.ledger.participant.state.kvutils.api.LedgerReader
+import com.daml.ledger.participant.state.kvutils.app.{
+  Config,
+  KeyValueReadWriteOwner,
+  LedgerFactory,
+  ParticipantConfig,
+  ReadWriteServiceFactory,
+}
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 
+import scala.concurrent.ExecutionContext
+
 private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
-    extends KeyValueLedgerFactory[KeyValueLedger, Unit] {
+    extends LedgerFactory[Unit] {
 
-  override val defaultExtraConfig: Unit = ()
-
-  override def owner(config: Config[Unit], participantConfig: ParticipantConfig, engine: Engine)(
-      implicit
+  override def ledgerFactory(
+      config: Config[Unit],
+      participantConfig: ParticipantConfig,
+      engine: Engine,
+      metrics: Metrics,
+  )(implicit
       materializer: Materializer,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): ResourceOwner[KeyValueLedger] = {
-    val metrics = createMetrics(participantConfig, config)
-    new InMemoryLedgerReaderWriter.Owner(
-      ledgerId = config.ledgerId,
+  ): ResourceOwner[ReadWriteServiceFactory] = {
+    val offsetBuilder = new KVOffsetBuilder(version = 0)
+    new InMemoryLedgerWriter.Owner(
       participantId = participantConfig.participantId,
-      offsetVersion = 0,
       keySerializationStrategy = DefaultStateKeySerializationStrategy,
       metrics = metrics,
+      timeProvider = InMemoryLedgerWriter.DefaultTimeProvider,
       stateValueCache = caching.WeightedCache.from(
         configuration = config.stateValueCache,
         metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
       ),
       dispatcher = dispatcher,
+      offsetBuilder = offsetBuilder,
       state = state,
       engine = engine,
-      committerExecutionContext = materializer.executionContext,
-    )
+      committerExecutionContext = executionContext,
+    ).map(writer => {
+      lazy val reader: LedgerReader =
+        new InMemoryLedgerReader(config.ledgerId, dispatcher, offsetBuilder, state, metrics)
+      new KeyValueReadWriteOwner(
+        config,
+        metrics,
+        reader,
+        writer,
+      )
+    })
   }
 
 }

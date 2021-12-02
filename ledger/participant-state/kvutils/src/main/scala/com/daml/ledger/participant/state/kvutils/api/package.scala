@@ -3,17 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
-import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.configuration.LedgerId
-import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.SubmissionResult
-import com.daml.lf.data.Ref
-import com.daml.telemetry.TelemetryContext
-
-import scala.concurrent.Future
-
 /** This package contains interfaces simplifying implementation of a participant server.
   *
   * =Interfaces=
@@ -25,8 +14,8 @@ import scala.concurrent.Future
   *
   * =Running a Participant Server=
   * In order to spin up a participant server there are a few key classes:
-  *   - [[com.daml.ledger.participant.state.kvutils.app.LedgerFactory.KeyValueLedgerFactory]]: Defines how you
-  *   instantiate your `LedgerReader` and `LedgerWriter` implementations.
+  *   - [[com.daml.ledger.participant.state.kvutils.app.LedgerOwner]]: Defines how you
+  *     instantiate your `LedgerReader` and `LedgerWriter` implementations.
   *   - [[com.daml.ledger.participant.state.kvutils.app.Runner]]: Helper class for spinning up a fully functional
   *    participant server, including the indexer, gRPC interface, etc.
   * For an example ledger that implements the above interfaces please see the package [[com.daml.ledger.on.memory]].
@@ -50,30 +39,8 @@ import scala.concurrent.Future
   *
   * @see [[com.daml.ledger.participant.state.kvutils.api.LedgerReader]]
   * @see [[com.daml.ledger.participant.state.kvutils.api.LedgerWriter]]
-  * @see [[com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState]]
+  * @see [[com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader]]
+  * @see [[com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateWriter]]
   * @see [[com.daml.ledger.validator.ValidatingCommitter]]
   */
-package object api {
-  type KeyValueLedger = LedgerReader with LedgerWriter
-
-  def createKeyValueLedger(reader: LedgerReader, writer: LedgerWriter): KeyValueLedger =
-    new LedgerReader with LedgerWriter {
-
-      override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
-        reader.events(startExclusive)
-
-      override def ledgerId(): LedgerId = reader.ledgerId()
-
-      override def currentHealth(): HealthStatus =
-        reader.currentHealth().and(writer.currentHealth())
-
-      override def participantId: Ref.ParticipantId = writer.participantId
-
-      override def commit(
-          correlationId: String,
-          envelope: Raw.Envelope,
-          metadata: CommitMetadata,
-      )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] =
-        writer.commit(correlationId, envelope, metadata)
-    }
-}
+package object api {}

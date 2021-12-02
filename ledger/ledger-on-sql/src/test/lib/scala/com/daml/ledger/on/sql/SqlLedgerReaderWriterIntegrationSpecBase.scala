@@ -5,9 +5,11 @@ package com.daml.ledger.on.sql
 
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
-import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
+import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.{
+  ParticipantState,
+  participantStateFrom,
+}
 import com.daml.ledger.participant.state.kvutils.api.{
-  KeyValueParticipantState,
   KeyValueParticipantStateReader,
   KeyValueParticipantStateWriter,
 }
@@ -49,10 +51,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
         readerWriter,
         metrics,
       )
-      new KeyValueParticipantState(
-        reader,
-        writer,
-      )
+      participantStateFrom(reader, writer)
     }
   }
 }

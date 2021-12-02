@@ -6,12 +6,14 @@ package com.daml.ledger.on.memory
 import java.util.concurrent.Executors
 
 import com.daml.ledger.configuration.LedgerId
-import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.{
-  KeyValueParticipantState,
   KeyValueParticipantStateReader,
   KeyValueParticipantStateWriter,
+}
+import com.daml.ledger.participant.state.kvutils.{
+  KVOffsetBuilder,
+  ParticipantStateIntegrationSpecBase,
 }
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.validator.StateKeySerializationStrategy
@@ -49,25 +51,27 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       committerExecutionContext <- ResourceOwner
         .forExecutorService(() => Executors.newCachedThreadPool())
         .map(ExecutionContext.fromExecutorService)
-      readerWriter <- new InMemoryLedgerReaderWriter.Owner(
-        ledgerId = ledgerId,
+      state = InMemoryState.empty
+      offsetBuilder = new KVOffsetBuilder(version = 0)
+      writer <- new InMemoryLedgerWriter.Owner(
         participantId = participantId,
-        offsetVersion = offsetVersion,
         keySerializationStrategy = StateKeySerializationStrategy.createDefault(),
         metrics = metrics,
         dispatcher = dispatcher,
-        state = InMemoryState.empty,
+        state = state,
         engine = Engine.DevEngine(),
         committerExecutionContext = committerExecutionContext,
+        offsetBuilder = offsetBuilder,
       )
-    } yield new KeyValueParticipantState(
+      reader = new InMemoryLedgerReader(ledgerId, dispatcher, offsetBuilder, state, metrics)
+    } yield ParticipantStateIntegrationSpecBase.participantStateFrom(
       KeyValueParticipantStateReader(
-        reader = readerWriter,
+        reader = reader,
         metrics = metrics,
         enableSelfServiceErrorCodes = true,
       ),
       new KeyValueParticipantStateWriter(
-        writer = readerWriter,
+        writer = writer,
         metrics = metrics,
       ),
     )
