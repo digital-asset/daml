@@ -52,6 +52,7 @@ object WorkflowConfig {
     final case class ActiveContractsStreamConfig(
         name: String,
         filters: List[PartyFilter],
+        objectives: StreamConfig.Objectives,
     ) extends StreamConfig
 
     final case class CompletionsStreamConfig(
@@ -66,6 +67,7 @@ object WorkflowConfig {
     case class Objectives(
         maxDelaySeconds: Option[Long],
         minConsumptionSpeed: Option[Double],
+        minItemRate: Option[Long],
     )
   }
 }

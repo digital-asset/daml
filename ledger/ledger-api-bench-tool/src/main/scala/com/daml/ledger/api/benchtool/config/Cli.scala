@@ -178,6 +178,7 @@ object Cli {
           objectives = WorkflowConfig.StreamConfig.Objectives(
             maxDelaySeconds = maxDelaySeconds,
             minConsumptionSpeed = minConsumptionSpeed,
+            minItemRate = None,
           ),
         )
 
@@ -198,6 +199,7 @@ object Cli {
             objectives = WorkflowConfig.StreamConfig.Objectives(
               maxDelaySeconds = maxDelaySeconds,
               minConsumptionSpeed = minConsumptionSpeed,
+              minItemRate = None,
             ),
           )
 
@@ -205,9 +207,15 @@ object Cli {
             : Either[String, WorkflowConfig.StreamConfig.ActiveContractsStreamConfig] = for {
           name <- stringField("name")
           filters <- stringField("filters").flatMap(filters)
+          minItemRate <- optionalLongField("min-rate")
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
+          objectives = WorkflowConfig.StreamConfig.Objectives(
+            maxDelaySeconds = None,
+            minConsumptionSpeed = None,
+            minItemRate = minItemRate,
+          ),
         )
 
         def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =

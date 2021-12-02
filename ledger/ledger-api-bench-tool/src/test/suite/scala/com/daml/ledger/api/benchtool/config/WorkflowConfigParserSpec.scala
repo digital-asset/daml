@@ -30,7 +30,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |      - party: Obs-2
           |        templates:
           |         - Foo1
-          |         - Foo3""".stripMargin
+          |         - Foo3
+          |    objectives:
+          |      min_item_rate: 123""".stripMargin
 
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
@@ -57,6 +59,11 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
                 )
+              ),
+              objectives = WorkflowConfig.StreamConfig.Objectives(
+                maxDelaySeconds = None,
+                minConsumptionSpeed = None,
+                minItemRate = Some(123),
               ),
             )
           ),
@@ -150,6 +157,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               objectives = WorkflowConfig.StreamConfig.Objectives(
                 maxDelaySeconds = Some(123),
                 minConsumptionSpeed = Some(2.34),
+                minItemRate = None,
               ),
             )
           ),
@@ -189,6 +197,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               objectives = WorkflowConfig.StreamConfig.Objectives(
                 maxDelaySeconds = Some(123),
                 minConsumptionSpeed = Some(2.34),
+                minItemRate = None,
               ),
             )
           ),
@@ -205,7 +214,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |      - party: Obs-2
           |        templates:
           |         - Foo1
-          |         - Foo3""".stripMargin
+          |         - Foo3
+          |    objectives:
+          |      min_item_rate: 123""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = None,
@@ -217,6 +228,11 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
                 )
+              ),
+              objectives = WorkflowConfig.StreamConfig.Objectives(
+                minConsumptionSpeed = None,
+                maxDelaySeconds = None,
+                minItemRate = Some(123),
               ),
             )
           ),
