@@ -26,6 +26,8 @@ import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
 import java.time.{Instant, Duration => JDuration}
 
+import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
+
 import scala.annotation.nowarn
 
 @nowarn("msg=deprecated")
@@ -419,7 +421,7 @@ class SubmitRequestValidatorTest
             expectedDescriptionV2 = s"INVALID_DEDUPLICATION_PERIOD(9,0): The submitted command had an invalid deduplication period: The given deduplication duration of ${java.time.Duration
               .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${internal.maxDeduplicationDuration}",
             metadataV2 = Map(
-              "max_deduplication_duration" -> internal.maxDeduplicationDuration.toString
+              ValidMaxDeduplicationFieldKey -> internal.maxDeduplicationDuration.toString
             ),
           )
         }
