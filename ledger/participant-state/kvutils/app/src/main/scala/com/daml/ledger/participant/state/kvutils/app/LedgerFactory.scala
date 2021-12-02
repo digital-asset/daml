@@ -24,6 +24,7 @@ import scopt.OptionParser
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.{nowarn, unused}
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
 @nowarn("msg=parameter value config .* is never used") // possibly used in overrides
@@ -131,7 +132,12 @@ trait ReadServiceOwner[+RS <: ReadService, ExtraConfig] extends ConfigProvider[E
       participantConfig: ParticipantConfig,
       engine: Engine,
       contractStore: AtomicReference[Option[ContractStore]],
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RS]
+      metrics: Metrics,
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+      ec: ExecutionContext,
+  ): ResourceOwner[RS]
 }
 
 trait WriteServiceOwner[+WS <: WriteService, ExtraConfig] extends ConfigProvider[ExtraConfig] {
@@ -140,7 +146,12 @@ trait WriteServiceOwner[+WS <: WriteService, ExtraConfig] extends ConfigProvider
       participantConfig: ParticipantConfig,
       engine: Engine,
       contractStore: AtomicReference[Option[ContractStore]],
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[WS]
+      metrics: Metrics,
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+      ec: ExecutionContext,
+  ): ResourceOwner[WS]
 }
 
 trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
@@ -152,23 +163,38 @@ trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
       participantConfig: ParticipantConfig,
       engine: Engine,
       contractStore: AtomicReference[Option[ContractStore]],
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RWS] =
-    readWriteServiceOwner(config, participantConfig, engine, contractStore)
+      metrics: Metrics,
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+      ec: ExecutionContext,
+  ): ResourceOwner[RWS] =
+    readWriteServiceOwner(config, participantConfig, engine, contractStore, metrics)
 
   override final def writeServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
       contractStore: AtomicReference[Option[ContractStore]],
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RWS] =
-    readWriteServiceOwner(config, participantConfig, engine, contractStore)
+      metrics: Metrics,
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+      ec: ExecutionContext,
+  ): ResourceOwner[RWS] =
+    readWriteServiceOwner(config, participantConfig, engine, contractStore, metrics)
 
   def readWriteServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
       contractStore: AtomicReference[Option[ContractStore]],
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RWS]
+      metrics: Metrics,
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+      ec: ExecutionContext,
+  ): ResourceOwner[RWS]
 }
 
 object LedgerFactory {
@@ -181,9 +207,11 @@ object LedgerFactory {
         participantConfig: ParticipantConfig,
         engine: Engine,
         contractStore: AtomicReference[Option[ContractStore]],
+        metrics: Metrics,
     )(implicit
         materializer: Materializer,
         loggingContext: LoggingContext,
+        ec: ExecutionContext,
     ): ResourceOwner[KeyValueParticipantState] =
       for {
         readerWriter <- owner(config, participantConfig, engine)
@@ -198,7 +226,11 @@ object LedgerFactory {
         value: Config[Unit],
         config: ParticipantConfig,
         engine: Engine,
-    )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[KVL]
+    )(implicit
+        materializer: Materializer,
+        loggingContext: LoggingContext,
+        ec: ExecutionContext,
+    ): ResourceOwner[KVL]
 
     override final def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =
       ()

@@ -27,6 +27,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate, NegativeKeyLookup}
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, GlobalKey, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
 import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.telemetry.TelemetryContext
@@ -39,7 +40,7 @@ import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.collection.Searching
 import scala.collection.immutable.VectorMap
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 case class ReadWriteServiceBridge(
@@ -48,36 +49,46 @@ case class ReadWriteServiceBridge(
     maxDedupSeconds: Int,
     submissionBufferSize: Int,
     contractStore: AtomicReference[Option[ContractStore]],
-)(implicit mat: Materializer, loggingContext: LoggingContext)
-    extends ReadService
+    metrics: Metrics,
+)(implicit
+    mat: Materializer,
+    loggingContext: LoggingContext,
+    servicesExecutionContext: ExecutionContext,
+) extends ReadService
     with WriteService
     with AutoCloseable {
   private val offsetIdx = new AtomicLong(0L)
 
   import ReadWriteServiceBridge._
-  private implicit val ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
   @volatile private var minQueue = VectorMap.empty[Submission.Transaction, Offset]
 
-  private val (conflictCheckingQueue, source) = Source
-    .queue[Submission.Transaction](128)
-    .map { tx =>
-      val enqueuedAt = contractStore
-        .get()
-        .getOrElse(throw new RuntimeException("ContractStore not there yet"))
-        .cacheOffset()
-      minQueue.synchronized {
-        minQueue = minQueue.updated(tx, enqueuedAt)
+  private val (conflictCheckingQueue, source) =
+    InstrumentedSource
+      .queue[Submission.Transaction](
+        bufferSize = 1024,
+        capacityCounter = metrics.daml.SoX.conflictQueueCapacity,
+        lengthCounter = metrics.daml.SoX.conflictQueueLength,
+        delayTimer = metrics.daml.SoX.conflictQueueDelay,
+      )
+      .map { tx =>
+        val enqueuedAt = contractStore
+          .get()
+          .getOrElse(throw new RuntimeException("ContractStore not there yet"))
+          .cacheOffset()
+        minQueue.synchronized {
+          minQueue = minQueue.updated(tx, enqueuedAt)
+          metrics.daml.SoX.minQueueSizeCounter.inc()
+        }
+        enqueuedAt -> tx
       }
-      enqueuedAt -> tx
-    }
-    .mapAsyncUnordered(64) { case (enqueuedAt, tx) =>
-      parallelConflictCheck(tx).map(enqueuedAt -> _)
-    }
-    .statefulMapConcat(sequence)
-    .preMaterialize()
+      .mapAsyncUnordered(64) { case (enqueuedAt, tx) =>
+        parallelConflictCheck(tx).map(enqueuedAt -> _)
+      }
+      .statefulMapConcat(sequence)
+      .preMaterialize()
 
   private def sequence: () => ((Offset, Either[SoxRejection, Transaction])) => Iterable[
     (Offset, Update)
@@ -86,34 +97,46 @@ case class ReadWriteServiceBridge(
 
     {
       case (_, Left(rejection)) =>
-        val newIndex = offsetIdx.getAndIncrement()
-        val newOffset = toOffset(newIndex)
-        minQueue.synchronized {
-          minQueue = minQueue.removed(rejection.originalTx)
-        }
-        Iterable(newOffset -> toRejection(rejection))
-      case (enqueuedAt, Right(transaction)) =>
-        val newIndex = offsetIdx.getAndIncrement()
-        val newOffset = toOffset(newIndex)
-        checkSequential(enqueuedAt, transaction, sequencerQueue) match {
-          case Left(rejection) =>
+        Timed.value(
+          metrics.daml.SoX.sequenceDuration, {
+            val newIndex = offsetIdx.getAndIncrement()
+            val newOffset = toOffset(newIndex)
             minQueue.synchronized {
-              minQueue = minQueue.removed(transaction)
+              minQueue = minQueue.removed(rejection.originalTx)
+              metrics.daml.SoX.minQueueSizeCounter.dec()
             }
             Iterable(newOffset -> toRejection(rejection))
-          case Right(acceptedTx) =>
-            minQueue.synchronized {
-              sequencerQueue = sequencerQueue :+ (newOffset -> transaction)
-              val smallestHead = minQueue.head._2
-              val pruneFrom = sequencerQueue.view.map(_._1).search(smallestHead) match {
-                case Searching.Found(foundIndex) => foundIndex - 1
-                case Searching.InsertionPoint(insertionPoint) => insertionPoint - 1
-              }
-              sequencerQueue = sequencerQueue.slice(pruneFrom, sequencerQueue.length)
-              minQueue = minQueue.removed(transaction)
+          },
+        )
+      case (enqueuedAt, Right(transaction)) =>
+        Timed.value(
+          metrics.daml.SoX.sequenceDuration, {
+            val newIndex = offsetIdx.getAndIncrement()
+            val newOffset = toOffset(newIndex)
+            checkSequential(enqueuedAt, transaction, sequencerQueue) match {
+              case Left(rejection) =>
+                minQueue.synchronized {
+                  minQueue = minQueue.removed(transaction)
+                  metrics.daml.SoX.minQueueSizeCounter.dec()
+                }
+                Iterable(newOffset -> toRejection(rejection))
+              case Right(acceptedTx) =>
+                minQueue.synchronized {
+                  sequencerQueue = sequencerQueue :+ (newOffset -> transaction)
+                  val smallestHead = minQueue.head._2
+                  val pruneFrom = sequencerQueue.view.map(_._1).search(smallestHead) match {
+                    case Searching.Found(foundIndex) => foundIndex - 1
+                    case Searching.InsertionPoint(insertionPoint) => insertionPoint - 1
+                  }
+                  sequencerQueue = sequencerQueue.slice(pruneFrom, sequencerQueue.length)
+                  minQueue = minQueue.removed(transaction)
+                  metrics.daml.SoX.minQueueSizeCounter.dec()
+                  metrics.daml.SoX.sequencerQueueLengthCounter.update(sequencerQueue.size)
+                }
+                Iterable(newOffset -> successMapper(acceptedTx, newIndex, participantId))
             }
-            Iterable(newOffset -> successMapper(acceptedTx, newIndex, participantId))
-        }
+          },
+        )
     }
   }
 
@@ -130,6 +153,7 @@ case class ReadWriteServiceBridge(
       delta: Vector[(Offset, Submission.Transaction)],
       transaction: Submission.Transaction,
   ): Either[SoxRejection, Submission.Transaction] = {
+    metrics.daml.SoX.deltaConflictCheckingSize.update(delta.length)
     val (updatedKeys, archives) = collectDelta(delta)
 
     transaction.transaction.contractKeyInputs.left

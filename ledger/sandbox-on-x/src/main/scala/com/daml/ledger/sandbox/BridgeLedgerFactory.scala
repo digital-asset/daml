@@ -9,9 +9,11 @@ import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, Par
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import scopt.OptionParser
 
 import java.util.concurrent.atomic.AtomicReference
+import scala.concurrent.ExecutionContext
 
 case class BridgeConfig(maxDedupSeconds: Int, submissionBufferSize: Int)
 
@@ -21,9 +23,11 @@ object BridgeLedgerFactory extends LedgerFactory[ReadWriteServiceBridge, BridgeC
       participantConfig: ParticipantConfig,
       engine: Engine,
       contractStore: AtomicReference[Option[ContractStore]],
+      metrics: Metrics,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
+      executionContext: ExecutionContext,
   ): ResourceOwner[ReadWriteServiceBridge] =
     ResourceOwner.forCloseable(() =>
       ReadWriteServiceBridge(
@@ -32,6 +36,7 @@ object BridgeLedgerFactory extends LedgerFactory[ReadWriteServiceBridge, BridgeC
         maxDedupSeconds = config.extra.maxDedupSeconds,
         submissionBufferSize = config.extra.submissionBufferSize,
         contractStore = contractStore,
+        metrics: Metrics,
       )
     )
 

@@ -125,8 +125,24 @@ final class Runner[T <: ReadWriteService, Extra](
                     .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
                     .acquire()
                 )
+                servicesExecutionContext <- ResourceOwner
+                  .forExecutorService(() =>
+                    new InstrumentedExecutorService(
+                      Executors.newWorkStealingPool(),
+                      metrics.registry,
+                      metrics.daml.lapi.threadpool.apiServices.toString,
+                    )
+                  )
+                  .map(ExecutionContext.fromExecutorService)
+                  .acquire()
                 ledger <- factory
-                  .readWriteServiceOwner(config, participantConfig, sharedEngine, contractStoreRef)
+                  .readWriteServiceOwner(
+                    config,
+                    participantConfig,
+                    sharedEngine,
+                    contractStoreRef,
+                    metrics,
+                  )(materializer, loggingContext, servicesExecutionContext)
                   .acquire()
                 readService = new TimedReadService(ledger, metrics)
                 writeService = new TimedWriteService(ledger, metrics)
@@ -144,16 +160,6 @@ final class Runner[T <: ReadWriteService, Extra](
                     )
                   )
                 )
-                servicesExecutionContext <- ResourceOwner
-                  .forExecutorService(() =>
-                    new InstrumentedExecutorService(
-                      Executors.newWorkStealingPool(),
-                      metrics.registry,
-                      metrics.daml.lapi.threadpool.apiServices.toString,
-                    )
-                  )
-                  .map(ExecutionContext.fromExecutorService)
-                  .acquire()
                 healthChecksWithIndexer <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
                     new StandaloneIndexerServer(
