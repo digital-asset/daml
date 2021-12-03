@@ -22,9 +22,8 @@ import scala.util.{Failure, Success}
 final class AuthorizationInterceptor(
     protected val authService: AuthService, // FIXME: figure out why a protected val is required here
     userManagementService: UserManagementService,
-    ec: ExecutionContext,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
-)(implicit loggingContext: LoggingContext)
+)(implicit loggingContext: LoggingContext, ec: ExecutionContext)
     extends ServerInterceptor {
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
@@ -46,7 +45,7 @@ final class AuthorizationInterceptor(
     new AsyncForwardingListener[ReqT] {
       FutureConverters
         .toScala(authService.decodeMetadata(headers))
-        .flatMap(resolveUserRights)(ec) // FIXME: why do I have to pass in the ExecutionContext here?
+        .flatMap(resolveUserRights)
         .onComplete {
           case Failure(exception) =>
             val error = errorFactories.internalAuthenticationError(
@@ -63,7 +62,7 @@ final class AuthorizationInterceptor(
               Contexts.interceptCall(nextCtx, call, headers, nextListener)
             setNextListener(nextListenerWithContext)
             nextListenerWithContext
-        }(ec)
+        }
     }
   }
 
@@ -84,7 +83,7 @@ final class AuthorizationInterceptor(
               applicationId = Some(applicationId),
               expiration = expiration,
             )
-        })(ec)
+        })
       case _ => Future.successful(claimSet)
     }
   }
@@ -102,7 +101,7 @@ final class AuthorizationInterceptor(
         // FIXME: figure out the idiomatic way to do that
         case Left(_) => None
         case Right(x) => Some(x.view.map(userRightToClaim).toList)
-      }(ec)
+      }
 }
 
 object AuthorizationInterceptor {
@@ -115,10 +114,9 @@ object AuthorizationInterceptor {
   def apply(
       authService: AuthService,
       userManagementService: UserManagementService,
-      ec: ExecutionContext,
       errorCodesStatusSwitcher: ErrorCodesVersionSwitcher,
-  ): AuthorizationInterceptor =
+  )(implicit ec: ExecutionContext): AuthorizationInterceptor =
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
-      new AuthorizationInterceptor(authService, userManagementService, ec, errorCodesStatusSwitcher)
+      new AuthorizationInterceptor(authService, userManagementService, errorCodesStatusSwitcher)
     }
 }

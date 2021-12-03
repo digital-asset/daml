@@ -128,9 +128,8 @@ object StandaloneApiServer {
         AuthorizationInterceptor(
           authService,
           userManagementService,
-          servicesExecutionContext,
           errorCodesVersionSwitcher,
-        ) :: otherInterceptors,
+        )(servicesExecutionContext) :: otherInterceptors,
         servicesExecutionContext,
         metrics,
       )
