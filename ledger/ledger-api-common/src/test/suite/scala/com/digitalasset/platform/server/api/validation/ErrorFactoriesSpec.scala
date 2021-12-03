@@ -1,11 +1,14 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
+package com.daml.platform.server.api.validation
 
 import java.sql.{SQLNonTransientException, SQLTransientException}
 import java.time.Duration
 
+import ch.qos.logback.classic.Level
+import com.daml.platform.testing.LogCollector.ExpectedLogEntry
+import com.daml.platform.testing.LogCollectorAssertions
 import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
@@ -16,13 +19,14 @@ import com.daml.error.{
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.server.api.validation.ErrorFactories._
+import com.daml.platform.testing.LogCollector
 import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 import org.mockito.MockitoSugar
+import org.scalatest.BeforeAndAfter
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
@@ -35,7 +39,9 @@ class ErrorFactoriesSpec
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
-    with MockitoSugar {
+    with MockitoSugar
+    with BeforeAndAfter
+    with LogCollectorAssertions {
 
   private val logger = ContextualizedLogger.get(getClass)
   private val loggingContext = LoggingContext.ForTesting
@@ -48,8 +54,14 @@ class ErrorFactoriesSpec
 
   private val expectedCorrelationIdRequestInfo: ErrorDetails.RequestInfoDetail =
     ErrorDetails.RequestInfoDetail(originalCorrelationId)
+  private val excpectedLocationLogMarkerRegex =
+    "\\{err-context: \"\\{location=ErrorFactories.scala:\\d+\\}\"\\}"
 
   private val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
+
+  before {
+    LogCollector.clear[this.type]
+  }
 
   "ErrorFactories" should {
     "return sqlTransientException" in {
@@ -69,6 +81,11 @@ class ErrorFactoriesSpec
             Map("category" -> "1", "definite_answer" -> "false"),
           ),
         ),
+        expectedLogEntry = ExpectedLogEntry(
+          Level.INFO,
+          "INDEX_DB_SQL_TRANSIENT_ERROR(1,cor-id-1): Processing the request failed due to a transient database error: some db transient failure",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -82,6 +99,11 @@ class ErrorFactoriesSpec
         expectedMessage =
           s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         expectedDetails = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+        expectedLogEntry = ExpectedLogEntry(
+          Level.ERROR,
+          "INDEX_DB_SQL_NON_TRANSIENT_ERROR(4,cor-id-1): Processing the request failed due to a non-transient database error: some db non-transient failure",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -102,6 +124,13 @@ class ErrorFactoriesSpec
           v2_message =
             s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
           v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+          v2_logEntry = ExpectedLogEntry(
+            Level.ERROR,
+            "LEDGER_API_INTERNAL_ERROR(4,cor-id-1): some message: Exception: message123",
+            Some(
+              "\\{err-context: \"\\{throwableO=Some\\(java.lang.Exception: message123\\), location=ErrorFactories.scala:\\d+\\}\"\\}"
+            ),
+          ),
         )
       }
 
@@ -126,6 +155,13 @@ class ErrorFactoriesSpec
             ),
             expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1),
+          ),
+          v2_logEntry = ExpectedLogEntry(
+            Level.WARN,
+            "PARTICIPANT_BACKPRESSURE(2,cor-id-1): The participant is overloaded: Some buffer is full",
+            Some(
+              "\\{err-context: \"\\{reason=Some buffer is full, location=ErrorFactories.scala:\\d+\\}\"\\}"
+            ),
           ),
         )
       }
@@ -154,6 +190,13 @@ class ErrorFactoriesSpec
             expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1),
           ),
+          v2_logEntry = ExpectedLogEntry(
+            Level.INFO,
+            "SERVICE_NOT_RUNNING(1,cor-id-1): Some service has been shut down.",
+            Some(
+              "\\{err-context: \"\\{service_name=Some service, location=ErrorFactories.scala:\\d+\\}\"\\}"
+            ),
+          ),
         )
       }
 
@@ -177,6 +220,11 @@ class ErrorFactoriesSpec
             expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1),
           ),
+          v2_logEntry = ExpectedLogEntry(
+            Level.INFO,
+            "REQUEST_TIME_OUT(3,cor-id-1): Timed out while awaiting for a completion corresponding to a command submission.",
+            Some(excpectedLocationLogMarkerRegex),
+          ),
         )
       }
       "return noStatusInResponse" in {
@@ -192,6 +240,11 @@ class ErrorFactoriesSpec
           v2_message =
             s"An error occurred. Please contact the operator and inquire about the request cor-id-12345679",
           v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+          v2_logEntry = ExpectedLogEntry(
+            Level.ERROR,
+            "LEDGER_API_INTERNAL_ERROR(4,cor-id-1): Missing status in completion response.",
+            Some("\\{err-context: \"\\{throwableO=None, location=ErrorFactories.scala:\\d+\\}\"\\}"),
+          ),
         )
 
       }
@@ -213,6 +266,11 @@ class ErrorFactoriesSpec
           expectedCorrelationIdRequestInfo,
           ErrorDetails.ResourceInfoDetail("PACKAGE", "packageId123"),
         ),
+        v2_logEntry = ExpectedLogEntry(
+          Level.INFO,
+          "PACKAGE_NOT_FOUND(11,cor-id-1): Could not find package.",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -225,6 +283,11 @@ class ErrorFactoriesSpec
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+        v2_logEntry = ExpectedLogEntry(
+          Level.ERROR,
+          "LEDGER_API_INTERNAL_ERROR(4,cor-id-1): message123",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -241,6 +304,11 @@ class ErrorFactoriesSpec
             Map("category" -> "9", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
+        ),
+        v2_logEntry = ExpectedLogEntry(
+          Level.INFO,
+          "CONFIGURATION_ENTRY_REJECTED(9,cor-id-1): message123",
+          Some(excpectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -261,6 +329,11 @@ class ErrorFactoriesSpec
           expectedCorrelationIdRequestInfo,
           ErrorDetails.ResourceInfoDetail("TRANSACTION_ID", "tId"),
         ),
+        v2_logEntry = ExpectedLogEntry(
+          Level.INFO,
+          "TRANSACTION_NOT_FOUND(11,cor-id-1): Transaction not found, or not visible.",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -279,6 +352,11 @@ class ErrorFactoriesSpec
           ),
           expectedCorrelationIdRequestInfo,
         ),
+        v2_logEntry = ExpectedLogEntry(
+          Level.INFO,
+          "DUPLICATE_COMMAND(10,cor-id-1): A command with the given command id has already been successfully processed",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -291,6 +369,11 @@ class ErrorFactoriesSpec
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+        v2_logEntry = ExpectedLogEntry(
+          Level.WARN,
+          "PERMISSION_DENIED(7,cor-id-1): some cause",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -310,6 +393,11 @@ class ErrorFactoriesSpec
           ),
           expectedCorrelationIdRequestInfo,
           ErrorDetails.RetryInfoDetail(1),
+        ),
+        v2_logEntry = ExpectedLogEntry(
+          Level.INFO,
+          "REQUEST_TIME_OUT(3,cor-id-1): message123",
+          Some(excpectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -332,6 +420,11 @@ class ErrorFactoriesSpec
           ErrorDetails.ErrorInfoDetail("NON_HEXADECIMAL_OFFSET", Map("category" -> "8")),
           expectedCorrelationIdRequestInfo,
         ),
+        v2_logEntry = ExpectedLogEntry(
+          Level.INFO,
+          "NON_HEXADECIMAL_OFFSET(8,cor-id-1): Offset in fieldName123 not specified in hexadecimal: offsetValue123: message123",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -350,6 +443,11 @@ class ErrorFactoriesSpec
           ),
           expectedCorrelationIdRequestInfo,
         ),
+        v2_logEntry = ExpectedLogEntry(
+          Level.INFO,
+          "OFFSET_AFTER_LEDGER_END(12,cor-id-1): Absolute offset (AABBCC) is after ledger end (E)",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -367,6 +465,11 @@ class ErrorFactoriesSpec
           ),
           expectedCorrelationIdRequestInfo,
         ),
+        v2_logEntry = ExpectedLogEntry(
+          Level.INFO,
+          "OFFSET_OUT_OF_RANGE(9,cor-id-1): message123",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -379,6 +482,11 @@ class ErrorFactoriesSpec
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+        v2_logEntry = ExpectedLogEntry(
+          Level.WARN,
+          "UNAUTHENTICATED(6,cor-id-1): The command is missing a JWT token",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -393,6 +501,11 @@ class ErrorFactoriesSpec
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+        v2_logEntry = ExpectedLogEntry(
+          Level.ERROR,
+          "INTERNAL_AUTHORIZATION_ERROR(4,cor-id-1): nothing security sensitive in here",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -419,6 +532,11 @@ class ErrorFactoriesSpec
               Map("category" -> "11", "definite_answer" -> "false"),
             ),
             expectedCorrelationIdRequestInfo,
+          ),
+          v2_logEntry = ExpectedLogEntry(
+            Level.INFO,
+            "LEDGER_CONFIGURATION_NOT_FOUND(11,cor-id-1): The ledger configuration could not be retrieved.",
+            Some(excpectedLocationLogMarkerRegex),
           ),
         )
       }
@@ -469,6 +587,13 @@ class ErrorFactoriesSpec
           ),
           expectedCorrelationIdRequestInfo,
         ),
+        v2_logEntry = ExpectedLogEntry(
+          Level.INFO,
+          "INVALID_DEDUPLICATION_PERIOD(9,cor-id-1): The submitted command had an invalid deduplication period: message",
+          Some(
+            "\\{err-context: \"\\{max_deduplication_duration=PT5S, location=ErrorFactories.scala:\\d+\\}\"\\}"
+          ),
+        ),
       )
     }
 
@@ -494,6 +619,11 @@ class ErrorFactoriesSpec
               Map("category" -> "8", "definite_answer" -> "false"),
             ),
             expectedCorrelationIdRequestInfo,
+          ),
+          v2_logEntry = ExpectedLogEntry(
+            Level.INFO,
+            "INVALID_FIELD(8,cor-id-1): The submitted command has a field with invalid value: Invalid field my field: my message",
+            Some(excpectedLocationLogMarkerRegex),
           ),
         )
       }
@@ -523,6 +653,11 @@ class ErrorFactoriesSpec
             ),
             expectedCorrelationIdRequestInfo,
           ),
+          v2_logEntry = ExpectedLogEntry(
+            Level.INFO,
+            "LEDGER_ID_MISMATCH(11,cor-id-1): Ledger ID 'received' not found. Actual Ledger ID is 'expected'.",
+            Some(excpectedLocationLogMarkerRegex),
+          ),
         )
       }
     }
@@ -549,6 +684,11 @@ class ErrorFactoriesSpec
           ),
           expectedCorrelationIdRequestInfo,
         ),
+        v2_logEntry = ExpectedLogEntry(
+          Level.INFO,
+          "PARTICIPANT_PRUNED_DATA_ACCESSED(9,cor-id-1): my message",
+          Some(excpectedLocationLogMarkerRegex),
+        ),
       )
     }
 
@@ -561,6 +701,11 @@ class ErrorFactoriesSpec
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+        v2_logEntry = ExpectedLogEntry(
+          Level.ERROR,
+          "LEDGER_API_INTERNAL_ERROR(4,cor-id-1): message123",
+          Some("\\{err-context: \"\\{throwableO=None, location=ErrorFactories.scala:\\d+\\}\"\\}"),
+        ),
       )
     }
 
@@ -588,6 +733,13 @@ class ErrorFactoriesSpec
             expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1),
           ),
+          v2_logEntry = ExpectedLogEntry(
+            Level.INFO,
+            "SERVICE_NOT_RUNNING(1,cor-id-1): Some API Service has been shut down.",
+            Some(
+              "\\{err-context: \"\\{service_name=Some API Service, location=ErrorFactories.scala:\\d+\\}\"\\}"
+            ),
+          ),
         )
       }
     }
@@ -610,6 +762,13 @@ class ErrorFactoriesSpec
           ),
           expectedCorrelationIdRequestInfo,
           ErrorDetails.RetryInfoDetail(1),
+        ),
+        v2_logEntry = ExpectedLogEntry(
+          Level.INFO,
+          "SERVICE_NOT_RUNNING(1,cor-id-1): Some API Service is currently being reset.",
+          Some(
+            "\\{err-context: \"\\{service_name=Some API Service, location=ErrorFactories.scala:\\d+\\}\"\\}"
+          ),
         ),
       )
     }
@@ -638,6 +797,13 @@ class ErrorFactoriesSpec
             ),
             expectedCorrelationIdRequestInfo,
           ),
+          v2_logEntry = ExpectedLogEntry(
+            Level.INFO,
+            "MISSING_FIELD(8,cor-id-1): The submitted command is missing a mandatory field: my field",
+            Some(
+              "\\{err-context: \"\\{field_name=my field, location=ErrorFactories.scala:\\d+\\}\"\\}"
+            ),
+          ),
         )
       }
     }
@@ -663,6 +829,11 @@ class ErrorFactoriesSpec
               Map("category" -> "8", "definite_answer" -> "false"),
             ),
             expectedCorrelationIdRequestInfo,
+          ),
+          v2_logEntry = ExpectedLogEntry(
+            Level.INFO,
+            "INVALID_ARGUMENT(8,cor-id-1): The submitted command has invalid arguments: my message",
+            Some(excpectedLocationLogMarkerRegex),
           ),
         )
       }
@@ -690,6 +861,11 @@ class ErrorFactoriesSpec
             ),
             expectedCorrelationIdRequestInfo,
           ),
+          v2_logEntry = ExpectedLogEntry(
+            Level.INFO,
+            "INVALID_ARGUMENT(8,cor-id-1): The submitted command has invalid arguments: my message",
+            Some(excpectedLocationLogMarkerRegex),
+          ),
         )
       }
     }
@@ -710,11 +886,14 @@ class ErrorFactoriesSpec
       v2_code: Code,
       v2_message: String,
       v2_details: Seq[ErrorDetails.ErrorDetail],
+      v2_logEntry: ExpectedLogEntry,
   ): Unit = {
     val errorFactoriesV1 = ErrorFactories(new ErrorCodesVersionSwitcher(false))
     val errorFactoriesV2 = ErrorFactories(new ErrorCodesVersionSwitcher(true))
     assertV1Error(error(errorFactoriesV1))(v1_code, v1_message, v1_details)
-    assertV2Error(error(errorFactoriesV2))(v2_code, v2_message, v2_details)
+    // Making sure we collect log entries for V2 only
+    LogCollector.clear[this.type]
+    assertV2Error(error(errorFactoriesV2))(v2_code, v2_message, v2_details, v2_logEntry)
   }
 
   private def assertVersionedStatus(
@@ -726,6 +905,7 @@ class ErrorFactoriesSpec
       v2_code: Code,
       v2_message: String,
       v2_details: Seq[ErrorDetails.ErrorDetail],
+      v2_logEntry: ExpectedLogEntry,
   ): Unit = {
     assertVersionedError(x => io.grpc.protobuf.StatusProto.toStatusRuntimeException(error(x)))(
       v1_code,
@@ -734,6 +914,7 @@ class ErrorFactoriesSpec
       v2_code,
       v2_message,
       v2_details,
+      v2_logEntry,
     )
 
   }
@@ -753,12 +934,15 @@ class ErrorFactoriesSpec
       expectedCode: Code,
       expectedMessage: String,
       expectedDetails: Seq[ErrorDetails.ErrorDetail],
-  ): Unit = {
+      expectedLogEntry: ExpectedLogEntry,
+  )(implicit dummyImplicit: DummyImplicit, dummyImplicit2: DummyImplicit): Unit = {
     val status = StatusProto.fromThrowable(statusRuntimeException)
     status.getCode shouldBe expectedCode.value()
     status.getMessage shouldBe expectedMessage
     val details = status.getDetailsList.asScala.toSeq
     val _ = ErrorDetails.from(details) should contain theSameElementsAs expectedDetails
-    // TODO error codes: Assert logging
+    val actualLogs: Seq[LogCollector.Entry] = LogCollector.readAsEntries[this.type, this.type]
+    actualLogs should have size 1
+    assertLogEntry(actualLogs.head, expectedLogEntry)
   }
 }
