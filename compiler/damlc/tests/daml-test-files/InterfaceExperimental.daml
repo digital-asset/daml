@@ -93,12 +93,11 @@ main = scenario do
     alice <- getParty "Alice"
     bob <- getParty "Bob"
     let asset = Asset alice bob 15
-    let notAsset = NotAsset alice
     let token = toInterface @_ @Token asset
     submit alice do
       interfaceCreate token
       interfaceSignatory token === [alice]
       interfaceObserver token === [bob, alice]
-      unless (interfaceTypeRep token == templateTypeRep asset) $ abort "TypeReps are not equal"
-      unless (interfaceTypeRep token /= templateTypeRep notAsset) $ abort "TypeReps are equal"
+      unless (TemplateTypeRep (interfaceTypeRep token) == templateTypeRep @Asset) $ abort "TypeReps are not equal"
+      unless (TemplateTypeRep (interfaceTypeRep token) /= templateTypeRep @NotAsset ) $ abort "TypeReps are equal"
       pure ()
