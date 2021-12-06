@@ -46,6 +46,8 @@ trait SandboxRequiringAuthorization {
     isCustomDamlToken = false,
   )
 
+  protected val randomUserId: String = UUID.randomUUID().toString
+
   protected val adminToken: AuthServiceJWTPayload = emptyToken.copy(admin = true)
   protected val adminTokenStandardJWT: AuthServiceJWTPayload = standardToken("participant_admin")
   protected val unknownUserTokenStandardJWT: AuthServiceJWTPayload = standardToken("unknown_user")
@@ -60,10 +62,10 @@ trait SandboxRequiringAuthorization {
   }
 
   protected def readOnlyToken(party: String): AuthServiceJWTPayload =
-    emptyToken.copy(readAs = List(party))
+    emptyToken.copy(readAs = List(party), applicationId = Some(randomUserId))
 
   protected def readWriteToken(party: String): AuthServiceJWTPayload =
-    emptyToken.copy(actAs = List(party))
+    emptyToken.copy(actAs = List(party), applicationId = Some(randomUserId))
 
   protected def multiPartyToken(actAs: List[String], readAs: List[String]): AuthServiceJWTPayload =
     emptyToken.copy(actAs = actAs, readAs = readAs)

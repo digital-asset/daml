@@ -1,6 +1,7 @@
 package com.daml.platform.sandbox.auth
 
 import java.util.UUID
+
 import com.daml.ledger.api.v1.admin.user_management_service._
 
 import scala.concurrent.Future

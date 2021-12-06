@@ -59,15 +59,16 @@ trait ServiceCallAuthTests
   protected def ledgerBegin: LedgerOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
 
+  protected val randomParty: String = UUID.randomUUID.toString
   protected val canActAsRandomParty: Option[String] =
-    Option(toHeader(readWriteToken(UUID.randomUUID.toString)))
+    Option(toHeader(readWriteToken(randomParty)))
   protected val canActAsRandomPartyExpired: Option[String] =
     Option(toHeader(expiringIn(Duration.ofDays(-1), readWriteToken(UUID.randomUUID.toString))))
   protected val canActAsRandomPartyExpiresTomorrow: Option[String] =
     Option(toHeader(expiringIn(Duration.ofDays(1), readWriteToken(UUID.randomUUID.toString))))
 
   protected val canReadAsRandomParty: Option[String] =
-    Option(toHeader(readOnlyToken(UUID.randomUUID.toString)))
+    Option(toHeader(readOnlyToken(randomParty)))
   protected val canReadAsRandomPartyExpired: Option[String] =
     Option(toHeader(expiringIn(Duration.ofDays(-1), readOnlyToken(UUID.randomUUID.toString))))
   protected val canReadAsRandomPartyExpiresTomorrow: Option[String] =

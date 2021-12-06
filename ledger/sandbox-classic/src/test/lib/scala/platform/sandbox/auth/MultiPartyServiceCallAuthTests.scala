@@ -28,7 +28,6 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   private[this] val submitters: RequestSubmitters = RequestSubmitters("", actAs, readAs)
 
   private[this] val singleParty = UUID.randomUUID.toString
-  private[this] val randomParty = UUID.randomUUID.toString
 
   private[this] val randomActAs: List[String] = List.fill(actorsCount)(UUID.randomUUID.toString)
   private[this] val randomReadAs: List[String] = List.fill(readersCount)(UUID.randomUUID.toString)
