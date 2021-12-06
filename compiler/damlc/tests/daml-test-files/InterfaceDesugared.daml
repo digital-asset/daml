@@ -151,33 +151,15 @@ instance ((DA.Internal.Desugar.HasIsInterfaceType t),
 data GetRich
   = GetRich {byHowMuch : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "byHowMuch" GetRich Int where
-  getField
-    = DA.Internal.Record.getFieldPrim @"byHowMuch" @GetRich @Int
-  setField
-    = DA.Internal.Record.setFieldPrim @"byHowMuch" @GetRich @Int
 data Noop
   = Noop {nothing : ()}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "nothing" Noop () where
-  getField = DA.Internal.Record.getFieldPrim @"nothing" @Noop @()
-  setField = DA.Internal.Record.setFieldPrim @"nothing" @Noop @()
 data Transfer
   = Transfer {newOwner : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "newOwner" Transfer Party where
-  getField
-    = DA.Internal.Record.getFieldPrim @"newOwner" @Transfer @Party
-  setField
-    = DA.Internal.Record.setFieldPrim @"newOwner" @Transfer @Party
 data Split
   = Split {splitAmount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "splitAmount" Split Int where
-  getField
-    = DA.Internal.Record.getFieldPrim @"splitAmount" @Split @Int
-  setField
-    = DA.Internal.Record.setFieldPrim @"splitAmount" @Split @Int
 _choice_TokenGetRich :
   (Token -> GetRich -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
@@ -254,15 +236,6 @@ _choice_TokenSplit
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "issuer" Asset Party where
-  getField = DA.Internal.Record.getFieldPrim @"issuer" @Asset @Party
-  setField = DA.Internal.Record.setFieldPrim @"issuer" @Asset @Party
-instance DA.Internal.Record.HasField "owner" Asset Party where
-  getField = DA.Internal.Record.getFieldPrim @"owner" @Asset @Party
-  setField = DA.Internal.Record.setFieldPrim @"owner" @Asset @Party
-instance DA.Internal.Record.HasField "amount" Asset Int where
-  getField = DA.Internal.Record.getFieldPrim @"amount" @Asset @Int
-  setField = DA.Internal.Record.setFieldPrim @"amount" @Asset @Int
 instance DA.Internal.Desugar.HasSignatory Asset where
   signatory this@Asset {..}
     = DA.Internal.Desugar.concat
