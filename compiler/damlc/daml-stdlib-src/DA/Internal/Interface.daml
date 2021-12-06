@@ -61,6 +61,5 @@ toInterfaceContractId = coerceContractId
 fromInterfaceContractId : forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t))
 fromInterfaceContractId cid = do
   iface <- fetch cid
-  pure $ case fromInterface iface of
-    None -> None
-    Some (_ : t) -> Some (coerceContractId cid)
+  pure $
+    const (coerceContractId cid) <$> fromInterface @t iface
