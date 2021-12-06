@@ -12,6 +12,6 @@ object Main {
 
   def main(args: Array[String]): Unit =
     new ProgramResource(
-      owner = new Runner(RunnerName, BridgeLedgerFactory).owner(args)
+      owner = new Runner(RunnerName, BridgeLedgerFactory, BridgeConfigProvider).owner(args)
     ).run(ResourceContext.apply)
 }
