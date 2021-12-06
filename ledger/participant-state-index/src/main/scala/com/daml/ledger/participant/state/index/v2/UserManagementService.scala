@@ -3,9 +3,8 @@
 
 package com.daml.ledger.participant.state.index.v2
 
+import com.daml.ledger.api.domain.{ApplicationId, User, UserRight}
 import scala.concurrent.Future
-
-import com.daml.ledger.api.UserManagement._
 
 
 trait UserManagementService {
@@ -13,15 +12,15 @@ trait UserManagementService {
 
   def createUser(user: User, rights: Set[UserRight]): Future[Result[Unit]]
 
-  def getUser(id: String): Future[Result[User]]
+  def getUser(id: ApplicationId): Future[Result[User]]
 
-  def deleteUser(id: String): Future[Result[Unit]]
+  def deleteUser(id: ApplicationId): Future[Result[Unit]]
 
-  def grantRights(id: String, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
+  def grantRights(id: ApplicationId, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
 
-  def revokeRights(id: String, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
+  def revokeRights(id: ApplicationId, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
 
-  def listUserRights(id: String): Future[Result[Set[UserRight]]]
+  def listUserRights(id: ApplicationId): Future[Result[Set[UserRight]]]
 
   def listUsers(/* TODO: pagination -- pageSize: Int, pageToken: String*/): Future[Result[Users]]
 }
@@ -31,6 +30,6 @@ object UserManagementService {
   type Users = Seq[User] // TODO: pagination -- change to something like case class PaginatedUsers(users: Seq[User], nextPageToken: String)
 
   sealed trait Error
-  final case class UserNotFound(userId: String) extends Error
-  final case class UserExists(userId: String) extends Error
+  final case class UserNotFound(userId: ApplicationId) extends Error
+  final case class UserExists(userId: ApplicationId) extends Error
 }

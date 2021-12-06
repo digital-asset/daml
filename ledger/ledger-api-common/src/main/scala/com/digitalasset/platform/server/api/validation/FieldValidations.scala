@@ -5,7 +5,7 @@ package com.daml.platform.server.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.domain.{ApplicationId, LedgerId}
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
@@ -70,6 +70,13 @@ class FieldValidations private (errorFactories: ErrorFactories) {
           party <- requireParty(partyTxt)
         } yield parties + party
     }
+
+  def requireApplicationId(
+      s: String,
+      fieldName: String,
+   )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+   ): Either[StatusRuntimeException, ApplicationId] = requireLedgerString(s, fieldName).map(ApplicationId(_))
 
   def requireLedgerString(
       s: String,
