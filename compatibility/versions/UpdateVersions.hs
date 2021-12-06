@@ -173,6 +173,6 @@ main :: IO ()
 main = do
     Opts{..} <- execParser (info optsParser fullDesc)
     stableVers <- getVersionsFromTags
-    let allVersions = Versions (Set.filter (>= minimumVersion) (stableVers))
+    let allVersions = Versions (Set.filter (>= minimumVersion) stableVers)
     checksums <- mapM (\ver -> (ver,) <$> getChecksums ver) (Set.toList $ getVersions allVersions)
     writeFileUTF8 outputFile (T.unpack $ renderVersionsFile allVersions $ Map.fromList checksums)
