@@ -69,7 +69,8 @@ Daml Documentation
    :hidden:
    :caption: Operating Daml
 
-   ops/index
+   ops/requirements
+   ops/pruning
    ops/connect/index
 
 .. toctree::

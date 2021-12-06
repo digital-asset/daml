@@ -186,17 +186,22 @@ jobs:
           fi
       done
 
-      trap "git checkout $(branch_sha)" EXIT
-      git checkout origin/main
       cp .bazelrc compatibility/
       compatibility/update-versions.sh
       git add compatibility/versions.bzl compatibility/maven_install.json
 
-      BRANCH=update-compat-versions-for-$(release_tag)-$(Build.BuildId)
-      TITLE="update compat versions for $(release_tag)"
-      open_pr "$BRANCH" "$TITLE"
 
-      setvar "branch" "$BRANCH"
+      if ! git diff --cached --quiet; then
+        BRANCH=update-compat-versions-for-$(release_tag)-$(Build.BuildId)
+        TITLE="update compat versions for $(release_tag)"
+        open_pr "$BRANCH" "$TITLE"
+        setvar "branch" "$BRANCH"
+      else
+        echo "No changes"
+        setvar "branch" ""
+      fi
+
+
     name: out
 
   - template: ci/tell-slack-failed.yml
@@ -219,3 +224,4 @@ jobs:
       source $(bash-lib)
       trigger_azure $(System.AccessToken) PRs --branch $(branch)
       trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $(branch)
+    condition: and(succeeded(), not(eq(variables['branch'], '')))

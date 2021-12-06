@@ -107,6 +107,9 @@ patches we backport to the 1.0 release branch).
     - [Visual Studio Code, Java-SDK](https://docs.daml.com/getting-started/installation.html)
     - [Node.js](https://nodejs.org/en/download/)
       - Just the bare install; no need to build C dependencies.
+      - `create-daml-app` doesn't work with the latest version 17.x of node.js.
+        If you have `nix` installed, you can use a suitable version of nodejs by
+        running `nix-shell -p nodejs-12_x` before running the `npm` commands below.
 
 1. Run `daml version --assistant=yes` and verify that the new version is
    selected as the assistant version and the default version for new projects.
