@@ -15,6 +15,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
 import org.slf4j.event.Level
+import scala.concurrent.duration._
 
 import java.time.{Duration, Instant}
 
@@ -216,7 +217,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             (ErrorResource.ContractId, _err.coid.coid)
           )
         }
-
       }
 
       @Explanation("Errors raised in lookups during the command interpretation phase.")
@@ -784,7 +784,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class Reject(reason: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = reason)
+      ) extends LoggingTransactionErrorImpl(cause = reason) {
+        override def retryable: Option[ErrorCategoryRetry] = Some(
+          ErrorCategoryRetry("application", 1.second)
+        )
+      }
     }
 
     @Explanation(
@@ -831,12 +835,20 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ledger_time_lower_bound: Instant,
           ledger_time_upper_bound: Instant,
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(cause = cause)
+          extends LoggingTransactionErrorImpl(cause = cause) {
+        override def retryable: Option[ErrorCategoryRetry] = Some(
+          ErrorCategoryRetry("application", 1.second)
+        )
+      }
 
       case class RejectSimple(
           override val cause: String
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(cause = cause)
+          extends LoggingTransactionErrorImpl(cause = cause) {
+        override def retryable: Option[ErrorCategoryRetry] = Some(
+          ErrorCategoryRetry("application", 1.second)
+        )
+      }
     }
   }
 

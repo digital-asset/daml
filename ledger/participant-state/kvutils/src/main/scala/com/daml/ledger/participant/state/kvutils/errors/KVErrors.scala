@@ -9,12 +9,14 @@ import java.time.Instant
 import com.daml.error.{
   ContextualizedErrorLogger,
   ErrorCategory,
+  ErrorCategoryRetry,
   ErrorCode,
   ErrorGroup,
   Explanation,
   Resolution,
 }
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.InternallyInconsistentTransaction
+import scala.concurrent.duration._
 
 @Explanation(
   "Errors that are specific to ledgers based on the KV architecture: Daml Sandbox and VMBC."
@@ -42,7 +44,11 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
           tooEarlyUntil: Option[Instant],
           tooLateAfter: Option[Instant],
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(cause)
+          extends KVLoggingTransactionErrorImpl(cause) {
+        override def retryable: Option[ErrorCategoryRetry] = Some(
+          ErrorCategoryRetry("application", 1.second)
+        )
+      }
     }
 
     @Explanation(
@@ -68,6 +74,10 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
           "minimum_record_time" -> minimumRecordTime.toString,
           "maximum_record_time" -> maximumRecordTime.toString,
         )
+
+        override def retryable: Option[ErrorCategoryRetry] = Some(
+          ErrorCategoryRetry("application", 1.second)
+        )
       }
     }
 
@@ -84,7 +94,11 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(
             cause = s"Invalid ledger time: Causal monotonicity violated"
-          )
+          ) {
+        override def retryable: Option[ErrorCategoryRetry] = Some(
+          ErrorCategoryRetry("application", 1.second)
+        )
+      }
     }
   }
 
