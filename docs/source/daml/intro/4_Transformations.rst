@@ -30,12 +30,12 @@ The above defines a *choice* called ``UpdateTelephone``. Choices are part of a c
 
 Let's unpack the code snippet above:
 
-- The first line, ``controller owner can`` says that the following choices are *controlled* by ``owner``, meaning ``owner`` is the only party that is allowed to *exercise* them. The line starts a new block in which multiple choices can be defined.
-- ``UpdateTelephone`` is the name of a choice. It starts a new block in which that choice is defined.
+- The first line, ``choice UpdateTelephone`` indicates a choice definition, ``UpdateTelephone`` is the name of the choice. It starts a new block in which that choice is defined.
 - ``: ContractId Contact`` is the return type of the choice.
 
   This particular choice archives the current ``Contact``, and creates a new one. What it returns is a reference to the new contract, in the form of a ``ContractId Contact``
 - The following ``with`` block is that of a record. Just like with templates, in the background, a new record type is declared: ``data UpdateTelephone = UpdateTelephone with``
+- The line ``controller owner`` says that this choice is *controlled* by ``owner``, meaning ``owner`` is the only party that is allowed to *exercise* them.
 - The ``do`` starts a block defining the action the choice should perform when exercised. In this case a new ``Contact`` is created.
 - The new ``Contact`` is created using ``this with``. ``this`` is a special value available within the ``where`` block of templates and takes the value of the current contract's arguments.
 
@@ -94,7 +94,7 @@ The below demonstrates this using an ``UpdateAddress`` choice and corresponding 
   :start-after: -- DELEGATION_TEST_BEGIN
   :end-before: -- DELEGATION_TEST_END
 
-If you open the script view in the IDE, you will notice that Bob sees the ``Contact``. Controllers specified via ``controller c can`` syntax become *observers* of the contract. More on *observers* later, but in short, they get to see any changes to the contract.
+If you open the script view in the IDE, you will notice that Bob sees the ``Contact``. This is because ``party`` is specified as an ``observer`` in the template, and in this case Bob is the ``party``. More on *observers* later, but in short, they get to see any changes to the contract.
 
 .. _choices:
 

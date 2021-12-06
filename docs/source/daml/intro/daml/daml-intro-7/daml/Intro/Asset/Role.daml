@@ -17,14 +17,15 @@ template AssetHolderInvite
     owner : Party
   where
     signatory issuer
+    observer owner
 
-    controller owner can
-      AssetHolderInvite_Accept
-        : ContractId AssetHolder
-        do
-          create AssetHolder with
-            issuer
-            owner
+    choice AssetHolderInvite_Accept
+      : ContractId AssetHolder
+      controller owner
+      do
+        create AssetHolder with
+          issuer
+          owner
 
 template AssetHolder
   with
@@ -33,33 +34,34 @@ template AssetHolder
   where
     signatory issuer, owner
 
-    controller issuer can
-      nonconsuming Issue_Asset
-        : ContractId Asset
-        with
-          symbol : Text
-          quantity : Decimal
-        do
-          create Asset with
-            issuer
-            owner
-            symbol
-            quantity
-            observers = []
+    nonconsuming choice Issue_Asset
+      : ContractId Asset
+      with
+        symbol : Text
+        quantity : Decimal
+      controller issuer
+      do
+        create Asset with
+          issuer
+          owner
+          symbol
+          quantity
+          observers = []
 
-    controller owner can
-      nonconsuming Accept_Transfer
-        : ContractId Asset
-        with
-          transferProposalCid : ContractId TransferProposal
-        do
-          exercise transferProposalCid TransferProposal_Accept
+    nonconsuming choice Accept_Transfer
+      : ContractId Asset
+      with
+        transferProposalCid : ContractId TransferProposal
+      controller owner
+      do
+        exercise transferProposalCid TransferProposal_Accept
 
-      nonconsuming Preapprove_Transfer
-        : ContractId TransferApproval
-        with
-          asset : Asset
-        do
-          create TransferApproval with
-            asset
-            newOwner = owner
+    nonconsuming choice Preapprove_Transfer
+      : ContractId TransferApproval
+      with
+        asset : Asset
+      controller owner
+      do
+        create TransferApproval with
+          asset
+          newOwner = owner

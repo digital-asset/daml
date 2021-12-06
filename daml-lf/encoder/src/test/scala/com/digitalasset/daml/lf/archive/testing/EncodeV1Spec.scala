@@ -70,7 +70,6 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
            val aDecimal: Numeric 10 = 2.2000000000;
            val aDate: Date = 1879-03-14;
            val aTimestamp: Timestamp = 1970-01-01T00:00:00.000001Z;
-           val aParty: Party = 'party';
            val aString: Text = "a string";
            val aStruct: forall (a:*) (b:*). a ->  b -> < x1: a, x2: b > = /\ (a:*) (b:*). \ (x1: a) (x2: b) ->
              <x1 = x1, x2 = x2>;

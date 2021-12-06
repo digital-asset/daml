@@ -12,19 +12,19 @@ module DecimalMod {
     agreement "Agreement for DecimalMod:Box";
   };
 
-  val build0: DecimalMod:Box = DecimalMod:Box {
+  val build0: Party -> DecimalMod:Box = \(p : Party) -> DecimalMod:Box {
     x  = 0.0000000000 ,
-    party = 'Alice'
+    party = p
   };
 
-  val buildMax: DecimalMod:Box = DecimalMod:Box {
+  val buildMax: Party -> DecimalMod:Box = \(p : Party) -> DecimalMod:Box {
     x = 9999999999999999999999999999.9999999999 ,
-    party = 'Alice'
+    party = p
   };
 
-  val buildMin: DecimalMod:Box = DecimalMod:Box {
+  val buildMin: Party -> DecimalMod:Box = \(p : Party) -> DecimalMod:Box {
     x = -9999999999999999999999999999.9999999999 ,
-    party = 'Alice'
+    party = p
   };
 
 }

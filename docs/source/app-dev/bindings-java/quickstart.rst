@@ -273,23 +273,26 @@ Take a look at the Daml that specifies the contract model in the quickstart appl
 #. Open :doc:`Daml Studio </daml/daml-studio>`, a Daml IDE based on VS Code, by running ``daml studio`` from the root of your project.
 #. Using the explorer on the left, open ``daml/Iou.daml``.
 
-The first two lines specify language version and module name:
+The first line specifies the module name:
 
 .. literalinclude:: quickstart/template-root/daml/Iou.daml
   :language: daml
-  :lines: 4-5
+  :start-after: -- BEGIN_IOU_MODULE_NAME
+  :end-before: -- END_IOU_MODULE_NAME
 
 Next, a template called `Iou` is declared together with its datatype. This template has five fields:
 
 .. literalinclude:: quickstart/template-root/daml/Iou.daml
   :language: daml
-  :lines: 9-15
+  :start-after: -- BEGIN_IOU_TEMPLATE_DATATYPE
+  :end-before: -- END_IOU_TEMPLATE_DATATYPE
 
 Conditions for the creation of a contract are specified using the `ensure` and `signatory` keywords:
 
 .. literalinclude:: quickstart/template-root/daml/Iou.daml
   :language: daml
-  :lines: 17-19
+  :start-after: -- BEGIN_IOU_TEMPLATE_CONDITIONS
+  :end-before: -- END_IOU_TEMPLATE_CONDITIONS
 
 In this case, there are two conditions:
 
@@ -304,15 +307,32 @@ Observers are specified using the ``observer`` keyword:
 
 .. literalinclude:: quickstart/template-root/daml/Iou.daml
   :language: daml
-  :lines: 21
+  :start-after: -- BEGIN_IOU_TEMPLATE_OBSERVERS
+  :end-before: -- END_IOU_TEMPLATE_OBSERVERS
 
-Next, *rights* or *choices* are given to ``owner``:
+Next, the *rights* or *choices* are defined, in this case with ``owner`` as the ``controller``:
 
 .. literalinclude:: quickstart/template-root/daml/Iou.daml
   :language: daml
-  :lines: 23, 52-55
+  :start-after: -- BEGIN_IOU_TEMPLATE_SPLIT
+  :end-before: -- END_IOU_TEMPLATE_SPLIT
 
-``controller owner can`` starts the block. In this case, ``owner`` has the right to:
+.. literalinclude:: quickstart/template-root/daml/Iou.daml
+  :language: daml
+  :start-after: -- BEGIN_IOU_TEMPLATE_MERGE
+  :end-before: -- END_IOU_TEMPLATE_MERGE
+
+.. literalinclude:: quickstart/template-root/daml/Iou.daml
+  :language: daml
+  :start-after: -- BEGIN_IOU_TEMPLATE_TRANSFER
+  :end-before: -- END_IOU_TEMPLATE_TRANSFER
+
+.. literalinclude:: quickstart/template-root/daml/Iou.daml
+  :language: daml
+  :start-after: -- BEGIN_IOU_TEMPLATE_OBSERVER_CHOICES
+  :end-before: -- END_IOU_TEMPLATE_OBSERVER_CHOICES
+
+Thus, ``owner`` has the right to:
 
 - split the Iou
 - merge it with another one differing only on ``amount``
@@ -325,7 +345,8 @@ A more interesting choice is ``IouTrade_Accept``. To look at it, open ``IouTrade
 
 .. literalinclude:: quickstart/template-root/daml/IouTrade.daml
   :language: daml
-  :lines: 25-46
+  :start-after: -- BEGIN_IOU_COMPOSITE_CHOICE
+  :end-before: -- END_IOU_COMPOSITE_CHOICE
 
 This choice uses the ``===`` operator from the :doc:`Daml Standard Library </daml/stdlib/index>` to check pre-conditions. The standard library is imported using ``import DA.Assert`` at the top of the module.
 
@@ -352,7 +373,8 @@ The following block, for example, issues an ``Iou`` and transfers it to Alice:
 
 .. literalinclude:: quickstart/template-root/daml/Tests/Trade.daml
   :language: daml
-  :lines: 19-27
+  :start-after: -- BEGIN_SCENARIO
+  :end-before: -- END_SCENARIO
 
 Compare the scenario with the ``setup`` scenario in ``daml/Main.daml``. You will see that the scenario you used to initialize the sandbox is an initial segment of the ``trade_test`` scenario. The latter adds transactions to perform the trade you performed through Navigator, and a couple of transactions in which expectations are verified.
 

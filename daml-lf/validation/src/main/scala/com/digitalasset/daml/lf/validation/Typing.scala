@@ -39,7 +39,6 @@ private[validation] object Typing {
     case PLNumeric(s) => TNumeric(TNat(Numeric.scale(s)))
     case PLText(_) => TText
     case PLTimestamp(_) => TTimestamp
-    case PLParty(_) => TParty
     case PLDate(_) => TDate
     case PLRoundingMode(_) => TRoundingMode
   }
@@ -383,7 +382,7 @@ private[validation] object Typing {
     }
 
     def checkDValue(dfn: DValue): Unit = dfn match {
-      case DValue(typ, _, body, isTest) =>
+      case DValue(typ, body, isTest) =>
         checkType(typ, KStar)
         checkExpr(body, typ)
         if (isTest) {
@@ -900,18 +899,18 @@ private[validation] object Typing {
     }
 
     private def typeOfExerciseInterface(
-        tpl: TypeConName,
+        interfaceId: TypeConName,
         chName: ChoiceName,
         cid: Expr,
         arg: Expr,
-        guard: Option[Expr],
+        typeRep: Expr,
+        guard: Expr,
     ): Type = {
-      checkExpr(cid, TContractId(TTyCon(tpl)))
-      val choice = handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName))
+      checkExpr(cid, TContractId(TTyCon(interfaceId)))
+      val choice = handleLookup(ctx, interface.lookupInterfaceChoice(interfaceId, chName))
       checkExpr(arg, choice.argBinder._2)
-      guard.foreach(guardExpr => checkExpr(guardExpr, TFun(TTyCon(tpl), TBool)))
-      // TODO https://github.com/digital-asset/daml/issues/11703
-      //   Verify that guard typechecks correctly in typechecker tests.
+      checkExpr(typeRep, TOptional(TTypeRep))
+      checkExpr(guard, TFun(TTyCon(interfaceId), TBool))
       TUpdate(choice.returnType)
     }
 
@@ -965,8 +964,8 @@ private[validation] object Typing {
         typeOfCreateInterface(iface, arg)
       case UpdateExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
-      case UpdateExerciseInterface(tpl, choice, cid, arg, guard) =>
-        typeOfExerciseInterface(tpl, choice, cid, arg, guard)
+      case UpdateExerciseInterface(tpl, choice, cid, arg, typeRep, guard) =>
+        typeOfExerciseInterface(tpl, choice, cid, arg, typeRep, guard)
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetch(tpl, cid) =>

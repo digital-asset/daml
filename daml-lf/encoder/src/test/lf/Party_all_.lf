@@ -12,7 +12,7 @@ module PartyMod {
     agreement "Agreement for PartyMod:Box";
   };
 
-  val @noPartyLiterals one: Party -> List Party =
+  val one: Party -> List Party =
     \(x: Party) -> Cons @Party [x] (Nil @Party);
 
 }

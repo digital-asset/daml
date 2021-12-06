@@ -349,19 +349,17 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         getInternedDottedName(internedDName)
       }
 
-    private[this] def decodeFeatureFlags(flags: PLF.FeatureFlags): FeatureFlags = {
+    private[lf] def decodeFeatureFlags(flags: PLF.FeatureFlags): FeatureFlags = {
       // NOTE(JM, #157): We disallow loading packages with these flags because they impact the Ledger API in
       // ways that would currently make it quite complicated to support them.
       if (
-        !flags.getDontDivulgeContractIdsInCreateArguments || !flags.getDontDiscloseNonConsumingChoicesToObservers
+        !flags.getDontDivulgeContractIdsInCreateArguments || !flags.getDontDiscloseNonConsumingChoicesToObservers || !flags.getForbidPartyLiterals
       ) {
         throw Error.Parsing(
           "Deprecated feature flag settings detected, refusing to parse package"
         )
       }
-      FeatureFlags(
-        forbidPartyLiterals = flags.getForbidPartyLiterals
-      )
+      FeatureFlags.default
     }
 
     private[this] def decodeDefDataType(lfDataType: PLF.DefDataType): DDataType = {
@@ -472,7 +470,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         "EnumConstructors.constructors",
       )
 
-    private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue = {
+    private[lf] def decodeDefValue(lfValue: PLF.DefValue): DValue = {
+      if (!lfValue.getNoPartyLiterals) {
+        throw Error.Parsing("DefValue must have no_party_literals set to true")
+      }
       val name = handleDottedName(
         lfValue.getNameWithType.getNameDnameList.asScala,
         lfValue.getNameWithType.getNameInternedDname,
@@ -480,7 +481,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       )
       DValue(
         typ = decodeType(lfValue.getNameWithType.getType),
-        noPartyLiterals = lfValue.getNoPartyLiterals,
         body = decodeExpr(lfValue.getExpr, name.toString),
         isTest = lfValue.getIsTest,
       )
@@ -1304,7 +1304,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             choice = handleInternedName(exercise.getChoiceInternedStr),
             cidE = decodeExpr(exercise.getCid, definition),
             argE = decodeExpr(exercise.getArg, definition),
-            guardE = None, // TODO https://github.com/digital-asset/daml/issues/11703
+            typeRepE = decodeExpr(exercise.getTypeRep, definition),
+            guardE = decodeExpr(exercise.getGuard, definition),
           )
 
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>
@@ -1461,9 +1462,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.PrimLit.SumCase.TEXT_STR =>
           assertUntil(LV.Features.internedStrings, "PrimLit.text_str")
           PLText(lfPrimLit.getTextStr)
-        case PLF.PrimLit.SumCase.PARTY_STR =>
-          assertUntil(LV.Features.internedStrings, "PrimLit.party_str")
-          toPLParty(lfPrimLit.getPartyStr)
         case PLF.PrimLit.SumCase.TIMESTAMP =>
           val t = Time.Timestamp.fromLong(lfPrimLit.getTimestamp)
           t.fold(e => throw Error.Parsing("error decoding timestamp: " + e), PLTimestamp)
@@ -1476,12 +1474,11 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.PrimLit.SumCase.NUMERIC_INTERNED_STR =>
           assertSince(LV.Features.numeric, "PrimLit.numeric")
           toPLNumeric(getInternedStr(lfPrimLit.getNumericInternedStr))
-        case PLF.PrimLit.SumCase.PARTY_INTERNED_STR =>
-          assertSince(LV.Features.internedStrings, "PrimLit.party_interned_str")
-          toPLParty(getInternedStr(lfPrimLit.getPartyInternedStr))
         case PLF.PrimLit.SumCase.ROUNDING_MODE =>
           assertSince(LV.Features.bigNumeric, "Expr.rounding_mode")
           PLRoundingMode(java.math.RoundingMode.valueOf(lfPrimLit.getRoundingModeValue))
+        case PLF.PrimLit.SumCase.PARTY_STR | PLF.PrimLit.SumCase.PARTY_INTERNED_STR =>
+          throw Error.Parsing("Party literals are not supported")
         case PLF.PrimLit.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("PrimLit.SUM_NOT_SET")
       }
@@ -1513,9 +1510,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
   private[this] def toPLDecimal(s: String) =
     PLNumeric(eitherToParseError(Decimal.fromString(s)))
-
-  private[this] def toPLParty(s: String) =
-    PLParty(eitherToParseError(Party.fromString(s)))
 
   // maxVersion excluded
   private[this] def assertUntil(maxVersion: LV, description: => String): Unit =

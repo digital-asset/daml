@@ -444,6 +444,7 @@ final class SqlLedgerSpec
         acsIdPageSize = 2000,
         acsIdFetchingParallelism = 2,
         acsContractFetchingParallelism = 2,
+        acsGlobalParallelism = 10,
         servicesExecutionContext = executionContext,
         metrics = new Metrics(metrics),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,

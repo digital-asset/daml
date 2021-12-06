@@ -16,6 +16,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.EventStorageBackend
+import com.daml.platform.store.utils.ConcurrencyLimiter
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -40,6 +41,7 @@ class FilterTableACSReader(
     acsFetchingparallelism: Int,
     metrics: Metrics,
     materializer: Materializer,
+    querylimiter: ConcurrencyLimiter,
 ) extends ACSReader {
   import FilterTableACSReader._
 
@@ -101,25 +103,27 @@ class FilterTableACSReader(
       )
       .async
       .mapAsync(acsFetchingparallelism) { ids =>
-        dispatcher
-          .executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
-            val result = queryNonPruned.executeSql(
-              eventStorageBackend.activeContractEventBatch(
-                eventSequentialIds = ids,
-                allFilterParties = allFilterParties,
-                endInclusive = activeAt._2,
-              )(connection),
-              activeAt._1,
-              pruned =>
-                s"Active contracts request after ${activeAt._1.toHexString} precedes pruned offset ${pruned.toHexString}",
-            )(connection, implicitly)
-            logger.debug(
-              s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
-                .map(last => s"until $last")
-                .getOrElse("")}"
-            )
-            result
-          }
+        querylimiter.execute(() =>
+          dispatcher
+            .executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
+              val result = queryNonPruned.executeSql(
+                eventStorageBackend.activeContractEventBatch(
+                  eventSequentialIds = ids,
+                  allFilterParties = allFilterParties,
+                  endInclusive = activeAt._2,
+                )(connection),
+                activeAt._1,
+                pruned =>
+                  s"Active contracts request after ${activeAt._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+              )(connection, implicitly)
+              logger.debug(
+                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
+                  .map(last => s"until $last")
+                  .getOrElse("")}"
+              )
+              result
+            }
+        )
       }
   }
 
@@ -290,6 +294,8 @@ private[events] object FilterTableACSReader {
   /** Helper class to encapsulate stateful output batching, and deduplication.
     */
   class BatchedDistinctOutputQueue(batchSize: Int) {
+    assert(batchSize > 0)
+
     private var last: Long = -1
     private var buff: Array[Long] = Array.ofDim(batchSize)
     private var buffIndex: Int = 0
@@ -371,6 +377,8 @@ private[events] object FilterTableACSReader {
   /** Helper class to encapsulate stateful tracking of task streams.
     */
   class TaskTracker[TASK](allTasks: Iterable[TASK], inputBatchSize: Int) {
+    assert(inputBatchSize > 0)
+
     private val idle: mutable.Set[TASK] = mutable.Set.empty
     private val queuedRanges: mutable.Map[TASK, Vector[Iterable[Long]]] = mutable.Map.empty
 

@@ -82,45 +82,39 @@ private[binding] object ValueGen {
     }
   }
 
-  private val tautologicalValueChecks: Seq[Exists[ValueCheck]] =
-    ValuePrimitiveEncoding.roots(TautologicalValueChecks).map(Exists(_))
+  private val tautologicalValueChecks: Gen[Exists[ValueCheck]] =
+    Gen.oneOf(ValuePrimitiveEncoding.roots(TautologicalValueChecks).map(Exists(_)))
 
-  private val valueChecks: Gen[Exists[ValueCheck]] =
-    Gen.frequency(
-      (tautologicalValueChecks.size, Gen.oneOf(tautologicalValueChecks)),
-      (
-        1,
-        Gen.lzy {
-          valueChecks.map { vc =>
-            Exists(TautologicalValueChecks.valueList(vc.run))
-          }
-        },
-      ),
-      (
-        1,
-        Gen.lzy {
-          valueChecks.map { vc =>
-            Exists(TautologicalValueChecks.valueOptional(vc.run))
-          }
-        },
-      ),
-      (
-        1,
-        Gen.lzy {
-          valueChecks.map { vc =>
-            Exists(TautologicalValueChecks.valueTextMap(vc.run))
-          }
-        },
-      ),
-      (
-        1,
-        Gen.lzy {
-          valueChecks.map { vc =>
-            Exists(TautologicalValueChecks.valueGenMap(vc.run, vc.run))
-          }
-        },
-      ),
-    )
+  private val nestedValueChecks: Gen[Exists[ValueCheck]] = Gen.oneOf(
+    valueChecks.map { vc =>
+      Exists(TautologicalValueChecks.valueList(vc.run))
+    },
+    valueChecks.map { vc =>
+      Exists(TautologicalValueChecks.valueOptional(vc.run))
+    },
+    valueChecks.map { vc =>
+      Exists(TautologicalValueChecks.valueTextMap(vc.run))
+    },
+    valueChecks.map { vc =>
+      Exists(TautologicalValueChecks.valueGenMap(vc.run, vc.run))
+    },
+  )
+
+  private def valueChecks: Gen[Exists[ValueCheck]] =
+    Gen.lzy {
+      Gen.sized { size =>
+        for {
+          s <- Gen.choose(0, size)
+          value <-
+            if (s < 1) tautologicalValueChecks
+            else
+              Gen.frequency(
+                5 -> tautologicalValueChecks,
+                1 -> Gen.resize(size / (s + 1), nestedValueChecks),
+              )
+        } yield value
+      }
+    }
 
   private[binding] type WithValue[T] = (ValueCheck[T], T)
 

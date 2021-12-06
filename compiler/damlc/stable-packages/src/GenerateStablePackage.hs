@@ -9,12 +9,21 @@ import qualified Data.ByteString as BS
 import qualified Data.Map.Strict as MS
 import Options.Applicative
 import qualified Data.Text as T
+import Data.Text.Extended (writeFileUtf8)
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Proto3.Archive.Encode
 import DA.Daml.StablePackages
 
-data Opts = Opts
+data Opts
+    = PackageListCmd GenPackageListOpts
+    | PackageCmd GenPackageOpts
+
+data GenPackageListOpts = GenPackageListOpts
+  { optListOutputPath :: FilePath
+  }
+
+data GenPackageOpts = GenPackageOpts
   { optModule :: ModuleName
   -- ^ The module that we generate as a standalone package
   , optModuleDeps :: [ModuleDep]
@@ -31,9 +40,18 @@ data ModuleDep = ModuleDep
   , depPackageId :: PackageId
   } deriving Show
 
-optParser :: Parser Opts
-optParser =
-  Opts
+packageListOptsParser :: Parser GenPackageListOpts
+packageListOptsParser =
+    subparser $
+    command "gen-package-list" $
+    info parser mempty
+  where
+    parser = GenPackageListOpts <$> option str (short 'o')
+
+
+packageOptsParser :: Parser GenPackageOpts
+packageOptsParser =
+  GenPackageOpts
     <$> option modNameReader (long "module")
     <*> many (option modDepReader (long "module-dep" <> help "Module.Name:packageid"))
     <*> option str (short 'o')
@@ -47,14 +65,28 @@ optParser =
           }
         _ -> Nothing
 
+optParser :: Parser Opts
+optParser =
+    PackageListCmd <$> packageListOptsParser <|> PackageCmd <$> packageOptsParser
+
 main :: IO ()
 main = do
-    Opts{..} <- execParser (info optParser idm)
-    case MS.lookup optModule stablePackageByModuleName of
-        Nothing ->
-            fail $ "Unknown module: " <> show optModule
-        Just pkg ->
-            writePackage pkg optOutputPath
+    opts <- execParser (info optParser idm)
+    case opts of
+        PackageCmd GenPackageOpts{..} -> case MS.lookup optModule stablePackageByModuleName of
+            Nothing ->
+                fail $ "Unknown module: " <> show optModule
+            Just pkg ->
+                writePackage pkg optOutputPath
+        PackageListCmd GenPackageListOpts{..} ->
+            writeFileUtf8 optListOutputPath $ T.unlines
+              [ "module DA.Daml.StablePackagesList (stablePackages) where"
+              , "import DA.Daml.LF.Ast (PackageId(..))"
+              , "import qualified Data.Set as Set"
+              , "stablePackages :: Set.Set PackageId"
+              , "stablePackages = Set.fromList"
+              , "  [" <> T.intercalate ", " (map (T.pack . show) $ MS.keys allStablePackages) <> "]"
+              ]
 
 writePackage :: Package -> FilePath -> IO ()
 writePackage pkg path = do

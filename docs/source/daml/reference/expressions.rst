@@ -41,7 +41,7 @@ Here you see:
 
 - the name of the function
 - the function's type signature ``Decimal -> Decimal -> Decimal``
-  
+
   This means it takes two Decimals and returns another Decimal.
 - the definition ``= 2.0 * pi * r * h`` (which uses the previously defined ``pi``)
 
@@ -121,18 +121,21 @@ To bind values or functions to be in scope beneath the expression, use the block
 
 .. literalinclude:: ../code-snippets/Snippets.daml
    :language: daml
-   :lines: 10-15
+   :start-after: -- BEGIN_LET_EXPRESSION
+   :end-before: -- END_LET_EXPRESSION
 
 You can use ``let`` inside ``do`` and ``scenario`` blocks:
 
 .. literalinclude:: ../code-snippets/Snippets.daml
    :language: daml
-   :lines: 18-24,26-27
+   :start-after: -- BEGIN_LET_IN_DO
+   :end-before: -- END_LET_IN_DO
 
 Lastly, a ``template`` may contain a single ``let`` block.
 
 .. literalinclude:: ../code-snippets/Snippets.daml
    :language: daml
-   :lines: 84-102
+   :start-after: -- BEGIN_LET_IN_TEMPLATE
+   :end-before: -- END_LET_IN_TEMPLATE
 
 .. TODO: check you can still have a let block inside a template?

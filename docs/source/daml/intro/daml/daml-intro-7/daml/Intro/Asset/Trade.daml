@@ -14,45 +14,47 @@ template Trade
     quoteAsset : Asset
   where
     signatory baseAsset.owner
+    observer quoteAsset.owner
 
-    controller baseAsset.owner can
-      Trade_Cancel
+    choice Trade_Cancel
         : ()
+        controller baseAsset.owner
         do
           return ()
 
-    controller quoteAsset.owner can
-      Trade_Reject
+    choice Trade_Reject
         : ()
+        controller quoteAsset.owner
         do
           return ()
 
 -- TRADE_SETTLE_BEGIN
-      Trade_Settle
-        : (ContractId Asset, ContractId Asset)
-        with
-          quoteAssetCid : ContractId Asset
-          baseApprovalCid : ContractId TransferApproval
-        do
-          fetchedBaseAsset <- fetch baseAssetCid
-          assertMsg
-            "Base asset mismatch"
-            (baseAsset == fetchedBaseAsset with
-              observers = baseAsset.observers)
+    choice Trade_Settle
+      : (ContractId Asset, ContractId Asset)
+      with
+        quoteAssetCid : ContractId Asset
+        baseApprovalCid : ContractId TransferApproval
+      controller quoteAsset.owner
+      do
+        fetchedBaseAsset <- fetch baseAssetCid
+        assertMsg
+          "Base asset mismatch"
+          (baseAsset == fetchedBaseAsset with
+            observers = baseAsset.observers)
 
-          fetchedQuoteAsset <- fetch quoteAssetCid
-          assertMsg
-            "Quote asset mismatch"
-            (quoteAsset == fetchedQuoteAsset with
-              observers = quoteAsset.observers)
+        fetchedQuoteAsset <- fetch quoteAssetCid
+        assertMsg
+          "Quote asset mismatch"
+          (quoteAsset == fetchedQuoteAsset with
+            observers = quoteAsset.observers)
 
-          transferredBaseCid <- exercise
-            baseApprovalCid TransferApproval_Transfer with
-              assetCid = baseAssetCid
+        transferredBaseCid <- exercise
+          baseApprovalCid TransferApproval_Transfer with
+            assetCid = baseAssetCid
 
-          transferredQuoteCid <- exercise
-            quoteApprovalCid TransferApproval_Transfer with
-              assetCid = quoteAssetCid
+        transferredQuoteCid <- exercise
+          quoteApprovalCid TransferApproval_Transfer with
+            assetCid = quoteAssetCid
 
-          return (transferredBaseCid, transferredQuoteCid)
+        return (transferredBaseCid, transferredQuoteCid)
 -- TRADE_SETTLE_END

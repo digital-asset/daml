@@ -6,6 +6,7 @@ package com.daml
 import java.sql.{SQLNonTransientException, SQLTransientException}
 import java.time.Duration
 
+import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
   ContextualizedErrorLogger,
@@ -463,7 +464,7 @@ class ErrorFactoriesSpec
             Map(
               "category" -> "9",
               "definite_answer" -> "false",
-              "max_deduplication_duration" -> maxDeduplicationDuration.toString,
+              ValidMaxDeduplicationFieldKey -> maxDeduplicationDuration.toString,
             ),
           ),
           expectedCorrelationIdRequestInfo,

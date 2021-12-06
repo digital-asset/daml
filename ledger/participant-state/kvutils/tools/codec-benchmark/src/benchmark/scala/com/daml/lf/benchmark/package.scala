@@ -9,8 +9,7 @@ import com.daml.lf.transaction.TransactionCoder.{
   decodeTransaction,
   encodeTransaction,
 }
-import com.daml.lf.transaction.TransactionOuterClass.Transaction
-import com.daml.lf.transaction.VersionedTransaction
+import com.daml.lf.transaction.{TransactionOuterClass, VersionedTransaction}
 import com.daml.lf.value.ValueCoder._
 import com.daml.lf.value.ValueOuterClass
 import com.google.protobuf.ByteString
@@ -22,9 +21,10 @@ package object benchmark {
     * It's the in-memory representation of the Protobuf message that
     * describes a transaction, not its serialized form.
     */
-  private[lf] type EncodedTransaction = Transaction
+  private[lf] type EncodedTransaction = TransactionOuterClass.Transaction
   private[lf] object EncodedTransaction {
-    def deserialize(bytes: ByteString): EncodedTransaction = Transaction.parseFrom(bytes)
+    def deserialize(bytes: ByteString): EncodedTransaction =
+      TransactionOuterClass.Transaction.parseFrom(bytes)
   }
 
   /** This is the output of a successful call to

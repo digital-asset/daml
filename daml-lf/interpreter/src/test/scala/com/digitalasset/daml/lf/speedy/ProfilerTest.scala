@@ -8,6 +8,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.PartialTransaction._
 import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.testing.parser.Implicits._
 
@@ -66,10 +67,10 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
   def profile(e: Expr): Seq[(Boolean, Profile.Label)] = {
     val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("foobar")
     val party = Ref.Party.assertFromString("Alice")
-    val lit: PrimLit = PLParty(party)
-    val arg: Expr = EPrimLit(lit)
-    val example: Expr = EApp(e, arg)
-    val machine = Speedy.Machine.fromUpdateExpr(compiledPackages, transactionSeed, example, party)
+    val se = compiledPackages.compiler.unsafeCompile(e)
+    val example: SExpr = SEApp(se, Array(SEValue(SParty(party))))
+    val machine =
+      Speedy.Machine.fromUpdateSExpr(compiledPackages, transactionSeed, example, Set(party))
     val res = machine.run()
     res match {
       case _: SResultFinalValue =>

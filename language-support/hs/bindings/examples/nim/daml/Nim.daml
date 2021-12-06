@@ -56,9 +56,10 @@ template GameInProgress
     where
         ensure sum game.piles >= 0
         signatory game.player1, game.player2
-        controller game.player1 can
-            Game_Take : ContractId GameInProgress with move : Move do
-                case playMove move game of
+        choice Game_Take : ContractId GameInProgress
+            with move : Move
+            controller game.player1
+            do case playMove move game of
                     Left m -> error m
                     Right game -> create this with game
 

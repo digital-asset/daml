@@ -145,7 +145,7 @@ class RejectionGenerators(conformanceMode: Boolean) {
             .Error(
               renderedMessage
             )
-        case LfInterpretationError.ValueExceedsMaxNesting =>
+        case LfInterpretationError.Limit(_) =>
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
             .Error(
               renderedMessage

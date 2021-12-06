@@ -83,7 +83,8 @@ list) and ``::`` (which is an operator that appends an element to the front of a
 
 .. literalinclude:: ../code-snippets/Snippets.daml
    :language: daml
-   :lines: 51-53
+   :start-after: -- BEGIN_LISTS_EXAMPLE
+   :end-before: -- END_LISTS_EXAMPLE
 
 Summing a list
 ==============

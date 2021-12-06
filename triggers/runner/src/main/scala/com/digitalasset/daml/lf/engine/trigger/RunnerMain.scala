@@ -30,7 +30,7 @@ object RunnerMain {
     for ((modName, mod) <- dar.main._2.modules) {
       for ((defName, defVal) <- mod.definitions) {
         defVal match {
-          case DValue(TApp(TTyCon(tcon), _), _, _, _) => {
+          case DValue(TApp(TTyCon(tcon), _), _, _) => {
             val triggerIds = TriggerIds(tcon.packageId)
             if (
               tcon == triggerIds.damlTrigger("Trigger")

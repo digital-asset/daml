@@ -33,9 +33,8 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time.{Timestamp => LfTimestamp}
 import com.daml.lf.engine.Error
-import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
-import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText}
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueOuterClass
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -65,8 +64,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       encodeBlindingInfo(
         wronglySortedBlindingInfo,
         Map(
-          contractId0 -> apiContractInstance0,
-          contractId1 -> apiContractInstance1,
+          contractId0 -> rawApiContractInstance0,
+          contractId1 -> rawApiContractInstance1,
         ),
       ) shouldBe correctlySortedEncodedBlindingInfo
     }
@@ -83,8 +82,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
 
       maybeDivulgedContracts shouldBe Right(
         Map(
-          contractId0 -> lfContractInstance0,
-          contractId1 -> lfContractInstance1,
+          contractId0 -> rawApiContractInstance0,
+          contractId1 -> rawApiContractInstance1,
         )
       )
     }
@@ -593,12 +592,12 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
   private def newDivulgenceEntry(
       contractId: String,
       parties: List[String],
-      contractInstance: TransactionOuterClass.ContractInstance,
+      rawContractInstance: Raw.ContractInstance,
   ) =
     DivulgenceEntry.newBuilder
       .setContractId(contractId)
       .addAllDivulgedToLocalParties(parties.asJava)
-      .setContractInstance(contractInstance)
+      .setRawContractInstance(rawContractInstance.bytes)
       .build
 
   private lazy val party0: Party = Party.assertFromString("party0")
@@ -607,6 +606,9 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
   private lazy val contractId1: ContractId = ContractId.V1(wronglySortedHashes.head)
   private lazy val node0: NodeId = NodeId(0)
   private lazy val node1: NodeId = NodeId(1)
+  private lazy val rawApiContractInstance0 = rawApiContractInstance("contract 0")
+  private lazy val rawApiContractInstance1 = rawApiContractInstance("contract 1")
+
   private lazy val wronglySortedPartySet = ListSet(party1, party0)
   private lazy val wronglySortedHashes: List[Hash] =
     List(crypto.Hash.hashPrivateKey("hash0"), crypto.Hash.hashPrivateKey("hash1")).sorted.reverse
@@ -618,14 +620,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
     disclosure = wronglySortedDisclosure,
     divulgence = wronglySortedDivulgence,
   )
-
-  private lazy val Seq(
-    (apiContractInstance0, lfContractInstance0),
-    (apiContractInstance1, lfContractInstance1),
-  ) =
-    Seq("contract 0", "contract 1").map(discriminator =>
-      apiContractInstance(discriminator) -> lfContractInstance(discriminator)
-    )
 
   private lazy val correctlySortedParties = List(party0, party1)
   private lazy val correctlySortedPartiesAsStrings =
@@ -643,12 +637,12 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           newDivulgenceEntry(
             contractId0.coid,
             correctlySortedPartiesAsStrings,
-            apiContractInstance0,
+            rawApiContractInstance0,
           ),
           newDivulgenceEntry(
             contractId1.coid,
             correctlySortedPartiesAsStrings,
-            apiContractInstance1,
+            rawApiContractInstance1,
           ),
         ).asJava
       )
@@ -670,8 +664,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
     deduplicationKey.toByteArray
   }
 
-  private def apiContractInstance(discriminator: String) =
-    TransactionOuterClass.ContractInstance
+  private def rawApiContractInstance(discriminator: String) = {
+    val contractInstance = TransactionOuterClass.ContractInstance
       .newBuilder()
       .setTemplateId(
         ValueOuterClass.Identifier
@@ -689,15 +683,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           )
       )
       .build()
-
-  private def lfContractInstance(discriminator: String) =
-    new TransactionBuilder(_ => txVersion).versionContract(
-      ContractInstance(
-        Ref.Identifier.assertFromString("some:template:name"),
-        ValueText(discriminator),
-        "",
-      )
-    )
+    Raw.ContractInstance(contractInstance.toByteString)
+  }
 
   private def finalReasonDetails(
       finalReason: CommandRejected.FinalReason

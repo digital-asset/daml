@@ -37,10 +37,11 @@ template CallablePayout
     amount : Decimal
   where
     signatory giver
+    observer receiver
 
-    controller receiver can
-      CallablePayout_Call : ContractId Payout
-        do create Payout with giver; receiver; amount
+    choice CallablePayout_Call : ContractId Payout
+      controller receiver
+      do create Payout with giver; receiver; amount
 
 
 callPayout = scenario do
@@ -73,13 +74,16 @@ template TransferablePayout
     amount : Decimal
   where
     signatory giver
+    observer receiver
 
-    controller receiver can
-      TransferablePayout_Call : ContractId Payout
-        do create Payout with giver; receiver; amount
-      Transfer : ContractId TransferablePayout
-        with newReceiver : Party
-        do create this with receiver = newReceiver
+    choice TransferablePayout_Call : ContractId Payout
+      controller receiver
+      do create Payout with giver; receiver; amount
+
+    choice Transfer : ContractId TransferablePayout
+      with newReceiver : Party
+      controller receiver
+      do create this with receiver = newReceiver
 
 -- Party from a fetch; same as 'coming from a binding'
 {-
@@ -122,6 +126,7 @@ template LastOneOut
 
 -- Argument not serializable
 {-
+-- BEGIN_NOT_SERIALIZABLE_TEMPLATE
 template SupervisedPayout
   with
     supervisor : Party -> Party
@@ -129,8 +134,11 @@ template SupervisedPayout
     giver      : Party
     amount     : Decimal
   where
-    controller (supervisor receiver) can
-      SupervisedPayout_Call
-        returning ContractId Payout
-        to create Payout with giver; receiver; amount
+    signatory giver
+    observer (supervisor receiver)
+    choice SupervisedPayout_Call
+      : ContractId Payout
+      controller supervisor receiver
+      do create Payout with giver; receiver; amount
+-- END_NOT_SERIALIZABLE_TEMPLATE
 -}

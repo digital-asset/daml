@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import java.time.Duration
 
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions.{
   buildDuration,
   commandDedupKey,
@@ -12,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
   parseInstant,
   parseTimestamp,
 }
+import com.daml.ledger.participant.state.kvutils.committer.Committer.getCurrentConfiguration
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.kvutils.store.DamlCommandDedupValue.TimeCase
 import com.daml.ledger.participant.state.kvutils.store.events.{
@@ -184,7 +186,7 @@ private[transaction] object CommandDeduplication {
       }
     }
 
-  def setDeduplicationEntryStep(): Step =
+  def setDeduplicationEntryStep(defaultConfig: Configuration): Step =
     new Step {
       def apply(commitContext: CommitContext, transactionEntry: DamlTransactionEntrySummary)(
           implicit loggingContext: LoggingContext
@@ -195,10 +197,17 @@ private[transaction] object CommandDeduplication {
         val commandDedupBuilder = DamlCommandDedupValue.newBuilder.setSubmissionId(
           transactionEntry.submitterInfo.getSubmissionId
         )
-        commitContext.recordTime
-          .map(Conversions.buildTimestamp) match {
+        val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
+        // build the maximum interval for which we might use the deduplication entry
+        // we account for both time skews even if it means that the expiry time would be slightly longer than required
+        val pruningInterval =
+          config.maxDeduplicationTime.plus(config.timeModel.maxSkew).plus(config.timeModel.minSkew)
+        commitContext.recordTime match {
           case Some(recordTime) =>
-            commandDedupBuilder.setRecordTime(recordTime)
+            val prunableFrom = recordTime.add(pruningInterval)
+            commandDedupBuilder
+              .setRecordTime(Conversions.buildTimestamp(recordTime))
+              .setPrunableFrom(Conversions.buildTimestamp(prunableFrom))
           case None =>
             val maxRecordTime = commitContext.maximumRecordTime.getOrElse(
               throw Err.InternalError("Maximum record time is not set for pre-execution")
@@ -206,11 +215,14 @@ private[transaction] object CommandDeduplication {
             val minRecordTime = commitContext.minimumRecordTime.getOrElse(
               throw Err.InternalError("Minimum record time is not set for pre-execution")
             )
-            commandDedupBuilder.setRecordTimeBounds(
-              PreExecutionDeduplicationBounds.newBuilder
-                .setMaxRecordTime(Conversions.buildTimestamp(maxRecordTime))
-                .setMinRecordTime(Conversions.buildTimestamp(minRecordTime))
-            )
+            val prunableFrom = maxRecordTime.add(pruningInterval)
+            commandDedupBuilder
+              .setRecordTimeBounds(
+                PreExecutionDeduplicationBounds.newBuilder
+                  .setMaxRecordTime(Conversions.buildTimestamp(maxRecordTime))
+                  .setMinRecordTime(Conversions.buildTimestamp(minRecordTime))
+              )
+              .setPrunableFrom(Conversions.buildTimestamp(prunableFrom))
         }
 
         // Set a deduplication entry.

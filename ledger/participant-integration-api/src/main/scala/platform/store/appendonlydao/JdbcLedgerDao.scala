@@ -47,6 +47,7 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry,
 }
 import com.daml.platform.store.interning.StringInterning
+import com.daml.platform.store.utils.QueueBasedConcurrencyLimiter
 import java.sql.Connection
 
 import akka.stream.Materializer
@@ -62,6 +63,7 @@ private class JdbcLedgerDao(
     acsIdPageSize: Int,
     acsIdFetchingParallelism: Int,
     acsContractFetchingParallelism: Int,
+    acsGlobalParallelism: Int,
     performPostCommitValidation: Boolean,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -670,6 +672,8 @@ private class JdbcLedgerDao(
         acsFetchingparallelism = acsContractFetchingParallelism,
         metrics = metrics,
         materializer = materializer,
+        querylimiter =
+          new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext),
       ),
     )(
       servicesExecutionContext
@@ -779,6 +783,7 @@ private[platform] object JdbcLedgerDao {
       acsIdPageSize: Int,
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
+      acsGlobalParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -799,6 +804,7 @@ private[platform] object JdbcLedgerDao {
         acsIdPageSize,
         acsIdFetchingParallelism,
         acsContractFetchingParallelism,
+        acsGlobalParallelism: Int,
         false,
         metrics,
         lfValueTranslationCache,
@@ -824,6 +830,7 @@ private[platform] object JdbcLedgerDao {
       acsIdPageSize: Int,
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
+      acsGlobalParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -844,6 +851,7 @@ private[platform] object JdbcLedgerDao {
         acsIdPageSize,
         acsIdFetchingParallelism,
         acsContractFetchingParallelism,
+        acsGlobalParallelism,
         false,
         metrics,
         lfValueTranslationCache,
@@ -869,6 +877,7 @@ private[platform] object JdbcLedgerDao {
       acsIdPageSize: Int,
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
+      acsGlobalParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -890,6 +899,7 @@ private[platform] object JdbcLedgerDao {
         acsIdPageSize,
         acsIdFetchingParallelism,
         acsContractFetchingParallelism,
+        acsGlobalParallelism,
         true,
         metrics,
         lfValueTranslationCache,

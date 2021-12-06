@@ -33,6 +33,7 @@ da_haskell_library(
         "mtl",
         "network-uri",
         "prettyprinter",
+        "safe",
         "stache",
         "text",
         "transformers",
@@ -77,6 +78,7 @@ da_haskell_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-doc",
         "//compiler/damlc/daml-opts:daml-opts-types",

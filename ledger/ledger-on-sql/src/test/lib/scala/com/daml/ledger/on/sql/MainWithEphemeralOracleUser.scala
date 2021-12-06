@@ -26,7 +26,7 @@ object MainWithEphemeralOracleUser extends OracleAround {
         Some("jdbc:h2:mem:ledger-on-sql-conformance-test")
       ), // Oracle is only used as persistence for participant, we use in-memory H2 for sql ledger persistence here
     )
-    new ProgramResource(new Runner("SQL Ledger", SqlLedgerFactory).owner(config))
+    new ProgramResource(new Runner("SQL Ledger", SqlLedgerFactory, SqlConfigProvider).owner(config))
       .run(ResourceContext.apply)
   }
 }
