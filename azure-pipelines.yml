@@ -208,7 +208,7 @@ jobs:
         source $(bash-lib)
         cd $(Build.StagingDirectory)/split-release/github
         for f in *; do
-            gcs "$GCRED" cp "$f" "gs://daml-data/split-release/$(release_tag)/github/$f"
+            gcs "$GCRED" cp "$f" "gs://daml-binaries/split-release/$(release_tag)/github/$f"
         done
 
 - job: compat_versions_pr
