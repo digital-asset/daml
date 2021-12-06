@@ -202,10 +202,8 @@ jobs:
         set -eou piefail
 
         source $(bash-lib)
-        cd $(Build.StagingDirectory)/split-release/github
-        for f in *; do
-            gcs "$GCRED" cp "$f" "gs://daml-binaries/split-release/$(release_tag)/github/$f"
-        done
+        cd $(Build.StagingDirectory)/split-release
+        gcs "$GCRED" -m cp -r github gs://daml-binaries/split-releases/$(release_tag)/
     - template: ci/tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
