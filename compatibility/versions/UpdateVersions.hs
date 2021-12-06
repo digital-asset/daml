@@ -4,7 +4,7 @@
 module Main (main) where
 
 import Control.Concurrent.Async
-import Control.Lens ((.~), (&), (^?!), view, _Right)
+import Control.Lens (view)
 import Control.Monad
 import Crypto.Hash (digestFromByteString, hashlazy, Digest, SHA256)
 import Data.ByteArray.Encoding (Base(Base16), convertFromBase, convertToBase)
@@ -163,24 +163,16 @@ optsParser :: Parser Opts
 optsParser = Opts
   <$> strOption (short 'o' <> help "Path to output file")
 
-getVersionsFromTags :: IO (Set Version, Set Version)
+getVersionsFromTags :: IO (Set Version)
 getVersionsFromTags = do
     tags <- lines <$> System.Process.readProcess "git" ["tag"] ""
     let versions = Set.fromList $ rights $ mapMaybe (fmap (SemVer.fromText . T.pack) . stripPrefix "v") tags
-    return $ Set.partition (null . view SemVer.release) versions
+    return $ Set.filter (null . view SemVer.release) versions
 
 main :: IO ()
 main = do
     Opts{..} <- execParser (info optsParser fullDesc)
-    (stableVers, allSnapshots) <- getVersionsFromTags
-    -- List of releases that we want to filter out snapshots for even
-    -- though they do not exist.
-    let skipped = Set.fromList [SemVer.fromText "1.1.0" ^?! _Right]
-    -- Only include snapshots for which there is no following stable version.
-    -- We do not simply filter for anything > than the latest stable version
-    -- since we might have a snapshot for a bugfix release.
-    let prunedSnapshots = Set.filter (\v -> toStable v `Set.notMember` (stableVers <> skipped)) allSnapshots
-    let allVersions = Versions (Set.filter (>= minimumVersion) (stableVers <> prunedSnapshots))
+    stableVers <- getVersionsFromTags
+    let allVersions = Versions (Set.filter (>= minimumVersion) stableVers)
     checksums <- mapM (\ver -> (ver,) <$> getChecksums ver) (Set.toList $ getVersions allVersions)
     writeFileUTF8 outputFile (T.unpack $ renderVersionsFile allVersions $ Map.fromList checksums)
-  where toStable v = v & SemVer.release .~ [] & SemVer.metadata .~ []
