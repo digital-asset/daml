@@ -20,9 +20,9 @@ Daml is tested using the following specific dependencies in default installation
 1. Opersting Systems:
   
   1. Ubuntu 20.04
-  2. Windows 10
-  3. MacOS 11.6 Bug Sur
-  
+  2. Windows Server 2016
+  3. MacOS 10.15 Catalina
+
 2. `Eclipse Adoptium <https://adoptium.net>`_ version 11 for Java.
 3. PostgreSQL 10.0
 4. Oracle Database 19.11
