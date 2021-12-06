@@ -60,7 +60,9 @@ sealed trait SValue {
 
     def go(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V = {
       if (maxNesting < 0)
-        throw SError.SErrorDamlException(interpretation.Error.ValueExceedsMaxNesting)
+        throw SError.SErrorDamlException(
+          interpretation.Error.Limit(interpretation.Error.Limit.ValueNesting(V.MAXIMUM_NESTING))
+        )
       val nextMaxNesting = maxNesting - 1
       v match {
         case SInt64(x) => V.ValueInt64(x)

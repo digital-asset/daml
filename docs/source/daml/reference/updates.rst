@@ -162,7 +162,8 @@ Here's an example of using ``assert`` to prevent a choice being exercised if the
 
 .. literalinclude:: ../code-snippets/RestrictedPayout.daml
    :language: daml
-   :lines: 35-39
+   :start-after: -- BEGIN_CHOICE_WITH_ASSERT
+   :end-before: -- END_CHOICE_WITH_ASSERT
 
 .. _daml-ref-gettime:
 
@@ -181,7 +182,8 @@ Here's an example of a choice that uses a check on the current time:
 
 .. literalinclude:: ../code-snippets/Snippets.daml
    :language: daml
-   :lines: 42-46
+   :start-after: -- BEGIN_CHOICE_WITH_TIME_CHECK
+   :end-before: -- END_CHOICE_WITH_TIME_CHECK
 
 .. _daml-ref-return:
 

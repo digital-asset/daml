@@ -210,7 +210,6 @@ typeOfBuiltin = \case
   BENumeric n        -> pure (TNumeric (TNat (typeLevelNat (numericScale n))))
   BEText    _        -> pure TText
   BETimestamp _      -> pure TTimestamp
-  BEParty   _        -> pure TParty
   BEDate _           -> pure TDate
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
@@ -598,11 +597,13 @@ typeOfExercise tpl chName cid arg = do
   pure (TUpdate (chcReturnType choice))
 
 typeOfExerciseInterface :: MonadGamma m =>
-  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
-typeOfExerciseInterface tpl chName cid arg = do
-  choice <- inWorld (lookupInterfaceChoice (tpl, chName))
-  checkExpr cid (TContractId (TCon tpl))
+  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> Expr -> Expr -> m Type
+typeOfExerciseInterface iface chName cid arg typeRep guard = do
+  choice <- inWorld (lookupInterfaceChoice (iface, chName))
+  checkExpr cid (TContractId (TCon iface))
   checkExpr arg (chcArgType choice)
+  checkExpr typeRep (TOptional TTypeRep)
+  checkExpr guard (TCon iface :-> TBool)
   pure (TUpdate (chcReturnType choice))
 
 typeOfExerciseByKey :: MonadGamma m =>
@@ -652,7 +653,8 @@ typeOfUpdate = \case
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
   UCreateInterface iface arg -> checkCreateInterface iface arg $> TUpdate (TContractId (TCon iface))
   UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
-  UExerciseInterface tpl choice cid arg -> typeOfExerciseInterface tpl choice cid arg
+  UExerciseInterface tpl choice cid arg typeRep guard ->
+    typeOfExerciseInterface tpl choice cid arg typeRep guard
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
   UFetchInterface tpl cid -> checkFetchInterface tpl cid $> TUpdate (TCon tpl)
@@ -850,7 +852,7 @@ checkDefDataType m (DefDataType _loc name _serializable params dataCons) = do
         void $ inWorld $ lookupInterface (Qualified PRSelf (moduleName m) name)
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
-checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do
+checkDefValue (DefValue _loc (_, typ) (IsTest isTest) expr) = do
   checkType typ KStar
   checkExpr expr typ
   when isTest $

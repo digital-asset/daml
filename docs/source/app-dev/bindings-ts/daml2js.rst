@@ -11,7 +11,7 @@ Inputs to the command are DAR files. Outputs are JavaScript packages with TypeSc
 The generated packages use the library `@daml/types <https://github.com/digital-asset/daml/tree/main/language-support/ts/daml-types>`_.
 
 Usage
------
+*****
 
 In outline, the command to generate JavaScript and TypeScript typings from Daml is ``daml codegen js -o OUTDIR DAR`` where ``DAR`` is the path to a DAR file (generated via ``daml build``) and ``OUTDIR`` is a directory where you want the artifacts to be written.
 
@@ -37,7 +37,7 @@ Here's a complete example on a project built from the standard "skeleton" templa
 To get a quickstart idea of how to use what has been generated, you may wish to jump to the `Templates and choices`_ section and return to the reference material that follows as needed.
 
 Primitive Daml types: @daml/types
----------------------------------
+*********************************
 
 To understand the TypeScript typings produced by the code generator, it is helpful to keep in mind this quick review of the TypeScript equivalents of the primitive Daml types provided by @daml/types.
 
@@ -94,12 +94,12 @@ To understand the TypeScript typings produced by the code generator, it is helpf
    The TypeScript definition of type ``Optional<τ>`` in the above table might look complicated. It accounts for differences in the encoding of optional values when nested versus when they are not (i.e. "top-level"). For example, ``null`` and ``"foo"`` are two possible values of ``Optional<Text>`` whereas, ``[]`` and ``["foo"]`` are two possible values of type ``Optional<Optional<Text>>`` (``null`` is another possible value, ``[null]`` is **not**).
 
 Daml to TypeScript mappings
----------------------------
+***************************
 
 The mappings from Daml to TypeScript are best explained by example.
 
 Records
-~~~~~~~
+=======
 
 In Daml, we might model a person like this.
 
@@ -124,7 +124,7 @@ Given the above definition, the generated TypeScript code will be as follows.
    }
 
 Variants
-~~~~~~~~
+========
 
 This is a Daml type for a language of additive expressions.
 
@@ -147,7 +147,7 @@ In TypeScript, it is represented as a `discriminated union <https://www.typescri
      |  { tag: 'Add'; value: {_1: Expr<a>, _2: Expr<a>} }
 
 Sum-of-products
-~~~~~~~~~~~~~~~~
+===============
 
 Let's slightly modify the ``Expr a`` type of the last section into the following.
 
@@ -179,7 +179,7 @@ Compared to the earlier definition, the ``Add`` case is now in terms of a record
 The thing to note is how the definition of the ``Add`` case has given rise to a record type definition ``Expr.Add``.
 
 Enums
-~~~~~
+=====
 
 Given a Daml enumeration like this,
 
@@ -203,7 +203,7 @@ the generated TypeScript will consist of a type declaration and the definition o
    } as const;
 
 Templates and choices
-~~~~~~~~~~~~~~~~~~~~~
+=====================
 
 Here is a Daml template of a basic 'IOU' contract.
 

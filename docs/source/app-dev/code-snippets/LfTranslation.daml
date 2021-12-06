@@ -22,14 +22,16 @@ template Iou
   where
 -- end code snippet: template data types
     signatory issuer
+    observer owner
 -- start code snippet: choice data types
-    controller owner can
-      nonconsuming DoNothing: ()
-        do
-          return ()
+    nonconsuming choice DoNothing: ()
+      controller owner
+      do
+        return ()
 
-      Transfer: ContractId Iou
-        with newOwner: Party
-        do
-          updateOwner newOwner
+    choice Transfer: ContractId Iou
+      with newOwner: Party
+      controller owner
+      do
+        updateOwner newOwner
 -- end code snippet: choice data types

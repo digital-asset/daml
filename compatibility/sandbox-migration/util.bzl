@@ -3,7 +3,7 @@
 
 load("@os_info//:os_info.bzl", "is_linux")
 
-def migration_test(name, versions, tags, **kwargs):
+def migration_test(name, versions, tags, quick_tags, **kwargs):
     native.sh_test(
         name = name,
         srcs = ["//sandbox-migration:test.sh"],
@@ -14,7 +14,7 @@ def migration_test(name, versions, tags, **kwargs):
             "//sandbox-migration:migration-step",
         ] + ["@daml-sdk-{}//:daml".format(ver) for ver in versions],
         args = versions,
-        tags = tags + ["head-quick"],
+        tags = tags + quick_tags,
         **kwargs
     )
 

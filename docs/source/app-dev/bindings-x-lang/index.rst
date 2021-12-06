@@ -36,7 +36,8 @@ Let's recall an **IOU** example from the :doc:`Quickstart guide </app-dev/bindin
 
 .. literalinclude:: /app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
-  :lines: 9-15
+  :start-after: -- BEGIN_IOU_TEMPLATE_DATATYPE
+  :end-before: -- END_IOU_TEMPLATE_DATATYPE
 
 Here is how to manually build a :ref:`com.daml.ledger.api.v1.CreateCommand` for the above contract template in Scala:
 
@@ -60,7 +61,8 @@ To build :ref:`com.daml.ledger.api.v1.ExerciseCommand` for `Iou_Transfer`:
 
 .. literalinclude:: /app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
-  :lines: 23, 52-55
+  :start-after: -- BEGIN_IOU_TEMPLATE_TRANSFER
+  :end-before: -- END_IOU_TEMPLATE_TRANSFER
 
 manually in Scala:
 

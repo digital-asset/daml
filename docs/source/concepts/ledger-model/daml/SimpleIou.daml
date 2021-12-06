@@ -19,17 +19,18 @@ template Iou with
     owner : Party
   where
     signatory obligor
+    observer owner
 
-    controller owner can
-      Transfer
-        : ContractId Iou
-        with newOwner : Party
-        do create Iou with obligor; owner = newOwner
+    choice Transfer
+      : ContractId Iou
+      with newOwner : Party
+      controller owner
+      do create Iou with obligor; owner = newOwner
 
-    controller owner can
-      Settle
-        : ContractId MustPay
-        do create MustPay with obligor; owner
+    choice Settle
+      : ContractId MustPay
+      controller owner
+      do create MustPay with obligor; owner
 -- SNIPPET-END
 
 iou = scenario do

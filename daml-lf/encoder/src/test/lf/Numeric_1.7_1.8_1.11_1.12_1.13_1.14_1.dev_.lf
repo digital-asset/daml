@@ -18,28 +18,28 @@ module NumericMod {
     agreement "Agreement for NumericMod:Box";
   };
 
-  val build0: NumericMod:Box = NumericMod:Box {
+  val build0: Party -> NumericMod:Box = \(p : Party) -> NumericMod:Box {
     x0  =                                      0. ,
     x10 =                            0.0000000000 ,
     x17 =                     0.00000000000000000 ,
     x37 = 0.0000000000000000000000000000000000000 ,
-    party = 'Alice'
+    party = p
   };
   
-  val buildMax: NumericMod:Box = NumericMod:Box {
+  val buildMax: Party -> NumericMod:Box = \(p : Party) -> NumericMod:Box {
     x0  = 99999999999999999999999999999999999999. ,
     x10 = 9999999999999999999999999999.9999999999 ,
     x17 = 999999999999999999999.99999999999999999 ,
     x37 = 9.9999999999999999999999999999999999999 ,
-    party = 'Alice'
+    party = p
   };
 
-  val buildMin: NumericMod:Box = NumericMod:Box {
+  val buildMin: Party -> NumericMod:Box = \(p : Party) -> NumericMod:Box {
     x0  = -99999999999999999999999999999999999999. ,
     x10 = -9999999999999999999999999999.9999999999 ,
     x17 = -999999999999999999999.99999999999999999 ,
     x37 = -9.9999999999999999999999999999999999999 ,
-    party = 'Alice'
+    party = p
   };
 
 }

@@ -96,10 +96,10 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
             md_instances = map (getInstanceDocs ctx) dc_insts
 
             -- Type constructor docs without data types corresponding to
-            -- templates and choices
+            -- templates, interfaces and choices
             adts
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
-                $ dc_templates : MS.elems dc_choices
+                $ dc_templates : dc_interfaces : MS.elems dc_choices
 
             md_adts = mapMaybe (filterTypeByExports md_name dc_exports) adts
 
@@ -145,7 +145,7 @@ buildDocCtx dc_extractOptions tcmod  =
         dc_decls
             = collectDocs . hsmodDecls . unLoc
             . pm_parsed_source $ parsedMod
-        (dc_templates, dc_choices) = getTemplateData parsedMod
+        (dc_templates, dc_interfaces, dc_choices) = getTemplateData parsedMod
 
         tythings = modInfoTyThings checkedModInfo
         dc_insts = modInfoInstances checkedModInfo

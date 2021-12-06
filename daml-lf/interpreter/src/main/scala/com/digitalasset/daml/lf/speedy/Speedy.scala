@@ -8,6 +8,7 @@ import java.util
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LookupError, Util => AstUtil}
 import com.daml.lf.ledger.Authorize
@@ -109,6 +110,10 @@ private[lf] object Speedy {
     private[lf] val stakeholders: Set[Party] = signatories union observers;
   }
 
+  private[this] def enforceLimit(actual: Int, limit: Int, error: Int => IError.Limit.Error) =
+    if (actual > limit)
+      throw SError.SErrorDamlException(IError.Limit(error(limit)))
+
   private[lf] final case class OnLedger(
       val validating: Boolean,
       val contractKeyUniqueness: ContractKeyUniquenessMode,
@@ -124,6 +129,8 @@ private[lf] object Speedy {
       var dependsOnTime: Boolean,
       // global contract discriminators, that are discriminators from contract created in previous transactions
       var cachedContracts: Map[V.ContractId, CachedContract],
+      var numInputContracts: Int,
+      val limits: interpretation.Limits,
   ) extends LedgerMode {
     private[lf] val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }
@@ -133,6 +140,83 @@ private[lf] object Speedy {
     private[lf] def finish: PartialTransaction.Result = ptx.finish
     private[lf] def ptxInternal: PartialTransaction = ptx //deprecated
     private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
+
+    private[this] def updateCachedContracts(coid: V.ContractId, contract: CachedContract): Unit = {
+      enforceLimit(
+        contract.signatories.size,
+        limits.contractSignatories,
+        IError.Limit
+          .ContractSignatories(
+            coid,
+            contract.templateId,
+            contract.value.toUnnormalizedValue,
+            contract.signatories,
+            _,
+          ),
+      )
+      enforceLimit(
+        contract.observers.size,
+        limits.contractObservers,
+        IError.Limit
+          .ContractObservers(
+            coid,
+            contract.templateId,
+            contract.value.toUnnormalizedValue,
+            contract.observers,
+            _,
+          ),
+      )
+      cachedContracts = cachedContracts.updated(coid, contract)
+    }
+
+    private[speedy] def addLocalContract(
+        coid: V.ContractId,
+        templateId: Ref.TypeConName,
+        value: SValue,
+        signatories: Set[Party],
+        observers: Set[Party],
+        key: Option[Node.KeyWithMaintainers],
+    ): Unit =
+      updateCachedContracts(
+        coid,
+        CachedContract(templateId, value, signatories, observers, key),
+      )
+
+    private[speedy] def addGlobalContract(coid: V.ContractId, contract: CachedContract): Unit = {
+      numInputContracts += 1
+      enforceLimit(
+        numInputContracts,
+        limits.transactionInputContracts,
+        IError.Limit.TransactionInputContracts,
+      )
+      updateCachedContracts(coid, contract)
+    }
+
+    private[speedy] def enforceChoiceControllersLimit(
+        controllers: Set[Party],
+        cid: V.ContractId,
+        templateId: TypeConName,
+        choiceName: ChoiceName,
+        arg: V,
+    ): Unit =
+      enforceLimit(
+        controllers.size,
+        limits.choiceControllers,
+        IError.Limit.ChoiceControllers(cid, templateId, choiceName, arg, controllers, _),
+      )
+
+    private[speedy] def enforceChoiceObserversLimit(
+        observers: Set[Party],
+        cid: V.ContractId,
+        templateId: TypeConName,
+        choiceName: ChoiceName,
+        arg: V,
+    ): Unit =
+      enforceLimit(
+        observers.size,
+        limits.choiceObservers,
+        IError.Limit.ChoiceObservers(cid, templateId, choiceName, arg, observers, _),
+      )
 
   }
 
@@ -348,21 +432,6 @@ private[lf] object Speedy {
       }
 
     private[lf] def auth: Authorize = Authorize(this.contextActors)
-
-    def addLocalContract(
-        coid: V.ContractId,
-        templateId: Ref.TypeConName,
-        arg: SValue,
-        signatories: Set[Party],
-        observers: Set[Party],
-        key: Option[Node.KeyWithMaintainers],
-    ) =
-      withOnLedger("addLocalContract") { onLedger =>
-        onLedger.cachedContracts = onLedger.cachedContracts.updated(
-          coid,
-          CachedContract(templateId, arg, signatories, observers, key),
-        )
-      }
 
     /** Reuse an existing speedy machine to evaluate a new expression.
       *      Do not use if the machine is partway though an existing evaluation.
@@ -765,6 +834,7 @@ private[lf] object Speedy {
         warningLog: WarningLog = newWarningLog,
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
         commitLocation: Option[Location] = None,
+        limits: interpretation.Limits = interpretation.Limits.Lenient,
     ): Machine = {
       val pkg2TxVersion =
         compiledPackages.interface.packageLanguageVersion.andThen(
@@ -794,7 +864,9 @@ private[lf] object Speedy {
           commitLocation = commitLocation,
           dependsOnTime = false,
           cachedContracts = Map.empty,
+          numInputContracts = 0,
           contractKeyUniqueness = contractKeyUniqueness,
+          limits = limits,
         ),
         traceLog = traceLog,
         warningLog = warningLog,
@@ -812,10 +884,11 @@ private[lf] object Speedy {
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         updateE: Expr,
-        committer: Party,
+        committers: Set[Party],
+        limits: interpretation.Limits = interpretation.Limits.Lenient,
     ): Machine = {
       val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
-      fromUpdateSExpr(compiledPackages, transactionSeed, updateSE, committer)
+      fromUpdateSExpr(compiledPackages, transactionSeed, updateSE, committers, limits)
     }
 
     @throws[PackageNotFound]
@@ -825,15 +898,19 @@ private[lf] object Speedy {
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         updateSE: SExpr,
-        committer: Party,
+        committers: Set[Party],
+        limits: interpretation.Limits = interpretation.Limits.Lenient,
+        traceLog: TraceLog = newTraceLog,
     ): Machine = {
       Machine(
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
         expr = SEApp(updateSE, Array(SEValue.Token)),
-        committers = Set(committer),
+        committers = committers,
         readAs = Set.empty,
+        limits = limits,
+        traceLog = traceLog,
       )
     }
 
@@ -1281,7 +1358,7 @@ private[lf] object Speedy {
       machine.withOnLedger("KCacheContract") { onLedger =>
         val cached = SBuiltin.extractCachedContract(onLedger, templateId, sv)
         machine.checkContractVisibility(onLedger, cid, cached);
-        onLedger.cachedContracts = onLedger.cachedContracts.updated(cid, cached)
+        onLedger.addGlobalContract(cid, cached)
         machine.returnValue = cached.value
       }
     }
@@ -1340,14 +1417,7 @@ private[lf] object Speedy {
       byInterface: Option[TypeConName],
   ) extends Kont {
     def abort[E](): E =
-      throw SErrorDamlException(
-        interpretation.Error.ChoiceGuardFailed(
-          coid,
-          templateId,
-          choiceName,
-          byInterface,
-        )
-      )
+      throw SErrorDamlException(IError.ChoiceGuardFailed(coid, templateId, choiceName, byInterface))
 
     def execute(v: SValue) = {
       v match {
@@ -1406,7 +1476,7 @@ private[lf] object Speedy {
         machine.env.clear()
         machine.envBase = 0
         throw SErrorDamlException(
-          interpretation.Error.UnhandledException(excep.ty, excep.value.toUnnormalizedValue)
+          IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue)
         )
     }
   }

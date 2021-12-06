@@ -97,7 +97,7 @@ class ModelConformanceValidatorSpec
     DamlTransactionEntry.newBuilder
       .setSubmissionSeed(aSubmissionSeed)
       .setLedgerEffectiveTime(Conversions.buildTimestamp(ledgerEffectiveTime))
-      .setTransaction(Conversions.encodeTransaction(aTransaction._1))
+      .setRawTransaction(Conversions.encodeTransaction(aTransaction._1).bytes)
       .build
   )
 
@@ -422,7 +422,7 @@ object ModelConformanceValidatorSpec {
       .setContractState(
         DamlContractState
           .newBuilder()
-          .setContractInstance(
+          .setRawContractInstance(
             ContractInstance
               .newBuilder()
               .setTemplateId(
@@ -440,6 +440,8 @@ object ModelConformanceValidatorSpec {
                     ValueOuterClass.Value.newBuilder().setText("dummyValue").build().toByteString
                   )
               )
+              .build()
+              .toByteString
           )
           .build()
       )

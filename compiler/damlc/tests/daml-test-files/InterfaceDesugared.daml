@@ -19,6 +19,9 @@ import DA.Assert ( (===) )
 
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 
+instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
+  interfaceTypeRep = GHC.Types.primitive @"$TO_TYPE_REP"
+
 instance DA.Internal.Desugar.Implements Token Token where
   toInterface = GHC.Types.primitive @"EToInterface"
   fromInterface = GHC.Types.primitive @"EFromInterface"
@@ -26,7 +29,6 @@ instance DA.Internal.Desugar.Implements Token Token where
     = GHC.Types.primitive @"EToInterfaceContractId"
   fromInterfaceContractId
     = GHC.Types.primitive @"UFromInterfaceContractId"
-  interfaceTypeRep = GHC.Types.primitive @"$TO_TYPE_REP"
 
 instance DA.Internal.Desugar.HasFetch Token where
   fetch = GHC.Types.primitive @"UFetchInterface"
@@ -307,7 +309,6 @@ instance DA.Internal.Desugar.Implements Asset Token where
     = GHC.Types.primitive @"EToInterfaceContractId"
   fromInterfaceContractId
     = GHC.Types.primitive @"UFromInterfaceContractId"
-  interfaceTypeRep = GHC.Types.primitive @"$TO_TYPE_REP"
 
 _method_Asset_Token_getOwner
   = DA.Internal.Desugar.mkMethod

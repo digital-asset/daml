@@ -114,11 +114,12 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(templateId)) ++
           iterator(cid) ++
           iterator(arg)
-      case UpdateExerciseInterface(interface, choice @ _, cid, arg, guard) =>
+      case UpdateExerciseInterface(interface, choice @ _, cid, arg, typeRep, guard) =>
         Iterator(TTyCon(interface)) ++
           iterator(cid) ++
           iterator(arg) ++
-          guard.iterator.flatMap(iterator)
+          iterator(typeRep) ++
+          iterator(guard)
       case UpdateExerciseByKey(templateId, choice @ _, key, arg) =>
         Iterator(TTyCon(templateId)) ++
           iterator(key) ++
@@ -174,7 +175,7 @@ private[validation] object TypeIterable {
         Iterator.empty
       case DDataType(serializable @ _, params @ _, DataInterface) =>
         Iterator.empty
-      case DValue(typ, noPartyLiterals @ _, body, isTest @ _) =>
+      case DValue(typ, body, isTest @ _) =>
         Iterator(typ) ++ iterator(body)
 
     }

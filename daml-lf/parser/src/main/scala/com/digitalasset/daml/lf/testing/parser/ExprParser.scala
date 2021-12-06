@@ -4,7 +4,7 @@
 package com.daml.lf.testing.parser
 
 import com.daml.lf.data.Ref.{Location, Name}
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.language.Ast._
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
@@ -73,13 +73,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       acceptMatch("Text", { case Text(s) => PLText(s) }) |
       acceptMatch("Timestamp", { case Timestamp(l) => PLTimestamp(l) }) |
       acceptMatch("Date", { case Date(l) => PLDate(l) }) |
-      acceptMatch(
-        "Party",
-        {
-          case SimpleString(s) if Ref.Party.fromString(s).isRight =>
-            PLParty(Ref.Party.assertFromString(s))
-        },
-      ) |
       (id ^? roundingModes) ^^ PLRoundingMode
 
   private lazy val primCon =
@@ -431,11 +424,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val updateExerciseInterface =
-    Id("exercise_by_interface") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
-      case iface ~ choice ~ cid ~ arg =>
-        UpdateExerciseInterface(iface, choice, cid, arg, None)
-      // TODO https://github.com/digital-asset/daml/issues/11703
-      //   Implement choice guard argument.
+    Id("exercise_by_interface") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ~ expr0 ~ expr0 ^^ {
+      case iface ~ choice ~ cid ~ arg ~ typeRep ~ guard =>
+        UpdateExerciseInterface(iface, choice, cid, arg, typeRep, guard)
     }
 
   private lazy val updateExerciseByKey =

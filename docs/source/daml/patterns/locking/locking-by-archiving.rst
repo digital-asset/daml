@@ -8,7 +8,18 @@ Locking by archiving
 
 .. literalinclude:: ../daml/CoinIssuance.daml
   :language: daml
-  :lines: 52-68,77-82
+  :start-after: -- BEGIN_COIN_TEMPLATE_DATATYPE
+  :end-before: -- END_COIN_TEMPLATE_DATATYPE
+
+.. literalinclude:: ../daml/CoinIssuance.daml
+  :language: daml
+  :start-after: -- BEGIN_COIN_TEMPLATE_TRANSFER
+  :end-before: -- END_COIN_TEMPLATE_TRANSFER
+
+.. literalinclude:: ../daml/CoinIssuance.daml
+  :language: daml
+  :start-after: -- BEGIN_COIN_TEMPLATE_ARCHIVE
+  :end-before: -- END_COIN_TEMPLATE_ARCHIVE
 
 Archiving is a straightforward choice for locking because once a contract is archived, all choices on the contract become unavailable. Archiving can be done either through consuming choice or archiving contract.
 
@@ -25,7 +36,8 @@ The steps below show how to use a consuming choice in the original contract to a
 
 .. literalinclude:: ../daml/CoinIssuance.daml
   :language: daml
-  :lines: 70-72
+  :start-after: -- BEGIN_COIN_TEMPLATE_LOCK
+  :end-before: -- END_COIN_TEMPLATE_LOCK
 
 * Create a *LockedCoin* to represent *Coin* in the locked state. *LockedCoin* has the following characteristics, all in order to be able to recreate the original *Coin*:
 
@@ -36,7 +48,13 @@ The steps below show how to use a consuming choice in the original contract to a
 
   .. literalinclude:: ../daml/CoinIssuance.daml
     :language: daml
-    :lines: 86-97
+    :start-after: -- BEGIN_LOCKED_COIN_TEMPLATE_DATATYPE
+    :end-before: -- END_LOCKED_COIN_TEMPLATE_DATATYPE
+
+  .. literalinclude:: ../daml/CoinIssuance.daml
+    :language: daml
+    :start-after: -- BEGIN_LOCKED_COIN_TEMPLATE_UNLOCK
+    :end-before: -- END_LOCKED_COIN_TEMPLATE_UNLOCK
 
 
 .. figure:: ../images/lockingByArchiving1.png
@@ -53,20 +71,23 @@ In the event that changing the original contract is not desirable and assuming t
 
 .. literalinclude:: ../daml/CoinIssuance.daml
   :language: daml
-  :lines: 79-82
+  :start-after: -- BEGIN_COIN_TEMPLATE_ARCHIVE
+  :end-before: -- END_COIN_TEMPLATE_ARCHIVE
 
 * Since we need to call the *Archives* choice from *CoinCommitment*, its signatory has to be *Issuer*.
 
 .. literalinclude:: ../daml/CoinCommitment.daml
   :language: daml
-  :lines: 13-19
+  :start-after: -- BEGIN_COIN_COMMITMENT_TEMPLATE_DATATYPE
+  :end-before: -- END_COIN_COMMITMENT_TEMPLATE_DATATYPE
 
 * The controller party and parameters on the *Lock* choice are the same as described in locking by consuming choice. The additional logic required is to transfer the asset to the issuer, and then explicitly call the *Archive* choice on the *Coin* contract.
 * Once a *Coin* is archived, the *Lock* choice creates a *LockedCoin* that represents *Coin* in locked state.
 
 .. literalinclude:: ../daml/CoinCommitment.daml
   :language: daml
-  :lines: 21-38
+  :start-after: -- BEGIN_COIN_COMMITMENT_TEMPLATE_LOCK_COIN
+  :end-before: -- END_COIN_COMMITMENT_TEMPLATE_LOCK_COIN
 
 .. figure:: ../images/lockingByArchiving2.png
 

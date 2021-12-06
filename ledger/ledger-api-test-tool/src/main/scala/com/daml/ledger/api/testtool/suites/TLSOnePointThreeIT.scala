@@ -27,6 +27,10 @@ import scala.util.{Failure, Success, Try}
   */
 final class TLSOnePointThreeIT
     extends TlsIT(shortIdentifierPrefix = "ServerOnTLSv13ConnectionFromClientOn") {
+  testTlsConnection(
+    clientTlsVersions = Seq[TlsVersion](TlsVersion.V1_2, TlsVersion.V1_3),
+    assertConnectionOk = true,
+  )
   testTlsConnection(clientTlsVersion = TlsVersion.V1_3, assertConnectionOk = true)
   testTlsConnection(clientTlsVersion = TlsVersion.V1_2, assertConnectionOk = false)
   testTlsConnection(clientTlsVersion = TlsVersion.V1_1, assertConnectionOk = false)
@@ -43,6 +47,8 @@ final class TLSAtLeastOnePointTwoIT
     clientTlsVersions = Seq[TlsVersion](TlsVersion.V1_2, TlsVersion.V1_3),
     assertConnectionOk = true,
   )
+  testTlsConnection(clientTlsVersion = TlsVersion.V1_3, assertConnectionOk = true)
+  testTlsConnection(clientTlsVersion = TlsVersion.V1_2, assertConnectionOk = true)
   testTlsConnection(clientTlsVersion = TlsVersion.V1_1, assertConnectionOk = false)
   testTlsConnection(clientTlsVersion = TlsVersion.V1, assertConnectionOk = false)
 }

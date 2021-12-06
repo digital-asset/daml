@@ -41,11 +41,11 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
             cids: List (ContractId Mod:Contract)
           };
 
-          val @noPartyLiterals keyParties: (Mod:Key -> List Party) =
+          val keyParties: (Mod:Key -> List Party) =
             \(key: Mod:Key) ->
               Cons @Party [Mod:Key {party} key] (Nil @Party);
 
-          val @noPartyLiterals contractParties : (Mod:Contract -> List Party) =
+          val contractParties : (Mod:Contract -> List Party) =
             \(contract: Mod:Contract) ->
               Mod:keyParties (Mod:Contract {key} contract);
 

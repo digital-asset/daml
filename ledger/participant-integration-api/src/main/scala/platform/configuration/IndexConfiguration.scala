@@ -10,4 +10,5 @@ object IndexConfiguration {
   val DefaultAcsIdPageSize: Int = 20000
   val DefaultAcsIdFetchingParallelism: Int = 2
   val DefaultAcsContractFetchingParallelism: Int = 2
+  val DefaultAcsGlobalParallelism: Int = 10
 }

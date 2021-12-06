@@ -30,16 +30,17 @@ template RightOfUseOffer
     expirationDate: Date
   where
     signatory landlord
+    observer tenant
 
-    controller tenant can
-      Accept: ContractId RightOfUseAgreement
-        do
-          -- we create this dummy template for landlord
-          -- so that we can later check that tenant doesn't see it
-          create DummyTemplateWeDontSubscribeFor
-            with party1=landlord; party2=landlord
-          create RightOfUseAgreement
-            with landlord; tenant; address; expirationDate
+    choice Accept: ContractId RightOfUseAgreement
+      controller tenant
+      do
+        -- we create this dummy template for landlord
+        -- so that we can later check that tenant doesn't see it
+        create DummyTemplateWeDontSubscribeFor
+          with party1=landlord; party2=landlord
+        create RightOfUseAgreement
+          with landlord; tenant; address; expirationDate
 
 template DummyTemplateWeDontSubscribeFor
   with

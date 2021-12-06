@@ -33,15 +33,17 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "a8faef92f59a4f1428ed9a93c7c313a996466a66ad64c119fc49b5c7dea98c59"
 
-rules_haskell_version = "673e74aea244a6a9ee1eccec719677c80348aebf"
-rules_haskell_sha256 = "73a06dc6e0d928ceeab64e2cd3159f863eb2e263ecc64d79e3952c770cd1ee51"
+rules_haskell_version = "a7241fa64c7cd36462a1f6ac4c660d1247d5e07b"
+rules_haskell_sha256 = "9ca581c79dbda507da05ca4c3e958eb5865c9fbc7e393656cdcb8216b20d8821"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-    "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-8.10.7-bindist.patch",
+    # This can be removed once the following upstream PR has been merged:
+    # https://github.com/tweag/rules_haskell/pull/1648
+    "@com_github_digital_asset_daml//bazel_tools:haskell-cabal-reproducible.patch",
 ]
 rules_nixpkgs_version = "81f61c4b5afcf50665b7073f7fce4c1755b4b9a3"
 rules_nixpkgs_sha256 = "33fd540d0283cf9956d0a5a640acb1430c81539a84069114beaf9640c96d221a"
@@ -218,9 +220,9 @@ def daml_deps():
         # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.41.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.41.0.tar.gz"],
-            sha256 = "e5fb30aae1fa1cffa4ce00aa0bbfab908c0b899fcf0bbc30e268367d660d8656",
+            strip_prefix = "grpc-1.42.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.42.0.tar.gz"],
+            sha256 = "b2f2620c762427bfeeef96a68c1924319f384e877bc0e084487601e4cc6e434c",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
@@ -237,6 +239,16 @@ def daml_deps():
                 "https://github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
             ],
             patch_args = ["-p1"],
+        )
+
+    if "com_google_protobuf" not in native.existing_rules():
+        http_archive(
+            name = "com_google_protobuf",
+            sha256 = "c6003e1d2e7fefa78a3039f19f383b4f3a61e81be8c19356f85b6461998ad3db",
+            strip_prefix = "protobuf-3.17.3",
+            urls = [
+                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.17.3.tar.gz",
+            ],
         )
 
     if "io_grpc_grpc_java" not in native.existing_rules():
@@ -312,30 +324,6 @@ def daml_deps():
                 "https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.3.1/grpc_health_probe-linux-amd64",
             ],
             executable = True,
-        )
-
-    if "davl-v3" not in native.existing_rules():
-        http_archive(
-            name = "davl-v3",
-            strip_prefix = "davl-{}".format(davl_v3_version),
-            urls = ["https://github.com/digital-asset/davl/archive/{}.tar.gz".format(davl_v3_version)],
-            sha256 = davl_v3_sha256,
-            build_file_content = """
-package(default_visibility = ["//visibility:public"])
-exports_files(["released/davl-v3.dar"])
-            """,
-        )
-
-    if "davl" not in native.existing_rules():
-        http_archive(
-            name = "davl",
-            strip_prefix = "davl-{}".format(davl_version),
-            urls = ["https://github.com/digital-asset/davl/archive/{}.tar.gz".format(davl_version)],
-            sha256 = davl_sha256,
-            build_file_content = """
-package(default_visibility = ["//visibility:public"])
-exports_files(["released/davl-v4.dar", "released/davl-v5.dar", "released/davl-upgrade-v3-v4.dar", "released/davl-upgrade-v4-v5.dar"])
-            """,
         )
 
     if "daml-cheat-sheet" not in native.existing_rules():

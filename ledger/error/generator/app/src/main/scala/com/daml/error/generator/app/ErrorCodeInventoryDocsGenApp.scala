@@ -188,7 +188,11 @@ object ErrorGroupTree {
     val deprecationText = e.deprecationO.fold("")(d => s"""
          |    **Deprecation**: ${d}
          |    """.stripMargin)
-    s"""${e.code}
+    val errorCodeReferenceName = s"error_code_${e.code}"
+    s"""
+       |.. _$errorCodeReferenceName:
+       |
+       |${e.code}
        |---------------------------------------------------------------------------------------------------------------------------------------
        |    $deprecationText
        |    **Explanation**: ${e.explanation}

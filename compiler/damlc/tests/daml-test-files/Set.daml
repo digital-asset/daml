@@ -30,6 +30,11 @@ testMember = scenario do
   True === member "" (fromList ["", "b", "c"])
   False === member 2 (fromList [])
 
+testNotMember = scenario do
+  True === notMember "a" (fromList ["", "b", "c"])
+  False === notMember "" (fromList ["", "b", "c"])
+  True === notMember 2 (fromList [])
+
 testNull = scenario do
   True === S.null S.empty
   False === S.null (insert 5 S.empty)
@@ -66,6 +71,28 @@ testDifference = scenario do
   [] === toList (difference S.empty (fromList [4, 2]))
   [1, 3, 5] === toList (difference (fromList [1, 5, 3]) S.empty)
   [] === toList (difference S.empty (fromList ([] : [Int])))
+
+testIsSubsetOf = scenario do
+  True === isSubsetOf (fromList [1,2]) (fromList [1,2,3])
+  True === isSubsetOf (fromList [1,2]) (fromList [1,2])
+  False === isSubsetOf (fromList [1,2,3]) (fromList [1,2])
+  True === isSubsetOf (fromList @Text []) (fromList [])
+  True === isSubsetOf (fromList []) (fromList ["hello"])
+  True === isSubsetOf (fromList ["hello"]) (fromList ["hello"])
+  False === isSubsetOf (fromList ["hello!"]) (fromList ["hello"])
+  False === isSubsetOf (fromList ["hello"]) (fromList ["hello!"])
+  False === isSubsetOf (fromList ["hello"]) (fromList [])
+
+testIsProperSubsetOf = scenario do
+  True === isProperSubsetOf (fromList [1,2]) (fromList [1,2,3])
+  False === isProperSubsetOf (fromList [1,2]) (fromList [1,2])
+  False === isProperSubsetOf (fromList [1,2,3]) (fromList [1,2])
+  False === isProperSubsetOf (fromList @Text []) (fromList [])
+  True === isProperSubsetOf (fromList []) (fromList ["hello"])
+  False === isProperSubsetOf (fromList ["hello"]) (fromList ["hello"])
+  False === isProperSubsetOf (fromList ["hello!"]) (fromList ["hello"])
+  False === isProperSubsetOf (fromList ["hello"]) (fromList ["hello!"])
+  False === isProperSubsetOf (fromList ["hello"]) (fromList [])
 
 testFoldable = scenario do
   Foldable.toList (S.fromList [1,2,3,4]) === [1,2,3,4]

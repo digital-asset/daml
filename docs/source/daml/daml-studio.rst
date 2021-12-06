@@ -292,7 +292,13 @@ party that is not a controller of a choice exercises it.
 
 .. literalinclude:: daml-studio/daml/ExerciseAuthFailure.daml
   :language: daml
-  :lines: 7-21,24-28
+  :start-after: -- BEGIN_MISSING_AUTHORIZATION_TEMPLATE
+  :end-before: -- END_MISSING_AUTHORIZATION_TEMPLATE
+
+.. literalinclude:: daml-studio/daml/ExerciseAuthFailure.daml
+  :language: daml
+  :start-after: -- BEGIN_MISSING_AUTHORIZATION_SCENARIO
+  :end-before: -- END_MISSING_AUTHORIZATION_SCENARIO
 
 The execution of the example scenario fails when 'Bob' tries to exercise the
 choice 'Consume' of which he is not a controller
@@ -334,7 +340,13 @@ For example:
 
 .. literalinclude:: daml-studio/daml/NotVisibleFailure.daml
   :language: daml
-  :lines: 7-15,17-21
+  :start-after: -- BEGIN_NOT_VISIBLE_TEMPLATE
+  :end-before: -- END_NOT_VISIBLE_TEMPLATE
+
+.. literalinclude:: daml-studio/daml/NotVisibleFailure.daml
+  :language: daml
+  :start-after: -- BEGIN_NOT_VISIBLE_SCENARIO
+  :end-before: -- END_NOT_VISIBLE_SCENARIO
 
 In the above scenario the 'Example' contract is created by 'Alice' and makes no mention of
 the party 'Bob' and hence does not cause the contract to be disclosed to 'Bob'. When 'Bob' tries

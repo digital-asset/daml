@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Getting Help
-============
+############
 
 Have questions or feedback? You're in the right place.
 
@@ -18,7 +18,7 @@ Have questions or feedback? You're in the right place.
 When you're in the community Forum or on Stack Overflow, please keep to our `Code of Conduct <https://github.com/digital-asset/daml/blob/main/CODE_OF_CONDUCT.md>`__.
 
 Support expectations
---------------------
+********************
 
 For community users (ie on our Forum and Stack Overflow):
 

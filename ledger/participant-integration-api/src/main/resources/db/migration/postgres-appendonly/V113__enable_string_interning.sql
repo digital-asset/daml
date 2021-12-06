@@ -60,7 +60,7 @@ SELECT insert_to_string_interning('p|', 'party_entries', 'party');
 
 -- fill ledger-end
 UPDATE parameters
-SET ledger_end_string_interning_id = (SELECT max(internal_id) FROM string_interning);
+SET ledger_end_string_interning_id = (SELECT coalesce (max(internal_id),0) FROM string_interning);
 
 -- remove temporary SQL objects
 DROP SEQUENCE string_interning_seq_temp;

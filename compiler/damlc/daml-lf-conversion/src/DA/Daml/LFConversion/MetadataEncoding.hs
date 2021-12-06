@@ -468,6 +468,5 @@ mkMetadataStub n t = LF.DefValue
     , dvalBinder = (n,t)
     , dvalBody = LF.EBuiltin LF.BEError `LF.ETyApp` t
         `LF.ETmApp` LF.EBuiltin (LF.BEText "undefined")
-    , dvalNoPartyLiterals = LF.HasNoPartyLiterals True
     , dvalIsTest = LF.IsTest False
     }

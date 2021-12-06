@@ -157,7 +157,14 @@ def _is_at_most(threshold, version):
     """
     return _cmp_version(version, threshold) <= 0
 
+def _is_stable(version):
+    """Check that a version is a stable version, i.e., of the form major.minor.patch.
+       Note that HEAD has version 0.0.0 so it is considered stable"""
+    (core, prerelease, build) = _semver_components(version)
+    return not prerelease and not build
+
 versions = struct(
     is_at_most = _is_at_most,
     is_at_least = _is_at_least,
+    is_stable = _is_stable,
 )

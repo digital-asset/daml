@@ -18,7 +18,10 @@ module RecordMod {
     RecordMod:Pair Int64 (Numeric 10)->
       Scenario (ContractId RecordMod:Box)
     = \ (x: RecordMod:Pair Int64 (Numeric 10)) ->
-        commit @(ContractId RecordMod:Box) 'Bob' (create @RecordMod:Box (RecordMod:Box { x = x, party = 'Bob' }));
+        sbind
+          bob : Party <- sget_party "Bob"
+        in
+          commit @(ContractId RecordMod:Box) bob (create @RecordMod:Box (RecordMod:Box { x = x, party = bob }));
 
   val pair1: RecordMod:Pair Int64 (Numeric 10) =
     RecordMod:Pair @Int64 @(Numeric 10) {

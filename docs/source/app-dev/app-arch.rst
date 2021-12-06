@@ -30,7 +30,7 @@ architecture, providing you with an excellent starting point for your own applic
 - deploying your application in the cloud as a Docker container
 
 Backend
-~~~~~~~
+*******
 The backend for your application can be any Daml ledger implementation running your DAR
 (:ref:`Daml Archive <dar-file-dalf-file>`) file.
 
@@ -53,7 +53,7 @@ your frontend and Daml artifacts of your project to a production Daml network. S
 :ref:`Deploying to Daml Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
 
 Frontend
-~~~~~~~~
+********
 
 We recommended building your frontend with the `React <https://reactjs.org>`_ framework. However,
 you can choose virtually any language for your frontend and interact with the ledger via
@@ -93,7 +93,7 @@ If you choose a different JavaScript based frontend framework, the packages ``@d
 connect and issue commands against your ledger.
 
 Authorization
-~~~~~~~~~~~~~
+*************
 
 When you deploy your application to a production ledger, you need to authenticate the identities of
 your users.
@@ -106,7 +106,7 @@ with a Daml ledger that validates authorization of incoming requests. Simply ini
 form of the required tokens is described in the :ref:`Authorization <authorization>` section.
 
 Developer workflow
-~~~~~~~~~~~~~~~~~~
+******************
 
 The SDK enables a local development environment with fast iteration cycles:
 
@@ -129,7 +129,7 @@ See :doc:`Your First Feature </getting-started/first-feature>` for a more detail
 .. _command-deduplication:
 
 Command deduplication
-*********************
+=====================
 
 The interaction of a Daml application with the ledger is inherently asynchronous: applications send commands to the ledger, and some time later they see the effect of that command on the ledger.
 
@@ -158,12 +158,12 @@ For more details on command deduplication, see the :ref:`Ledger API Services <co
 .. _dealing-with-failures:
 
 Dealing with failures
-*********************
+=====================
 
 .. _crash-recovery:
 
 Crash recovery
-==============
+--------------
 
 In order to restart your application from a previously known ledger state,
 your application must keep track of the last ledger offset received
@@ -176,7 +176,7 @@ atomic operation, your application can resume from where it left off.
 .. _failing-over-between-ledger-api-endpoints:
 
 Failing over between Ledger API endpoints
-=========================================
+-----------------------------------------
 
 Some Daml Ledgers support exposing multiple eventually consistent Ledger API
 endpoints where command deduplication works across these Ledger API endpoints.
@@ -210,7 +210,7 @@ new endpoint, it will resume normal operation.
 .. _dealing-with-time:
 
 Dealing with time
-*****************
+=================
 
 The Daml language contains a function :ref:`getTime <daml-ref-gettime>` which returns a rough estimate of “current time” called *Ledger Time*. The notion of time comes with a lot of problems in a distributed setting: different participants might run different clocks, there may be latencies due to calculation and network, clocks may drift against each other over time, etc.
 
