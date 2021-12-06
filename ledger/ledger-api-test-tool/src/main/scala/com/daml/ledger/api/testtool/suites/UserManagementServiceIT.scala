@@ -46,7 +46,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assertGrpcError(
         ledger,
         createAgainError,
-        Status.Code.NOT_FOUND,
+        Status.Code.ALREADY_EXISTS,
         LedgerApiErrors.AdminServices.UserAlreadyExists,
         None,
       )
