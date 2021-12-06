@@ -45,8 +45,8 @@ check() {
                 exit 1
             fi
         fi
-        if [ ! -z "$split" ] && [ "$split" != "SPLIT-RELEASE" ]; then
-            echo "Invalid entry in third column, must be SPLIT-RELEASE or non-existent."
+        if [ ! -z "$split" ] && [ "$split" != "SPLIT_RELEASE" ]; then
+            echo "Invalid entry in third column, must be SPLIT_RELEASE or non-existent."
         fi
     done < LATEST
 }
