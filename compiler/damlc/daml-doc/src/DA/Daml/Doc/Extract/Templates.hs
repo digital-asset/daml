@@ -46,48 +46,14 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
       , td_descr = ad_descr tmplADT
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
-      , td_choices = map mkChoiceDoc choices
+      , td_choices = map (mkChoiceDoc typeMap) choices
       -- is filled via distributeInstanceDocs
       , td_impls = []
       }
       where
-        tmplADT = asADT name
+        tmplADT = asADT typeMap name
         choices = Set.toList . fromMaybe Set.empty $ MS.lookup name dc_choices
 
-    mkChoiceDoc :: Typename -> ChoiceDoc
-    mkChoiceDoc name = ChoiceDoc
-      { cd_name = ad_name choiceADT
-      , cd_descr = ad_descr choiceADT
-      -- assumes exactly one constructor (syntactic in the template syntax), or
-      -- uses a dummy value otherwise.
-      , cd_fields = getFields choiceADT
-      }
-          where choiceADT = asADT name
-
-    asADT n = fromMaybe dummyDT $
-              MS.lookup n typeMap
-    -- returns a dummy ADT if the choice argument is not in the local type map
-    -- (possible if choice instances are defined directly outside the template).
-    -- This wouldn't be necessary if we used the type-checked AST.
-      where dummyDT = ADTDoc { ad_anchor = Nothing
-                             , ad_name = dummyName n
-                             , ad_descr = Nothing
-                             , ad_args = []
-                             , ad_constrs = []
-                             , ad_instances = Nothing
-                             }
-
-            dummyName (Typename "Archive") = Typename "Archive"
-            dummyName (Typename t) = Typename $ "External:" <> t
-
-    -- Assuming one constructor (record or prefix), extract the fields, if any.
-    -- For choices without arguments, GHC returns a prefix constructor, so we
-    -- need to cater for this case specially.
-    getFields adt = case ad_constrs adt of
-                      [PrefixC{}] -> []
-                      [RecordC{ ac_fields = fields }] -> fields
-                      [] -> [] -- catching the dummy case here, see above
-                      _other -> error "getFields: found multiple constructors"
 
 -- | Build interface docs up from class docs.
 getInterfaceDocs :: DocCtx
@@ -100,50 +66,15 @@ getInterfaceDocs DocCtx{..} typeMap =
     -- defined internally, and not expected to fail on consistent arguments.
     mkInterfaceDoc :: Typename -> InterfaceDoc
     mkInterfaceDoc name = InterfaceDoc
-      { if_anchor = ad_anchor tmplADT
-      , if_name = ad_name tmplADT
-      , if_descr = ad_descr tmplADT
-      , if_choices = map mkChoiceDoc choices
+      { if_anchor = ad_anchor ifADT
+      , if_name = ad_name ifADT
+      , if_descr = ad_descr ifADT
+      , if_choices = map (mkChoiceDoc typeMap) choices
       , if_methods = [] -- TODO (drsk) https://github.com/digital-asset/daml/issues/11347
       }
       where
-        tmplADT = asADT name
+        ifADT = asADT typeMap name
         choices = Set.toList . fromMaybe Set.empty $ MS.lookup name dc_choices
-
-    mkChoiceDoc :: Typename -> ChoiceDoc
-    mkChoiceDoc name = ChoiceDoc
-      { cd_name = ad_name choiceADT
-      , cd_descr = ad_descr choiceADT
-      -- assumes exactly one constructor (syntactic in the template syntax), or
-      -- uses a dummy value otherwise.
-      , cd_fields = getFields choiceADT
-      }
-      where choiceADT = asADT name
-
-    asADT n = fromMaybe dummyDT $
-              MS.lookup n typeMap
-    -- returns a dummy ADT if the choice argument is not in the local type map
-    -- (possible if choice instances are defined directly outside the template).
-    -- This wouldn't be necessary if we used the type-checked AST.
-      where dummyDT = ADTDoc { ad_anchor = Nothing
-                             , ad_name = dummyName n
-                             , ad_descr = Nothing
-                             , ad_args = []
-                             , ad_constrs = []
-                             , ad_instances = Nothing
-                             }
-
-            dummyName (Typename "Archive") = Typename "Archive"
-            dummyName (Typename t) = Typename $ "External:" <> t
-
-    -- Assuming one constructor (record or prefix), extract the fields, if any.
-    -- For choices without arguments, GHC returns a prefix constructor, so we
-    -- need to cater for this case specially.
-    getFields adt = case ad_constrs adt of
-                      [PrefixC{}] -> []
-                      [RecordC{ ac_fields = fields }] -> fields
-                      [] -> [] -- catching the dummy case here, see above
-                      _other -> error "getFields: found multiple constructors"
 
 -- | Extracts all names of templates defined in a module,
 -- and a map of template names to its set of choices
@@ -247,3 +178,44 @@ getInstanceDocs ctx ClsInst{..} =
         , id_type = typeToType ctx ty
         , id_isOrphan = isOrphan is_orphan
         }
+
+-- Utilities
+------------
+
+-- | Create an ADT from a Typename
+asADT :: MS.Map Typename ADTDoc -> Typename -> ADTDoc
+asADT typeMap n = fromMaybe dummyDT $ MS.lookup n typeMap
+  where
+    dummyDT =
+      ADTDoc
+        { ad_anchor = Nothing
+        , ad_name = dummyName n
+        , ad_descr = Nothing
+        , ad_args = []
+        , ad_constrs = []
+        , ad_instances = Nothing
+        }
+    dummyName (Typename "Archive") = Typename "Archive"
+    dummyName (Typename t) = Typename $ "External:" <> t
+
+-- | Assuming one constructor (record or prefix), extract the fields, if any.  For choices without
+-- arguments, GHC returns a prefix constructor, so we need to cater for this case specially.
+getFields :: ADTDoc -> [FieldDoc]
+getFields adt =
+  case ad_constrs adt of
+    [PrefixC {}] -> []
+    [RecordC {ac_fields = fields}] -> fields
+    [] -> [] -- catching the dummy case here, see above
+    _other -> error "getFields: found multiple constructors"
+
+mkChoiceDoc :: MS.Map Typename ADTDoc -> Typename -> ChoiceDoc
+mkChoiceDoc typeMap name =
+  ChoiceDoc
+    { cd_name = ad_name choiceADT
+    , cd_descr = ad_descr choiceADT
+  -- assumes exactly one constructor (syntactic in the template syntax), or
+  -- uses a dummy value otherwise.
+    , cd_fields = getFields choiceADT
+    }
+  where
+    choiceADT = asADT typeMap name
