@@ -133,11 +133,14 @@ message DeleteUserResponse {
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message ListUsersRequest {
-    // TODO: add pagination, cf. https://cloud.google.com/apis/design/design_patterns#list_pagination
+    // TODO https://cloud.google.com/apis/design/design_patterns#list_pagination
+    // int32 page_size = 1;
+    // string page_token = 2;
 }
 
 message ListUsersResponse {
     repeated User users = 1;
+    // string next_page_token = 2;
 }
 
 // Add the rights to the set of rights granted to the user.

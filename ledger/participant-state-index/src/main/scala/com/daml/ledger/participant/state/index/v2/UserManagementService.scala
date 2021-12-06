@@ -22,10 +22,13 @@ trait UserManagementService {
   def revokeRights(id: String, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
 
   def listUserRights(id: String): Future[Result[Set[UserRight]]]
+
+  def listUsers(/* TODO: pagination -- pageSize: Int, pageToken: String*/): Future[Result[Users]]
 }
 
 object UserManagementService {
   type Result[T] = Either[Error, T]
+  type Users = Seq[User] // TODO: pagination -- change to something like case class PaginatedUsers(users: Seq[User], nextPageToken: String)
 
   sealed trait Error
   final case class UserNotFound(userId: String) extends Error

@@ -82,7 +82,11 @@ private[apiserver] final class ApiUserManagementService(
       .map(_ => DeleteUserResponse())
 
   override def listUsers(request: ListUsersRequest): Future[ListUsersResponse] =
-    Future.successful(ListUsersResponse(Nil)) // TODO TBD as ListUsersRequest defined
+    userManagementService
+      .listUsers(/*request.pageSize, request.pageToken*/)
+      .flatMap(handleResult("list users"))
+      .map(_.map(toApiUser))  // case (users, nextPageToken) => ListUsersResponse(users.map(toApiUser), nextPageToken)
+      .map(ListUsersResponse(_))
 
   override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =
     userManagementService
