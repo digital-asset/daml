@@ -9,8 +9,6 @@ option java_outer_classname = "UserManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
-import "google/protobuf/empty.proto";
-
 
 // Experimental API to manage users and their rights for interacting with the Ledger API
 // served by a participant node.
