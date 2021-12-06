@@ -12,6 +12,7 @@ import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.participant.state.kvutils.api.WriteServiceWithDeduplicationSupport
 import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -141,7 +142,7 @@ final class Runner[T <: ReadWriteService, Extra](
                     metrics,
                   )(materializer, servicesExecutionContext, loggingContext)
                   .acquire()
-                writePackageService = ledgerFactory.writePackageService()
+                writePackageService = ledgerFactory.writePackagesService()
                 _ <- Resource.sequence(
                   config.archiveFiles.map(path =>
                     Resource.fromFuture(
@@ -173,18 +174,23 @@ final class Runner[T <: ReadWriteService, Extra](
                     Resource.successful(new HealthChecks())
                 }
                 apiServerConfig = configProvider.apiServerConfig(participantConfig, config)
-                indexService <- StandaloneIndexService(
-                  ledgerId = config.ledgerId,
-                  config = apiServerConfig,
-                  metrics = metrics,
-                  engine = sharedEngine,
-                  servicesExecutionContext = servicesExecutionContext,
-                  lfValueTranslationCache = lfValueTranslationCache,
-                ).acquire()
                 _ <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
-                    val writeService = new TimedWriteService(ledgerFactory.writeService(), metrics)
                     for {
+                      indexService <- StandaloneIndexService(
+                        ledgerId = config.ledgerId,
+                        config = apiServerConfig,
+                        metrics = metrics,
+                        engine = sharedEngine,
+                        servicesExecutionContext = servicesExecutionContext,
+                        lfValueTranslationCache = lfValueTranslationCache,
+                      ).acquire()
+                      factory = new KeyValueDeduplicationSupportFactory(
+                        ledgerFactory,
+                        config,
+                        indexService,
+                      )(implicitly, servicesExecutionContext)
+                      writeService = new TimedWriteService(factory.writeService(), metrics)
                       _ <- StandaloneApiServer(
                         indexService = indexService,
                         ledgerId = config.ledgerId,

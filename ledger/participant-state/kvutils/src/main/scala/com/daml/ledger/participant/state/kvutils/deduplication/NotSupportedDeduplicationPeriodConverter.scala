@@ -23,8 +23,10 @@ object NotSupportedDeduplicationPeriodConverter extends DeduplicationPeriodConve
       mat: Materializer,
       ec: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Future[Either[DeduplicationConversionFailure, Duration]] = throw new IllegalArgumentException(
-    "Offsets are not supported as deduplication periods"
+  ): Future[Either[DeduplicationConversionFailure, Duration]] = Future.failed(
+    new IllegalArgumentException(
+      "Offsets are not supported as deduplication periods"
+    )
   )
 
 }

@@ -30,30 +30,28 @@ class CompletionBasedDeduplicationPeriodConverter(
       mat: Materializer,
       ec: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Future[Either[DeduplicationConversionFailure, Duration]] = {
-    completionAtOffset(
-      CompletionRequest(
-        ledgerId,
-        applicationId,
-        actAs,
-        LedgerOffset.Absolute(offset),
-      )
-    ).map {
-      case Some(CompletionStreamResponse(Some(checkpoint), _)) =>
-        if (checkpoint.offset.flatMap(_.value.absolute).contains(offset)) {
-          checkpoint.recordTime match {
-            case Some(recordTime) =>
-              val duration = Duration.between(recordTime.asJavaInstant, submittedAt)
-              Right(duration)
-            case None => Left(DeduplicationConversionFailure.CompletionRecordTimeNotAvailable)
-          }
-        } else {
-          Left(DeduplicationConversionFailure.CompletionOffsetNotMatching)
+  ): Future[Either[DeduplicationConversionFailure, Duration]] = completionAtOffset(
+    CompletionRequest(
+      ledgerId,
+      applicationId,
+      actAs,
+      LedgerOffset.Absolute(offset),
+    )
+  ).map {
+    case Some(CompletionStreamResponse(Some(checkpoint), _)) =>
+      if (checkpoint.offset.flatMap(_.value.absolute).contains(offset)) {
+        checkpoint.recordTime match {
+          case Some(recordTime) =>
+            val duration = Duration.between(recordTime.asJavaInstant, submittedAt)
+            Right(duration)
+          case None => Left(DeduplicationConversionFailure.CompletionRecordTimeNotAvailable)
         }
-      case Some(CompletionStreamResponse(None, _)) =>
-        Left(DeduplicationConversionFailure.CompletionCheckpointNotAvailable)
-      case None => Left(DeduplicationConversionFailure.CompletionAtOffsetNotFound)
-    }
+      } else {
+        Left(DeduplicationConversionFailure.CompletionOffsetNotMatching)
+      }
+    case Some(CompletionStreamResponse(None, _)) =>
+      Left(DeduplicationConversionFailure.CompletionCheckpointNotAvailable)
+    case None => Left(DeduplicationConversionFailure.CompletionAtOffsetNotFound)
   }
 
   private def completionAtOffset(
@@ -61,9 +59,7 @@ class CompletionBasedDeduplicationPeriodConverter(
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
-  ): Future[Option[CompletionStreamResponse]] = {
-    completionService
-      .getCompletions(request.offset, request.offset, request.applicationId, request.parties)
-      .runWith(Sink.headOption)
-  }
+  ): Future[Option[CompletionStreamResponse]] = completionService
+    .getCompletions(request.offset, request.offset, request.applicationId, request.parties)
+    .runWith(Sink.headOption)
 }
