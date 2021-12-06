@@ -18,36 +18,36 @@ import scala.annotation.tailrec
 
 private[speedy] object ClosureConversion {
 
+  import source.SEVarLevel
+
   private[speedy] def closureConvert(source0: source.SExpr): target.SExpr = {
 
-    case class Abs(a: Int) // absolute variable index, determined by tracking sourceDepth
+    case class Env(sourceDepth: Int, mapping: Map[SEVarLevel, target.SELoc], targetDepth: Int) {
 
-    case class Env(sourceDepth: Int, mapping: Map[Abs, target.SELoc], targetDepth: Int) {
-
-      def lookup(abs: Abs): target.SELoc = {
-        mapping.get(abs) match {
+      def lookup(v: SEVarLevel): target.SELoc = {
+        mapping.get(v) match {
           case Some(loc) => loc
-          case None =>
-            throw sys.error(s"lookup($abs),in:$mapping")
+          case None => sys.error(s"lookup($v),in:$mapping")
         }
       }
 
       def extend(n: Int): Env = {
         // Create mappings for `n` new stack items, and combine with the (unshifted!) existing mapping.
         val m2 = (0 until n).view.map { i =>
-          val abs = Abs(sourceDepth + i)
-          (abs, target.SELocAbsoluteS(targetDepth + i))
+          val v = SEVarLevel(sourceDepth + i)
+          (v, target.SELocAbsoluteS(targetDepth + i))
         }
         Env(sourceDepth + n, mapping ++ m2, targetDepth + n)
       }
 
-      def absBody(arity: Int, fvs: List[Abs]): Env = {
-        val newRemapsF: Map[Abs, target.SELoc] = fvs.view.zipWithIndex.map { case (abs, i) =>
-          abs -> target.SELocF(i)
-        }.toMap
+      def absBody(arity: Int, freeVars: List[SEVarLevel]): Env = {
+        val newRemapsF =
+          freeVars.view.zipWithIndex.map { case (v, i) =>
+            v -> target.SELocF(i)
+          }.toMap
         val newRemapsA = (0 until arity).view.map { case i =>
-          val abs = Abs(sourceDepth + i)
-          abs -> target.SELocA(i)
+          val v = SEVarLevel(sourceDepth + i)
+          v -> target.SELocA(i)
         }
         // The keys in newRemapsF and newRemapsA are disjoint
         val m1 = newRemapsF ++ newRemapsA
@@ -85,7 +85,7 @@ private[speedy] object ClosureConversion {
       *   forms correspond to the source expression forms: specifically, the location of
       *   recursive expression instances (values of type SExpr).
       *
-      *   For expression forms with no recursive instance (i.e. SEVar, SEVal), there are
+      *   For expression forms with no recursive instance (i.e. SEVarLevel, SEVal), there are
       *   no corresponding continuation forms.
       *
       *   For expression forms with a single recursive instance (i.e. SELocation), there
@@ -112,7 +112,7 @@ private[speedy] object ClosureConversion {
 
       final case class Location(loc: Ref.Location) extends Cont
 
-      final case class Abs(arity: Int, fvs: List[target.SELoc]) extends Cont
+      final case class Abs(arity: Int, freeLocs: List[target.SELoc]) extends Cont
 
       final case class App1(env: Env, args: List[source.SExpr]) extends Cont
 
@@ -176,9 +176,8 @@ private[speedy] object ClosureConversion {
         // Going Down: match on expression form...
         case Down(exp, env) =>
           exp match {
-            case source.SEVar(r) =>
-              val abs = Abs(env.sourceDepth - r)
-              loop(Up(env.lookup(abs)), conts)
+            case v: SEVarLevel =>
+              loop(Up(env.lookup(v)), conts)
 
             case source.SEVal(x) => loop(Up(target.SEVal(x)), conts)
             case source.SEBuiltin(x) => loop(Up(target.SEBuiltin(x)), conts)
@@ -188,11 +187,10 @@ private[speedy] object ClosureConversion {
               loop(Down(body, env), Cont.Location(loc) :: conts)
 
             case source.SEAbs(arity, body) =>
-              val fvsAsListAbs = freeVars(body, arity).toList.sorted.map { r =>
-                Abs(env.sourceDepth - r)
-              }
-              val fvs = fvsAsListAbs.map { abs => env.lookup(abs) }
-              loop(Down(body, env.absBody(arity, fvsAsListAbs)), Cont.Abs(arity, fvs) :: conts)
+              val freeVars =
+                computeFreeVars(body, env.sourceDepth).toList.sortBy(_.level)
+              val freeLocs = freeVars.map { v => env.lookup(v) }
+              loop(Down(body, env.absBody(arity, freeVars)), Cont.Abs(arity, freeLocs) :: conts)
 
             case source.SEApp(fun, args) =>
               loop(Down(fun, env), Cont.App1(env, args) :: conts)
@@ -234,9 +232,9 @@ private[speedy] object ClosureConversion {
                   val body = result
                   loop(Up(target.SELocation(loc, body)), conts)
 
-                case Cont.Abs(arity, fvs) =>
+                case Cont.Abs(arity, freeLocs) =>
                   val body = result
-                  loop(Up(target.SEMakeClo(fvs, arity, body)), conts)
+                  loop(Up(target.SEMakeClo(freeLocs, arity, body)), conts)
 
                 case Cont.App1(env, args) =>
                   val fun = result
@@ -319,56 +317,40 @@ private[speedy] object ClosureConversion {
     loop(Down(source0, Env()), Nil)
   }
 
-  /** Compute the free variables in a speedy expression.
-    * The returned free variables are de bruijn indices adjusted to the stack of the caller.
-    */
-  private[this] def freeVars(expr0: source.SExpr, depth0: Int): Set[Int] = {
+  /** Compute the free variables of a speedy expression */
+  private[this] def computeFreeVars(expr0: source.SExpr, sourceDepth: Int): Set[SEVarLevel] = {
     @tailrec // woo hoo, stack safe!
-    def go(acc: Set[Int], work: List[(source.SExpr, Int)]): Set[Int] = {
+    def go(acc: Set[SEVarLevel], work: List[source.SExpr]): Set[SEVarLevel] = {
       // 'acc' is the (accumulated) set of free variables we have found so far.
-      // 'work' is a list of source expressions (paired with their depth) which we still have to process.
+      // 'work' is a list of source expressions which we still have to process.
       work match {
         case Nil => acc // final result
-        case (expr, depth) :: work => {
+        case expr :: work => {
           expr match {
-            case source.SEVar(rel) =>
-              if (rel > depth) {
-                val callerRel = rel - depth // adjust to caller's environment
-                go(acc + callerRel, work)
+            case v @ SEVarLevel(level) =>
+              if (level < sourceDepth) {
+                go(acc + v, work)
               } else {
                 go(acc, work)
               }
             case _: source.SEVal => go(acc, work)
             case _: source.SEBuiltin => go(acc, work)
             case _: source.SEValue => go(acc, work)
-            case source.SELocation(_, body) =>
-              go(acc, (body, depth) :: work)
-            case source.SEApp(fun, args) =>
-              go(acc, (fun :: args).map(e => (e, depth)) ++ work)
-            case source.SEAbs(n, body) =>
-              go(acc, (body, depth + n) :: work)
+            case source.SELocation(_, body) => go(acc, body :: work)
+            case source.SEApp(fun, args) => go(acc, fun :: args ++ work)
+            case source.SEAbs(_, body) => go(acc, body :: work)
             case source.SECase(scrut, alts) =>
-              val moreWork = alts.map { case source.SCaseAlt(pat, body) =>
-                val n = pat.numArgs
-                (body, depth + n)
-              }
-              go(acc, (scrut, depth) :: moreWork ++ work)
-            case source.SELet(bounds, body) =>
-              val moreWork = bounds.zipWithIndex.map { case (bound, n) =>
-                (bound, depth + n)
-              }
-              go(acc, (body, depth + bounds.length) :: moreWork ++ work)
-            case source.SELabelClosure(_, expr) =>
-              go(acc, (expr, depth) :: work)
-            case source.SETryCatch(body, handler) =>
-              go(acc, (handler, 1 + depth) :: (body, depth) :: work)
-            case source.SEScopeExercise(body) =>
-              go(acc, (body, depth) :: work)
+              val bodies = alts.map { case source.SCaseAlt(_, body) => body }
+              go(acc, scrut :: bodies ++ work)
+            case source.SELet(bounds, body) => go(acc, body :: bounds ++ work)
+            case source.SELabelClosure(_, expr) => go(acc, expr :: work)
+            case source.SETryCatch(body, handler) => go(acc, handler :: body :: work)
+            case source.SEScopeExercise(body) => go(acc, body :: work)
           }
         }
       }
     }
-    go(Set.empty, List((expr0, depth0)))
+    go(Set.empty, List(expr0))
   }
 
 }

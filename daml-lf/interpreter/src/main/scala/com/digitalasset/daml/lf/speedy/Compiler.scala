@@ -27,7 +27,7 @@ import scala.reflect.ClassTag
 
 /** Compiles LF expressions into Speedy expressions.
   * This includes:
-  *  - Writing variable references into de Bruijn indices.
+  *  - Translating variable references into de Bruijn levels.
   *  - Closure conversion: EAbs turns into SEMakeClo, which creates a closure by copying free variables into a closure object.
   *   - Rewriting of update and scenario actions into applications of builtin functions that take an "effect" token.
   *
@@ -89,14 +89,6 @@ private[lf] object Compiler {
   }
 
   private val SEGetTime = s.SEBuiltin(SBGetTime)
-
-  private def SBCompareNumeric(b: SBuiltinPure) =
-    s.SEAbs(3, s.SEApp(s.SEBuiltin(b), List(s.SEVar(2), s.SEVar(1))))
-  private val SBLessNumeric = SBCompareNumeric(SBLess)
-  private val SBLessEqNumeric = SBCompareNumeric(SBLessEq)
-  private val SBGreaterNumeric = SBCompareNumeric(SBGreater)
-  private val SBGreaterEqNumeric = SBCompareNumeric(SBGreaterEq)
-  private val SBEqualNumeric = SBCompareNumeric(SBEqual)
 
   private val SBEToTextNumeric = s.SEAbs(1, s.SEBuiltin(SBToText))
 
@@ -182,7 +174,7 @@ private[lf] final class Compiler(
       varIndices: Map[VarRef, Position],
   ) {
 
-    def toSEVar(p: Position): s.SEVar = s.SEVar(position - p.idx)
+    def toSEVar(p: Position) = s.SEVarLevel(p.idx)
 
     def nextPosition = Position(position)
 
@@ -214,14 +206,14 @@ private[lf] final class Compiler(
 
     private[this] def vars: List[VarRef] = varIndices.keys.toList
 
-    private[this] def lookupVar(varRef: VarRef): Option[s.SEVar] =
+    private[this] def lookupVar(varRef: VarRef): Option[s.SExpr] =
       varIndices.get(varRef).map(toSEVar)
 
-    def lookupExprVar(name: ExprVarName): s.SEVar =
+    def lookupExprVar(name: ExprVarName): s.SExpr =
       lookupVar(EVarRef(name))
         .getOrElse(throw CompilationError(s"Unknown variable: $name. Known: ${vars.mkString(",")}"))
 
-    def lookupTypeVar(name: TypeVarName): Option[s.SEVar] =
+    def lookupTypeVar(name: TypeVarName): Option[s.SExpr] =
       lookupVar(TVarRef(name))
 
   }
@@ -477,7 +469,7 @@ private[lf] final class Compiler(
       case EVal(ref) =>
         s.SEVal(t.LfDefRef(ref))
       case EBuiltin(bf) =>
-        compileBuiltin(bf)
+        compileBuiltin(env, bf)
       case EPrimCon(con) =>
         compilePrimCon(con)
       case EPrimLit(lit) =>
@@ -587,9 +579,24 @@ private[lf] final class Compiler(
     }
 
   @inline
-  private[this] def compileBuiltin(bf: BuiltinFunction): s.SExpr =
+  private[this] def compileIdentity(env: Env) = s.SEAbs(1, s.SEVarLevel(env.position))
+
+  @inline
+  private[this] def compileBuiltin(env: Env, bf: BuiltinFunction): s.SExpr = {
+
+    def SBCompareNumeric(b: SBuiltinPure) = {
+      val d = env.position
+      s.SEAbs(3, s.SEApp(s.SEBuiltin(b), List(s.SEVarLevel(d + 1), s.SEVarLevel(d + 2))))
+    }
+
+    val SBLessNumeric = SBCompareNumeric(SBLess)
+    val SBLessEqNumeric = SBCompareNumeric(SBLessEq)
+    val SBGreaterNumeric = SBCompareNumeric(SBGreater)
+    val SBGreaterEqNumeric = SBCompareNumeric(SBGreaterEq)
+    val SBEqualNumeric = SBCompareNumeric(SBEqual)
+
     bf match {
-      case BCoerceContractId => s.SEAbs.identity
+      case BCoerceContractId => compileIdentity(env)
       // Numeric Comparisons
       case BLessNumeric => SBLessNumeric
       case BLessEqNumeric => SBLessEqNumeric
@@ -712,6 +719,7 @@ private[lf] final class Compiler(
           case BAnyExceptionMessage => SBAnyExceptionMessage
         })
     }
+  }
 
   @inline
   private[this] def compilePrimCon(con: PrimCon): s.SExpr =
@@ -1345,7 +1353,7 @@ private[lf] final class Compiler(
       ifaceId: Identifier,
   ): (t.SDefinitionRef, SDefinition) =
     t.ImplementsDefRef(tmplId, ifaceId) ->
-      SDefinition(unsafeClosureConvert(s.SEAbs.identity))
+      SDefinition(unsafeClosureConvert(compileIdentity(Env.Empty)))
 
   // Compile the implementation of an interface method.
   private[this] def compileImplementsMethod(
