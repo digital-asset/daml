@@ -6,7 +6,7 @@ locals {
     {
       name      = "vsts-agent-ubuntu-20-04",
       disk_size = 200,
-      size      = 30,
+      size      = 0,
     },
     {
       name      = "ci-u2",
@@ -32,7 +32,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-ubuntu_20_04
   name               = local.ubuntu[count.index].name
   base_instance_name = local.ubuntu[count.index].name
   region             = "us-east1"
-  target_size        = 30
+  target_size        = local.ubuntu[count.index].size
 
   version {
     name              = local.ubuntu[count.index].name

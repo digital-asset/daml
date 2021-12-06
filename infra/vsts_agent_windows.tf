@@ -12,7 +12,7 @@ locals {
     {
       group_name    = "vsts-agent-windows",
       instance_name = "vsts-win",
-      size          = 6,
+      size          = 0,
       assignment    = "default",
       disk_size     = 200,
     },
