@@ -63,8 +63,7 @@ class KeyValueReadWriteFactory(
     )
   }
 
-  override def writePackagesService(): WritePackagesService =
-    writeService()
+  override def writePackagesService(): WritePackagesService = writeService()
 
   override def writeService(): WriteService = {
     new KeyValueParticipantStateWriter(
