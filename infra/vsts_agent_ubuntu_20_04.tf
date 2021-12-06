@@ -4,7 +4,7 @@
 locals {
   ubuntu = [
     {
-      name      = "vsts-agent-ubuntu-20-04",
+      name      = "ci-u1",
       disk_size = 200,
       size      = 0,
     },
