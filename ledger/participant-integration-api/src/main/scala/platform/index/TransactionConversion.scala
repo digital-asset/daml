@@ -8,6 +8,7 @@ import com.daml.lf.data.{BackStack, FrontStack, FrontStackCons, Ref}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.{CommittedTransaction, NodeId, Node}
+import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
@@ -39,8 +40,9 @@ private[platform] object TransactionConversion {
         case Some(a) => acc :+ a
       }
     tx.foldInExecutionOrder(Vector.empty[A])(
-      exerciseBegin = (acc, nodeId, node) => (handle(acc, nodeId, node), true),
-      rollbackBegin = (acc, _, _) => (acc, false),
+      exerciseBegin =
+        (acc, nodeId, node) => (handle(acc, nodeId, node), ChildrenRecursion.DoRecurse),
+      rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
       leaf = handle,
       exerciseEnd = (acc, _, _) => acc,
       rollbackEnd = (acc, _, _) => acc,
