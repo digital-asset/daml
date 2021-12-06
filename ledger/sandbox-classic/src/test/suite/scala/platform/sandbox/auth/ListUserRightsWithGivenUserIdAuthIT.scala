@@ -7,18 +7,19 @@ import io.grpc.{Status, StatusRuntimeException}
 
 import scala.concurrent.Future
 
-class GetUserGivenUserIdAuthIT extends AdminServiceCallAuthTests {
-  override def serviceCallName: String = "UserManagementService#GetUser(given-user-id)"
+class ListUserRightsWithGivenUserIdAuthIT extends AdminServiceCallAuthTests {
 
-  // only admin users are allowed to specify a user-id for which to retrieve a user
+  override def serviceCallName: String = "UserManagementService#ListUserRights(given-user-id)"
+
+  // only admin users are allowed to specify a user-id for which to retrieve rights
   override def serviceCallWithToken(token: Option[String]): Future[Any] = {
     for {
       // test for an existing user
       _ <- stub(UserManagementServiceGrpc.stub(channel), token).
-        getUser(GetUserRequest("participant_admin"))
+        listUserRights(ListUserRightsRequest("participant_admin"))
       // test for a non-existent user
       _ <- stub(UserManagementServiceGrpc.stub(channel), token).
-        getUser(GetUserRequest("non-existent-user-" + UUID.randomUUID().toString))
+        listUserRights(ListUserRightsRequest("non-existent-user-" + UUID.randomUUID().toString))
         // FIXME: express this better using Scalatest expectations
         .transform({
           case scala.util.Success(u) => scala.util.Failure(new RuntimeException(s"User $u unexpectedly exists."))
@@ -28,5 +29,5 @@ class GetUserGivenUserIdAuthIT extends AdminServiceCallAuthTests {
         })
     } yield ()
   }
-}
 
+}

@@ -5,8 +5,8 @@ import org.scalatest.Assertion
 import scala.concurrent.Future
 
 /** Tests covering the special behaviour of GetUser when not specifying a user-id. */
-class GetUserWithNoUserIdIT extends ServiceCallAuthTests {
-  override def serviceCallName: String = "UserManagementService#getUser(<no-user-id>)"
+class GetUserWithNoUserIdAuthIT extends ServiceCallAuthTests {
+  override def serviceCallName: String = "UserManagementService#GetUser(<no-user-id>)"
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
     stub(UserManagementServiceGrpc.stub(channel), token).getUser(GetUserRequest())
