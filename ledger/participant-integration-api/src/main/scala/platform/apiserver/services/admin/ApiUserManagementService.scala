@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.services.admin
 
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.UserManagement
 import com.daml.ledger.api.v1.admin.user_management_service._
 import com.daml.ledger.participant.state.index.v2.UserManagementService
@@ -12,44 +12,62 @@ import com.daml.ledger.participant.state.index.v2.UserManagementService._
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiUserManagementService(
-    userManagementService: UserManagementService
+    userManagementService: UserManagementService,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
 //    materializer: Materializer,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
+
 ) extends UserManagementServiceGrpc.UserManagementService
     with GrpcApiService {
   import ApiUserManagementService._
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-//  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
-//  private val fieldValidations = FieldValidations(errorFactories)
+  private val fieldValidations = FieldValidations(errorFactories)
 
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
     UserManagementServiceGrpc.bindService(this, executionContext)
 
-  override def createUser(request: CreateUserRequest): Future[User] =
-    userManagementService
-      .createUser(
-        user = UserManagement.User(
-          id = request.user.get.id,
-          primaryParty = Some(
-            Ref.Party.assertFromString(request.user.get.primaryParty)
-          ), // FIXME switch to Either based validation
-        ),
-        rights = request.rights.view.map(fromApiRight).toSet,
-      )
-      .flatMap(handleResult("create user"))
-      .map(_ => request.user.get)
+  override def createUser(request: CreateUserRequest): Future[User] = {
+    import fieldValidations._
+    val userOrErr =
+      for {
+        pUser <- requirePresence(request.user, "user")
+        pUserId <- requireNonEmptyString(pUser.id, "id")
+        pOptPrimaryParty <-
+          if (pUser.primaryParty.isEmpty)
+            scala.util.Right(None)
+          else
+            requireParty(pUser.primaryParty).map(Some(_))
+
+        // FIXME: validate rights as well!
+        // FIXME: add tests for field validation code
+      } yield UserManagement.User(pUserId, pOptPrimaryParty)
+
+    userOrErr match {
+      case Left(err) => Future.failed(err)
+      case scala.util.Right(user) =>
+        userManagementService
+          .createUser(
+            user = user,
+            rights = request.rights.view.map(fromApiRight).toSet,
+          )
+          .flatMap(handleResult("create user"))
+          .map(_ => request.user.get)
+    }
+  }
 
   override def getUser(request: GetUserRequest): Future[User] =
     userManagementService
