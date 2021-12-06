@@ -186,8 +186,6 @@ jobs:
           fi
       done
 
-      trap "git checkout $(branch_sha)" EXIT
-      git checkout origin/main
       cp .bazelrc compatibility/
       compatibility/update-versions.sh
       git add compatibility/versions.bzl compatibility/maven_install.json
