@@ -59,7 +59,7 @@ resource "google_compute_instance_template" "vsts-agent-windows" {
   labels       = local.machine-labels
 
   disk {
-    disk_size_gb = 200
+    disk_size_gb = 400
     disk_type    = "pd-ssd"
 
     # find the image name with `gcloud compute images list`
@@ -68,7 +68,7 @@ resource "google_compute_instance_template" "vsts-agent-windows" {
 
   # Drive D:\ for the agent work folder
   disk {
-    disk_size_gb = 200
+    disk_size_gb = 400
     disk_type    = "pd-ssd"
   }
 
