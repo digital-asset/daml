@@ -31,37 +31,38 @@ private[daml] final class UserManagementServiceAuthorization(
     if (request.userId.isEmpty) {
       // Request user-id is empty => serve the user from the authenticated claims
       authorizer.withClaims(claims =>
-        claims.applicationId match {
-          case None =>
-            Future.failed(
-              LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject("user-id not set in authenticated claims").asGrpcError)
-          case Some(userId) =>
-            if (claims.isStandardJwtToken)
+        if (claims.isStandardJwtToken)
+          claims.applicationId match {
+            case None =>
+              Future.failed(
+                LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject("user-id not set in authenticated claims").asGrpcError)
+            case Some(userId) =>
               service.getUser(request.copy(userId = userId))
-            else {
-              // Custom JWT token: decode the user from the token
-              // FIXME: make this more idiomatic
-              val actAsParties = claims.claims.collect({
-                case ClaimActAsParty(p) => p
-              }).toSet
-              val allParties = claims.claims.collect({
-                case ClaimReadAsParty(p) => p
-                case ClaimActAsParty(p) => p
-              }).toSet
+          }
+        else {
+          // Custom JWT token: decode the user from the token
+          val userId = claims.applicationId.getOrElse("")
+          // FIXME: make this more idiomatic ==> move to claims type
+          val actAsParties = claims.claims.collect({
+            case ClaimActAsParty(p) => p
+          }).toSet
+          val allParties = claims.claims.collect({
+            case ClaimReadAsParty(p) => p
+            case ClaimActAsParty(p) => p
+          }).toSet
 
-              val user =
-                if (allParties.size == 1)
-                  // Set a primary party if there's exactly one party for readAs and actAs
-                  User(userId, allParties.head)
-                else
-                  if (actAsParties.size == 1) {
-                    // Also set primary party if there's exactly one actAs right
-                    User(userId, actAsParties.head)
-                  } else
-                    User(userId)
+          val user =
+            if (allParties.size == 1)
+              // Set a primary party if there's exactly one party for readAs and actAs
+              User(userId, allParties.head)
+            else
+              if (actAsParties.size == 1) {
+                // Also set primary party if there's exactly one actAs right
+                User(userId, actAsParties.head)
+              } else
+                User(userId)
 
-              Future.successful(user)
-            }
+          Future.successful(user)
         }
       )
     } else

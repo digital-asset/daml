@@ -77,15 +77,22 @@ trait ServiceCallAuthTests
   protected val canReadAsAdmin: Option[String] =
     Option(toHeader(adminToken))
 
+  protected val canReadAsAdminExpired: Option[String] =
+    Option(toHeader(expiringIn(Duration.ofDays(-1), adminToken)))
+  protected val canReadAsAdminExpiresTomorrow: Option[String] =
+    Option(toHeader(expiringIn(Duration.ofDays(1), adminToken)))
+
+  // Standard tokens for user authentication
   protected val canReadAsAdminStandardJWT: Option[String] =
     Option(toHeader(adminTokenStandardJWT))
   protected val canReadAsUnknownUserStandardJWT: Option[String] =
     Option(toHeader(unknownUserTokenStandardJWT))
 
-  protected val canReadAsAdminExpired: Option[String] =
-    Option(toHeader(expiringIn(Duration.ofDays(-1), adminToken)))
-  protected val canReadAsAdminExpiresTomorrow: Option[String] =
-    Option(toHeader(expiringIn(Duration.ofDays(1), adminToken)))
+  // Special tokens to test decoding users and rights from custom tokens
+  protected val randomUserCanReadAsRandomParty: Option[String] =
+    Option(toHeader(readOnlyToken(randomParty).copy(applicationId = Some(randomUserId))))
+  protected val randomUserCanActAsRandomParty: Option[String] =
+    Option(toHeader(readWriteToken(randomParty).copy(applicationId = Some(randomUserId))))
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
   protected lazy val canReadAsRandomPartyActualLedgerId: Option[String] =

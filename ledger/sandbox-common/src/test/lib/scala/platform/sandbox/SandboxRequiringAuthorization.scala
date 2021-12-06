@@ -62,10 +62,10 @@ trait SandboxRequiringAuthorization {
   }
 
   protected def readOnlyToken(party: String): AuthServiceJWTPayload =
-    emptyToken.copy(readAs = List(party), applicationId = Some(randomUserId))
+    emptyToken.copy(readAs = List(party))
 
   protected def readWriteToken(party: String): AuthServiceJWTPayload =
-    emptyToken.copy(actAs = List(party), applicationId = Some(randomUserId))
+    emptyToken.copy(actAs = List(party))
 
   protected def multiPartyToken(actAs: List[String], readAs: List[String]): AuthServiceJWTPayload =
     emptyToken.copy(actAs = actAs, readAs = readAs)

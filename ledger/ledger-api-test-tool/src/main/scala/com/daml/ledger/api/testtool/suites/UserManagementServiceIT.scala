@@ -23,7 +23,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         .createUser(CreateUserRequest(Some(User("a", "b")), Nil))
         .mustFail("allocating a duplicate user")
 
-      getUserResult <- ledger.userManagement.getUser(GetUserRequest("aXXX"))
+      getUserResult <- ledger.userManagement.getUser(GetUserRequest("a"))
       getUserError <- ledger.userManagement
         .getUser(GetUserRequest("b"))
         .mustFail("retrieving non-existent user")
