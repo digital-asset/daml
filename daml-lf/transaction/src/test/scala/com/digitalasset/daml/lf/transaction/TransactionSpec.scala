@@ -10,6 +10,7 @@ import com.daml.lf.transaction.Transaction.{
   DanglingNodeId,
   NotWellFormedError,
   OrphanedNode,
+  ChildrenRecursion,
 }
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.{Value => V}
@@ -112,8 +113,8 @@ class TransactionSpec
       )
 
       val result = tx.foldInExecutionOrder(List.empty[String])(
-        (acc, nid, _) => (s"exerciseBegin(${nid.index})" :: acc, true),
-        (acc, nid, _) => (s"rollbackBegin(${nid.index})" :: acc, true),
+        (acc, nid, _) => (s"exerciseBegin(${nid.index})" :: acc, ChildrenRecursion.DoRecurse),
+        (acc, nid, _) => (s"rollbackBegin(${nid.index})" :: acc, ChildrenRecursion.DoRecurse),
         (acc, nid, _) => s"leaf(${nid.index})" :: acc,
         (acc, nid, _) => s"exerciseEnd(${nid.index})" :: acc,
         (acc, nid, _) => s"rollbackEnd(${nid.index})" :: acc,

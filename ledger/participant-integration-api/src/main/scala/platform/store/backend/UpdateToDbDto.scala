@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.appendonlydao.{DeduplicationKeyMaker, JdbcLedgerDao}
 import com.daml.platform.store.appendonlydao.events._
@@ -137,9 +138,9 @@ object UpdateToDbDto {
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
         val preorderTraversal = u.transaction
           .foldInExecutionOrder(List.empty[(NodeId, Node)])(
-            exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, true),
+            exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),
             // Rollback nodes are not included in the indexer
-            rollbackBegin = (acc, _, _) => (acc, false),
+            rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
             leaf = (acc, nid, node) => (nid -> node) :: acc,
             exerciseEnd = (acc, _, _) => acc,
             rollbackEnd = (acc, _, _) => acc,

@@ -7,6 +7,7 @@ import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason.{ContractsNotFound, InvalidLedgerTime}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
+import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{CommittedTransaction, GlobalKey, Node, NodeId}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.ActiveContract
@@ -229,7 +230,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
         .foldInExecutionOrder[AddTransactionState](AddTransactionState(initialState))(
           exerciseBegin = (acc, _, ne) => {
             acc.currentState.als match {
-              case None => (acc, true)
+              case None => (acc, ChildrenRecursion.DoRecurse)
               case Some(als) =>
                 val nodeParties = ne.signatories
                   .union(ne.stakeholders)
@@ -245,11 +246,14 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                   ),
                   parties = acc.parties.union(nodeParties),
                 )
-                (newState, true)
+                (newState, ChildrenRecursion.DoRecurse)
             }
           },
           rollbackBegin = (acc, _, _) => {
-            (acc.copy(rollbackStates = acc.currentState.cloneState() +: acc.rollbackStates), true)
+            (
+              acc.copy(rollbackStates = acc.currentState.cloneState() +: acc.rollbackStates),
+              ChildrenRecursion.DoRecurse,
+            )
           },
           leaf = (acc, nodeId, node) => handleLeaf(acc, nodeId, node),
           exerciseEnd = (acc, _, _) => acc,
