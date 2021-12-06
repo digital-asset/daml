@@ -575,6 +575,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
               , _
               , _
               ] <- [varType name]
+            , NameIn DA_Internal_Desugar "HasMethod" <- [hasMethodCls]
             ]
           , Just mod <- [nameModule_maybe (getName ifc)]
           ]
