@@ -282,6 +282,15 @@ class CommonCliBase(name: LedgerName) {
           config.copy(acsContractFetchingParallelism = acsContractFetchingParallelism)
         )
 
+      opt[Int]("acs-global-parallelism-limit")
+        .optional()
+        .text(
+          s"Maximum number of concurrent ACS queries to the index database. Default is ${SandboxConfig.DefaultAcsGlobalParallelism}."
+        )
+        .action((acsContractFetchingParallelism, config) =>
+          config.copy(acsContractFetchingParallelism = acsContractFetchingParallelism)
+        )
+
       opt[Int]("max-commands-in-flight")
         .optional()
         .action((value, config) =>

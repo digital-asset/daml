@@ -39,6 +39,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       acsIdPageSize: Int,
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
+      acsGlobalParallelism: Int,
       errorFactories: ErrorFactories,
   )(implicit
       loggingContext: LoggingContext
@@ -82,6 +83,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
           acsIdPageSize = acsIdPageSize,
           acsIdFetchingParallelism = acsIdFetchingParallelism,
           acsContractFetchingParallelism = acsContractFetchingParallelism,
+          acsGlobalParallelism = acsGlobalParallelism,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,

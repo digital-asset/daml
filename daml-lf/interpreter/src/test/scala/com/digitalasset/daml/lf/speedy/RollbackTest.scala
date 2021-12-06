@@ -51,7 +51,7 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("RollbackTest.scala")
     val se = pkgs1.compiler.unsafeCompile(e)
     val example = SEApp(se, Array(SEValue(SParty(party))))
-    val machine = Speedy.Machine.fromUpdateSExpr(pkgs1, transactionSeed, example, party)
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs1, transactionSeed, example, Set(party))
     val res = machine.run()
     res match {
       case _: SResultFinalValue =>

@@ -435,6 +435,7 @@ object ScenarioRunner {
       traceLog = traceLog,
       warningLog = warningLog,
       commitLocation = location,
+      limits = interpretation.Limits.Lenient,
     )
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     val enricher = if (doEnrichment) new EnricherImpl(compiledPackages) else NoEnricher
