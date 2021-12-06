@@ -62,7 +62,7 @@ message DamlCommandDedupValue {
     PreExecutionDeduplicationBounds record_time_bounds = 4;
   }
   string submission_id = 5;
-  google.protobuf.Timestamp expire_at = 6;
+  google.protobuf.Timestamp prunable_from = 6;
 }
 
 message PreExecutionDeduplicationBounds {

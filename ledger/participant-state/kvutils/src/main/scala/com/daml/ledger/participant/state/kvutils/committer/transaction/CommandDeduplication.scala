@@ -200,14 +200,14 @@ private[transaction] object CommandDeduplication {
         val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
         // build the maximum interval for which we might use the deduplication entry
         // we account for both time skews even if it means that the expiry time would be slightly longer than required
-        val expireInterval =
+        val pruningInterval =
           config.maxDeduplicationTime.plus(config.timeModel.maxSkew).plus(config.timeModel.minSkew)
         commitContext.recordTime match {
           case Some(recordTime) =>
-            val expireAt = recordTime.add(expireInterval)
+            val prunableFrom = recordTime.add(pruningInterval)
             commandDedupBuilder
               .setRecordTime(Conversions.buildTimestamp(recordTime))
-              .setExpireAt(Conversions.buildTimestamp(expireAt))
+              .setPrunableFrom(Conversions.buildTimestamp(prunableFrom))
           case None =>
             val maxRecordTime = commitContext.maximumRecordTime.getOrElse(
               throw Err.InternalError("Maximum record time is not set for pre-execution")
@@ -215,14 +215,14 @@ private[transaction] object CommandDeduplication {
             val minRecordTime = commitContext.minimumRecordTime.getOrElse(
               throw Err.InternalError("Minimum record time is not set for pre-execution")
             )
-            val expireAt = maxRecordTime.add(expireInterval)
+            val prunableFrom = maxRecordTime.add(pruningInterval)
             commandDedupBuilder
               .setRecordTimeBounds(
                 PreExecutionDeduplicationBounds.newBuilder
                   .setMaxRecordTime(Conversions.buildTimestamp(maxRecordTime))
                   .setMinRecordTime(Conversions.buildTimestamp(minRecordTime))
               )
-              .setExpireAt(Conversions.buildTimestamp(expireAt))
+              .setPrunableFrom(Conversions.buildTimestamp(prunableFrom))
         }
 
         // Set a deduplication entry.
