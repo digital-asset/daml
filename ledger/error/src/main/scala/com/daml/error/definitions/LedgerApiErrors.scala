@@ -851,11 +851,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      "Another command submission with the same change ID (application ID, command ID, actAs is already being processed."
+      "Another command submission with the same change ID (application ID, command ID, actAs) is already being processed."
     )
     @Resolution(
       """Listen to the command completion stream until a completion for the in-flight command submission is published.
-        |Alternatively, resubmit the command after a while. If the in-flight submission has finished successfully by then, 
+        |Alternatively, resubmit the command. If the in-flight submission has finished successfully by then, 
         |this will return more detailed information about the earlier one.
         |If the in-flight submission has failed by then, the resubmission will attempt to record the new transaction on the ledger.
         |"""

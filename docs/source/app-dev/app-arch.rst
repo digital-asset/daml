@@ -133,11 +133,11 @@ The interaction of a Daml application with the ledger is inherently asynchronous
 
 There are several things that can fail during this time window: the application can crash, the participant node can crash, messages can be lost on the network, or the ledger may be just slow to respond due to a high load.
 
-If you want to make sure that a command is not executed twice, your application needs to robustly handle all the various failure scenarios.
+If you want to make sure that a command is not executed twice, your application needs to robustly handle all failure scenarios.
 Daml ledgers provide a mechanism for :doc:`command deduplication <command-deduplication>` to help deal with this problem.
 
 For each command the application provides a command ID and an optional parameter that specifies the deduplication period.
-If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication time.
+If the latter parameter is not specified in the command submission itself, the ledger will use the configured maximum deduplication time.
 The ledger will then guarantee that commands with the same :ref:`change ID <change-id>` will generate a rejection within the effective deduplication period.
 
 For details on how to use command deduplication, see the :doc:`Command Deduplication Guide <command-deduplication>`.
