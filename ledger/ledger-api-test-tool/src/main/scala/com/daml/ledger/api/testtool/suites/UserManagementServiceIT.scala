@@ -11,6 +11,28 @@ import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserRequest, 
 import io.grpc.Status
 
 final class UserManagementServiceIT extends LedgerTestSuite {
+  // create user
+  // - invalid user-name
+  // - invalid rights
+
+  // get user
+  // delete user
+  // list users
+  // grant user rights
+  // revoke user rights
+  // list user rights
+//  test(
+//    "UserManagement_CreateUser_INVALID_ARGUMENT",
+//    "Test argument validation for UserManagement#CreateUser",
+//    allocate(NoParties),
+//  )(implicit ec => { case Participants(Participant(ledger)) =>
+//    for {
+//
+//    } yield {
+//
+//    }
+//  }
+
   test(
     "TestAllUserManagementRpcs",
     "Exercise every rpc once with success and once with a failure",
