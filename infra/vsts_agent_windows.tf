@@ -16,13 +16,13 @@ locals {
       assignment    = "default",
       disk_size     = 200,
     },
-    /*{
+    {
       group_name    = "ci-w2"
       instance_name = "ci-w2",
       size          = 6,
       assignment    = "default",
       disk_size     = 400
-    },*/
+    },
   ]
 }
 

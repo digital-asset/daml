@@ -8,11 +8,11 @@ locals {
       disk_size = 200,
       size      = 30,
     },
-    /*{
+    {
       name      = "ci-u2",
       disk_size = 400,
       size      = 30,
-    },*/
+    },
   ]
 }
 
