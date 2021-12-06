@@ -104,7 +104,7 @@ getInterfaceDocs DocCtx{..} typeMap =
       , if_name = ad_name tmplADT
       , if_descr = ad_descr tmplADT
       , if_choices = map mkChoiceDoc choices
-      , if_methods = [] -- TODO (drsk)
+      , if_methods = [] -- TODO (drsk) https://github.com/digital-asset/daml/issues/11347
       }
       where
         tmplADT = asADT name
