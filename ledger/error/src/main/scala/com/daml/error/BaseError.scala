@@ -91,12 +91,12 @@ trait LocationMixin {
 
 object BaseError {
   private val ignoreFields = Set("cause", "throwable", "loggingContext")
-  val SanitizedSecuritySensitiveMessageOnApiPrefix =
+  val SecuritySensitiveMessageOnApiPrefix =
     "An error occurred. Please contact the operator and inquire about the request"
 
   def isSanitizedSecuritySensitiveMessage(msg: String): Boolean = {
     // TODO error codes: Check that suffix is a correlation id and nothing else.
-    msg.startsWith(SanitizedSecuritySensitiveMessageOnApiPrefix)
+    msg.startsWith(SecuritySensitiveMessageOnApiPrefix)
   }
 
   def extractContext[D](obj: D): Map[String, String] =

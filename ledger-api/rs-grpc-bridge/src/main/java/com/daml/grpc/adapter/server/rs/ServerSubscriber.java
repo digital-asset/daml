@@ -115,10 +115,6 @@ public class ServerSubscriber<Resp> implements Subscriber<Resp> {
           if (!responseObserver.isCancelled()) {
             Throwable newThrowable = translateThrowableInOnError(throwable);
             responseObserver.onError(newThrowable);
-            // TODO error codes: Complete with thrownable or newThrowable?
-            //                   This promise seems to to used only to fail materialized
-            // Future[Unit] in streaming endpoints.
-            //                   Is that materialized Future[Unit] used anywhere anyway?
             completionPromise.completeExceptionally(newThrowable);
           }
         });

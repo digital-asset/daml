@@ -11,8 +11,8 @@ import akka.stream.scaladsl.{Flow, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.akka.ServerAdapter
-import com.daml.grpc.adapter.utils.implementations.HelloService_AkkaImplementation
-import com.daml.grpc.sampleservice.HelloService_Responding
+import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
+import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
@@ -47,7 +47,7 @@ final class MetricsInterceptorSpec
 
   it should "count the number of calls to a given endpoint" in {
     val metrics = new Metrics(new MetricRegistry)
-    serverWithMetrics(metrics, new HelloService_AkkaImplementation).use { channel: Channel =>
+    serverWithMetrics(metrics, new HelloServiceAkkaImplementation).use { channel: Channel =>
       for {
         _ <- Future.sequence(
           (1 to 3).map(reqInt => HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt)))
@@ -130,7 +130,7 @@ object MetricsInterceptorSpec {
       executionSequencerFactory: ExecutionSequencerFactory,
       materializer: Materializer,
   ) extends HelloService
-      with HelloService_Responding
+      with HelloServiceResponding
       with BindableService {
     private implicit val executionContext: ExecutionContext = materializer.executionContext
 

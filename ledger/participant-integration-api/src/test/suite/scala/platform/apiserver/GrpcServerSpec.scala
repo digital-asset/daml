@@ -6,7 +6,9 @@ package com.daml.platform.apiserver
 import java.util.concurrent.Executors
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.grpc.sampleservice.implementations.HelloService_ReferenceImplementation
+import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -14,9 +16,10 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.GrpcServerSpec._
-import com.daml.platform.hello.{HelloRequest, HelloServiceGrpc}
+import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
@@ -24,6 +27,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.compat.immutable.LazyList
+import scala.concurrent.Future
 
 final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResourceContext {
   "a GRPC server" should {
@@ -46,24 +50,22 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
             .fails(HelloRequest(7, ByteString.copyFromUtf8("This is some text.")))
             .failed
         } yield {
-          exception.getMessage shouldBe "INTERNAL: This is some text."
+          exception.getMessage shouldBe "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: This is some text."
         }
       }
     }
 
     "fail with a nice exception, even when the text is quite long" in {
-      val length = 2 * 1024
-      val exceptionMessage =
-        "There was an error. " + LazyList.continually("x").take(length).mkString
-
+      val errorMessage = "There was an error. " + "x" * 2048
+      val returnedMessage = "There was an error. " + "x" * 447 + "..."
       resources().use { channel =>
         val helloService = HelloServiceGrpc.stub(channel)
         for {
           exception <- helloService
-            .fails(HelloRequest(7, ByteString.copyFromUtf8(exceptionMessage)))
+            .fails(HelloRequest(7, ByteString.copyFromUtf8(errorMessage)))
             .failed
         } yield {
-          exception.getMessage shouldBe s"INTERNAL: $exceptionMessage"
+          exception.getMessage shouldBe s"INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: $returnedMessage"
         }
       }
     }
@@ -84,7 +86,7 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
         } yield {
           // We don't want to test the exact message content, just that it does indeed contain a
           // large chunk of the response error message, followed by "...".
-          exception.getMessage should fullyMatch regex "INTERNAL: There was an error. x{1024,}\\.\\.\\.".r
+          exception.getMessage should fullyMatch regex "INVALID_ARGUMENT: INVALID_ARGUMENT\\(8,0\\): The submitted command has invalid arguments: There was an error. x{400,}\\.\\.\\.".r
         }
       }
     }
@@ -92,6 +94,8 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
 }
 
 object GrpcServerSpec {
+
+  private val logger = ContextualizedLogger.get(getClass)
 
   private val maxInboundMessageSize = 4 * 1024 * 1024 /* copied from the Sandbox configuration */
 
@@ -102,6 +106,18 @@ object GrpcServerSpec {
     sslContext = None,
   )
 
+  class TestedHelloService extends HelloServiceReferenceImplementation {
+    override def fails(request: HelloRequest): Future[HelloResponse] = {
+      val errorLogger =
+        new DamlContextualizedErrorLogger(logger, LoggingContext.newLoggingContext(identity), None)
+      Future.failed(
+        LedgerApiErrors.RequestValidation.InvalidArgument
+          .Reject(request.payload.toStringUtf8)(errorLogger)
+          .asGrpcError
+      )
+    }
+  }
+
   private def resources(): ResourceOwner[ManagedChannel] =
     for {
       executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
@@ -111,7 +127,7 @@ object GrpcServerSpec {
         maxInboundMessageSize = maxInboundMessageSize,
         metrics = new Metrics(new MetricRegistry),
         servicesExecutor = executor,
-        services = Seq(new HelloService_ReferenceImplementation),
+        services = Seq(new TestedHelloService),
       )
       channel <- new GrpcChannel.Owner(Port(server.getPort), clientConfiguration)
     } yield channel

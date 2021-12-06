@@ -37,7 +37,6 @@ final class ErrorInterceptor extends ServerInterceptor {
         * TODO error codes: Do we need to inspect/sanitize errors internal to gRPC implementation?
         *
         * We are handling unary endpoints that returned failed Futures,
-        * 2) streaming Akka endpoints that failed inside streaming.
         * We are NOT handling here exceptions thrown outside of Futures or Akka streams. These are handled separately in
         * [[com.daml.platform.apiserver.error.ErrorListener]].
         * We are NOT handling here exceptions thrown inside Akka streaming. These are handled in

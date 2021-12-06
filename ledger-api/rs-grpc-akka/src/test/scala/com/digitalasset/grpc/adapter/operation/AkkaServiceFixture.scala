@@ -4,7 +4,7 @@
 package com.daml.grpc.adapter.operation
 
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, TestExecutionSequencerFactory}
-import com.daml.grpc.adapter.utils.implementations.HelloService_AkkaImplementation
+import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
 import com.daml.ledger.api.testing.utils._
 import com.daml.platform.hello.HelloServiceGrpc
 import com.daml.platform.hello.HelloServiceGrpc.HelloServiceStub
@@ -28,8 +28,8 @@ trait AkkaServiceFixture
 
   lazy val resources = AkkaServiceFixture.getResource(socketAddress)
 
-  protected def service: HelloService_AkkaImplementation =
-    resources.getRunningServices.head.asInstanceOf[HelloService_AkkaImplementation]
+  protected def service: HelloServiceAkkaImplementation =
+    resources.getRunningServices.head.asInstanceOf[HelloServiceAkkaImplementation]
 
 }
 
@@ -39,7 +39,7 @@ object AkkaServiceFixture {
 
   def getResource(address: Option[SocketAddress]): AkkaStreamGrpcServerResource = {
     AkkaStreamGrpcServerResource(
-      implicit m => List(new HelloService_AkkaImplementation()),
+      implicit m => List(new HelloServiceAkkaImplementation()),
       "server",
       address,
     )

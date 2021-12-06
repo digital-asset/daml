@@ -3,7 +3,7 @@
 
 package com.daml.grpc.sampleservice.implementations
 
-import com.daml.grpc.sampleservice.HelloService_Responding
+import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import io.grpc.stub.StreamObserver
@@ -11,9 +11,9 @@ import io.grpc.{BindableService, ServerServiceDefinition, Status}
 
 import scala.concurrent.ExecutionContext
 
-class HelloService_ReferenceImplementation
+class HelloServiceReferenceImplementation
     extends HelloService
-    with HelloService_Responding
+    with HelloServiceResponding
     with BindableService
     with AutoCloseable {
 
