@@ -4,17 +4,25 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import akka.stream.Materializer
+import com.daml.ledger.api.domain
+import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantStateReader,
   KeyValueParticipantStateWriter,
   LedgerReader,
   LedgerWriter,
+  WriteServiceWithDeduplicationSupport,
+}
+import com.daml.ledger.participant.state.kvutils.deduplication.{
+  CompletionBasedDeduplicationPeriodConverter,
+  DeduplicationPeriodSupport,
 }
 import com.daml.ledger.participant.state.v2.{ReadService, WritePackagesService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, ErrorFactories}
 
 import scala.concurrent.ExecutionContext
 
@@ -35,7 +43,7 @@ trait ReadWriteServiceFactory {
 
   def readService(): ReadService
 
-  def writePackageService(): WritePackagesService
+  def writePackagesService(): WritePackagesService
 
   def writeService(): WriteService
 }
@@ -55,8 +63,7 @@ class KeyValueReadWriteFactory(
     )
   }
 
-  override def writePackageService(): WritePackagesService =
-    writeService()
+  override def writePackagesService(): WritePackagesService = writeService()
 
   override def writeService(): WriteService = {
     new KeyValueParticipantStateWriter(
@@ -65,4 +72,31 @@ class KeyValueReadWriteFactory(
     )
   }
 
+}
+
+class KeyValueDeduplicationSupportFactory(
+    delegate: ReadWriteServiceFactory,
+    config: Config[_],
+    completionsService: IndexCompletionsService,
+)(implicit materializer: Materializer, ec: ExecutionContext)
+    extends ReadWriteServiceFactory {
+  override def readService(): ReadService = delegate.readService()
+
+  override def writePackagesService(): WritePackagesService = delegate.writePackagesService()
+
+  override def writeService(): WriteService = {
+    val writeServiceDelegate = delegate.writeService()
+    val errorFactories = ErrorFactories(config.enableSelfServiceErrorCodes)
+    new WriteServiceWithDeduplicationSupport(
+      writeServiceDelegate,
+      new DeduplicationPeriodSupport(
+        new CompletionBasedDeduplicationPeriodConverter(
+          domain.LedgerId(config.ledgerId),
+          completionsService,
+        ),
+        new DeduplicationPeriodValidator(errorFactories),
+        errorFactories,
+      ),
+    )
+  }
 }
