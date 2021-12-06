@@ -42,12 +42,15 @@ abstract class DbTriggerDao protected (
   implicit val readAsPut: Put[Set[Party]] = {
     type F[A] = Put[Set[A]]
     Party.subst[F, String](implicitly[Put[String]].contramap {
-      _.mkString(",")
+      _.mkString("%")
     })
   }
 
-  implicit val readAsGet: Get[Set[Party]] = implicitly[Get[String]].map {
-    _.split(",").map(_.trim).toSet.filter(_.nonEmpty).map(Party.apply)
+  implicit val readAsGet: Get[Set[Party]] = {
+    type F[A] = Get[Set[A]]
+    Party.subst[F, String](implicitly[Get[String]].map {
+      _.split("%").toSet.filter(_.nonEmpty)
+    })
   }
 
   implicit val partyPut: Put[Party] = Tag.subst(implicitly[Put[String]])
