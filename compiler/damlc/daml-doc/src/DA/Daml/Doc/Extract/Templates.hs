@@ -125,7 +125,11 @@ isChoice :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
 isChoice (XClsInstDecl _) = Nothing
 isChoice ClsInstDecl{..}
   | L _ ty <- getLHsInstDeclHead cid_poly_ty
-  , HsAppTy _ (L _ cApp1) (L _ _cArgs) <- ty
+  = isChoiceTy ty
+
+isChoiceTy :: HsType GhcPs -> Maybe (Typename, Typename)
+isChoiceTy ty
+  | HsAppTy _ (L _ cApp1) (L _ _cArgs) <- ty
   , HsAppTy _ (L _ cApp2) cName <- cApp1
   , HsAppTy _ (L _ choice) cTmpl <- cApp2
   , HsTyVar _ _ (L _ choiceClass) <- choice
@@ -138,9 +142,23 @@ isChoice ClsInstDecl{..}
 
   | otherwise = Nothing
 
+-- | If the given instance declaration is declaring an interface choice instance, return interface
+-- name and choice name.
 isIfaceChoice :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
 isIfaceChoice (XClsInstDecl _) = Nothing
-isIfaceChoice ClsInstDecl{..}
+isIfaceChoice decl@ClsInstDecl{}
+  | Just (ifaceName, ty) <- hasImplementsConstraint decl
+  , Just (_templ, choiceName) <- isChoiceTy ty
+  = Just (Typename . packRdrName $ ifaceName, choiceName)
+
+  | otherwise = Nothing
+
+-- | Matches on a DA.Internal.Desugar.Implements interface constraint in the context of the instance
+-- declaration. Returns the interface name and the body of the instance in case the constraint is
+-- present, else nothing.
+hasImplementsConstraint :: ClsInstDecl GhcPs -> Maybe (RdrName, HsType GhcPs)
+hasImplementsConstraint (XClsInstDecl _) = Nothing
+hasImplementsConstraint ClsInstDecl{..}
   | (L _ [L _ ctx], L _ ty) <- splitLHsQualTy $ hsSigType cid_poly_ty
   , HsParTy _ (L _ (HsAppTy _ (L _ app1) (L _ iface))) <- ctx
   , HsTyVar _ _ (L _ ifaceName) <- iface
@@ -149,16 +167,7 @@ isIfaceChoice ClsInstDecl{..}
   , Qual implClsModule implClassOcc <- implCls
   , moduleNameString implClsModule == "DA.Internal.Desugar"
   , occNameString implClassOcc == "Implements"
-  , HsAppTy _ (L _ cApp1) (L _ _cArgs) <- ty
-  , HsAppTy _ (L _ cApp2) (L _ cName) <- cApp1
-  , HsAppTy _ (L _ choice) _tplVar <- cApp2
-  , HsTyVar _ _ (L _ choiceClass) <- choice
-  , HsTyVar _ _ (L _ choiceName) <- cName
-  , Qual classModule classOcc <- choiceClass
-  , moduleNameString classModule == "DA.Internal.Desugar"
-  , occNameString classOcc == "HasExercise"
-  = Just (Typename . packRdrName $ ifaceName, Typename . packRdrName $ choiceName)
-
+  = Just (ifaceName, ty)
   | otherwise = Nothing
 
 -- | Strip the @Instance@ suffix off of a typename, if it's there.
@@ -179,8 +188,8 @@ getInstanceDocs ctx ClsInst{..} =
         , id_isOrphan = isOrphan is_orphan
         }
 
--- Utilities
-------------
+-- Utilities common to templates and interfaces
+-----------------------------------------------
 
 -- | Create an ADT from a Typename
 asADT :: MS.Map Typename ADTDoc -> Typename -> ADTDoc
