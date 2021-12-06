@@ -175,7 +175,6 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
-        source $(bash-lib)
         if git tag v$(release_tag) $(release_sha); then
           git push origin v$(release_tag)
         fi
@@ -194,9 +193,6 @@ jobs:
         artifactName: windows-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
-    - template: ci/tell-slack-failed.yml
-      parameters:
-        trigger_sha: '$(trigger_sha)'
     - bash: |
         set -eou pipefail
         eval "$(./dev-env/bin/dade-assist)"
@@ -210,6 +206,9 @@ jobs:
         for f in *; do
             gcs "$GCRED" cp "$f" "gs://daml-binaries/split-release/$(release_tag)/github/$f"
         done
+    - template: ci/tell-slack-failed.yml
+      parameters:
+        trigger_sha: '$(trigger_sha)'
 
 - job: compat_versions_pr
   dependsOn:
