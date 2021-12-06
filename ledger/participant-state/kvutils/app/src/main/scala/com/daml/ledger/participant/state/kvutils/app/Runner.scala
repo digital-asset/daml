@@ -12,7 +12,6 @@ import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.kvutils.api.WriteServiceWithDeduplicationSupport
 import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}

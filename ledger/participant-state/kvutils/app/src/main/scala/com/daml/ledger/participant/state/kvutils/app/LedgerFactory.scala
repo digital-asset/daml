@@ -6,8 +6,17 @@ package com.daml.ledger.participant.state.kvutils.app
 import akka.stream.Materializer
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
-import com.daml.ledger.participant.state.kvutils.api.{KeyValueParticipantStateReader, KeyValueParticipantStateWriter, LedgerReader, LedgerWriter, WriteServiceWithDeduplicationSupport}
-import com.daml.ledger.participant.state.kvutils.deduplication.{CompletionBasedDeduplicationPeriodConverter, DeduplicationPeriodSupport}
+import com.daml.ledger.participant.state.kvutils.api.{
+  KeyValueParticipantStateReader,
+  KeyValueParticipantStateWriter,
+  LedgerReader,
+  LedgerWriter,
+  WriteServiceWithDeduplicationSupport,
+}
+import com.daml.ledger.participant.state.kvutils.deduplication.{
+  CompletionBasedDeduplicationPeriodConverter,
+  DeduplicationPeriodSupport,
+}
 import com.daml.ledger.participant.state.v2.{ReadService, WritePackagesService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
@@ -34,7 +43,7 @@ trait ReadWriteServiceFactory {
 
   def readService(): ReadService
 
-  def writePackageService(): WritePackagesService
+  def writePackagesService(): WritePackagesService
 
   def writeService(): WriteService
 }
@@ -54,7 +63,7 @@ class KeyValueReadWriteFactory(
     )
   }
 
-  override def writePackageService(): WritePackagesService =
+  override def writePackagesService(): WritePackagesService =
     writeService()
 
   override def writeService(): WriteService = {
@@ -67,11 +76,11 @@ class KeyValueReadWriteFactory(
 }
 
 class KeyValueDeduplicationSupportFactory(
-                                           delegate: ReadWriteServiceFactory,
-                                           config: Config[_],
-                                           completionsService: IndexCompletionsService,
-                                         )(implicit materializer: Materializer, ec: ExecutionContext)
-  extends ReadWriteServiceFactory {
+    delegate: ReadWriteServiceFactory,
+    config: Config[_],
+    completionsService: IndexCompletionsService,
+)(implicit materializer: Materializer, ec: ExecutionContext)
+    extends ReadWriteServiceFactory {
   override def readService(): ReadService = delegate.readService()
 
   override def writePackagesService(): WritePackagesService = delegate.writePackagesService()
