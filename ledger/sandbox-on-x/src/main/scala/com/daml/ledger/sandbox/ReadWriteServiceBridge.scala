@@ -271,11 +271,11 @@ case class ReadWriteServiceBridge(
       case Right(_) => validateKeyUsages(transaction, keyInputs)
       case rejection => Future.successful(rejection)
     }.flatMap {
-      case Right(_) => validateParties(transaction.transaction)
+      case Right(_) => validatePartyAllocation(transaction.transaction)
       case rejection => Future.successful(rejection)
     }.map(_.map(_ => transaction))
 
-  private def validateParties(
+  private def validatePartyAllocation(
       transaction: SubmittedTransaction
   ): Future[Either[SoxRejection, Unit]] = {
     val _ = transaction
@@ -317,7 +317,7 @@ case class ReadWriteServiceBridge(
             maximumLedgerEffectiveTime
               .filter(_ > transactionLedgerEffectiveTime)
               .fold[Try[Either[SoxRejection, Unit]]](Success(Right(())))(
-                contractLedgerEffectiveTime => {
+                contractLedgerEffectiveTime =>
                   Success(
                     Left(
                       CausalMonotonicityViolation(
@@ -326,7 +326,6 @@ case class ReadWriteServiceBridge(
                       )(transaction)
                     )
                   )
-                }
               )
         }
   }
