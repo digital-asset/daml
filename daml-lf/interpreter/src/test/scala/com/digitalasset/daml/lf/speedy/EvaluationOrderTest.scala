@@ -221,8 +221,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Array(SParty(alice), SParty(bob)),
           alice,
         )
-        inside(res) { case SResultError(SErrorDamlException(err)) =>
-          err shouldBe ValueExceedsMaxNesting
+        inside(res) { case SResultError(SErrorDamlException(Limit(err))) =>
+          err shouldBe a[Limit.ValueNesting]
 
         }
         msgs shouldBe allTraces
@@ -238,8 +238,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Array(SParty(alice), SParty(bob)),
           alice,
         )
-        inside(res) { case SResultError(SErrorDamlException(err)) =>
-          err shouldBe ValueExceedsMaxNesting
+        inside(res) { case SResultError(SErrorDamlException(Limit(err))) =>
+          err shouldBe a[Limit.ValueNesting]
 
         }
         msgs shouldBe allTraces
