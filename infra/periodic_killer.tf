@@ -74,8 +74,7 @@ cat <<CRON > /root/periodic-kill.sh
 set -euo pipefail
 echo "\$(date -Is -u) start"
 
-PREFIX=vsts-
-MACHINES=\$(/snap/bin/gcloud compute instances list --format=json | jq -c '.[] | select(.name | startswith("'\$PREFIX'")) | [.name, .zone]')
+MACHINES=\$(/snap/bin/gcloud compute instances list --format=json | jq -c '.[] | select(.name | startswith("ci-")) | [.name, .zone]')
 
 for m in \$MACHINES; do
     MACHINE_NAME=\$(echo \$m | jq -r '.[0]')
