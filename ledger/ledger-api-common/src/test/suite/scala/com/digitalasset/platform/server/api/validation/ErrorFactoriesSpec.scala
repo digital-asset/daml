@@ -591,7 +591,7 @@ class ErrorFactoriesSpec
           Level.INFO,
           "INVALID_DEDUPLICATION_PERIOD(9,cor-id-1): The submitted command had an invalid deduplication period: message",
           Some(
-            "\\{err-context: \"\\{max_deduplication_duration=PT5S, location=ErrorFactories.scala:\\d+\\}\"\\}"
+            "\\{err-context: \"\\{longest_duration=PT5S, location=ErrorFactories.scala:\\d+\\}\"\\}"
           ),
         ),
       )
