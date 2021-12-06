@@ -123,11 +123,8 @@ first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
        versions.is_at_least(sdk_version, platform_version)
 ]
 
-# We have two migration tests: migration-stable runs through all stable releases
-# including current HEAD. migration-all includes snapshot releases.
-
 migration_test(
-    name = "migration-stable",
+    name = "migration",
     timeout = "eternal",
     quick_tags = ["head-quick"],
     # Exclusive due to hardcoded postgres ports.
@@ -156,22 +153,6 @@ migration_test(
         "0.0.0",
     ],
 )
-
-migration_test(
-    name = "migration-all",
-    timeout = "eternal",
-    quick_tags = [],
-    # Exclusive due to hardcoded postgres ports.
-    tags = ["exclusive"],
-    versions = [
-        version
-        for version in platform_versions
-        # We skip versions before 1.6.0. These versions had a bug where ledger
-        # effective time was stored at higher precision than it should have
-        # been. See https://github.com/digital-asset/daml/pull/11512#discussion_r751041534
-        if versions.is_at_least("1.6.0", version)
-    ],
-) if not is_windows else None
 
 [
     data_dependencies_coins(
