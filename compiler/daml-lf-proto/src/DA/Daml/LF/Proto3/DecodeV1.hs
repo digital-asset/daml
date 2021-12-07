@@ -237,6 +237,7 @@ decodeDefInterface :: LF1.DefInterface -> Decode DefInterface
 decodeDefInterface LF1.DefInterface {..} = do
   intLocation <- traverse decodeLocation defInterfaceLocation
   intName <- decodeDottedNameId TypeConName defInterfaceTyconInternedDname
+  intRequires <- decodeSet DuplicateRequires decodeTypeConName defInterfaceRequires
   intParam <- decodeNameId ExprVarName defInterfaceParamInternedStr
   intFixedChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceFixedChoices
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods

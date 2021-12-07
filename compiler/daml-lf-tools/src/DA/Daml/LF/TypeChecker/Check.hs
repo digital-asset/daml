@@ -818,9 +818,10 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
 
 -- | Check that an interface definition is well defined.
 checkIface :: MonadGamma m => Module -> DefInterface -> m ()
-checkIface m DefInterface{intName, intParam, intFixedChoices, intMethods, intPrecondition} = do
+checkIface m DefInterface{..} = do
   checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intFixedChoices
   checkUnique (EDuplicateInterfaceMethodName intName) $ NM.names intMethods
+  forM_ intRequires (inWorld . lookupInterface) -- verify that required interface exists
   forM_ intMethods checkIfaceMethod
 
   let tcon = Qualified PRSelf (moduleName m) intName
@@ -885,15 +886,22 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
   whenJust mbKey $ checkTemplateKey param tcon
-  forM_ implements $ checkIfaceImplementation tcon
+  forM_ implements $ checkIfaceImplementation t tcon
 
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
-checkIfaceImplementation tplTcon TemplateImplements{..} = do
+checkIfaceImplementation :: MonadGamma m => Template -> Qualified TypeConName -> TemplateImplements -> m ()
+checkIfaceImplementation Template{tplImplements} tplTcon TemplateImplements{..} = do
   let tplName = qualObject tplTcon
-  DefInterface {intFixedChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
+  DefInterface {intFixedChoices, intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
+
+  -- check requires
+  let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
+  case S.toList missingRequires of
+    [] -> pure ()
+    (missingInterface:_) ->
+      throwWithContext (EMissingRequiredInterface tplName tpiInterface missingInterface)
 
   -- check fixed choices
   let inheritedChoices = S.fromList (NM.names intFixedChoices)
