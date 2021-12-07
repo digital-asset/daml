@@ -10,6 +10,7 @@ module DA.Daml.Doc.Extract.Templates
     ) where
 
 import DA.Daml.Doc.Types
+import qualified DA.Daml.Doc.Types as DDoc
 import DA.Daml.Doc.Extract.Types
 import DA.Daml.Doc.Extract.Util
 import DA.Daml.Doc.Extract.TypeExpr
@@ -31,8 +32,9 @@ getTemplateDocs ::
     DocCtx
     -> MS.Map Typename ADTDoc -- ^ maps template names to their ADT docs
     -> MS.Map Typename ClassDoc -- ^ maps template names to their template instance class docs
+    -> MS.Map Typename (Set.Set DDoc.Type)-- ^ maps template names to their implemented interfaces' types
     -> [TemplateDoc]
-getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
+getTemplateDocs DocCtx{..} typeMap templateInstanceMap templateImplementsMap =
     map mkTemplateDoc $ Set.toList dc_templates
   where
     -- The following functions use the type map and choice map in scope, so
@@ -47,8 +49,9 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
       , td_choices = map (mkChoiceDoc typeMap) choices
-      -- is filled via distributeInstanceDocs
-      , td_impls = []
+      , td_impls =
+          ImplDoc <$>
+            Set.toList (MS.findWithDefault mempty name templateImplementsMap)
       }
       where
         tmplADT = asADT typeMap name

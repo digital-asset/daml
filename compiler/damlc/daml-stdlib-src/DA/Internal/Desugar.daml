@@ -3,6 +3,7 @@
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 
 -- | HIDE Automatically imported qualified in every module.
@@ -10,14 +11,14 @@ module DA.Internal.Desugar (
     module DA.Internal.Template,
     module DA.Internal.Template.Functions,
     module DA.Internal.Exception,
+    module DA.Internal.Interface,
     Eq(..), Show(..),
     Bool(..), Text, Optional(..),
     concat, magic,
     Party, ContractId, Update, Any,
     NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..),
-    HasInterfaceTypeRep(..),
-    Implements(..),
     TypeRep,
+    ImplementsT(..),
     HasMethod,
     mkMethod,
 ) where
@@ -25,6 +26,7 @@ module DA.Internal.Desugar (
 import DA.Internal.Prelude
 import DA.Internal.Template
 import DA.Internal.Template.Functions
+import DA.Internal.Interface
 import DA.Internal.LF
 #ifndef DAML_EXCEPTIONS
 import DA.Internal.Exception ()
@@ -39,14 +41,9 @@ data PreConsuming t = PreConsuming {}
 data Consuming t = Consuming {}
 data PostConsuming t = PostConsuming {}
 
-class HasInterfaceTypeRep i where
-  interfaceTypeRep : i -> TypeRep
-
-class HasInterfaceTypeRep i => Implements t i where
-  toInterface : t -> i
-  fromInterface : i -> Optional t
-  toInterfaceContractId : ContractId t -> ContractId i
-  fromInterfaceContractId : ContractId i -> Update (Optional (ContractId t))
+-- Used to construct markers representing the fact that
+-- a template `t` implements an interface `i`.
+data ImplementsT t i = ImplementsT
 
 {-
 Together, `HasMethod`, `Method` and `mkMethod` allow us to desugar the methods of
