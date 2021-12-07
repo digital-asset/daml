@@ -338,17 +338,16 @@ private[data] final class IdStringImpl extends IdString {
     new MatchingStringModule("Daml-LF Contract ID", """#[\w._:\-#/ ]{0,254}""")
 
   /** Identifiers for participant node users consist of ASCII digits and lower-case alphabetic characters,
-   *  hyphens, underscores, and dots, and satisfy the following  rules:
-   *  1. The characters `-._` never follow each other.
-   *  2. The characters `-._` neither occur at the start nor at the end of the user name.
-   *  Thus 'john.doe1' is a valid user-name, while 'john..doe1', 'john.-doe1', and '-john.doe' are not.
-   */
+    *  hyphens, underscores, and dots, and satisfy the following  rules:
+    *  1. The characters `-._` never follow each other.
+    *  2. The characters `-._` neither occur at the start nor at the end of the user name.
+    *  Thus 'john.doe1' is a valid user-name, while 'john..doe1', 'john.-doe1', and '-john.doe' are not.
+    */
   override type UserId = String
   override val UserId: StringModule[UserId] =
     new MatchingStringModule(
       "User ID",
-      """[\p{Lower}\d]([\p{Lower}\d]|[-._][\p{Lower}\d]){0,62}"""
-      // FIXME: allow | as that one is used for example by Auth0 to prefix the identity provider (https://auth0.com/docs/users/user-profiles/sample-user-profiles). Doing this will though require introducing a separate string for [[ApplicationId]] to avoid unconditionally expanding the notion of a LedgerString.
+      """[\p{Lower}\d]([\p{Lower}\d]|[-._][\p{Lower}\d]){0,62}""",
     )
 
 }
