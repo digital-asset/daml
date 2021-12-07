@@ -70,7 +70,11 @@ trait ScriptLedgerClient {
   protected def transport: String
 
   final protected def unsupportedOn(what: String) =
-    Future.failed(new UnsupportedOperationException(s"$what is not supported when running Daml Script over the $transport"))
+    Future.failed(
+      new UnsupportedOperationException(
+        s"$what is not supported when running Daml Script over the $transport"
+      )
+    )
 
   def queryContractId(parties: OneAnd[Set, Ref.Party], templateId: Identifier, cid: ContractId)(
       implicit
@@ -156,15 +160,13 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[List[User]]
 
-  def grantUserRights(id: UserId, rights: List[UserRight])(
-      implicit
+  def grantUserRights(id: UserId, rights: List[UserRight])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[UserRight]]
 
-  def revokeUserRights(id: UserId, rights: List[UserRight])(
-      implicit
+  def revokeUserRights(id: UserId, rights: List[UserRight])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
