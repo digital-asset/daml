@@ -666,6 +666,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         lfInterface: PLF.DefInterface,
     ): DefInterface =
       DefInterface.build(
+        requires = lfInterface.getRequiresList.asScala.view.map(decodeTypeConName),
         param = getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
         fixedChoices = lfInterface.getFixedChoicesList.asScala.view.map(decodeChoice(id, _)),
         methods = lfInterface.getMethodsList.asScala.view.map(decodeInterfaceMethod),

@@ -212,7 +212,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
             choices =>
           IfaceDef(
             tycon,
-            DefInterface.build(x, choices, methods, precond),
+            DefInterface.build(Set.empty, x, choices, methods, precond),
           )
       }
 

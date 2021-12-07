@@ -247,8 +247,9 @@ object Util {
 
   private def toSignature(interface: DefInterface): DefInterfaceSignature =
     interface match {
-      case DefInterface(param, fixedChoices, methods, _) =>
+      case DefInterface(requires, param, fixedChoices, methods, _) =>
         DefInterfaceSignature(
+          requires,
           param,
           fixedChoices.transform((_, choice) => toSignature(choice)),
           methods,
