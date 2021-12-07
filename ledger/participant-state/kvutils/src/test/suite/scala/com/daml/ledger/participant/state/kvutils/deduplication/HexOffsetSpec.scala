@@ -4,12 +4,25 @@
 package com.daml.ledger.participant.state.kvutils.deduplication
 
 import com.daml.lf.data.Ref
+import org.scalacheck.Gen
+import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks.forAll
-import org.scalatest.prop.Tables.Table
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.{Checkers, ScalaCheckPropertyChecks}
 
-class HexOffsetSpec extends AnyWordSpec with Matchers {
+class HexOffsetSpec
+    extends AnyWordSpec
+    with Matchers
+    with Checkers
+    with ScalaCheckPropertyChecks
+    with OptionValues {
+
+  private val offsets: Gen[Ref.HexString] =
+    Gen.hexStr
+      .suchThat(_.nonEmpty)
+      .suchThat(_.length % 2 == 0)
+      .map(_.toLowerCase)
+      .map(Ref.HexString.assertFromString)
 
   "building lexicographical string" should {
 
@@ -36,6 +49,11 @@ class HexOffsetSpec extends AnyWordSpec with Matchers {
           Ref.HexString.assertFromString(offset)
         ) shouldBe Some(Ref.HexString.assertFromString(expectedOffset))
       }
+    }
+
+    "return lower offset" in forAll(offsets) { offset =>
+      val lowerOffset = HexOffset.firstBefore(offset).value
+      offset should be > [String] lowerOffset
     }
 
   }

@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.deduplication
 
+import java.math.BigInteger
+
 import com.daml.lf.data.Ref
 
 object HexOffset {
@@ -19,23 +21,13 @@ object HexOffset {
     *   - for 00007a900 it returns Some(00007a8ff)
     */
   def firstBefore(value: Ref.HexString): Option[Ref.HexString] = {
-    val (builder, found) = value.foldRight((new StringBuilder, false)) {
-      case (char, (builder, found)) =>
-        if (found) {
-          builder.append(char) -> found
-        } else {
-          if (char != '0') {
-            val charToAppend = if (char == 'a') '9' else (char - 1).toChar
-            builder.append(charToAppend) -> true
-          } else {
-            builder.append('f') -> found
-          }
-        }
-    }
-    if (!found) {
+    val offsetInteger = new BigInteger(value, 16)
+    if (offsetInteger == BigInteger.ZERO) {
       None
     } else {
-      Some(Ref.HexString.assertFromString(builder.reverseInPlace().result()))
+      val hexString = offsetInteger.subtract(BigInteger.ONE).toString(16)
+      val padding = Seq.fill(value.length - hexString.length)('0')
+      Some(Ref.HexString.assertFromString(hexString.prependedAll(padding.mkString)))
     }
   }
 }
