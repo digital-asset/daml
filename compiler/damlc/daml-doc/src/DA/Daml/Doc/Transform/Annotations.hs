@@ -49,7 +49,8 @@ applyMove
             -- module description.
         , md_adts = md_adts m1 ++ md_adts m2
         , md_functions = md_functions m1 ++ md_functions m2
-        , md_templates = md_templates m2 ++ md_templates m2
+        , md_templates = md_templates m1 ++ md_templates m2
+        , md_interfaces = md_interfaces m1 ++ md_interfaces m2
         , md_classes = md_classes m1 ++ md_classes m2
         , md_instances = md_instances m1 ++ md_instances m2
         }

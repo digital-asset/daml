@@ -30,7 +30,66 @@ Templates
   + **Choice Archive**
     
 
-  + **implements** Token
+  + **implements** `Token <type-interface-token-72202_>`_
+
+Interfaces
+^^^^^^^^^^
+
+.. _type-interface-token-72202:
+
+**interface** `Token <type-interface-token-72202_>`_
+
+  + **Choice GetRich**
+    
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+    
+       * - Field
+         - Type
+         - Description
+       * - byHowMuch
+         - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_
+         - 
+  
+  + **Choice Noop**
+    
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+    
+       * - Field
+         - Type
+         - Description
+       * - nothing
+         - ()
+         - 
+  
+  + **Choice Split**
+    
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+    
+       * - Field
+         - Type
+         - Description
+       * - splitAmount
+         - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_
+         - 
+  
+  + **Choice Transfer**
+    
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+    
+       * - Field
+         - Type
+         - Description
+       * - newOwner
+         - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_
+         - 
 
 Functions
 ^^^^^^^^^
@@ -38,29 +97,29 @@ Functions
 .. _function-interface-noopimpl-83220:
 
 `noopImpl <function-interface-noopimpl-83220_>`_
-  \: Implements t Token \=\> t \-\> () \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457>`_ ()
+  \: Implements t `Token <type-interface-token-72202_>`_ \=\> t \-\> () \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457>`_ ()
 
 .. _function-interface-transferimpl-81005:
 
 `transferImpl <function-interface-transferimpl-81005_>`_
-  \: Implements t Token \=\> t \-\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171>`_ Token)
+  \: Implements t `Token <type-interface-token-72202_>`_ \=\> t \-\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171>`_ `Token <type-interface-token-72202_>`_)
 
 .. _function-interface-splitimpl-48531:
 
 `splitImpl <function-interface-splitimpl-48531_>`_
-  \: Implements t Token \=\> t \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171>`_ Token, `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171>`_ Token)
+  \: Implements t `Token <type-interface-token-72202_>`_ \=\> t \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171>`_ `Token <type-interface-token-72202_>`_, `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171>`_ `Token <type-interface-token-72202_>`_)
 
 .. _function-interface-setamount-71357:
 
 `setAmount <function-interface-setamount-71357_>`_
-  \: Implements t Token \=\> t \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_ \-\> Token
+  \: Implements t `Token <type-interface-token-72202_>`_ \=\> t \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_ \-\> `Token <type-interface-token-72202_>`_
 
 .. _function-interface-getamount-93321:
 
 `getAmount <function-interface-getamount-93321_>`_
-  \: Implements t Token \=\> t \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_
+  \: Implements t `Token <type-interface-token-72202_>`_ \=\> t \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_
 
 .. _function-interface-getowner-9315:
 
 `getOwner <function-interface-getowner-9315_>`_
-  \: Implements t Token \=\> t \-\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_
+  \: Implements t `Token <type-interface-token-72202_>`_ \=\> t \-\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_
