@@ -97,6 +97,30 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
     }
   }
 
+  "updated" should {
+    val m = NonEmpty(imm.HashMap, 1 -> 2)
+
+    "preserve the map type" in {
+      (m.updated(1, 2): NonEmpty[imm.HashMap[Int, Int]]) should ===(m)
+    }
+
+    "preserve a wider map type" in {
+      val nhm = (m: NonEmpty[Map[Int, Int]]).updated(1, 2)
+      illTyped(
+        "nhm: NonEmpty[imm.HashMap[Int, Int]]",
+        "(?s)type mismatch.*?found.*?\\.Map.*?required.*?HashMap.*",
+      )
+      (nhm: NonEmpty[Map[Int, Int]]) should ===(m)
+    }
+  }
+
+  "to" should {
+    "accept weird type shapes" in {
+      val sm = NonEmpty(Map, 1 -> 2).to(imm.HashMap)
+      (sm: NonEmpty[imm.HashMap[Int, Int]]) shouldBe an[imm.HashMap[_, _]]
+    }
+  }
+
   "+-:" should {
     val NonEmpty(s) = Vector(1, 2)
 
@@ -105,9 +129,45 @@ class NonEmptySpec extends AnyWordSpec with Matchers {
       ((h, t): (Int, Vector[Int])) should ===((1, Vector(2)))
     }
 
+    "restructure when used as a method" in {
+      val h +-: t = s
+      import NonEmptyReturningOps._
+      (h +-: t: NonEmpty[Vector[Int]]) should ===(s)
+    }
+
     "have ±: alias" in {
       val h ±: t = s
       ((h, t): (Int, Vector[Int])) should ===((1, Vector(2)))
+    }
+  }
+
+  "map" should {
+    "'work' on sets, so to speak" in {
+      val r = NonEmpty(Set, 1, 2) map (_ + 2)
+      (r: NonEmpty[Set[Int]]) should ===(NonEmpty(Set, 3, 4))
+    }
+
+    "turn Maps into non-Maps" in {
+      val m: NonEmpty[Map[Int, Int]] = NonEmpty(Map, 1 -> 2, 3 -> 4)
+      val r = m map (_._2)
+      ((r: NonEmpty[imm.Iterable[Int]]): imm.Iterable[Int]) should contain theSameElementsAs Seq(
+        2,
+        4,
+      )
+    }
+  }
+
+  "flatMap" should {
+    "'work' on sets, so to speak" in {
+      val r = NonEmpty(Set, 1, 2) flatMap (n => NonEmpty(List, n + 3, n + 5))
+      (r: NonEmpty[Set[Int]]) should ===(NonEmpty(Set, 1 + 3, 1 + 5, 2 + 3, 2 + 5))
+    }
+
+    "reject possibly-empty function returns" in {
+      illTyped(
+        "(_: NonEmpty[List[Int]]) flatMap (x => List(x))",
+        "(?s)type mismatch.*?found.*?List.*?required.*?NonEmpty.*",
+      )
     }
   }
 
