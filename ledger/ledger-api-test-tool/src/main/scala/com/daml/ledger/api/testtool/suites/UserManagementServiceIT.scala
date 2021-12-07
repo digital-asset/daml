@@ -3,12 +3,17 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import java.util.UUID
+
+import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserRequest, DeleteUserRequest, GetUserRequest, GrantUserRightsRequest, ListUserRightsRequest, RevokeUserRightsRequest, User, Right => Permission}
 import io.grpc.Status
+
+import scala.concurrent.Future
 
 final class UserManagementServiceIT extends LedgerTestSuite {
   // create user
@@ -21,17 +26,25 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   // grant user rights
   // revoke user rights
   // list user rights
-//  test(
-//    "UserManagement_CreateUser_INVALID_ARGUMENT",
-//    "Test argument validation for UserManagement#CreateUser",
-//    allocate(NoParties),
-//  )(implicit ec => { case Participants(Participant(ledger)) =>
-//    for {
-//
-//    } yield {
-//
-//    }
-//  }
+  test(
+    "UserManagement_CreateUser_INVALID_ARGUMENT",
+    "Test argument validation for UserManagement#CreateUser",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val userId = UUID.randomUUID.toString
+    def createUser(problem: String, user: User): Future[Throwable] =
+      ledger.userManagement.createUser(CreateUserRequest(Some(user))).mustFail(problem)
+    def checkError(e: Throwable, errorCode: ErrorCode): Unit =
+      assertGrpcError(ledger, e, Status.Code.INVALID_ARGUMENT, errorCode, None)
+
+    for {
+      createUserIdError <- createUser("wrong user-id", User("!"))
+      createUserPrimaryPartyError <- createUser("wrong primary-party", User("u1-"+userId, "!"))
+    } yield {
+      checkError(createUserIdError, LedgerApiErrors.RequestValidation.InvalidField)
+      checkError(createUserPrimaryPartyError, LedgerApiErrors.RequestValidation.InvalidArgument)
+    }
+  })
 
   test(
     "TestAllUserManagementRpcs",
