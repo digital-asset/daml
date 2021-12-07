@@ -10,6 +10,7 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance, VersionedContractInstance}
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
@@ -73,6 +74,16 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def buildCommitted(): CommittedTransaction = CommittedTransaction(build())
 
   def newCid: ContractId = TransactionBuilder.newV1Cid
+
+  private val counter = new AtomicInteger()
+  private def freshSuffix = counter.incrementAndGet().toString
+
+  def newParty = Ref.Party.assertFromString("party" + freshSuffix)
+  def newPackageId = Ref.PackageId.assertFromString("pkgId" + freshSuffix)
+  def newModName = Ref.DottedName.assertFromString("Mod" + freshSuffix)
+  def newChoiceName = Ref.Name.assertFromString("Choice" + freshSuffix)
+  def newIdentifierName = Ref.DottedName.assertFromString("T" + freshSuffix)
+  def newIdenfier = Ref.Identifier(newPackageId, Ref.QualifiedName(newModName, newIdentifierName))
 
   def versionContract(contract: Value.ContractInstance): value.Value.VersionedContractInstance =
     Versioned(pkgTxVersion(contract.template.packageId), contract)
