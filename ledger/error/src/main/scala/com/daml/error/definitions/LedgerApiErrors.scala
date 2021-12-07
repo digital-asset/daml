@@ -782,13 +782,14 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "INCONSISTENT_CONTRACT_KEY",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
+
+      override def retryable: Option[ErrorCategoryRetry] = Some(
+        ErrorCategoryRetry("application", 1.second)
+      )
+
       case class Reject(reason: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = reason) {
-        override def retryable: Option[ErrorCategoryRetry] = Some(
-          ErrorCategoryRetry("application", 1.second)
-        )
-      }
+      ) extends LoggingTransactionErrorImpl(cause = reason)
     }
 
     @Explanation(
@@ -829,26 +830,23 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "INVALID_LEDGER_TIME",
           ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
         ) {
+
+      override def retryable: Option[ErrorCategoryRetry] = Some(
+        ErrorCategoryRetry("application", 1.second)
+      )
+
       case class RejectEnriched(
           override val cause: String,
           ledger_time: Instant,
           ledger_time_lower_bound: Instant,
           ledger_time_upper_bound: Instant,
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(cause = cause) {
-        override def retryable: Option[ErrorCategoryRetry] = Some(
-          ErrorCategoryRetry("application", 1.second)
-        )
-      }
+          extends LoggingTransactionErrorImpl(cause = cause)
 
       case class RejectSimple(
           override val cause: String
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(cause = cause) {
-        override def retryable: Option[ErrorCategoryRetry] = Some(
-          ErrorCategoryRetry("application", 1.second)
-        )
-      }
+          extends LoggingTransactionErrorImpl(cause = cause)
     }
   }
 

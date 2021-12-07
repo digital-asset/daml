@@ -69,7 +69,7 @@ trait BaseError extends LocationMixin {
     * Do not use this to change the contract of the error categories. Non-retryable errors shouldn't
     * be made retryable. Only use it for adjusting the retry intervals.
     */
-  def retryable: Option[ErrorCategoryRetry] = code.category.retryable
+  def retryable: Option[ErrorCategoryRetry] = code.retryable
 
   /** Controls whether a `definite_answer` error detail is added to the gRPC status code */
   def definiteAnswerO: Option[Boolean] = None

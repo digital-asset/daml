@@ -37,6 +37,11 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
           id = "INVALID_RECORD_TIME",
           ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
         ) {
+
+      override def retryable: Option[ErrorCategoryRetry] = Some(
+        ErrorCategoryRetry("application", 1.second)
+      )
+
       case class Reject(
           override val definiteAnswer: Boolean,
           override val cause: String,
@@ -44,11 +49,7 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
           tooEarlyUntil: Option[Instant],
           tooLateAfter: Option[Instant],
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(cause) {
-        override def retryable: Option[ErrorCategoryRetry] = Some(
-          ErrorCategoryRetry("application", 1.second)
-        )
-      }
+          extends KVLoggingTransactionErrorImpl(cause)
     }
 
     @Explanation(
@@ -62,6 +63,11 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
           id = "RECORD_TIME_OUT_OF_RANGE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
         ) {
+
+      override def retryable: Option[ErrorCategoryRetry] = Some(
+        ErrorCategoryRetry("application", 1.second)
+      )
+
       case class Reject(
           minimumRecordTime: Instant,
           maximumRecordTime: Instant,
@@ -73,10 +79,6 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
         override def context: Map[String, String] = Map(
           "minimum_record_time" -> minimumRecordTime.toString,
           "maximum_record_time" -> maximumRecordTime.toString,
-        )
-
-        override def retryable: Option[ErrorCategoryRetry] = Some(
-          ErrorCategoryRetry("application", 1.second)
         )
       }
     }
@@ -90,15 +92,15 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
           id = "CAUSAL_MONOTONICITY_VIOLATED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
         ) {
-      case class Reject(
-      )(implicit loggingContext: ContextualizedErrorLogger)
+
+      override def retryable: Option[ErrorCategoryRetry] = Some(
+        ErrorCategoryRetry("application", 1.second)
+      )
+
+      case class Reject()(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(
             cause = s"Invalid ledger time: Causal monotonicity violated"
-          ) {
-        override def retryable: Option[ErrorCategoryRetry] = Some(
-          ErrorCategoryRetry("application", 1.second)
-        )
-      }
+          )
     }
   }
 
