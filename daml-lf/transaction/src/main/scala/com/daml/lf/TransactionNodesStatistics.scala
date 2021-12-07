@@ -90,7 +90,7 @@ object TransactionNodesStatistics {
 
   /** This function produces statistics about the "committed" nodes (those nodes
     *  that do not appear under a rollback node) on the one hand and
-    *  "rollbacked" nodes (those nodes that do appear under a rollback node) on
+    *  rolled back nodes (those nodes that do appear under a rollback node) on
     *  the other hand within a given transaction `tx`.
     */
   def stats(tx: VersionedTransaction): (TransactionNodesStatistics, TransactionNodesStatistics) =
@@ -98,11 +98,11 @@ object TransactionNodesStatistics {
 
   def stats(tx: Transaction): (TransactionNodesStatistics, TransactionNodesStatistics) = {
     val committed = emptyFields
-    val rollbacked = emptyFields
+    val rolledBack = emptyFields
     var rollbackDepth = 0
 
     def incr(fieldIdx: Int) =
-      if (rollbackDepth > 0) rollbacked(fieldIdx) += 1 else committed(fieldIdx) += 1
+      if (rollbackDepth > 0) rolledBack(fieldIdx) += 1 else committed(fieldIdx) += 1
 
     tx.foreachInExecutionOrder(
       exerciseBegin = { (_, exe) =>
@@ -142,7 +142,7 @@ object TransactionNodesStatistics {
       rollbackEnd = (_, _) => rollbackDepth -= 1,
     )
 
-    (build(committed), build(rollbacked))
+    (build(committed), build(rolledBack))
   }
 
 }

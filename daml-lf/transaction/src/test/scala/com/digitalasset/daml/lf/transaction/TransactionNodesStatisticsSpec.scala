@@ -110,16 +110,16 @@ class TransactionNodesStatisticsSpec
         for (i <- 1 to testIterations) {
           builder.add(makeNode(builder))
           inside(TransactionNodesStatistics.stats(builder.build())) {
-            case (committed, rollbacked) =>
+            case (committed, rolledBack) =>
               getter(committed) shouldBe i
               committed.nodes shouldBe i
-              rollbacked shouldBe TransactionNodesStatistics.Empty
+              rolledBack shouldBe TransactionNodesStatistics.Empty
           }
         }
       }
     }
 
-    "count each type of rollbacked nodes properly" in {
+    "count each type of rolled back nodes properly" in {
       forEvery(testCases) { case (makeNode, getter) =>
         val builder = TxBuilder()
         val rollbackId = builder.add(builder.rollback())
@@ -127,10 +127,10 @@ class TransactionNodesStatisticsSpec
         for (i <- 1 to testIterations) {
           builder.add(makeNode(builder), rollbackId)
           inside(TransactionNodesStatistics.stats(builder.build())) {
-            case (committed, rollbacked) =>
+            case (committed, rolledBack) =>
               committed shouldBe TransactionNodesStatistics(0, 0, 0, 0, 0, 0, 0, 0, rollbacks = 1)
-              getter(rollbacked) shouldBe i
-              rollbacked.nodes shouldBe i
+              getter(rolledBack) shouldBe i
+              rolledBack.nodes shouldBe i
           }
         }
       }
@@ -142,28 +142,28 @@ class TransactionNodesStatisticsSpec
 
       for (i <- 1 to testIterations) {
         addAllNodes(b, exeId) // one additional nodes of each types
-        inside(TransactionNodesStatistics.stats(b.build())) { case (committed, rollbacked) =>
+        inside(TransactionNodesStatistics.stats(b.build())) { case (committed, rolledBack) =>
           // There are twice more nonconsumming exercises by cid are double because
-          // we use a extra on to nest the node of the next loop
+          // we use a extra one to nest the other node of the next loop
           committed shouldBe TransactionNodesStatistics(i, i, 2 * i, i, i, i, i, i, i)
-          rollbacked shouldBe TransactionNodesStatistics.Empty
+          rolledBack shouldBe TransactionNodesStatistics.Empty
         }
         exeId = b.add(exe(false, false)(b), exeId) // one nonconsumming exercises
       }
     }
 
-    "count all rollbacked nodes properly" in {
+    "count all rolled back nodes properly" in {
       val b = TxBuilder()
       var rbId = b.add(rollback(b)) // a "committed" rollback node
 
       for (i <- 1 to testIterations) {
-        rbId = b.add(rollback(b), rbId) // one additional "rollbacked" rollback node
-        addAllNodes(b, rbId) // one additional "rollbacked" nodes of each type
-        inside(TransactionNodesStatistics.stats(b.build())) { case (committed, rollbacked) =>
+        rbId = b.add(rollback(b), rbId) // one additional rolled Back rollback node
+        addAllNodes(b, rbId) // one additional rolled Back nodes of each type
+        inside(TransactionNodesStatistics.stats(b.build())) { case (committed, rolledBack) =>
           committed shouldBe TransactionNodesStatistics(0, 0, 0, 0, 0, 0, 0, 0, 1)
           // There are twice more rollback nodes, since we use an extra one to
-          // nest the node of the loop
-          rollbacked shouldBe TransactionNodesStatistics(i, i, i, i, i, i, i, i, 2 * i)
+          // nest the other nodes in each loop
+          rolledBack shouldBe TransactionNodesStatistics(i, i, i, i, i, i, i, i, 2 * i)
         }
       }
     }
