@@ -9,6 +9,7 @@ trait StorageBackendSuite
     extends StorageBackendTestsInitialization
     with StorageBackendTestsInitializeIngestion
     with StorageBackendTestsIngestion
+    with StorageBackendTestsEvents
     with StorageBackendTestsCompletions
     with StorageBackendTestsReset
     with StorageBackendTestsPruning
