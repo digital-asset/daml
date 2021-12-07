@@ -9,10 +9,9 @@ import com.daml.error.{
   DamlContextualizedErrorLogger,
   ErrorCodesVersionSwitcher,
 }
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.v1.admin.user_management_service._
+import com.daml.ledger.api.domain._
+import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
-import com.daml.ledger.participant.state.index.v2.UserManagementStore._
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
@@ -28,7 +27,7 @@ private[apiserver] final class ApiUserManagementService(
 //    materializer: Materializer,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
-) extends UserManagementServiceGrpc.UserManagementService
+) extends proto.UserManagementServiceGrpc.UserManagementService
     with GrpcApiService {
   import ApiUserManagementService._
 
@@ -46,9 +45,9 @@ private[apiserver] final class ApiUserManagementService(
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
-    UserManagementServiceGrpc.bindService(this, executionContext)
+    proto.UserManagementServiceGrpc.bindService(this, executionContext)
 
-  override def createUser(request: CreateUserRequest): Future[User] = {
+  override def createUser(request: proto.CreateUserRequest): Future[proto.User] = {
     withValidation({
       import fieldValidations._
       for {
@@ -62,96 +61,96 @@ private[apiserver] final class ApiUserManagementService(
 
         // FIXME: validate rights as well!
         // FIXME: add tests for field validation code
-      } yield domain.User(pUserId, pOptPrimaryParty)
+      } yield User(pUserId, pOptPrimaryParty)
     })(user => {
       userManagementService
         .createUser(
           user = user,
-          rights = request.rights.view.map(fromApiRight).toSet,
+          rights = request.rights.view.map(fromProtoRight).toSet,
         )
         .flatMap(handleResult("create user"))
         .map(_ => request.user.get)
     })
   }
 
-  override def getUser(request: GetUserRequest): Future[User] = {
+  override def getUser(request: proto.GetUserRequest): Future[proto.User] = {
     withValidation(
       fieldValidations.requireUserId(request.userId, "user_id")
     )(userId =>
       userManagementService
         .getUser(userId)
         .flatMap(handleResult("get user"))
-        .map(toApiUser)
+        .map(toProtoUser)
     )
   }
 
-  override def deleteUser(request: DeleteUserRequest): Future[DeleteUserResponse] =
+  override def deleteUser(request: proto.DeleteUserRequest): Future[proto.DeleteUserResponse] =
     withValidation(
       fieldValidations.requireUserId(request.userId, "user_id")
     )(userId =>
       userManagementService
         .deleteUser(userId)
         .flatMap(handleResult("delete user"))
-        .map(_ => DeleteUserResponse())
+        .map(_ => proto.DeleteUserResponse())
     )
 
-  override def listUsers(request: ListUsersRequest): Future[ListUsersResponse] =
+  override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] =
     userManagementService
       .listUsers( /*request.pageSize, request.pageToken*/ )
       .flatMap(handleResult("list users"))
       .map(
-        _.map(toApiUser)
+        _.map(toProtoUser)
       ) // case (users, nextPageToken) => ListUsersResponse(users.map(toApiUser), nextPageToken)
-      .map(ListUsersResponse(_))
+      .map(proto.ListUsersResponse(_))
 
-  override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =
+  override def grantUserRights(request: proto.GrantUserRightsRequest): Future[proto.GrantUserRightsResponse] =
     withValidation(
       fieldValidations.requireUserId(request.userId, "user_id")
     )(userId =>
       userManagementService
         .grantRights(
           id = userId,
-          rights = request.rights.view.map(fromApiRight).toSet,
+          rights = request.rights.view.map(fromProtoRight).toSet,
         )
         .flatMap(handleResult("grant user rights"))
-        .map(_.view.map(toApiRight).toList)
-        .map(GrantUserRightsResponse(_))
+        .map(_.view.map(toProtoRight).toList)
+        .map(proto.GrantUserRightsResponse(_))
     )
 
   override def revokeUserRights(
-      request: RevokeUserRightsRequest
-  ): Future[RevokeUserRightsResponse] =
+      request: proto.RevokeUserRightsRequest
+  ): Future[proto.RevokeUserRightsResponse] =
     withValidation(
       fieldValidations.requireUserId(request.userId, "user_id")
     )(userId =>
       userManagementService
         .revokeRights(
           id = userId,
-          rights = request.rights.view.map(fromApiRight).toSet,
+          rights = request.rights.view.map(fromProtoRight).toSet,
         )
         .flatMap(handleResult("revoke user rights"))
-        .map(_.view.map(toApiRight).toList)
-        .map(RevokeUserRightsResponse(_))
+        .map(_.view.map(toProtoRight).toList)
+        .map(proto.RevokeUserRightsResponse(_))
     )
 
-  override def listUserRights(request: ListUserRightsRequest): Future[ListUserRightsResponse] =
+  override def listUserRights(request: proto.ListUserRightsRequest): Future[proto.ListUserRightsResponse] =
     withValidation(
       fieldValidations.requireUserId(request.userId, "user_id")
     )(userId =>
       userManagementService
         .listUserRights(userId)
         .flatMap(handleResult("list user rights"))
-        .map(_.view.map(toApiRight).toList)
-        .map(ListUserRightsResponse(_))
+        .map(_.view.map(toProtoRight).toList)
+        .map(proto.ListUserRightsResponse(_))
     )
 
-  def handleResult[T](operation: String)(result: Result[T]): Future[T] =
+  def handleResult[T](operation: String)(result: UserManagementStore.Result[T]): Future[T] =
     result match {
-      case Left(UserNotFound(id)) =>
+      case Left(UserManagementStore.UserNotFound(id)) =>
         Future.failed(
           LedgerApiErrors.AdminServices.UserNotFound.Reject(operation, id.toString).asGrpcError
         )
-      case Left(UserExists(id)) =>
+      case Left(UserManagementStore.UserExists(id)) =>
         Future.failed(
           LedgerApiErrors.AdminServices.UserAlreadyExists.Reject(operation, id.toString).asGrpcError
         )
@@ -160,27 +159,27 @@ private[apiserver] final class ApiUserManagementService(
 }
 
 object ApiUserManagementService {
-  def toApiUser(user: domain.User): User =
-    User(
+  private def toProtoUser(user: User): proto.User =
+    proto.User(
       id = user.id.toString,
       primaryParty = user.primaryParty.getOrElse(""),
     )
 
-  val toApiRight: domain.UserRight => Right = {
-    case domain.UserRight.ParticipantAdmin =>
-      Right(Right.Kind.ParticipantAdmin(Right.ParticipantAdmin()))
-    case domain.UserRight.CanActAs(party) =>
-      Right(Right.Kind.CanActAs(Right.CanActAs(party)))
-    case domain.UserRight.CanReadAs(party) =>
-      Right(Right.Kind.CanReadAs(Right.CanReadAs(party)))
+  private val toProtoRight: UserRight => proto.Right = {
+    case UserRight.ParticipantAdmin =>
+      proto.Right(proto.Right.Kind.ParticipantAdmin(proto.Right.ParticipantAdmin()))
+    case UserRight.CanActAs(party) =>
+      proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs(party)))
+    case UserRight.CanReadAs(party) =>
+      proto.Right(proto.Right.Kind.CanReadAs(proto.Right.CanReadAs(party)))
   }
 
-  val fromApiRight: Right => domain.UserRight = {
-    case Right(_: Right.Kind.ParticipantAdmin) => domain.UserRight.ParticipantAdmin
-    case Right(Right.Kind.CanActAs(x)) =>
-      domain.UserRight.CanActAs(Ref.Party.assertFromString(x.party))
-    case Right(Right.Kind.CanReadAs(x)) =>
-      domain.UserRight.CanReadAs(Ref.Party.assertFromString(x.party))
+  private val fromProtoRight: proto.Right => UserRight = {
+    case proto.Right(_: proto.Right.Kind.ParticipantAdmin) => UserRight.ParticipantAdmin
+    case proto.Right(proto.Right.Kind.CanActAs(x)) =>
+      UserRight.CanActAs(Ref.Party.assertFromString(x.party))
+    case proto.Right(proto.Right.Kind.CanReadAs(x)) =>
+      UserRight.CanReadAs(Ref.Party.assertFromString(x.party))
     case _ => throw new Exception // TODO FIXME validation
   }
 }
