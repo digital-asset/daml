@@ -93,7 +93,7 @@ object Config {
       enableInMemoryFanOutForLedgerApi = false,
       maxDeduplicationDuration = None,
       extra = extra,
-      enableSelfServiceErrorCodes = true,
+      enableSelfServiceErrorCodes = false,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =

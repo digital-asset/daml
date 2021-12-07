@@ -34,6 +34,9 @@ final class Metrics(val registry: MetricRegistry) {
       val conflictQueueCapacity: Counter = registry.counter(Prefix :+ "queue_capacity")
       val conflictQueueLength: Counter = registry.counter(Prefix :+ "queue_length")
       val conflictQueueDelay: Timer = registry.timer(Prefix :+ "queue_delay")
+
+      val parallelConflictCheckingDuration: Timer =
+        registry.timer(Prefix :+ "parallel_conflict_checking_duration")
     }
 
     object commands {

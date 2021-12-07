@@ -93,18 +93,21 @@ case class ReadWriteServiceBridge(
         enqueuedAt -> tx
       }
       .mapAsyncUnordered(64) { case (enqueuedAt, tx) =>
-        Future {
-          (
-            tx.transaction.contractKeyInputs,
-            tx.transaction.inputContracts,
-            tx.transaction.updatedContractKeys,
-            tx.transaction.consumedContracts,
-          )
-        }.flatMap { case (keyInputs, inputContracts, updatedKeys, consumedContracts) =>
-          parallelConflictCheck(tx, inputContracts, keyInputs).map(tx =>
-            (enqueuedAt, keyInputs, inputContracts, updatedKeys, consumedContracts, tx)
-          )
-        }
+        Timed.future(
+          metrics.daml.SoX.parallelConflictCheckingDuration,
+          Future {
+            (
+              tx.transaction.contractKeyInputs,
+              tx.transaction.inputContracts,
+              tx.transaction.updatedContractKeys,
+              tx.transaction.consumedContracts,
+            )
+          }.flatMap { case (keyInputs, inputContracts, updatedKeys, consumedContracts) =>
+            parallelConflictCheck(tx, inputContracts, keyInputs).map(tx =>
+              (enqueuedAt, keyInputs, inputContracts, updatedKeys, consumedContracts, tx)
+            )
+          },
+        )
       }
       .statefulMapConcat(sequence)
       .preMaterialize()
@@ -211,12 +214,13 @@ case class ReadWriteServiceBridge(
         case (Right(_), (key, NegativeKeyLookup)) =>
           updatedKeys.get(key) match {
             case Some(None) | None => Right(())
-            case Some(Some(actual)) => Left(InconsistentContracts(None, Some(actual))(transaction))
+            case Some(Some(actual)) =>
+              Left(InconsistentContractKey(None, Some(actual))(transaction))
           }
         case (Right(_), (key, KeyActive(cid))) =>
           updatedKeys.get(key) match {
             case Some(Some(`cid`)) | None => Right(())
-            case Some(other) => Left(InconsistentContracts(other, Some(cid))(transaction))
+            case Some(other) => Left(InconsistentContractKey(other, Some(cid))(transaction))
           }
         case (left, _) => left
       })
@@ -480,16 +484,17 @@ case class ReadWriteServiceBridge(
                 .get()
                 .getOrElse(throw new RuntimeException("ContractStore not there yet"))
                 .lookupContractKey(readers, key)
-                .map { lookupResult =>
-                  (inputState, lookupResult) match {
-                    case (NegativeKeyLookup, Some(actual)) =>
-                      Left(InconsistentContracts(None, Some(actual))(transaction))
-                    case (KeyCreate, Some(_)) =>
-                      Left(DuplicateKey(key)(transaction))
-                    case (KeyActive(expected), actual) if !actual.contains(expected) =>
-                      Left(InconsistentContracts(Some(expected), actual)(transaction))
-                    case _ => Right(())
-                  }
+                .map {
+                  lookupResult =>
+                    (inputState, lookupResult) match {
+                      case (NegativeKeyLookup, Some(actual)) =>
+                        Left(InconsistentContractKey(None, Some(actual))(transaction))
+                      case (KeyCreate, Some(_)) =>
+                        Left(DuplicateKey(key)(transaction))
+                      case (KeyActive(expected), actual) if !actual.contains(expected) =>
+                        Left(InconsistentContractKey(Some(expected), actual)(transaction))
+                      case _ => Right(())
+                    }
                 }
             case left => Future.successful(left)
           }
@@ -519,7 +524,7 @@ object ReadWriteServiceBridge {
           .RejectWithContractKeyArg("DuplicateKey: contract key is not unique", key)
           .rpcStatus(None)
     }
-    final case class InconsistentContracts(
+    final case class InconsistentContractKey(
         expectation: Option[ContractId],
         result: Option[ContractId],
     )(override val originalTx: Transaction)
