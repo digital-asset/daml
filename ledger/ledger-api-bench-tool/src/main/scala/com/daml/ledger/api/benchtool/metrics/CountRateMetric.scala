@@ -24,8 +24,6 @@ final case class CountRateMetric[T](
 
   override def periodicValue(periodDuration: Duration): (Metric[T], Value) = {
     val value = Value(periodicRate(periodDuration))
-    val obj = updatedObjective(value)
-    println(s"OBJ: $obj")
     val updatedMetric = this.copy(
       objective = updatedObjective(value),
       lastCount = counter,
