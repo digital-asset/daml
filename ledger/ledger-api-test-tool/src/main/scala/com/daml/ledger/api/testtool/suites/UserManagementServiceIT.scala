@@ -64,11 +64,11 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       )
       _ <- createAndCheck(
         "invalid primary-party",
-        User("u1-" + userId, "!!"),
+        User("u1-" + userId, "party2-!!"),
         List.empty,
         LedgerApiErrors.RequestValidation.InvalidArgument,
       )
-      r = proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs("!!")))
+      r = proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs("party3-!!")))
       _ <- createAndCheck(
         "invalid party in right",
         User("u2-" + userId),
