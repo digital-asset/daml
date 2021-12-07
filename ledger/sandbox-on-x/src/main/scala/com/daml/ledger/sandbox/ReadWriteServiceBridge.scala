@@ -164,8 +164,8 @@ case class ReadWriteServiceBridge(
                   Timed.value(
                     metrics.daml.SoX.queueSearch,
                     sequencerQueue.view.map(_._1).search(enqueuedAt) match {
-                      case Searching.Found(foundIndex) => foundIndex - 1
-                      case Searching.InsertionPoint(insertionPoint) => insertionPoint - 1
+                      case Searching.Found(foundIndex) => foundIndex + 1
+                      case Searching.InsertionPoint(insertionPoint) => insertionPoint
                     },
                   )
                 sequencerQueue = Timed.value(
