@@ -21,18 +21,21 @@ class InMemoryUserManagementStore extends UserManagementStore {
         case None => Right(())
       }
     }
+
   override def getUser(id: UserId): Future[Result[User]] = Future.successful {
     lookup(id) match {
       case Some(userInfo) => Right(userInfo.user)
       case None => Left(UserNotFound(id))
     }
   }
+
   override def deleteUser(id: UserId): Future[Result[Unit]] = Future.successful {
     dropExisting(id) match {
       case Some(_) => Right(())
       case None => Left(UserNotFound(id))
     }
   }
+
   override def grantRights(id: UserId, granted: Set[UserRight]): Future[Result[Set[UserRight]]] =
     Future.successful {
       lookup(id) match {
@@ -45,6 +48,7 @@ class InMemoryUserManagementStore extends UserManagementStore {
           Left(UserNotFound(id))
       }
     }
+
   override def revokeRights(id: UserId, revoked: Set[UserRight]): Future[Result[Set[UserRight]]] =
     Future.successful {
       lookup(id) match {
@@ -59,6 +63,7 @@ class InMemoryUserManagementStore extends UserManagementStore {
           Left(UserNotFound(id))
       }
     }
+
   override def listUserRights(id: UserId): Future[Result[Set[UserRight]]] = Future.successful {
     lookup(id) match {
       case Some(userInfo) => Right(userInfo.rights)
@@ -66,37 +71,7 @@ class InMemoryUserManagementStore extends UserManagementStore {
     }
   }
 
-  /** TODO: support pagination
-    *
-    * (From https://cloud.google.com/apis/design/design_patterns#list_pagination)
-    *
-    * To support pagination (returning list results in pages) in a List method, the API shall:
-    *   - define a string field page_token in the List method's request message
-    *     The client uses this field to request a specific page of the list results.
-    *   - define an int32 field page_size in the List method's request message.
-    *     Clients use this field to specify the maximum number of results to be returned by the server.
-    *     The server may further constrain the maximum number of results returned in a single page.
-    *     If the page_size is 0, the server will decide the number of results to be returned.
-    *   - define a string field next_page_token in the List method's response message.
-    *     This field represents the pagination token to retrieve the next page of results.
-    *     If the value is "", it means no further results for the request.
-    *     To retrieve the next page of results, client shall pass the value of response's
-    *     next_page_token in the subsequent List method call (in the request message's page_token field):
-    *
-    *  Page token contents should be a url-safe base64 encoded protocol buffer.
-    *  This allows the contents to evolve without compatibility issues.
-    *  If the page token contains potentially sensitive information, that information should be encrypted.
-    *
-    *  When clients pass in query parameters in addition to a page token, the service must fail the request
-    *  if the query parameters are not consistent with the page token.
-    *
-    *  Services must prevent tampering with page tokens from exposing unintended data
-    *  through one of the following methods:
-    *   - require query parameters to be respecified on follow up requests.
-    *   - only reference server-side session state in the page token.
-    *   - encrypt and sign the query parameters in the page token and revalidate and reauthorize these parameters on every call.
-    */
-  def listUsers( /*pageSize: Int, pageToken: String*/ ): Future[Result[Users]] = Future.successful {
+  def listUsers(): Future[Result[Users]] = Future.successful {
     Right(state.values.map(_.user).toSeq)
   }
 
