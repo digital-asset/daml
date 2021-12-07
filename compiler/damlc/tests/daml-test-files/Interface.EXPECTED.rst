@@ -39,6 +39,8 @@ Interfaces
 
 **interface** `Token <type-interface-token-72202_>`_
 
+  An interface comment\.
+  
   + **Choice GetRich**
     
     .. list-table::
@@ -76,7 +78,7 @@ Interfaces
          - Description
        * - splitAmount
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_
-         - 
+         - A choice field comment\.
   
   + **Choice Transfer**
     

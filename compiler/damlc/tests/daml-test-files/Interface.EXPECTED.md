@@ -20,6 +20,8 @@
 
 <a name="type-interface-token-72202"></a>**interface** [Token](#type-interface-token-72202)
 
+> An interface comment.
+> 
 > * **Choice GetRich**
 >   
 >   | Field                                                                          | Type                                                                           | Description |
@@ -36,7 +38,7 @@
 >   
 >   | Field                                                                          | Type                                                                           | Description |
 >   | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
->   | splitAmount                                                                    | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728) |  |
+>   | splitAmount                                                                    | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728) | A choice field comment. |
 > 
 > * **Choice Transfer**
 >   
