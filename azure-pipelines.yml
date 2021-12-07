@@ -199,7 +199,7 @@ jobs:
         mkdir -p $(Build.StagingDirectory)/split-release
         ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
     - bash: |
-        set -eou piefail
+        set -eou pipefail
 
         source $(bash-lib)
         cd $(Build.StagingDirectory)/split-release
