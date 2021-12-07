@@ -1532,12 +1532,13 @@ message InterfaceMethod {
 message DefInterface {
   Location location = 1;
   int32 tycon_interned_dname = 2;
-  repeated InterfaceMethod methods = 3;
+  repeated TypeConName requires = 3;
+  repeated InterfaceMethod methods = 4;
 
-  // Binder for interface value ("this") in fixed choices.
-  int32 param_interned_str = 4;
-  repeated TemplateChoice fixed_choices = 5;
+  // Binder for interface value ("this") in precond and fixed choices.
+  int32 param_interned_str = 5;
   Expr precond = 6;
+  repeated TemplateChoice fixed_choices = 7;
 }
 
 // Exception definition

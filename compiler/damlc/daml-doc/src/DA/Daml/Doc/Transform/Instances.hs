@@ -55,6 +55,7 @@ distributeInstanceDocs opts docs =
         , md_descr = md_descr
         , md_functions = md_functions
         , md_templates = map (addIfaceImpls imap) md_templates
+        , md_interfaces = md_interfaces
         , md_classes = map (addClassInstances imap) md_classes
         , md_adts = map (addTypeInstances imap) md_adts
         , md_instances =

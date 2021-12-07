@@ -31,6 +31,7 @@ case class ApiServerConfig(
     acsIdPageSize: Int = IndexConfiguration.DefaultAcsIdPageSize,
     acsIdFetchingParallelism: Int = IndexConfiguration.DefaultAcsIdFetchingParallelism,
     acsContractFetchingParallelism: Int = IndexConfiguration.DefaultAcsContractFetchingParallelism,
+    acsGlobalParallelism: Int = IndexConfiguration.DefaultAcsGlobalParallelism,
     portFile: Option[Path],
     seeding: Seeding,
     managementServiceTimeout: Duration,

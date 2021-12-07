@@ -92,6 +92,7 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc tcmod
             md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap
+            md_interfaces = getInterfaceDocs ctx typeMap
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_instances = map (getInstanceDocs ctx) dc_insts
 

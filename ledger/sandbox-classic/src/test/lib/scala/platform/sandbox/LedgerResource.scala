@@ -98,6 +98,7 @@ private[sandbox] object LedgerResource {
           acsIdPageSize = 2000,
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
+          acsGlobalParallelism = 10,
           servicesExecutionContext = servicesExecutionContext,
           metrics = new Metrics(metrics),
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
