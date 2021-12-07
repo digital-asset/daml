@@ -118,7 +118,7 @@ jobs:
   timeoutInMinutes: 360
   pool:
     name: macOS-pool
-    demands: assignment -equals default
+    demands: assignment -equals monterey
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
