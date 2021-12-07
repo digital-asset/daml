@@ -68,9 +68,6 @@ class TransactionStatisticsSpec
     ()
   }
 
-  private[this] def repeat(n: Int, f: TxBuilder => Unit)(b: TxBuilder) =
-    (0 until n).foreach(_ => f(b))
-
   "TransactionStats.stats" should {
 
     val n = 3

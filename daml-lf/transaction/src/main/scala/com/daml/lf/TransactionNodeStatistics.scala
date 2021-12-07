@@ -4,8 +4,6 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.transaction.Transaction.ChildrenRecursion
-
 /** Container for transaction statistics.
   *
   * @param creates number of creates nodes,
@@ -58,6 +56,8 @@ final case class TransactionNodeStatistics(
 
 object TransactionNodeStatistics {
 
+  import Transaction.ChildrenRecursion
+
   val Empty = TransactionNodeStatistics(0, 0, 0, 0, 0, 0, 0, 0, 0)
 
   private[this] val numberOfFields = Empty.productArity
@@ -93,9 +93,9 @@ object TransactionNodeStatistics {
   def stats(tx: VersionedTransaction): (TransactionNodeStatistics, TransactionNodeStatistics) =
     stats(tx.transaction)
 
-  /** This function produces statistic about the committed nodes (those nodes
+  /** This function produces statistics about the "committed" nodes (those nodes
     *  that do not appear under a rollback node) on the one hand and
-    *  rollbacked nodes (those nodes that do appear under a rollback node) on
+    *  "rollbacked" nodes (those nodes that do appear under a rollback node) on
     *  the other hand.
     */
   def stats(tx: Transaction): (TransactionNodeStatistics, TransactionNodeStatistics) = {
