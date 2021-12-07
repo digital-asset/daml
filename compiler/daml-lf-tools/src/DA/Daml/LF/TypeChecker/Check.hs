@@ -897,7 +897,7 @@ checkIfaceImplementation Template{tplImplements} tplTcon TemplateImplements{..} 
   DefInterface {intFixedChoices, intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
 
   -- check requires
-  let missingRequires = S.difference intRequires (NM.namesSet tplImplements)
+  let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
   case S.toList missingRequires of
     [] -> pure ()
     (missingInterface:_) ->

@@ -456,6 +456,7 @@ convertInterfaces env binds = interfaceDefs
     convertInterface intName tyCon = do
         let intLocation = convNameLoc (GHC.tyConName tyCon)
         let intParam = this
+        let intRequires = S.empty -- TODO https://github.com/digital-asset/daml/issues/11978
         let precond = fromMaybe (error $ "Missing precondition for interface " <> show intName)
                         $ (MS.lookup intName $ envInterfaceBinds env) >>= ibEnsure
         withRange intLocation $ do

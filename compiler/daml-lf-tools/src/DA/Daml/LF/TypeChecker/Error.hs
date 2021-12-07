@@ -134,7 +134,7 @@ data Error
   | EDuplicateInterfaceChoiceName !TypeConName !ChoiceName
   | EDuplicateInterfaceMethodName !TypeConName !MethodName
   | EUnknownInterface !TypeConName
-  | EMissingRequiredInterface { emriTemplate :: !TypeConName, emriRequiringInterface :: !TypeConName, emriRequiredInterface :: !TypeConName }
+  | EMissingRequiredInterface { emriTemplate :: !TypeConName, emriRequiringInterface :: !(Qualified TypeConName), emriRequiredInterface :: !(Qualified TypeConName) }
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
   | EBadInterfaceChoiceImplConsuming !ChoiceName !Bool !Bool
@@ -379,9 +379,9 @@ instance Pretty Error where
     EDuplicateInterfaceMethodName iface method ->
       "Duplicate method name '" <> pretty method <> "' in interface definition for " <> pretty iface
     EUnknownInterface tcon -> "Unknown interface: " <> pretty tcon
-    EMissingRequiredInterface {emriTemplate, emriRequiringInterface, emriRequiredInterface} ->
-      "Template " <> pretty emryTemplate <>
-      " is missing an implementation of interface " <> pretty emriRequiredInterface
+    EMissingRequiredInterface {..} ->
+      "Template " <> pretty emriTemplate <>
+      " is missing an implementation of interface " <> pretty emriRequiredInterface <>
       " required by interface " <> pretty emriRequiringInterface
     EBadInheritedChoices {ebicInterface, ebicExpected, ebicGot} ->
       vcat
