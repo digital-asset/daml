@@ -3,7 +3,6 @@ package com.daml.ledger.client.services.admin
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{UserId, User, UserRight}
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementServiceStub
-import com.daml.ledger.api.v1.admin.user_management_service.{GetUserRequest, Right}
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.data.Ref
@@ -31,14 +30,14 @@ final class UserManagementClient
   def getUser(userId: UserId, token: Option[String] = None): Future[User] =
     LedgerClient
       .stub(service, token)
-      .getUser(GetUserRequest(userId.toString))
+      .getUser(proto.GetUserRequest(userId.toString))
       .map(fromProtoUser)
 
   /** Retrieve the User information for the user authenticated by the token(s) on the call . */
   def getAuthenticatedUser(token: Option[String] = None): Future[User] =
     LedgerClient
       .stub(service, token)
-      .getUser(GetUserRequest())
+      .getUser(proto.GetUserRequest())
       .map(fromProtoUser)
 
   def deleteUser(userId: UserId, token: Option[String] = None): Future[Unit] =
@@ -94,23 +93,23 @@ object UserManagementClient {
   private def toProtoUser(user: User): proto.User =
     proto.User(user.id.toString, user.primaryParty.fold("")(_.toString))
 
-  private val toProtoRight: domain.UserRight => Right = {
+  private val toProtoRight: domain.UserRight => proto.Right = {
     case domain.UserRight.ParticipantAdmin =>
-      Right(Right.Kind.ParticipantAdmin(Right.ParticipantAdmin()))
+      proto.Right(proto.Right.Kind.ParticipantAdmin(proto.Right.ParticipantAdmin()))
     case domain.UserRight.CanActAs(party) =>
-      Right(Right.Kind.CanActAs(Right.CanActAs(party)))
+      proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs(party)))
     case domain.UserRight.CanReadAs(party) =>
-      Right(Right.Kind.CanReadAs(Right.CanReadAs(party)))
+      proto.Right(proto.Right.Kind.CanReadAs(proto.Right.CanReadAs(party)))
   }
 
-  private val fromProtoRight: Right => Option[domain.UserRight] = {
-    case Right(_: Right.Kind.ParticipantAdmin) => Some(domain.UserRight.ParticipantAdmin)
-    case Right(Right.Kind.CanActAs(x)) =>
+  private val fromProtoRight: proto.Right => Option[domain.UserRight] = {
+    case proto.Right(_: proto.Right.Kind.ParticipantAdmin) => Some(domain.UserRight.ParticipantAdmin)
+    case proto.Right(proto.Right.Kind.CanActAs(x)) =>
       // Note: assertFromString is OK here, as the server should deliver valid party identifiers.
       Some(domain.UserRight.CanActAs(Ref.Party.assertFromString(x.party)))
-    case Right(Right.Kind.CanReadAs(x)) =>
+    case proto.Right(proto.Right.Kind.CanReadAs(x)) =>
       Some(domain.UserRight.CanReadAs(Ref.Party.assertFromString(x.party)))
-    case Right(Right.Kind.Empty) =>
+    case proto.Right(proto.Right.Kind.Empty) =>
       None // The server sent a right of a kind that this client doesn't know about.
   }
 }
