@@ -23,7 +23,7 @@ jobs:
   dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
   condition: and(succeeded(),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                 eq(dependencies.check_for_release.outputs['out.split_release_process'], 'false')
+                 eq(dependencies.check_for_release.outputs['out.split_release_process'], 'false'),
                  eq(variables['Build.SourceBranchName'], 'main'))
   pool:
     name: 'ubuntu_20_04'
@@ -154,7 +154,7 @@ jobs:
   dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
   condition: and(succeeded(),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                 eq(dependencies.check_for_release.outputs['out.split_release_process'], 'true')
+                 eq(dependencies.check_for_release.outputs['out.split_release_process'], 'true'),
                  eq(variables['Build.SourceBranchName'], 'main'))
   pool:
     name: 'ubuntu_20_04'
