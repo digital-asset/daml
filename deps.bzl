@@ -33,15 +33,17 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "a8faef92f59a4f1428ed9a93c7c313a996466a66ad64c119fc49b5c7dea98c59"
 
-rules_haskell_version = "673e74aea244a6a9ee1eccec719677c80348aebf"
-rules_haskell_sha256 = "73a06dc6e0d928ceeab64e2cd3159f863eb2e263ecc64d79e3952c770cd1ee51"
+rules_haskell_version = "a7241fa64c7cd36462a1f6ac4c660d1247d5e07b"
+rules_haskell_sha256 = "9ca581c79dbda507da05ca4c3e958eb5865c9fbc7e393656cdcb8216b20d8821"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-    "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-8.10.7-bindist.patch",
+    # This can be removed once the following upstream PR has been merged:
+    # https://github.com/tweag/rules_haskell/pull/1648
+    "@com_github_digital_asset_daml//bazel_tools:haskell-cabal-reproducible.patch",
 ]
 rules_nixpkgs_version = "81f61c4b5afcf50665b7073f7fce4c1755b4b9a3"
 rules_nixpkgs_sha256 = "33fd540d0283cf9956d0a5a640acb1430c81539a84069114beaf9640c96d221a"
@@ -237,6 +239,16 @@ def daml_deps():
                 "https://github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
             ],
             patch_args = ["-p1"],
+        )
+
+    if "com_google_protobuf" not in native.existing_rules():
+        http_archive(
+            name = "com_google_protobuf",
+            sha256 = "c6003e1d2e7fefa78a3039f19f383b4f3a61e81be8c19356f85b6461998ad3db",
+            strip_prefix = "protobuf-3.17.3",
+            urls = [
+                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.17.3.tar.gz",
+            ],
         )
 
     if "io_grpc_grpc_java" not in native.existing_rules():

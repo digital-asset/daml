@@ -4,6 +4,7 @@
 package com.daml.lf.kv
 
 import com.daml.lf.transaction._
+import com.daml.lf.transaction.Transaction._
 
 object TransactionNormalizer {
 
@@ -16,8 +17,8 @@ object TransactionNormalizer {
 
     val keepNids: Set[NodeId] =
       tx.foldInExecutionOrder[Set[NodeId]](Set.empty)(
-        (acc, nid, _) => (acc + nid, true),
-        (acc, _, _) => (acc, false),
+        (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
+        (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
         (acc, nid, node) =>
           node match {
             case _: Node.Create => acc + nid

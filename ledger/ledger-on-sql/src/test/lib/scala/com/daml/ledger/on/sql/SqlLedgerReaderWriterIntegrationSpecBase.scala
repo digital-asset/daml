@@ -5,8 +5,14 @@ package com.daml.ledger.on.sql
 
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
-import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.{
+  ParticipantState,
+  participantStateFrom,
+}
+import com.daml.ledger.participant.state.kvutils.api.{
+  KeyValueParticipantStateReader,
+  KeyValueParticipantStateWriter,
+}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
@@ -25,7 +31,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       testId: String,
       offsetVersion: Byte,
       metrics: Metrics,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] =
+  )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] = {
     new SqlLedgerReaderWriter.Owner(
       ledgerId = ledgerId,
       participantId = participantId,
@@ -35,12 +41,17 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       resetOnStartup = false,
       offsetVersion = offsetVersion,
       logEntryIdAllocator = RandomLogEntryIdAllocator,
-    ).map(readerWriter =>
-      new KeyValueParticipantState(
-        readerWriter,
-        readerWriter,
-        metrics,
+    ).map { readerWriter =>
+      val reader = KeyValueParticipantStateReader(
+        reader = readerWriter,
+        metrics = metrics,
         enableSelfServiceErrorCodes = true,
       )
-    )
+      val writer = new KeyValueParticipantStateWriter(
+        readerWriter,
+        metrics,
+      )
+      participantStateFrom(reader, writer)
+    }
+  }
 }

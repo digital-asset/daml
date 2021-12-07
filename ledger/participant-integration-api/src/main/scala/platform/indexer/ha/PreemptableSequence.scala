@@ -162,11 +162,13 @@ object PreemptableSequence {
             handle.killSwitch.abort(ex)
           case _ => ()
         }
-        val result = handle.completed
-        // not strictly needed for this use case, but in theory multiple preemptable stages are possible after each other
-        // this is needed to remove the delegation of the killSwitch after stage is complete
-        result.onComplete(_ => killSwitchCaptor.setDelegate(None))
-        result
+        handle.completed
+          .transform { r =>
+            // not strictly needed for this use case, but in theory multiple preemptable stages are possible after each other
+            // this is needed to remove the delegation of the killSwitch after stage is complete
+            killSwitchCaptor.setDelegate(None)
+            r
+          }
       }
 
       override def handle: Handle = resultHandle

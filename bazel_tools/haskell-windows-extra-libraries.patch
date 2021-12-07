@@ -1,8 +1,8 @@
 diff --git a/haskell/private/actions/package.bzl b/haskell/private/actions/package.bzl
-index f46f56bc..bfcc9500 100644
+index bebeaa1a..f8fecb63 100644
 --- a/haskell/private/actions/package.bzl
 +++ b/haskell/private/actions/package.bzl
-@@ -107,7 +107,12 @@ def package(
+@@ -98,7 +98,12 @@ def package(
          "library-dirs": ["${pkgroot}"] + extra_lib_dirs,
          "dynamic-library-dirs": ["${pkgroot}"] + extra_dynamic_lib_dirs,
          "hs-libraries": [pkg_id.library_name(hs, my_pkg_id)] if has_hs_library else [],
@@ -14,5 +14,5 @@ index f46f56bc..bfcc9500 100644
 +            "ws2_32",
 +        ] if hs.toolchain.is_windows else []),
          "depends": hs.package_ids,
-     })
- 
+         # TODO[AH] Add haskell_module modules
+         "exposed-modules": exposed_modules,

@@ -5,20 +5,64 @@ package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
 import com.daml.caching
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
+  ConfigProvider,
+  KeyValueReadWriteFactory,
   LedgerFactory,
   ParticipantConfig,
-  ReadWriteService,
+  ReadWriteServiceFactory,
 }
 import com.daml.ledger.participant.state.kvutils.caching._
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import scopt.OptionParser
 
-object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
+import scala.concurrent.ExecutionContext
+
+object SqlLedgerFactory extends LedgerFactory[ExtraConfig] {
+
+  override def readWriteServiceFactoryOwner(
+      config: Config[ExtraConfig],
+      participantConfig: ParticipantConfig,
+      engine: Engine,
+      metrics: Metrics,
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[ReadWriteServiceFactory] = {
+    val jdbcUrl = config.extra.jdbcUrl.getOrElse {
+      throw new IllegalStateException("No JDBC URL provided.")
+    }
+    new SqlLedgerReaderWriter.Owner(
+      ledgerId = config.ledgerId,
+      participantId = participantConfig.participantId,
+      metrics = metrics,
+      engine = engine,
+      jdbcUrl = jdbcUrl,
+      resetOnStartup = false,
+      offsetVersion = 0,
+      logEntryIdAllocator = RandomLogEntryIdAllocator,
+      stateValueCache = caching.WeightedCache.from(
+        configuration = config.stateValueCache,
+        metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
+      ),
+    ).map(ledgerReaderWriter =>
+      new KeyValueReadWriteFactory(
+        config,
+        metrics,
+        ledgerReaderWriter,
+        ledgerReaderWriter,
+      )
+    )
+  }
+}
+
+object SqlConfigProvider extends ConfigProvider[ExtraConfig] {
+
   override val defaultExtraConfig: ExtraConfig = ExtraConfig(
     jdbcUrl = None
   )
@@ -41,51 +85,4 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       )
     )
 
-  override def readWriteServiceOwner(
-      config: Config[ExtraConfig],
-      participantConfig: ParticipantConfig,
-      engine: Engine,
-  )(implicit
-      materializer: Materializer,
-      loggingContext: LoggingContext,
-  ): ResourceOwner[ReadWriteService] =
-    new Owner(config, participantConfig, engine)
-
-  class Owner(
-      config: Config[ExtraConfig],
-      participantConfig: ParticipantConfig,
-      engine: Engine,
-  )(implicit loggingContext: LoggingContext)
-      extends ResourceOwner[KeyValueParticipantState] {
-    override def acquire()(implicit
-        context: ResourceContext
-    ): Resource[KeyValueParticipantState] = {
-      val jdbcUrl = config.extra.jdbcUrl.getOrElse {
-        throw new IllegalStateException("No JDBC URL provided.")
-      }
-      val metrics = createMetrics(participantConfig, config)
-      new SqlLedgerReaderWriter.Owner(
-        ledgerId = config.ledgerId,
-        participantId = participantConfig.participantId,
-        metrics = metrics,
-        engine = engine,
-        jdbcUrl = jdbcUrl,
-        resetOnStartup = false,
-        offsetVersion = 0,
-        logEntryIdAllocator = RandomLogEntryIdAllocator,
-        stateValueCache = caching.WeightedCache.from(
-          configuration = config.stateValueCache,
-          metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
-        ),
-      ).acquire()
-        .map(readerWriter =>
-          new KeyValueParticipantState(
-            readerWriter,
-            readerWriter,
-            metrics,
-            enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
-          )
-        )
-    }
-  }
 }

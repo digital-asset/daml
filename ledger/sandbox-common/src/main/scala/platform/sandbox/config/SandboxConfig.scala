@@ -60,6 +60,7 @@ final case class SandboxConfig(
     acsIdPageSize: Int,
     acsIdFetchingParallelism: Int,
     acsContractFetchingParallelism: Int,
+    acsGlobalParallelism: Int,
     lfValueTranslationEventCacheConfiguration: SizedCache.Configuration,
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
     profileDir: Option[Path],
@@ -99,6 +100,7 @@ object SandboxConfig {
   val DefaultAcsIdPageSize: Int = 20000
   val DefaultAcsIdFetchingParallelism: Int = 2
   val DefaultAcsContractFetchingParallelism: Int = 2
+  val DefaultAcsGlobalParallelism: Int = 10
 
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
 
@@ -153,6 +155,7 @@ object SandboxConfig {
       acsIdPageSize = DefaultAcsIdPageSize,
       acsIdFetchingParallelism = DefaultAcsIdFetchingParallelism,
       acsContractFetchingParallelism = DefaultAcsContractFetchingParallelism,
+      acsGlobalParallelism = DefaultAcsGlobalParallelism,
       lfValueTranslationEventCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,

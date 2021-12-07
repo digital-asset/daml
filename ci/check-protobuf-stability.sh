@@ -119,7 +119,7 @@ USAGE
   # The files are always split for versions > 1.17, and there is no way of opening a PR against a target <= 1.17 which includes this check
   BUF_CONFIG_UPDATED=true
   BUF_GIT_TARGET_TO_CHECK=".git#branch=origin/${TARGET}"
-  # The target check can be skipped by including the following trailer `Breaks-Proto: true` into the commit message
+  # The target check can be skipped by including the following trailer `Breaks-Protobuf: true` into the commit message
   if is_check_skipped; then
     echo "Skipping check for protobuf compatibility"
   else

@@ -19,14 +19,14 @@ import DA.Assert ( (===) )
 
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 
-instance DA.Internal.Desugar.Implements Token Token where
-  toInterface = GHC.Types.primitive @"EToInterface"
-  fromInterface = GHC.Types.primitive @"EFromInterface"
-  toInterfaceContractId
-    = GHC.Types.primitive @"EToInterfaceContractId"
-  fromInterfaceContractId
-    = GHC.Types.primitive @"UFromInterfaceContractId"
+instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
   interfaceTypeRep = GHC.Types.primitive @"$TO_TYPE_REP"
+
+instance DA.Internal.Desugar.HasToInterface Token Token where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+
+instance DA.Internal.Desugar.HasFromInterface Token Token where
+  fromInterface = GHC.Types.primitive @"EFromInterface"
 
 instance DA.Internal.Desugar.HasFetch Token where
   fetch = GHC.Types.primitive @"UFetchInterface"
@@ -37,7 +37,7 @@ noopImpl :
   DA.Internal.Desugar.Implements t Token => t -> () -> Update ()
 noopImpl t
   = GHC.Types.primitiveInterface
-      @"noopImpl" (DA.Internal.Desugar.toInterface @_ @Token t)
+      @"noopImpl" (DA.Internal.Desugar._toInterface @_ @Token t)
 
 instance DA.Internal.Desugar.HasMethod Token "transferImpl" (Party
                                                              -> Update (ContractId Token))
@@ -46,7 +46,7 @@ transferImpl :
   t -> Party -> Update (ContractId Token)
 transferImpl t
   = GHC.Types.primitiveInterface
-      @"transferImpl" (DA.Internal.Desugar.toInterface @_ @Token t)
+      @"transferImpl" (DA.Internal.Desugar._toInterface @_ @Token t)
 
 instance DA.Internal.Desugar.HasMethod Token "splitImpl" (Int
                                                           -> Update (ContractId Token,
@@ -56,7 +56,7 @@ splitImpl :
   t -> Int -> Update (ContractId Token, ContractId Token)
 splitImpl t
   = GHC.Types.primitiveInterface
-      @"splitImpl" (DA.Internal.Desugar.toInterface @_ @Token t)
+      @"splitImpl" (DA.Internal.Desugar._toInterface @_ @Token t)
 
 instance DA.Internal.Desugar.HasMethod Token "setAmount" (Int
                                                           -> Token)
@@ -64,19 +64,19 @@ setAmount :
   DA.Internal.Desugar.Implements t Token => t -> Int -> Token
 setAmount t
   = GHC.Types.primitiveInterface
-      @"setAmount" (DA.Internal.Desugar.toInterface @_ @Token t)
+      @"setAmount" (DA.Internal.Desugar._toInterface @_ @Token t)
 
 instance DA.Internal.Desugar.HasMethod Token "getAmount" (Int)
 getAmount : DA.Internal.Desugar.Implements t Token => t -> Int
 getAmount t
   = GHC.Types.primitiveInterface
-      @"getAmount" (DA.Internal.Desugar.toInterface @_ @Token t)
+      @"getAmount" (DA.Internal.Desugar._toInterface @_ @Token t)
 
 instance DA.Internal.Desugar.HasMethod Token "getOwner" (Party)
 getOwner : DA.Internal.Desugar.Implements t Token => t -> Party
 getOwner t
   = GHC.Types.primitiveInterface
-      @"getOwner" (DA.Internal.Desugar.toInterface @_ @Token t)
+      @"getOwner" (DA.Internal.Desugar._toInterface @_ @Token t)
 
 instance DA.Internal.Desugar.HasToAnyTemplate Token where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
@@ -104,7 +104,7 @@ instance (DA.Internal.Desugar.Implements t Token) =>
   exercise cid
     = GHC.Types.primitive
         @"UExerciseInterface"
-        (DA.Internal.Desugar.toInterfaceContractId @t @Token cid)
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
 
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Noop (()) where
@@ -117,7 +117,7 @@ instance (DA.Internal.Desugar.Implements t Token) =>
   exercise cid
     = GHC.Types.primitive
         @"UExerciseInterface"
-        (DA.Internal.Desugar.toInterfaceContractId @t @Token cid)
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
 
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Transfer (ContractId Token) where
@@ -130,7 +130,7 @@ instance (DA.Internal.Desugar.Implements t Token) =>
   exercise cid
     = GHC.Types.primitive
         @"UExerciseInterface"
-        (DA.Internal.Desugar.toInterfaceContractId @t @Token cid)
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
 
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t Split ((ContractId Token,
@@ -146,7 +146,7 @@ instance (DA.Internal.Desugar.Implements t Token) =>
   exercise cid
     = GHC.Types.primitive
         @"UExerciseInterface"
-        (DA.Internal.Desugar.toInterfaceContractId @t @Token cid)
+        (DA.Internal.Desugar.toInterfaceContractId @Token cid)
 
 data GHC.Types.DamlTemplate => GetRich
   = GetRich {byHowMuch : Int}
@@ -300,14 +300,15 @@ _choice_AssetArchive
        -> let _ = self in let _ = this in let _ = arg in pure (),
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 
-instance DA.Internal.Desugar.Implements Asset Token where
-  toInterface = GHC.Types.primitive @"EToInterface"
+_implements_Asset_Token :
+  DA.Internal.Desugar.ImplementsT Asset Token
+_implements_Asset_Token = DA.Internal.Desugar.ImplementsT
+
+instance DA.Internal.Desugar.HasToInterface Asset Token where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+
+instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  toInterfaceContractId
-    = GHC.Types.primitive @"EToInterfaceContractId"
-  fromInterfaceContractId
-    = GHC.Types.primitive @"UFromInterfaceContractId"
-  interfaceTypeRep = GHC.Types.primitive @"$TO_TYPE_REP"
 
 _method_Asset_Token_getOwner
   = DA.Internal.Desugar.mkMethod
@@ -330,7 +331,7 @@ _method_Asset_Token_setAmount
       @"setAmount"
       (\ this@Asset {..}
          -> let _ = this
-            in \ x -> toInterface @_ @Token (this {amount = x}))
+            in \ x -> _toInterface @_ @Token (this {amount = x}))
 
 _method_Asset_Token_splitImpl
   = DA.Internal.Desugar.mkMethod
@@ -345,8 +346,8 @@ _method_Asset_Token_splitImpl
                       cid1 <- create this {amount = splitAmount}
                       cid2 <- create this {amount = amount - splitAmount}
                       pure
-                        (toInterfaceContractId @_ @Token cid1,
-                         toInterfaceContractId @_ @Token cid2))
+                        (toInterfaceContractId @Token cid1,
+                         toInterfaceContractId @Token cid2))
 
 _method_Asset_Token_transferImpl
   = DA.Internal.Desugar.mkMethod
@@ -358,7 +359,7 @@ _method_Asset_Token_transferImpl
             in
               \ newOwner
                 -> do cid <- create this {owner = newOwner}
-                      pure (toInterfaceContractId @_ @Token cid))
+                      pure (toInterfaceContractId @Token cid))
 
 _method_Asset_Token_noopImpl
   = DA.Internal.Desugar.mkMethod
@@ -374,23 +375,23 @@ main
              do create Asset {issuer = p, owner = p, amount = - 1}
          p `submit`
              do cidAsset1 <- create Asset {issuer = p, owner = p, amount = 15}
-                let cidToken1 = toInterfaceContractId @_ @Token cidAsset1
+                let cidToken1 = toInterfaceContractId @Token cidAsset1
                 _ <- exercise cidToken1 (Noop ())
                 (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
                 token2 <- fetch cidToken2
                 getAmount token2 === 10
-                case fromInterface @_ @Token token2 of
+                case fromInterface token2 of
                   None -> abort "expected Asset"
                   Some Asset {amount} -> amount === 10
                 token3 <- fetch cidToken3
                 getAmount token3 === 5
-                case fromInterface @_ @Token token3 of
+                case fromInterface token3 of
                   None -> abort "expected Asset"
                   Some Asset {amount} -> amount === 5
                 cidToken4 <- exercise cidToken3 (GetRich 20)
                 token4 <- fetch cidToken4
                 getAmount token4 === 25
-                case fromInterface @_ @Token token4 of
+                case fromInterface token4 of
                   None -> abort "expected Asset"
                   Some Asset {amount} -> amount === 25
                 pure ()

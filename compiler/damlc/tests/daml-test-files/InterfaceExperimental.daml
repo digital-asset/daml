@@ -59,11 +59,11 @@ template Asset
             assert (splitAmount < amount)
             cid1 <- create this with amount = splitAmount
             cid2 <- create this with amount = amount - splitAmount
-            pure (toInterfaceContractId @_ @Token cid1, toInterfaceContractId @_ @Token cid2)
+            pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)
 
       let transferImpl = \newOwner -> do
             cid <- create this with owner = newOwner
-            pure (toInterfaceContractId @_ @Token cid)
+            pure (toInterfaceContractId @Token cid)
 
       let noopImpl = \nothing -> do
             pure ()
@@ -93,12 +93,11 @@ main = scenario do
     alice <- getParty "Alice"
     bob <- getParty "Bob"
     let asset = Asset alice bob 15
-    let notAsset = NotAsset alice
-    let token = toInterface @_ @Token asset
+    let token = toInterface @Token asset
     submit alice do
       interfaceCreate token
       interfaceSignatory token === [alice]
       interfaceObserver token === [bob, alice]
-      unless (interfaceTypeRep @_ @Token token == interfaceTypeRep @_ @Token asset) $ abort "TypeReps are not equal"
-      unless (interfaceTypeRep @_ @Token token /= interfaceTypeRep @_ @Token notAsset) $ abort "TypeReps are equal"
+      unless (TemplateTypeRep (interfaceTypeRep token) == templateTypeRep @Asset) $ abort "TypeReps are not equal"
+      unless (TemplateTypeRep (interfaceTypeRep token) /= templateTypeRep @NotAsset ) $ abort "TypeReps are equal"
       pure ()

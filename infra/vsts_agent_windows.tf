@@ -10,9 +10,16 @@ locals {
 locals {
   w = [
     {
-      suffix     = "",
+      name       = "ci-w1",
+      size       = 0,
+      assignment = "default",
+      disk_size  = 200,
+    },
+    {
+      name       = "ci-w2"
       size       = 6,
       assignment = "default",
+      disk_size  = 400
     },
   ]
 }
@@ -20,17 +27,17 @@ locals {
 resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
   count    = length(local.w)
   provider = google-beta
-  name     = "vsts-agent-windows${local.w[count.index].suffix}"
+  name     = local.w[count.index].name
 
   # keep the name short. windows hostnames are limited to 12(?) chars.
   # -5 for the random postfix:
-  base_instance_name = "vsts-win${local.w[count.index].suffix}"
+  base_instance_name = local.w[count.index].name
 
   region      = "us-east1"
   target_size = local.w[count.index].size
 
   version {
-    name              = "vsts-agent-windows${local.w[count.index].suffix}"
+    name              = local.w[count.index].name
     instance_template = google_compute_instance_template.vsts-agent-windows[count.index].self_link
   }
 
@@ -54,12 +61,12 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
 
 resource "google_compute_instance_template" "vsts-agent-windows" {
   count        = length(local.w)
-  name_prefix  = "vsts-agent-windows${local.w[count.index].suffix}-"
+  name_prefix  = "${local.w[count.index].name}-"
   machine_type = "c2-standard-8"
   labels       = local.machine-labels
 
   disk {
-    disk_size_gb = 200
+    disk_size_gb = local.w[count.index].disk_size
     disk_type    = "pd-ssd"
 
     # find the image name with `gcloud compute images list`
@@ -68,7 +75,7 @@ resource "google_compute_instance_template" "vsts-agent-windows" {
 
   # Drive D:\ for the agent work folder
   disk {
-    disk_size_gb = 200
+    disk_size_gb = local.w[count.index].disk_size
     disk_type    = "pd-ssd"
   }
 

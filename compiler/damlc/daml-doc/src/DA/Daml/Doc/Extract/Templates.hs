@@ -5,10 +5,12 @@ module DA.Daml.Doc.Extract.Templates
     ( getTemplateDocs
     , getTemplateData
     , getInstanceDocs
+    , getInterfaceDocs
     , stripInstanceSuffix
     ) where
 
 import DA.Daml.Doc.Types
+import qualified DA.Daml.Doc.Types as DDoc
 import DA.Daml.Doc.Extract.Types
 import DA.Daml.Doc.Extract.Util
 import DA.Daml.Doc.Extract.TypeExpr
@@ -30,8 +32,9 @@ getTemplateDocs ::
     DocCtx
     -> MS.Map Typename ADTDoc -- ^ maps template names to their ADT docs
     -> MS.Map Typename ClassDoc -- ^ maps template names to their template instance class docs
+    -> MS.Map Typename (Set.Set DDoc.Type)-- ^ maps template names to their implemented interfaces' types
     -> [TemplateDoc]
-getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
+getTemplateDocs DocCtx{..} typeMap templateInstanceMap templateImplementsMap =
     map mkTemplateDoc $ Set.toList dc_templates
   where
     -- The following functions use the type map and choice map in scope, so
@@ -45,49 +48,36 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
       , td_descr = ad_descr tmplADT
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
-      , td_choices = map mkChoiceDoc choices
-      -- is filled via distributeInstanceDocs
-      , td_impls = []
+      , td_choices = map (mkChoiceDoc typeMap) choices
+      , td_impls =
+          ImplDoc <$>
+            Set.toList (MS.findWithDefault mempty name templateImplementsMap)
       }
       where
-        tmplADT = asADT name
+        tmplADT = asADT typeMap name
         choices = Set.toList . fromMaybe Set.empty $ MS.lookup name dc_choices
 
-    mkChoiceDoc :: Typename -> ChoiceDoc
-    mkChoiceDoc name = ChoiceDoc
-      { cd_name = ad_name choiceADT
-      , cd_descr = ad_descr choiceADT
-      -- assumes exactly one constructor (syntactic in the template syntax), or
-      -- uses a dummy value otherwise.
-      , cd_fields = getFields choiceADT
+
+-- | Build interface docs up from class docs.
+getInterfaceDocs :: DocCtx
+    -> MS.Map Typename ADTDoc -- ^ maps template names to their ADT docs
+    -> [InterfaceDoc]
+getInterfaceDocs DocCtx{..} typeMap =
+    map mkInterfaceDoc $ Set.toList dc_interfaces
+  where
+    -- The following functions use the type map and choice map in scope, so
+    -- defined internally, and not expected to fail on consistent arguments.
+    mkInterfaceDoc :: Typename -> InterfaceDoc
+    mkInterfaceDoc name = InterfaceDoc
+      { if_anchor = ad_anchor ifADT
+      , if_name = ad_name ifADT
+      , if_descr = ad_descr ifADT
+      , if_choices = map (mkChoiceDoc typeMap) choices
+      , if_methods = [] -- TODO (drsk) https://github.com/digital-asset/daml/issues/11347
       }
-          where choiceADT = asADT name
-
-    asADT n = fromMaybe dummyDT $
-              MS.lookup n typeMap
-    -- returns a dummy ADT if the choice argument is not in the local type map
-    -- (possible if choice instances are defined directly outside the template).
-    -- This wouldn't be necessary if we used the type-checked AST.
-      where dummyDT = ADTDoc { ad_anchor = Nothing
-                             , ad_name = dummyName n
-                             , ad_descr = Nothing
-                             , ad_args = []
-                             , ad_constrs = []
-                             , ad_instances = Nothing
-                             }
-
-            dummyName (Typename "Archive") = Typename "Archive"
-            dummyName (Typename t) = Typename $ "External:" <> t
-
-    -- Assuming one constructor (record or prefix), extract the fields, if any.
-    -- For choices without arguments, GHC returns a prefix constructor, so we
-    -- need to cater for this case specially.
-    getFields adt = case ad_constrs adt of
-                      [PrefixC{}] -> []
-                      [RecordC{ ac_fields = fields }] -> fields
-                      [] -> [] -- catching the dummy case here, see above
-                      _other -> error "getFields: found multiple constructors"
-
+      where
+        ifADT = asADT typeMap name
+        choices = Set.toList . fromMaybe Set.empty $ MS.lookup name dc_choices
 
 -- | Extracts all names of templates defined in a module,
 -- and a map of template names to its set of choices
@@ -103,7 +93,8 @@ getTemplateData ParsedModule{..} =
     interfaces = mapMaybe isInterface dataDs
     choiceMap = MS.fromListWith (<>) $
                 map (second Set.singleton) $
-                mapMaybe isChoice instDs
+                mapMaybe isChoice instDs ++
+                mapMaybe isIfaceChoice instDs
   in
     (Set.fromList templates, Set.fromList interfaces, choiceMap)
     where
@@ -137,7 +128,11 @@ isChoice :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
 isChoice (XClsInstDecl _) = Nothing
 isChoice ClsInstDecl{..}
   | L _ ty <- getLHsInstDeclHead cid_poly_ty
-  , HsAppTy _ (L _ cApp1) (L _ _cArgs) <- ty
+  = isChoiceTy ty
+
+isChoiceTy :: HsType GhcPs -> Maybe (Typename, Typename)
+isChoiceTy ty
+  | HsAppTy _ (L _ cApp1) (L _ _cArgs) <- ty
   , HsAppTy _ (L _ cApp2) cName <- cApp1
   , HsAppTy _ (L _ choice) cTmpl <- cApp2
   , HsTyVar _ _ (L _ choiceClass) <- choice
@@ -148,6 +143,34 @@ isChoice ClsInstDecl{..}
   , occNameString classOcc == "HasExercise"
   = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
 
+  | otherwise = Nothing
+
+-- | If the given instance declaration is declaring an interface choice instance, return interface
+-- name and choice name.
+isIfaceChoice :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
+isIfaceChoice (XClsInstDecl _) = Nothing
+isIfaceChoice decl@ClsInstDecl{}
+  | Just (ifaceName, ty) <- hasImplementsConstraint decl
+  , Just (_templ, choiceName) <- isChoiceTy ty
+  = Just (Typename . packRdrName $ ifaceName, choiceName)
+
+  | otherwise = Nothing
+
+-- | Matches on a DA.Internal.Desugar.Implements interface constraint in the context of the instance
+-- declaration. Returns the interface name and the body of the instance in case the constraint is
+-- present, else nothing.
+hasImplementsConstraint :: ClsInstDecl GhcPs -> Maybe (RdrName, HsType GhcPs)
+hasImplementsConstraint (XClsInstDecl _) = Nothing
+hasImplementsConstraint ClsInstDecl{..}
+  | (L _ [L _ ctx], L _ ty) <- splitLHsQualTy $ hsSigType cid_poly_ty
+  , HsParTy _ (L _ (HsAppTy _ (L _ app1) (L _ iface))) <- ctx
+  , HsTyVar _ _ (L _ ifaceName) <- iface
+  , HsAppTy _ (L _ impl) (L _ _t) <- app1
+  , HsTyVar _ _ (L _ implCls) <- impl
+  , Qual implClsModule implClassOcc <- implCls
+  , moduleNameString implClsModule == "DA.Internal.Desugar"
+  , occNameString implClassOcc == "Implements"
+  = Just (ifaceName, ty)
   | otherwise = Nothing
 
 -- | Strip the @Instance@ suffix off of a typename, if it's there.
@@ -167,3 +190,44 @@ getInstanceDocs ctx ClsInst{..} =
         , id_type = typeToType ctx ty
         , id_isOrphan = isOrphan is_orphan
         }
+
+-- Utilities common to templates and interfaces
+-----------------------------------------------
+
+-- | Create an ADT from a Typename
+asADT :: MS.Map Typename ADTDoc -> Typename -> ADTDoc
+asADT typeMap n = fromMaybe dummyDT $ MS.lookup n typeMap
+  where
+    dummyDT =
+      ADTDoc
+        { ad_anchor = Nothing
+        , ad_name = dummyName n
+        , ad_descr = Nothing
+        , ad_args = []
+        , ad_constrs = []
+        , ad_instances = Nothing
+        }
+    dummyName (Typename "Archive") = Typename "Archive"
+    dummyName (Typename t) = Typename $ "External:" <> t
+
+-- | Assuming one constructor (record or prefix), extract the fields, if any.  For choices without
+-- arguments, GHC returns a prefix constructor, so we need to cater for this case specially.
+getFields :: ADTDoc -> [FieldDoc]
+getFields adt =
+  case ad_constrs adt of
+    [PrefixC {}] -> []
+    [RecordC {ac_fields = fields}] -> fields
+    [] -> [] -- catching the dummy case here, see above
+    _other -> error "getFields: found multiple constructors"
+
+mkChoiceDoc :: MS.Map Typename ADTDoc -> Typename -> ChoiceDoc
+mkChoiceDoc typeMap name =
+  ChoiceDoc
+    { cd_name = ad_name choiceADT
+    , cd_descr = ad_descr choiceADT
+  -- assumes exactly one constructor (syntactic in the template syntax), or
+  -- uses a dummy value otherwise.
+    , cd_fields = getFields choiceADT
+    }
+  where
+    choiceADT = asADT typeMap name

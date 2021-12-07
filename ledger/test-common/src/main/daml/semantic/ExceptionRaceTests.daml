@@ -1,10 +1,8 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE CPP #-}
 module ExceptionRaceTests where
 
-#ifdef DAML_EXCEPTIONS
 import DA.Exception
 import DA.Optional (isSome)
 
@@ -108,4 +106,3 @@ template ExerciseWrapper
            throw E
           catch
             E -> pure ()
-#endif
