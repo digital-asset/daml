@@ -26,7 +26,7 @@ import com.daml.platform.configuration.{
   PartyConfiguration,
   SubmissionConfiguration,
 }
-import com.daml.platform.index.InMemoryUserManagementService
+import com.daml.platform.index.InMemoryUserManagementStore
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{Port, PortFiles}
 import com.daml.telemetry.TelemetryContext
@@ -88,7 +88,7 @@ object StandaloneApiServer {
     )
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
 
-    val userManagementService = new InMemoryUserManagementService
+    val userManagementService = new InMemoryUserManagementStore
 
     for {
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()

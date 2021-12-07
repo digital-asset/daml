@@ -51,7 +51,7 @@ import java.nio.file.Files
 import java.time.Instant
 import java.util.concurrent.Executors
 
-import com.daml.platform.index.InMemoryUserManagementService
+import com.daml.platform.index.InMemoryUserManagementStore
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -308,7 +308,7 @@ final class SandboxServer(
       case None => "in-memory"
     }
 
-    val userManagementService = new InMemoryUserManagementService
+    val userManagementService = new InMemoryUserManagementStore
 
     for {
       servicesExecutionContext <- ResourceOwner

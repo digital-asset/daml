@@ -6,7 +6,7 @@ package com.daml.ledger.api.auth.interceptor
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.domain.{UserId, UserRight}
-import com.daml.ledger.participant.state.index.v2.UserManagementService
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -21,7 +21,7 @@ import scala.util.{Failure, Success}
   */
 final class AuthorizationInterceptor(
     protected val authService: AuthService, // FIXME: figure out why a protected val is required here
-    userManagementService: UserManagementService,
+    userManagementService: UserManagementStore,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit loggingContext: LoggingContext, ec: ExecutionContext)
     extends ServerInterceptor {
@@ -119,7 +119,7 @@ object AuthorizationInterceptor {
 
   def apply(
       authService: AuthService,
-      userManagementService: UserManagementService,
+      userManagementService: UserManagementStore,
       errorCodesStatusSwitcher: ErrorCodesVersionSwitcher,
   )(implicit ec: ExecutionContext): AuthorizationInterceptor =
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>

@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 //import scala.concurrent.duration._
 
-final class InMemoryUserManagementServiceSpec
+final class InMemoryUserManagementStoreSpec
     extends AnyWordSpec
     with Matchers
 //    with Eventually

@@ -11,8 +11,8 @@ import com.daml.error.{
 }
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.admin.user_management_service._
-import com.daml.ledger.participant.state.index.v2.UserManagementService
-import com.daml.ledger.participant.state.index.v2.UserManagementService._
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.participant.state.index.v2.UserManagementStore._
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
@@ -22,7 +22,7 @@ import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiUserManagementService(
-    userManagementService: UserManagementService,
+    userManagementService: UserManagementStore,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
 //    materializer: Materializer,

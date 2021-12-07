@@ -6,8 +6,8 @@ package com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.api.domain.{UserId, User, UserRight}
 import scala.concurrent.Future
 
-trait UserManagementService {
-  import UserManagementService._
+trait UserManagementStore {
+  import UserManagementStore._
 
   def createUser(user: User, rights: Set[UserRight]): Future[Result[Unit]]
 
@@ -24,7 +24,7 @@ trait UserManagementService {
   def listUsers( /* TODO: pagination -- pageSize: Int, pageToken: String*/ ): Future[Result[Users]]
 }
 
-object UserManagementService {
+object UserManagementStore {
   type Result[T] = Either[Error, T]
   type Users =
     Seq[User] // TODO: pagination -- change to something like case class PaginatedUsers(users: Seq[User], nextPageToken: String)

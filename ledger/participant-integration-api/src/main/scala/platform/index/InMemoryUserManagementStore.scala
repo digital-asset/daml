@@ -4,15 +4,15 @@
 package com.daml.platform.index
 
 import com.daml.ledger.api.domain.{UserId, User, UserRight}
-import com.daml.ledger.participant.state.index.v2.UserManagementService
-import com.daml.ledger.participant.state.index.v2.UserManagementService._
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.participant.state.index.v2.UserManagementStore._
 import com.daml.lf.data.Ref
 
 import scala.concurrent.Future
 import scala.collection.mutable
 
-class InMemoryUserManagementService extends UserManagementService {
-  import InMemoryUserManagementService._
+class InMemoryUserManagementStore extends UserManagementStore {
+  import InMemoryUserManagementStore._
 
   override def createUser(user: User, rights: Set[UserRight]): Future[Result[Unit]] =
     Future.successful {
@@ -126,7 +126,7 @@ class InMemoryUserManagementService extends UserManagementService {
   }
 }
 
-object InMemoryUserManagementService {
+object InMemoryUserManagementStore {
   case class UserInfo(user: User, rights: Set[UserRight]) {
     def toStateEntry: (UserId, UserInfo) = user.id -> this
   }

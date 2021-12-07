@@ -77,7 +77,7 @@ private[daml] object ApiServices {
       participantId: Ref.ParticipantId,
       optWriteService: Option[state.WriteService],
       indexService: IndexService,
-      userManagementService: UserManagementService,
+      userManagementService: UserManagementStore,
       authorizer: Authorizer,
       engine: Engine,
       timeProvider: TimeProvider,

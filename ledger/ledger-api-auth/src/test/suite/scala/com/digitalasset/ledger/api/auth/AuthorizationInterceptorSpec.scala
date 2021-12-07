@@ -14,7 +14,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import java.util.concurrent.CompletableFuture
 
-import com.daml.ledger.participant.state.index.v2.UserManagementService
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
 
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.Promise
@@ -51,7 +51,7 @@ class AuthorizationInterceptorSpec
       usesSelfServiceErrorCodes: Boolean
   )(assertRpcStatus: (Status, Metadata) => Assertion) = {
     val authService = mock[AuthService]
-    val userManagementService = mock[UserManagementService]
+    val userManagementService = mock[UserManagementStore]
     val serverCall = mock[ServerCall[Nothing, Nothing]]
     val failedMetadataDecode = CompletableFuture.supplyAsync[ClaimSet](() =>
       throw new RuntimeException("some internal failure")
