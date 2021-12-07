@@ -5,7 +5,7 @@ package com.daml.ledger.api.auth.interceptor
 
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.auth._
-import com.daml.ledger.api.domain.{ApplicationId, UserRight}
+import com.daml.ledger.api.domain.{UserId, UserRight}
 import com.daml.ledger.participant.state.index.v2.UserManagementService
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -71,7 +71,7 @@ final class AuthorizationInterceptor(
       case ClaimSet.Claims(claims, ledgerId, participantId, Some(applicationId), expiration) if claims.isEmpty =>   // FIXME: use the Claims.isStandardJwtToken function here
         // no claims embedded in the token and applicationId given ==> lookup user rights
         // FIXME: validation of userId
-        getUserClaims(ApplicationId(Ref.LedgerString.assertFromString(applicationId))).map({
+        getUserClaims(UserId(Ref.UserId.assertFromString(applicationId))).map({
           case None => { // FIXME: understand why are these braces considered redundant by IntelliJ?
             logger.warn(s"Authorization error: cannot resolve rights for unknown user '$applicationId'.")
             ClaimSet.Unauthenticated
@@ -96,7 +96,7 @@ final class AuthorizationInterceptor(
   }
 
   // FIXME: inline this function into the above
-  private[this] def getUserClaims(userId : ApplicationId): Future[Option[List[Claim]]] = {
+  private[this] def getUserClaims(userId : UserId): Future[Option[List[Claim]]] = {
     userManagementService.listUserRights(userId)
       .map {
         // FIXME: figure out the idiomatic way to do that

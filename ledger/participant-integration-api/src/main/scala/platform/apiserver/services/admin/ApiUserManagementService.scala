@@ -48,7 +48,7 @@ private[apiserver] final class ApiUserManagementService(
       import fieldValidations._
       for {
         pUser <- requirePresence(request.user, "user")
-        pUserId <- requireApplicationId(pUser.id, "id")
+        pUserId <- requireUserId(pUser.id, "id")
         pOptPrimaryParty <-
           if (pUser.primaryParty.isEmpty)
             scala.util.Right(None)
@@ -71,7 +71,7 @@ private[apiserver] final class ApiUserManagementService(
 
   override def getUser(request: GetUserRequest): Future[User] = {
     withValidation(
-      fieldValidations.requireApplicationId(request.userId, "user_id")
+      fieldValidations.requireUserId(request.userId, "user_id")
     )(userId =>
       userManagementService
         .getUser(userId)
@@ -82,7 +82,7 @@ private[apiserver] final class ApiUserManagementService(
 
   override def deleteUser(request: DeleteUserRequest): Future[DeleteUserResponse] =
     withValidation(
-      fieldValidations.requireApplicationId(request.userId, "user_id")
+      fieldValidations.requireUserId(request.userId, "user_id")
     )(userId =>
       userManagementService
         .deleteUser(userId)
@@ -99,7 +99,7 @@ private[apiserver] final class ApiUserManagementService(
 
   override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =
     withValidation(
-      fieldValidations.requireApplicationId(request.userId, "user_id")
+      fieldValidations.requireUserId(request.userId, "user_id")
     )(userId =>
       userManagementService
         .grantRights(
@@ -115,7 +115,7 @@ private[apiserver] final class ApiUserManagementService(
       request: RevokeUserRightsRequest
   ): Future[RevokeUserRightsResponse] =
     withValidation(
-      fieldValidations.requireApplicationId(request.userId, "user_id")
+      fieldValidations.requireUserId(request.userId, "user_id")
     )(userId =>
       userManagementService
         .revokeRights(
@@ -129,7 +129,7 @@ private[apiserver] final class ApiUserManagementService(
 
   override def listUserRights(request: ListUserRightsRequest): Future[ListUserRightsResponse] =
     withValidation(
-      fieldValidations.requireApplicationId(request.userId, "user_id")
+      fieldValidations.requireUserId(request.userId, "user_id")
     )(userId =>
       userManagementService
         .listUserRights(userId)

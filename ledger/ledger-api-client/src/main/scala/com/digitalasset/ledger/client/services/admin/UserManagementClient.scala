@@ -1,14 +1,14 @@
 package com.daml.ledger.client.services.admin
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{ApplicationId, User, UserRight}
-import com.daml.ledger.api.v1.admin.{user_management_service => proto}
-import com.daml.ledger.api.v1.admin.user_management_service.{GetUserRequest, Right}
+import com.daml.ledger.api.domain.{UserId, User, UserRight}
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementServiceStub
+import com.daml.ledger.api.v1.admin.user_management_service.{GetUserRequest, Right}
+import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.admin.UserManagementClient.{fromApiRight, fromProtoUser, toApiRight}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{LedgerString, Party}
+import com.daml.lf.data.Ref.Party
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -27,7 +27,7 @@ final class UserManagementClient
       .map(UserManagementClient.fromProtoUser)
   }
 
-  def getUser(userId: ApplicationId, token: Option[String] = None): Future[User] =
+  def getUser(userId: UserId, token: Option[String] = None): Future[User] =
     LedgerClient
       .stub(service, token)
       .getUser(GetUserRequest(userId.toString))
@@ -40,7 +40,7 @@ final class UserManagementClient
       .getUser(GetUserRequest())
       .map(UserManagementClient.fromProtoUser)
 
-  def deleteUser(userId: ApplicationId, token: Option[String] = None): Future[Unit] =
+  def deleteUser(userId: UserId, token: Option[String] = None): Future[Unit] =
     LedgerClient
       .stub(service, token)
       .deleteUser(proto.DeleteUserRequest(userId.toString))
@@ -52,19 +52,19 @@ final class UserManagementClient
       .listUsers(proto.ListUsersRequest())
       .map(_.users.view.map(fromProtoUser).toVector)
 
-  def grantUserRights(userId: ApplicationId, rights: Seq[UserRight], token: Option[String] = None): Future[Vector[UserRight]] =
+  def grantUserRights(userId: UserId, rights: Seq[UserRight], token: Option[String] = None): Future[Vector[UserRight]] =
     LedgerClient
       .stub(service, token)
       .grantUserRights(proto.GrantUserRightsRequest(userId.toString, rights.map(toApiRight)))
       .map(_.newlyGrantedRights.view.map(fromApiRight).toVector)
 
-  def revokeUserRights(userId: ApplicationId, rights: Seq[UserRight], token: Option[String] = None): Future[Vector[UserRight]] =
+  def revokeUserRights(userId: UserId, rights: Seq[UserRight], token: Option[String] = None): Future[Vector[UserRight]] =
     LedgerClient
       .stub(service, token)
       .revokeUserRights(proto.RevokeUserRightsRequest(userId.toString, rights.map(toApiRight)))
       .map(_.newlyRevokedRights.view.map(fromApiRight).toVector)
 
-  def listUserRights(userId: ApplicationId, token: Option[String] = None): Future[Vector[UserRight]] =
+  def listUserRights(userId: UserId, token: Option[String] = None): Future[Vector[UserRight]] =
     LedgerClient
       .stub(service, token)
       .listUserRights(proto.ListUserRightsRequest(userId.toString))
@@ -81,7 +81,7 @@ final class UserManagementClient
 object UserManagementClient {
   private def fromProtoUser(user: proto.User): User =
     User(
-      ApplicationId(LedgerString.assertFromString(user.id)),
+      UserId(Ref.UserId.assertFromString(user.id)),
       Option.unless(user.primaryParty.isEmpty)(Party.assertFromString(user.primaryParty))
     )
 
