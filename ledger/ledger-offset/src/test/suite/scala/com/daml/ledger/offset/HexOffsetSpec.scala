@@ -13,7 +13,7 @@ class HexOffsetSpec extends AnyWordSpec with Matchers {
 
   "building lexicographical string" should {
 
-    "return none for no valid option" in {
+    "return None if the lexicographically previous string does not exist" in {
       HexOffset.firstBefore(
         Ref.HexString.assertFromString("000000000000")
       ) shouldBe None
