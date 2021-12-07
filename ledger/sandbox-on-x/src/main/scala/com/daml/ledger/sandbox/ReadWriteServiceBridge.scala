@@ -76,7 +76,7 @@ case class ReadWriteServiceBridge(
   private val (conflictCheckingQueue, source) = {
     val parallelCheck = InstrumentedSource
       .queue[Transaction](
-        bufferSize = 1024,
+        bufferSize = 128,
         capacityCounter = metrics.daml.SoX.conflictQueueCapacity,
         lengthCounter = metrics.daml.SoX.conflictQueueLength,
         delayTimer = metrics.daml.SoX.conflictQueueDelay,
@@ -177,12 +177,21 @@ case class ReadWriteServiceBridge(
                   sequencerQueue =
                     sequencerQueue :+ (newOffset -> (transaction, updatedKeys, consumedContracts))
                   val smallestHead = minQueue.head._2
-                  val pruneFrom = sequencerQueue.view.map(_._1).search(smallestHead) match {
-                    case Searching.Found(foundIndex) => foundIndex - 1
-                    case Searching.InsertionPoint(insertionPoint) => insertionPoint - 1
-                  }
-                  sequencerQueue = sequencerQueue.slice(pruneFrom, sequencerQueue.length)
-                  minQueue = minQueue.removed(transaction)
+
+                  val pruneFrom =
+                    Timed.value(
+                      metrics.daml.SoX.queueSearch,
+                      sequencerQueue.view.map(_._1).search(smallestHead) match {
+                        case Searching.Found(foundIndex) => foundIndex - 1
+                        case Searching.InsertionPoint(insertionPoint) => insertionPoint - 1
+                      },
+                    )
+                  sequencerQueue = Timed.value(
+                    metrics.daml.SoX.slice,
+                    sequencerQueue.slice(pruneFrom, sequencerQueue.length),
+                  )
+                  minQueue =
+                    Timed.value(metrics.daml.SoX.minQueueRemove, minQueue.removed(transaction))
                   metrics.daml.SoX.minQueueSizeCounter.dec()
                   metrics.daml.SoX.sequencerQueueLengthCounter.update(sequencerQueue.size)
                 }

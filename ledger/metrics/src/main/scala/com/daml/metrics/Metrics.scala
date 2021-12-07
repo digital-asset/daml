@@ -41,6 +41,9 @@ final class Metrics(val registry: MetricRegistry) {
       val sequentialCheckDuration: Timer = registry.timer(Prefix :+ "sequential_check_duration")
 
       val queueBeforeSequencer: Counter = registry.counter(Prefix :+ "queue_before_sequencer")
+      val queueSearch: Timer = registry.timer(Prefix :+ "queue_search")
+      val slice: Timer = registry.timer(Prefix :+ "slice")
+      val minQueueRemove: Timer = registry.timer(Prefix :+ "min_queue_remove")
     }
 
     object commands {
