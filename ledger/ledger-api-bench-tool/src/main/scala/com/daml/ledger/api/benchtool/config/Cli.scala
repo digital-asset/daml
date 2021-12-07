@@ -207,7 +207,7 @@ object Cli {
             : Either[String, WorkflowConfig.StreamConfig.ActiveContractsStreamConfig] = for {
           name <- stringField("name")
           filters <- stringField("filters").flatMap(filters)
-          minItemRate <- optionalLongField("min-rate")
+          minItemRate <- optionalDoubleField("min-rate")
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,

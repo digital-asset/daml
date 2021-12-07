@@ -67,7 +67,7 @@ object WorkflowConfig {
     case class Objectives(
         maxDelaySeconds: Option[Long],
         minConsumptionSpeed: Option[Double],
-        minItemRate: Option[Long],
+        minItemRate: Option[Double],
     )
   }
 }
