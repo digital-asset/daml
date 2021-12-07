@@ -74,9 +74,9 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   def requireUserId(
       s: String,
       fieldName: String,
-   )(implicit
+  )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-   ): Either[StatusRuntimeException, UserId] =
+  ): Either[StatusRuntimeException, UserId] =
     Ref.UserId.fromString(s) match {
       case Right(userId) => Right(UserId(userId))
       case Left(msg) => Left(invalidField(fieldName, msg, definiteAnswer = Some(false)))

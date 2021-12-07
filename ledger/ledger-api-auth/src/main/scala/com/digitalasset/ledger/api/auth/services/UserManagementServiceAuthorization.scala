@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.api.auth.services
 
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
@@ -12,10 +15,10 @@ import io.grpc.ServerServiceDefinition
 import scala.concurrent.{ExecutionContext, Future}
 
 private[daml] final class UserManagementServiceAuthorization(
-         protected val service: UserManagementServiceGrpc.UserManagementService with AutoCloseable,
-         private val authorizer: Authorizer,
-       )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
-  extends UserManagementServiceGrpc.UserManagementService
+    protected val service: UserManagementServiceGrpc.UserManagementService with AutoCloseable,
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+    extends UserManagementServiceGrpc.UserManagementService
     with ProxyCloseable
     with GrpcApiService {
 
@@ -35,7 +38,10 @@ private[daml] final class UserManagementServiceAuthorization(
           claims.applicationId match {
             case None =>
               Future.failed(
-                LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject("user-id not set in authenticated claims").asGrpcError)
+                LedgerApiErrors.AuthorizationChecks.PermissionDenied
+                  .Reject("user-id not set in authenticated claims")
+                  .asGrpcError
+              )
             case Some(userId) =>
               service.getUser(request.copy(userId = userId))
           }
@@ -43,24 +49,27 @@ private[daml] final class UserManagementServiceAuthorization(
           // Custom JWT token: decode the user from the token
           val userId = claims.applicationId.getOrElse("")
           // FIXME: make this more idiomatic ==> move to claims type
-          val actAsParties = claims.claims.collect({
-            case ClaimActAsParty(p) => p
-          }).toSet
-          val allParties = claims.claims.collect({
-            case ClaimReadAsParty(p) => p
-            case ClaimActAsParty(p) => p
-          }).toSet
+          val actAsParties = claims.claims
+            .collect({ case ClaimActAsParty(p) =>
+              p
+            })
+            .toSet
+          val allParties = claims.claims
+            .collect({
+              case ClaimReadAsParty(p) => p
+              case ClaimActAsParty(p) => p
+            })
+            .toSet
 
           val user =
             if (allParties.size == 1)
               // Set a primary party if there's exactly one party for readAs and actAs
               User(userId, allParties.head)
-            else
-              if (actAsParties.size == 1) {
-                // Also set primary party if there's exactly one actAs right
-                User(userId, actAsParties.head)
-              } else
-                User(userId)
+            else if (actAsParties.size == 1) {
+              // Also set primary party if there's exactly one actAs right
+              User(userId, actAsParties.head)
+            } else
+              User(userId)
 
           Future.successful(user)
         }
@@ -78,7 +87,9 @@ private[daml] final class UserManagementServiceAuthorization(
   override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =
     authorizer.requireAdminClaims(service.grantUserRights)(request)
 
-  override def revokeUserRights(request: RevokeUserRightsRequest): Future[RevokeUserRightsResponse] =
+  override def revokeUserRights(
+      request: RevokeUserRightsRequest
+  ): Future[RevokeUserRightsResponse] =
     authorizer.requireAdminClaims(service.revokeUserRights)(request)
 
   override def listUserRights(request: ListUserRightsRequest): Future[ListUserRightsResponse] = {
@@ -90,7 +101,10 @@ private[daml] final class UserManagementServiceAuthorization(
             case Some(userId) => service.listUserRights(request.copy(userId = userId))
             case None =>
               Future.failed(
-                LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject("user-id not set in authenticated claims").asGrpcError)
+                LedgerApiErrors.AuthorizationChecks.PermissionDenied
+                  .Reject("user-id not set in authenticated claims")
+                  .asGrpcError
+              )
           }
         else {
           // Custom JWT token: deliver the decoded rights.
@@ -102,7 +116,9 @@ private[daml] final class UserManagementServiceAuthorization(
             case ClaimPublic => None
           }
 
-          val rights = claims.claims.collect(claimToRight.unlift) // FIXME: is this the idiomatic way while keeping the pattern matching completeness checks?
+          val rights = claims.claims.collect(
+            claimToRight.unlift
+          ) // FIXME: is this the idiomatic way while keeping the pattern matching completeness checks?
 
           Future.successful(ListUserRightsResponse(rights))
         }

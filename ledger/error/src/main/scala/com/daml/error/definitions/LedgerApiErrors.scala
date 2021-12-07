@@ -671,8 +671,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           )
     }
 
-    @Explanation(
-      """The user referred to by the request was not found, which may be due to:
+    @Explanation("""The user referred to by the request was not found, which may be due to:
         |
         |1. Connecting to the wrong participant node, as users are a participant local concept.
         |2. The user-id being misspelled.
@@ -682,17 +681,18 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Resolution(
       """Check that you are connecting to the right participant node and the user-id is spelled correctly,
         |if yes, create the user.
-        |""".stripMargin)
+        |""".stripMargin
+    )
     object UserNotFound
-      extends ErrorCode(
-        id = "USER_NOT_FOUND",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-      ) {
+        extends ErrorCode(
+          id = "USER_NOT_FOUND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
       case class Reject(_operation: String, userId: String)(implicit
-                                                            loggingContext: ContextualizedErrorLogger
+          loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-        cause = s"cannot ${_operation} for unknown user \"${userId}\"."
-      ) {
+            cause = s"cannot ${_operation} for unknown user \"${userId}\"."
+          ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId
         )
@@ -701,16 +701,16 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Explanation("There already exists another user with the same user-id.")
     @Resolution("Choose a different user-id or use the user that already exists.")
     object UserAlreadyExists
-      extends ErrorCode(
-        id = "USER_ALREADY_EXISTS",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
-      ) {
+        extends ErrorCode(
+          id = "USER_ALREADY_EXISTS",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
+        ) {
       case class Reject(_operation: String, userId: String)(implicit
-                                                            loggingContext: ContextualizedErrorLogger
+          loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-        cause = s"cannot ${_operation}, as user \"${userId}\" already exists."
-        // TODO: also output participantId
-      ) {
+            cause = s"cannot ${_operation}, as user \"${userId}\" already exists."
+            // TODO: also output participantId
+          ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId
         )

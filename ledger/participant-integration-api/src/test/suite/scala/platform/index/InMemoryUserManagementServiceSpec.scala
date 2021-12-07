@@ -25,21 +25,13 @@ final class InMemoryUserManagementServiceSpec
   //   getUser
   //   createUser
   "in-memory user management should" should {
-    "allow creating a fresh user" in {
+    "allow creating a fresh user" in {}
 
-    }
+    "disallow re-creating an existing user" in {}
 
-    "disallow re-creating an existing user" in {
+    "find a freshly created user" in {}
 
-    }
-
-    "find a freshly created user" in {
-
-    }
-
-    "not find a non-existent user" in {
-
-    }
+    "not find a non-existent user" in {}
 
   }
 
@@ -47,12 +39,8 @@ final class InMemoryUserManagementServiceSpec
   //    listUserRights
   //    revokeRights
   //    grantRights
-  "in-memory user rights management should" should {
-
-  }
+  "in-memory user rights management should" should {}
 
 //  override def afterAll(): Unit = {
 //  }
 }
-
-

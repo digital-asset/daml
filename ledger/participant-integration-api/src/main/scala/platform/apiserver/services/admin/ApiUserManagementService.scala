@@ -4,7 +4,11 @@
 package com.daml.platform.apiserver.services.admin
 
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.admin.user_management_service._
 import com.daml.ledger.participant.state.index.v2.UserManagementService
@@ -24,7 +28,6 @@ private[apiserver] final class ApiUserManagementService(
 //    materializer: Materializer,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
-
 ) extends UserManagementServiceGrpc.UserManagementService
     with GrpcApiService {
   import ApiUserManagementService._
@@ -35,7 +38,9 @@ private[apiserver] final class ApiUserManagementService(
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
   private val fieldValidations = FieldValidations(errorFactories)
 
-  private def withValidation[A, B](validatedResult: Either[StatusRuntimeException, A])(f: A => Future[B]): Future[B] =
+  private def withValidation[A, B](validatedResult: Either[StatusRuntimeException, A])(
+      f: A => Future[B]
+  ): Future[B] =
     validatedResult.fold(Future.failed, Future.successful).flatMap(f)
 
   override def close(): Unit = ()
@@ -92,9 +97,11 @@ private[apiserver] final class ApiUserManagementService(
 
   override def listUsers(request: ListUsersRequest): Future[ListUsersResponse] =
     userManagementService
-      .listUsers(/*request.pageSize, request.pageToken*/)
+      .listUsers( /*request.pageSize, request.pageToken*/ )
       .flatMap(handleResult("list users"))
-      .map(_.map(toApiUser))  // case (users, nextPageToken) => ListUsersResponse(users.map(toApiUser), nextPageToken)
+      .map(
+        _.map(toApiUser)
+      ) // case (users, nextPageToken) => ListUsersResponse(users.map(toApiUser), nextPageToken)
       .map(ListUsersResponse(_))
 
   override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =

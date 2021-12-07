@@ -203,7 +203,8 @@ private[daml] object ApiServices {
 
       val apiHealthService = new GrpcHealthService(healthChecks, errorsVersionsSwitcher)
 
-      val apiUserManagementService = new ApiUserManagementService(userManagementService, errorsVersionsSwitcher)
+      val apiUserManagementService =
+        new ApiUserManagementService(userManagementService, errorsVersionsSwitcher)
 
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::

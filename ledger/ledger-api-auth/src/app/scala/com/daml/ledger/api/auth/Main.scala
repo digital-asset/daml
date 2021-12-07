@@ -105,7 +105,7 @@ object Main {
           admin,
           parties,
           parties,
-          isCustomDamlToken = true
+          isCustomDamlToken = true,
         )
         val signingKey = KeyUtils
           .readRSAPrivateKeyFromDer(signingKeyFile)

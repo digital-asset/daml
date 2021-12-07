@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.sandbox.auth
 
 import java.util.UUID
@@ -14,19 +17,20 @@ class GetUserWithGivenUserIdAuthIT extends AdminServiceCallAuthTests {
   override def serviceCallWithToken(token: Option[String]): Future[Any] = {
     for {
       // test for an existing user
-      _ <- stub(UserManagementServiceGrpc.stub(channel), token).
-        getUser(GetUserRequest("participant_admin"))
+      _ <- stub(UserManagementServiceGrpc.stub(channel), token)
+        .getUser(GetUserRequest("participant_admin"))
       // test for a non-existent user
-      _ <- stub(UserManagementServiceGrpc.stub(channel), token).
-        getUser(GetUserRequest("non-existent-user-" + UUID.randomUUID().toString))
+      _ <- stub(UserManagementServiceGrpc.stub(channel), token)
+        .getUser(GetUserRequest("non-existent-user-" + UUID.randomUUID().toString))
         // FIXME: express this better using Scalatest expectations
         .transform({
-          case scala.util.Success(u) => scala.util.Failure(new RuntimeException(s"User $u unexpectedly exists."))
-          case scala.util.Failure(e : StatusRuntimeException) if (e.getStatus.getCode == Status.Code.NOT_FOUND) =>
+          case scala.util.Success(u) =>
+            scala.util.Failure(new RuntimeException(s"User $u unexpectedly exists."))
+          case scala.util.Failure(e: StatusRuntimeException)
+              if (e.getStatus.getCode == Status.Code.NOT_FOUND) =>
             scala.util.Success(())
-          case scala.util.Failure(e : Throwable) => scala.util.Failure(e)
+          case scala.util.Failure(e: Throwable) => scala.util.Failure(e)
         })
     } yield ()
   }
 }
-

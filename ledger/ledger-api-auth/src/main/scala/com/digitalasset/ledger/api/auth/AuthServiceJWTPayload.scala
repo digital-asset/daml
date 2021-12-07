@@ -40,9 +40,8 @@ case class AuthServiceJWTPayload(
     admin: Boolean,
     actAs: List[String],
     readAs: List[String],
-    isCustomDamlToken: Boolean // FIXME: better way to represent that
+    isCustomDamlToken: Boolean, // FIXME: better way to represent that
 ) {
-
 
   /** If this token is associated with exactly one party, returns that party name.
     * Otherwise, returns None.
@@ -157,7 +156,7 @@ object AuthServiceJWTCodec {
           admin = false,
           actAs = List.empty,
           readAs = List.empty,
-          isCustomDamlToken = false
+          isCustomDamlToken = false,
         )
       } else {
         // Legacy format
@@ -168,10 +167,12 @@ object AuthServiceJWTCodec {
           applicationId = readOptionalString(propApplicationId, fields),
           exp = readInstant(propExp, fields),
           admin = readOptionalBoolean(propAdmin, fields).getOrElse(false),
-          actAs =
-            readOptionalStringList(propActAs, fields) ++ readOptionalString(propParty, fields).toList,
+          actAs = readOptionalStringList(propActAs, fields) ++ readOptionalString(
+            propParty,
+            fields,
+          ).toList,
           readAs = readOptionalStringList(propReadAs, fields),
-          isCustomDamlToken = true
+          isCustomDamlToken = true,
         )
       }
     case JsObject(fields) =>
@@ -195,7 +196,7 @@ object AuthServiceJWTCodec {
         admin = readOptionalBoolean(propAdmin, customClaims).getOrElse(false),
         actAs = readOptionalStringList(propActAs, customClaims),
         readAs = readOptionalStringList(propReadAs, customClaims),
-        isCustomDamlToken = true
+        isCustomDamlToken = true,
       )
     case _ =>
       deserializationError(

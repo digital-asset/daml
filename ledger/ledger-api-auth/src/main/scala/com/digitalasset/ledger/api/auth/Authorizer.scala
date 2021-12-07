@@ -170,7 +170,7 @@ final class Authorizer(
           )
           Future.failed(ex)
         },
-        claims => call(claims)
+        claims => call(claims),
       )
 
   /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */

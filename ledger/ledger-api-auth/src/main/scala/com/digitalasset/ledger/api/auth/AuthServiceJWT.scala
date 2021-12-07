@@ -91,7 +91,8 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
       )
     } else
       ClaimSet.Claims(
-        claims = List.empty,  // FIXME: remove this ugly hack of using this field to signal that standard token
+        claims =
+          List.empty, // FIXME: remove this ugly hack of using this field to signal that standard token
         ledgerId = payload.ledgerId,
         participantId = payload.participantId,
         applicationId = payload.applicationId,

@@ -43,7 +43,8 @@ final class LedgerServices(val ledgerId: String) {
 
   import LedgerServices._
 
-  val executionContext: ExecutionContext = global // TODO: is global the right execution context? Usually it's passed implicitly -- why is this val not implicit?
+  val executionContext: ExecutionContext =
+    global // TODO: is global the right execution context? Usually it's passed implicitly -- why is this val not implicit?
   private val esf: ExecutionSequencerFactory = new SingleThreadExecutionSequencerPool(ledgerId)
   private val participantId = "LedgerServicesParticipant"
   private val authorizer =

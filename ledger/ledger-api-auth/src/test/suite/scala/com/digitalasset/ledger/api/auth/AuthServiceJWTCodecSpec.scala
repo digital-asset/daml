@@ -69,7 +69,7 @@ class AuthServiceJWTCodecSpec
               admin = false,
               actAs = List.empty,
               readAs = List.empty,
-              isCustomDamlToken = false
+              isCustomDamlToken = false,
             )
 
         serializeAndParse(value) shouldBe Success(value)
@@ -124,7 +124,7 @@ class AuthServiceJWTCodecSpec
           admin = true,
           actAs = List("Alice"),
           readAs = List("Alice", "Bob"),
-          isCustomDamlToken = true
+          isCustomDamlToken = true,
         )
         val result = parse(serialized)
         result shouldBe Success(expected)
@@ -147,7 +147,7 @@ class AuthServiceJWTCodecSpec
           admin = false,
           actAs = List("Alice"),
           readAs = List.empty,
-          isCustomDamlToken = true
+          isCustomDamlToken = true,
         )
         val result = parse(serialized)
         result shouldBe Success(expected)

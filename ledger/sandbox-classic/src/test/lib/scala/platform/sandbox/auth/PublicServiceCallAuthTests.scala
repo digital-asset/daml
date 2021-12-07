@@ -22,7 +22,6 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
     expectUnauthenticated(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
 
-
   it should "deny calls with an expired read/write token" in {
     expectUnauthenticated(serviceCallWithToken(canActAsRandomPartyExpired))
   }
