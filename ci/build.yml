@@ -118,7 +118,7 @@ jobs:
   timeoutInMinutes: 360
   pool:
     name: macOS-pool
-    demands: assignment -equals monterey
+    demands: Agent.OSVerson -equals 11.1
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
