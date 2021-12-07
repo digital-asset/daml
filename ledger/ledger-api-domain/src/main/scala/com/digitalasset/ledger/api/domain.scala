@@ -295,14 +295,14 @@ object domain {
   sealed trait ApplicationIdTag
 
   /** Identifiers for applications connecting to the Ledger API.
-   */
+    */
   type ApplicationId = Ref.ApplicationId @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
 
   /** Identifiers for participant node users interacting with the Ledger API.
-   *
-   * These are a subset of [[ApplicationId]]. See [[Ref.UserId]] for details.
-   */
+    *
+    * These are a subset of [[ApplicationId]]. See [[Ref.UserId]] for details.
+    */
   type UserId = Ref.UserId @@ ApplicationIdTag
   val UserId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
 
@@ -403,8 +403,8 @@ object domain {
   }
 
   final case class User(
-     id: UserId,
-     primaryParty: Option[Ref.Party],
+      id: UserId,
+      primaryParty: Option[Ref.Party],
   )
 
   sealed trait UserRight

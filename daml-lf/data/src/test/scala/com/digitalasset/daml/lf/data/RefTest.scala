@@ -291,7 +291,6 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
     }
   }
 
-
   "UserId" - {
     "accept valid user names" in {
       UserId.fromString("a") shouldBe a[Right[_, _]]
@@ -322,7 +321,6 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
       UserId.fromString(positiveTestCase1) shouldBe a[Left[_, _]]
     }
   }
-
 
   private def testOrdered[X <: Ordered[X]](name: String, elems: Iterable[X]) =
     s"$name#compare" - {
