@@ -154,7 +154,7 @@ class TransactionNodesStatisticsSpec
 
     "count all rolled back nodes properly" in {
       val b = TxBuilder()
-      var rbId = b.add(rollback(b)) // a "committed" rollback node
+      var rbId = b.add(rollback(b)) // a committed rollback node
 
       for (i <- 1 to testIterations) {
         rbId = b.add(rollback(b), rbId) // one additional rolled Back rollback node

@@ -88,7 +88,7 @@ object TransactionNodesStatistics {
       rollbacks = stats(rollbacksIdx),
     )
 
-  /** This function produces statistics about the "committed" nodes (those nodes
+  /** This function produces statistics about the committed nodes (those nodes
     *  that do not appear under a rollback node) on the one hand and
     *  rolled back nodes (those nodes that do appear under a rollback node) on
     *  the other hand within a given transaction `tx`.
