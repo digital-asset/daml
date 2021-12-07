@@ -10,6 +10,7 @@ import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
@@ -45,6 +46,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: ApplicationId)
     extends ScriptLedgerClient {
+  override val transport = "gRPC API"
+
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -338,4 +341,62 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       case TreeEvent(TreeEvent.Kind.Empty) =>
         throw new ConverterException("Invalid tree event Empty")
     }
+
+  override def createUser(
+      user: User,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[User] =
+    unsupportedOn("createUser")
+
+  override def getUser(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Option[User]] =
+    unsupportedOn("getUser")
+
+  override def deleteUser(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] =
+    unsupportedOn("deleteUser")
+
+  override def listUsers()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[User]] =
+    unsupportedOn("listUsers")
+
+  override def grantUserRights(
+      id: UserId,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    unsupportedOn("grantUserRights")
+
+  override def revokeUserRights(
+      id: UserId,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    unsupportedOn("revokeUserRights")
+
+  override def listUserRights(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    unsupportedOn("listUserRights")
 }

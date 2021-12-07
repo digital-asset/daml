@@ -5,7 +5,7 @@ package com.daml.lf.engine.script.ledgerinteraction
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.PartyDetails
+import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
@@ -67,6 +67,11 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Seq[ScriptLedgerClient.ActiveContract]]
 
+  protected def transport: String
+
+  final protected def unsupportedOn(what: String) =
+    Future.failed(new UnsupportedOperationException(s"$what is not supported when running Daml Script over the $transport"))
+
   def queryContractId(parties: OneAnd[Set, Ref.Party], templateId: Identifier, cid: ContractId)(
       implicit
       ec: ExecutionContext,
@@ -126,4 +131,48 @@ trait ScriptLedgerClient {
   def setStaticTime(
       time: Time.Timestamp
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory, mat: Materializer): Future[Unit]
+
+  def createUser(user: User, rights: List[UserRight])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[User]
+
+  def getUser(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Option[User]]
+
+  def deleteUser(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit]
+
+  def listUsers()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[User]]
+
+  def grantUserRights(id: UserId, rights: List[UserRight])(
+      implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]]
+
+  def revokeUserRights(id: UserId, rights: List[UserRight])(
+      implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]]
+
+  def listUserRights(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]]
 }
