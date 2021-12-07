@@ -88,14 +88,14 @@ object TransactionNodesStatistics {
       rollbacks = stats(rollbacksIdx),
     )
 
-  def stats(tx: VersionedTransaction): (TransactionNodesStatistics, TransactionNodesStatistics) =
-    stats(tx.transaction)
-
   /** This function produces statistics about the "committed" nodes (those nodes
     *  that do not appear under a rollback node) on the one hand and
     *  "rollbacked" nodes (those nodes that do appear under a rollback node) on
-    *  the other hand.
+    *  the other hand within a given transaction `tx`.
     */
+  def stats(tx: VersionedTransaction): (TransactionNodesStatistics, TransactionNodesStatistics) =
+    stats(tx.transaction)
+
   def stats(tx: Transaction): (TransactionNodesStatistics, TransactionNodesStatistics) = {
     val committed = emptyFields
     val rollbacked = emptyFields

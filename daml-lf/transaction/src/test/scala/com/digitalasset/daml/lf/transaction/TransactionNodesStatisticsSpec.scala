@@ -17,61 +17,9 @@ class TransactionNodesStatisticsSpec
     with Matchers
     with TableDrivenPropertyChecks {
 
-  private[this] def create(b: TxBuilder, withKey: Boolean = false) = {
-    val parties = Set(b.newParty)
-    b.create(
-      id = b.newCid,
-      templateId = b.newIdenfier,
-      argument = Value.ValueUnit,
-      signatories = parties,
-      observers = Set.empty,
-      key = if (withKey) Some(Value.ValueUnit) else None,
-      maintainers = if (withKey) parties else Set.empty,
-      byInterface = None,
-    )
-  }
-
-  private[this] def exe(consuming: Boolean, byKey: Boolean)(b: TxBuilder) = {
-    val c = create(b, byKey)
-    b.exercise(
-      contract = c,
-      choice = b.newChoiceName,
-      consuming = consuming,
-      actingParties = c.signatories,
-      argument = Value.ValueUnit,
-      result = Some(Value.ValueUnit),
-      choiceObservers = Set.empty,
-      byKey = byKey,
-      byInterface = None,
-    )
-  }
-
-  private[this] def fetch(byKey: Boolean)(b: TxBuilder) =
-    b.fetch(create(b, byKey), byKey, None)
-
-  private[this] def lookup(b: TxBuilder) =
-    b.lookupByKey(create(b, withKey = true), true)
-
-  private[this] def rollback(b: TxBuilder) =
-    b.rollback()
-
-  private[this] def addAllNodes(b: TxBuilder, rbId: NodeId) = {
-    b.add(create(b), rbId)
-    b.add(exe(consuming = false, byKey = false)(b), rbId)
-    b.add(exe(consuming = true, byKey = false)(b), rbId)
-    b.add(exe(consuming = false, byKey = true)(b), rbId)
-    b.add(exe(consuming = true, byKey = true)(b), rbId)
-    b.add(fetch(byKey = false)(b), rbId)
-    b.add(fetch(byKey = true)(b), rbId)
-    b.add(lookup(b), rbId)
-    b.add(rollback(b), rbId)
-    ()
-  }
-
   "TransactionNodeStatistics#+" should {
 
     "add" in {
-
       val s1 = TransactionNodesStatistics(1, 1, 1, 1, 1, 1, 1, 1, 1)
       val s2 = TransactionNodesStatistics(2, 3, 5, 7, 11, 13, 17, 19, 23)
       val s1s2 = TransactionNodesStatistics(3, 4, 6, 8, 12, 14, 18, 20, 24)
@@ -83,14 +31,65 @@ class TransactionNodesStatisticsSpec
       s2 + s1 shouldBe s1s2
       s2 + s2 shouldBe s2s2
     }
-
   }
 
   "TransactionNodeStatistics.stats" should {
 
-    val n = 3
+    def create(b: TxBuilder, withKey: Boolean = false) = {
+      val parties = Set(b.newParty)
+      b.create(
+        id = b.newCid,
+        templateId = b.newIdenfier,
+        argument = Value.ValueUnit,
+        signatories = parties,
+        observers = Set.empty,
+        key = if (withKey) Some(Value.ValueUnit) else None,
+        maintainers = if (withKey) parties else Set.empty,
+        byInterface = None,
+      )
+    }
+
+    def exe(consuming: Boolean, byKey: Boolean)(b: TxBuilder) = {
+      val c = create(b, byKey)
+      b.exercise(
+        contract = c,
+        choice = b.newChoiceName,
+        consuming = consuming,
+        actingParties = c.signatories,
+        argument = Value.ValueUnit,
+        result = Some(Value.ValueUnit),
+        choiceObservers = Set.empty,
+        byKey = byKey,
+        byInterface = None,
+      )
+    }
+
+    def fetch(byKey: Boolean)(b: TxBuilder) =
+      b.fetch(create(b, byKey), byKey, None)
+
+    def lookup(b: TxBuilder) =
+      b.lookupByKey(create(b, withKey = true), true)
+
+    def rollback(b: TxBuilder) =
+      b.rollback()
+
+    def addAllNodes(b: TxBuilder, rbId: NodeId) = {
+      b.add(create(b), rbId)
+      b.add(exe(consuming = false, byKey = false)(b), rbId)
+      b.add(exe(consuming = true, byKey = false)(b), rbId)
+      b.add(exe(consuming = false, byKey = true)(b), rbId)
+      b.add(exe(consuming = true, byKey = true)(b), rbId)
+      b.add(fetch(byKey = false)(b), rbId)
+      b.add(fetch(byKey = true)(b), rbId)
+      b.add(lookup(b), rbId)
+      b.add(rollback(b), rbId)
+      ()
+    }
+
+    val testIterations = 3
 
     type Getter = TransactionNodesStatistics => Int
+
     val testCases = Table[TxBuilder => Node, Getter](
       "makeNode" -> "getter",
       (create(_), _.creates),
@@ -108,7 +107,7 @@ class TransactionNodesStatisticsSpec
       forEvery(testCases) { (makeNode, getter) =>
         val builder = TxBuilder()
 
-        for (i <- 1 to n) {
+        for (i <- 1 to testIterations) {
           builder.add(makeNode(builder))
           inside(TransactionNodesStatistics.stats(builder.build())) {
             case (committed, rollbacked) =>
@@ -125,7 +124,7 @@ class TransactionNodesStatisticsSpec
         val builder = TxBuilder()
         val rollbackId = builder.add(builder.rollback())
 
-        for (i <- 1 to n) {
+        for (i <- 1 to testIterations) {
           builder.add(makeNode(builder), rollbackId)
           inside(TransactionNodesStatistics.stats(builder.build())) {
             case (committed, rollbacked) =>
@@ -141,7 +140,7 @@ class TransactionNodesStatisticsSpec
       val b = TxBuilder()
       var exeId = b.add(exe(false, false)(b)) // one nonconsumming exercises
 
-      for (i <- 1 to n) {
+      for (i <- 1 to testIterations) {
         addAllNodes(b, exeId) // one additional nodes of each types
         inside(TransactionNodesStatistics.stats(b.build())) { case (committed, rollbacked) =>
           // There are twice more nonconsumming exercises by cid are double because
@@ -157,9 +156,9 @@ class TransactionNodesStatisticsSpec
       val b = TxBuilder()
       var rbId = b.add(rollback(b)) // a "committed" rollback node
 
-      for (i <- 1 to n) {
-        addAllNodes(b, rbId) // one additional "rollbacked" nodes of each type
+      for (i <- 1 to testIterations) {
         rbId = b.add(rollback(b), rbId) // one additional "rollbacked" rollback node
+        addAllNodes(b, rbId) // one additional "rollbacked" nodes of each type
         inside(TransactionNodesStatistics.stats(b.build())) { case (committed, rollbacked) =>
           committed shouldBe TransactionNodesStatistics(0, 0, 0, 0, 0, 0, 0, 0, 1)
           // There are twice more rollback nodes, since we use an extra one to
