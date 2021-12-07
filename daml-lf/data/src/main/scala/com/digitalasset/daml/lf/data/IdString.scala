@@ -348,7 +348,7 @@ private[data] final class IdStringImpl extends IdString {
     new MatchingStringModule(
       "User ID",
       """[\p{Lower}\d]([\p{Lower}\d]|[-._][\p{Lower}\d]){0,62}"""
-      // FIXME: allow | as that one is used for example by Auth0 to prefix the identity provider (https://auth0.com/docs/users/user-profiles/sample-user-profiles). Doing this will though require introducing a separate string for [[ApplicationId]] to avoid unconditionally expanding the notion of a LedgerString.
+      // FIXME (i12001): allow | as that one is used for example by Auth0 to prefix the identity provider (https://auth0.com/docs/users/user-profiles/sample-user-profiles).
     )
 
 }

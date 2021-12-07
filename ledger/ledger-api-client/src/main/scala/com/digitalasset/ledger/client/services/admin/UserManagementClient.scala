@@ -6,7 +6,6 @@ import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServic
 import com.daml.ledger.api.v1.admin.user_management_service.{GetUserRequest, Right}
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.services.admin.UserManagementClient.{fromApiRight, fromProtoUser, toApiRight}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 
@@ -16,29 +15,31 @@ final class UserManagementClient
   (service: UserManagementServiceStub)
   (implicit ec: ExecutionContext)
 {
-  def createUser(user: User, initialRights: Seq[UserRight] = List.empty, token: Option[String] = None) = {
+  import UserManagementClient._
+
+  def createUser(user: User, initialRights: Seq[UserRight] = List.empty, token: Option[String] = None): Future[User] = {
     val request = proto.CreateUserRequest(
       Some(UserManagementClient.toProtoUser(user)),
-      initialRights.view.map(UserManagementClient.toApiRight).toList
+      initialRights.view.map(toProtoRight).toList
     )
     LedgerClient
       .stub(service, token)
       .createUser(request)
-      .map(UserManagementClient.fromProtoUser)
+      .map(fromProtoUser)
   }
 
   def getUser(userId: UserId, token: Option[String] = None): Future[User] =
     LedgerClient
       .stub(service, token)
       .getUser(GetUserRequest(userId.toString))
-      .map(UserManagementClient.fromProtoUser)
+      .map(fromProtoUser)
 
   /** Retrieve the User information for the user authenticated by the token(s) on the call . */
   def getAuthenticatedUser(token: Option[String] = None): Future[User] =
     LedgerClient
       .stub(service, token)
       .getUser(GetUserRequest())
-      .map(UserManagementClient.fromProtoUser)
+      .map(fromProtoUser)
 
   def deleteUser(userId: UserId, token: Option[String] = None): Future[Unit] =
     LedgerClient
@@ -55,27 +56,32 @@ final class UserManagementClient
   def grantUserRights(userId: UserId, rights: Seq[UserRight], token: Option[String] = None): Future[Vector[UserRight]] =
     LedgerClient
       .stub(service, token)
-      .grantUserRights(proto.GrantUserRightsRequest(userId.toString, rights.map(toApiRight)))
-      .map(_.newlyGrantedRights.view.map(fromApiRight).toVector)
+      .grantUserRights(proto.GrantUserRightsRequest(userId.toString, rights.map(toProtoRight)))
+      .map(_.newlyGrantedRights.view.collect(fromProtoRight.unlift).toVector)
 
   def revokeUserRights(userId: UserId, rights: Seq[UserRight], token: Option[String] = None): Future[Vector[UserRight]] =
     LedgerClient
       .stub(service, token)
-      .revokeUserRights(proto.RevokeUserRightsRequest(userId.toString, rights.map(toApiRight)))
-      .map(_.newlyRevokedRights.view.map(fromApiRight).toVector)
+      .revokeUserRights(proto.RevokeUserRightsRequest(userId.toString, rights.map(toProtoRight)))
+      .map(_.newlyRevokedRights.view.collect(fromProtoRight.unlift).toVector)
 
+  /** List the rights of the given user.
+   * Unknown rights are ignored.
+   */
   def listUserRights(userId: UserId, token: Option[String] = None): Future[Vector[UserRight]] =
     LedgerClient
       .stub(service, token)
       .listUserRights(proto.ListUserRightsRequest(userId.toString))
-      .map(_.rights.view.map(fromApiRight).toVector)
+      .map(_.rights.view.collect(fromProtoRight.unlift).toVector)
 
-  /** Retrieve the rights of the user authenticated by the token(s) on the call . */
+  /** Retrieve the rights of the user authenticated by the token(s) on the call .
+   * Unknown rights are ignored.
+   */
   def listAuthenticatedUserRights(token: Option[String] = None): Future[Vector[UserRight]] =
     LedgerClient
       .stub(service, token)
       .listUserRights(proto.ListUserRightsRequest())
-      .map(_.rights.view.map(fromApiRight).toVector)
+      .map(_.rights.view.collect(fromProtoRight.unlift).toVector)
 }
 
 object UserManagementClient {
@@ -88,8 +94,7 @@ object UserManagementClient {
   private def toProtoUser(user: User): proto.User =
     proto.User(user.id.toString, user.primaryParty.fold("")(_.toString))
 
-  // FIXME: move to the right place in the codebase; and cleanup imports; and dedup with the code in 'ApiUserManagementService'
-  val toApiRight: domain.UserRight => Right = {
+  private val toProtoRight: domain.UserRight => Right = {
     case domain.UserRight.ParticipantAdmin =>
       Right(Right.Kind.ParticipantAdmin(Right.ParticipantAdmin()))
     case domain.UserRight.CanActAs(party) =>
@@ -98,14 +103,14 @@ object UserManagementClient {
       Right(Right.Kind.CanReadAs(Right.CanReadAs(party)))
   }
 
-  // FIXME: move to the right place in the codebase; and cleanup imports; and dedup with the code in 'ApiUserManagementService'
-  val fromApiRight: Right => domain.UserRight = {
-    case Right(_: Right.Kind.ParticipantAdmin) => domain.UserRight.ParticipantAdmin
+  private val fromProtoRight: Right => Option[domain.UserRight] = {
+    case Right(_: Right.Kind.ParticipantAdmin) => Some(domain.UserRight.ParticipantAdmin)
     case Right(Right.Kind.CanActAs(x)) =>
-      domain.UserRight.CanActAs(Ref.Party.assertFromString(x.party))
+      // Note: assertFromString is OK here, as the server should deliver valid party identifiers.
+      Some(domain.UserRight.CanActAs(Ref.Party.assertFromString(x.party)))
     case Right(Right.Kind.CanReadAs(x)) =>
-      domain.UserRight.CanReadAs(Ref.Party.assertFromString(x.party))
-    case _ => throw new Exception // TODO FIXME validation
+      Some(domain.UserRight.CanReadAs(Ref.Party.assertFromString(x.party)))
+    case Right(Right.Kind.Empty) =>
+      None // The server sent a right of a kind that this client doesn't know about.
   }
-
 }
