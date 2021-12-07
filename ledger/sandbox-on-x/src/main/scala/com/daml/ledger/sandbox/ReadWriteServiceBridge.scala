@@ -73,7 +73,7 @@ case class ReadWriteServiceBridge(
   private val (conflictCheckingQueue, source) = {
     val parallelCheck = InstrumentedSource
       .queue[Transaction](
-        bufferSize = 128,
+        bufferSize = 1024,
         capacityCounter = metrics.daml.SoX.conflictQueueCapacity,
         lengthCounter = metrics.daml.SoX.conflictQueueLength,
         delayTimer = metrics.daml.SoX.conflictQueueDelay,
@@ -172,7 +172,6 @@ case class ReadWriteServiceBridge(
                   metrics.daml.SoX.slice,
                   sequencerQueue.slice(pruneFrom, sequencerQueue.length),
                 )
-                metrics.daml.SoX.minQueueSizeCounter.dec()
                 metrics.daml.SoX.sequencerQueueLengthCounter.update(sequencerQueue.size)
                 Iterable(newOffset -> successMapper(acceptedTx, newIndex, participantId))
             }
