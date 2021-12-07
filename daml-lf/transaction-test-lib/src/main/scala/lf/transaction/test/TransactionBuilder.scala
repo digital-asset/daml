@@ -81,7 +81,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def newParty = Ref.Party.assertFromString("party" + freshSuffix)
   def newPackageId = Ref.PackageId.assertFromString("pkgId" + freshSuffix)
   def newModName = Ref.DottedName.assertFromString("Mod" + freshSuffix)
-  def newChoiceName = Ref.Name.assertFromString("Chocie" + freshSuffix)
+  def newChoiceName = Ref.Name.assertFromString("Choice" + freshSuffix)
   def newIdentifierName = Ref.DottedName.assertFromString("T" + freshSuffix)
   def newIdenfier = Ref.Identifier(newPackageId, Ref.QualifiedName(newModName, newIdentifierName))
 

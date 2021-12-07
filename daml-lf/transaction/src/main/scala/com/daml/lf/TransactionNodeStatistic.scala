@@ -13,7 +13,7 @@ import com.daml.lf.transaction.Transaction.ChildrenRecursion
   * @param nonconsumingExerciseByCids number of non-consuming Exercises by contract ID nodes,
   * @param consumingExerciseByKeys number of consuming exercise by contract key nodes,
   * @param nonconsumingExerciseByKeys number of non-consuming exercise by key nodes,
-  * @param fetcheByCids number of fetche nodes,
+  * @param fetchByCids number of fetch nodes,
   * @param fetchByKeys number of fetch by key  nodes,
   * @param lookupByKeys number of lookup by key  nodes,
   * @param rollbacks number of rollback nodes.
@@ -24,7 +24,7 @@ final case class TransactionNodeStatistic(
     nonconsumingExerciseByCids: Int,
     consumingExerciseByKeys: Int,
     nonconsumingExerciseByKeys: Int,
-    fetcheByCids: Int,
+    fetchByCids: Int,
     fetchByKeys: Int,
     lookupByKeys: Int,
     rollbacks: Int,
