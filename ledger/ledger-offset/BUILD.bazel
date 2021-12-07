@@ -4,7 +4,6 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test_suite",
 )
 
 da_scala_library(
@@ -16,23 +15,6 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//daml-lf/data",
-        "//libs-scala/logging-entries",
-        "@maven//:com_google_protobuf_protobuf_java",
-    ],
-)
-
-da_scala_test_suite(
-    name = "ledger-offset-tests",
-    size = "small",
-    srcs = glob(["src/test/suite/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
-        "@maven//:org_scala_lang_modules_scala_java8_compat",
-    ],
-    deps = [
-        ":ledger-offset",
         "//daml-lf/data",
         "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",

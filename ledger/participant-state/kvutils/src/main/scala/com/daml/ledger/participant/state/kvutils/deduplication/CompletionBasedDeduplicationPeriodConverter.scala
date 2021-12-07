@@ -9,7 +9,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.api.domain.{ApplicationId, LedgerOffset}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.offset.HexOffset
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext

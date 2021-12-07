@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.offset
+package com.daml.ledger.participant.state.kvutils.deduplication
 
 import com.daml.lf.data.Ref
 
@@ -12,7 +12,7 @@ object HexOffset {
     * The string uses the base16 lowercase format as per [[Ref.HexString]] definition.
     *
     * Examples:
-    * 
+    *
     *   - for 000000000... it returns None
     *   - for 000001000 it returns Some(000000fff)
     *   - for 00000ab00 it returns Some(00000aaff)
