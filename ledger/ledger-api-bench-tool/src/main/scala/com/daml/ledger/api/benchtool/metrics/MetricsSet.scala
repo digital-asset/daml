@@ -8,7 +8,10 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.Objectiv
 import com.daml.ledger.api.benchtool.metrics.objectives.{MaxDelay, MinConsumptionSpeed, MinRate}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.api.v1.transaction_service.{GetTransactionTreesResponse, GetTransactionsResponse}
+import com.daml.ledger.api.v1.transaction_service.{
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.google.protobuf.timestamp.Timestamp
 
 import java.time.{Clock, Duration}
