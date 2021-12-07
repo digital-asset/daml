@@ -85,6 +85,7 @@ private[backend] trait StorageBackendSpec
       executeSql { c =>
         backend.reset.resetAll(c)
         updateLedgerEndCache(c)
+        backend.stringInterningSupport.reset()
       },
       60.seconds,
     )

@@ -11,7 +11,7 @@ import com.daml.platform.store.backend.h2.H2StorageBackendFactory
 import com.daml.platform.store.backend.oracle.OracleStorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
-import com.daml.platform.store.interning.{MockStringInterning, StringInterning}
+import com.daml.platform.store.interning.MockStringInterning
 import com.daml.testing.oracle.OracleAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Suite
@@ -89,7 +89,7 @@ case class TestBackend(
     reset: ResetStorageBackend,
     stringInterning: StringInterningStorageBackend,
     ledgerEndCache: MutableLedgerEndCache,
-    stringInterningSupport: StringInterning,
+    stringInterningSupport: MockStringInterning,
 )
 
 object TestBackend {
