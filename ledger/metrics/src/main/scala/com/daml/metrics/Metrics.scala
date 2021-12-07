@@ -37,6 +37,10 @@ final class Metrics(val registry: MetricRegistry) {
 
       val parallelConflictCheckingDuration: Timer =
         registry.timer(Prefix :+ "parallel_conflict_checking_duration")
+
+      val sequentialCheckDuration: Timer = registry.timer(Prefix :+ "sequential_check_duration")
+
+      val queueBeforeSequencer: Counter = registry.counter(Prefix :+ "queue_before_sequencer")
     }
 
     object commands {

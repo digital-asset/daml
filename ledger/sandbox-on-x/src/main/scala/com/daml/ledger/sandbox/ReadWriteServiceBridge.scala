@@ -73,9 +73,9 @@ case class ReadWriteServiceBridge(
   private type SequencerQueue =
     Vector[(Offset, (Submission.Transaction, Map[GlobalKey, Option[ContractId]], Set[ContractId]))]
 
-  private val (conflictCheckingQueue, source) =
-    InstrumentedSource
-      .queue[Submission.Transaction](
+  private val (conflictCheckingQueue, source) = {
+    val parallelCheck = InstrumentedSource
+      .queue[Transaction](
         bufferSize = 1024,
         capacityCounter = metrics.daml.SoX.conflictQueueCapacity,
         lengthCounter = metrics.daml.SoX.conflictQueueLength,
@@ -109,8 +109,16 @@ case class ReadWriteServiceBridge(
           },
         )
       }
+
+    InstrumentedSource
+      .bufferedSource(
+        parallelCheck,
+        metrics.daml.SoX.queueBeforeSequencer,
+        128,
+      )
       .statefulMapConcat(sequence)
       .preMaterialize()
+  }
 
   private def sequence: () => (
       (
@@ -245,21 +253,24 @@ case class ReadWriteServiceBridge(
       inputContracts: Set[ContractId],
       transaction: Submission.Transaction,
       sequencerQueue: SequencerQueue,
-  ): Either[SoxRejection, Submission.Transaction] = {
-    val idx = sequencerQueue.view.map(_._1).search(noConflictUpTo) match {
-      case Searching.Found(foundIndex) => foundIndex + 1
-      case Searching.InsertionPoint(insertionPoint) => insertionPoint
-    }
+  ): Either[SoxRejection, Submission.Transaction] =
+    Timed.value(
+      metrics.daml.SoX.sequentialCheckDuration, {
+        val idx = sequencerQueue.view.map(_._1).search(noConflictUpTo) match {
+          case Searching.Found(foundIndex) => foundIndex + 1
+          case Searching.InsertionPoint(insertionPoint) => insertionPoint
+        }
 
-    if (sequencerQueue.size > idx) {
-      conflictCheckSlice(
-        sequencerQueue.slice(idx, sequencerQueue.length),
-        keyInputs,
-        inputContracts,
-        transaction,
-      )
-    } else Right(transaction)
-  }
+        if (sequencerQueue.size > idx) {
+          conflictCheckSlice(
+            sequencerQueue.slice(idx, sequencerQueue.length),
+            keyInputs,
+            inputContracts,
+            transaction,
+          )
+        } else Right(transaction)
+      },
+    )
 
   private def parallelConflictCheck(
       transaction: Submission.Transaction,
