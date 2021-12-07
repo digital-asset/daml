@@ -202,6 +202,7 @@ private[validation] object ExprIterable {
   private[iterable] def iterator(x: DefInterface): Iterator[Expr] =
     x match {
       case DefInterface(
+            requires @ _,
             param @ _,
             fixedChoices,
             methods @ _,

@@ -497,3 +497,13 @@ final case class ETemplateDoesNotImplementInterface(
   override protected def prettyInternal: String =
     s"Template $template does not implement interface $iface"
 }
+
+final case class EMissingRequiredInterface(
+    context: Context,
+    template: TypeConName,
+    requiringIface: TypeConName,
+    missingRequiredIface: TypeConName,
+) extends ValidationError {
+  override protected def prettyInternal: String =
+    s"Template $template is missing an implementation of interface $missingRequiredIface required by interface $requiringIface"
+}

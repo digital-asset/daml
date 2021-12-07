@@ -243,8 +243,9 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(interface: DefInterface): Iterator[Type] =
     interface match {
-      case DefInterface(_, fixedChoice, methods, precond) =>
-        iterator(precond) ++
+      case DefInterface(requires, _, fixedChoice, methods, precond) =>
+        requires.iterator.map(TTyCon) ++
+          iterator(precond) ++
           fixedChoice.values.iterator.flatMap(iterator) ++
           methods.values.iterator.flatMap(iterator)
     }
