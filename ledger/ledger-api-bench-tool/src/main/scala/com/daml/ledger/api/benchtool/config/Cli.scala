@@ -115,6 +115,7 @@ object Cli {
     note(2, "end-offset=<offset>")
     note(2, "max-delay=<seconds>", "Max record time delay objective")
     note(2, "min-consumption-speed=<speed>", "Min consumption speed objective")
+    note(2, "min-rate=<rate>", "Min item rate per second")
     note(1, "Active contract sets:")
     note(2, "stream-type=active-contracts", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
@@ -123,6 +124,7 @@ object Cli {
       "filters=party1@template1@template2+party2",
       "List of per-party filters separated by the plus symbol (required)",
     )
+    note(2, "min-rate=<rate>", "Min item rate per second")
     note(1, "Command completions:")
     note(2, "stream-type=completions", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
