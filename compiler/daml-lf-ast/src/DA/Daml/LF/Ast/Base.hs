@@ -929,6 +929,7 @@ data DefException = DefException
 data DefInterface = DefInterface
   { intLocation :: !(Maybe SourceLoc)
   , intName :: !TypeConName
+  , intRequires :: !(S.Set (Qualified TypeConName))
   , intParam :: !ExprVarName
   , intFixedChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)
