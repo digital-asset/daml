@@ -521,6 +521,8 @@ case class ReadWriteServiceBridge(
 
 object ReadWriteServiceBridge {
   private implicit val errorLoggingContext: ContextualizedErrorLogger = NoLogging
+  private val useSelfServiceErrorCodes = false
+
   trait Submission
   object Submission {
     sealed trait SoxRejection extends Submission {
@@ -530,17 +532,22 @@ object ReadWriteServiceBridge {
     }
     final case class DuplicateKey(key: GlobalKey)(override val originalTx: Transaction)
         extends SoxRejection {
-      override def toStatus: Status =
+      override def toStatus: Status = if (!useSelfServiceErrorCodes)
+        Status.of(Code.ABORTED.value, "Invalid contract key", Seq.empty)
+      else
         LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
           .RejectWithContractKeyArg("DuplicateKey: contract key is not unique", key)
           .rpcStatus(None)
     }
+
     final case class InconsistentContractKey(
         expectation: Option[ContractId],
         result: Option[ContractId],
     )(override val originalTx: Transaction)
         extends SoxRejection {
-      override def toStatus: Status =
+      override def toStatus: Status = if (!useSelfServiceErrorCodes)
+        Status.of(Code.ABORTED.value, "Invalid contract key", Seq.empty)
+      else
         LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
           .Reject(
             s"Contract key lookup with different results. Expected: $expectation, result: $result"
@@ -550,7 +557,9 @@ object ReadWriteServiceBridge {
 
     final case class GenericRejectionFailure(details: String)(override val originalTx: Transaction)
         extends SoxRejection {
-      override def toStatus: Status =
+      override def toStatus: Status = if (!useSelfServiceErrorCodes)
+        Status.of(Code.ABORTED.value, "Invalid contract key", Seq.empty)
+      else
         // TODO wrong error
         LedgerApiErrors.InternalError.VersionService(details).rpcStatus(None)
     }
@@ -560,16 +569,22 @@ object ReadWriteServiceBridge {
         transactionLedgerEffectiveTime: Timestamp,
     )(override val originalTx: Transaction)
         extends SoxRejection {
-      override def toStatus: Status = LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
-        .RejectSimple("ADD DETAILS FOR LET failure")
-        .rpcStatus(None)
+      override def toStatus: Status = if (!useSelfServiceErrorCodes)
+        Status.of(Code.ABORTED.value, "ADD DETAILS FOR LET failure", Seq.empty)
+      else
+        LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
+          .RejectSimple("ADD DETAILS FOR LET failure")
+          .rpcStatus(None)
     }
 
     final case class UnknownContracts(ids: Set[ContractId])(override val originalTx: Transaction)
         extends SoxRejection {
-      override def toStatus: Status = LedgerApiErrors.ConsistencyErrors.ContractNotFound
-        .MultipleContractsNotFound(ids.map(_.coid))
-        .rpcStatus(None)
+      override def toStatus: Status = if (!useSelfServiceErrorCodes)
+        Status.of(Code.ABORTED.value, "Invalid contract key", Seq.empty)
+      else
+        LedgerApiErrors.ConsistencyErrors.ContractNotFound
+          .MultipleContractsNotFound(ids.map(_.coid))
+          .rpcStatus(None)
     }
 
     case class Transaction(
