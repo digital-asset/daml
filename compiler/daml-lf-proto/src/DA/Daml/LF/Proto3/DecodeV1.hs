@@ -666,6 +666,12 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <$> mayDecode "expr_CallInterfaceInterfaceType" expr_CallInterfaceInterfaceType decodeTypeConName
     <*> decodeMethodName expr_CallInterfaceMethodInternedName
     <*> mayDecode "expr_CallInterfaceInterfaceExpr" expr_CallInterfaceInterfaceExpr decodeExpr
+  LF1.ExprSumToRequiredInterface _ ->
+    -- TODO https://github.com/digital-asset/daml/issues/11978
+    error "EToRequiredInterface in decoder"
+  LF1.ExprSumFromRequiredInterface _ ->
+    -- TODO https://github.com/digital-asset/daml/issues/11978
+    error "EFromRequiredInterface in decoder"
   LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty

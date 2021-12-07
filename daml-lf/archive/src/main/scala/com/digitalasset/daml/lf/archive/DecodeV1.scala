@@ -1142,6 +1142,16 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             value = decodeExpr(callInterface.getInterfaceExpr, definition),
           )
 
+        case PLF.Expr.SumCase.TO_REQUIRED_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.to_required_interface")
+          // TODO https://github.com/digital-asset/daml/issues/11978
+          throw Error.Parsing("Expr.to_required_interface")
+
+        case PLF.Expr.SumCase.FROM_REQUIRED_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.from_required_interface")
+          // TODO https://github.com/digital-asset/daml/issues/11978
+          throw Error.Parsing("Expr.from_required_interface")
+
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Expr.SUM_NOT_SET")
 
