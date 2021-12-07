@@ -5,55 +5,31 @@ package com.daml.platform.store.backend.postgresql
 
 import anorm.{Row, SimpleSql}
 import com.daml.ledger.offset.Offset
-import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.EventStrategy
-import com.daml.platform.store.interning.StringInterning
 
 object PostgresEventStrategy extends EventStrategy {
 
-  override def witnessesWhereClause(
+  override def wildcardPartiesClause(
       witnessesColumnName: String,
-      filterParams: FilterParams,
-      stringInterning: StringInterning,
+      internedWildcardParties: Set[Int],
   ): CompositeSql = {
-    val wildCardClause = filterParams.wildCardParties match {
-      case wildCardParties if wildCardParties.isEmpty =>
-        Nil
+    // anorm does not like primitive arrays, so we need to box it
+    val internedWildcardPartiesArray = internedWildcardParties.map(Int.box).toArray
+    cSQL"(#$witnessesColumnName::integer[] && $internedWildcardPartiesArray::integer[])"
+  }
 
-      case wildCardParties =>
-        val partiesArray: Array[java.lang.Integer] = wildCardParties.view
-          .flatMap(party => stringInterning.party.tryInternalize(party).map(Int.box).toList)
-          .toArray
-        if (partiesArray.isEmpty)
-          Nil
-        else
-          cSQL"(#$witnessesColumnName::integer[] && $partiesArray::integer[])" :: Nil
-    }
-    val partiesTemplatesClauses =
-      filterParams.partiesAndTemplates.iterator
-        .map { case (parties, templateIds) =>
-          (
-            parties.flatMap(s => stringInterning.party.tryInternalize(s).toList),
-            templateIds.flatMap(s => stringInterning.templateId.tryInternalize(s).toList),
-          )
-        }
-        .filterNot(_._1.isEmpty)
-        .filterNot(_._2.isEmpty)
-        .map { case (parties, templateIds) =>
-          val partiesArray: Array[java.lang.Integer] = parties.view.map(Int.box).toArray
-          val templateIdsArray: Array[java.lang.Integer] =
-            templateIds.view
-              .map(Int.box)
-              .toArray // anorm does not like primitive arrays, so we need to box it
-          cSQL"( (#$witnessesColumnName::integer[] && $partiesArray::integer[]) AND (template_id = ANY($templateIdsArray::integer[])) )"
-        }
-        .toList
-
-    wildCardClause ::: partiesTemplatesClauses match {
-      case Nil => cSQL"false"
-      case allClauses => allClauses.mkComposite("(", " OR ", ")")
-    }
+  override def filterPartiesClause(
+      witnessesColumnName: String,
+      internedPartiesTemplates: List[(Set[Int], Set[Int])],
+  ): List[CompositeSql] = {
+    internedPartiesTemplates
+      .map { case (parties, templates) =>
+        // anorm does not like primitive arrays, so we need to box it
+        val partiesArray = parties.map(Int.box).toArray
+        val templateIdsArray = templates.map(Int.box).toArray
+        cSQL"( (#$witnessesColumnName::integer[] && $partiesArray::integer[]) AND (template_id = ANY($templateIdsArray::integer[])) )"
+      }
   }
 
   override def pruneCreateFilters(pruneUpToInclusive: Offset): SimpleSql[Row] = {

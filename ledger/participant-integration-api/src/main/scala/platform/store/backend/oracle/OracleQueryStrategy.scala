@@ -19,7 +19,14 @@ object OracleQueryStrategy extends QueryStrategy {
       parties.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
     if (internedParties.isEmpty) cSQL"1 = 0"
     else
-      cSQL"(EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value NUMBER PATH '$$')) WHERE value IN ($internedParties)))"
+      arrayIntersectionNonEmptyClause(columnName, internedParties)
+  }
+
+  override def arrayIntersectionNonEmptyClause(
+      columnName: String,
+      internedParties: Set[Int],
+  ): CompositeSql = {
+    cSQL"(EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value NUMBER PATH '$$')) WHERE value IN ($internedParties)))"
   }
 
   override def columnEqualityBoolean(column: String, value: String): String =

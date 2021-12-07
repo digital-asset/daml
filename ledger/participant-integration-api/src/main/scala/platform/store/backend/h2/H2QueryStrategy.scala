@@ -27,6 +27,15 @@ object H2QueryStrategy extends QueryStrategy {
         .mkComposite("(", " or ", ")")
   }
 
+  override def arrayIntersectionNonEmptyClause(
+      columnName: String,
+      internedParties: Set[Int],
+  ): CompositeSql = {
+    internedParties
+      .map(p => cSQL"array_contains(#$columnName, $p)")
+      .mkComposite("(", " or ", ")")
+  }
+
   override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
     s"array_contains($arrayColumnName, $elementColumnName)"
 

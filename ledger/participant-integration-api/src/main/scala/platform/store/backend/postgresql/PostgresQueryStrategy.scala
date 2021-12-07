@@ -23,6 +23,15 @@ object PostgresQueryStrategy extends QueryStrategy {
     cSQL"#$columnName::int[] && $partiesArray::int[]"
   }
 
+  override def arrayIntersectionNonEmptyClause(
+      columnName: String,
+      internedParties: Set[Int],
+  ): CompositeSql = {
+    // anorm does not like primitive arrays, so we need to box it
+    val partiesArray: Array[java.lang.Integer] = internedParties.map(Int.box).toArray
+    cSQL"#$columnName::int[] && $partiesArray::int[]"
+  }
+
   override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
     s"$elementColumnName = any($arrayColumnName)"
 

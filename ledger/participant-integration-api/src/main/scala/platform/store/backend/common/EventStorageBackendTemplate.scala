@@ -332,24 +332,54 @@ abstract class EventStorageBackendTemplate(
       fetchSizeHint: Option[Int],
       filterParams: FilterParams,
   )(connection: Connection): Vector[T] = {
-    val parties =
-      filterParams.wildCardParties.iterator
-        .++(filterParams.partiesAndTemplates.iterator.flatMap(_._1.iterator))
-        .map(stringInterning.party.tryInternalize)
-        .flatMap(_.iterator)
-        .toSet
-    SQL"""
+    val internedWildcardParties: Set[Int] = filterParams.wildCardParties.view
+      .flatMap(party => stringInterning.party.tryInternalize(party).toList)
+      .toSet
+
+    val internedPartiesAndTemplates: List[(Set[Int], Set[Int])] =
+      filterParams.partiesAndTemplates.iterator
+        .map { case (parties, templateIds) =>
+          (
+            parties.flatMap(s => stringInterning.party.tryInternalize(s).toList),
+            templateIds.flatMap(s => stringInterning.templateId.tryInternalize(s).toList),
+          )
+        }
+        .filterNot(_._1.isEmpty)
+        .filterNot(_._2.isEmpty)
+        .toList
+
+    val internedAllParties: Set[Int] =
+      internedWildcardParties.concat(internedPartiesAndTemplates.flatMap(_._1))
+
+    if (internedAllParties.isEmpty) {
+      Vector.empty
+    } else {
+      val wildcardPartiesClause = if (internedWildcardParties.isEmpty) {
+        Nil
+      } else {
+        eventStrategy.wildcardPartiesClause(witnessesColumn, internedWildcardParties) :: Nil
+      }
+      val filterPartiesClauses = if (internedPartiesAndTemplates.isEmpty) {
+        Nil
+      } else {
+        eventStrategy.filterPartiesClause(witnessesColumn, internedPartiesAndTemplates)
+      }
+      val witnessesWhereClause =
+        (wildcardPartiesClause ::: filterPartiesClauses).mkComposite("(", " or ", ")")
+
+      SQL"""
         SELECT
           #$selectColumns, #$witnessesColumn as event_witnesses, command_id
         FROM
           participant_events #$columnPrefix $joinClause
         WHERE
-        $additionalAndClause
-          ${eventStrategy.witnessesWhereClause(witnessesColumn, filterParams, stringInterning)}
+          $additionalAndClause
+          $witnessesWhereClause
         ORDER BY event_sequential_id
         ${queryStrategy.limitClause(limit)}"""
-      .withFetchSize(fetchSizeHint)
-      .asVectorOf(rowParser(parties))(connection)
+        .withFetchSize(fetchSizeHint)
+        .asVectorOf(rowParser(internedAllParties))(connection)
+    }
   }
 
   override def transactionEvents(
@@ -737,19 +767,31 @@ abstract class EventStorageBackendTemplate(
   */
 trait EventStrategy {
 
-  /** This populates the following part of the query:
-    *   SELECT ... WHERE ... AND [THIS PART]
-    * This strategy is responsible to generate appropriate SQL cod based on the filterParams, so that results match the criteria
+  /** Generates a clause that checks whether any of the given wildcard parties is a witness
     *
     * @param witnessesColumnName name of the Array column holding witnesses
-    * @param filterParams the filtering criteria
+    * @param internedWildcardParties List of all wildcard parties (their interned names).
+    *                                Guaranteed to be non-empty.
     * @return the composable SQL
     */
-  def witnessesWhereClause(
+  def wildcardPartiesClause(
       witnessesColumnName: String,
-      filterParams: FilterParams,
-      stringInterning: StringInterning,
+      internedWildcardParties: Set[Int],
   ): CompositeSql
+
+  /** Generates a clause that checks whether any of the given filters matches the contract,
+    *  i.e., whether the template id matches AND any of the parties is a witness
+    *
+    * @param witnessesColumnName Name of the Array column holding witnesses
+    * @param internedPartiesTemplates List of all filters. For each filter, the list contains one element with
+    *                                 the list of interned party names and the list of interned template ids.
+    *                                 All sets of interned names are guaranteed to be non-empty.
+    * @return one composable SQL for each filter
+    */
+  def filterPartiesClause(
+      witnessesColumnName: String,
+      internedPartiesTemplates: List[(Set[Int], Set[Int])],
+  ): List[CompositeSql]
 
   /** Pruning participant_events_create_filter entries.
     *

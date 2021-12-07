@@ -5,53 +5,33 @@ package com.daml.platform.store.backend.oracle
 
 import anorm.{Row, SimpleSql}
 import com.daml.ledger.offset.Offset
-import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.EventStrategy
-import com.daml.platform.store.interning.StringInterning
 
 object OracleEventStrategy extends EventStrategy {
 
-  override def witnessesWhereClause(
+  override def wildcardPartiesClause(
       witnessesColumnName: String,
-      filterParams: FilterParams,
-      stringInterning: StringInterning,
+      internedWildcardParties: Set[Int],
   ): CompositeSql = {
-    val wildCardClause = filterParams.wildCardParties match {
-      case wildCardParties
-          if wildCardParties.isEmpty ||
-            wildCardParties.view
-              .flatMap(party => stringInterning.party.tryInternalize(party).toList)
-              .isEmpty =>
-        Nil
+    cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, internedWildcardParties)})"
+  }
 
-      case wildCardParties =>
-        cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties, stringInterning)})" :: Nil
-    }
-    val partiesTemplatesClauses =
-      filterParams.partiesAndTemplates.iterator
-        .map { case (parties, templateIds) =>
-          (
-            parties.flatMap(s => stringInterning.party.tryInternalize(s).toList),
-            templateIds.flatMap(s => stringInterning.templateId.tryInternalize(s).toList),
+  override def filterPartiesClause(
+      witnessesColumnName: String,
+      internedPartiesTemplates: List[(Set[Int], Set[Int])],
+  ): List[CompositeSql] = {
+    internedPartiesTemplates
+      .map { case (parties, templateIds) =>
+        val clause =
+          OracleQueryStrategy.arrayIntersectionNonEmptyClause(
+            witnessesColumnName,
+            parties,
           )
-        }
-        .filterNot(_._1.isEmpty)
-        .filterNot(_._2.isEmpty)
-        .map { case (parties, templateIds) =>
-          val clause =
-            OracleQueryStrategy.arrayIntersectionNonEmptyClause(
-              witnessesColumnName,
-              parties.map(stringInterning.party.externalize),
-              stringInterning,
-            )
-          cSQL"( ($clause) AND (template_id IN ($templateIds)) )"
-        }
-        .toList
-    wildCardClause ::: partiesTemplatesClauses match {
-      case Nil => cSQL"1 = 0"
-      case allClauses => allClauses.mkComposite("(", " OR ", ")")
-    }
+        // TODO: Postgres and H2 use Array[Integer], Oracle uses Set[Int] to send the template Ids.
+        // Does it make a difference?
+        cSQL"( ($clause) AND (template_id IN ($templateIds)) )"
+      }
   }
 
   override def pruneCreateFilters(pruneUpToInclusive: Offset): SimpleSql[Row] = {

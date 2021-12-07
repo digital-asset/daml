@@ -42,6 +42,14 @@ trait QueryStrategy {
       stringInterning: StringInterning,
   ): CompositeSql
 
+  /** A version of [[arrayIntersectionNonEmptyClause]] where all parties have already been interned.
+    * The set of interned parties must be non-empty.
+    */
+  def arrayIntersectionNonEmptyClause(
+      columnName: String,
+      internedParties: Set[Int],
+  ): CompositeSql
+
   /** Would be used in column selectors in GROUP BY situations to see whether a boolean column had true
     * Example: getting all groups and see wheter they have someone who had covid:
     *   SELECT group_name, booleanOrAggregationFunction(has_covid) GROUP BY group_name;
