@@ -291,6 +291,39 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
     }
   }
 
+
+  "UserId" - {
+    "accept valid user names" in {
+      UserId.fromString("a") shouldBe a[Right[_, _]]
+      UserId.fromString("john.doe") shouldBe a[Right[_, _]]
+      UserId.fromString("john-doe") shouldBe a[Right[_, _]]
+      UserId.fromString("john_doe") shouldBe a[Right[_, _]]
+      UserId.fromString("jo1hn.d200oe") shouldBe a[Right[_, _]]
+      UserId.fromString("john-do1.e") shouldBe a[Right[_, _]]
+      UserId.fromString("123e4567-e89b-12d3-a456-426614174000") shouldBe a[Right[_, _]]
+    }
+
+    "reject invalid user names" in {
+      UserId.fromString("john|doe") shouldBe a[Left[_, _]]
+      UserId.fromString("john#doe") shouldBe a[Left[_, _]]
+      UserId.fromString("john@doe") shouldBe a[Left[_, _]]
+      UserId.fromString("john..doe") shouldBe a[Left[_, _]]
+      UserId.fromString("john.-doe") shouldBe a[Left[_, _]]
+      UserId.fromString("john--doe") shouldBe a[Left[_, _]]
+      UserId.fromString("johndoe.") shouldBe a[Left[_, _]]
+      UserId.fromString("johndoe-") shouldBe a[Left[_, _]]
+      UserId.fromString("-johndoe") shouldBe a[Left[_, _]]
+    }
+
+    "reject too long strings" in {
+      val negativeTestCase = "a" * 63
+      val positiveTestCase1 = "a" * 64
+      UserId.fromString(negativeTestCase) shouldBe a[Right[_, _]]
+      UserId.fromString(positiveTestCase1) shouldBe a[Left[_, _]]
+    }
+  }
+
+
   private def testOrdered[X <: Ordered[X]](name: String, elems: Iterable[X]) =
     s"$name#compare" - {
       "agrees with equality" in {
