@@ -16,7 +16,7 @@ package transaction
   * @param lookupsByKey number of lookup by key nodes,
   * @param rollbacks number of rollback nodes.
   */
-final case class TransactionNodeStatistics(
+final case class TransactionNodesStatistics(
     creates: Int,
     consumingExercisesByCid: Int,
     nonconsumingExercisesByCid: Int,
@@ -28,8 +28,8 @@ final case class TransactionNodeStatistics(
     rollbacks: Int,
 ) {
 
-  def +(that: TransactionNodeStatistics) =
-    TransactionNodeStatistics(
+  def +(that: TransactionNodesStatistics) =
+    TransactionNodesStatistics(
       creates = this.creates + that.creates,
       consumingExercisesByCid = this.consumingExercisesByCid + that.consumingExercisesByCid,
       nonconsumingExercisesByCid =
@@ -54,11 +54,9 @@ final case class TransactionNodeStatistics(
   def nodes: Int = actions + rollbacks
 }
 
-object TransactionNodeStatistics {
+object TransactionNodesStatistics {
 
-  import Transaction.ChildrenRecursion
-
-  val Empty = TransactionNodeStatistics(0, 0, 0, 0, 0, 0, 0, 0, 0)
+  val Empty = TransactionNodesStatistics(0, 0, 0, 0, 0, 0, 0, 0, 0)
 
   private[this] val numberOfFields = Empty.productArity
 
@@ -78,7 +76,7 @@ object TransactionNodeStatistics {
   private[this] def emptyFields = Array.fill(numberOfFields)(0)
 
   private[this] def build(stats: Array[Int]) =
-    TransactionNodeStatistics(
+    TransactionNodesStatistics(
       creates = stats(createsIdx),
       consumingExercisesByCid = stats(consumingExercisesByCidIdx),
       nonconsumingExercisesByCid = stats(nonconsumingExerciseCidsIdx),
@@ -90,7 +88,7 @@ object TransactionNodeStatistics {
       rollbacks = stats(rollbacksIdx),
     )
 
-  def stats(tx: VersionedTransaction): (TransactionNodeStatistics, TransactionNodeStatistics) =
+  def stats(tx: VersionedTransaction): (TransactionNodesStatistics, TransactionNodesStatistics) =
     stats(tx.transaction)
 
   /** This function produces statistics about the "committed" nodes (those nodes
@@ -98,7 +96,7 @@ object TransactionNodeStatistics {
     *  "rollbacked" nodes (those nodes that do appear under a rollback node) on
     *  the other hand.
     */
-  def stats(tx: Transaction): (TransactionNodeStatistics, TransactionNodeStatistics) = {
+  def stats(tx: Transaction): (TransactionNodesStatistics, TransactionNodesStatistics) = {
     val committed = emptyFields
     val rollbacked = emptyFields
     var rollbackDepth = 0
@@ -119,12 +117,12 @@ object TransactionNodeStatistics {
           else
             nonconsumingExerciseCidsIdx
         incr(idx)
-        ChildrenRecursion.DoRecurse
+        Transaction.ChildrenRecursion.DoRecurse
       },
       rollbackBegin = { (_, _) =>
         incr(rollbacksIdx)
         rollbackDepth += 1
-        ChildrenRecursion.DoRecurse
+        Transaction.ChildrenRecursion.DoRecurse
       },
       leaf = { (_, node) =>
         val idx = node match {
