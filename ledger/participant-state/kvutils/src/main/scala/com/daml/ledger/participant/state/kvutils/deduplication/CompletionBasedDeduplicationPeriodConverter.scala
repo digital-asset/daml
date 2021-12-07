@@ -7,9 +7,9 @@ import java.time.{Duration, Instant}
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.api.domain.{ApplicationId, LedgerId, LedgerOffset}
-import com.daml.ledger.api.messages.command.completion.CompletionRequest
+import com.daml.ledger.api.domain.{ApplicationId, LedgerOffset}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.offset.HexOffset
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
@@ -17,12 +17,11 @@ import com.daml.logging.LoggingContext
 import scala.concurrent.{ExecutionContext, Future}
 
 class CompletionBasedDeduplicationPeriodConverter(
-    ledgerId: LedgerId,
-    completionService: IndexCompletionsService,
+    completionService: IndexCompletionsService
 ) extends DeduplicationPeriodConverter {
 
   override def convertOffsetToDuration(
-      offset: Ref.LedgerString,
+      offset: Ref.HexString,
       applicationId: ApplicationId,
       actAs: Set[Ref.Party],
       submittedAt: Instant,
@@ -31,12 +30,9 @@ class CompletionBasedDeduplicationPeriodConverter(
       ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[DeduplicationConversionFailure, Duration]] = completionAtOffset(
-    CompletionRequest(
-      ledgerId,
-      applicationId,
-      actAs,
-      LedgerOffset.Absolute(offset),
-    )
+    applicationId,
+    actAs,
+    offset,
   ).map {
     case Some(CompletionStreamResponse(Some(checkpoint), _)) =>
       if (checkpoint.offset.flatMap(_.value.absolute).contains(offset)) {
@@ -55,11 +51,22 @@ class CompletionBasedDeduplicationPeriodConverter(
   }
 
   private def completionAtOffset(
-      request: CompletionRequest
+      applicationId: ApplicationId,
+      actAs: Set[Ref.Party],
+      offset: Ref.HexString,
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
-  ): Future[Option[CompletionStreamResponse]] = completionService
-    .getCompletions(request.offset, request.offset, request.applicationId, request.parties)
-    .runWith(Sink.headOption)
+  ): Future[Option[CompletionStreamResponse]] = {
+    val firstOffsetBefore = HexOffset.firstBefore(offset)
+    completionService
+      .getCompletions(
+        firstOffsetBefore.map(LedgerOffset.Absolute).getOrElse(LedgerOffset.LedgerBegin),
+        LedgerOffset.Absolute(offset),
+        applicationId,
+        actAs,
+      )
+      .runWith(Sink.headOption)
+  }
+
 }
