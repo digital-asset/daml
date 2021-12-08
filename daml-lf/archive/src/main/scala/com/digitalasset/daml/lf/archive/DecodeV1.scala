@@ -1145,13 +1145,21 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
         case PLF.Expr.SumCase.TO_REQUIRED_INTERFACE =>
           assertSince(LV.Features.interfaces, "Expr.to_required_interface")
-          // TODO https://github.com/digital-asset/daml/issues/11978
-          throw Error.Parsing("Expr.to_required_interface")
+          val toRequiredInterface = lfExpr.getToRequiredInterface
+          EToRequiredInterface(
+            requiredIfaceId = decodeTypeConName(toRequiredInterface.getRequiredInterface),
+            requiringIfaceId = decodeTypeConName(toRequiredInterface.getRequiringInterface),
+            body = decodeExpr(toRequiredInterface.getExpr, definition),
+          )
 
         case PLF.Expr.SumCase.FROM_REQUIRED_INTERFACE =>
           assertSince(LV.Features.interfaces, "Expr.from_required_interface")
-          // TODO https://github.com/digital-asset/daml/issues/11978
-          throw Error.Parsing("Expr.from_required_interface")
+          val fromRequiredInterface = lfExpr.getFromRequiredInterface
+          EFromRequiredInterface(
+            requiredIfaceId = decodeTypeConName(fromRequiredInterface.getRequiredInterface),
+            requiringIfaceId = decodeTypeConName(fromRequiredInterface.getRequiringInterface),
+            body = decodeExpr(fromRequiredInterface.getExpr, definition),
+          )
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Expr.SUM_NOT_SET")

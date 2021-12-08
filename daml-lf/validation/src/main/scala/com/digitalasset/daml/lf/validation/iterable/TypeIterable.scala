@@ -84,6 +84,10 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(iface), TTyCon(tpl)) ++ iterator(value)
       case ECallInterface(iface, _, value) =>
         Iterator(TTyCon(iface)) ++ iterator(value)
+      case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+        Iterator(TTyCon(requiredIfaceId), TTyCon(requiringIfaceId)) ++ iterator(body)
+      case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+        Iterator(TTyCon(requiredIfaceId), TTyCon(requiringIfaceId)) ++ iterator(body)
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
           ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) | ETyAbs(_, _) |
           EExperimental(_, _) =>

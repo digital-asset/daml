@@ -1166,6 +1166,18 @@ private[validation] object Typing {
         checkImplements(tpl, iface)
         checkExpr(value, TTyCon(iface))
         TOptional(TTyCon(tpl))
+      case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+        val requiringIface = handleLookup(ctx, interface.lookupInterface(requiringIfaceId))
+        if (!requiringIface.requires.contains(requiredIfaceId))
+          throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
+        checkExpr(body, TTyCon(requiringIfaceId))
+        TTyCon(requiredIfaceId)
+      case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+        val requiringIface = handleLookup(ctx, interface.lookupInterface(requiringIfaceId))
+        if (!requiringIface.requires.contains(requiredIfaceId))
+          throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
+        checkExpr(body, TTyCon(requiredIfaceId))
+        TOptional(TTyCon(requiringIfaceId))
       case ECallInterface(iface, methodName, value) =>
         val method = handleLookup(ctx, interface.lookupInterfaceMethod(iface, methodName))
         checkExpr(value, TTyCon(iface))

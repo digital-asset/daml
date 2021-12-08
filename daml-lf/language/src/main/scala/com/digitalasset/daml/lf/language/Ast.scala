@@ -163,6 +163,20 @@ object Ast {
   final case class EFromInterface(interfaceId: TypeConName, templateId: TypeConName, value: Expr)
       extends Expr
 
+  /** Upcast from an interface payload to an interface it requires. */
+  final case class EToRequiredInterface(
+      requiredIfaceId: TypeConName,
+      requiringIfaceId: TypeConName,
+      body: Expr,
+  ) extends Expr
+
+  /** Downcast from an interface payload to an interface that requires it, if possible. */
+  final case class EFromRequiredInterface(
+      requiredIfaceId: TypeConName,
+      requiringIfaceId: TypeConName,
+      body: Expr,
+  ) extends Expr
+
   /** Invoke an interface method */
   final case class ECallInterface(interfaceId: TypeConName, methodName: MethodName, value: Expr)
       extends Expr
