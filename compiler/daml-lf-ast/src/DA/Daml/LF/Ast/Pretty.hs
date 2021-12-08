@@ -548,6 +548,10 @@ instance Pretty Expr where
         [interfaceArg ty1, tplArg ty2, TmArg expr]
     ECallInterface ty mth expr -> pPrintAppKeyword lvl prec "call_interface"
         [interfaceArg ty, methodArg mth, TmArg expr]
+    EToRequiredInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "to_required_interface"
+        [interfaceArg ty1, interfaceArg ty2, TmArg expr]
+    EFromRequiredInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "from_required_interface"
+        [interfaceArg ty1, interfaceArg ty2, TmArg expr]
     EExperimental name _ ->  pPrint $ "$" <> name
 
 instance Pretty DefTypeSyn where

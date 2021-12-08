@@ -566,6 +566,18 @@ data Expr
     , callInterfaceMethod :: !MethodName
     , callInterfaceExpr :: !Expr
     }
+  -- | Upcast interface
+  | EToRequiredInterface
+    { triRequiredInterface :: !(Qualified TypeConName)
+    , triRequiringInterface :: !(Qualified TypeConName)
+    , triExpr :: !Expr
+    }
+  -- | Downcast interface
+  | EFromRequiredInterface
+    { friRequiredInterface :: !(Qualified TypeConName)
+    , friRequiringInterface :: !(Qualified TypeConName)
+    , friExpr :: !Expr
+    }
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.

@@ -234,6 +234,18 @@ alphaExpr' env = \case
             && alphaMethod m1 m2
             && alphaExpr' env e1 e2
         _ -> False
+    EToRequiredInterface t1a t1b e1 -> \case
+        EToRequiredInterface t2a t2b e2
+            -> alphaTypeCon t1a t2a
+            && alphaTypeCon t1b t2b
+            && alphaExpr' env e1 e2
+        _ -> False
+    EFromRequiredInterface t1a t1b e1 -> \case
+        EFromRequiredInterface t2a t2b e2
+            -> alphaTypeCon t1a t2a
+            && alphaTypeCon t1b t2b
+            && alphaExpr' env e1 e2
+        _ -> False
     EUpdate u1 -> \case
         EUpdate u2 -> alphaUpdate env u1 u2
         _ -> False
