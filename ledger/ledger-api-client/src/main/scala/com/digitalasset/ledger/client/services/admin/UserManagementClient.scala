@@ -4,12 +4,12 @@
 package com.daml.ledger.client.services.admin
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{UserId, User, UserRight}
+import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementServiceStub
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{Party, UserId}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -100,7 +100,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
 object UserManagementClient {
   private def fromProtoUser(user: proto.User): User =
     User(
-      UserId(Ref.UserId.assertFromString(user.id)),
+      Ref.UserId.assertFromString(user.id),
       Option.unless(user.primaryParty.isEmpty)(Party.assertFromString(user.primaryParty)),
     )
 
