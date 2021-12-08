@@ -22,6 +22,8 @@ module DA.Internal.Desugar (
     RequiresT(..),
     HasMethod,
     mkMethod,
+    _exerciseDefault,
+    _exerciseInterfaceGuard,
     _typeRepForInterfaceExercise,
 ) where
 
@@ -108,3 +110,12 @@ newtype Method t i (m : Symbol) r = Method { unMethod : t -> r }
 
 mkMethod : (Implements t i, HasMethod i m r) => (t -> r) -> Method t i m r
 mkMethod = Method
+
+-- | Gives a valid implementation of `HasExercise.exercise`
+-- for types that implement `HasExerciseGuarded`.
+_exerciseDefault : HasExerciseGuarded t c r => ContractId t -> c -> Update r
+_exerciseDefault = exerciseGuarded (const True)
+
+_exerciseInterfaceGuard : forall i t. HasFromInterface t i => (t -> Bool) -> (i -> Bool)
+_exerciseInterfaceGuard pred iface =
+  optional False pred (fromInterface iface)
