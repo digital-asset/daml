@@ -5,6 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
+    "da_scala_test",
 )
 
 script_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
@@ -56,6 +57,21 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+    ],
+)
+
+da_scala_test(
+    name = "tests",
+    srcs = glob(
+        ["src/test/**/*.scala"],
+    ),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":script-runner-lib",
+        "//daml-lf/data",
+        "//daml-lf/scenario-interpreter",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
     ],
 )
 

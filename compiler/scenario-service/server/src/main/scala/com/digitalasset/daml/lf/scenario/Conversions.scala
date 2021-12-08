@@ -249,6 +249,10 @@ final class Conversions(
 
       case Error.PartyAlreadyExists(party) =>
         builder.setScenarioPartyAlreadyExists(party)
+
+      case Error.UserManagement(err) =>
+        // TODO https://github.com/digital-asset/daml/issues/11997
+        setCrash(s"User management error: $err")
     }
     builder.build
   }
