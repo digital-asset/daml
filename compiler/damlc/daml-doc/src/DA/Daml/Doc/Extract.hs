@@ -246,6 +246,7 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
     guard (exportsFunction dc_exports fct_name)
     guard (not $ "_choice_" `T.isPrefixOf` packRdrName name)
     guard (not $ "_implements_" `T.isPrefixOf` packRdrName name)
+    guard (not $ "_requires_" `T.isPrefixOf` packRdrName name)
     Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc

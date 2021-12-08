@@ -1213,6 +1213,7 @@ desugarTypes = mkUniqSet
     , "Method"
     , "HasMethod"
     , "ImplementsT"
+    , "RequiresT"
     ]
 
 internalFunctions :: UniqFM (UniqSet FastString)
