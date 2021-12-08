@@ -107,6 +107,8 @@ freeVarsStep = \case
     EToInterfaceF _ _ e -> e
     EFromInterfaceF _ _ e -> e
     ECallInterfaceF _ _ e -> e
+    EToRequiredInterfaceF _ _ e -> e
+    EFromRequiredInterfaceF _ _ e -> e
     EExperimentalF _ t -> freeVarsInType t
 
   where

@@ -761,6 +761,18 @@ typeOf' = \case
     method <- inWorld (lookupInterfaceMethod (iface, method))
     checkExpr val (TCon iface)
     pure (ifmType method)
+  EToRequiredInterface requiredIface requiringIface expr -> do
+    allRequiredIfaces <- intRequires <$> inWorld (lookupInterface requiringIface)
+    unless (S.member requiredIface allRequiredIfaces) $ do
+      throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
+    checkExpr expr (TCon requiringIface)
+    pure (TCon requiredIface)
+  EFromRequiredInterface requiredIface requiringIface expr -> do
+    allRequiredIfaces <- intRequires <$> inWorld (lookupInterface requiringIface)
+    unless (S.member requiredIface allRequiredIfaces) $ do
+      throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
+    checkExpr expr (TCon requiredIface)
+    pure (TOptional (TCon requiringIface))
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
