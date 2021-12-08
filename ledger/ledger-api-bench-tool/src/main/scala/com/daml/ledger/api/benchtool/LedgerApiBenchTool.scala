@@ -32,7 +32,7 @@ object LedgerApiBenchTool {
         logger.info(s"Starting benchmark with configuration:\n${prettyPrint(config)}")
         val result = run(config)(ExecutionContext.Implicits.global)
           .recover { case ex =>
-            println(s"Error: ${ex.getMessage}")
+            logger.error(s"Error: ${ex.getMessage}", ex)
             sys.exit(1)
           }(scala.concurrent.ExecutionContext.Implicits.global)
         Await.result(result, atMost = Duration.Inf)
