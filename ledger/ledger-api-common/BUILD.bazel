@@ -130,6 +130,7 @@ da_scala_test_suite(
         "//ledger-api/rs-grpc-testing-utils",
         "//ledger-api/testing-utils",
         "//ledger/error",
+        "//ledger/error:error-test-lib",
         "//ledger/ledger-api-akka",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-domain",

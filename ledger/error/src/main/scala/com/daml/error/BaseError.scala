@@ -95,7 +95,9 @@ object BaseError {
     "An error occurred. Please contact the operator and inquire about the request"
 
   def isSanitizedSecuritySensitiveMessage(msg: String): Boolean = {
-    // TODO error codes: Check that suffix is a correlation id and nothing else.
+    // NOTE: Currently we can't be much more precise than checking only the message prefix
+    // as the suffix is a correlation id which is unbounded as ledger implementations
+    // are free to choose whatever kind of value is most appropriate for them.
     msg.startsWith(SecuritySensitiveMessageOnApiPrefix)
   }
 
