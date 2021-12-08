@@ -218,8 +218,7 @@ private[daml] object ApiServices {
           apiReflectionService,
           apiHealthService,
           apiVersionService,
-          // FIXME: add authorization for user management
-          apiUserManagementService,
+          new UserManagementServiceAuthorization(apiUserManagementService, authorizer),
         )
     }
 
