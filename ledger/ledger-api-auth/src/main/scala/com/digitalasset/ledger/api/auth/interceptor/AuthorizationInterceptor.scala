@@ -20,10 +20,11 @@ import scala.util.{Failure, Success}
   * and then stores them in the current [[Context]].
   */
 final class AuthorizationInterceptor(
-    protected val authService: AuthService, // FIXME: figure out why a protected val is required here
+    authService: AuthService,
     userManagementService: UserManagementStore,
+    implicit val ec: ExecutionContext,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
-)(implicit loggingContext: LoggingContext, ec: ExecutionContext)
+)(implicit loggingContext: LoggingContext)
     extends ServerInterceptor {
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
@@ -118,9 +119,10 @@ object AuthorizationInterceptor {
   def apply(
       authService: AuthService,
       userManagementService: UserManagementStore,
+      ec: ExecutionContext,
       errorCodesStatusSwitcher: ErrorCodesVersionSwitcher,
-  )(implicit ec: ExecutionContext): AuthorizationInterceptor =
+  ): AuthorizationInterceptor =
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
-      new AuthorizationInterceptor(authService, userManagementService, errorCodesStatusSwitcher)
+      new AuthorizationInterceptor(authService, userManagementService, ec, errorCodesStatusSwitcher)
     }
 }

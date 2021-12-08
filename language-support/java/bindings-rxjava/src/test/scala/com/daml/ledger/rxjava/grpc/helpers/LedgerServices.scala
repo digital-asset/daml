@@ -95,8 +95,9 @@ final class LedgerServices(val ledgerId: String) {
     val authorizationInterceptor = AuthorizationInterceptor(
       authService,
       new InMemoryUserManagementStore(),
+      executionContext,
       new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
-    )(executionContext)
+    )
     services
       .foldLeft(newServerBuilder())(_ addService _)
       .intercept(authorizationInterceptor)

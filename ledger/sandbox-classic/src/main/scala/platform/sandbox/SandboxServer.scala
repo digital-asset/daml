@@ -420,8 +420,9 @@ final class SandboxServer(
           AuthorizationInterceptor(
             authService,
             userManagementService,
+            servicesExecutionContext,
             errorCodesVersionSwitcher,
-          )(executionContext),
+          ),
           resetService,
         ),
         servicesExecutionContext,
