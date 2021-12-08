@@ -71,6 +71,17 @@ class FieldValidations private (errorFactories: ErrorFactories) {
         } yield parties + party
     }
 
+  def requireUserId(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Ref.UserId] =
+    Ref.UserId.fromString(s) match {
+      case Right(userId) => Right(userId)
+      case Left(msg) => Left(invalidField(fieldName, msg, definiteAnswer = Some(false)))
+    }
+
   def requireLedgerString(
       s: String,
       fieldName: String,

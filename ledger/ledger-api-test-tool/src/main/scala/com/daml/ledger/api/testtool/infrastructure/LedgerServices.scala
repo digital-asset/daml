@@ -13,6 +13,8 @@ import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruni
 import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc.ParticipantPruningService
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
+import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc
+import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementService
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
@@ -84,4 +86,7 @@ private[infrastructure] final class LedgerServices(
 
   val version: VersionService =
     VersionServiceGrpc.stub(participant)
+
+  val userManagement: UserManagementService =
+    UserManagementServiceGrpc.stub(participant)
 }
