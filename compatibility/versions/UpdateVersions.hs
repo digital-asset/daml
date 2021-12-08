@@ -167,7 +167,16 @@ getVersionsFromTags :: IO (Set Version)
 getVersionsFromTags = do
     tags <- lines <$> System.Process.readProcess "git" ["tag"] ""
     let versions = Set.fromList $ rights $ mapMaybe (fmap (SemVer.fromText . T.pack) . stripPrefix "v") tags
-    return $ Set.filter (null . view SemVer.release) versions
+    return $ latestPatchVersions $ Set.filter (null . view SemVer.release) versions
+
+-- | Given a set of versions filter it to those that are the latest patch release in a given
+-- major.minor series.
+latestPatchVersions :: Set Version -> Set Version
+latestPatchVersions allVersions =
+    Set.filter (\version -> all (f version) allVersions) allVersions
+  where
+    f this that = toMajorMinor this /= toMajorMinor that || view SemVer.patch this >= view SemVer.patch that
+    toMajorMinor v = (view SemVer.major v, view SemVer.minor v)
 
 main :: IO ()
 main = do
