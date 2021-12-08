@@ -93,6 +93,7 @@ instance RenderDoc InterfaceDoc where
         , RenderBlock $ mconcat
             [ renderDoc if_descr
             , RenderList (map renderDoc if_choices)
+            , RenderList (map renderDoc if_methods)
             ]
         ]
 
@@ -100,6 +101,11 @@ instance RenderDoc ImplDoc where
     renderDoc ImplDoc {..} =
         RenderParagraph $
             renderUnwords [ RenderStrong "implements", renderType impl_iface ]
+
+instance RenderDoc MethodDoc where
+    renderDoc MethodDoc {..} = mconcat
+      [ RenderParagraph $ RenderStrong ("Method " <> unTypename mtd_name <> " : ") <> renderType mtd_type
+      ]
 
 instance RenderDoc ChoiceDoc where
     renderDoc ChoiceDoc{..} = mconcat

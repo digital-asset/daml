@@ -123,7 +123,7 @@ data InterfaceDoc = InterfaceDoc
   { if_anchor :: Maybe Anchor
   , if_name :: Typename
   , if_choices :: [ChoiceDoc]
-  , if_methods :: [ClassMethodDoc]
+  , if_methods :: [MethodDoc]
   , if_descr :: Maybe DocText
   }
   deriving (Eq, Show, Generic)
@@ -229,6 +229,11 @@ data ChoiceDoc = ChoiceDoc
   }
   deriving (Eq, Show, Generic)
 
+data MethodDoc = MethodDoc
+  { mtd_name :: Typename
+  , mtd_type :: Type
+  }
+  deriving (Eq, Show, Generic)
 
 -- | Documentation data for a field in a record
 data FieldDoc = FieldDoc
@@ -333,6 +338,12 @@ instance ToJSON InterfaceDoc where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON InterfaceDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON MethodDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON MethodDoc where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON InstanceDoc where
