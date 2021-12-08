@@ -11,6 +11,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
+import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
@@ -20,7 +21,11 @@ import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.ledger.client.services.acs.ActiveContractSetClient
-import com.daml.ledger.client.services.admin.{PackageManagementClient, PartyManagementClient}
+import com.daml.ledger.client.services.admin.{
+  PackageManagementClient,
+  PartyManagementClient,
+  UserManagementClient,
+}
 import com.daml.ledger.client.services.commands.{CommandClient, SynchronousCommandClient}
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.ledger.client.services.pkg.PackageClient
@@ -78,6 +83,11 @@ final class LedgerClient private (
 
   val versionClient: VersionClient =
     new VersionClient(ledgerId, LedgerClient.stub(VersionServiceGrpc.stub(channel), config.token))
+
+  val userManagementClient: UserManagementClient =
+    new UserManagementClient(
+      LedgerClient.stub(UserManagementServiceGrpc.stub(channel), config.token)
+    )
 
   override def close(): Unit = GrpcChannel.close(channel)
 }
