@@ -7,7 +7,8 @@ import java.time.{Duration, Instant}
 
 import akka.stream.Materializer
 import com.daml.ledger.api.domain.ApplicationId
-import com.daml.lf.data.Ref.{LedgerString, Party}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -15,7 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object NotSupportedDeduplicationPeriodConverter extends DeduplicationPeriodConverter {
 
   override def convertOffsetToDuration(
-      offset: LedgerString,
+      offset: Ref.HexString,
       applicationId: ApplicationId,
       actAs: Set[Party],
       submittedAt: Instant,

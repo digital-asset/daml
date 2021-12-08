@@ -40,7 +40,6 @@ da_scala_library(
         "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
