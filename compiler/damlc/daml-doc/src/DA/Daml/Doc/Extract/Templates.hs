@@ -20,6 +20,7 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Tuple.Extra (second)
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import Data.Monoid (First (..))
 
 import "ghc-lib" GHC
 import "ghc-lib-parser" Var (varType)
@@ -161,17 +162,29 @@ isIfaceChoice decl@ClsInstDecl{}
 -- present, else nothing.
 hasImplementsConstraint :: ClsInstDecl GhcPs -> Maybe (RdrName, HsType GhcPs)
 hasImplementsConstraint (XClsInstDecl _) = Nothing
-hasImplementsConstraint ClsInstDecl{..}
-  | (L _ [L _ ctx], L _ ty) <- splitLHsQualTy $ hsSigType cid_poly_ty
-  , HsParTy _ (L _ (HsAppTy _ (L _ app1) (L _ iface))) <- ctx
+hasImplementsConstraint ClsInstDecl{..} =
+  let (L _ ctxs, L _ ty) = splitLHsQualTy $ hsSigType cid_poly_ty
+  in (,ty) <$> getFirst (foldMap (First . getImplementsConstraint) ctxs)
+
+-- | If the given type is a (DA.Internal.Desugar.Implements t I) constraint,
+-- returns the name of I.
+getImplementsConstraint :: LHsType GhcPs -> Maybe RdrName
+getImplementsConstraint lctx
+  | L _ ctx <- dropParTy lctx
+  , HsAppTy _ (L _ app1) (L _ iface) <- ctx
   , HsTyVar _ _ (L _ ifaceName) <- iface
   , HsAppTy _ (L _ impl) (L _ _t) <- app1
   , HsTyVar _ _ (L _ implCls) <- impl
   , Qual implClsModule implClassOcc <- implCls
   , moduleNameString implClsModule == "DA.Internal.Desugar"
   , occNameString implClassOcc == "Implements"
-  = Just (ifaceName, ty)
+  = Just ifaceName
   | otherwise = Nothing
+
+-- | Removes any `HsParTy` constructors from an `LHsType a`.
+dropParTy :: LHsType a -> LHsType a
+dropParTy (L _ (HsParTy _ ty)) = dropParTy ty
+dropParTy ty = ty
 
 -- | Strip the @Instance@ suffix off of a typename, if it's there.
 -- Otherwise returns 'Nothing'.
