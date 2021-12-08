@@ -5,7 +5,7 @@ package com.daml.platform.server.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{LedgerId, UserId}
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
@@ -76,9 +76,9 @@ class FieldValidations private (errorFactories: ErrorFactories) {
       fieldName: String,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, UserId] =
+  ): Either[StatusRuntimeException, Ref.UserId] =
     Ref.UserId.fromString(s) match {
-      case Right(userId) => Right(UserId(userId))
+      case Right(userId) => Right(userId)
       case Left(msg) => Left(invalidField(fieldName, msg, definiteAnswer = Some(false)))
     }
 

@@ -3,7 +3,9 @@
 
 package com.daml.ledger.participant.state.index.v2
 
-import com.daml.ledger.api.domain.{UserId, User, UserRight}
+import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.lf.data.Ref
+
 import scala.concurrent.Future
 
 trait UserManagementStore {
@@ -11,15 +13,15 @@ trait UserManagementStore {
 
   def createUser(user: User, rights: Set[UserRight]): Future[Result[Unit]]
 
-  def getUser(id: UserId): Future[Result[User]]
+  def getUser(id: Ref.UserId): Future[Result[User]]
 
-  def deleteUser(id: UserId): Future[Result[Unit]]
+  def deleteUser(id: Ref.UserId): Future[Result[Unit]]
 
-  def grantRights(id: UserId, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
+  def grantRights(id: Ref.UserId, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
 
-  def revokeRights(id: UserId, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
+  def revokeRights(id: Ref.UserId, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
 
-  def listUserRights(id: UserId): Future[Result[Set[UserRight]]]
+  def listUserRights(id: Ref.UserId): Future[Result[Set[UserRight]]]
 
   def listUsers(): Future[Result[Users]]
 }
@@ -29,6 +31,6 @@ object UserManagementStore {
   type Users = Seq[User]
 
   sealed trait Error
-  final case class UserNotFound(userId: UserId) extends Error
-  final case class UserExists(userId: UserId) extends Error
+  final case class UserNotFound(userId: Ref.UserId) extends Error
+  final case class UserExists(userId: Ref.UserId) extends Error
 }
