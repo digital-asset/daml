@@ -57,7 +57,7 @@ class CompletionBasedDeduplicationPeriodConverter(
       mat: Materializer,
       loggingContext: LoggingContext,
   ): Future[Option[CompletionStreamResponse]] = {
-    val firstOffsetBefore = HexOffset.firstBefore(offset)
+    val firstOffsetBefore = HexOffset.previous(offset)
     completionService
       .getCompletions(
         firstOffsetBefore.map(LedgerOffset.Absolute).getOrElse(LedgerOffset.LedgerBegin),

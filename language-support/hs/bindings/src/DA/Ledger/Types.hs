@@ -104,7 +104,8 @@ data Command
     deriving (Eq,Ord,Show)
 
 data DeduplicationPeriod
-    = DeduplicationDuration LL.Duration
+    = DeduplicationTime LL.Duration
+    | DeduplicationOffset AbsOffset
   deriving (Eq, Ord, Show)
 
 -- ledger_offset.proto

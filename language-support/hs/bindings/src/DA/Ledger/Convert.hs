@@ -81,8 +81,10 @@ lowerCommands = \case
 
 lowerDeduplicationPeriod :: DeduplicationPeriod -> LL.CommandsDeduplicationPeriod
 lowerDeduplicationPeriod = \case
-    DeduplicationDuration t ->
+    DeduplicationTime t ->
         LL.CommandsDeduplicationPeriodDeduplicationTime t
+    DeduplicationOffset o ->
+        LL.CommandsDeduplicationPeriodDeduplicationOffset (unAbsOffset o)
 
 lowerCommand :: Command -> LL.Command
 lowerCommand = \case

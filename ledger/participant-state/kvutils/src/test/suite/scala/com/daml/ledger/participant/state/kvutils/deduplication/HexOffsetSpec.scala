@@ -27,7 +27,7 @@ class HexOffsetSpec
   "building lexicographical string" should {
 
     "return None if the lexicographically previous string does not exist" in {
-      HexOffset.firstBefore(
+      HexOffset.previous(
         Ref.HexString.assertFromString("000000000000")
       ) shouldBe None
     }
@@ -45,15 +45,19 @@ class HexOffsetSpec
           "00007a94" -> "00007a93",
         )
       ) { case (offset, expectedOffset) =>
-        HexOffset.firstBefore(
+        HexOffset.previous(
           Ref.HexString.assertFromString(offset)
         ) shouldBe Some(Ref.HexString.assertFromString(expectedOffset))
       }
     }
 
     "return lower offset" in forAll(offsets) { offset =>
-      val lowerOffset = HexOffset.firstBefore(offset).value
-      offset should be > [String] lowerOffset
+      if (offset.forall(_ == '0')) {
+        HexOffset.previous(offset) shouldBe (None)
+      } else {
+        val lowerOffset = HexOffset.previous(offset).value
+        offset should be > [String] lowerOffset
+      }
     }
 
   }
