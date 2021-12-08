@@ -160,7 +160,7 @@ but there is no guarantee given that additional information will be preserved ac
 Working with Error Codes
 ======================================
 
-The example below shows how a user can in practice extract relevant error information.
+This example shows how a user can extract the relevant error information.
 
 .. code-block:: scala
 
