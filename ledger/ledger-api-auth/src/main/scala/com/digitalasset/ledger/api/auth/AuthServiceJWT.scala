@@ -66,8 +66,8 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
     } yield parsed
   }
 
-  private[this] val payloadToClaims: SupportedJWTPayload => ClaimSet.Claims = {
-    case CustomDamlJWTPayload(payload) =>  {
+  private[this] val payloadToClaims: SupportedJWTPayload => ClaimSet = {
+    case CustomDamlJWTPayload(payload) => {
       val claims = ListBuffer[Claim]()
 
       // Any valid token authorizes the user to use public services
@@ -88,15 +88,13 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
         participantId = payload.participantId,
         applicationId = payload.applicationId,
         expiration = payload.exp,
+        resolvedFromUser = false,
       )
     }
     case StandardJWTPayload(payload) =>
-      ClaimSet.Claims(
-        claims =
-          List.empty, // FIXME: remove this ugly hack of using this field to signal that standard token
-        ledgerId = payload.ledgerId,
+      ClaimSet.AuthenticatedUser(
         participantId = payload.participantId,
-        applicationId = payload.applicationId,
+        userId = payload.applicationId.get,
         expiration = payload.exp,
       )
   }

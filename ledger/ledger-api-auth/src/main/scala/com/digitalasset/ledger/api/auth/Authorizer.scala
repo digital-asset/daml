@@ -159,8 +159,8 @@ final class Authorizer(
       }
     }
 
-  // FIXME: make this function prettier, easier to understand and use
-  def withClaims[Req, Res](call: ClaimSet.Claims => Future[Res]): Future[Res] =
+  /** Use the claims to compute the result; use with caution to avoid missing authorization checks. */
+  def withClaims[Res](call: ClaimSet.Claims => Future[Res]): Future[Res] =
     authenticatedClaimsFromContext()
       .fold(
         ex => {
@@ -212,6 +212,15 @@ final class Authorizer(
       .fold[Try[ClaimSet.Claims]](Failure(errorFactories.unauthenticatedMissingJwtToken())) {
         case ClaimSet.Unauthenticated =>
           Failure(errorFactories.unauthenticatedMissingJwtToken())
+        case authenticatedUser: ClaimSet.AuthenticatedUser =>
+          Failure(
+            errorFactories.internalAuthenticationError(
+              s"Unexpected unresolved authenticated user claim",
+              new RuntimeException(
+                s"Unexpected unresolved authenticated user claim for user '${authenticatedUser.userId}"
+              ),
+            )
+          )
         case claims: ClaimSet.Claims => Success(claims)
       }
 

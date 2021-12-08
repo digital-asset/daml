@@ -34,12 +34,15 @@ private[daml] final class UserManagementServiceAuthorization(
     if (request.userId.isEmpty) {
       // Request user-id is empty => serve the user from the authenticated claims
       authorizer.withClaims(claims =>
-        if (claims.isStandardJwtToken)
+        if (claims.resolvedFromUser)
           claims.applicationId match {
             case None =>
               Future.failed(
-                LedgerApiErrors.AuthorizationChecks.PermissionDenied
-                  .Reject("user-id not set in authenticated claims")
+                LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
+                  .Reject(
+                    "unexpectedly the user-id is not set in authenticated claims",
+                    new RuntimeException(),
+                  )
                   .asGrpcError
               )
             case Some(userId) =>
@@ -96,13 +99,16 @@ private[daml] final class UserManagementServiceAuthorization(
     if (request.userId.isEmpty) {
       // Request user-id is empty => use the one from the authenticated claims
       authorizer.withClaims(claims =>
-        if (claims.isStandardJwtToken)
+        if (claims.resolvedFromUser)
           claims.applicationId match {
             case Some(userId) => service.listUserRights(request.copy(userId = userId))
             case None =>
               Future.failed(
-                LedgerApiErrors.AuthorizationChecks.PermissionDenied
-                  .Reject("user-id not set in authenticated claims")
+                LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
+                  .Reject(
+                    "unexpectedly the user-id is not set in authenticated claims",
+                    new RuntimeException(),
+                  )
                   .asGrpcError
               )
           }

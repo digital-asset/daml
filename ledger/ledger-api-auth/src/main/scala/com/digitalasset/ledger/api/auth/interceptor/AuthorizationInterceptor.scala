@@ -68,24 +68,22 @@ final class AuthorizationInterceptor(
 
   private[this] def resolveUserRights(claimSet: ClaimSet): Future[ClaimSet] = {
     claimSet match {
-      case ClaimSet.Claims(claims, ledgerId, participantId, Some(applicationId), expiration)
-          if claims.isEmpty => // FIXME: use the Claims.isStandardJwtToken function here
-        // no claims embedded in the token and applicationId given ==> lookup user rights
-        // FIXME: validation of userId
-        getUserClaims(UserId(Ref.UserId.assertFromString(applicationId))).map({
+      case ClaimSet.AuthenticatedUser(userId, participantId, expiration) =>
+        getUserClaims(UserId(Ref.UserId.assertFromString(userId))).map({
           case None => { // FIXME: understand why are these braces considered redundant by IntelliJ?
             logger.warn(
-              s"Authorization error: cannot resolve rights for unknown user '$applicationId'."
+              s"Authorization error: cannot resolve rights for unknown user '$userId'."
             )
             ClaimSet.Unauthenticated
           }
           case Some(userClaims) =>
             ClaimSet.Claims(
               claims = userClaims.prepended(ClaimPublic),
-              ledgerId = ledgerId,
+              ledgerId = None,
               participantId = participantId,
-              applicationId = Some(applicationId),
+              applicationId = Some(userId),
               expiration = expiration,
+              resolvedFromUser = true,
             )
         })
       case _ => Future.successful(claimSet)
