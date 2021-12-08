@@ -17,25 +17,25 @@ import scala.concurrent.ExecutionContext
 
 case class BridgeConfig(maxDedupSeconds: Int, submissionBufferSize: Int)
 
-object BridgeLedgerFactory extends LedgerFactory[ReadWriteServiceBridge, BridgeConfig] {
+object BridgeLedgerFactory extends LedgerFactory[ConflictCheckingLedgerBridge, BridgeConfig] {
   override final def readWriteServiceOwner(
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-      contractStore: AtomicReference[Option[ContractStore]],
+      contractStoreRef: AtomicReference[Option[ContractStore]],
       metrics: Metrics,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
       executionContext: ExecutionContext,
-  ): ResourceOwner[ReadWriteServiceBridge] =
+  ): ResourceOwner[ConflictCheckingLedgerBridge] =
     ResourceOwner.forCloseable(() =>
-      ReadWriteServiceBridge(
+      ConflictCheckingLedgerBridge(
         participantId = participantConfig.participantId,
         ledgerId = config.ledgerId,
         maxDedupSeconds = config.extra.maxDedupSeconds,
         submissionBufferSize = config.extra.submissionBufferSize,
-        contractStore = contractStore,
+        contractStoreRef = contractStoreRef,
         metrics: Metrics,
       )
     )

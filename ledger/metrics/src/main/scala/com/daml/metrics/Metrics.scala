@@ -27,6 +27,11 @@ final class Metrics(val registry: MetricRegistry) {
       val sequencerQueueLengthCounter: Histogram =
         registry.histogram(Prefix :+ "sequencer_queue_length")
 
+      val precomputeTransactionOutputs: Timer =
+        registry.timer(Prefix :+ "precompute_transaction_outputs")
+      val conflictCheckWithCommitted: Timer =
+        registry.timer(Prefix :+ "conflict_check_with_committed")
+
       val keyStateSize: Histogram = registry.histogram(Prefix :+ "key_state_size")
       val consumedContractsStateSize: Histogram =
         registry.histogram(Prefix :+ "consumed_contracts_state_size")
@@ -34,21 +39,12 @@ final class Metrics(val registry: MetricRegistry) {
       val stateDequeue: Timer = registry.timer(Prefix :+ "state_dequeue")
 
       val sequenceDuration: Timer = registry.timer(Prefix :+ "sequence_duration")
-      val deltaConflictCheckingSize: Histogram =
-        registry.histogram(Prefix :+ "sequence_conflict_slice_size")
 
       val conflictQueueCapacity: Counter = registry.counter(Prefix :+ "queue_capacity")
       val conflictQueueLength: Counter = registry.counter(Prefix :+ "queue_length")
       val conflictQueueDelay: Timer = registry.timer(Prefix :+ "queue_delay")
 
-      val parallelConflictCheckingDuration: Timer =
-        registry.timer(Prefix :+ "parallel_conflict_checking_duration")
-
-      val sequentialCheckDuration: Timer = registry.timer(Prefix :+ "sequential_check_duration")
-
-      val queueBeforeSequencer: Counter = registry.counter(Prefix :+ "queue_before_sequencer")
       val queueSearch: Timer = registry.timer(Prefix :+ "queue_search")
-      val slice: Timer = registry.timer(Prefix :+ "slice")
     }
 
     object commands {
