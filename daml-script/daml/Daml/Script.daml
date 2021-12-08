@@ -51,6 +51,17 @@ module Daml.Script
   , exercisedN
   , AnyContractId
   , fromAnyContractId
+
+  , User(..)
+  , UserRight(..)
+  , createUser
+  , getUser
+  , deleteUser
+  , listUsers
+  , grantUserRights
+  , revokeUserRights
+  , listUserRights
+  , submitUser
   ) where
 
 #ifdef DAML_EXCEPTIONS
@@ -108,6 +119,13 @@ data ScriptF a
   | GetTime (GetTimePayload a)
   | SetTime (SetTimePayload a)
   | Sleep (SleepRec a)
+  | CreateUser (CreateUserPayload a)
+  | GetUser (GetUserPayload a)
+  | DeleteUser (DeleteUserPayload a)
+  | ListUsers (ListUsersPayload a)
+  | GrantUserRights (GrantUserRightsPayload a)
+  | RevokeUserRights (RevokeUserRightsPayload a)
+  | ListUserRights (ListUserRightsPayload a)
 #ifndef DAML_EXCEPTIONS
   deriving Functor
 #else
@@ -731,3 +749,127 @@ submitTreeMulti actAs readAs cmds =
     commands = void cmds
     locations = getCallStack callStack
     continue = identity
+
+-- | HIDE User as used in the user management service
+data User = User
+  with
+    id : Text
+    primaryParty : Optional Party
+  deriving (Show, Eq)
+
+-- | HIDE The rights of a user
+data UserRight
+  = ParticipantAdmin
+  | CanActAs Party
+  | CanReadAs Party
+  deriving (Show, Eq)
+
+-- | HIDE Create a user with the given rights
+createUser : HasCallStack => User -> [UserRight] -> Script User
+createUser user rights = lift $ Free $ CreateUser CreateUserPayload with
+  continue = pure
+  locations = getCallStack callStack
+  user
+  rights
+
+-- | HIDE Fetch a user by user id
+getUser : HasCallStack => Text -> Script (Optional User)
+getUser userId = lift $ Free $ GetUser GetUserPayload with
+  continue = pure
+  locations = getCallStack callStack
+  userId
+
+-- | HIDE List all users on the participant
+listUsers : Script [User]
+listUsers = lift $ Free $ ListUsers ListUsersPayload with
+  continue = pure
+  locations = getCallStack callStack
+
+-- | HIDE Grant the user the given rights. Returns the rights that have been newly granted.
+grantUserRights : HasCallStack => Text -> [UserRight] -> Script [UserRight]
+grantUserRights userId rights = lift $ Free $ GrantUserRights GrantUserRightsPayload with
+  continue = pure
+  locations = getCallStack callStack
+  userId
+  rights
+
+-- | HIDE Revoke the rights of the given user. Returns the revoked rights.
+revokeUserRights : HasCallStack => Text -> [UserRight] -> Script [UserRight]
+revokeUserRights userId rights = lift $ Free $ RevokeUserRights RevokeUserRightsPayload with
+  continue = pure
+  locations = getCallStack callStack
+  userId
+  rights
+
+-- | HIDE Delete the given user. Fails if the user does not exist.
+deleteUser : HasCallStack => Text -> Script ()
+deleteUser userId = lift $ Free $ DeleteUser DeleteUserPayload with
+  continue = pure
+  locations = getCallStack callStack
+  userId
+
+-- | HIDE List the rights of the given user
+listUserRights : HasCallStack => Text -> Script [UserRight]
+listUserRights userId = lift $ Free $ ListUserRights ListUserRightsPayload with
+  continue = pure
+  locations = getCallStack callStack
+  userId
+
+-- | HIDE Submit the commands with the actAs and readAs claims granted to the user.
+submitUser : HasCallStack => User -> Commands a -> Script a
+submitUser u cmds = do
+  rights <- listUserRights u.id
+  let actAs = [ p | CanActAs p <- rights ]
+  let readAs = [ p | CanReadAs p <- rights ]
+  submitMulti actAs readAs cmds
+
+data CreateUserPayload a = CreateUserPayload
+  with
+    user: User
+    rights: [UserRight]
+    continue : User -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data GetUserPayload a = GetUserPayload
+  with
+    userId : Text
+    continue : Optional User -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data DeleteUserPayload a = DeleteUserPayload
+  with
+    userId : Text
+    continue : () -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data ListUsersPayload a = ListUsersPayload
+  with
+    continue : [User] -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data GrantUserRightsPayload a = GrantUserRightsPayload
+  with
+    userId : Text
+    rights : [UserRight]
+    continue : [UserRight] -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data RevokeUserRightsPayload a = RevokeUserRightsPayload
+  with
+    userId : Text
+    rights : [UserRight]
+    continue : [UserRight] -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+data ListUserRightsPayload a = ListUserRightsPayload
+  with
+    userId : Text
+    continue : [UserRight] -> a
+    locations : [(Text, SrcLoc)]
+  deriving Functor
