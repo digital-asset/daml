@@ -183,12 +183,13 @@ object AuthServiceJWTCodec {
   }
 
   val readStandardTokenPayload: JsValue => Option[AuthServiceJWTPayload] = {
+    // NOTE: there is the corner-case of a legacy Daml token containing a "sub" field.
+    // We accept that risk.
     case JsObject(fields) if !fields.contains(oidcNamespace) && fields.contains("sub") =>
-      // FIXME: this is hacky! As there might be accidental "sub" fields in a legacy format Daml JWT token.
       Some(
         AuthServiceJWTPayload(
           ledgerId = None,
-          // FIXME: allow for an array of audiences
+          // TODO (i12054): allow for an array of audiences
           participantId = readOptionalString("aud", fields),
           applicationId = readOptionalString("sub", fields),
           exp = readInstant("exp", fields),
