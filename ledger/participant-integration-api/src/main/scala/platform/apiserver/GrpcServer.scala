@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit.SECONDS
 
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.error.ErrorInterceptor
 import com.daml.ports.Port
 import com.google.protobuf.Message
 import io.grpc._
@@ -46,9 +47,11 @@ private[apiserver] object GrpcServer {
     builder.permitKeepAliveWithoutCalls(true)
     builder.executor(servicesExecutor)
     builder.maxInboundMessageSize(maxInboundMessageSize)
+    // NOTE: Interceptors add here will run in the reverse order in which they were added.
     interceptors.foreach(builder.intercept)
     builder.intercept(new MetricsInterceptor(metrics))
     builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
+    builder.intercept(new ErrorInterceptor)
     services.foreach { service =>
       builder.addService(service)
       toLegacyService(service).foreach(builder.addService)

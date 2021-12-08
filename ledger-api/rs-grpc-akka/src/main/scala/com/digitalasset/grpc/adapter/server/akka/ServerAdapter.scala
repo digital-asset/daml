@@ -4,13 +4,20 @@
 package com.daml.grpc.adapter.server.akka
 
 import akka.stream.scaladsl.Sink
+import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.rs.ServerSubscriber
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import io.grpc.{StatusException, StatusRuntimeException}
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 
 import scala.concurrent.{Future, Promise}
 
 object ServerAdapter {
+
+  private val logger = ContextualizedLogger.get(getClass)
+  private val emptyLoggingContext = LoggingContext.newLoggingContext(identity)
 
   def toSink[Resp](
       streamObserver: StreamObserver[Resp]
@@ -19,7 +26,25 @@ object ServerAdapter {
       new ServerSubscriber[Resp](
         streamObserver.asInstanceOf[ServerCallStreamObserver[Resp]],
         executionSequencerFactory.getExecutionSequencer,
-      )
+      ) {
+
+        /** Translate unhandled exceptions arising inside Akka streaming into self-service error codes.
+          */
+        override protected def translateThrowableInOnError(throwable: Throwable): Throwable = {
+          throwable match {
+            case t: StatusException => t
+            case t: StatusRuntimeException => t
+            case _ =>
+              LedgerApiErrors.InternalError
+                .UnexpectedOrUnknownException(throwable)(
+                  new DamlContextualizedErrorLogger(logger, emptyLoggingContext, None)
+                )
+                .asGrpcError
+          }
+        }
+
+      }
+
     Sink
       .fromSubscriber(subscriber)
       .mapMaterializedValue(_ => {
