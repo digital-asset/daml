@@ -3,6 +3,8 @@
 
 package com.daml.platform.index
 
+// TODO (i12057): complete unit testing and move to the right place sitting side-by-side with the implementation
+
 //import org.scalatest.BeforeAndAfterAll
 //import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers

@@ -4,7 +4,11 @@
 package com.daml.platform.apiserver.services.admin
 
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.domain._
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
@@ -49,16 +53,23 @@ private[apiserver] final class ApiUserManagementService(
     case proto.Right(proto.Right.Kind.CanReadAs(r)) =>
       fieldValidations.requireParty(r.party).map(UserRight.CanReadAs(_))
     case proto.Right(proto.Right.Kind.Empty) =>
-      Left(LedgerApiErrors.RequestValidation.InvalidArgument.Reject("unknown kind of right - check that the Ledger API version of the server is recent enough").asGrpcError)
+      Left(
+        LedgerApiErrors.RequestValidation.InvalidArgument
+          .Reject(
+            "unknown kind of right - check that the Ledger API version of the server is recent enough"
+          )
+          .asGrpcError
+      )
   }
 
-  private def fromProtoRights(rights: Seq[proto.Right]): Either[StatusRuntimeException, Set[UserRight]] = {
+  private def fromProtoRights(
+      rights: Seq[proto.Right]
+  ): Either[StatusRuntimeException, Set[UserRight]] = {
     // Note: IntelliJ does not seem to be able to compile the below, but scalac does.
     // We might want to switch the field validation to just raise a 'StatusRuntimeException' instead of
     // taking the pain with `Either`.
     rights.toList.traverse(fromProtoRight).map(_.toSet)
   }
-
 
   override def close(): Unit = ()
 
@@ -112,14 +123,16 @@ private[apiserver] final class ApiUserManagementService(
 
   override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] =
     userManagementService
-      .listUsers( /*request.pageSize, request.pageToken*/ )
+      .listUsers()
       .flatMap(handleResult("list users"))
       .map(
         _.map(toProtoUser)
-      ) // case (users, nextPageToken) => ListUsersResponse(users.map(toApiUser), nextPageToken)
+      )
       .map(proto.ListUsersResponse(_))
 
-  override def grantUserRights(request: proto.GrantUserRightsRequest): Future[proto.GrantUserRightsResponse] =
+  override def grantUserRights(
+      request: proto.GrantUserRightsRequest
+  ): Future[proto.GrantUserRightsResponse] =
     withValidation(
       for {
         userId <- fieldValidations.requireUserId(request.userId, "user_id")
@@ -155,7 +168,9 @@ private[apiserver] final class ApiUserManagementService(
         .map(proto.RevokeUserRightsResponse(_))
     })
 
-  override def listUserRights(request: proto.ListUserRightsRequest): Future[proto.ListUserRightsResponse] =
+  override def listUserRights(
+      request: proto.ListUserRightsRequest
+  ): Future[proto.ListUserRightsResponse] =
     withValidation(
       fieldValidations.requireUserId(request.userId, "user_id")
     )(userId =>

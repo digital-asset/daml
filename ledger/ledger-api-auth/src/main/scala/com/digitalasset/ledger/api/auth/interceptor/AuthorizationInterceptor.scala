@@ -46,7 +46,7 @@ final class AuthorizationInterceptor(
     new AsyncForwardingListener[ReqT] {
       FutureConverters
         .toScala(authService.decodeMetadata(headers))
-        .flatMap(resolveUserRights)
+        .flatMap(resolveAuthenticatedUserRights)
         .onComplete {
           case Failure(exception) =>
             val error = errorFactories.internalAuthenticationError(
@@ -67,26 +67,28 @@ final class AuthorizationInterceptor(
     }
   }
 
-  private[this] def resolveUserRights(claimSet: ClaimSet): Future[ClaimSet] = {
+  private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] = {
     claimSet match {
       case ClaimSet.AuthenticatedUser(userId, participantId, expiration) =>
-        getUserClaims(Ref.UserId.assertFromString(userId)).map({
-          case None => { // FIXME: understand why are these braces considered redundant by IntelliJ?
-            logger.warn(
-              s"Authorization error: cannot resolve rights for unknown user '$userId'."
-            )
-            ClaimSet.Unauthenticated
-          }
-          case Some(userClaims) =>
-            ClaimSet.Claims(
-              claims = userClaims.prepended(ClaimPublic),
-              ledgerId = None,
-              participantId = participantId,
-              applicationId = Some(userId),
-              expiration = expiration,
-              resolvedFromUser = true,
-            )
-        })
+        userManagementService
+          .listUserRights(Ref.UserId.assertFromString(userId))
+          .map({
+            case Left(msg) => {
+              logger.warn(
+                s"Authorization error: cannot resolve rights for user '$userId' due to $msg."
+              )
+              ClaimSet.Unauthenticated
+            }
+            case Right(userClaims) =>
+              ClaimSet.Claims(
+                claims = userClaims.view.map(userRightToClaim).toList.prepended(ClaimPublic),
+                ledgerId = None,
+                participantId = participantId,
+                applicationId = Some(userId),
+                expiration = expiration,
+                resolvedFromUser = true,
+              )
+          })
       case _ => Future.successful(claimSet)
     }
   }
@@ -95,17 +97,6 @@ final class AuthorizationInterceptor(
     case UserRight.CanActAs(p) => ClaimActAsParty(Ref.Party.assertFromString(p))
     case UserRight.CanReadAs(p) => ClaimReadAsParty(Ref.Party.assertFromString(p))
     case UserRight.ParticipantAdmin => ClaimAdmin
-  }
-
-  // FIXME: inline this function into the above
-  private[this] def getUserClaims(userId: Ref.UserId): Future[Option[List[Claim]]] = {
-    userManagementService
-      .listUserRights(userId)
-      .map {
-        // FIXME: figure out the idiomatic way to do that
-        case Left(_) => None
-        case Right(x) => Some(x.view.map(userRightToClaim).toList)
-      }
   }
 }
 

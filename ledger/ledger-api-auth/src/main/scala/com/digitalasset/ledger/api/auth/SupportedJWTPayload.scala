@@ -1,15 +1,19 @@
 package com.daml.ledger.api.auth
 
-import com.daml.ledger.api.auth.AuthServiceJWTCodec.{readPayload, readStandardTokenPayload, writePayload, writeStandardTokenPayload}
+import com.daml.ledger.api.auth.AuthServiceJWTCodec.{
+  readPayload,
+  readStandardTokenPayload,
+  writePayload,
+  writeStandardTokenPayload,
+}
 import spray.json.{DefaultJsonProtocol, JsValue, RootJsonFormat}
 
-/**
- * A wrapper class to add support for standard JWT tokens alongside the existing custom tokens in a minimally invasive way.
- *
- * The main problem is that the [[AuthServiceJWTPayload]] class is used by other applications
- * like the JSON-API to parse tokens; and we don't want to meddle with that code as part of the PoC.
- */
-// FIXME (i12049): clarify naming and inline case classes where possible.
+/** A wrapper class to add support for standard JWT tokens alongside the existing custom tokens in a minimally invasive way.
+  *
+  * The main problem is that the [[AuthServiceJWTPayload]] class is used by other applications
+  * like the JSON-API to parse tokens; and we don't want to meddle with that code as part of the PoC.
+  */
+// TODO (i12049): clarify naming and inline case classes where possible.
 sealed trait SupportedJWTPayload {}
 final case class CustomDamlJWTPayload(payload: AuthServiceJWTPayload) extends SupportedJWTPayload
 final case class StandardJWTPayload(payload: AuthServiceJWTPayload) extends SupportedJWTPayload
