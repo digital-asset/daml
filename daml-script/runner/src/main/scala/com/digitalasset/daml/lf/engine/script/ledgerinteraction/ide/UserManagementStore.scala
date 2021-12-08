@@ -40,7 +40,7 @@ private[ledgerinteraction] class UserManagementStore {
     lookup(id) match {
       case Some(userInfo) =>
         val newlyGranted = granted.diff(userInfo.rights)
-        assert(replaceInfo(userInfo, userInfo.copy(rights = userInfo.rights ++ newlyGranted)))
+        replaceInfo(userInfo, userInfo.copy(rights = userInfo.rights ++ newlyGranted))
         Right(newlyGranted)
       case None =>
         Left(UserNotFound(id))
@@ -50,9 +50,7 @@ private[ledgerinteraction] class UserManagementStore {
     lookup(id) match {
       case Some(userInfo) =>
         val effectivelyRevoked = revoked.intersect(userInfo.rights)
-        assert(
-          replaceInfo(userInfo, userInfo.copy(rights = userInfo.rights -- effectivelyRevoked))
-        )
+        replaceInfo(userInfo, userInfo.copy(rights = userInfo.rights -- effectivelyRevoked))
         Right(effectivelyRevoked)
       case None =>
         Left(UserNotFound(id))
@@ -81,8 +79,8 @@ private[ledgerinteraction] class UserManagementStore {
       s"Replace info from if ${oldInfo.user.id} to ${newInfo.user.id} -> ${newInfo.rights}",
     )
     state.get(oldInfo.user.id) match {
-      case Some(`oldInfo`) => state.update(newInfo.user.id, newInfo); true
-      case _ => false
+      case Some(`oldInfo`) => state.update(newInfo.user.id, newInfo)
+      case _ => throw new IllegalArgumentException(s"User id not found ${oldInfo.user.id}")
     }
   }
 }
