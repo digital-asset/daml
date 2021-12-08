@@ -133,14 +133,11 @@ message DeleteUserResponse {
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message ListUsersRequest {
-    // TODO https://cloud.google.com/apis/design/design_patterns#list_pagination
-    // int32 page_size = 1;
-    // string page_token = 2;
+    // TODO (i12052): add pagination following https://cloud.google.com/apis/design/design_patterns#list_pagination
 }
 
 message ListUsersResponse {
     repeated User users = 1;
-    // string next_page_token = 2;
 }
 
 // Add the rights to the set of rights granted to the user.
@@ -177,7 +174,7 @@ message ListUserRightsRequest {
     // If set to empty string (the default), then the rights for the authenticated user will be listed.
     string user_id = 1;
 
-    // TODO: add pagination, cf. https://cloud.google.com/apis/design/design_patterns#list_pagination
+    // TODO (i12052): add pagination following https://cloud.google.com/apis/design/design_patterns#list_pagination
 }
 
 message ListUserRightsResponse {
