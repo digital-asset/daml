@@ -65,7 +65,6 @@ class AuthServiceJWTCodecSpec
 
       "work for arbitrary custom Daml token values" in forAll(
         Gen.resultOf(AuthServiceJWTPayload),
-
         minSuccessful(100),
       )(v0 => {
         val value = CustomDamlJWTPayload(v0)
@@ -76,15 +75,17 @@ class AuthServiceJWTCodecSpec
         Gen.resultOf(AuthServiceJWTPayload),
         minSuccessful(100),
       )(v0 => {
-        val value = StandardJWTPayload(AuthServiceJWTPayload(
-          ledgerId = None,
-          participantId = v0.participantId,
-          applicationId = Some(v0.applicationId.getOrElse("default-user")),
-          exp = v0.exp,
-          admin = false,
-          actAs = List.empty,
-          readAs = List.empty,
-        ))
+        val value = StandardJWTPayload(
+          AuthServiceJWTPayload(
+            ledgerId = None,
+            participantId = v0.participantId,
+            applicationId = Some(v0.applicationId.getOrElse("default-user")),
+            exp = v0.exp,
+            admin = false,
+            actAs = List.empty,
+            readAs = List.empty,
+          )
+        )
         serializeAndParse(value) shouldBe Success(value)
       })
 
@@ -102,15 +103,17 @@ class AuthServiceJWTCodecSpec
             |  "exp": 0
             |}
           """.stripMargin
-        val expected = CustomDamlJWTPayload(AuthServiceJWTPayload(
-          ledgerId = Some("someLedgerId"),
-          participantId = Some("someParticipantId"),
-          applicationId = Some("someApplicationId"),
-          exp = Some(Instant.EPOCH),
-          admin = true,
-          actAs = List("Alice"),
-          readAs = List("Alice", "Bob"),
-        ))
+        val expected = CustomDamlJWTPayload(
+          AuthServiceJWTPayload(
+            ledgerId = Some("someLedgerId"),
+            participantId = Some("someParticipantId"),
+            applicationId = Some("someApplicationId"),
+            exp = Some(Instant.EPOCH),
+            admin = true,
+            actAs = List("Alice"),
+            readAs = List("Alice", "Bob"),
+          )
+        )
         val result = parseCustomToken(serialized)
         result shouldBe Success(expected)
         result.map(_.payload.party) shouldBe Success(None)
@@ -128,15 +131,17 @@ class AuthServiceJWTCodecSpec
             |  "readAs": ["Alice", "Bob"]
             |}
           """.stripMargin
-        val expected = CustomDamlJWTPayload(AuthServiceJWTPayload(
-          ledgerId = Some("someLedgerId"),
-          participantId = Some("someParticipantId"),
-          applicationId = Some("someApplicationId"),
-          exp = Some(Instant.EPOCH),
-          admin = true,
-          actAs = List("Alice"),
-          readAs = List("Alice", "Bob"),
-        ))
+        val expected = CustomDamlJWTPayload(
+          AuthServiceJWTPayload(
+            ledgerId = Some("someLedgerId"),
+            participantId = Some("someParticipantId"),
+            applicationId = Some("someApplicationId"),
+            exp = Some(Instant.EPOCH),
+            admin = true,
+            actAs = List("Alice"),
+            readAs = List("Alice", "Bob"),
+          )
+        )
         val result = parseCustomToken(serialized)
         result shouldBe Success(expected)
         result.map(_.payload.party) shouldBe Success(None)
@@ -150,15 +155,17 @@ class AuthServiceJWTCodecSpec
             |  "party": "Alice"
             |}
           """.stripMargin
-        val expected = CustomDamlJWTPayload(AuthServiceJWTPayload(
-          ledgerId = Some("someLedgerId"),
-          participantId = None,
-          applicationId = Some("someApplicationId"),
-          exp = None,
-          admin = false,
-          actAs = List("Alice"),
-          readAs = List.empty,
-        ))
+        val expected = CustomDamlJWTPayload(
+          AuthServiceJWTPayload(
+            ledgerId = Some("someLedgerId"),
+            participantId = None,
+            applicationId = Some("someApplicationId"),
+            exp = None,
+            admin = false,
+            actAs = List("Alice"),
+            readAs = List.empty,
+          )
+        )
         val result = parseCustomToken(serialized)
         result shouldBe Success(expected)
         result.map(_.payload.party) shouldBe Success(Some("Alice"))
@@ -172,30 +179,34 @@ class AuthServiceJWTCodecSpec
             |  "exp": 100
             |}
           """.stripMargin
-        val expected = StandardJWTPayload(AuthServiceJWTPayload(
-          ledgerId = None,
-          participantId = Some("someParticipantId"),
-          applicationId = Some("someUserId"),
-          exp = Some(Instant.ofEpochSecond(100)),
-          admin = false,
-          actAs = List.empty,
-          readAs = List.empty,
-        ))
+        val expected = StandardJWTPayload(
+          AuthServiceJWTPayload(
+            ledgerId = None,
+            participantId = Some("someParticipantId"),
+            applicationId = Some("someUserId"),
+            exp = Some(Instant.ofEpochSecond(100)),
+            admin = false,
+            actAs = List.empty,
+            readAs = List.empty,
+          )
+        )
         val result = parse(serialized)
         result shouldBe Success(expected)
       }
 
       "have stable default values" in {
         val serialized = "{}"
-        val expected = CustomDamlJWTPayload(AuthServiceJWTPayload(
-          ledgerId = None,
-          participantId = None,
-          applicationId = None,
-          exp = None,
-          admin = false,
-          actAs = List.empty,
-          readAs = List.empty,
-        ))
+        val expected = CustomDamlJWTPayload(
+          AuthServiceJWTPayload(
+            ledgerId = None,
+            participantId = None,
+            applicationId = None,
+            exp = None,
+            admin = false,
+            actAs = List.empty,
+            readAs = List.empty,
+          )
+        )
         val result = parseCustomToken(serialized)
         result shouldBe Success(expected)
         result.map(_.payload.party) shouldBe Success(None)

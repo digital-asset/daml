@@ -45,11 +45,15 @@ trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
   protected val canReadAsMainActorActualParticipantId =
     Option(customTokenToHeader(forParticipantId("sandbox-participant", readOnlyToken(mainActor))))
   protected val canReadAsMainActorRandomParticipantId =
-    Option(customTokenToHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
+    Option(
+      customTokenToHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(mainActor)))
+    )
   protected val canReadAsMainActorActualApplicationId =
     Option(customTokenToHeader(forApplicationId(serviceCallName, readOnlyToken(mainActor))))
   protected val canReadAsMainActorRandomApplicationId =
-    Option(customTokenToHeader(forApplicationId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
+    Option(
+      customTokenToHeader(forApplicationId(UUID.randomUUID.toString, readOnlyToken(mainActor)))
+    )
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
   protected lazy val canActAsMainActorActualLedgerId =
@@ -59,10 +63,14 @@ trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
   protected val canActAsMainActorActualParticipantId =
     Option(customTokenToHeader(forParticipantId("sandbox-participant", readWriteToken(mainActor))))
   protected val canActAsMainActorRandomParticipantId =
-    Option(customTokenToHeader(forParticipantId(UUID.randomUUID.toString, readWriteToken(mainActor))))
+    Option(
+      customTokenToHeader(forParticipantId(UUID.randomUUID.toString, readWriteToken(mainActor)))
+    )
   protected val canActAsMainActorActualApplicationId =
     Option(customTokenToHeader(forApplicationId(serviceCallName, readWriteToken(mainActor))))
   protected val canActAsMainActorRandomApplicationId =
-    Option(customTokenToHeader(forApplicationId(UUID.randomUUID.toString, readWriteToken(mainActor))))
+    Option(
+      customTokenToHeader(forApplicationId(UUID.randomUUID.toString, readWriteToken(mainActor)))
+    )
 
 }

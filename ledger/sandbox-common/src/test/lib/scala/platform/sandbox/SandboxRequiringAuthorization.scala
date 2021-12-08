@@ -8,7 +8,15 @@ import java.util.UUID
 
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
-import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceJWTPayload, CustomDamlJWTPayload, StandardJWTPayload, SupportedJWTCodec, SupportedJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthService,
+  AuthServiceJWT,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+  SupportedJWTCodec,
+  SupportedJWTPayload,
+}
 import com.daml.ledger.api.domain.LedgerId
 import org.scalatest.Suite
 import scalaz.syntax.tag.ToTagOps
@@ -29,15 +37,17 @@ trait SandboxRequiringAuthorization {
     readAs = Nil,
   )
 
-  protected def standardToken(userId: String) = StandardJWTPayload(AuthServiceJWTPayload(
-    ledgerId = None,
-    participantId = None,
-    applicationId = Some(userId),
-    exp = None,
-    admin = false,
-    actAs = Nil,
-    readAs = Nil,
-  ))
+  protected def standardToken(userId: String) = StandardJWTPayload(
+    AuthServiceJWTPayload(
+      ledgerId = None,
+      participantId = None,
+      applicationId = Some(userId),
+      exp = None,
+      admin = false,
+      actAs = Nil,
+      readAs = Nil,
+    )
+  )
 
   protected val randomUserId: String = UUID.randomUUID().toString
 
@@ -75,7 +85,10 @@ trait SandboxRequiringAuthorization {
   protected def forApplicationId(id: String, p: AuthServiceJWTPayload): AuthServiceJWTPayload =
     p.copy(applicationId = Some(id))
 
-  protected def customTokenToHeader(payload: AuthServiceJWTPayload, secret: String = jwtSecret): String =
+  protected def customTokenToHeader(
+      payload: AuthServiceJWTPayload,
+      secret: String = jwtSecret,
+  ): String =
     signed(CustomDamlJWTPayload(payload), secret)
 
   protected def toHeader(payload: SupportedJWTPayload, secret: String = jwtSecret): String =
