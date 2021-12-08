@@ -8,6 +8,7 @@ import com.daml.ledger.api.benchtool.metrics._
 import com.daml.ledger.api.benchtool.metrics.objectives.{
   MaxDelay,
   MinConsumptionSpeed,
+  MinRate,
   ServiceLevelObjective,
 }
 
@@ -96,14 +97,18 @@ object ReportFormatter {
         s"Maximum record time delay [s]"
       case _: MinConsumptionSpeed =>
         s"Minimum consumption speed [-]"
+      case _: MinRate =>
+        s"Minimum item rate [item/s]"
     }
 
   private def formattedObjectiveValue(objective: ServiceLevelObjective[_]): String =
     objective match {
       case obj: MaxDelay =>
-        s"${obj.maxDelaySeconds}"
+        obj.maxDelaySeconds.toString
       case obj: MinConsumptionSpeed =>
-        s"${obj.minSpeed}"
+        obj.minSpeed.toString
+      case obj: MinRate =>
+        obj.minAllowedRatePerSecond.toString
     }
 
   private def rounded(value: Double): String = "%.2f".format(value)
