@@ -66,6 +66,15 @@ private[lf] object Pretty {
 
       case Error.PartyAlreadyExists(party) =>
         text(s"Error: Tried to allocate a party that already exists: $party")
+
+      case Error.UserManagement(err) => prettyError(err)
     }
+
+  def prettyError(err: Error.UserManagementError) = err match {
+    case Error.UserManagementError.UserNotFound(userId) =>
+      text(s"Error: User with id $userId does not exist")
+    case Error.UserManagementError.UserExists(userId) =>
+      text(s"Error: Tried to create a user id $userId but such a user already exists")
+  }
 
 }

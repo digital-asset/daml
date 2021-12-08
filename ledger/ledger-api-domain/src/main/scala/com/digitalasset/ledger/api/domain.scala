@@ -400,7 +400,7 @@ object domain {
       primaryParty: Option[Ref.Party],
   )
 
-  sealed trait UserRight
+  sealed abstract class UserRight extends Product with Serializable
   object UserRight {
     final case object ParticipantAdmin extends UserRight
     final case class CanActAs(party: Ref.Party) extends UserRight
