@@ -699,6 +699,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause = s"cannot ${_operation} for unknown user \"${userId}\"."
+            // TODO (i12053): also output participantId
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId
@@ -716,7 +717,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause = s"cannot ${_operation}, as user \"${userId}\" already exists."
-            // TODO: also output participantId
+            // TODO (i12053): also output participantId
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId
