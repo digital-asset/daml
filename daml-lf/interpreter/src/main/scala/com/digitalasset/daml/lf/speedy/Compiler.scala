@@ -338,7 +338,7 @@ private[lf] final class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompile(cmds: ImmArray[Command]): t.SExpr =
-    validateCompilation(compilationPipeline(compileCommands(cmds)))
+    validateCompilation(compilationPipeline(compileCommands(Env.Empty, cmds)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -1427,21 +1427,21 @@ private[lf] final class Compiler(
   }
 
   private[this] def compileCreateAndExercise(
+      env: Env,
       tmplId: Identifier,
       createArg: SValue,
       choiceId: ChoiceName,
       choiceArg: SValue,
   ): s.SExpr =
-    labeledUnaryFunction(Profile.CreateAndExerciseLabel(tmplId, choiceId), Env.Empty) {
-      (tokenPos, env) =>
-        let(env, t.CreateDefRef(tmplId)(s.SEValue(createArg), env.toSEVar(tokenPos))) {
-          (cidPos, env) =>
-            t.ChoiceDefRef(tmplId, choiceId)(
-              env.toSEVar(cidPos),
-              s.SEValue(choiceArg),
-              env.toSEVar(tokenPos),
-            )
-        }
+    labeledUnaryFunction(Profile.CreateAndExerciseLabel(tmplId, choiceId), env) { (tokenPos, env) =>
+      let(env, t.CreateDefRef(tmplId)(s.SEValue(createArg), env.toSEVar(tokenPos))) {
+        (cidPos, env) =>
+          t.ChoiceDefRef(tmplId, choiceId)(
+            env.toSEVar(cidPos),
+            s.SEValue(choiceArg),
+            env.toSEVar(tokenPos),
+          )
+      }
     }
 
   private[this] def compileLookupByKey(
@@ -1495,13 +1495,14 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileExerciseByInterface(
+      env: Env,
       interfaceId: TypeConName,
       templateId: TypeConName,
       contractId: SValue,
       choiceId: ChoiceName,
       argument: SValue,
   ): s.SExpr =
-    unaryFunction(Env.Empty) { (tokenPos, env) =>
+    unaryFunction(env) { (tokenPos, env) =>
       t.GuardedChoiceDefRef(interfaceId, choiceId)(
         s.SEValue(contractId),
         s.SEValue(argument),
@@ -1512,11 +1513,12 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileFetchByInterface(
+      env: Env,
       interfaceId: TypeConName,
       templateId: TypeConName,
       contractId: SValue,
   ): s.SExpr =
-    unaryFunction(Env.Empty) { (_, env) =>
+    unaryFunction(env) { (_, env) =>
       let(env, s.SEValue(contractId)) { (cidPos, env) =>
         let(env, s.SEValue(SOptional(Some(STypeRep(TTyCon(templateId)))))) { (typeRepPos, env) =>
           compileFetchInterfaceBody(env, interfaceId, cidPos, typeRepPos)
@@ -1524,7 +1526,7 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] def compileCommand(cmd: Command): s.SExpr = cmd match {
+  private[this] def compileCommand(env: Env, cmd: Command): s.SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
     case Command.CreateByInterface(interfaceId, templateId, argument) =>
@@ -1532,7 +1534,7 @@ private[lf] final class Compiler(
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument) =>
-      compileExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument)
+      compileExerciseByInterface(env, interfaceId, templateId, contractId, choiceId, argument)
     case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
@@ -1540,11 +1542,12 @@ private[lf] final class Compiler(
     case Command.Fetch(templateId, coid) =>
       t.FetchDefRef(templateId)(s.SEValue(coid))
     case Command.FetchByInterface(interfaceId, templateId, coid) =>
-      compileFetchByInterface(interfaceId, templateId, coid)
+      compileFetchByInterface(env, interfaceId, templateId, coid)
     case Command.FetchByKey(templateId, key) =>
       t.FetchByKeyDefRef(templateId)(s.SEValue(key))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>
       compileCreateAndExercise(
+        env,
         templateId,
         createArg,
         choice,
@@ -1570,22 +1573,22 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileCommandForReinterpretation(cmd: Command): s.SExpr =
-    catchEverything(compileCommand(cmd))
+    catchEverything(compileCommand(Env.Empty, cmd))
 
-  private[this] def compileCommands(bindings: ImmArray[Command]): s.SExpr =
+  private[this] def compileCommands(env: Env, bindings: ImmArray[Command]): s.SExpr =
     // commands are compile similarly as update block
     // see compileBlock
     bindings.toList match {
       case Nil =>
         SEUpdatePureUnit
       case first :: rest =>
-        let(Env.Empty, compileCommand(first)) { (firstPos, env) =>
+        let(env, compileCommand(env, first)) { (firstPos, env) =>
           unaryFunction(env) { (tokenPos, env) =>
             let(env, app(env.toSEVar(firstPos), env.toSEVar(tokenPos))) { (_, _env) =>
               // we cannot process `rest` recursively without exposing ourselves to stack overflow.
               var env = _env
               val exprs = rest.map { cmd =>
-                val expr = app(compileCommand(cmd), env.toSEVar(tokenPos))
+                val expr = app(compileCommand(env, cmd), env.toSEVar(tokenPos))
                 env = env.pushVar
                 expr
               }
