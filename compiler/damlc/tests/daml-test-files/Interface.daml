@@ -7,8 +7,9 @@ module Interface where
 
 import DA.Assert ((===))
 
+-- | An interface comment.
 interface Token where
-  getOwner : Party
+  getOwner : Party -- ^ A method comment.
   getAmount : Int
   setAmount : Int -> Token
 
@@ -20,7 +21,7 @@ interface Token where
 
   choice Split : (ContractId Token, ContractId Token)
     with
-      splitAmount : Int
+      splitAmount : Int -- ^ A choice field comment.
     controller getOwner this
     do
       splitImpl this splitAmount
