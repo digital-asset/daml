@@ -47,23 +47,25 @@ package object rxjava {
   private[rxjava] val mockedAuthService =
     AuthServiceStatic {
       case `emptyToken` => ClaimSet.Unauthenticated
-      case `publicToken` => ClaimSet.Claims(Seq[Claim](ClaimPublic))
-      case `adminToken` => ClaimSet.Claims(Seq[Claim](ClaimAdmin))
+      case `publicToken` => ClaimSet.Claims.Empty.copy(claims = Seq[Claim](ClaimPublic))
+      case `adminToken` => ClaimSet.Claims.Empty.copy(claims = Seq[Claim](ClaimAdmin))
       case `somePartyReadToken` =>
-        ClaimSet.Claims(
-          Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someParty)))
+        ClaimSet.Claims.Empty.copy(
+          claims = Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someParty)))
         )
       case `somePartyReadWriteToken` =>
-        ClaimSet.Claims(
-          Seq[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(someParty)))
+        ClaimSet.Claims.Empty.copy(
+          claims = Seq[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(someParty)))
         )
       case `someOtherPartyReadToken` =>
-        ClaimSet.Claims(
-          Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someOtherParty)))
+        ClaimSet.Claims.Empty.copy(
+          claims =
+            Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someOtherParty)))
         )
       case `someOtherPartyReadWriteToken` =>
-        ClaimSet.Claims(
-          Seq[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(someOtherParty)))
+        ClaimSet.Claims.Empty.copy(
+          claims =
+            Seq[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(someOtherParty)))
         )
     }
 

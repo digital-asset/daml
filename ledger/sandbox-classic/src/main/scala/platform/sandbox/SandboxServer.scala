@@ -51,7 +51,7 @@ import java.nio.file.Files
 import java.time.Instant
 import java.util.concurrent.Executors
 
-import com.daml.platform.index.InMemoryUserManagementStore
+import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
