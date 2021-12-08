@@ -86,8 +86,6 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
 
 private[events] object EventsTableFlatEventsRangeQueries {
 
-  import com.daml.ledger.offset.Offset
-
   private[EventsTableFlatEventsRangeQueries] sealed abstract class QueryParts
       extends Product
       with Serializable
@@ -125,29 +123,5 @@ private[events] object EventsTableFlatEventsRangeQueries {
       )
 
     override protected def offsetRange(offset: EventsRange[Long]) = offset
-  }
-
-  final class GetActiveContracts(
-      storageBackend: EventStorageBackend
-  ) extends EventsTableFlatEventsRangeQueries[EventsRange[(Offset, Long)]] {
-
-    override protected def query(
-        range: EventsRange[(Offset, Long)],
-        filterParams: FilterParams,
-    ): QueryParts =
-      QueryParts.ByLimit(limit =>
-        storageBackend.activeContractEvents(
-          rangeParams = RangeParams(
-            startExclusive = range.startExclusive._2,
-            endInclusive = range.endInclusive._2,
-            limit = Some(limit),
-            fetchSizeHint = Some(limit),
-          ),
-          filterParams = filterParams,
-          endInclusiveOffset = range.endInclusive._1,
-        )
-      )
-
-    override protected def offsetRange(offset: EventsRange[(Offset, Long)]) = offset map (_._2)
   }
 }
