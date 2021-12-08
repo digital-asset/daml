@@ -577,6 +577,12 @@ private[lf] final class Compiler(
         SBFromInterface(tpl)(compile(env, e))
       case ECallInterface(iface, methodName, e) =>
         SBCallInterface(iface, methodName)(compile(env, e))
+      case EToRequiredInterface(requiredIfaceId @ _, requiringIfaceId @ _, body @ _) =>
+        // TODO https://github.com/digital-asset/daml/issues/11978
+        throw CompilationError("EToRequiredInterface is not implemented")
+      case EFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId @ _, body @ _) =>
+        // TODO https://github.com/digital-asset/daml/issues/11978
+        throw CompilationError("EFromRequiredInterface is not implemented")
       case EExperimental(name, _) =>
         SBExperimental(name)
 

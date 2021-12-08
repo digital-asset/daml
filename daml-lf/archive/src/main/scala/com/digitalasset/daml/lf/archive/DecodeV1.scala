@@ -1147,22 +1147,18 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           assertSince(LV.Features.interfaces, "Expr.to_required_interface")
           val toRequiredInterface = lfExpr.getToRequiredInterface
           EToRequiredInterface(
-            requiredIfaceId =
-              decodeTypeConName(decodeTypeConName(toRequiredInterface.getRequiredInterface)),
-            requiringIfaceId =
-              decodeTypeConName(decodeTypeConName(toRequiredInterface.getRequiringInterface)),
-            body = decodeExpr(toRequiredInterface.getExpr),
+            requiredIfaceId = decodeTypeConName(toRequiredInterface.getRequiredInterface),
+            requiringIfaceId = decodeTypeConName(toRequiredInterface.getRequiringInterface),
+            body = decodeExpr(toRequiredInterface.getExpr, definition),
           )
 
         case PLF.Expr.SumCase.FROM_REQUIRED_INTERFACE =>
           assertSince(LV.Features.interfaces, "Expr.from_required_interface")
           val fromRequiredInterface = lfExpr.getFromRequiredInterface
           EFromRequiredInterface(
-            requiredIfaceId =
-              decodeTypeConName(decodeTypeConName(fromRequiredInterface.getRequiredInterface)),
-            requiringIfaceId =
-              decodeTypeConName(decodeTypeConName(fromRequiredInterface.getRequiringInterface)),
-            body = decodeExpr(fromRequiredInterface.getExpr),
+            requiredIfaceId = decodeTypeConName(fromRequiredInterface.getRequiredInterface),
+            requiringIfaceId = decodeTypeConName(fromRequiredInterface.getRequiringInterface),
+            body = decodeExpr(fromRequiredInterface.getExpr, definition),
           )
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
