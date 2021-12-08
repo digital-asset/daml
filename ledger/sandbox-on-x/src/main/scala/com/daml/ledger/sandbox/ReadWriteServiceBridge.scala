@@ -41,6 +41,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.collection.Searching
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+import scala.util.chaining._
 
 case class ReadWriteServiceBridge(
     participantId: Ref.ParticipantId,
@@ -113,6 +114,74 @@ case class ReadWriteServiceBridge(
       .preMaterialize()
   }
 
+  case class SequencerQueueState(
+      sequencerQueue: SequencerQueue = Vector.empty,
+      keyState: Map[Key, (Option[ContractId], Offset)] = Map.empty,
+      consumedContractsState: Map[ContractId, Offset] = Map.empty,
+  )(metrics: Metrics) {
+
+    def enqueue(
+        offset: Offset,
+        transaction: Transaction,
+        updatedKeys: Map[Key, Option[ContractId]],
+        consumedContracts: Set[ContractId],
+    ): SequencerQueueState =
+      Timed.value(
+        metrics.daml.SoX.stateEnqueue,
+        SequencerQueueState(
+          sequencerQueue =
+            (sequencerQueue :+ (offset -> (transaction, updatedKeys, consumedContracts)))
+              .tap(q => metrics.daml.SoX.sequencerQueueLengthCounter.update(q.length)),
+          keyState = (keyState ++ updatedKeys.view.mapValues(_ -> offset)).tap(s =>
+            metrics.daml.SoX.keyStateSize.update(s.size)
+          ),
+          consumedContractsState =
+            (consumedContractsState ++ consumedContracts.view.map(_ -> offset)).tap(s =>
+              metrics.daml.SoX.consumedContractsStateSize.update(s.size)
+            ),
+        )(metrics),
+      )
+
+    def dequeue(upToOffset: Offset): SequencerQueueState =
+      Timed.value(
+        metrics.daml.SoX.stateDequeue, {
+          val pruneAfter = Timed.value(
+            metrics.daml.SoX.queueSearch,
+            sequencerQueue.view.map(_._1).search(upToOffset) match {
+              case Searching.Found(foundIndex) => foundIndex + 1
+              case Searching.InsertionPoint(insertionPoint) => insertionPoint
+            },
+          )
+
+          SequencerQueueState(
+            sequencerQueue = Timed.value(
+              metrics.daml.SoX.slice,
+              sequencerQueue.drop(pruneAfter),
+            ),
+            keyState = sequencerQueue.take(pruneAfter).foldLeft(keyState) {
+              case (ks, (enqueuedAt, (_, updatedKeys, _))) =>
+                updatedKeys.foldLeft(ks) { case (kse, (key, _)) =>
+                  kse.get(key).fold(throw new RuntimeException("Should not be missing")) {
+                    case (_, offset) if enqueuedAt == offset => kse - key
+                    case _ => kse
+                  }
+                }
+            },
+            consumedContractsState =
+              sequencerQueue.take(pruneAfter).foldLeft(consumedContractsState) {
+                case (css, (enqueuedAt, (_, _, cc))) =>
+                  cc.foldLeft(css) { case (csss, cId) =>
+                    csss.get(cId).fold(throw new RuntimeException("Should not be missing")) {
+                      case offset if offset == enqueuedAt => csss - cId
+                      case _ => csss
+                    }
+                  }
+              },
+          )(metrics)
+        },
+      )
+  }
+
   private def sequence: () => (
       (
           Offset,
@@ -125,7 +194,7 @@ case class ReadWriteServiceBridge(
   ) => Iterable[
     (Offset, Update)
   ] = () => {
-    @volatile var sequencerQueue: SequencerQueue = Vector.empty
+    @volatile var sequencerQueueState: SequencerQueueState = SequencerQueueState()(metrics)
 
     {
       case (_, _, _, _, _, Left(rejection)) =>
@@ -148,31 +217,18 @@ case class ReadWriteServiceBridge(
           metrics.daml.SoX.sequenceDuration, {
             val newIndex = offsetIdx.getAndIncrement()
             val newOffset = toOffset(newIndex)
-            checkSequential(
-              enqueuedAt,
+            conflictCheckSlice(
+              sequencerQueueState,
               keyInputs,
               inputContracts,
               transaction,
-              sequencerQueue,
             ) match {
               case Left(rejection) => Iterable(newOffset -> toRejection(rejection))
               case Right(acceptedTx) =>
-                sequencerQueue =
-                  sequencerQueue :+ (newOffset -> (transaction, updatedKeys, consumedContracts))
+                sequencerQueueState = sequencerQueueState
+                  .dequeue(enqueuedAt)
+                  .enqueue(newOffset, transaction, updatedKeys, consumedContracts)
 
-                val pruneFrom =
-                  Timed.value(
-                    metrics.daml.SoX.queueSearch,
-                    sequencerQueue.view.map(_._1).search(enqueuedAt) match {
-                      case Searching.Found(foundIndex) => foundIndex + 1
-                      case Searching.InsertionPoint(insertionPoint) => insertionPoint
-                    },
-                  )
-                sequencerQueue = Timed.value(
-                  metrics.daml.SoX.slice,
-                  sequencerQueue.slice(pruneFrom, sequencerQueue.length),
-                )
-                metrics.daml.SoX.sequencerQueueLengthCounter.update(sequencerQueue.size)
                 Iterable(newOffset -> successMapper(acceptedTx, newIndex, participantId))
             }
           },
@@ -190,37 +246,37 @@ case class ReadWriteServiceBridge(
   }
 
   private def conflictCheckSlice(
-      delta: SequencerQueue,
+      sequencerQueueState: SequencerQueueState,
       keyInputs: KeyInputs,
       inputContracts: Set[ContractId],
       transaction: Submission.Transaction,
   ): Either[SoxRejection, Submission.Transaction] = {
-    metrics.daml.SoX.deltaConflictCheckingSize.update(delta.length)
-    val (updatedKeys, archives) = collectDelta(delta)
+    val updatedKeys = sequencerQueueState.keyState
+    val archives = sequencerQueueState.consumedContractsState
 
     keyInputs.left
       .map(invalidInputFromParticipant(transaction))
       .flatMap(_.foldLeft[Either[SoxRejection, Unit]](Right(())) {
         case (Right(_), (key, KeyCreate)) =>
           updatedKeys.get(key) match {
-            case Some(None) | None => Right(())
-            case Some(Some(_)) => Left(DuplicateKey(key)(transaction))
+            case Some((None, _)) | None => Right(())
+            case Some((Some(_), _)) => Left(DuplicateKey(key)(transaction))
           }
         case (Right(_), (key, NegativeKeyLookup)) =>
           updatedKeys.get(key) match {
-            case Some(None) | None => Right(())
-            case Some(Some(actual)) =>
+            case Some((None, _)) | None => Right(())
+            case Some((Some(actual), _)) =>
               Left(InconsistentContractKey(None, Some(actual))(transaction))
           }
         case (Right(_), (key, KeyActive(cid))) =>
           updatedKeys.get(key) match {
-            case Some(Some(`cid`)) | None => Right(())
-            case Some(other) => Left(InconsistentContractKey(other, Some(cid))(transaction))
+            case Some((Some(`cid`), _)) | None => Right(())
+            case Some((other, _)) => Left(InconsistentContractKey(other, Some(cid))(transaction))
           }
         case (left, _) => left
       })
       .flatMap { _ =>
-        val alreadyArchived = inputContracts.intersect(archives)
+        val alreadyArchived = inputContracts.intersect(archives.keySet)
         if (alreadyArchived.nonEmpty) Left(UnknownContracts(alreadyArchived)(transaction))
         else Right(())
       }
@@ -232,31 +288,6 @@ case class ReadWriteServiceBridge(
       recordTime = Timestamp.now(),
       completionInfo = rejection.originalTx.submitterInfo.toCompletionInfo,
       reasonTemplate = FinalReason(rejection.toStatus),
-    )
-
-  private def checkSequential(
-      noConflictUpTo: Offset,
-      keyInputs: KeyInputs,
-      inputContracts: Set[ContractId],
-      transaction: Submission.Transaction,
-      sequencerQueue: SequencerQueue,
-  ): Either[SoxRejection, Submission.Transaction] =
-    Timed.value(
-      metrics.daml.SoX.sequentialCheckDuration, {
-        val idx = sequencerQueue.view.map(_._1).search(noConflictUpTo) match {
-          case Searching.Found(foundIndex) => foundIndex + 1
-          case Searching.InsertionPoint(insertionPoint) => insertionPoint
-        }
-
-        if (sequencerQueue.size > idx) {
-          conflictCheckSlice(
-            sequencerQueue.slice(idx, sequencerQueue.length),
-            keyInputs,
-            inputContracts,
-            transaction,
-          )
-        } else Right(transaction)
-      },
     )
 
   private def parallelConflictCheck(
@@ -283,18 +314,6 @@ case class ReadWriteServiceBridge(
     val _ = transaction
     // TODO implement
     Future.successful(Right(()))
-  }
-
-  private def collectDelta(
-      delta: SequencerQueue
-  ): (Map[Key, Option[ContractId]], Set[ContractId]) = {
-    val (updatedKeysBuilder, consumedContractBuilder) = delta.view
-      .map(_._2)
-      .foldLeft((Map.newBuilder[GlobalKey, Option[ContractId]], Set.newBuilder[ContractId])) {
-        case ((updatedKeys, archived), (_, txUpdatedKeys, txConsumedContracts)) =>
-          updatedKeys.addAll(txUpdatedKeys) -> archived.addAll(txConsumedContracts)
-      }
-    updatedKeysBuilder.result() -> consumedContractBuilder.result()
   }
 
   private def validateCausalMonotonicity(
