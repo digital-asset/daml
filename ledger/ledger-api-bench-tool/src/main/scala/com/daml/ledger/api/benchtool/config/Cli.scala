@@ -172,6 +172,7 @@ object Cli {
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
           maxDelaySeconds <- optionalLongField("max-delay")
           minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
+          minItemRate <- optionalDoubleField("min-rate")
         } yield WorkflowConfig.StreamConfig.TransactionsStreamConfig(
           name = name,
           filters = filters,
@@ -180,7 +181,7 @@ object Cli {
           objectives = WorkflowConfig.StreamConfig.Objectives(
             maxDelaySeconds = maxDelaySeconds,
             minConsumptionSpeed = minConsumptionSpeed,
-            minItemRate = None,
+            minItemRate = minItemRate,
           ),
         )
 
@@ -193,6 +194,7 @@ object Cli {
             endOffset <- optionalStringField("end-offset").map(_.map(offset))
             maxDelaySeconds <- optionalLongField("max-delay")
             minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
+            minItemRate <- optionalDoubleField("min-rate")
           } yield WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
             name = name,
             filters = filters,
@@ -201,7 +203,7 @@ object Cli {
             objectives = WorkflowConfig.StreamConfig.Objectives(
               maxDelaySeconds = maxDelaySeconds,
               minConsumptionSpeed = minConsumptionSpeed,
-              minItemRate = None,
+              minItemRate = minItemRate,
             ),
           )
 
