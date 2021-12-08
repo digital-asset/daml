@@ -251,7 +251,7 @@ final class Conversions(
         builder.setScenarioPartyAlreadyExists(party)
 
       case Error.UserManagement(err) =>
-        // TODO (MK) https://github.com/digital-asset/daml/issues/11997
+        // TODO https://github.com/digital-asset/daml/issues/11997
         setCrash(s"User management error: $err")
     }
     builder.build
