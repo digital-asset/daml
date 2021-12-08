@@ -113,8 +113,9 @@ public class ServerSubscriber<Resp> implements Subscriber<Resp> {
     executionSequencer.sequence(
         () -> {
           if (!responseObserver.isCancelled()) {
-            responseObserver.onError(throwable);
-            completionPromise.completeExceptionally(throwable);
+            Throwable newThrowable = translateThrowableInOnError(throwable);
+            responseObserver.onError(newThrowable);
+            completionPromise.completeExceptionally(newThrowable);
           }
         });
   }
@@ -129,6 +130,10 @@ public class ServerSubscriber<Resp> implements Subscriber<Resp> {
             completionPromise.complete(null);
           }
         });
+  }
+
+  protected Throwable translateThrowableInOnError(Throwable throwable) {
+    return throwable;
   }
 
   private class BufferingEventHandler implements Runnable {

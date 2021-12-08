@@ -163,6 +163,20 @@ object Ast {
   final case class EFromInterface(interfaceId: TypeConName, templateId: TypeConName, value: Expr)
       extends Expr
 
+  /** Upcast from an interface payload to an interface it requires. */
+  final case class EToRequiredInterface(
+      requiredIfaceId: TypeConName,
+      requiringIfaceId: TypeConName,
+      body: Expr,
+  ) extends Expr
+
+  /** Downcast from an interface payload to an interface that requires it, if possible. */
+  final case class EFromRequiredInterface(
+      requiredIfaceId: TypeConName,
+      requiringIfaceId: TypeConName,
+      body: Expr,
+  ) extends Expr
+
   /** Invoke an interface method */
   final case class ECallInterface(interfaceId: TypeConName, methodName: MethodName, value: Expr)
       extends Expr
@@ -648,6 +662,7 @@ object Ast {
   val TemplateKeySignature = new GenTemplateKeyCompanion[Unit]
 
   final case class GenDefInterface[E](
+      requires: Set[TypeConName],
       param: ExprVarName, // Binder for template argument.
       fixedChoices: Map[ChoiceName, GenTemplateChoice[E]],
       methods: Map[MethodName, InterfaceMethod],
@@ -657,11 +672,16 @@ object Ast {
   final class GenDefInterfaceCompanion[E] {
     @throws[PackageError]
     def build(
+        requires: Iterable[TypeConName],
         param: ExprVarName, // Binder for template argument.
         fixedChoices: Iterable[GenTemplateChoice[E]],
         methods: Iterable[InterfaceMethod],
         precond: E,
     ): GenDefInterface[E] = {
+      val requiresSet = toSetWithoutDuplicate(
+        requires,
+        (name: TypeConName) => PackageError(s"repeated required interface $name"),
+      )
       val fixedChoiceMap = toMapWithoutDuplicate(
         fixedChoices.view.map(c => c.name -> c),
         (name: ChoiceName) => PackageError(s"collision on interface choice name $name"),
@@ -670,26 +690,28 @@ object Ast {
         methods.view.map(c => c.name -> c),
         (name: MethodName) => PackageError(s"collision on interface method name $name"),
       )
-      GenDefInterface(param, fixedChoiceMap, methodMap, precond)
+      GenDefInterface(requiresSet, param, fixedChoiceMap, methodMap, precond)
     }
 
     def apply(
+        requires: Set[TypeConName],
         param: ExprVarName,
         fixedChoices: Map[ChoiceName, GenTemplateChoice[E]],
         methods: Map[MethodName, InterfaceMethod],
         precond: E,
     ): GenDefInterface[E] =
-      GenDefInterface(param, fixedChoices, methods, precond)
+      GenDefInterface(requires, param, fixedChoices, methods, precond)
 
     def unapply(arg: GenDefInterface[E]): Some[
       (
+          Set[TypeConName],
           ExprVarName,
           Map[ChoiceName, GenTemplateChoice[E]],
           Map[MethodName, InterfaceMethod],
           E,
       )
     ] =
-      Some((arg.param, arg.fixedChoices, arg.methods, arg.precond))
+      Some((arg.requires, arg.param, arg.fixedChoices, arg.methods, arg.precond))
   }
 
   type DefInterface = GenDefInterface[Expr]

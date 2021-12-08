@@ -57,7 +57,7 @@ template Asset
     implements Token where
       let getOwner = owner
       let getAmount = amount
-      let setAmount = \x -> toInterface @_ @Token (this with amount = x)
+      let setAmount = \x -> toInterface @Token (this with amount = x)
         -- TODO https://github.com/digital-asset/daml/issues/10810
         --  (maybe) support `let setAmount x = ...` syntax.
 
@@ -65,11 +65,11 @@ template Asset
             assert (splitAmount < amount)
             cid1 <- create this with amount = splitAmount
             cid2 <- create this with amount = amount - splitAmount
-            pure (toInterfaceContractId @_ @Token cid1, toInterfaceContractId @_ @Token cid2)
+            pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)
 
       let transferImpl = \newOwner -> do
             cid <- create this with owner = newOwner
-            pure (toInterfaceContractId @_ @Token cid)
+            pure (toInterfaceContractId @Token cid)
 
       let noopImpl = \nothing -> do
             pure ()
@@ -86,20 +86,20 @@ main = scenario do
       issuer = p
       owner = p
       amount = 15
-    let cidToken1 = toInterfaceContractId @_ @Token cidAsset1
+    let cidToken1 = toInterfaceContractId @Token cidAsset1
     _ <- exercise cidToken1 (Noop ())
     (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
     token2 <- fetch cidToken2
     -- Party is duplicated because p is both observer & issuer
     signatory token2 === [p, p]
     getAmount token2 === 10
-    case fromInterface @_ @Token token2 of
+    case fromInterface token2 of
       None -> abort "expected Asset"
       Some Asset {amount} ->
         amount === 10
     token3 <- fetch cidToken3
     getAmount token3 === 5
-    case fromInterface @_ @Token token3 of
+    case fromInterface token3 of
       None -> abort "expected Asset"
       Some Asset {amount} ->
         amount === 5
@@ -107,7 +107,7 @@ main = scenario do
     cidToken4 <- exercise cidToken3 (GetRich 20)
     token4 <- fetch cidToken4
     getAmount token4 === 25
-    case fromInterface @_ @Token token4 of
+    case fromInterface token4 of
       None -> abort "expected Asset"
       Some Asset {amount} ->
         amount === 25

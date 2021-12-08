@@ -8,7 +8,7 @@ import java.time.{Duration, Instant}
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.TestLoggers
-import com.daml.ledger.api.domain.{ApplicationId, LedgerId, LedgerOffset}
+import com.daml.ledger.api.domain.{ApplicationId, LedgerOffset}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.command_completion_service.{Checkpoint, CompletionStreamResponse}
 import com.daml.ledger.api.v1.ledger_offset
@@ -29,11 +29,11 @@ class CompletionBasedDeduplicationPeriodConverterSpec
     with AkkaBeforeAndAfterAll
     with TestLoggers {
 
-  private val ledgerId = LedgerId("id")
   private val indexCompletionsService: IndexCompletionsService = mock[IndexCompletionsService]
   private val deduplicationPeriodConverter =
-    new CompletionBasedDeduplicationPeriodConverter(ledgerId, indexCompletionsService)
-  private val offset = Ref.LedgerString.assertFromString("offset")
+    new CompletionBasedDeduplicationPeriodConverter(indexCompletionsService)
+  private val offset = Ref.HexString.assertFromString("012345ffff")
+  private val lowerOffset = Ref.HexString.assertFromString("012345fffe")
   private val applicationId = ApplicationId(Ref.ApplicationId.assertFromString("id"))
   private val parties = Set.empty[Ref.Party]
   private val emptyResponse = CompletionStreamResponse()
@@ -159,7 +159,7 @@ class CompletionBasedDeduplicationPeriodConverterSpec
       response: Source[CompletionStreamResponse, NotUsed]
   ) = when(
     indexCompletionsService.getCompletions(
-      LedgerOffset.Absolute(offset),
+      LedgerOffset.Absolute(lowerOffset),
       LedgerOffset.Absolute(offset),
       applicationId,
       parties,

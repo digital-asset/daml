@@ -15,7 +15,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait DeduplicationPeriodConverter {
 
   def convertOffsetToDuration(
-      offset: Ref.LedgerString,
+      offset: Ref.HexString,
       applicationId: ApplicationId,
       actAs: Set[Ref.Party],
       submittedAt: Instant,

@@ -8,7 +8,7 @@ package ledgerinteraction
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.PartyDetails
+import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
@@ -33,6 +33,8 @@ class IdeLedgerClient(
     traceLog: TraceLog,
     warningLog: WarningLog,
 ) extends ScriptLedgerClient {
+  override def transport = "script service"
+
   private val nextSeed: () => crypto.Hash =
     // We seeds to secureRandom with a fix seed to get deterministic sequences of seeds
     // across different runs of IdeLedgerClient.
@@ -307,4 +309,58 @@ class IdeLedgerClient(
     _ledger = ledger.passTime(diff)
     Future.unit
   }
+
+  override def createUser(
+      user: User,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[User] = unsupportedOn("createUser")
+
+  override def getUser(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Option[User]] = unsupportedOn("getUser")
+
+  override def deleteUser(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = unsupportedOn("deleteUser")
+
+  override def listUsers()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[User]] = unsupportedOn("listUsers")
+
+  override def grantUserRights(
+      id: UserId,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    unsupportedOn("grantUserRights")
+
+  override def revokeUserRights(
+      id: UserId,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    unsupportedOn("revokeUserRights")
+
+  override def listUserRights(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    unsupportedOn("listUserRights")
 }

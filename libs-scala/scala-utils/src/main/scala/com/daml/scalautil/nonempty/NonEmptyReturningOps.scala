@@ -18,8 +18,15 @@ object NonEmptyReturningOps {
   ) {
     def groupBy1[K](f: A => K): Map[K, NonEmpty[C]] =
       NonEmpty.subst[Lambda[f[_] => Map[K, f[C]]]](self groupBy f)
+  }
 
-    // ideas for extension: +-: and :-+ operators
+  implicit final class `NE Seq Ops`[A, CC[X] <: imm.Seq[X], C](
+      private val self: SeqOps[A, CC, C with imm.Seq[A]]
+  ) {
+    import NonEmpty.{unsafeNarrow => un}
+
+    def +-:(elem: A): NonEmpty[CC[A]] = un(elem +: self)
+    def :-+(elem: A): NonEmpty[CC[A]] = un(self :+ elem)
   }
 
   implicit final class `NE Set Ops`[A](private val self: Set[A]) extends AnyVal {

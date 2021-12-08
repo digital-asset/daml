@@ -441,21 +441,15 @@ convertInterfaces env binds = interfaceDefs
   where
     interfaceDefs :: ConvertM [Definition]
     interfaceDefs = sequence
-      [ DInterface <$> convertInterface name tycon
-      | (name, val) <- binds
-      -- We're looking for `instance DA.Internal.Desugar.Implements I I`
-      , DFunId _ <- [idDetails name]
-      , TypeCon implementsCls [TypeCon tpl [], TypeCon ifc []] <- [varType name]
-      , NameIn DA_Internal_Desugar "Implements" <- [implementsCls]
-      , tpl == ifc
-      , let name = TypeConName [getOccText ifc]
-            tycon = ifc
-      ]
+        [ DInterface <$> convertInterface name tycon
+        | (name, tycon) <- MS.toList (envInterfaces env)
+        ]
 
     convertInterface :: LF.TypeConName -> GHC.TyCon -> ConvertM DefInterface
     convertInterface intName tyCon = do
         let intLocation = convNameLoc (GHC.tyConName tyCon)
         let intParam = this
+        let intRequires = S.empty -- TODO https://github.com/digital-asset/daml/issues/11978
         let precond = fromMaybe (error $ "Missing precondition for interface " <> show intName)
                         $ (MS.lookup intName $ envInterfaceBinds env) >>= ibEnsure
         withRange intLocation $ do
@@ -537,9 +531,9 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
         tplImplements = MS.fromListWith (++)
           [ (mkTypeCon [getOccText tpl], [iface])
           | (name, _val) <- binds
-          , DFunId _ <- [idDetails name]
-          , TypeCon implementsCls [TypeCon tpl [], TypeCon iface []] <- [varType name]
-          , NameIn DA_Internal_Desugar "Implements" <- [implementsCls]
+          , "_implements_" `T.isPrefixOf` getOccText name
+          , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
+          , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
           ]
         tplInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
         tplInterfaceMethodInstances = MS.fromListWith (++)
@@ -569,24 +563,22 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
         emptyInterfaces :: S.Set (GHC.Module, TypeConName)
         emptyInterfaces = S.fromList
           [ (mod, mkTypeCon [getOccText ifc])
-          | (name, val) <- binds
-          -- We're looking for `instance DA.Internal.Desugar.Implements I I`
-          , DFunId _ <- [idDetails name]
-          , TypeCon implementsCls [TypeCon tpl [], TypeCon ifc []] <- [varType name]
-          , NameIn DA_Internal_Desugar "Implements" <- [implementsCls]
-          , Just mod <- [nameModule_maybe (getName ifc)]
-          , tpl == ifc
+          |
+          -- We're looking for `data DamlInterface => I = ...`
+            (_, ifc) <- MS.toList interfaceCons
           -- such that there are no `instance HasMethod I _ _`
           , null
             [ ()
-            | (name, val) <- binds
+            | (name, _) <- binds
             , DFunId _ <- [idDetails name]
             , TypeCon hasMethodCls
               [ TypeCon ((== ifc) -> True) []
               , _
               , _
               ] <- [varType name]
+            , NameIn DA_Internal_Desugar "HasMethod" <- [hasMethodCls]
             ]
+          , Just mod <- [nameModule_maybe (getName ifc)]
           ]
         choiceData = MS.fromListWith (++)
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
@@ -1201,6 +1193,7 @@ desugarTypes = mkUniqSet
     , "NonConsuming"
     , "Method"
     , "HasMethod"
+    , "ImplementsT"
     ]
 
 internalFunctions :: UniqFM (UniqSet FastString)

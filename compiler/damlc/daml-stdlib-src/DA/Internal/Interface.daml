@@ -1,0 +1,65 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
+-- | MOVE Prelude interface functionality
+module DA.Internal.Interface (
+  HasInterfaceTypeRep(..),
+  HasToInterface(..),
+  HasFromInterface(..),
+  Implements,
+  toInterface,
+  toInterfaceContractId,
+  fromInterfaceContractId,
+) where
+
+import DA.Internal.Prelude
+import DA.Internal.Template.Functions
+import DA.Internal.LF
+
+class HasInterfaceTypeRep i where
+  interfaceTypeRep : i -> TypeRep
+
+class HasToInterface t i where
+  _toInterface : t -> i
+
+-- Note that this seems identical to the method '_toInterface'. The only difference
+-- is the order of the type arguments. This allows `toInterface` to be type-applied to
+-- the interface type first, which is usually more convenient.
+-- i.e., for a value `asset` of template Asset which implements an interface Token,
+--
+-- @
+--   token = toInterface @Token asset
+-- @
+--
+-- This way, it's clear to readers what interface is being used, without needing
+-- to provide/skip the template type argument, cf.
+--
+-- @
+--   token = _toInterface @Asset @Token asset
+--   token = _toInterface @_ @Token asset
+-- @
+--
+toInterface : forall i t. HasToInterface t i => t -> i
+toInterface = _toInterface
+
+class HasFromInterface t i where
+  fromInterface : i -> Optional t
+
+type Implements t i =
+  ( HasInterfaceTypeRep i
+  , HasToInterface t i
+  , HasFromInterface t i
+  )
+
+toInterfaceContractId : forall i t. HasToInterface t i => ContractId t -> ContractId i
+toInterfaceContractId = coerceContractId
+
+fromInterfaceContractId : forall t i. (HasFromInterface t i, HasFetch i) => ContractId i -> Update (Optional (ContractId t))
+fromInterfaceContractId cid = do
+  iface <- fetch cid
+  pure $
+    const (coerceContractId cid) <$> fromInterface @t iface

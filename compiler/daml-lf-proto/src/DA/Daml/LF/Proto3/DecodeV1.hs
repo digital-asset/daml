@@ -237,6 +237,7 @@ decodeDefInterface :: LF1.DefInterface -> Decode DefInterface
 decodeDefInterface LF1.DefInterface {..} = do
   intLocation <- traverse decodeLocation defInterfaceLocation
   intName <- decodeDottedNameId TypeConName defInterfaceTyconInternedDname
+  intRequires <- decodeSet DuplicateRequires decodeTypeConName defInterfaceRequires
   intParam <- decodeNameId ExprVarName defInterfaceParamInternedStr
   intFixedChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceFixedChoices
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
@@ -666,6 +667,14 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <$> mayDecode "expr_CallInterfaceInterfaceType" expr_CallInterfaceInterfaceType decodeTypeConName
     <*> decodeMethodName expr_CallInterfaceMethodInternedName
     <*> mayDecode "expr_CallInterfaceInterfaceExpr" expr_CallInterfaceInterfaceExpr decodeExpr
+  LF1.ExprSumToRequiredInterface LF1.Expr_ToRequiredInterface {..} -> EToRequiredInterface
+    <$> mayDecode "expr_ToRequiredInterfaceRequiredInterface" expr_ToRequiredInterfaceRequiredInterface decodeTypeConName
+    <*> mayDecode "expr_ToRequiredInterfaceRequiringInterface" expr_ToRequiredInterfaceRequiringInterface decodeTypeConName
+    <*> mayDecode "expr_ToRequiredInterfaceExpr" expr_ToRequiredInterfaceExpr decodeExpr
+  LF1.ExprSumFromRequiredInterface LF1.Expr_FromRequiredInterface {..} -> EFromRequiredInterface
+    <$> mayDecode "expr_FromRequiredInterfaceRequiredInterface" expr_FromRequiredInterfaceRequiredInterface decodeTypeConName
+    <*> mayDecode "expr_FromRequiredInterfaceRequiringInterface" expr_FromRequiredInterfaceRequiringInterface decodeTypeConName
+    <*> mayDecode "expr_FromRequiredInterfaceExpr" expr_FromRequiredInterfaceExpr decodeExpr
   LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty

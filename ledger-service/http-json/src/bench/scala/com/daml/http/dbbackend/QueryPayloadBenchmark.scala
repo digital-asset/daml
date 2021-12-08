@@ -76,7 +76,7 @@ trait QueryPayloadBenchmark extends ContractDaoBenchmark {
     val result = instanceUUIDLogCtx(implicit lc =>
       dao
         .transact(
-          ContractDao.selectContracts(NonEmpty.pour(Party(party)) into Set, tpid, whereClause)
+          ContractDao.selectContracts(NonEmpty(Set, Party(party)), tpid, whereClause)
         )
         .unsafeRunSync()
     )

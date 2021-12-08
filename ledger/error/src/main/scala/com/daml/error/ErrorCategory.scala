@@ -346,6 +346,7 @@ object ErrorCategory {
 
 }
 
+// TODO error codes: `who` is not used?
 /** Default retryability information
   *
   * Every error category has a default retryability classification.

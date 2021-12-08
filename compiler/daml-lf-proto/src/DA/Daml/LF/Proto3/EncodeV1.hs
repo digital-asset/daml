@@ -719,6 +719,16 @@ encodeExpr' = \case
         expr_CallInterfaceMethodInternedName <- encodeMethodName mth
         expr_CallInterfaceInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumCallInterface P.Expr_CallInterface{..}
+    EToRequiredInterface ty1 ty2 val -> do
+        expr_ToRequiredInterfaceRequiredInterface <- encodeQualTypeConName ty1
+        expr_ToRequiredInterfaceRequiringInterface <- encodeQualTypeConName ty2
+        expr_ToRequiredInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumToRequiredInterface P.Expr_ToRequiredInterface{..}
+    EFromRequiredInterface ty1 ty2 val -> do
+        expr_FromRequiredInterfaceRequiredInterface <- encodeQualTypeConName ty1
+        expr_FromRequiredInterfaceRequiringInterface <- encodeQualTypeConName ty2
+        expr_FromRequiredInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumFromRequiredInterface P.Expr_FromRequiredInterface{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty
@@ -1005,7 +1015,7 @@ encodeDefInterface :: DefInterface -> Encode P.DefInterface
 encodeDefInterface DefInterface{..} = do
     defInterfaceLocation <- traverse encodeSourceLoc intLocation
     defInterfaceTyconInternedDname <- encodeDottedNameId unTypeConName intName
-    let defInterfaceRequires = V.empty -- TODO https://github.com/digital-asset/daml/issues/11978
+    defInterfaceRequires <- encodeSet encodeQualTypeConName' intRequires
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
     defInterfacePrecond <- encodeExpr intPrecondition

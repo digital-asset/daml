@@ -566,6 +566,18 @@ data Expr
     , callInterfaceMethod :: !MethodName
     , callInterfaceExpr :: !Expr
     }
+  -- | Upcast interface
+  | EToRequiredInterface
+    { triRequiredInterface :: !(Qualified TypeConName)
+    , triRequiringInterface :: !(Qualified TypeConName)
+    , triExpr :: !Expr
+    }
+  -- | Downcast interface
+  | EFromRequiredInterface
+    { friRequiredInterface :: !(Qualified TypeConName)
+    , friRequiringInterface :: !(Qualified TypeConName)
+    , friExpr :: !Expr
+    }
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.
@@ -929,6 +941,7 @@ data DefException = DefException
 data DefInterface = DefInterface
   { intLocation :: !(Maybe SourceLoc)
   , intName :: !TypeConName
+  , intRequires :: !(S.Set (Qualified TypeConName))
   , intParam :: !ExprVarName
   , intFixedChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)

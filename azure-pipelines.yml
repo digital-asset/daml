@@ -199,11 +199,14 @@ jobs:
         mkdir -p $(Build.StagingDirectory)/split-release
         ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
     - bash: |
-        set -eou piefail
+        set -eou pipefail
 
         source $(bash-lib)
         cd $(Build.StagingDirectory)/split-release
         gcs "$GCRED" -m cp -r github gs://daml-binaries/split-releases/$(release_tag)/
+      name: upload_to_gcs
+      env:
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - template: ci/tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'

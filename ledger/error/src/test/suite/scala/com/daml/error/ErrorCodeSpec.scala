@@ -9,7 +9,7 @@ import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.testpackage.SeriousError
 import com.daml.error.utils.testpackage.subpackage.MildErrorsParent.MildErrors.NotSoSeriousError
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.testing.LogCollector
+import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
 import io.grpc.protobuf.StatusProto
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
@@ -17,7 +17,11 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
 
-class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
+class ErrorCodeSpec
+    extends AnyFlatSpec
+    with Matchers
+    with BeforeAndAfter
+    with LogCollectorAssertions {
   implicit private val testLoggingContext: LoggingContext = LoggingContext.ForTesting
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLoggingContext: Option[String] => DamlContextualizedErrorLogger =
@@ -35,18 +39,17 @@ class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
     )(errorLoggingContext(Some("1234567890")))
 
     val actualLogs = LogCollector
-      .readWithMarkers[this.type, this.type]
-      .map { case (level, (errMsg, marker)) =>
-        level -> (errMsg -> marker.toString)
-      }
+      .readAsEntries[this.type, this.type]
 
     actualLogs.size shouldBe 1
-    val (actualLogLevel, (actualLogMessage, actualLogMarker)) = actualLogs.head
-
-    actualLogLevel shouldBe Level.ERROR
-    actualLogMessage shouldBe "BLUE_SCREEN(4,12345678): the error argument"
-    actualLogMarker should include regex "location=ErrorCodeSpec\\.scala\\:\\d+"
-    actualLogMarker should include regex "extra\\-context\\-key=extra\\-context\\-value"
+    assertLogEntry(
+      actualLogs.head,
+      expectedLogLevel = Level.ERROR,
+      expectedMsg = "BLUE_SCREEN(4,12345678): the error argument",
+      expectedMarkerRegex = Some(
+        "\\{err-context: \"\\{location=ErrorCodeSpec.scala:\\d+, extra-context-key=extra-context-value\\}\"\\}"
+      ),
+    )
   }
 
   s"$className.log" should s"truncate the cause size if larger than ${ErrorCode.MaxCauseLogLength}" in {

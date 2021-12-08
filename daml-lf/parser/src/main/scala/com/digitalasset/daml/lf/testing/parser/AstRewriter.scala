@@ -131,6 +131,10 @@ private[daml] class AstRewriter(
           EFromInterface(apply(iface), apply(tpl), apply(value))
         case ECallInterface(iface, method, value) =>
           ECallInterface(apply(iface), method, apply(value))
+        case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+          EToRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
+        case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+          EFromRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {
@@ -334,8 +338,9 @@ private[daml] class AstRewriter(
 
   def apply(x: DefInterface): DefInterface =
     x match {
-      case DefInterface(param, fixedChoices, methods, precond) =>
+      case DefInterface(requires, param, fixedChoices, methods, precond) =>
         DefInterface(
+          requires,
           param,
           fixedChoices.transform((_, v) => apply(v)),
           methods.transform((_, v) => apply(v)),

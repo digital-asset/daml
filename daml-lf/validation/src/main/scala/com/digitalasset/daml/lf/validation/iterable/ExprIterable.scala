@@ -70,6 +70,10 @@ private[validation] object ExprIterable {
         Iterator(value)
       case ECallInterface(iface @ _, method @ _, value) =>
         Iterator(value)
+      case EToRequiredInterface(requiredIface @ _, requiringIface @ _, body) =>
+        iterator(body)
+      case EFromRequiredInterface(requiredIface @ _, requiringIface @ _, body) =>
+        iterator(body)
     }
   }
 
@@ -202,6 +206,7 @@ private[validation] object ExprIterable {
   private[iterable] def iterator(x: DefInterface): Iterator[Expr] =
     x match {
       case DefInterface(
+            requires @ _,
             param @ _,
             fixedChoices,
             methods @ _,

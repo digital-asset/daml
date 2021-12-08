@@ -6,6 +6,10 @@ package com.daml.platform.testing
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.AppenderBase
+import com.daml.platform.testing.LogCollector.Entry
+import com.daml.scalautil.Statement
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.Checkpoints.Checkpoint
 import org.slf4j.Marker
 
 import scala.beans.BeanProperty
@@ -15,11 +19,10 @@ import scala.reflect.ClassTag
 
 object LogCollector {
 
-  private val log =
-    TrieMap
-      .empty[String, TrieMap[String, mutable.Builder[(Level, (String, Marker)), Vector[
-        (Level, (String, Marker))
-      ]]]]
+  case class Entry(level: Level, msg: String, marker: Option[Marker])
+  case class ExpectedLogEntry(level: Level, msg: String, markerRegex: Option[String])
+
+  private val log = TrieMap.empty[String, TrieMap[String, mutable.Builder[Entry, Vector[Entry]]]]
 
   def read[Test, Logger](implicit
       test: ClassTag[Test],
@@ -33,17 +36,17 @@ object LogCollector {
     log
       .get(test.runtimeClass.getName)
       .flatMap(_.get(loggerClassName))
-      .map(_.mapResult(_.map(el => el._1 -> el._2._1)))
+      .map(_.mapResult(_.map(e => e.level -> e.msg)))
       .fold(IndexedSeq.empty[(Level, String)])(_.result())
 
-  def readWithMarkers[Test, Logger](implicit
+  def readAsEntries[Test, Logger](implicit
       test: ClassTag[Test],
       logger: ClassTag[Logger],
-  ): IndexedSeq[(Level, (String, Marker))] =
+  ): Seq[Entry] =
     log
       .get(test.runtimeClass.getName)
       .flatMap(_.get(logger.runtimeClass.getName))
-      .fold(IndexedSeq.empty[(Level, (String, Marker))])(_.result())
+      .fold(IndexedSeq.empty[Entry])(_.result())
 
   def clear[Test](implicit test: ClassTag[Test]): Unit = {
     log.remove(test.runtimeClass.getName)
@@ -64,7 +67,36 @@ final class LogCollector extends AppenderBase[ILoggingEvent] {
       val log = LogCollector.log
         .getOrElseUpdate(test, TrieMap.empty)
         .getOrElseUpdate(e.getLoggerName, Vector.newBuilder)
-      val _ = log.synchronized { log += e.getLevel -> (e.getMessage -> e.getMarker) }
+      val _ = log.synchronized { log += Entry(e.getLevel, e.getMessage, Option(e.getMarker)) }
     }
+  }
+}
+
+trait LogCollectorAssertions { self: Matchers =>
+
+  def assertLogEntry(actual: LogCollector.Entry, expected: LogCollector.ExpectedLogEntry): Unit = {
+    assertLogEntry(actual, expected.level, expected.msg, expected.markerRegex)
+  }
+
+  def assertLogEntry(
+      actual: LogCollector.Entry,
+      expectedLogLevel: Level,
+      expectedMsg: String,
+      expectedMarkerRegex: Option[String],
+  ): Unit = {
+    val cp = new Checkpoint
+    cp { Statement.discard { actual.level shouldBe expectedLogLevel } }
+    cp { Statement.discard { actual.msg shouldBe expectedMsg } }
+    if (expectedMarkerRegex.isDefined) {
+      cp { Statement.discard { actual.marker shouldBe defined } }
+      cp {
+        Statement.discard {
+          actual.marker.get.toString should fullyMatch regex expectedMarkerRegex.get
+        }
+      }
+    } else {
+      cp { Statement.discard { actual.marker shouldBe None } }
+    }
+    cp.reportAll()
   }
 }

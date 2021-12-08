@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import akka.stream.Materializer
-import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantStateReader,
@@ -91,8 +90,7 @@ class KeyValueDeduplicationSupportFactory(
       writeServiceDelegate,
       new DeduplicationPeriodSupport(
         new CompletionBasedDeduplicationPeriodConverter(
-          domain.LedgerId(config.ledgerId),
-          completionsService,
+          completionsService
         ),
         new DeduplicationPeriodValidator(errorFactories),
         errorFactories,

@@ -927,6 +927,22 @@ message Expr {
     Expr interface_expr = 3;
   }
 
+  // Upcast from an interface payload to an interface it requires.
+  // *Available in versions >= 1.dev*
+  message ToRequiredInterface {
+    TypeConName required_interface = 1;
+    TypeConName requiring_interface = 2;
+    Expr expr = 3;
+  }
+
+  // Downcast from an interface payload to an interface that requires it, if possible.
+  // *Available in versions >= 1.dev*
+  message FromRequiredInterface {
+    TypeConName required_interface = 1;
+    TypeConName requiring_interface = 2;
+    Expr expr = 3;
+  }
+
   // Invoke an interface method.
   // *Available in versions >= 1.dev*
   message CallInterface {
@@ -1056,6 +1072,11 @@ message Expr {
     // Invoke an interface method.
     // *Available in versions >= 1.dev*
     CallInterface call_interface = 38;
+
+    // Upcast/downcast interface payloads.
+    // *Available in versions >= 1.dev*
+    ToRequiredInterface to_required_interface = 39;
+    FromRequiredInterface from_required_interface = 40;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }
