@@ -9,14 +9,14 @@ genrule(
     cmd = """
 TMP=$$(mktemp -d)
 trap "rm -rf $$TMP" EXIT
-LOCS=($(locations @daml-sdk-1.0.0//:daml))
+LOCS=($(locations @daml-sdk-1.6.0//:daml))
 DAML=$${LOCS[0]}
 
 cat > $$TMP/daml.yaml <<EOF
-sdk-version: 1.0.0
+sdk-version: 1.6.0
 source: .
 name: migration-model
-version: 1.0.0
+version: 1.6.0
 dependencies: [daml-stdlib, daml-prim]
 EOF
 
@@ -25,7 +25,8 @@ cp $(location :daml/KeyTransfer.daml) $$TMP/KeyTransfer.daml
 cp $(location :daml/ProposeAccept.daml) $$TMP/ProposeAccept.daml
 $$DAML build --project-root $$TMP -o $$PWD/$(location :migration-model.dar)
 """,
-    tools = ["@daml-sdk-1.0.0//:daml"],
+    # We run the migration tests from 1.6 upwards so we build the DAR using that version.
+    tools = ["@daml-sdk-1.6.0//:daml"],
     visibility = ["//visibility:public"],
 )
 
