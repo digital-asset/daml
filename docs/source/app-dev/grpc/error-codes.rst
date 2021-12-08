@@ -201,7 +201,7 @@ This example shows how a user can extract the relevant error information.
               }.isDefined
             }
 
-            // Extracting full correlation id if present.
+            // Extracting full correlation id, if present.
             assert {
               rawDetails.collectFirst {
                 case any if any.is(classOf[RequestInfo]) =>
