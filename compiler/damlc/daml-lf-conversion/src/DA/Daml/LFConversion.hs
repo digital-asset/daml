@@ -177,6 +177,7 @@ data Env = Env
     ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envImplements :: MS.Map TypeConName [GHC.TyCon]
+    ,envRequires :: MS.Map TypeConName [GHC.TyCon]
     ,envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
     ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envInterfaces :: MS.Map TypeConName GHC.TyCon
@@ -435,6 +436,16 @@ interfaceNames lfVersion tyThings
         ]
     | otherwise = MS.empty
 
+convertInterfaceTyCon :: Env -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertInterfaceTyCon env tycon
+    | hasDamlInterfaceCtx tycon = do
+        lfType <- convertTyCon env tycon
+        case lfType of
+            TCon con -> pure con
+            _ -> unhandled "interface type" tycon
+    | otherwise =
+        unhandled "interface type" tycon
+
 convertInterfaces :: Env -> [(Var, GHC.Expr Var)] -> ConvertM [Definition]
 convertInterfaces env binds = interfaceDefs
   where
@@ -448,10 +459,11 @@ convertInterfaces env binds = interfaceDefs
     convertInterface intName tyCon = do
         let intLocation = convNameLoc (GHC.tyConName tyCon)
         let intParam = this
-        let intRequires = S.empty -- TODO https://github.com/digital-asset/daml/issues/11978
         let precond = fromMaybe (error $ "Missing precondition for interface " <> show intName)
                         $ (MS.lookup intName $ envInterfaceBinds env) >>= ibEnsure
         withRange intLocation $ do
+            intRequires <- fmap S.fromList $ mapM (convertInterfaceTyCon env) $
+                MS.findWithDefault [] intName (envRequires env)
             intMethods <- NM.fromList <$> convertMethods tyCon
             intFixedChoices <- convertChoices env intName emptyTemplateBinds
             intPrecondition <- useSingleMethodDict env precond (`ETmApp` EVar intParam)
@@ -534,6 +546,13 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
           , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
           , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
           ]
+        ifaceRequires = MS.fromListWith (++)
+          [ (mkTypeCon [getOccText iface1], [iface2])
+          | (name, _val) <- binds
+          , "_requires_" `T.isPrefixOf` getOccText name
+          , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
+          , NameIn DA_Internal_Desugar "RequiresT" <- [requiresT]
+          ]
         tplInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
         tplInterfaceMethodInstances = MS.fromListWith (++)
           [
@@ -593,6 +612,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
           , envInterfaceBinds = interfaceBinds
           , envExceptionBinds = exceptionBinds
           , envImplements = tplImplements
+          , envRequires = ifaceRequires
           , envInterfaceMethodInstances = tplInterfaceMethodInstances
           , envChoiceData = choiceData
           , envIsGenerated = isGenerated
@@ -979,10 +999,7 @@ convertImplements env tpl = NM.fromList <$>
   mapM convertInterface (MS.findWithDefault [] tpl (envImplements env))
   where
     convertInterface iface = do
-      iface' <- convertTyCon env iface
-      con <- case iface' of
-        TCon con -> pure con
-        _ -> unhandled "interface type" iface
+      con <- convertInterfaceTyCon env iface
       let mod = nameModule (getName iface)
 
       methods <- convertMethods $ MS.findWithDefault []
@@ -1061,6 +1078,8 @@ convertBind env (name, x)
     = pure []
     -- These are only used as markers for the LF conversion.
     | "_implements_" `T.isPrefixOf` getOccText name
+    = pure []
+    | "_requires_" `T.isPrefixOf` getOccText name
     = pure []
     -- These are moved into interface implementations so we can drop them
     | "_method_" `T.isPrefixOf` getOccText name
@@ -1174,6 +1193,7 @@ desugarTypes = mkUniqSet
     , "Method"
     , "HasMethod"
     , "ImplementsT"
+    , "RequiresT"
     ]
 
 internalFunctions :: UniqFM (UniqSet FastString)

@@ -19,6 +19,7 @@ module DA.Internal.Desugar (
     TypeRep,
     ImplementsT(..),
     HasIsInterfaceType(..),
+    RequiresT(..),
     HasMethod,
     mkMethod,
     _typeRepForInterfaceExercise,
@@ -54,6 +55,10 @@ _typeRepForInterfaceExercise p =
   if _isInterfaceType p
     then None
     else Some (_templateTypeRep p)
+
+-- Used to mark interface hierarchies, i.e. when
+-- an interface A requires an interface B.
+data RequiresT a b = RequiresT
 
 {-
 Together, `HasMethod`, `Method` and `mkMethod` allow us to desugar the methods of
