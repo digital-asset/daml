@@ -4,21 +4,25 @@
 package com.daml.ledger.api.auth.interceptor
 
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
-import com.daml.ledger.api.auth.{AuthService, ClaimSet}
+import com.daml.ledger.api.auth._
+import com.daml.ledger.api.domain.UserRight
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /** This interceptor uses the given [[AuthService]] to get [[Claims]] for the current request,
   * and then stores them in the current [[Context]].
   */
 final class AuthorizationInterceptor(
-    protected val authService: AuthService,
-    ec: ExecutionContext,
+    authService: AuthService,
+    userManagementService: UserManagementStore,
+    implicit val ec: ExecutionContext,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit loggingContext: LoggingContext)
     extends ServerInterceptor {
@@ -42,6 +46,7 @@ final class AuthorizationInterceptor(
     new AsyncForwardingListener[ReqT] {
       FutureConverters
         .toScala(authService.decodeMetadata(headers))
+        .flatMap(resolveAuthenticatedUserRights)
         .onComplete {
           case Failure(exception) =>
             val error = errorFactories.internalAuthenticationError(
@@ -58,8 +63,40 @@ final class AuthorizationInterceptor(
               Contexts.interceptCall(nextCtx, call, headers, nextListener)
             setNextListener(nextListenerWithContext)
             nextListenerWithContext
-        }(ec)
+        }
     }
+  }
+
+  private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] = {
+    claimSet match {
+      case ClaimSet.AuthenticatedUser(userId, participantId, expiration) =>
+        userManagementService
+          .listUserRights(Ref.UserId.assertFromString(userId))
+          .map({
+            case Left(msg) => {
+              logger.warn(
+                s"Authorization error: cannot resolve rights for user '$userId' due to $msg."
+              )
+              ClaimSet.Unauthenticated
+            }
+            case Right(userClaims) =>
+              ClaimSet.Claims(
+                claims = userClaims.view.map(userRightToClaim).toList.prepended(ClaimPublic),
+                ledgerId = None,
+                participantId = participantId,
+                applicationId = Some(userId),
+                expiration = expiration,
+                resolvedFromUser = true,
+              )
+          })
+      case _ => Future.successful(claimSet)
+    }
+  }
+
+  private[this] def userRightToClaim(r: UserRight): Claim = r match {
+    case UserRight.CanActAs(p) => ClaimActAsParty(Ref.Party.assertFromString(p))
+    case UserRight.CanReadAs(p) => ClaimReadAsParty(Ref.Party.assertFromString(p))
+    case UserRight.ParticipantAdmin => ClaimAdmin
   }
 }
 
@@ -72,10 +109,11 @@ object AuthorizationInterceptor {
 
   def apply(
       authService: AuthService,
+      userManagementService: UserManagementStore,
       ec: ExecutionContext,
       errorCodesStatusSwitcher: ErrorCodesVersionSwitcher,
   ): AuthorizationInterceptor =
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
-      new AuthorizationInterceptor(authService, ec, errorCodesStatusSwitcher)
+      new AuthorizationInterceptor(authService, userManagementService, ec, errorCodesStatusSwitcher)
     }
 }

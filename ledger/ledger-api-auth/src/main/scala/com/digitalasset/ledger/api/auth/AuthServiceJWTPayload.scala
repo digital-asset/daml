@@ -111,6 +111,13 @@ object AuthServiceJWTCodec {
     propExp -> writeOptionalInstant(v.exp),
   )
 
+  def writeStandardTokenPayload(v: AuthServiceJWTPayload): JsValue =
+    JsObject(
+      "aud" -> writeOptionalString(v.participantId),
+      "sub" -> writeOptionalString(v.applicationId),
+      "exp" -> writeOptionalInstant(v.exp),
+    )
+
   /** Writes the given payload to a compact JSON string */
   def compactPrint(v: AuthServiceJWTPayload): String = writePayload(v).compactPrint
 
@@ -127,10 +134,9 @@ object AuthServiceJWTCodec {
   // Decoding
   // ------------------------------------------------------------------------------------------------------------------
   def readFromString(value: String): Try[AuthServiceJWTPayload] = {
-    import AuthServiceJWTCodec.JsonImplicits._
     for {
       json <- Try(value.parseJson)
-      parsed <- Try(json.convertTo[AuthServiceJWTPayload])
+      parsed <- Try(readPayload(json))
     } yield parsed
   }
 
@@ -174,6 +180,25 @@ object AuthServiceJWTCodec {
       deserializationError(
         s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object"
       )
+  }
+
+  val readStandardTokenPayload: JsValue => Option[AuthServiceJWTPayload] = {
+    // NOTE: there is the corner-case of a legacy Daml token containing a "sub" field.
+    // We accept that risk.
+    case JsObject(fields) if !fields.contains(oidcNamespace) && fields.contains("sub") =>
+      Some(
+        AuthServiceJWTPayload(
+          ledgerId = None,
+          // TODO (i12054): allow for an array of audiences
+          participantId = readOptionalString("aud", fields),
+          applicationId = readOptionalString("sub", fields),
+          exp = readInstant("exp", fields),
+          admin = false,
+          actAs = List.empty,
+          readAs = List.empty,
+        )
+      )
+    case _ => None
   }
 
   private[this] def readOptionalString(name: String, fields: Map[String, JsValue]): Option[String] =

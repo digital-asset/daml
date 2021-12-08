@@ -159,6 +159,20 @@ final class Authorizer(
       }
     }
 
+  /** Use the claims to compute the result; use with caution to avoid missing authorization checks. */
+  def withClaims[Res](call: ClaimSet.Claims => Future[Res]): Future[Res] =
+    authenticatedClaimsFromContext()
+      .fold(
+        ex => {
+          // TODO error codes: Remove once fully relying on self-service error codes with logging on creation
+          logger.debug(
+            s"No authenticated claims found in the request context. Returning UNAUTHENTICATED"
+          )
+          Future.failed(ex)
+        },
+        claims => call(claims),
+      )
+
   /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */
   def requireReadClaimsForTransactionFilterOnStream[Req, Res](
       filter: Option[TransactionFilter],
@@ -198,6 +212,15 @@ final class Authorizer(
       .fold[Try[ClaimSet.Claims]](Failure(errorFactories.unauthenticatedMissingJwtToken())) {
         case ClaimSet.Unauthenticated =>
           Failure(errorFactories.unauthenticatedMissingJwtToken())
+        case authenticatedUser: ClaimSet.AuthenticatedUser =>
+          Failure(
+            errorFactories.internalAuthenticationError(
+              s"Unexpected unresolved authenticated user claim",
+              new RuntimeException(
+                s"Unexpected unresolved authenticated user claim for user '${authenticatedUser.userId}"
+              ),
+            )
+          )
         case claims: ClaimSet.Claims => Success(claims)
       }
 

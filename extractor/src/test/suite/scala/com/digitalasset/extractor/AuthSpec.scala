@@ -108,7 +108,7 @@ final class AuthSpec
   }
 
   it should "succeed if the proper token is provided" in {
-    setToken(toHeader(operatorPayload))
+    setToken(customTokenToHeader(operatorPayload))
     extractor(withAuth).run().map(_ => succeed)
   }
 
@@ -140,7 +140,7 @@ final class AuthSpec
             Future.successful(Option(lastOffset.get()))
         }
       )
-    setToken(toHeader(expiringIn(Duration.ofSeconds(5), operatorPayload)))
+    setToken(customTokenToHeader(expiringIn(Duration.ofSeconds(5), operatorPayload)))
     val _ = process.run()
     val expectedTxs = ListBuffer.empty[String]
     Delayed.Future
@@ -148,7 +148,7 @@ final class AuthSpec
         newSyncClient
           .submitAndWaitForTransactionId(
             SubmitAndWaitRequest(commands = dummyRequest.commands),
-            Option(toHeader(operatorPayload)),
+            Option(customTokenToHeader(operatorPayload)),
           )
           .map(_.transactionId)
       }
@@ -156,13 +156,13 @@ final class AuthSpec
         case Success(tx) => val _ = expectedTxs += tx
         case Failure(_) => () // do nothing, the test will fail
       }
-    Delayed.by(15.seconds)(setToken(toHeader(operatorPayload)))
+    Delayed.by(15.seconds)(setToken(customTokenToHeader(operatorPayload)))
     Delayed.Future
       .by(20.seconds) {
         newSyncClient
           .submitAndWaitForTransactionId(
             SubmitAndWaitRequest(commands = dummyRequest.commands),
-            Option(toHeader(operatorPayload)),
+            Option(customTokenToHeader(operatorPayload)),
           )
           .map(_.transactionId)
       }

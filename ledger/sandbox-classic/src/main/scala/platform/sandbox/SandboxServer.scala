@@ -419,6 +419,7 @@ final class SandboxServer(
         List(
           AuthorizationInterceptor(
             authService,
+            userManagementService,
             servicesExecutionContext,
             errorCodesVersionSwitcher,
           ),
