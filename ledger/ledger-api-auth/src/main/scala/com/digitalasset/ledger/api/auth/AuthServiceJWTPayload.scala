@@ -134,11 +134,8 @@ object AuthServiceJWTCodec {
   // Decoding
   // ------------------------------------------------------------------------------------------------------------------
   def readFromString(value: String): Try[AuthServiceJWTPayload] = {
-//    import AuthServiceJWTCodec.JsonImplicits._
     for {
       json <- Try(value.parseJson)
-// FIXME: why does this line not work, even though it works on `main`?
-//      parsed <- Try(json.convertTo[AuthServiceJWTPayload])
       parsed <- Try(readPayload(json))
     } yield parsed
   }
@@ -188,16 +185,18 @@ object AuthServiceJWTCodec {
   val readStandardTokenPayload: JsValue => Option[AuthServiceJWTPayload] = {
     case JsObject(fields) if !fields.contains(oidcNamespace) && fields.contains("sub") =>
       // FIXME: this is hacky! As there might be accidental "sub" fields in a legacy format Daml JWT token.
-      Some(AuthServiceJWTPayload(
-        ledgerId = None,
-        // FIXME: allow for an array of audiences
-        participantId = readOptionalString("aud", fields),
-        applicationId = readOptionalString("sub", fields),
-        exp = readInstant("exp", fields),
-        admin = false,
-        actAs = List.empty,
-        readAs = List.empty,
-      ))
+      Some(
+        AuthServiceJWTPayload(
+          ledgerId = None,
+          // FIXME: allow for an array of audiences
+          participantId = readOptionalString("aud", fields),
+          applicationId = readOptionalString("sub", fields),
+          exp = readInstant("exp", fields),
+          admin = false,
+          actAs = List.empty,
+          readAs = List.empty,
+        )
+      )
     case _ => None
   }
 
