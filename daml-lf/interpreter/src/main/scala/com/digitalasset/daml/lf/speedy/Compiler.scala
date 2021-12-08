@@ -579,8 +579,8 @@ private[lf] final class Compiler(
         SBCallInterface(iface, methodName)(compile(env, e))
       case EToRequiredInterface(requiredIfaceId @ _, requiringIfaceId @ _, body @ _) =>
         compile(env, body)
-      case EFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId @ _, body @ _) =>
-        SBFromRequiredInterface(requiredIfaceId)(compile(env, body))
+      case EFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, body @ _) =>
+        SBFromRequiredInterface(requiringIfaceId)(compile(env, body))
       case EExperimental(name, _) =>
         SBExperimental(name)
 

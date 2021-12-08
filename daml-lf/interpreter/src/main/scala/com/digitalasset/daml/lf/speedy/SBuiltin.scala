@@ -1251,10 +1251,10 @@ private[lf] object SBuiltin {
     }
   }
 
-  // Convert an interface `requiringIface` to another interface `requiredIface`, if
-  // the `requiringIface` requires `requiredIface`.
+  // Convert an interface `requiredIface` to another interface `requiringIface`, if
+  // the `requiringIface` implements `requiredIface`.
   final case class SBFromRequiredInterface(
-      iface: TypeConName
+      requiringIface: TypeConName
   ) extends SBuiltin(1) {
 
     override private[speedy] def execute(
@@ -1265,7 +1265,7 @@ private[lf] object SBuiltin {
       // TODO https://github.com/digital-asset/daml/issues/11978
       //  The lookup is probably slow. We may want to investigate way to make the feature faster.
       machine.returnValue = machine.compiledPackages.interface.lookupTemplate(record.id) match {
-        case Right(ifaceSignature) if ifaceSignature.implements.contains(iface) =>
+        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIface) =>
           SOptional(Some(record))
         case _ =>
           SOptional(None)
