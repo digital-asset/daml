@@ -42,14 +42,14 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
       token => payloadToClaims(token),
     )
 
-  private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] = {
-    import AuthServiceJWTCodec.JsonImplicits._
-    Try(JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]).toEither.left.map(t =>
+  private[this] def parsePayload(jwtPayload: String): Either[Error, SupportedJWTPayload] = {
+    import SupportedJWTCodec.JsonImplicits._
+    Try(JsonParser(jwtPayload).convertTo[SupportedJWTPayload]).toEither.left.map(t =>
       Error("Could not parse JWT token: " + t.getMessage)
     )
   }
 
-  private[this] def parseJWTPayload(header: String): Either[Error, AuthServiceJWTPayload] = {
+  private[this] def parseJWTPayload(header: String): Either[Error, SupportedJWTPayload] = {
     val BearerTokenRegex = "Bearer (.*)".r
 
     for {
@@ -66,8 +66,8 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
     } yield parsed
   }
 
-  private[this] def payloadToClaims(payload: AuthServiceJWTPayload): ClaimSet.Claims = {
-    if (payload.isCustomDamlToken) {
+  private[this] val payloadToClaims: SupportedJWTPayload => ClaimSet.Claims = {
+    case CustomDamlJWTPayload(payload) =>  {
       val claims = ListBuffer[Claim]()
 
       // Any valid token authorizes the user to use public services
@@ -89,7 +89,8 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
         applicationId = payload.applicationId,
         expiration = payload.exp,
       )
-    } else
+    }
+    case StandardJWTPayload(payload) =>
       ClaimSet.Claims(
         claims =
           List.empty, // FIXME: remove this ugly hack of using this field to signal that standard token

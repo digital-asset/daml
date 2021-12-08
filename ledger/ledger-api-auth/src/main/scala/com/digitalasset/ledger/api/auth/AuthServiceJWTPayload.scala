@@ -40,7 +40,6 @@ case class AuthServiceJWTPayload(
     admin: Boolean,
     actAs: List[String],
     readAs: List[String],
-    isCustomDamlToken: Boolean, // FIXME: better way to represent that
 ) {
 
   /** If this token is associated with exactly one party, returns that party name.
@@ -100,25 +99,24 @@ object AuthServiceJWTCodec {
   def writeToString(v: AuthServiceJWTPayload): String =
     writePayload(v).compactPrint
 
-  def writePayload(v: AuthServiceJWTPayload): JsValue =
-    if (v.isCustomDamlToken)
-      JsObject(
-        oidcNamespace -> JsObject(
-          propLedgerId -> writeOptionalString(v.ledgerId),
-          propParticipantId -> writeOptionalString(v.participantId),
-          propApplicationId -> writeOptionalString(v.applicationId),
-          propAdmin -> JsBoolean(v.admin),
-          propActAs -> writeStringList(v.actAs),
-          propReadAs -> writeStringList(v.readAs),
-        ),
-        propExp -> writeOptionalInstant(v.exp),
-      )
-    else
-      JsObject(
-        "aud" -> writeOptionalString(v.participantId),
-        "sub" -> writeOptionalString(v.applicationId),
-        "exp" -> writeOptionalInstant(v.exp),
-      )
+  def writePayload(v: AuthServiceJWTPayload): JsValue = JsObject(
+    oidcNamespace -> JsObject(
+      propLedgerId -> writeOptionalString(v.ledgerId),
+      propParticipantId -> writeOptionalString(v.participantId),
+      propApplicationId -> writeOptionalString(v.applicationId),
+      propAdmin -> JsBoolean(v.admin),
+      propActAs -> writeStringList(v.actAs),
+      propReadAs -> writeStringList(v.readAs),
+    ),
+    propExp -> writeOptionalInstant(v.exp),
+  )
+
+  def writeStandardTokenPayload(v: AuthServiceJWTPayload): JsValue =
+    JsObject(
+      "aud" -> writeOptionalString(v.participantId),
+      "sub" -> writeOptionalString(v.applicationId),
+      "exp" -> writeOptionalInstant(v.exp),
+    )
 
   /** Writes the given payload to a compact JSON string */
   def compactPrint(v: AuthServiceJWTPayload): String = writePayload(v).compactPrint
@@ -136,45 +134,29 @@ object AuthServiceJWTCodec {
   // Decoding
   // ------------------------------------------------------------------------------------------------------------------
   def readFromString(value: String): Try[AuthServiceJWTPayload] = {
-    import AuthServiceJWTCodec.JsonImplicits._
+//    import AuthServiceJWTCodec.JsonImplicits._
     for {
       json <- Try(value.parseJson)
-      parsed <- Try(json.convertTo[AuthServiceJWTPayload])
+// FIXME: why does this line not work, even though it works on `main`?
+//      parsed <- Try(json.convertTo[AuthServiceJWTPayload])
+      parsed <- Try(readPayload(json))
     } yield parsed
   }
 
   def readPayload(value: JsValue): AuthServiceJWTPayload = value match {
     case JsObject(fields) if !fields.contains(oidcNamespace) =>
-      if (fields.contains("sub")) {
-        // FIXME: this is hacky! As there might be accidental "sub" fields in a legacy format Daml JWT token.
-        AuthServiceJWTPayload(
-          ledgerId = None,
-          // FIXME: allow for an array of audiences
-          participantId = readOptionalString("aud", fields),
-          applicationId = readOptionalString("sub", fields),
-          exp = readInstant("exp", fields),
-          admin = false,
-          actAs = List.empty,
-          readAs = List.empty,
-          isCustomDamlToken = false,
-        )
-      } else {
-        // Legacy format
-        logger.warn(s"Token ${value.compactPrint} is using a deprecated JWT payload format")
-        AuthServiceJWTPayload(
-          ledgerId = readOptionalString(propLedgerId, fields),
-          participantId = readOptionalString(propParticipantId, fields),
-          applicationId = readOptionalString(propApplicationId, fields),
-          exp = readInstant(propExp, fields),
-          admin = readOptionalBoolean(propAdmin, fields).getOrElse(false),
-          actAs = readOptionalStringList(propActAs, fields) ++ readOptionalString(
-            propParty,
-            fields,
-          ).toList,
-          readAs = readOptionalStringList(propReadAs, fields),
-          isCustomDamlToken = true,
-        )
-      }
+      // Legacy format
+      logger.warn(s"Token ${value.compactPrint} is using a deprecated JWT payload format")
+      AuthServiceJWTPayload(
+        ledgerId = readOptionalString(propLedgerId, fields),
+        participantId = readOptionalString(propParticipantId, fields),
+        applicationId = readOptionalString(propApplicationId, fields),
+        exp = readInstant(propExp, fields),
+        admin = readOptionalBoolean(propAdmin, fields).getOrElse(false),
+        actAs =
+          readOptionalStringList(propActAs, fields) ++ readOptionalString(propParty, fields).toList,
+        readAs = readOptionalStringList(propReadAs, fields),
+      )
     case JsObject(fields) =>
       // New format: OIDC compliant
       val customClaims = fields
@@ -196,12 +178,27 @@ object AuthServiceJWTCodec {
         admin = readOptionalBoolean(propAdmin, customClaims).getOrElse(false),
         actAs = readOptionalStringList(propActAs, customClaims),
         readAs = readOptionalStringList(propReadAs, customClaims),
-        isCustomDamlToken = true,
       )
     case _ =>
       deserializationError(
         s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object"
       )
+  }
+
+  val readStandardTokenPayload: JsValue => Option[AuthServiceJWTPayload] = {
+    case JsObject(fields) if !fields.contains(oidcNamespace) && fields.contains("sub") =>
+      // FIXME: this is hacky! As there might be accidental "sub" fields in a legacy format Daml JWT token.
+      Some(AuthServiceJWTPayload(
+        ledgerId = None,
+        // FIXME: allow for an array of audiences
+        participantId = readOptionalString("aud", fields),
+        applicationId = readOptionalString("sub", fields),
+        exp = readInstant("exp", fields),
+        admin = false,
+        actAs = List.empty,
+        readAs = List.empty,
+      ))
+    case _ => None
   }
 
   private[this] def readOptionalString(name: String, fields: Map[String, JsValue]): Option[String] =

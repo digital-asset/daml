@@ -11,7 +11,7 @@ trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
   protected val mainActor: String = UUID.randomUUID.toString
 
   private val signedIncorrectly =
-    Option(toHeader(readWriteToken(mainActor), UUID.randomUUID.toString))
+    Option(customTokenToHeader(readWriteToken(mainActor), UUID.randomUUID.toString))
 
   it should "deny calls authorized to read/write as the wrong party" in {
     expectPermissionDenied(serviceCallWithToken(canActAsRandomParty))
@@ -24,45 +24,45 @@ trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
   }
 
   protected val canReadAsMainActor =
-    Option(toHeader(readOnlyToken(mainActor)))
+    Option(customTokenToHeader(readOnlyToken(mainActor)))
   protected val canReadAsMainActorExpired =
-    Option(toHeader(expiringIn(Duration.ofDays(-1), readOnlyToken(mainActor))))
+    Option(customTokenToHeader(expiringIn(Duration.ofDays(-1), readOnlyToken(mainActor))))
   protected val canReadAsMainActorExpiresTomorrow =
-    Option(toHeader(expiringIn(Duration.ofDays(1), readOnlyToken(mainActor))))
+    Option(customTokenToHeader(expiringIn(Duration.ofDays(1), readOnlyToken(mainActor))))
 
   protected val canActAsMainActor =
-    Option(toHeader(readWriteToken(mainActor)))
+    Option(customTokenToHeader(readWriteToken(mainActor)))
   protected val canActAsMainActorExpired =
-    Option(toHeader(expiringIn(Duration.ofDays(-1), readWriteToken(mainActor))))
+    Option(customTokenToHeader(expiringIn(Duration.ofDays(-1), readWriteToken(mainActor))))
   protected val canActAsMainActorExpiresTomorrow =
-    Option(toHeader(expiringIn(Duration.ofDays(1), readWriteToken(mainActor))))
+    Option(customTokenToHeader(expiringIn(Duration.ofDays(1), readWriteToken(mainActor))))
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
   protected lazy val canReadAsMainActorActualLedgerId =
-    Option(toHeader(forLedgerId(unwrappedLedgerId, readOnlyToken(mainActor))))
+    Option(customTokenToHeader(forLedgerId(unwrappedLedgerId, readOnlyToken(mainActor))))
   protected val canReadAsMainActorRandomLedgerId =
-    Option(toHeader(forLedgerId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
+    Option(customTokenToHeader(forLedgerId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
   protected val canReadAsMainActorActualParticipantId =
-    Option(toHeader(forParticipantId("sandbox-participant", readOnlyToken(mainActor))))
+    Option(customTokenToHeader(forParticipantId("sandbox-participant", readOnlyToken(mainActor))))
   protected val canReadAsMainActorRandomParticipantId =
-    Option(toHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
+    Option(customTokenToHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
   protected val canReadAsMainActorActualApplicationId =
-    Option(toHeader(forApplicationId(serviceCallName, readOnlyToken(mainActor))))
+    Option(customTokenToHeader(forApplicationId(serviceCallName, readOnlyToken(mainActor))))
   protected val canReadAsMainActorRandomApplicationId =
-    Option(toHeader(forApplicationId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
+    Option(customTokenToHeader(forApplicationId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
   protected lazy val canActAsMainActorActualLedgerId =
-    Option(toHeader(forLedgerId(unwrappedLedgerId, readWriteToken(mainActor))))
+    Option(customTokenToHeader(forLedgerId(unwrappedLedgerId, readWriteToken(mainActor))))
   protected val canActAsMainActorRandomLedgerId =
-    Option(toHeader(forLedgerId(UUID.randomUUID.toString, readWriteToken(mainActor))))
+    Option(customTokenToHeader(forLedgerId(UUID.randomUUID.toString, readWriteToken(mainActor))))
   protected val canActAsMainActorActualParticipantId =
-    Option(toHeader(forParticipantId("sandbox-participant", readWriteToken(mainActor))))
+    Option(customTokenToHeader(forParticipantId("sandbox-participant", readWriteToken(mainActor))))
   protected val canActAsMainActorRandomParticipantId =
-    Option(toHeader(forParticipantId(UUID.randomUUID.toString, readWriteToken(mainActor))))
+    Option(customTokenToHeader(forParticipantId(UUID.randomUUID.toString, readWriteToken(mainActor))))
   protected val canActAsMainActorActualApplicationId =
-    Option(toHeader(forApplicationId(serviceCallName, readWriteToken(mainActor))))
+    Option(customTokenToHeader(forApplicationId(serviceCallName, readWriteToken(mainActor))))
   protected val canActAsMainActorRandomApplicationId =
-    Option(toHeader(forApplicationId(UUID.randomUUID.toString, readWriteToken(mainActor))))
+    Option(customTokenToHeader(forApplicationId(UUID.randomUUID.toString, readWriteToken(mainActor))))
 
 }

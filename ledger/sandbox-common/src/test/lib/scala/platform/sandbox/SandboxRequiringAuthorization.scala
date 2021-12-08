@@ -8,12 +8,7 @@ import java.util.UUID
 
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
-import com.daml.ledger.api.auth.{
-  AuthService,
-  AuthServiceJWT,
-  AuthServiceJWTCodec,
-  AuthServiceJWTPayload,
-}
+import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceJWTPayload, CustomDamlJWTPayload, StandardJWTPayload, SupportedJWTCodec, SupportedJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
 import org.scalatest.Suite
 import scalaz.syntax.tag.ToTagOps
@@ -32,10 +27,9 @@ trait SandboxRequiringAuthorization {
     admin = false,
     actAs = Nil,
     readAs = Nil,
-    isCustomDamlToken = true,
   )
 
-  protected def standardToken(userId: String) = AuthServiceJWTPayload(
+  protected def standardToken(userId: String) = StandardJWTPayload(AuthServiceJWTPayload(
     ledgerId = None,
     participantId = None,
     applicationId = Some(userId),
@@ -43,16 +37,15 @@ trait SandboxRequiringAuthorization {
     admin = false,
     actAs = Nil,
     readAs = Nil,
-    isCustomDamlToken = false,
-  )
+  ))
 
   protected val randomUserId: String = UUID.randomUUID().toString
 
   protected val adminToken: AuthServiceJWTPayload = emptyToken.copy(admin = true)
-  protected val adminTokenStandardJWT: AuthServiceJWTPayload = standardToken("participant_admin")
-  protected val unknownUserTokenStandardJWT: AuthServiceJWTPayload = standardToken("unknown_user")
+  protected val adminTokenStandardJWT: SupportedJWTPayload = standardToken("participant_admin")
+  protected val unknownUserTokenStandardJWT: SupportedJWTPayload = standardToken("unknown_user")
 
-  protected lazy val wrappedLedgerId: LedgerId = ledgerId(Some(toHeader(adminToken)))
+  protected lazy val wrappedLedgerId: LedgerId = ledgerId(Some(customTokenToHeader(adminToken)))
   protected lazy val unwrappedLedgerId: String = wrappedLedgerId.unwrap
 
   override protected def authService: Option[AuthService] = {
@@ -82,12 +75,15 @@ trait SandboxRequiringAuthorization {
   protected def forApplicationId(id: String, p: AuthServiceJWTPayload): AuthServiceJWTPayload =
     p.copy(applicationId = Some(id))
 
-  protected def toHeader(payload: AuthServiceJWTPayload, secret: String = jwtSecret): String =
+  protected def customTokenToHeader(payload: AuthServiceJWTPayload, secret: String = jwtSecret): String =
+    signed(CustomDamlJWTPayload(payload), secret)
+
+  protected def toHeader(payload: SupportedJWTPayload, secret: String = jwtSecret): String =
     signed(payload, secret)
 
-  private def signed(payload: AuthServiceJWTPayload, secret: String): String =
+  private def signed(payload: SupportedJWTPayload, secret: String): String =
     JwtSigner.HMAC256
-      .sign(DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(payload)), secret)
+      .sign(DecodedJwt(jwtHeader, SupportedJWTCodec.compactPrint(payload)), secret)
       .getOrElse(sys.error("Failed to generate token"))
       .value
 }

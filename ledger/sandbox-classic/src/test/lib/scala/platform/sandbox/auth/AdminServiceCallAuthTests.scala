@@ -7,7 +7,7 @@ import java.util.UUID
 
 trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
-  private val signedIncorrectly = Option(toHeader(adminToken, UUID.randomUUID.toString))
+  private val signedIncorrectly = Option(customTokenToHeader(adminToken, UUID.randomUUID.toString))
 
   it should "deny calls with an invalid signature" in {
     expectUnauthenticated(serviceCallWithToken(signedIncorrectly))
