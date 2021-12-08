@@ -173,7 +173,7 @@ object ErrorCategory {
   /** Client is not authenticated properly
     */
   @Description("""The request does not have valid authentication credentials for the operation.""")
-  @RetryStrategy("""Retry after app operator intervention.""")
+  @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug, application misconfiguration or ledger-level
                 |misconfiguration. Resolution requires application and/or ledger operator intervention."""
@@ -192,7 +192,7 @@ object ErrorCategory {
   /** Client does not have appropriate permissions
     */
   @Description("""The caller does not have permission to execute the specified operation.""")
-  @RetryStrategy("""Retry after app operator intervention.""")
+  @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug or application misconfiguration. Resolution requires
                 |application operator intervention."""
@@ -211,7 +211,7 @@ object ErrorCategory {
   /** A request which is never going to be valid
     */
   @Description("""The request is invalid independent of the state of the system.""")
-  @RetryStrategy("""Retry after app operator intervention.""")
+  @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug or ledger-level misconfiguration (e.g. request size limits).
                 |Resolution requires application and/or ledger operator intervention."""
@@ -232,10 +232,10 @@ object ErrorCategory {
   @Description(
     """The mutable state of the system does not satisfy the preconditions required to execute the request.
                  |We consider the whole Daml ledger including ledger config, parties, packages, and command
-                 |deduplication to be mutable system state. Thus all Daml interpretation errors are reported as
+                 |deduplication to be mutable system state. Thus all Daml interpretation errors are reported
                  |as this error or one of its specializations."""
   )
-  @RetryStrategy("""Retry after app operator intervention.""")
+  @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution("""ALREADY_EXISTS and NOT_FOUND are special cases for the existence and non-existence of well-defined
                 |entities within the system state; e.g., a .dalf package, contracts ids, contract keys, or a
                 |transaction at an offset. OUT_OF_RANGE is a special case for reading past a range. Violations of the
@@ -297,10 +297,12 @@ object ErrorCategory {
   /** The supplied offset is out of range
     */
   @Description(
-    """This error is only used by the ledger Api server in connection with invalid offsets."""
+    """This error is only used by the Ledger API server in connection with invalid offsets."""
   )
-  @RetryStrategy("""Retry after app operator intervention.""")
-  @Resolution("""tbd""")
+  @RetryStrategy("""Retry after application operator intervention.""")
+  @Resolution(
+    """Expectation: this error is only used by the Ledger API server in connection with invalid offsets."""
+  )
   object InvalidGivenCurrentSystemStateSeekAfterEnd
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.OUT_OF_RANGE),
@@ -318,7 +320,7 @@ object ErrorCategory {
     """This error category is used internally to signal to the system operator an internal degradation."""
   )
   @RetryStrategy("""Not an API error, therefore not retryable.""")
-  @Resolution("""""")
+  @Resolution("""Inspect details of the specific error for more information.""")
   object BackgroundProcessDegradationWarning
       extends ErrorCategoryImpl(
         grpcCode = None, // should not be used on the API level
@@ -327,18 +329,6 @@ object ErrorCategory {
         securitySensitive = false,
         asInt = 13,
         rank = 2,
-      )
-      with ErrorCategory
-
-  @Deprecated
-  object IsAbortShouldBePrecondition
-      extends ErrorCategoryImpl(
-        grpcCode = Some(Code.ABORTED),
-        logLevel = Level.INFO,
-        retryable = None,
-        securitySensitive = false,
-        asInt = 14,
-        rank = 3,
       )
       with ErrorCategory
 
