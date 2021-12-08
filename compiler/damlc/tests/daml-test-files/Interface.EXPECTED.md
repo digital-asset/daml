@@ -43,6 +43,18 @@
 >   | Field                                                                                   | Type                                                                                    | Description |
 >   | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 >   | newOwner                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311) |  |
+> 
+> * **Method getAmount : **[Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728)
+> 
+> * **Method getOwner : **[Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311)
+> 
+> * **Method noopImpl : **() -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457) ()
+> 
+> * **Method setAmount : **[Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728) -\> [Token](#type-interface-token-72202)
+> 
+> * **Method splitImpl : **[Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171) [Token](#type-interface-token-72202), [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171) [Token](#type-interface-token-72202))
+> 
+> * **Method transferImpl : **[Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171) [Token](#type-interface-token-72202))
 
 ## Functions
 

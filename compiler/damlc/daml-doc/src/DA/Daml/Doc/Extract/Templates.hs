@@ -73,7 +73,7 @@ getInterfaceDocs DocCtx{..} typeMap =
       , if_name = ad_name ifADT
       , if_descr = ad_descr ifADT
       , if_choices = map (mkChoiceDoc typeMap) choices
-      , if_methods = [] -- TODO (drsk) https://github.com/digital-asset/daml/issues/11347
+      , if_methods = [] -- filled by distributeInstanceDocs
       }
       where
         ifADT = asADT typeMap name
