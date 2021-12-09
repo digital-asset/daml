@@ -33,6 +33,7 @@ da_scala_library(
         "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
@@ -154,8 +155,6 @@ conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         #        "--additional=ContractIdIT:Accept", Why is this one failing???
         "--additional=ParticipantPruningIT",
-        # TODO Sandbox-on-X: Enable when conflict checks for unallocated parties are implemented
-        "--exclude=ClosedWorldIT",
         # TODO Sandbox-on-X: Enable when conflict checks for configs are implemented
         "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
         # Disable tests targeting multi-participant setups

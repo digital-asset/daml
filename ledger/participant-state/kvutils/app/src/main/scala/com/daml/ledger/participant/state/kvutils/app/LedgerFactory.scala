@@ -3,13 +3,11 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.time.Duration
-import java.util.concurrent.TimeUnit
 import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.kvutils.api.{KeyValueLedger, KeyValueParticipantState}
 import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
@@ -22,6 +20,8 @@ import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
+import java.time.Duration
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.{nowarn, unused}
 import scala.concurrent.ExecutionContext
@@ -131,7 +131,7 @@ trait ReadServiceOwner[+RS <: ReadService, ExtraConfig] extends ConfigProvider[E
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-      contractStore: AtomicReference[Option[ContractStore]],
+      indexServiceRef: AtomicReference[Option[IndexService]],
       metrics: Metrics,
   )(implicit
       materializer: Materializer,
@@ -145,7 +145,7 @@ trait WriteServiceOwner[+WS <: WriteService, ExtraConfig] extends ConfigProvider
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-      contractStore: AtomicReference[Option[ContractStore]],
+      indexServiceRef: AtomicReference[Option[IndexService]],
       metrics: Metrics,
   )(implicit
       materializer: Materializer,
@@ -162,33 +162,33 @@ trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-      contractStore: AtomicReference[Option[ContractStore]],
+      indexServiceRef: AtomicReference[Option[IndexService]],
       metrics: Metrics,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
       ec: ExecutionContext,
   ): ResourceOwner[RWS] =
-    readWriteServiceOwner(config, participantConfig, engine, contractStore, metrics)
+    readWriteServiceOwner(config, participantConfig, engine, indexServiceRef, metrics)
 
   override final def writeServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-      contractStore: AtomicReference[Option[ContractStore]],
+      indexServiceRef: AtomicReference[Option[IndexService]],
       metrics: Metrics,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
       ec: ExecutionContext,
   ): ResourceOwner[RWS] =
-    readWriteServiceOwner(config, participantConfig, engine, contractStore, metrics)
+    readWriteServiceOwner(config, participantConfig, engine, indexServiceRef, metrics)
 
   def readWriteServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-      contractStore: AtomicReference[Option[ContractStore]],
+      indexServiceRef: AtomicReference[Option[IndexService]],
       metrics: Metrics,
   )(implicit
       materializer: Materializer,
@@ -206,7 +206,7 @@ object LedgerFactory {
         config: Config[Unit],
         participantConfig: ParticipantConfig,
         engine: Engine,
-        contractStore: AtomicReference[Option[ContractStore]],
+        indexServiceRef: AtomicReference[Option[IndexService]],
         metrics: Metrics,
     )(implicit
         materializer: Materializer,

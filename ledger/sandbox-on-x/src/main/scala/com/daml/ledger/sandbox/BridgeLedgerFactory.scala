@@ -4,7 +4,7 @@
 package com.daml.ledger.sandbox
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, ParticipantConfig}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
@@ -22,7 +22,7 @@ object BridgeLedgerFactory extends LedgerFactory[ConflictCheckingLedgerBridge, B
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-      contractStoreRef: AtomicReference[Option[ContractStore]],
+      indexServiceRef: AtomicReference[Option[IndexService]],
       metrics: Metrics,
   )(implicit
       materializer: Materializer,
@@ -35,7 +35,7 @@ object BridgeLedgerFactory extends LedgerFactory[ConflictCheckingLedgerBridge, B
         ledgerId = config.ledgerId,
         maxDedupSeconds = config.extra.maxDedupSeconds,
         submissionBufferSize = config.extra.submissionBufferSize,
-        contractStoreRef = contractStoreRef,
+        indexServiceRef = indexServiceRef,
         metrics: Metrics,
       )
     )

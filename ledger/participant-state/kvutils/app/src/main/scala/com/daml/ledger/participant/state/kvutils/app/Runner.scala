@@ -3,15 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.nio.file.Path
-import java.util.UUID
-import java.util.concurrent.{Executors, TimeUnit}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -27,7 +24,10 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
+import java.nio.file.Path
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{Executors, TimeUnit}
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -98,7 +98,7 @@ final class Runner[T <: ReadWriteService, Extra](
       )
     )
 
-    val contractStoreRef = new AtomicReference[Option[ContractStore]](None)
+    val indexServiceRef = new AtomicReference[Option[IndexService]](None)
 
     newLoggingContext { implicit loggingContext =>
       for {
@@ -140,7 +140,7 @@ final class Runner[T <: ReadWriteService, Extra](
                     config,
                     participantConfig,
                     sharedEngine,
-                    contractStoreRef,
+                    indexServiceRef,
                     metrics,
                   )(materializer, loggingContext, servicesExecutionContext)
                   .acquire()
@@ -181,7 +181,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   servicesExecutionContext = servicesExecutionContext,
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()
-                _ <- Resource.successful(contractStoreRef.set(Some(indexService)))
+                _ <- Resource.successful(indexServiceRef.set(Some(indexService)))
                 _ <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
                     StandaloneApiServer(

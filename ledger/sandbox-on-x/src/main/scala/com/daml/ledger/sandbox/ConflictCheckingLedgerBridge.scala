@@ -16,10 +16,17 @@ import com.daml.ledger.configuration.{
   LedgerTimeModel,
 }
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.sandbox.ConflictCheckingLedgerBridge.Submission._
+import com.daml.ledger.sandbox.SoxRejection.{
+  CausalMonotonicityViolation,
+  DuplicateKey,
+  GenericRejectionFailure,
+  InconsistentContractKey,
+  UnknownContracts,
+}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
@@ -50,7 +57,7 @@ case class ConflictCheckingLedgerBridge(
     maxDedupSeconds: Int,
     submissionBufferSize: Int,
     // Hack needed for avoiding the cyclic dependency in the kvutils app Runner
-    contractStoreRef: AtomicReference[Option[ContractStore]],
+    indexServiceRef: AtomicReference[Option[IndexService]],
     metrics: Metrics,
 )(implicit
     mat: Materializer,
@@ -60,8 +67,8 @@ case class ConflictCheckingLedgerBridge(
     with WriteService
     with AutoCloseable {
   private val offsetIdx = new AtomicLong(0L)
-  private lazy val contractStore =
-    contractStoreRef.get().getOrElse(throw new RuntimeException("ContractStore not there yet"))
+  private lazy val indexService =
+    indexServiceRef.get().getOrElse(throw new RuntimeException("ContractStore not there yet"))
 
   private var stateUpdatesWasCalledAlready = false
 
@@ -79,7 +86,7 @@ case class ConflictCheckingLedgerBridge(
         lengthCounter = metrics.daml.SoX.conflictQueueLength,
         delayTimer = metrics.daml.SoX.conflictQueueDelay,
       )
-      .map { contractStore.cacheOffset() -> _ }
+      .map { indexService.cacheOffset() -> _ }
       .mapAsync(64) { case (noConflictUpTo, tx) =>
         precomputeTransactionOutputs(tx).map {
           case (keyInputs, inputContracts, updatedKeys, consumedContracts) =>
@@ -364,7 +371,7 @@ case class ConflictCheckingLedgerBridge(
       transaction.transactionMeta.ledgerEffectiveTime,
       transaction.blindingInfo.divulgence.keySet,
     ).flatMap {
-      case Right(_) => validatePartyAllocation(transaction.transaction)
+      case Right(_) => validatePartyAllocation(transaction)
       case rejection => Future.successful(rejection)
     }.flatMap {
       case Right(_) => checkTimeModel(transaction.transaction)
@@ -375,11 +382,19 @@ case class ConflictCheckingLedgerBridge(
     }.map(_.map(_ => transaction))
 
   private def validatePartyAllocation(
-      transaction: SubmittedTransaction
+      transaction: Submission.Transaction
   ): Future[Either[SoxRejection, Unit]] = {
-    val _ = transaction
-    // TODO implement
-    Future.successful(Right(()))
+    val informees = transaction.transaction.informees
+    indexService
+      .getParties(informees.toSeq)
+      .map { partyDetails =>
+        val allocatedInformees = partyDetails.iterator.map(_.party).toSet
+        if (allocatedInformees == informees) Right(())
+        else
+          Left(
+            SoxRejection.UnallocatedParties((informees diff allocatedInformees).toSet)(transaction)
+          )
+      }
   }
 
   private def checkTimeModel(
@@ -400,7 +415,7 @@ case class ConflictCheckingLedgerBridge(
     if (referredContracts.isEmpty)
       Future.successful(Right(()))
     else
-      contractStore
+      indexService
         .lookupMaximumLedgerTime(referredContracts)
         .transform {
           case Failure(MissingContracts(missingContractIds)) =>
@@ -446,7 +461,7 @@ case class ConflictCheckingLedgerBridge(
       key: Key,
       inputState: TxKeyInput,
   ) =
-    contractStore
+    indexService
       // TODO SoX: Is it fine to use informees as readers?
       .lookupContractKey(transaction.transaction.informees, key)
       .map { lookupResult =>
