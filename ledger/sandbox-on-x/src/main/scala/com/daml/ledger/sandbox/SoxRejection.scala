@@ -13,7 +13,10 @@ import lf.transaction.GlobalKey
 import platform.server.api.validation.ErrorFactories
 import platform.store.appendonlydao.events.ContractId
 
+import com.daml.ledger.configuration.LedgerTimeModel
+import com.google.protobuf.any.Any
 import com.google.rpc.code.Code
+import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 
 sealed trait SoxRejection extends Submission {
@@ -97,5 +100,55 @@ object SoxRejection {
       extends SoxRejection {
     override def toStatus: Status =
       errorFactories.CommandRejections.partiesNotKnownToLedger(unallocatedParties)
+  }
+
+  final case class NoLedgerConfiguration(override val originalTx: Transaction)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ) extends SoxRejection {
+    override def toStatus: Status = errorFactories.missingLedgerConfig(
+      Status.of(
+        code = io.grpc.Status.Code.ABORTED.value(),
+        message = "Ledger configuration not found",
+        details = Seq(
+          Any.pack(
+            ErrorInfo.of(
+              reason = "NO_LEDGER_CONFIGURATION",
+              domain = "com.daml.sandbox",
+              metadata = Map.empty,
+            )
+          )
+        ),
+      ),
+      "Cannot validate ledger time",
+    )
+  }
+
+  final case class InvalidLedgerTime(outOfRange: LedgerTimeModel.OutOfRange)(
+      override val originalTx: Transaction
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ) extends SoxRejection {
+    override def toStatus: Status = errorFactories.CommandRejections.invalidLedgerTime(
+      Status.of(
+        code = io.grpc.Status.Code.ABORTED.value(),
+        message = outOfRange.message,
+        details = Seq(
+          Any.pack(
+            ErrorInfo.of(
+              reason = "INVALID_LEDGER_TIME",
+              domain = "com.daml.sandbox",
+              metadata = Map(
+                "ledgerTime" -> outOfRange.ledgerTime.toString,
+                "lowerBound" -> outOfRange.lowerBound.toString,
+                "upperBound" -> outOfRange.upperBound.toString,
+              ),
+            )
+          )
+        ),
+      ),
+      outOfRange.ledgerTime.toInstant,
+      outOfRange.lowerBound.toInstant,
+      outOfRange.upperBound.toInstant,
+    )
   }
 }

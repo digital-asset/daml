@@ -5,7 +5,7 @@ package com.daml
 package ledger.sandbox
 
 import ledger.offset.Offset
-import ledger.sandbox.SequencerState.{ConsumedAt, LastUpdatedAt, SequencerQueue}
+import ledger.sandbox.SequencerState.{LastUpdatedAt, SequencerQueue}
 import lf.transaction.GlobalKey
 import metrics.{Metrics, Timed}
 import platform.store.appendonlydao.events.{ContractId, Key}
@@ -18,13 +18,12 @@ import scala.util.chaining._
   * @param sequencerQueue A queue ordered by each transaction's `noConflictUpTo`
   * @param keyState Mapping of all key updates occurred over the span of the `sequencerQueue` coupled
   *                 with the transaction offset that last updated them.
-  * @param consumedContractsState Map of all consumed contracts over the span of the `sequencerQueue`
-  *                               and the transaction offset which archived them.
+  * @param consumedContractsState Map of all consumed contracts over the span of the `sequencerQueue`..
   */
 case class SequencerState(
     sequencerQueue: SequencerQueue = Vector.empty,
     keyState: Map[Key, (Option[ContractId], LastUpdatedAt)] = Map.empty,
-    consumedContractsState: Map[ContractId, ConsumedAt] = Map.empty,
+    consumedContractsState: Set[ContractId] = Set.empty,
 )(metrics: Metrics) {
 
   def enqueue(
@@ -44,9 +43,8 @@ case class SequencerState(
             .tap(q => metrics.daml.SoX.sequencerQueueLengthCounter.update(q.length)),
           keyState = (keyState ++ updatedKeys.view.mapValues(_ -> offset))
             .tap(s => metrics.daml.SoX.keyStateSize.update(s.size)),
-          consumedContractsState =
-            (consumedContractsState ++ consumedContracts.view.map(_ -> offset))
-              .tap(s => metrics.daml.SoX.consumedContractsStateSize.update(s.size)),
+          consumedContractsState = (consumedContractsState ++ consumedContracts)
+            .tap(s => metrics.daml.SoX.consumedContractsStateSize.update(s.size)),
         )(metrics),
       )
 
@@ -76,20 +74,7 @@ case class SequencerState(
             }
 
         val prunedConsumedContractsState =
-          evictedEntries.iterator
-            .flatMap { case (noConflictUpTo, (_, consumedContracts)) =>
-              consumedContracts.iterator.map(noConflictUpTo -> _)
-            }
-            .foldLeft(consumedContractsState) {
-              case (updatedConsumedContractState, (noConflictUpTo, contractId)) =>
-                updatedConsumedContractState
-                  .get(contractId)
-                  .fold(throw new RuntimeException("Should not be missing")) {
-                    case offset if offset == noConflictUpTo =>
-                      updatedConsumedContractState - contractId
-                    case _ => updatedConsumedContractState
-                  }
-            }
+          consumedContractsState.diff(evictedEntries.iterator.flatMap(_._2._2).toSet)
 
         SequencerState(
           sequencerQueue = prunedQueue,
@@ -102,7 +87,6 @@ case class SequencerState(
 
 object SequencerState {
   private[sandbox] type LastUpdatedAt = Offset
-  private[sandbox] type ConsumedAt = Offset
   private[sandbox] type SequencerQueue =
     Vector[(Offset, (Map[GlobalKey, Option[ContractId]], Set[ContractId]))]
 }

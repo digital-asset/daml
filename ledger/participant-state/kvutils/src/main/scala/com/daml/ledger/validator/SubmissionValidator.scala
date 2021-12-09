@@ -69,6 +69,7 @@ class SubmissionValidator[LogResult] private[validator] (
       )
     }
 
+  case class A(b: String)
   def validateAndCommit(
       envelope: Raw.Envelope,
       correlationId: String,

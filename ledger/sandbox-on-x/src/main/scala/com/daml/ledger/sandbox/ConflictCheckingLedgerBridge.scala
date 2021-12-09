@@ -20,35 +20,34 @@ import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.sandbox.ConflictCheckingLedgerBridge.Submission._
-import com.daml.ledger.sandbox.SoxRejection.{
-  CausalMonotonicityViolation,
-  DuplicateKey,
-  GenericRejectionFailure,
-  InconsistentContractKey,
-  UnknownContracts,
-}
+import com.daml.ledger.sandbox.ConflictCheckingLedgerBridge.fromOffset
+import com.daml.ledger.sandbox.SoxRejection._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate, NegativeKeyLookup}
-import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, GlobalKey, SubmittedTransaction}
+import com.daml.lf.transaction.Transaction.{
+  KeyActive,
+  KeyCreate,
+  NegativeKeyLookup,
+  KeyInput => TxKeyInput,
+}
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
+import com.daml.platform.ApiOffset
 import com.daml.platform.apiserver.execution.MissingContracts
+import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.telemetry.TelemetryContext
 import com.google.common.primitives.Longs
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
-import com.daml.lf.transaction.Transaction.{
-  KeyInput => TxKeyInput,
-  KeyInputError => TxKeyInputError,
-}
 
+import scala.concurrent.duration._
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import java.util.concurrent.{CompletableFuture, CompletionStage}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 case class ConflictCheckingLedgerBridge(
@@ -59,6 +58,8 @@ case class ConflictCheckingLedgerBridge(
     // Hack needed for avoiding the cyclic dependency in the kvutils app Runner
     indexServiceRef: AtomicReference[Option[IndexService]],
     metrics: Metrics,
+    // TODO SoX: Wire up in config
+    implicitPartyAllocation: Boolean = false,
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -66,9 +67,27 @@ case class ConflictCheckingLedgerBridge(
 ) extends ReadService
     with WriteService
     with AutoCloseable {
-  private val offsetIdx = new AtomicLong(0L)
+  private lazy val offsetIdx = new AtomicLong(
+    Await.result(
+      // PoC warning: Don't take this seriously
+      indexService
+        .currentLedgerEnd()
+        .map(o => fromOffset(ApiOffset.assertFromString(o.value))),
+      10.seconds,
+    )
+  )
+
   private lazy val indexService =
     indexServiceRef.get().getOrElse(throw new RuntimeException("ContractStore not there yet"))
+
+  // Note: ledger entries are written in batches, and this variable is updated while writing a ledger configuration
+  // changed entry. Transactions written around the same time as a configuration change entry might not use the correct
+  // time model.
+  private[this] lazy val currentConfiguration =
+    new AtomicReference[Option[Configuration]](
+      // PoC warning: Don't take this seriously
+      Await.result(indexService.lookupConfiguration(), 10.seconds).map(_._2)
+    )
 
   private var stateUpdatesWasCalledAlready = false
 
@@ -76,7 +95,13 @@ case class ConflictCheckingLedgerBridge(
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
-  private type KeyInputs = Either[TxKeyInputError, Map[Key, TxKeyInput]]
+  private type KeyInputs = Map[Key, TxKeyInput]
+  private type TransactionEffects = (
+      Map[Key, TxKeyInput],
+      Set[events.ContractId],
+      Map[Key, Option[events.ContractId]],
+      Set[events.ContractId],
+  )
 
   private val (conflictCheckingQueue, source) =
     InstrumentedSource
@@ -86,21 +111,17 @@ case class ConflictCheckingLedgerBridge(
         lengthCounter = metrics.daml.SoX.conflictQueueLength,
         delayTimer = metrics.daml.SoX.conflictQueueDelay,
       )
-      .map { indexService.cacheOffset() -> _ }
-      .mapAsync(64) { case (noConflictUpTo, tx) =>
-        precomputeTransactionOutputs(tx).map {
-          case (keyInputs, inputContracts, updatedKeys, consumedContracts) =>
-            (noConflictUpTo, tx, keyInputs, inputContracts, updatedKeys, consumedContracts)
-        }
+      .mapAsyncUnordered(64) { tx =>
+        precomputeTransactionOutputs(tx).map(_.map((tx, _)))
       }
+      .map(_.map { case (tx, transactionEffects) =>
+        (indexService.cacheOffset(), tx, transactionEffects)
+      })
       .mapAsync(64) {
-        case (noConflictUpTo, tx, keyInputs, inputContracts, updatedKeys, consumedContracts) =>
-          Timed.future(
-            metrics.daml.SoX.conflictCheckWithCommitted,
-            conflictCheckWithCommitted(tx, inputContracts, keyInputs).map(tx =>
-              (noConflictUpTo, tx, keyInputs, inputContracts, updatedKeys, consumedContracts)
-            ),
-          )
+        case Left(rejection) => Future.successful(Left(rejection))
+        case Right((noConflictUpTo, tx, transactionEffects @ (keyInputs, inputContracts, _, _))) =>
+          conflictCheckWithCommitted(tx, inputContracts, keyInputs)
+            .map(_.map(_ => (noConflictUpTo, tx, transactionEffects)))
       }
       .statefulMapConcat(conflictCheckWithDelta)
       .preMaterialize()
@@ -239,35 +260,31 @@ case class ConflictCheckingLedgerBridge(
   private def submit(submission: Submission): CompletionStage[SubmissionResult] =
     toSubmissionResult(queue.offer(submission))
 
-  private def precomputeTransactionOutputs(transaction: Transaction) =
+  private def precomputeTransactionOutputs(
+      transaction: Transaction
+  ): Future[Either[SoxRejection, TransactionEffects]] = {
+    lazy val contractKeyInputs =
+      transaction.transaction.contractKeyInputs.left.map(invalidInputFromParticipant(transaction))
+    lazy val inputContracts = transaction.transaction.inputContracts
+    lazy val updatedContractKeys = transaction.transaction.updatedContractKeys
+    lazy val consumedContracts = transaction.transaction.consumedContracts
+
     Timed.future(
       metrics.daml.SoX.precomputeTransactionOutputs,
-      Future {
-        (
-          transaction.transaction.contractKeyInputs,
-          transaction.transaction.inputContracts,
-          transaction.transaction.updatedContractKeys,
-          transaction.transaction.consumedContracts,
-        )
-      },
+      Future(contractKeyInputs).map(
+        _.map((_, inputContracts, updatedContractKeys, consumedContracts))
+      ),
     )
+  }
 
-  private def conflictCheckWithDelta: () => (
-      (
-          Offset,
-          Either[SoxRejection, Transaction],
-          KeyInputs,
-          Set[ContractId],
-          Map[GlobalKey, Option[ContractId]],
-          Set[ContractId],
-      )
-  ) => Iterable[
-    (Offset, Update)
-  ] = () => {
+  private def conflictCheckWithDelta
+      : () => Either[SoxRejection, (Offset, Transaction, TransactionEffects)] => Iterable[
+        (Offset, Update)
+      ] = () => {
     @volatile var sequencerQueueState: SequencerState = SequencerState()(metrics)
 
     {
-      case (_, Left(rejection), _, _, _, _) =>
+      case Left(rejection) =>
         Timed.value(
           metrics.daml.SoX.sequenceDuration, {
             val newIndex = offsetIdx.getAndIncrement()
@@ -275,13 +292,12 @@ case class ConflictCheckingLedgerBridge(
             Iterable(newOffset -> toRejection(rejection))
           },
         )
-      case (
-            noConflictUpTo,
-            Right(transaction),
-            keyInputs,
-            inputContracts,
-            updatedKeys,
-            consumedContracts,
+      case Right(
+            (
+              noConflictUpTo,
+              transaction,
+              (keyInputs, inputContracts, updatedKeys, consumedContracts),
+            )
           ) =>
         Timed.value(
           metrics.daml.SoX.sequenceDuration, {
@@ -324,9 +340,8 @@ case class ConflictCheckingLedgerBridge(
     val updatedKeys = sequencerQueueState.keyState
     val archives = sequencerQueueState.consumedContractsState
 
-    keyInputs.left
-      .map(invalidInputFromParticipant(transaction))
-      .flatMap(_.foldLeft[Either[SoxRejection, Unit]](Right(())) {
+    keyInputs
+      .foldLeft[Either[SoxRejection, Unit]](Right(())) {
         case (Right(_), (key, KeyCreate)) =>
           updatedKeys.get(key) match {
             case Some((None, _)) | None => Right(())
@@ -344,9 +359,9 @@ case class ConflictCheckingLedgerBridge(
             case Some((other, _)) => Left(InconsistentContractKey(other, Some(cid))(transaction))
           }
         case (left, _) => left
-      })
+      }
       .flatMap { _ =>
-        val alreadyArchived = inputContracts.intersect(archives.keySet)
+        val alreadyArchived = inputContracts.intersect(archives)
         if (alreadyArchived.nonEmpty) Left(UnknownContracts(alreadyArchived)(transaction))
         else Right(())
       }
@@ -364,22 +379,26 @@ case class ConflictCheckingLedgerBridge(
       transaction: Submission.Transaction,
       inputContracts: Set[ContractId],
       keyInputs: KeyInputs,
-  ): Future[Either[SoxRejection, Submission.Transaction]] =
-    validateCausalMonotonicity(
-      transaction,
-      inputContracts,
-      transaction.transactionMeta.ledgerEffectiveTime,
-      transaction.blindingInfo.divulgence.keySet,
-    ).flatMap {
-      case Right(_) => validatePartyAllocation(transaction)
-      case rejection => Future.successful(rejection)
-    }.flatMap {
-      case Right(_) => checkTimeModel(transaction.transaction)
-      case rejection => Future.successful(rejection)
-    }.flatMap {
-      case Right(_) => validateKeyUsages(transaction, keyInputs)
-      case rejection => Future.successful(rejection)
-    }.map(_.map(_ => transaction))
+  ): Future[Either[SoxRejection, Unit]] =
+    Timed.future(
+      metrics.daml.SoX.conflictCheckWithCommitted,
+      checkTimeModel(transaction) match {
+        case Left(value) => Future(Left(value))
+        case Right(_) =>
+          validateCausalMonotonicity(
+            transaction,
+            inputContracts,
+            transaction.transactionMeta.ledgerEffectiveTime,
+            transaction.blindingInfo.divulgence.keySet,
+          ).flatMap {
+            case Right(_) => validatePartyAllocation(transaction)
+            case rejection => Future.successful(rejection)
+          }.flatMap {
+            case Right(_) => validateKeyUsages(transaction, keyInputs)
+            case rejection => Future.successful(rejection)
+          }
+      },
+    )
 
   private def validatePartyAllocation(
       transaction: Submission.Transaction
@@ -398,11 +417,20 @@ case class ConflictCheckingLedgerBridge(
   }
 
   private def checkTimeModel(
-      transaction: SubmittedTransaction
-  ): Future[Either[SoxRejection, Unit]] = {
-    val _ = transaction
-    // TODO implement
-    Future.successful(Right(()))
+      transaction: Transaction
+  ): Either[SoxRejection, Unit] = {
+    // TODO SoX: Support other time providers
+    val recordTime = Timestamp.now()
+
+    currentConfiguration
+      .get()
+      .toRight(SoxRejection.NoLedgerConfiguration(transaction))
+      .flatMap(
+        _.timeModel
+          .checkTime(transaction.transactionMeta.ledgerEffectiveTime, recordTime)
+          .left
+          .map(SoxRejection.InvalidLedgerTime(_)(transaction))
+      )
   }
 
   private def validateCausalMonotonicity(
@@ -443,24 +471,19 @@ case class ConflictCheckingLedgerBridge(
       transaction: Transaction,
       keyInputs: KeyInputs,
   ): Future[Either[SoxRejection, Unit]] =
-    keyInputs
-      .map(_.foldLeft(Future.successful[Either[SoxRejection, Unit]](Right(()))) {
-        case (f, (key, inputState)) =>
-          f.flatMap {
-            case Right(_) => validateExpectedKey(transaction, key, inputState)
-            case left => Future.successful(left)
-          }
-      })
-      .fold(
-        err => Future.successful(Left(GenericRejectionFailure(err.toString)(transaction))),
-        identity,
-      )
+    keyInputs.foldLeft(Future.successful[Either[SoxRejection, Unit]](Right(()))) {
+      case (f, (key, inputState)) =>
+        f.flatMap {
+          case Right(_) => validateExpectedKey(transaction, key, inputState)
+          case left => Future.successful(left)
+        }
+    }
 
   private def validateExpectedKey(
       transaction: Submission.Transaction,
       key: Key,
       inputState: TxKeyInput,
-  ) =
+  ): Future[Either[SoxRejection, Unit]] =
     indexService
       // TODO SoX: Is it fine to use informees as readers?
       .lookupContractKey(transaction.transaction.informees, key)
@@ -558,6 +581,11 @@ object ConflictCheckingLedgerBridge {
     }
 
   def toOffset(index: Long): Offset = Offset.fromByteArray(Longs.toByteArray(index))
+  def fromOffset(offset: Offset): Long = Longs.fromByteArray(paddedTo8(offset.toByteArray))
+
+  private def paddedTo8(in: Array[Byte]): Array[Byte] = if (in.length > 8)
+    throw new RuntimeException(s"byte array too big: ${in.length}")
+  else Array.fill[Byte](8 - in.length)(0) ++ in
 
   def toSubmissionResult(
       queueOfferResult: QueueOfferResult
