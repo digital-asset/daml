@@ -19,7 +19,7 @@ interface Token where
 
   ensure (getAmount this >= 0)
 
-  choice Split : (ContractId Token, ContractId Token)
+  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment.
     with
       splitAmount : Int -- ^ A choice field comment.
     controller getOwner this

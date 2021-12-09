@@ -234,6 +234,7 @@ data ChoiceDoc = ChoiceDoc
 data MethodDoc = MethodDoc
   { mtd_name :: Typename
   , mtd_type :: Type
+  , mtd_descr :: Maybe DocText
   }
   deriving (Eq, Show, Generic)
 
@@ -264,6 +265,7 @@ data InstanceDoc = InstanceDoc
     , id_module :: Modulename
     , id_context :: Context
     , id_isOrphan :: Bool
+    , id_descr :: Maybe DocText
     } deriving (Eq, Ord, Show, Generic)
 
 -----------------------------------------------------

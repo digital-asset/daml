@@ -36,6 +36,8 @@
 > 
 > * **Choice Split**
 >   
+>   An interface choice comment.
+>   
 >   | Field                                                                          | Type                                                                           | Description |
 >   | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
 >   | splitAmount                                                                    | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728) | A choice field comment. |
@@ -49,6 +51,8 @@
 > * **Method getAmount : **[Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728)
 > 
 > * **Method getOwner : **[Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311)
+>   
+>   A method comment.
 > 
 > * **Method noopImpl : **() -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457) ()
 > 
