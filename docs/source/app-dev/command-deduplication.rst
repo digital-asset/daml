@@ -115,6 +115,11 @@ For this strategy, you must estimate a bound ``B`` on the processing time and fo
 If processing measured across all retries takes longer than your estimate ``B``, the ledger change may take effect several times.
 Under this caveat, the following strategy works for applications that use the :ref:`Command Service <command-service>` or the :ref:`Command Submission <command-submission-service>` and :ref:`Command Completion Service <command-completion-service>`.
 
+.. note::
+   The bound ``B`` should be at most the configured :ref:`maximum deduplication time <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_time>`.
+   Otherwise you rely on the ledger accepting longer deduplication durations.
+   Such reliance makes your application harder to port to other Daml ledgers and fragile, as the ledger may stop accepting such extended durations at its own discretion.
+
 .. _dedup-bounded-step-command-id:
 
 #. Choose a command ID for the ledger change, in a way that makes sure the same ledger change is always assigned the same command ID.
@@ -138,6 +143,15 @@ Under this caveat, the following strategy works for applications that use the :r
    - Set the :ref:`command ID <<com.daml.ledger.api.v1.Commands.command_id>>` to the chosen command ID from :ref:`Step 1 <dedup-bounded-step-command-id>`.
 
    - Set the :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` to the bound ``B``.
+
+     .. note::
+        It is prudent to explicitly set the deduplication duration to the desired bound ``B``,
+	to guard against the case where a ledger configuration update shortens the maximum deduplication time.
+	With the bound ``B``, you will be notified of such a problem via an :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>` error
+	if the ledger does not support deduplication durations of length ``B`` any more.
+	
+	If you omitted the deduplication period, the currently valid maximum dedupilcation time would be used.
+	In this case, a ledger configuration update could silently shorten the deduplication period and thus invalidate your deduplication analysis.
 
    - Set the :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` to a fresh value, e.g., a random UUID.
 
