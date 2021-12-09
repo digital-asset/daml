@@ -63,7 +63,7 @@ import scala.jdk.CollectionConverters._
 /** Utilities for converting between protobuf messages and our scala
   * data structures.
   */
-private[state] object Conversions {
+object Conversions {
 
   val configurationStateKey: DamlStateKey =
     DamlStateKey.newBuilder.setConfiguration(Empty.getDefaultInstance).build
@@ -537,7 +537,7 @@ private[state] object Conversions {
         rejectionReasonNotSetStatus(entry, errorVersionSwitch)
     })
 
-  private[kvutils] def objectToJsonString(obj: Object): String = {
+  def objectToJsonString(obj: Object): String = {
     val stringWriter = new StringWriter
     val objectMapper = new ObjectMapper
     objectMapper.writeValue(stringWriter, obj)
