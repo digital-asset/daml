@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.deduplication
 
+import java.math.BigInteger
+
 import com.daml.lf.data.Ref
 import org.scalacheck.Gen
 import org.scalatest.OptionValues
@@ -52,8 +54,8 @@ class HexOffsetSpec
     }
 
     "return lower offset" in forAll(offsets) { offset =>
-      if (offset.forall(_ == '0')) {
-        HexOffset.previous(offset) shouldBe (None)
+      if (new BigInteger(offset, 16) == BigInteger.ZERO) {
+        HexOffset.previous(offset) shouldBe None
       } else {
         val lowerOffset = HexOffset.previous(offset).value
         offset should be > [String] lowerOffset

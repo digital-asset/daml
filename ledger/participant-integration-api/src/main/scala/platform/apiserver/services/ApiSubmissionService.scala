@@ -172,7 +172,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
           commands.deduplicationPeriod,
         )
       )
-      .flatMap(deduplicateUntil => {
+      .flatMap(deduplicateUntil =>
         submissionService
           .deduplicateCommand(
             commands.commandId,
@@ -195,7 +195,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
                 errorFactories.duplicateCommandException(None)
               )
           }
-      })
+      )
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
       loggingContext: LoggingContext

@@ -379,7 +379,7 @@ private[testtool] abstract class CommandDeduplicationBase(
   )(implicit ec: ExecutionContext): Future[Unit] =
     deduplicationFeatures.deduplicationOffsetSupport match {
       case DeduplicationOffsetSupport.PassThroughOffsetSupport =>
-        Future.successful(())
+        Future.unit
       case DeduplicationOffsetSupport.OffsetConversionToDurationSupport =>
         // the converted duration is calculated as the interval between submission time and offset record time
         // the duration is extended with maxSkew when determining if the command is a duplicate or not (pre-execution)
@@ -488,7 +488,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     submitRequestAndFindCompletion(ledger)(request, parties: _*).map { case (offset, completion) =>
       assert(
         completion.getStatus.code == statusCode.value(),
-        s"Expecting completion with status code $statusCode but completion has status ${completion.status}. \n Request $request - completion $completion",
+        s"Expecting completion with status code $statusCode but completion has status ${completion.status}.\n  Request: $request\n  Completion: $completion",
       )
       offset -> completion
     }

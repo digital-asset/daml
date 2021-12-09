@@ -242,32 +242,28 @@ final class CommandsValidator(
         case commands.Commands.DeduplicationPeriod.DeduplicationTime(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
           deduplicationPeriodValidator
-            .validateDuration(
-              deduplicationDuration,
-              maxDeduplicationDuration,
-            )
+            .validateDuration(deduplicationDuration, maxDeduplicationDuration)
             .map(DeduplicationPeriod.DeduplicationDuration)
         case commands.Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
           deduplicationPeriodValidator
-            .validateDuration(
-              deduplicationDuration,
-              maxDeduplicationDuration,
-            )
+            .validateDuration(deduplicationDuration, maxDeduplicationDuration)
             .map(DeduplicationPeriod.DeduplicationDuration)
         case commands.Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
           Ref.HexString
             .fromString(offset)
-            .left
-            .map(_ =>
-              nonHexOffset(None)(
-                fieldName = "deduplication_period",
-                offsetValue = offset,
-                message = s"the deduplication offset has to be a hexadecimal string and not $offset",
-              )
-            )
-            .map(hexOffset =>
-              DeduplicationPeriod.DeduplicationOffset(Offset.fromHexString(hexOffset))
+            .fold(
+              _ =>
+                Left(
+                  nonHexOffset(None)(
+                    fieldName = "deduplication_period",
+                    offsetValue = offset,
+                    message =
+                      s"the deduplication offset has to be a hexadecimal string and not $offset",
+                  )
+                ),
+              hexOffset =>
+                Right(DeduplicationPeriod.DeduplicationOffset(Offset.fromHexString(hexOffset))),
             )
       }
     }

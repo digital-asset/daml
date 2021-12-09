@@ -56,7 +56,7 @@ class DeduplicationPeriodSupport(
                     DeduplicationConversionFailure.CompletionRecordTimeNotAvailable |
                     DeduplicationConversionFailure.CompletionCheckpointNotAvailable) =>
                   logger.warn(
-                    s"Failed to convert deduplication offset $offset to duration. Reason $reason"
+                    s"Failed to convert deduplication offset $offset to duration: $reason"
                   )
                   Left(
                     errorFactories.invalidDeduplicationDuration(
