@@ -247,7 +247,7 @@ case class ConflictCheckingLedgerBridge(
     Source
       .queue[Submission](submissionBufferSize)
       .map { submission =>
-        val newOffsetIdx = offsetIdx.getAndIncrement()
+        val newOffsetIdx = offsetIdx.incrementAndGet()
         val newOffset = toOffset(newOffsetIdx)
         (newOffset, successMapper(submission, newOffsetIdx, participantId))
       }
@@ -287,7 +287,7 @@ case class ConflictCheckingLedgerBridge(
       case Left(rejection) =>
         Timed.value(
           metrics.daml.SoX.sequenceDuration, {
-            val newIndex = offsetIdx.getAndIncrement()
+            val newIndex = offsetIdx.incrementAndGet()
             val newOffset = toOffset(newIndex)
             Iterable(newOffset -> toRejection(rejection))
           },
@@ -301,7 +301,7 @@ case class ConflictCheckingLedgerBridge(
           ) =>
         Timed.value(
           metrics.daml.SoX.sequenceDuration, {
-            val newIndex = offsetIdx.getAndIncrement()
+            val newIndex = offsetIdx.incrementAndGet()
             val newOffset = toOffset(newIndex)
             conflictCheckWithInTransit(
               sequencerQueueState,
@@ -500,7 +500,7 @@ case class ConflictCheckingLedgerBridge(
       }
 
   override def close(): Unit = {
-    logger.info("Shutting down BridgeLedgerFactory.")
+    logger.info("Shutting down ConflictCheckingLedgerBridge.")
     queue.complete()
     conflictCheckingQueue.complete()
   }
