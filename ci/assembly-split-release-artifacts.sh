@@ -13,3 +13,5 @@ for file in $SOURCE_DIR/github/*; do
     # Copy as a placeholder for potential tweaks we might want to do here.
     cp $file $OUTPUT_DIR/github
 done
+
+cp -r $SOURCE_DIR/split-release $OUTPUT_DIR/split-release
