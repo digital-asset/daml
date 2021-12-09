@@ -94,16 +94,28 @@ Interfaces
          - 
   
   + **Method getAmount \: **`Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_
+    
+    An interface comment\.
   
   + **Method getOwner \: **`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_
+    
+    An interface comment\.
   
   + **Method noopImpl \: **() \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457>`_ ()
+    
+    An interface comment\.
   
   + **Method setAmount \: **`Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_ \-\> `Token <type-interface-token-72202_>`_
+    
+    An interface comment\.
   
   + **Method splitImpl \: **`Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171>`_ `Token <type-interface-token-72202_>`_, `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171>`_ `Token <type-interface-token-72202_>`_)
+    
+    An interface comment\.
   
   + **Method transferImpl \: **`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-36457>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171>`_ `Token <type-interface-token-72202_>`_)
+    
+    An interface comment\.
 
 Functions
 ^^^^^^^^^

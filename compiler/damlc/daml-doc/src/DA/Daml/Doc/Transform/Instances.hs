@@ -81,7 +81,7 @@ distributeInstanceDocs opts docs =
     addIfaceMethods imap idoc = idoc
       { if_methods =
           [ MethodDoc{..}
-          | InstanceDoc {id_type, id_module} <-
+          | InstanceDoc {id_type, id_module, id_descr} <-
                 maybe [] Set.toList $ do
                   anchor <- if_anchor idoc
                   Map.lookup anchor imap
@@ -89,5 +89,6 @@ distributeInstanceDocs opts docs =
           , "DA.Internal.Desugar" == id_module
           , Just [_if_name, TypeLit name, mtd_type] <- [getTypeAppArgs id_type]
           , let mtd_name = Typename $ T.dropEnd 1 $ T.drop 1 name -- drop enclosing double-quotes.
+          , let mtd_descr = id_descr
           ]
       }

@@ -17,6 +17,8 @@ import DA.Daml.Doc.Extract.TypeExpr
 
 import qualified Data.Map.Strict as MS
 import Data.Maybe (fromMaybe, mapMaybe)
+import Data.List
+import Data.Ord
 import Data.Tuple.Extra (second)
 import qualified Data.Set as Set
 import qualified Data.Text as T
@@ -27,6 +29,9 @@ import "ghc-lib-parser" Var (varType)
 import "ghc-lib-parser" CoreSyn (isOrphan)
 import "ghc-lib-parser" InstEnv
 import "ghc-lib-parser" OccName
+import "ghc-lib-parser" Id
+import "ghc-lib-parser" Name
+import Debug.Trace
 
 -- | Build template docs up from ADT and class docs.
 getTemplateDocs ::
@@ -191,17 +196,21 @@ dropParTy ty = ty
 stripInstanceSuffix :: Typename -> Maybe Typename
 stripInstanceSuffix (Typename t) = Typename <$> T.stripSuffix "Instance" t
 
--- | Get (normal) typeclass instances data. TODO: Correlate with
--- instance declarations via SrcSpan (like Haddock).
+-- | Get (normal) typeclass instances data.
 getInstanceDocs :: DocCtx -> ClsInst -> InstanceDoc
 getInstanceDocs ctx ClsInst{..} =
     let ty = varType is_dfun
+        srcSpan = getSrcSpan $ idName $ is_dfun
         modname = Modulename $ T.pack $ moduleNameString $ moduleName $ nameModule is_cls_nm
     in InstanceDoc
         { id_context = typeToContext ctx ty
         , id_module = modname
         , id_type = typeToType ctx ty
         , id_isOrphan = isOrphan is_orphan
+        , id_descr =
+            case filter (\DeclData {dd_decl} -> (getLoc dd_decl) `isSubspanOf` srcSpan) (dc_decls ctx) of
+              [] -> Nothing
+              ds -> traceShow (map dd_docs ds) $ dd_docs $ minimumBy (comparing (getLoc . dd_decl)) $ ds
         }
 
 -- Utilities common to templates and interfaces

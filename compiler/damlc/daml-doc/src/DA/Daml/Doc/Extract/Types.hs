@@ -69,8 +69,8 @@ data DocCtx = DocCtx
 
 -- | Parsed declaration with associated docs.
 data DeclData = DeclData
-    { _dd_decl :: LHsDecl GhcPs
-    , _dd_docs :: Maybe DocText
+    { dd_decl :: LHsDecl GhcPs
+    , dd_docs :: Maybe DocText
     }
 
 
