@@ -381,14 +381,17 @@ private[testtool] abstract class CommandDeduplicationBase(
       case DeduplicationOffsetSupport.PassThroughOffsetSupport =>
         Future.unit
       case DeduplicationOffsetSupport.OffsetConversionToDurationSupport =>
-        // the converted duration is calculated as the interval between submission time and offset record time
-        // the duration is extended with maxSkew when determining if the command is a duplicate or not (pre-execution)
+        // the converted duration is calculated as the interval between submission time
+        // and offset record time + minSkew (used to determine maxRecordTime)
+        //
+        // the duration is extended with up to minSkew + maxSkew when using pre-execution,
+        // as we use maxRecordTime and minRecordTime to calculate the interval between the two commands
         participantTestContext
           .getTimeModel()
           .flatMap(response => {
             delayMechanism.delayBy(
               response.getTimeModel.getMaxSkew.asScala +
-                response.getTimeModel.getMinSkew.asScala
+                2 * response.getTimeModel.getMinSkew.asScala
             )
           })
     }
