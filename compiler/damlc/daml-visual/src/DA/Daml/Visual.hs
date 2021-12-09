@@ -140,12 +140,12 @@ startFromUpdate seen world update = case update of
       error "Interfaces are not supported"
     LF.UExercise tpl choice _ _ -> Set.singleton (AExercise tpl choice)
     LF.UExerciseInterface{} ->
-      -- TODO https://github.com/digital-asset/daml/issues/10810
+      -- TODO https://github.com/digital-asset/daml/issues/12051
       error "Interfaces are not supported"
     LF.UExerciseByKey tpl choice _ _ -> Set.singleton (AExercise tpl choice)
     LF.UFetch{} -> Set.empty
     LF.UFetchInterface{} ->
-      -- TODO https://github.com/digital-asset/daml/issues/10810
+      -- TODO https://github.com/digital-asset/daml/issues/12051
       error "Interfaces are not supported"
     LF.ULookupByKey{} -> Set.empty
     LF.UFetchByKey{} -> Set.empty
@@ -271,7 +271,7 @@ typeConFields qName world = case LF.lookupDataType qName world of
     LF.DataRecord re -> concatMap (typeConFieldsNames world) re
     LF.DataVariant _ -> [""]
     LF.DataEnum _ -> [""]
-    -- TODO https://github.com/digital-asset/daml/issues/10810
+    -- TODO https://github.com/digital-asset/daml/issues/12051
     LF.DataInterface -> error "interfaces are not implemented"
   Left _ -> error "malformed template constructor"
 
