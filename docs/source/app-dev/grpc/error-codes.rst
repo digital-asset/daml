@@ -1,6 +1,13 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+
+.. Set max depth of the local table contents (visible in the right hand sidebar in rendered HTML)
+.. See https://www.sphinx-doc.org/en/master/usage/restructuredtext/field-lists.html?highlight=tocdepth
+
+:tocdepth: 2
+
+
 Error Codes
 ###########
 
@@ -34,7 +41,7 @@ The goal is to enable users, developers and operators to act on the encountered
 errors in a self-service manner, either in an automated-way or manually.
 
 Configuration
-======================================
+*********************************************
 
 The new error code formats and adapted gRPC response statuses are returned by default starting with the Daml 1.18 SDK release.
 Clients can still migrate to Daml SDK 1.18 and use the pre-1.18 gRPC status code response behavior by using ``--use-pre-1.18-error-codes``
@@ -42,7 +49,7 @@ as a command line option. However, this option is deprecated and will be removed
 
 
 Glossary
-======================================
+*********************************************
 
 Error
         Represents an occurrence of a failure.
@@ -81,19 +88,8 @@ Correlation id
                   We use request's submission id for correlation id.
 
 
-Error Categories
-======================================
-
-The error categories allow to group errors such that application logic can be built
-in a sensible way to automatically deal with errors and decide whether to retry
-a request or escalate to the operator.
-
-.. This file is generated:
-.. include:: error-categories-inventory.rst.inc
-
-
 Anatomy of an Error
-======================================
+*********************************************
 
 
 Errors returned to users contain a `gRPC status code`_, a description and additional machine readable information
@@ -101,7 +97,7 @@ represented in the `rich gRPC error model`_.
 
 
 Error Description
---------------------------------------
+=============================================
 
 We use the `standard gRPC description`_ that additionally adheres to our custom message format:
 
@@ -137,7 +133,7 @@ In a concrete example an error description might look like this:
 
 
 Additional Machine Readable Information
-----------------------------------------------------------------------------
+=============================================
 
 We use following error details:
 
@@ -158,7 +154,7 @@ but there is no guarantee given that additional information will be preserved ac
 
 
 Working with Error Codes
-======================================
+*********************************************
 
 This example shows how a user can extract the relevant error information.
 
@@ -231,6 +227,18 @@ This example shows how a user can extract the relevant error information.
         }
       }
     }
+
+
+Error Categories Inventory
+*********************************************
+
+The error categories allow to group errors such that application logic can be built
+in a sensible way to automatically deal with errors and decide whether to retry
+a request or escalate to the operator.
+
+.. This file is generated:
+.. include:: error-categories-inventory.rst.inc
+
 
 
 Error Codes Inventory
