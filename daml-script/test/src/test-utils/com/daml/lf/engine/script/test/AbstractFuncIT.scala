@@ -418,8 +418,7 @@ abstract class AbstractFuncIT
             QualifiedName.assertFromString("ScriptTest:testUserManagement"),
             dar = stableDar,
           )
-      } yield
-        r shouldBe SUnit
+      } yield r shouldBe SUnit
     }
     // TODO https://github.com/digital-asset/daml/issues/11997
     // Enable once #12063 is merged
