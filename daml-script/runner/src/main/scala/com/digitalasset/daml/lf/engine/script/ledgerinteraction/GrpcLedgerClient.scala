@@ -350,28 +350,30 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[User] =
-    unsupportedOn("createUser")
+    grpcClient.userManagementClient.createUser(user, rights)
 
   override def getUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[User]] =
-    unsupportedOn("getUser")
+    grpcClient.userManagementClient.getUser(id).map(Some(_)).recover {
+      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+    }
 
   override def deleteUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] =
-    unsupportedOn("deleteUser")
+    grpcClient.userManagementClient.deleteUser(id)
 
   override def listUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[User]] =
-    unsupportedOn("listUsers")
+    grpcClient.userManagementClient.listUsers().map(_.toList)
 
   override def grantUserRights(
       id: UserId,
@@ -381,7 +383,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[UserRight]] =
-    unsupportedOn("grantUserRights")
+    grpcClient.userManagementClient.grantUserRights(id, rights).map(_.toList)
 
   override def revokeUserRights(
       id: UserId,
@@ -391,12 +393,12 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[UserRight]] =
-    unsupportedOn("revokeUserRights")
+    grpcClient.userManagementClient.revokeUserRights(id, rights).map(_.toList)
 
   override def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[UserRight]] =
-    unsupportedOn("listUserRights")
+    grpcClient.userManagementClient.listUserRights(id).map(_.toList)
 }

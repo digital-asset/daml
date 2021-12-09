@@ -407,5 +407,31 @@ abstract class AbstractFuncIT
         )
       }
     }
+    // TODO https://github.com/digital-asset/daml/issues/11997
+    // Enable once #12063 is merged
+    "testUserManagement should succeed" ignore {
+      for {
+        clients <- participantClients()
+        r <-
+          run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:testUserManagement"),
+            dar = stableDar,
+          )
+      } yield r shouldBe SUnit
+    }
+    // TODO https://github.com/digital-asset/daml/issues/11997
+    // Enable once #12063 is merged
+    "testUserRightManagement should succeed" ignore {
+      for {
+        clients <- participantClients()
+        r <-
+          run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:testUserRightManagement"),
+            dar = stableDar,
+          )
+      } yield r shouldBe SUnit
+    }
   }
 }
