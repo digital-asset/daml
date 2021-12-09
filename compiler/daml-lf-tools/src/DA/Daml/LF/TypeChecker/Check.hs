@@ -43,6 +43,7 @@ import           Data.List.Extended
 import Data.Generics.Uniplate.Data (para)
 import qualified Data.Set as S
 import qualified Data.HashSet as HS
+import           Data.Maybe (listToMaybe)
 import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
 import qualified Data.IntSet as IntSet
@@ -828,18 +829,32 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
   where
     base = checkType synType KStar
 
+
 -- | Check that an interface definition is well defined.
 checkIface :: MonadGamma m => Module -> DefInterface -> m ()
-checkIface m DefInterface{..} = do
-  checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intFixedChoices
-  checkUnique (EDuplicateInterfaceMethodName intName) $ NM.names intMethods
-  forM_ intRequires (inWorld . lookupInterface) -- verify that required interface exists
-  forM_ intMethods checkIfaceMethod
+checkIface m iface = do
+  let tcon = Qualified PRSelf (moduleName m) (intName iface)
 
-  let tcon = Qualified PRSelf (moduleName m) intName
-  introExprVar intParam (TCon tcon) $ do
-    forM_ intFixedChoices (checkTemplateChoice tcon)
-    checkExpr intPrecondition TBool
+  -- check requires
+  when (tcon `S.member` intRequires iface) $
+    throwWithContext (ECircularInterfaceRequires (intName iface) Nothing)
+  forM_ (intRequires iface) $ \requiredIfaceId -> do
+    requiredIface <- inWorld (lookupInterface requiredIfaceId)
+    let missing = intRequires requiredIface `S.difference` intRequires iface
+    when (tcon `S.member` missing) $
+      throwWithContext (ECircularInterfaceRequires (intName iface) (Just requiredIfaceId))
+    whenJust (listToMaybe (S.toList missing)) $ \missingIfaceId ->
+      throwWithContext (ENotClosedInterfaceRequires (intName iface) requiredIfaceId missingIfaceId)
+
+  -- check methods
+  checkUnique (EDuplicateInterfaceMethodName (intName iface)) $ NM.names (intMethods iface)
+  forM_ (intMethods iface) checkIfaceMethod
+
+  -- check choices
+  checkUnique (EDuplicateInterfaceChoiceName (intName iface)) $ NM.names (intFixedChoices iface)
+  introExprVar (intParam iface) (TCon tcon) $ do
+    forM_ (intFixedChoices iface) (checkTemplateChoice tcon)
+    checkExpr (intPrecondition iface) TBool
 
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
 checkIfaceMethod InterfaceMethod{ifmType} = do
@@ -910,10 +925,8 @@ checkIfaceImplementation Template{tplImplements} tplTcon TemplateImplements{..} 
 
   -- check requires
   let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
-  case S.toList missingRequires of
-    [] -> pure ()
-    (missingInterface:_) ->
-      throwWithContext (EMissingRequiredInterface tplName tpiInterface missingInterface)
+  whenJust (listToMaybe (S.toList missingRequires)) $ \missingInterface ->
+    throwWithContext (EMissingRequiredInterface tplName tpiInterface missingInterface)
 
   -- check fixed choices
   let inheritedChoices = S.fromList (NM.names intFixedChoices)
@@ -922,9 +935,8 @@ checkIfaceImplementation Template{tplImplements} tplTcon TemplateImplements{..} 
 
   -- check methods
   let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)
-  case HS.toList missingMethods of
-    [] -> pure ()
-    (methodName:_) -> throwWithContext (EMissingInterfaceMethod tplName tpiInterface methodName)
+  whenJust (listToMaybe (HS.toList missingMethods)) $ \methodName ->
+    throwWithContext (EMissingInterfaceMethod tplName tpiInterface methodName)
   forM_ tpiMethods $ \TemplateImplementsMethod{tpiMethodName, tpiMethodExpr} -> do
     case NM.lookup tpiMethodName intMethods of
       Nothing -> throwWithContext (EUnknownInterfaceMethod tplName tpiInterface tpiMethodName)
@@ -952,9 +964,8 @@ checkDefException m DefException{..} = do
     unless (null tyParams) $ throwWithContext (EExpectedExceptionTypeHasNoParams modName exnName)
     checkExpr exnMessage (TCon tcon :-> TText)
     _ <- match _DataRecord (EExpectedExceptionTypeIsRecord modName exnName) dataCons
-    case NM.lookup exnName (moduleTemplates m) of
-        Nothing -> pure ()
-        Just _ -> throwWithContext (EExpectedExceptionTypeIsNotTemplate modName exnName)
+    whenJust (NM.lookup exnName (moduleTemplates m)) $ \_ ->
+      throwWithContext (EExpectedExceptionTypeIsNotTemplate modName exnName)
 
 -- NOTE(MH): It is important that the data type definitions are checked first.
 -- The type checker for expressions relies on the fact that data type

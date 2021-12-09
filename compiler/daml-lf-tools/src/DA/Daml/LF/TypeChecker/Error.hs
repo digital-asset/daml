@@ -134,6 +134,8 @@ data Error
   | EDuplicateInterfaceChoiceName !TypeConName !ChoiceName
   | EDuplicateInterfaceMethodName !TypeConName !MethodName
   | EUnknownInterface !TypeConName
+  | ECircularInterfaceRequires !TypeConName !(Maybe (Qualified TypeConName))
+  | ENotClosedInterfaceRequires !TypeConName !(Qualified TypeConName) !(Qualified TypeConName)
   | EMissingRequiredInterface { emriTemplate :: !TypeConName, emriRequiringInterface :: !(Qualified TypeConName), emriRequiredInterface :: !(Qualified TypeConName) }
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
@@ -380,6 +382,17 @@ instance Pretty Error where
     EDuplicateInterfaceMethodName iface method ->
       "Duplicate method name '" <> pretty method <> "' in interface definition for " <> pretty iface
     EUnknownInterface tcon -> "Unknown interface: " <> pretty tcon
+    ECircularInterfaceRequires iface Nothing ->
+      "Circular interface requirement is not allowed: interface " <> pretty iface <> " requires itself."
+    ECircularInterfaceRequires iface (Just otherIface) ->
+      "Circular interface requirement is not allowed: interface "
+        <> pretty iface <> " requires "
+        <> pretty otherIface <> " requires "
+        <> pretty iface
+    ENotClosedInterfaceRequires iface ifaceRequired ifaceMissing ->
+      "Interface " <> pretty iface
+        <> " is missing requirement " <> pretty ifaceMissing
+        <> " required by " <> pretty ifaceRequired
     EMissingRequiredInterface {..} ->
       "Template " <> pretty emriTemplate <>
       " is missing an implementation of interface " <> pretty emriRequiredInterface <>
