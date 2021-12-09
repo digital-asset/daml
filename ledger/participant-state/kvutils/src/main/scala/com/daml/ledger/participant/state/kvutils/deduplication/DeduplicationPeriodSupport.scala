@@ -9,8 +9,9 @@ import akka.stream.Materializer
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.ApplicationId
-import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext
+import com.daml.ledger.configuration.LedgerTimeModel
+import com.daml.lf.data.{Ref, Time}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, ErrorFactories}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -21,9 +22,12 @@ class DeduplicationPeriodSupport(
     errorFactories: ErrorFactories,
 ) {
 
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   def supportedDeduplicationPeriod(
       deduplicationPeriod: DeduplicationPeriod,
       maxDeduplicationDuration: Duration,
+      timeModel: LedgerTimeModel,
       applicationId: ApplicationId,
       actAs: Set[Ref.Party],
       submittedAt: Instant,
@@ -38,14 +42,22 @@ class DeduplicationPeriodSupport(
         Future.successful(Right(period))
       case DeduplicationPeriod.DeduplicationOffset(offset) =>
         converter
-          .convertOffsetToDuration(offset.toHexString, applicationId, actAs, submittedAt)
+          .convertOffsetToDuration(
+            offset.toHexString,
+            applicationId,
+            actAs,
+            timeModel.maxRecordTime(Time.Timestamp.assertFromInstant(submittedAt)).toInstant,
+          )
           .map(
             _.fold(
               {
-                case DeduplicationConversionFailure.CompletionAtOffsetNotFound |
+                case reason @ (DeduplicationConversionFailure.CompletionAtOffsetNotFound |
                     DeduplicationConversionFailure.CompletionOffsetNotMatching |
                     DeduplicationConversionFailure.CompletionRecordTimeNotAvailable |
-                    DeduplicationConversionFailure.CompletionCheckpointNotAvailable =>
+                    DeduplicationConversionFailure.CompletionCheckpointNotAvailable) =>
+                  logger.warn(
+                    s"Failed to convert deduplication offset $offset to duration. Reason $reason"
+                  )
                   Left(
                     errorFactories.invalidDeduplicationDuration(
                       "deduplication_period",
@@ -55,11 +67,13 @@ class DeduplicationPeriodSupport(
                     )
                   )
               },
-              duration =>
+              duration => {
+                logger.debug(s"Converted deduplication offset $offset to duration $duration")
                 validation.validate(
                   DeduplicationPeriod.DeduplicationDuration(duration),
                   maxDeduplicationDuration,
-                ),
+                )
+              },
             )
           )
     }

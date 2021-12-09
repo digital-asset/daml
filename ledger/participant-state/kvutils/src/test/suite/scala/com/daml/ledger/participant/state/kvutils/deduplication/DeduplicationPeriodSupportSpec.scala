@@ -10,6 +10,7 @@ import com.daml.ledger.TestLoggers
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.offset.Offset
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
@@ -39,8 +40,10 @@ class DeduplicationPeriodSupportSpec
     errorFactories,
   )
   private val maxDeduplicationDuration = Duration.ofSeconds(5)
+  private val ledgerTimeModel = LedgerTimeModel.reasonableDefault
   private val applicationId = ApplicationId(Ref.LedgerString.assertFromString("applicationid"))
   private val submittedAt = Instant.now()
+  private val maxRecordTimeFromSubmissionTime = submittedAt.plus(ledgerTimeModel.minSkew)
   private val statusRuntimeException = new StatusRuntimeException(Status.OK)
   private val deduplicationPeriodOffset =
     Offset.fromHexString(Hash.hashPrivateKey("offset").toHexString)
@@ -71,7 +74,7 @@ class DeduplicationPeriodSupportSpec
           offset,
           applicationId,
           Set.empty,
-          submittedAt,
+          maxRecordTimeFromSubmissionTime,
         )
       ).thenReturn(Future.successful(Right(durationPeriod.duration)))
       when(periodValidator.validate(durationPeriod, maxDeduplicationDuration))
@@ -82,7 +85,7 @@ class DeduplicationPeriodSupportSpec
             offset,
             applicationId,
             Set.empty,
-            submittedAt,
+            maxRecordTimeFromSubmissionTime,
           )
           verify(periodValidator).validate(durationPeriod, maxDeduplicationDuration)
           result shouldBe durationPeriod
@@ -162,6 +165,7 @@ class DeduplicationPeriodSupportSpec
     .supportedDeduplicationPeriod(
       deduplicationPeriod = offsetPeriod,
       maxDeduplicationDuration,
+      ledgerTimeModel,
       applicationId,
       Set.empty,
       submittedAt,

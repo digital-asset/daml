@@ -11,7 +11,7 @@ import com.daml.ledger.TestLoggers
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.deduplication.DeduplicationPeriodSupport
 import com.daml.ledger.participant.state.v2.SubmissionResult.Acknowledged
 import com.daml.ledger.participant.state.v2.{
@@ -79,6 +79,7 @@ class WriteServiceWithDeduplicationSupportSpec
       mockDeduplicationPeriodSupport.supportedDeduplicationPeriod(
         eqTo(submitterInfo.deduplicationPeriod),
         eqTo(Configuration.reasonableMaxDeduplicationTime),
+        eqTo(LedgerTimeModel.reasonableDefault),
         eqTo(ApplicationId(submitterInfo.applicationId)),
         eqTo(submitterInfo.actAs.toSet),
         eqTo(transactionMeta.submissionTime.toInstant),

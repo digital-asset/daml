@@ -52,6 +52,7 @@ class WriteServiceWithDeduplicationSupport(
       .supportedDeduplicationPeriod(
         submitterInfo.deduplicationPeriod,
         submitterInfo.ledgerConfiguration.maxDeduplicationTime,
+        submitterInfo.ledgerConfiguration.timeModel,
         ApplicationId(submitterInfo.applicationId),
         submitterInfo.actAs.toSet,
         transactionMeta.submissionTime.toInstant,
