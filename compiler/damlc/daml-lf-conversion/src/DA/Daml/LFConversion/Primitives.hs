@@ -484,6 +484,14 @@ convertPrim _ "EFromInterface" (TCon iface :-> TOptional (TCon tpid)) =
       then ESome (TCon tpid) (EVar $ mkVar "i")
       else EFromInterface iface tpid (EVar $ mkVar "i")
 
+convertPrim _ "EToRequiredInterface" (TCon subIface :-> TCon superIface) =
+    ETmLam (mkVar "i", TCon subIface) $
+        EToRequiredInterface superIface subIface (EVar $ mkVar "i")
+
+convertPrim _ "EFromRequiredInterface" (TCon superIface :-> TOptional (TCon subIface)) =
+    ETmLam (mkVar "i", TCon superIface) $
+        EFromRequiredInterface superIface subIface (EVar $ mkVar "i")
+
 convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
     EExperimental (T.pack builtin) typ
 
