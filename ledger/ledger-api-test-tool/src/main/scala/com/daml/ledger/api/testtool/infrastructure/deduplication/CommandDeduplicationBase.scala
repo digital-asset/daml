@@ -488,7 +488,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     submitRequestAndFindCompletion(ledger)(request, parties: _*).map { case (offset, completion) =>
       assert(
         completion.getStatus.code == statusCode.value(),
-        s"Expecting completion with status code $statusCode but completion has status ${completion.status}",
+        s"Expecting completion with status code $statusCode but completion has status ${completion.status}. \n Request $request - completion $completion",
       )
       offset -> completion
     }
