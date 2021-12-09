@@ -118,6 +118,10 @@ conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ContractIdIT:Accept",
+        # Exclude offset command deduplication tests
+        # daml-on-sql uses the the sandbox server which has support only for participant side deduplication,
+        # which in turn only has support for durations as deduplication periods
+        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
     ],
 )
 
