@@ -21,7 +21,7 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
-import com.daml.platform.apiserver.StandaloneApiServer
+import com.daml.platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
@@ -33,16 +33,17 @@ import scala.util.{Failure, Success}
 
 final class Runner[T <: ReadWriteService, Extra](
     name: String,
-    factory: LedgerFactory[ReadWriteService, Extra],
+    factory: LedgerFactory[Extra],
+    configProvider: ConfigProvider[Extra],
 ) {
   def owner(args: collection.Seq[String]): ResourceOwner[Unit] =
     Config
-      .owner(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
+      .owner(name, configProvider.extraConfigParser, configProvider.defaultExtraConfig, args)
       .flatMap(owner)
 
   def owner(originalConfig: Config[Extra]): ResourceOwner[Unit] = new ResourceOwner[Unit] {
     override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
-      val config = factory.manipulateConfig(originalConfig)
+      val config = configProvider.manipulateConfig(originalConfig)
       val errorFactories = ErrorFactories(
         new ErrorCodesVersionSwitcher(originalConfig.enableSelfServiceErrorCodes)
       )
@@ -108,7 +109,7 @@ final class Runner[T <: ReadWriteService, Extra](
         _ <- Resource.sequence(config.participants.map { participantConfig =>
           withEnrichedLoggingContext("participantId" -> participantConfig.participantId) {
             implicit loggingContext =>
-              val metrics = factory.createMetrics(participantConfig, config)
+              val metrics = configProvider.createMetrics(participantConfig, config)
               metrics.registry.registerAll(new JvmMetricSet)
               val lfValueTranslationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
                 eventConfiguration = config.lfValueTranslationEventCache,
@@ -122,22 +123,6 @@ final class Runner[T <: ReadWriteService, Extra](
                     .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
                     .acquire()
                 )
-                ledger <- factory
-                  .readWriteServiceOwner(config, participantConfig, sharedEngine)
-                  .acquire()
-                readService = new TimedReadService(ledger, metrics)
-                writeService = new TimedWriteService(ledger, metrics)
-                healthChecks = new HealthChecks(
-                  "read" -> readService,
-                  "write" -> writeService,
-                )
-                _ <- Resource.sequence(
-                  config.archiveFiles.map(path =>
-                    Resource.fromFuture(
-                      uploadDar(path, writeService)(resourceContext.executionContext)
-                    )
-                  )
-                )
                 servicesExecutionContext <- ResourceOwner
                   .forExecutorService(() =>
                     new InstrumentedExecutorService(
@@ -148,36 +133,80 @@ final class Runner[T <: ReadWriteService, Extra](
                   )
                   .map(ExecutionContext.fromExecutorService)
                   .acquire()
+                ledgerFactory <- factory
+                  .readWriteServiceFactoryOwner(
+                    config,
+                    participantConfig,
+                    sharedEngine,
+                    metrics,
+                  )(materializer, servicesExecutionContext, loggingContext)
+                  .acquire()
+                writePackageService = ledgerFactory.writePackagesService()
+                _ <- Resource.sequence(
+                  config.archiveFiles.map(path =>
+                    Resource.fromFuture(
+                      uploadDar(path, writePackageService)(
+                        loggingContext,
+                        resourceContext.executionContext,
+                      )
+                    )
+                  )
+                )
                 healthChecksWithIndexer <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
-                    new StandaloneIndexerServer(
-                      readService = readService,
-                      config = factory.indexerConfig(participantConfig, config),
-                      servicesExecutionContext = servicesExecutionContext,
-                      metrics = metrics,
-                      lfValueTranslationCache = lfValueTranslationCache,
-                    ).acquire().map(indexerHealth => healthChecks + ("indexer" -> indexerHealth))
+                    val readService = new TimedReadService(ledgerFactory.readService(), metrics)
+                    for {
+                      indexerHealth <- new StandaloneIndexerServer(
+                        readService = readService,
+                        config = configProvider.indexerConfig(participantConfig, config),
+                        servicesExecutionContext = servicesExecutionContext,
+                        metrics = metrics,
+                        lfValueTranslationCache = lfValueTranslationCache,
+                      ).acquire()
+                    } yield {
+                      new HealthChecks(
+                        "read" -> readService,
+                        "indexer" -> indexerHealth,
+                      )
+                    }
                   case ParticipantRunMode.LedgerApiServer =>
-                    Resource.successful(healthChecks)
+                    Resource.successful(new HealthChecks())
                 }
+                apiServerConfig = configProvider.apiServerConfig(participantConfig, config)
                 _ <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
-                    new StandaloneApiServer(
-                      ledgerId = config.ledgerId,
-                      config = factory.apiServerConfig(participantConfig, config),
-                      commandConfig = config.commandConfig,
-                      submissionConfig = config.submissionConfig,
-                      partyConfig = factory.partyConfig(config),
-                      optWriteService = Some(writeService),
-                      authService = factory.authService(config),
-                      healthChecks = healthChecksWithIndexer,
-                      metrics = metrics,
-                      timeServiceBackend = factory.timeServiceBackend(config),
-                      otherInterceptors = factory.interceptors(config),
-                      engine = sharedEngine,
-                      servicesExecutionContext = servicesExecutionContext,
-                      lfValueTranslationCache = lfValueTranslationCache,
-                    ).acquire()
+                    for {
+                      indexService <- StandaloneIndexService(
+                        ledgerId = config.ledgerId,
+                        config = apiServerConfig,
+                        metrics = metrics,
+                        engine = sharedEngine,
+                        servicesExecutionContext = servicesExecutionContext,
+                        lfValueTranslationCache = lfValueTranslationCache,
+                      ).acquire()
+                      factory = new KeyValueDeduplicationSupportFactory(
+                        ledgerFactory,
+                        config,
+                        indexService,
+                      )(implicitly, servicesExecutionContext)
+                      writeService = new TimedWriteService(factory.writeService(), metrics)
+                      _ <- StandaloneApiServer(
+                        indexService = indexService,
+                        ledgerId = config.ledgerId,
+                        config = apiServerConfig,
+                        commandConfig = config.commandConfig,
+                        submissionConfig = config.submissionConfig,
+                        partyConfig = configProvider.partyConfig(config),
+                        optWriteService = Some(writeService),
+                        authService = configProvider.authService(config),
+                        healthChecks = healthChecksWithIndexer + ("write" -> writeService),
+                        metrics = metrics,
+                        timeServiceBackend = configProvider.timeServiceBackend(config),
+                        otherInterceptors = configProvider.interceptors(config),
+                        engine = sharedEngine,
+                        servicesExecutionContext = servicesExecutionContext,
+                      ).acquire()
+                    } yield {}
                   case ParticipantRunMode.Indexer =>
                     Resource.unit
                 }
@@ -189,7 +218,8 @@ final class Runner[T <: ReadWriteService, Extra](
   }
 
   private def uploadDar(from: Path, to: WritePackagesService)(implicit
-      executionContext: ExecutionContext
+      loggingContext: LoggingContext,
+      executionContext: ExecutionContext,
   ): Future[Unit] = DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
     implicit telemetryContext =>
       val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)

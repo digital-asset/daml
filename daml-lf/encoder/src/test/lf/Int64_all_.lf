@@ -6,12 +6,10 @@ module Int64Mod {
   record @serializable Box = { x: Int64, party: Party  } ;
 
   template (this : Box) =  {
-    precondition True,
-    signatories (PartyMod:one (Int64Mod:Box {party} this)),
-    observers (Nil @Party),
-    agreement "Agreement for Int64Mod:Box",
-    choices {
-    }
+    precondition True;
+    signatories (PartyMod:one (Int64Mod:Box {party} this));
+    observers (Nil @Party);
+    agreement "Agreement for Int64Mod:Box";
   };
 
   val equal: Int64 -> Int64 -> Bool = EQUAL @Int64;

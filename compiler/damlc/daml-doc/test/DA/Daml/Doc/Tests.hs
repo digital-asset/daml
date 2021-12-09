@@ -15,6 +15,7 @@ import DA.Daml.Doc.Render
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
+import DA.Daml.LF.Ast.Version
 
 import Development.IDE.Types.Location
 
@@ -184,6 +185,25 @@ unitTests =
 
          , damldocExpect
            Nothing
+           "Interface implementations"
+           [ testModHdr
+           , "interface Bar where"
+           , "  method : Update ()"
+           , "template Foo with"
+           , "    field1 : Party"
+           , "  where"
+           , "    signatory field1"
+           , "    implements Bar where"
+           , "      let method = pure ()"
+           ]
+           (\md -> assertBool
+                   ("Expected interface implementation, got " <> show md)
+                   (isJust $ do t  <- getSingle $ md_templates md
+                                impl <- getSingle $ td_impls t
+                                check $ getTypeAppName (impl_iface impl) == Just "Bar"))
+
+         , damldocExpect
+           Nothing
            "Class doc"
            [ testModHdr
            , "-- | Class description"
@@ -231,6 +251,7 @@ emptyDocs name =
         md_functions = []
         md_classes = []
         md_instances = []
+        md_interfaces = []
     in ModuleDoc {..}
 
 -- | Compiles the given input string (in a tmp file) and checks generated doc.s
@@ -253,6 +274,7 @@ runDamldoc testfile importPathM = do
           { optHaddock = Haddock True
           , optScenarioService = EnableScenarioService False
           , optImportPath = maybeToList importPathM
+          , optDamlLfVersion = versionDev
           }
 
     -- run the doc generator on that file

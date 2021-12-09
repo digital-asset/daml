@@ -138,10 +138,10 @@ template U with
     party: Party
   where
     signatory party
-    controller party can
-      C: ContractId T with
-        do
-          create T with party
+    choice C: ContractId T with
+      controller party
+      do
+        create T with party
 
 data Recursive = Recursive with
     recOptional : Optional Recursive
@@ -164,11 +164,11 @@ template Counter with
     signatory p
     key (p, t): (Party, Text)
     maintainer key._1
-    controller p can
-      preconsuming Change: ContractId Counter
-        with n: Int
-        do
-          create Counter {c = n, ..}
+    preconsuming choice Change: ContractId Counter
+      with n: Int
+      controller p
+      do
+        create Counter {c = n, ..}
 
 interface Token where
   getTokenOwner : Party
@@ -199,7 +199,7 @@ template Asset with
       let getTokenOwner = owner
       let transferImpl = \newOwner -> do
             cid <- create Asset with issuer = issuer, owner = newOwner
-            pure (toTokenContractId cid)
+            pure (toInterfaceContractId @Token cid)
     implements Other where
       let getOtherOwner = owner
       let somethingImpl = do

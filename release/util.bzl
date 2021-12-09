@@ -27,6 +27,7 @@ inputs = {
     "templates": "//templates:templates-tarball.tar.gz",
     "trigger_dars": "//triggers/daml:daml-trigger-dars",
     "script_dars": "//daml-script/daml:daml-script-dars",
+    "canton": "@canton//:lib",
     "sdk_deploy_jar": {
         "ce": "//daml-assistant/daml-sdk:sdk_deploy.jar",
         "ee": "//daml-assistant/daml-sdk:sdk_ee_deploy.jar",
@@ -81,6 +82,9 @@ def sdk_tarball(name, version, config):
 
           mkdir -p $$OUT/studio
           cp $(location {daml_extension}) $$OUT/studio/daml-bundled.vsix
+
+          mkdir -p $$OUT/canton
+          cp $(location {canton}) $$OUT/canton/canton.jar
 
           mkdir -p $$OUT/templates
           tar xf $(location {templates}) --strip-components=1 -C $$OUT/templates

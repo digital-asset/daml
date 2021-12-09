@@ -36,6 +36,10 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
   override protected def daoOwner(
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
+      acsIdPageSize: Int,
+      acsIdFetchingParallelism: Int,
+      acsContractFetchingParallelism: Int,
+      acsGlobalParallelism: Int,
       errorFactories: ErrorFactories,
   )(implicit
       loggingContext: LoggingContext
@@ -76,6 +80,10 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
           ),
           eventsPageSize = eventsPageSize,
           eventsProcessingParallelism = eventsProcessingParallelism,
+          acsIdPageSize = acsIdPageSize,
+          acsIdFetchingParallelism = acsIdFetchingParallelism,
+          acsContractFetchingParallelism = acsContractFetchingParallelism,
+          acsGlobalParallelism = acsGlobalParallelism,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -91,7 +99,9 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
   }
 
   private val ok = io.grpc.Status.Code.OK.value()
-  private val aborted = io.grpc.Status.Code.ABORTED.value()
+  private val alreadyExists = io.grpc.Status.Code.ALREADY_EXISTS.value()
+  private val failedPrecondition = io.grpc.Status.Code.FAILED_PRECONDITION.value()
+  private val notFound = io.grpc.Status.Code.NOT_FOUND.value()
 
   behavior of "JdbcLedgerDao (post-commit validation)"
 
@@ -112,7 +122,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
     } yield {
       completions should contain.allOf(
         originalAttempt.commandId.get -> ok,
-        duplicateAttempt.commandId.get -> aborted,
+        duplicateAttempt.commandId.get -> alreadyExists,
       )
     }
   }
@@ -132,7 +142,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
     } yield {
       completions should contain.allOf(
         create.commandId.get -> ok,
-        lookup.commandId.get -> aborted,
+        lookup.commandId.get -> failedPrecondition,
       )
     }
   }
@@ -155,7 +165,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       completions should contain.allOf(
         create.commandId.get -> ok,
         archive.commandId.get -> ok,
-        lookup.commandId.get -> aborted,
+        lookup.commandId.get -> failedPrecondition,
       )
     }
   }
@@ -178,7 +188,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       completions should contain.allOf(
         create.commandId.get -> ok,
         archive.commandId.get -> ok,
-        fetch.commandId.get -> aborted,
+        fetch.commandId.get -> notFound,
       )
     }
   }
@@ -208,7 +218,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
-        fetch1.commandId.get -> aborted,
+        fetch1.commandId.get -> notFound,
         divulgence.commandId.get -> ok,
         fetch2.commandId.get -> ok,
       )

@@ -10,11 +10,16 @@ module DA.Daml.LF.Proto3.Util (
     EitherLike,
     toEither,
     fromEither,
+    encodeHash,
     ) where
 
+import qualified Data.ByteString as BS
 import           Data.Int
+import           Data.List
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import           GHC.Generics
+import qualified Numeric
 
 import qualified Com.Daml.DamlLfDev.DamlLf1 as P
 
@@ -69,3 +74,15 @@ instance EitherLike P.DottedName Int32 P.DefTemplateTycon
 instance EitherLike P.DottedName Int32 P.DefTypeSynName
 instance EitherLike P.DottedName Int32 P.DefDataTypeName
 instance EitherLike P.DottedName Int32 P.ModuleName
+
+
+-- | Encode the hash bytes of the payload in the canonical
+-- lower-case ascii7 hex presentation.
+encodeHash :: BS.ByteString -> T.Text
+encodeHash = T.pack . reverse . foldl' toHex [] . BS.unpack
+  where
+    toHex xs c =
+      case Numeric.showHex c "" of
+        [n1, n2] -> n2 : n1 : xs
+        [n2]     -> n2 : '0' : xs
+        _        -> error "impossible: showHex returned [] on Word8"

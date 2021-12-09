@@ -329,6 +329,9 @@ final class CommandServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO fix this test: This test is not asserting that an interpretation error is returning a stack trace.
+  //                     Furthermore, stack traces are not returned as of 1.18.
+  //                     Instead more detailed error messages with the failed transaction are provided.
   test(
     "CSReturnStackTrace",
     "A submission resulting in an interpretation error should return the stack trace",
@@ -347,7 +350,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
         Some(
           Pattern.compile(
-            "Interpretation error: Error: (User abort: Assertion failed.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\.) [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node"
+            "Interpretation error: Error: (User abort: Assertion failed.?|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\. [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node)"
           )
         ),
         checkDefiniteAnswerMetadata = true,

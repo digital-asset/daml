@@ -6,11 +6,7 @@ module UpgradeTrigger where
 
 import DA.Assert
 import DA.Foldable
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import qualified DA.Map as Map
-#else
-import qualified DA.Next.Map as Map
-#endif
 import Daml.Trigger
 import Daml.Trigger.Assert
 import qualified Daml.Script as Script

@@ -58,19 +58,27 @@ alias(
         da_scala_library(
             name = "test-common-%s" % target,
             srcs = glob(["src/main/scala/**/*.scala"]),
+            scala_deps = [
+                "@maven//:org_scalatest_scalatest_shouldmatchers",
+                "@maven//:org_scalatest_scalatest_core",
+                "@maven//:org_scalactic_scalactic",
+                "@maven//:org_scalatest_scalatest_matchers_core",
+            ],
             tags = ["maven_coordinates=com.daml:test-common-%s:__VERSION__" % target],
             visibility = [
                 "//visibility:public",
             ],
             deps = [
+                "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
                 "//daml-lf/archive:daml_lf_archive_reader",
-                "//daml-lf/archive:daml_lf_dev_archive_proto_java",
                 "//ledger-api/grpc-definitions:ledger_api_proto_scala",
                 "//ledger/test-common:dar-files-%s-lib" % target,
+                "//libs-scala/scala-utils",
                 "//libs-scala/timer-utils",
                 "@maven//:ch_qos_logback_logback_classic",
                 "@maven//:ch_qos_logback_logback_core",
                 "@maven//:io_grpc_grpc_context",
+                "@maven//:org_scalatest_scalatest_compatible",
                 "@maven//:org_slf4j_slf4j_api",
             ],
         ),
@@ -90,6 +98,9 @@ da_scala_dar_resources_library(
     add_maven_tag = True,
     daml_dir_names = test_names_with_dependencies.keys(),
     daml_root_dir = "src/main/daml",
+    exclusions = {
+        "1.8": ["**/*Exception*.daml"],
+    },
     lf_versions = lf_version_configuration_versions,
     maven_name_prefix = "test",
     visibility = ["//visibility:public"],

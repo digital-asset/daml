@@ -44,12 +44,12 @@ ScriptExample:initializeFixed SUCCESS
 ScriptExample:initializeFromQuery SUCCESS
 ScriptExample:queryParties SUCCESS
 ScriptExample:test SUCCESS
-ScriptTest:failingTest FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: INVALID_ARGUMENT: Invalid argument: Command interpretation error in LF-DAMLe: Interpretation error: Error: Unhandled exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction:
+ScriptTest:failingTest FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: FAILED_PRECONDITION: DAML_INTERPRETATION_ERROR(9,XXXXXXXX): Interpretation error: Error: Unhandled exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction:
 ScriptTest:listKnownPartiesTest SUCCESS
 ScriptTest:multiPartySubmission SUCCESS
 ScriptTest:partyIdHintTest SUCCESS
 ScriptTest:sleepTest SUCCESS
-ScriptTest:stackTrace FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: INVALID_ARGUMENT: Invalid argument: Command interpretation error in LF-DAMLe: Interpretation error: Error: Unhandled exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction:
+ScriptTest:stackTrace FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: FAILED_PRECONDITION: DAML_INTERPRETATION_ERROR(9,XXXXXXXX): Interpretation error: Error: Unhandled exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction:
 ScriptTest:test0 SUCCESS
 ScriptTest:test1 SUCCESS
 ScriptTest:test3 SUCCESS
@@ -63,6 +63,8 @@ ScriptTest:testQueryContractId SUCCESS
 ScriptTest:testQueryContractKey SUCCESS
 ScriptTest:testSetTime SUCCESS
 ScriptTest:testStack SUCCESS
+ScriptTest:testUserManagement FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command listUsers failed: UNIMPLEMENTED: Method not found: com.daml.ledger.api.v1.admin.UserManagementService/ListUsers
+ScriptTest:testUserRightManagement FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command createUser failed: UNIMPLEMENTED: Method not found: com.daml.ledger.api.v1.admin.UserManagementService/CreateUser
 ScriptTest:traceOrder SUCCESS
 ScriptTest:tree SUCCESS
 ScriptTest:tupleKey SUCCESS
@@ -70,7 +72,7 @@ EOF
 )"
 
 # We strip away the actual partial transaction since contract ids are not deterministic.
-ACTUAL="$(echo -n "$TEST_OUTPUT" | $GREP "SUCCESS\|FAILURE" | $SED 's/partial transaction: .*$/partial transaction:/g')"
+ACTUAL="$(echo -n "$TEST_OUTPUT" | $GREP "SUCCESS\|FAILURE" | $SED 's/partial transaction: .*$/partial transaction:/g; s/INTERPRETATION_ERROR(\([[:digit:]]\),.\{8\})/INTERPRETATION_ERROR(\1,XXXXXXXX)/g')"
 
 if ! $DIFF -du0 --label expected <(echo -n "$EXPECTED") --label actual <(echo -n "$ACTUAL") >&2; then
   FAIL=1

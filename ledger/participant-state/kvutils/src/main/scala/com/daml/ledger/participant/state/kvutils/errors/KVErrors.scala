@@ -17,8 +17,7 @@ import com.daml.error.{
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.InternallyInconsistentTransaction
 
 @Explanation(
-  "Errors that are specific to ledgers based on the KV architecture. " +
-    "Note that this section will soon cover all ledgers due to an ongoing error consolidation effort."
+  "Errors that are specific to ledgers based on the KV architecture: Daml Sandbox and VMBC."
 )
 object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
 
@@ -207,6 +206,21 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
         override def context: Map[String, String] =
           super.context ++ metadata // Only in logs as the category is security sensitive
       }
+    }
+
+    @Explanation("An unexpected error occurred while submitting a command to the ledger.")
+    @Resolution("Contact support.")
+    object SubmissionFailed
+        extends ErrorCode(
+          id = "SUBMISSION_FAILED",
+          ErrorCategory.SystemInternalAssumptionViolated,
+        ) {
+      case class Reject(
+          details: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends KVLoggingTransactionErrorImpl(
+            cause = s"Submission failure: $details"
+          )
     }
   }
 }

@@ -33,6 +33,14 @@ build --experimental_strict_action_env
 # in us getting a certificate for githubassets.com instead.
 startup --host_jvm_args=-Xms2g --host_jvm_args=-Xmx2g --host_jvm_args=-Djdk.tls.client.protocols=TLSv1.2
 
+# Limit the number of parallel actions spawned by Bazel to the number of
+# physical CPUs. (Assuming a CPU with hyperthreading enabled)
+build --loading_phase_threads="HOST_CPUS*.5"
+fetch --loading_phase_threads="HOST_CPUS*.5"
+query --loading_phase_threads="HOST_CPUS*.5"
+sync --loading_phase_threads="HOST_CPUS*.5"
+build --local_cpu_resources="HOST_CPUS*.5"
+
 # Enable sandboxing and caching for exclusive tests
 build --incompatible_exclusive_test_sandboxed
 

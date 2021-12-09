@@ -114,10 +114,14 @@ echo "created cache partitions"
 
 # Note: installing Nix in single-user mode with /nix already existing and
 # writeable does not require sudoer access
+# Single-user install is no longer available in the 2.4+ installer, so we pin
+# _the installer_ to 2.3.16 then upgrade to nix 2.4.x.
 su -l vsts <<'END'
 set -euo pipefail
 export PATH="/usr/local/bin:/usr/sbin:$PATH"
-bash <(curl -sSfL https://nixos.org/nix/install)
+bash <(curl -sSfL https://releases.nixos.org/nix/nix-2.3.16/install)
+export PATH="$HOME/.nix-profile/bin:$PATH"
+nix-channel --update && nix-env -iA nixpkgs.nix_2_4
 echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
 END
 

@@ -130,6 +130,11 @@ class RejectionGenerators(conformanceMode: Boolean) {
             .Error(
               renderedMessage
             )
+        case _: LfInterpretationError.ContractDoesNotImplementInterface =>
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
         case LfInterpretationError.NonComparableValues =>
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
             .Error(
@@ -140,12 +145,17 @@ class RejectionGenerators(conformanceMode: Boolean) {
             .Error(
               renderedMessage
             )
-        case LfInterpretationError.ValueExceedsMaxNesting =>
+        case LfInterpretationError.Limit(_) =>
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
             .Error(
               renderedMessage
             )
         case _: LfInterpretationError.ContractIdComparability =>
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
+        case _: LfInterpretationError.ChoiceGuardFailed =>
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
             .Error(
               renderedMessage

@@ -401,9 +401,6 @@ encodeBuiltinExpr = \case
         lit . either P.PrimLitSumTextStr P.PrimLitSumTextInternedStr
         <$> encodeInternableString x
     BETimestamp x -> pureLit $ P.PrimLitSumTimestamp x
-    BEParty x ->
-        lit . either P.PrimLitSumPartyStr P.PrimLitSumPartyInternedStr
-        <$> encodeInternableString (unPartyLiteral x)
     BEDate x -> pureLit $ P.PrimLitSumDate x
 
     BEUnit -> pure $ P.ExprSumPrimCon $ P.Enumerated $ Right P.PrimConCON_UNIT
@@ -722,6 +719,16 @@ encodeExpr' = \case
         expr_CallInterfaceMethodInternedName <- encodeMethodName mth
         expr_CallInterfaceInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumCallInterface P.Expr_CallInterface{..}
+    EToRequiredInterface ty1 ty2 val -> do
+        expr_ToRequiredInterfaceRequiredInterface <- encodeQualTypeConName ty1
+        expr_ToRequiredInterfaceRequiringInterface <- encodeQualTypeConName ty2
+        expr_ToRequiredInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumToRequiredInterface P.Expr_ToRequiredInterface{..}
+    EFromRequiredInterface ty1 ty2 val -> do
+        expr_FromRequiredInterfaceRequiredInterface <- encodeQualTypeConName ty1
+        expr_FromRequiredInterfaceRequiringInterface <- encodeQualTypeConName ty2
+        expr_FromRequiredInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumFromRequiredInterface P.Expr_FromRequiredInterface{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty
@@ -761,6 +768,8 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseInterfaceChoiceInternedStr <- encodeNameId unChoiceName exeChoice
         update_ExerciseInterfaceCid <- encodeExpr exeContractId
         update_ExerciseInterfaceArg <- encodeExpr exeArg
+        update_ExerciseInterfaceTypeRep <- encodeExpr exeTypeRep
+        update_ExerciseInterfaceGuard <- encodeExpr exeGuard
         pure $ P.UpdateSumExerciseInterface P.Update_ExerciseInterface{..}
     UExerciseByKey{..} -> do
         update_ExerciseByKeyTemplate <- encodeQualTypeConName exeTemplate
@@ -906,7 +915,7 @@ encodeDefValue DefValue{..} = do
     defValue_NameWithTypeType <- encodeType (snd dvalBinder)
     let defValueNameWithType = Just P.DefValue_NameWithType{..}
     defValueExpr <- encodeExpr dvalBody
-    let defValueNoPartyLiterals = getHasNoPartyLiterals dvalNoPartyLiterals
+    let defValueNoPartyLiterals = True
     let defValueIsTest = getIsTest dvalIsTest
     defValueLocation <- traverse encodeSourceLoc dvalLocation
     pure P.DefValue{..}
@@ -977,9 +986,8 @@ encodeTemplateChoice TemplateChoice{..} = do
     pure P.TemplateChoice{..}
 
 encodeFeatureFlags :: FeatureFlags -> Just P.FeatureFlags
-encodeFeatureFlags FeatureFlags{..} = Just P.FeatureFlags
-    { P.featureFlagsForbidPartyLiterals = forbidPartyLiterals
-    -- We only support packages with these enabled -- see #157
+encodeFeatureFlags FeatureFlags = Just P.FeatureFlags
+    { P.featureFlagsForbidPartyLiterals = True
     , P.featureFlagsDontDivulgeContractIdsInCreateArguments = True
     , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = True
     }
@@ -1007,10 +1015,11 @@ encodeDefInterface :: DefInterface -> Encode P.DefInterface
 encodeDefInterface DefInterface{..} = do
     defInterfaceLocation <- traverse encodeSourceLoc intLocation
     defInterfaceTyconInternedDname <- encodeDottedNameId unTypeConName intName
-    defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
-    defInterfaceFixedChoices <- encodeNameMap encodeTemplateChoice intFixedChoices
+    defInterfaceRequires <- encodeSet encodeQualTypeConName' intRequires
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
+    defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
     defInterfacePrecond <- encodeExpr intPrecondition
+    defInterfaceFixedChoices <- encodeNameMap encodeTemplateChoice intFixedChoices
     pure $ P.DefInterface{..}
 
 encodeInterfaceMethod :: InterfaceMethod -> Encode P.InterfaceMethod

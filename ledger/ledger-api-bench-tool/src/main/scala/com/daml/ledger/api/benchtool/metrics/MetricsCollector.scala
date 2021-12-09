@@ -3,95 +3,82 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
-import com.daml.ledger.api.benchtool.util.{MetricReporter, TimeUtil}
+import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
+import com.daml.ledger.api.benchtool.util.TimeUtil
 
-import java.time.Instant
-import scala.concurrent.duration._
+import java.time.{Clock, Duration, Instant}
 
 object MetricsCollector {
 
   sealed trait Message
   object Message {
-    sealed trait MetricsResult
-    object MetricsResult {
-      final case object Ok extends MetricsResult
-      final case object ObjectivesViolated extends MetricsResult
-    }
     final case class NewValue[T](value: T) extends Message
-    final case class PeriodicUpdateCommand() extends Message
-    final case class StreamCompleted(replyTo: ActorRef[MetricsResult]) extends Message
+    final case class PeriodicReportRequest(replyTo: ActorRef[Response.PeriodicReport])
+        extends Message
+    final case class FinalReportRequest(replyTo: ActorRef[Response.FinalReport]) extends Message
+  }
+
+  sealed trait Response
+  object Response {
+    final case class PeriodicReport(values: List[MetricValue]) extends Response
+    final case class MetricFinalReportData(
+        name: String,
+        value: MetricValue,
+        violatedObjective: Option[(ServiceLevelObjective[_], MetricValue)],
+    )
+    final case class FinalReport(totalDuration: Duration, metricsData: List[MetricFinalReportData])
+        extends Response
   }
 
   def apply[T](
-      streamName: String,
       metrics: List[Metric[T]],
-      logInterval: FiniteDuration,
-      reporter: MetricReporter,
       exposedMetrics: Option[ExposedMetrics[T]] = None,
-  ): Behavior[Message] =
-    Behaviors.withTimers { timers =>
-      val startTime: Instant = Instant.now()
-      new MetricsCollector[T](timers, streamName, logInterval, reporter, startTime, exposedMetrics)
-        .handlingMessages(metrics, startTime)
-    }
-
+  ): Behavior[Message] = {
+    val clock = Clock.systemUTC()
+    val startTime: Instant = clock.instant()
+    new MetricsCollector[T](exposedMetrics, clock).handlingMessages(metrics, startTime, startTime)
+  }
 }
 
-class MetricsCollector[T](
-    timers: TimerScheduler[MetricsCollector.Message],
-    streamName: String,
-    logInterval: FiniteDuration,
-    reporter: MetricReporter,
-    startTime: Instant,
-    exposedMetrics: Option[ExposedMetrics[T]],
-) {
+class MetricsCollector[T](exposedMetrics: Option[ExposedMetrics[T]], clock: Clock) {
   import MetricsCollector._
   import MetricsCollector.Message._
+  import MetricsCollector.Response._
 
-  timers.startTimerWithFixedDelay(PeriodicUpdateCommand(), logInterval)
-
-  def handlingMessages(metrics: List[Metric[T]], lastPeriodicCheck: Instant): Behavior[Message] = {
-    Behaviors.receive { case (context, message) =>
+  def handlingMessages(
+      metrics: List[Metric[T]],
+      lastPeriodicCheck: Instant,
+      startTime: Instant,
+  ): Behavior[Message] = {
+    Behaviors.receive { case (_, message) =>
       message match {
         case newValue: NewValue[T] =>
           exposedMetrics.foreach(_.onNext(newValue.value))
-          handlingMessages(metrics.map(_.onNext(newValue.value)), lastPeriodicCheck)
+          handlingMessages(metrics.map(_.onNext(newValue.value)), lastPeriodicCheck, startTime)
 
-        case _: PeriodicUpdateCommand =>
-          val currentTime = Instant.now()
+        case request: PeriodicReportRequest =>
+          val currentTime = clock.instant()
           val (newMetrics, values) = metrics
             .map(_.periodicValue(TimeUtil.durationBetween(lastPeriodicCheck, currentTime)))
             .unzip
-          context.log.info(namedMessage(reporter.formattedValues(values)))
-          handlingMessages(newMetrics, currentTime)
+          request.replyTo ! Response.PeriodicReport(values)
+          handlingMessages(newMetrics, currentTime, startTime)
 
-        case message: StreamCompleted =>
-          context.log.info(
-            namedMessage(
-              reporter.finalReport(
-                streamName = streamName,
-                metrics = metrics,
-                duration = totalDuration,
+        case request: FinalReportRequest =>
+          val duration = TimeUtil.durationBetween(startTime, clock.instant())
+          val data: List[MetricFinalReportData] =
+            metrics.map { metric =>
+              MetricFinalReportData(
+                name = metric.name,
+                value = metric.finalValue(duration),
+                violatedObjective = metric.violatedObjective,
               )
-            )
-          )
-          message.replyTo ! result(metrics)
+            }
+          request.replyTo ! FinalReport(duration, data)
           Behaviors.stopped
       }
     }
   }
-
-  private def result(metrics: List[Metric[T]]): MetricsResult = {
-    val atLeastOneObjectiveViolated = metrics.exists(_.violatedObjective.nonEmpty)
-
-    if (atLeastOneObjectiveViolated) MetricsResult.ObjectivesViolated
-    else MetricsResult.Ok
-  }
-
-  private def namedMessage(message: String) = s"[$streamName] $message"
-
-  private def totalDuration: java.time.Duration =
-    TimeUtil.durationBetween(startTime, Instant.now())
 }

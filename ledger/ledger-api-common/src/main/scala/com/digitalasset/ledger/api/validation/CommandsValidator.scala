@@ -3,10 +3,12 @@
 
 package com.daml.ledger.api.validation
 
+import java.time.{Duration, Instant}
+
 import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
-import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.commands
 import com.daml.ledger.api.v1.commands.Command.Command.{
   Create => ProtoCreate,
   CreateAndExercise => ProtoCreateAndExercise,
@@ -16,14 +18,18 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
 }
 import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
 import com.daml.ledger.api.validation.CommandsValidator.{Submitters, effectiveSubmitters}
+import com.daml.ledger.api.{DeduplicationPeriod, domain}
 import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
-import io.grpc.StatusRuntimeException
+import com.daml.platform.server.api.validation.{
+  DeduplicationPeriodValidator,
+  ErrorFactories,
+  FieldValidations,
+}
+import io.grpc.{Status, StatusRuntimeException}
 import scalaz.syntax.tag._
 
-import java.time.{Duration, Instant}
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
 
@@ -35,9 +41,10 @@ final class CommandsValidator(
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
   private val fieldValidations = FieldValidations(errorFactories)
   private val valueValidator = new ValueValidator(errorFactories, fieldValidations)
+  private val deduplicationPeriodValidator = new DeduplicationPeriodValidator(errorFactories)
 
-  import fieldValidations._
   import errorFactories._
+  import fieldValidations._
   import valueValidator._
 
   def validateCommands(
@@ -73,7 +80,6 @@ final class CommandsValidator(
       deduplicationPeriod <- validateDeduplicationPeriod(
         commands.deduplicationPeriod,
         maxDeduplicationTime,
-        "deduplication_period",
       )
     } yield domain.Commands(
       ledgerId = ledgerId,
@@ -217,6 +223,33 @@ final class CommandsValidator(
       _ <- actAsMustNotBeEmpty(actAs)
     } yield Submitters(actAs, readAs)
   }
+
+  /** We validate only using current time because we set the currentTime as submitTime so no need to check both
+    */
+  def validateDeduplicationPeriod(
+      deduplicationPeriod: commands.Commands.DeduplicationPeriod,
+      optMaxDeduplicationDuration: Option[Duration],
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, DeduplicationPeriod] =
+    optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
+      Left(missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer = Some(false)))
+    ) { maxDeduplicationDuration =>
+      val convertedDeduplicationPeriod = deduplicationPeriod match {
+        case commands.Commands.DeduplicationPeriod.Empty =>
+          maxDeduplicationDuration
+        case commands.Commands.DeduplicationPeriod.DeduplicationTime(duration) =>
+          DurationConversion.fromProto(duration)
+        case commands.Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
+          DurationConversion.fromProto(duration)
+      }
+      deduplicationPeriodValidator
+        .validateDuration(
+          convertedDeduplicationPeriod,
+          maxDeduplicationDuration,
+        )
+        .map(DeduplicationPeriod.DeduplicationDuration)
+    }
 }
 
 object CommandsValidator {

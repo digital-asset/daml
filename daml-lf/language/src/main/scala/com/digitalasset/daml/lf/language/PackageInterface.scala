@@ -192,27 +192,22 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   def lookupInterface(name: TypeConName): Either[LookupError, DefInterfaceSignature] =
     lookupInterface(name, Reference.Interface(name))
 
+  /** Look up a template's choice by name.
+    * This purposefully does not return choices inherited via interfaces.
+    * Use lookupChoice for a more flexible lookup.
+    */
   private[this] def lookupTemplateChoice(
       tmpName: TypeConName,
       chName: ChoiceName,
       context: => Reference,
   ): Either[LookupError, TemplateChoiceSignature] =
     lookupTemplate(tmpName, context).flatMap(template =>
-      template.choices.get(chName) match {
-        case Some(choice) => Right(choice)
-        case None =>
-          template.inheritedChoices.get(chName) match {
-            case None => Left(LookupError(Reference.TemplateChoice(tmpName, chName), context))
-            case Some(ifaceName) =>
-              lookupInterface(ifaceName, context).flatMap(iface =>
-                iface.fixedChoices
-                  .get(chName)
-                  .toRight(LookupError(Reference.TemplateChoice(ifaceName, chName), context))
-              )
-          }
-      }
+      template.choices
+        .get(chName)
+        .toRight(LookupError(Reference.TemplateChoice(tmpName, chName), context))
     )
 
+  /** Look up a template's own choice. Does not return choices inherited via interfaces. */
   def lookupTemplateChoice(
       tmpName: TypeConName,
       chName: ChoiceName,
@@ -441,7 +436,10 @@ object PackageInterface {
   // - iden refers to an interface that defines a choice chName
   // - iden refers to a template that defines a choice chName
   // - iden refers to a template that inherits from a interface than defined chName
-  sealed trait ChoiceInfo extends Serializable with Product
+  sealed trait ChoiceInfo extends Serializable with Product {
+    val choice: TemplateChoiceSignature
+  }
+
   object ChoiceInfo {
 
     final case class Interface(choice: TemplateChoiceSignature) extends ChoiceInfo

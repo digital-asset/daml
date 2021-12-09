@@ -26,7 +26,7 @@ submitAndWait commands =
         let LL.CommandService{commandServiceSubmitAndWaitForTransactionId=rpc} = service
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands))
         rpc (ClientNormalRequest request timeout mdm)
-            >>= unwrapWithInvalidArgument
+            >>= unwrapWithCommandSubmissionFailure
             <&> fmap (\LL.SubmitAndWaitForTransactionIdResponse{} -> ())
 
 submitAndWaitForTransactionId :: Commands -> LedgerService (Either String TransactionId)
@@ -37,7 +37,7 @@ submitAndWaitForTransactionId commands =
         let LL.CommandService{commandServiceSubmitAndWaitForTransactionId=rpc} = service
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands))
         rpc (ClientNormalRequest request timeout mdm)
-            >>= unwrapWithInvalidArgument
+            >>= unwrapWithCommandSubmissionFailure
             <&> fmap (TransactionId . LL.submitAndWaitForTransactionIdResponseTransactionId)
 
 submitAndWaitForTransaction :: Commands -> LedgerService (Either String Transaction)
@@ -48,7 +48,7 @@ submitAndWaitForTransaction commands =
         let LL.CommandService{commandServiceSubmitAndWaitForTransaction=rpc} = service
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands))
         rpc (ClientNormalRequest request timeout mdm)
-            >>= unwrapWithInvalidArgument
+            >>= unwrapWithCommandSubmissionFailure
             >>= \case
             Right response ->
                 either (fail . show) (return . Right) $ raiseResponse response
@@ -68,7 +68,7 @@ submitAndWaitForTransactionTree commands =
         let LL.CommandService{commandServiceSubmitAndWaitForTransactionTree=rpc} = service
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands))
         rpc (ClientNormalRequest request timeout mdm)
-            >>= unwrapWithInvalidArgument
+            >>= unwrapWithCommandSubmissionFailure
             >>= \case
             Right response ->
                 either (fail . show) (return . Right) $ raiseResponse response

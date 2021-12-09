@@ -4,13 +4,6 @@
 {-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-#ifndef DAML_GENMAP
-
--- | HIDE
-module DA.Set where
-
-#else
-
 -- | Note: This is only supported in DAML-LF 1.11 or later.
 --
 -- This module exports the generic set type `Set k` and associated
@@ -51,6 +44,7 @@ module DA.Set
   , toMap
   , fromMap
   , member
+  , notMember
   , null
   , insert
   , filter
@@ -59,6 +53,8 @@ module DA.Set
   , union
   , intersection
   , difference
+  , isSubsetOf
+  , isProperSubsetOf
   ) where
 
 import qualified DA.Foldable as Foldable
@@ -94,6 +90,11 @@ fromMap = Set
 -- | Is the element in the set?
 member : Ord k => k -> Set k -> Bool
 member k (Set m) = M.member k m
+
+-- | Is the element not in the set?
+-- `notMember k s` is equivalent to `not (member k s)`.
+notMember : Ord k => k -> Set k -> Bool
+notMember k s = not (member k s)
 
 -- | Is this the empty set?
 null : Set k -> Bool
@@ -132,6 +133,16 @@ intersection s1 s2 = filter (`member` s2) s1
 difference : Ord k => Set k -> Set k -> Set k
 difference s1 s2 = filter (\x -> not (x `member` s2)) s1
 
+-- | `isSubsetOf a b` returns true if `a` is a subset of `b`,
+-- that is, if every element of `a` is in `b`.
+isSubsetOf : Ord k => Set k -> Set k -> Bool
+isSubsetOf a b = all (`member` b) (toList a)
+
+-- | `isProperSubsetOf a b` returns true if `a` is a proper subset of `b`.
+-- That is, if `a` is a subset of `b` but not equal to `b`.
+isProperSubsetOf : Ord k => Set k -> Set k -> Bool
+isProperSubsetOf a b = (a /= b) && isSubsetOf a b
+
 deriving instance Ord k => Eq (Set k)
 deriving instance Ord k => Ord (Set k)
 
@@ -151,7 +162,6 @@ instance DA.Internal.Record.HasField "map" (Set k) (Map k ()) where
   getField (Set m) = m
   setField m _ = Set m
 
-
 instance Foldable.Foldable Set where
   toList = DA.Set.toList
   foldr f a xs = foldr f a (DA.Set.toList xs)
@@ -159,4 +169,3 @@ instance Foldable.Foldable Set where
   foldMap f xs = Foldable.foldMap f (DA.Set.toList xs)
   length = size
   null = DA.Set.null
-#endif

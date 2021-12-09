@@ -9,7 +9,8 @@ module LockingByChangingState where
 
 import Utilities
 
-template LockableCoin 
+-- BEGIN_LOCKABLE_COIN_TEMPLATE
+template LockableCoin
   with
     owner: Party
     issuer: Party
@@ -18,32 +19,35 @@ template LockableCoin
   where
     signatory issuer
     signatory owner
-   
+    observer locker
+
     ensure amount > 0.0
 
     --Transfer can happen only if it is not locked
-    controller owner can
-      Transfer : ContractId TransferProposal
-        with newOwner: Party
-        do   
-            assert (locker == owner)
-            create TransferProposal
-             with coin=this; newOwner 
-             
+    choice Transfer : ContractId TransferProposal
+      with newOwner: Party
+      controller owner
+      do
+        assert (locker == owner)
+        create TransferProposal
+          with coin=this; newOwner
+
       --Lock can be done if owner decides to bring a locker on board
-      Lock : ContractId LockableCoin
-        with newLocker: Party
-        do   
-          assert (newLocker /= owner)
-          create this with locker = newLocker
+    choice Lock : ContractId LockableCoin
+      with newLocker: Party
+      controller owner
+      do
+        assert (newLocker /= owner)
+        create this with locker = newLocker
 
     --Unlock only makes sense if the coin is in locked state
-    controller locker can 
-      Unlock 
-        : ContractId LockableCoin
-        do   
-            assert (locker /= owner)
-            create this with locker = owner 
+    choice Unlock
+      : ContractId LockableCoin
+      controller locker
+      do
+        assert (locker /= owner)
+        create this with locker = owner
+-- END_LOCKABLE_COIN_TEMPLATE
 
 
 --TransferProposal
@@ -53,20 +57,22 @@ template TransferProposal
     newOwner: Party
   where
     signatory coin.owner, coin.issuer
- 
-    controller coin.owner can
-      WithdrawTransfer
-        : ContractId LockableCoin
-        do create coin
-  
-    controller newOwner can
-      AcceptTransfer
-        : ContractId LockableCoin
-        do create coin with owner = newOwner; locker = newOwner
+    observer newOwner
 
-      RejectTransfer
-        : ()
-        do return ()
+    choice WithdrawTransfer
+      : ContractId LockableCoin
+      controller coin.owner
+      do create coin
+
+    choice AcceptTransfer
+      : ContractId LockableCoin
+      controller newOwner
+      do create coin with owner = newOwner; locker = newOwner
+
+    choice RejectTransfer
+      : ()
+      controller newOwner
+      do return ()
 
 template CoinProposal
   with
@@ -75,11 +81,12 @@ template CoinProposal
     amount: Decimal
   where
     signatory issuer
+    observer owner
 
-    controller owner can 
-      AcceptProposal 
-        : ContractId LockableCoin
-        do create LockableCoin with issuer; owner; amount; locker=owner
+    choice AcceptProposal
+      : ContractId LockableCoin
+      controller owner
+      do create LockableCoin with issuer; owner; amount; locker=owner
 
 
 locking : Scenario (ContractId LockableCoin)  -- test
@@ -87,8 +94,8 @@ locking =
   do
 
     [issuer, owner, newOwner, locker] <- makePartiesFrom ["Bank", "Me", "You", "Custodian Bank"]
-    --when coin is created, owner = locker. it is unlocked       
-    
+    --when coin is created, owner = locker. it is unlocked
+
     propId <- issuer `submit` do create CoinProposal with owner; issuer; amount=100.0
     coinCid <- owner `submit` do exercise propId AcceptProposal
 
@@ -97,7 +104,7 @@ locking =
     --since coin is locked, owner cannot transfer
     owner `submitMustFail` do exercise lockedCid Transfer with newOwner
 
-    unlockedCid <- locker `submit` do exercise lockedCid Unlock 
+    unlockedCid <- locker `submit` do exercise lockedCid Unlock
 
     propId <- owner `submit` do exercise unlockedCid Transfer with newOwner
     newOwner `submit` do exercise propId AcceptTransfer

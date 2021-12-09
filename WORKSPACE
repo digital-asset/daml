@@ -21,14 +21,6 @@ switched_rules_by_language(
 
 rules_haskell_dependencies()
 
-load("@com_github_googleapis_googleapis//:repository_rules.bzl", "switched_rules_by_language")
-
-switched_rules_by_language(
-    name = "com_google_googleapis_imports",
-    grpc = True,
-    java = True,
-)
-
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
@@ -100,6 +92,18 @@ nixpkgs_local_repository(
 dev_env_nix_repos = {
     "nixpkgs": "@nixpkgs",
 }
+
+load("//bazel_tools:damlc_legacy.bzl", "damlc_legacy")
+
+damlc_legacy(
+    name = "damlc_legacy",
+    sha256 = {
+        "linux": "dd1c7f2d34f3eac631c7edc1637c9b3e93c341561d41828b4f0d8e897effa90f",
+        "windows": "f458b8d2612887915372aad61766120e34c0fdc6a65eb37cdb1a8efc58e14de3",
+        "macos": "63141d7168e883c0b8c212dca6198f5463f82aa82bbbc51d8805ce7e474300e4",
+    },
+    version = "1.18.0-snapshot.20211117.8399.0.a05a40ae",
+)
 
 # Bazel cannot automatically determine which files a Nix target depends on.
 # rules_nixpkgs offers the nix_file_deps attribute for that purpose. It should
@@ -616,26 +620,25 @@ go_wrap_sdk(
     root_file = "@go_nix//:share/go/ROOT",
 ) if not is_windows else None
 
+# gazelle:repo bazel_gazelle
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
+load("//:go_deps.bzl", "go_deps")
+
+# gazelle:repository_macro go_deps.bzl%go_deps
+go_deps()
+
 go_rules_dependencies()
 
-go_register_toolchains()
-
-load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
+go_register_toolchains() if not is_windows else go_register_toolchains(version = "1.16.9")
 
 gazelle_dependencies()
 
-# protoc-gen-doc repo
-go_repository(
-    name = "com_github_pseudomuto_protoc_gen_doc",
-    commit = "0c4d666cfe1175663cf067963396a0b9b34f543f",
-    importpath = "github.com/pseudomuto/protoc-gen-doc",
-)
+load("@go_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 
-# protokit repo
-go_repository(
-    name = "com_github_pseudomuto_protokit",
-    commit = "7037620bf27b13fcdc10b1b17ddef82540db670b",
-    importpath = "github.com/pseudomuto/protokit",
+switched_rules_by_language(
+    name = "com_google_googleapis_imports",
+    grpc = True,
+    java = True,
 )
 
 load("//:bazel-java-deps.bzl", "install_java_deps")
@@ -659,7 +662,7 @@ scala_repositories(
 
 load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
 
-scala_register_toolchains()
+register_toolchains("//bazel_tools/scala:toolchain")
 
 load("@io_bazel_rules_scala//testing:scalatest.bzl", "scalatest_repositories", "scalatest_toolchain")
 
@@ -814,7 +817,7 @@ nixpkgs_package(
 load("@os_info//:os_info.bzl", "is_linux")
 cc_library(
   name = "grpc_lib",
-  srcs = [":lib/libgrpc.so", ":lib/libgrpc.so.19", ":lib/libgrpc.so.19.0.0", ":lib/libgpr.so", ":lib/libgpr.so.19", ":lib/libgpr.so.19.0.0"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
+  srcs = [":lib/libgrpc.so", ":lib/libgrpc.so.20", ":lib/libgrpc.so.20.0.0", ":lib/libgpr.so", ":lib/libgpr.so.20", ":lib/libgpr.so.20.0.0"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
   visibility = ["//visibility:public"],
   hdrs = [":include"],
   includes = ["include"],
@@ -895,4 +898,13 @@ dev_env_tool(
         "bin/postgres.exe",
     ],
     win_tool = "msys2",
+)
+
+nixpkgs_package(
+    name = "buf",
+    attribute_path = "buf",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
 )

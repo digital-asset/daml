@@ -7,6 +7,7 @@ import java.util.concurrent.CompletionStage
 
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.logging.LoggingContext
 import com.daml.telemetry.TelemetryContext
 
 /** An interface to change a ledger via a participant.
@@ -94,14 +95,16 @@ trait WriteService
     *                                    daml-lf/spec/contract-id.rst.
     * @param estimatedInterpretationCost Estimated cost of interpretation that may be used for
     *                                    handling submitted transactions differently.
-    * @param telemetryContext            Implicit context for tracing.
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult]
 
   /** Indicates whether command deduplication should be enabled when using this [[WriteService]]
     * This is temporary until we fully transition from [[com.daml.ledger.participant.state.v1.WriteService]] to [[WriteService]]

@@ -186,7 +186,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         case _: CommandDeduplicationDuplicate =>
           metrics.daml.commands.deduplicatedCommands.mark()
           Future.failed(
-            errorFactories.duplicateCommandException
+            errorFactories.duplicateCommandException(None)
           )
       }
 

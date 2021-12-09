@@ -8,7 +8,7 @@ package ledgerinteraction
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.PartyDetails
+import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
@@ -33,6 +33,8 @@ class IdeLedgerClient(
     traceLog: TraceLog,
     warningLog: WarningLog,
 ) extends ScriptLedgerClient {
+  override def transport = "script service"
+
   private val nextSeed: () => crypto.Hash =
     // We seeds to secureRandom with a fix seed to get deterministic sequences of seeds
     // across different runs of IdeLedgerClient.
@@ -53,6 +55,11 @@ class IdeLedgerClient(
   def ledger: ScenarioLedger = _ledger
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
+
+  private val userManagementStore = new ide.UserManagementStore()
+
+  private def handleUserManagement[T](r: ide.UserManagementStore.Result[T]): Future[T] =
+    r.fold(err => Future.failed(scenario.Error.UserManagement(err)), Future.successful(_))
 
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,
@@ -307,4 +314,65 @@ class IdeLedgerClient(
     _ledger = ledger.passTime(diff)
     Future.unit
   }
+
+  override def createUser(
+      user: User,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[User] =
+    handleUserManagement(userManagementStore.createUser(user, rights.toSet)).map(_ => user)
+
+  override def getUser(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Option[User]] =
+    userManagementStore.getUser(id) match {
+      case Left(scenario.Error.UserManagementError.UserNotFound(_)) => Future.successful(None)
+      case a => handleUserManagement(a).map(Some(_))
+    }
+
+  override def deleteUser(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] =
+    handleUserManagement(userManagementStore.deleteUser(id))
+
+  override def listUsers()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[User]] =
+    handleUserManagement(userManagementStore.listUsers())
+
+  override def grantUserRights(
+      id: UserId,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    handleUserManagement(userManagementStore.grantRights(id, rights.toSet)).map(_.toList)
+
+  override def revokeUserRights(
+      id: UserId,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    handleUserManagement(userManagementStore.revokeRights(id, rights.toSet)).map(_.toList)
+
+  override def listUserRights(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    handleUserManagement(userManagementStore.listUserRights(id)).map(_.toList)
 }

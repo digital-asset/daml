@@ -210,7 +210,6 @@ typeOfBuiltin = \case
   BENumeric n        -> pure (TNumeric (TNat (typeLevelNat (numericScale n))))
   BEText    _        -> pure TText
   BETimestamp _      -> pure TTimestamp
-  BEParty   _        -> pure TParty
   BEDate _           -> pure TDate
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
@@ -598,11 +597,13 @@ typeOfExercise tpl chName cid arg = do
   pure (TUpdate (chcReturnType choice))
 
 typeOfExerciseInterface :: MonadGamma m =>
-  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
-typeOfExerciseInterface tpl chName cid arg = do
-  choice <- inWorld (lookupInterfaceChoice (tpl, chName))
-  checkExpr cid (TContractId (TCon tpl))
+  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> Expr -> Expr -> m Type
+typeOfExerciseInterface iface chName cid arg typeRep guard = do
+  choice <- inWorld (lookupInterfaceChoice (iface, chName))
+  checkExpr cid (TContractId (TCon iface))
   checkExpr arg (chcArgType choice)
+  checkExpr typeRep (TOptional TTypeRep)
+  checkExpr guard (TCon iface :-> TBool)
   pure (TUpdate (chcReturnType choice))
 
 typeOfExerciseByKey :: MonadGamma m =>
@@ -652,7 +653,8 @@ typeOfUpdate = \case
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
   UCreateInterface iface arg -> checkCreateInterface iface arg $> TUpdate (TContractId (TCon iface))
   UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
-  UExerciseInterface tpl choice cid arg -> typeOfExerciseInterface tpl choice cid arg
+  UExerciseInterface tpl choice cid arg typeRep guard ->
+    typeOfExerciseInterface tpl choice cid arg typeRep guard
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
   UFetchInterface tpl cid -> checkFetchInterface tpl cid $> TUpdate (TCon tpl)
@@ -759,6 +761,18 @@ typeOf' = \case
     method <- inWorld (lookupInterfaceMethod (iface, method))
     checkExpr val (TCon iface)
     pure (ifmType method)
+  EToRequiredInterface requiredIface requiringIface expr -> do
+    allRequiredIfaces <- intRequires <$> inWorld (lookupInterface requiringIface)
+    unless (S.member requiredIface allRequiredIfaces) $ do
+      throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
+    checkExpr expr (TCon requiringIface)
+    pure (TCon requiredIface)
+  EFromRequiredInterface requiredIface requiringIface expr -> do
+    allRequiredIfaces <- intRequires <$> inWorld (lookupInterface requiringIface)
+    unless (S.member requiredIface allRequiredIfaces) $ do
+      throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
+    checkExpr expr (TCon requiredIface)
+    pure (TOptional (TCon requiringIface))
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
@@ -816,9 +830,10 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
 
 -- | Check that an interface definition is well defined.
 checkIface :: MonadGamma m => Module -> DefInterface -> m ()
-checkIface m DefInterface{intName, intParam, intFixedChoices, intMethods, intPrecondition} = do
+checkIface m DefInterface{..} = do
   checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intFixedChoices
   checkUnique (EDuplicateInterfaceMethodName intName) $ NM.names intMethods
+  forM_ intRequires (inWorld . lookupInterface) -- verify that required interface exists
   forM_ intMethods checkIfaceMethod
 
   let tcon = Qualified PRSelf (moduleName m) intName
@@ -850,7 +865,7 @@ checkDefDataType m (DefDataType _loc name _serializable params dataCons) = do
         void $ inWorld $ lookupInterface (Qualified PRSelf (moduleName m) name)
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
-checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do
+checkDefValue (DefValue _loc (_, typ) (IsTest isTest) expr) = do
   checkType typ KStar
   checkExpr expr typ
   when isTest $
@@ -883,15 +898,22 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
   whenJust mbKey $ checkTemplateKey param tcon
-  forM_ implements $ checkIfaceImplementation tcon
+  forM_ implements $ checkIfaceImplementation t tcon
 
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
-checkIfaceImplementation tplTcon TemplateImplements{..} = do
+checkIfaceImplementation :: MonadGamma m => Template -> Qualified TypeConName -> TemplateImplements -> m ()
+checkIfaceImplementation Template{tplImplements} tplTcon TemplateImplements{..} = do
   let tplName = qualObject tplTcon
-  DefInterface {intFixedChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
+  DefInterface {intFixedChoices, intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
+
+  -- check requires
+  let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
+  case S.toList missingRequires of
+    [] -> pure ()
+    (missingInterface:_) ->
+      throwWithContext (EMissingRequiredInterface tplName tpiInterface missingInterface)
 
   -- check fixed choices
   let inheritedChoices = S.fromList (NM.names intFixedChoices)

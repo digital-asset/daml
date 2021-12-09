@@ -84,6 +84,10 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(iface), TTyCon(tpl)) ++ iterator(value)
       case ECallInterface(iface, _, value) =>
         Iterator(TTyCon(iface)) ++ iterator(value)
+      case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+        Iterator(TTyCon(requiredIfaceId), TTyCon(requiringIfaceId)) ++ iterator(body)
+      case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+        Iterator(TTyCon(requiredIfaceId), TTyCon(requiringIfaceId)) ++ iterator(body)
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
           ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) | ETyAbs(_, _) |
           EExperimental(_, _) =>
@@ -114,10 +118,12 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(templateId)) ++
           iterator(cid) ++
           iterator(arg)
-      case UpdateExerciseInterface(interface, choice @ _, cid, arg) =>
+      case UpdateExerciseInterface(interface, choice @ _, cid, arg, typeRep, guard) =>
         Iterator(TTyCon(interface)) ++
           iterator(cid) ++
-          iterator(arg)
+          iterator(arg) ++
+          iterator(typeRep) ++
+          iterator(guard)
       case UpdateExerciseByKey(templateId, choice @ _, key, arg) =>
         Iterator(TTyCon(templateId)) ++
           iterator(key) ++
@@ -173,7 +179,7 @@ private[validation] object TypeIterable {
         Iterator.empty
       case DDataType(serializable @ _, params @ _, DataInterface) =>
         Iterator.empty
-      case DValue(typ, noPartyLiterals @ _, body, isTest @ _) =>
+      case DValue(typ, body, isTest @ _) =>
         Iterator(typ) ++ iterator(body)
 
     }
@@ -241,8 +247,9 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(interface: DefInterface): Iterator[Type] =
     interface match {
-      case DefInterface(_, fixedChoice, methods, precond) =>
-        iterator(precond) ++
+      case DefInterface(requires, _, fixedChoice, methods, precond) =>
+        requires.iterator.map(TTyCon) ++
+          iterator(precond) ++
           fixedChoice.values.iterator.flatMap(iterator) ++
           methods.values.iterator.flatMap(iterator)
     }

@@ -1,6 +1,21 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+locals {
+  ubuntu = [
+    {
+      name      = "ci-u1",
+      disk_size = 200,
+      size      = 0,
+    },
+    {
+      name      = "ci-u2",
+      disk_size = 400,
+      size      = 30,
+    },
+  ]
+}
+
 data "template_file" "vsts-agent-ubuntu_20_04-startup" {
   template = file("${path.module}/vsts_agent_ubuntu_20_04_startup.sh")
 
@@ -12,15 +27,16 @@ data "template_file" "vsts-agent-ubuntu_20_04-startup" {
 }
 
 resource "google_compute_region_instance_group_manager" "vsts-agent-ubuntu_20_04" {
+  count              = length(local.ubuntu)
   provider           = google-beta
-  name               = "vsts-agent-ubuntu-20-04"
-  base_instance_name = "vsts-agent-ubuntu-20-04"
+  name               = local.ubuntu[count.index].name
+  base_instance_name = local.ubuntu[count.index].name
   region             = "us-east1"
-  target_size        = 20
+  target_size        = local.ubuntu[count.index].size
 
   version {
-    name              = "vsts-agent-ubuntu-20-04"
-    instance_template = google_compute_instance_template.vsts-agent-ubuntu_20_04.self_link
+    name              = local.ubuntu[count.index].name
+    instance_template = google_compute_instance_template.vsts-agent-ubuntu_20_04[count.index].self_link
   }
 
   # uncomment when we get a provider >3.55
@@ -37,12 +53,13 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-ubuntu_20_04
 }
 
 resource "google_compute_instance_template" "vsts-agent-ubuntu_20_04" {
-  name_prefix  = "vsts-agent-ubuntu-20-04-"
+  count        = length(local.ubuntu)
+  name_prefix  = "${local.ubuntu[count.index].name}-"
   machine_type = "c2-standard-8"
   labels       = local.machine-labels
 
   disk {
-    disk_size_gb = 200
+    disk_size_gb = local.ubuntu[count.index].disk_size
     disk_type    = "pd-ssd"
     source_image = "ubuntu-os-cloud/ubuntu-2004-lts"
   }

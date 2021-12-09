@@ -257,6 +257,40 @@ class CommonCliBase(name: LedgerName) {
           config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
         )
 
+      opt[Int]("acs-id-page-size")
+        .optional()
+        .text(
+          s"Number of contract ids fetched from the index for every round trip when serving ACS calls. Default is ${SandboxConfig.DefaultAcsIdPageSize}."
+        )
+        .action((acsIdPageSize, config) => config.copy(acsIdPageSize = acsIdPageSize))
+
+      opt[Int]("acs-id-fetching-parallelism")
+        .optional()
+        .text(
+          s"Number of contract id pages fetched in parallel when serving ACS calls. Default is ${SandboxConfig.DefaultAcsIdFetchingParallelism}."
+        )
+        .action((acsIdFetchingParallelism, config) =>
+          config.copy(acsIdFetchingParallelism = acsIdFetchingParallelism)
+        )
+
+      opt[Int]("acs-contract-fetching-parallelism")
+        .optional()
+        .text(
+          s"Number of event pages fetched in parallel when serving ACS calls. Default is ${SandboxConfig.DefaultAcsContractFetchingParallelism}."
+        )
+        .action((acsContractFetchingParallelism, config) =>
+          config.copy(acsContractFetchingParallelism = acsContractFetchingParallelism)
+        )
+
+      opt[Int]("acs-global-parallelism-limit")
+        .optional()
+        .text(
+          s"Maximum number of concurrent ACS queries to the index database. Default is ${SandboxConfig.DefaultAcsGlobalParallelism}."
+        )
+        .action((acsContractFetchingParallelism, config) =>
+          config.copy(acsContractFetchingParallelism = acsContractFetchingParallelism)
+        )
+
       opt[Int]("max-commands-in-flight")
         .optional()
         .action((value, config) =>
@@ -343,11 +377,12 @@ class CommonCliBase(name: LedgerName) {
           "Maximum command deduplication duration."
         )
 
-      opt[Unit]("use-self-service-error-codes")
+      opt[Unit]("use-pre-1.18-error-codes")
         .optional()
-        .hidden()
-        .text("Enable self-service error codes.")
-        .action((_, config) => config.copy(enableSelfServiceErrorCodes = true))
+        .text(
+          "Enables gRPC error code compatibility mode to the pre-1.18 behaviour. This option is deprecated and will be removed in future release versions."
+        )
+        .action((_, config: SandboxConfig) => config.copy(enableSelfServiceErrorCodes = false))
 
       com.daml.cliopts.Metrics.metricsReporterParse(this)(
         (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),

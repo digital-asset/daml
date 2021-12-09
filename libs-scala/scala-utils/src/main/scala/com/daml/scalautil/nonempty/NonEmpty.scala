@@ -1,24 +1,23 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.scalautil.nonempty
+package com.daml.scalautil
+package nonempty
 
-import scala.collection.compat._
-import scala.collection.{immutable => imm}, imm.Map, imm.Set
+import scala.collection.{Factory, IterableOnce, immutable => imm}, imm.Iterable, imm.Map, imm.Set
 import scalaz.Id.Id
 import scalaz.{Foldable, Foldable1, OneAnd, Semigroup, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.std.option._
 
-import com.daml.scalautil.FoldableContravariant
+import Statement.discard
 import NonEmptyCollCompat._
 
 /** The visible interface of [[NonEmpty]]; use that value to access
   * these members.
   */
 sealed abstract class NonEmptyColl {
-  import NonEmptyColl.Pouring
 
   /** Use its alias [[com.daml.scalautil.nonempty.NonEmpty]]. */
   type NonEmpty[+A]
@@ -43,17 +42,17 @@ sealed abstract class NonEmptyColl {
     */
   def equiv[F[_], A]: NonEmpty[F[A]] === NonEmptyF[F, A]
 
-  /** Check whether `self` is non-empty; if so, return it as the non-empty subtype. */
-  @deprecated("misleading apply, use `case NonEmpty(xs)` instead", since = "1.18.0")
-  final def apply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = unapply(self)
-
   /** {{{
-    *  NonEmpty.pour(1, 2, 3) into List : NonEmpty[List[Int]] // with (1, 2, 3) as elements
+    *  NonEmpty(List, 1, 2, 3) : NonEmpty[List[Int]] // with (1, 2, 3) as elements
     * }}}
-    *
-    * The weird argument order is to support Scala 2.12.
     */
-  final def pour[A](x: A, xs: A*): Pouring[A] = new Pouring(x, xs: _*)
+  final def apply[Fct, A, C <: imm.Iterable[A]](into: Fct, hd: A, tl: A*)(implicit
+      fct: Fct => Factory[A, C]
+  ): NonEmpty[C] = {
+    val bb = into.newBuilder
+    discard { (bb += hd) ++= tl }
+    unsafeNarrow(bb.result())
+  }
 
   /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every
     * [[imm.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
@@ -85,71 +84,68 @@ object NonEmptyColl extends NonEmptyCollInstances {
     private[nonempty] override def unsafeNarrow[Self <: imm.Iterable[Any]](self: Self) = self
   }
 
-  final class Pouring[A](hd: A, tl: A*) {
-    import NonEmpty.{unsafeNarrow => un}
-    // XXX SC this can be done more efficiently by not supporting 2.12
-    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-    def into[C <: imm.Iterable[A]](into: Factory[A, C]): NonEmpty[C] = un {
-      val bb = into.newBuilder
-      bb += hd
-      bb ++= tl
-      bb.result()
-    }
-  }
-
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
     def toF: NonEmptyF[F, A] = NonEmpty.equiv[F, A](nfa)
   }
 
-  // many of these Map and Set operations can return more specific map and set types;
-  // however, the way to do that is incompatible between Scala 2.12 and 2.13.
-  // So we won't do it at least until 2.12 support is removed
-
   /** Operations that can ''return'' new maps.  There is no reason to include any other
     * kind of operation here, because they are covered by `#widen`.
     */
-  implicit final class MapOps[K, V](private val self: NonEmpty[Map[K, V]]) extends AnyVal {
-    private type ESelf = Map[K, V]
+  implicit final class `Map Ops`[K, V, CC[X, +Y] <: imm.Map[X, Y] with imm.MapOps[X, Y, CC, _]](
+      private val self: NonEmpty[imm.MapOps[K, V, CC, _]]
+  ) extends AnyVal {
+    private type ESelf = imm.MapOps[K, V, CC, _]
     import NonEmpty.{unsafeNarrow => un}
     // You can't have + because of the dumb string-converting thing in stdlib
-    def updated(key: K, value: V): NonEmpty[Map[K, V]] = un((self: ESelf).updated(key, value))
-    def ++(xs: Iterable[(K, V)]): NonEmpty[Map[K, V]] = un((self: ESelf) ++ xs)
+    def updated(key: K, value: V): NonEmpty[CC[K, V]] = un((self: ESelf).updated(key, value))
+    def ++(xs: IterableOnce[(K, V)]): NonEmpty[CC[K, V]] = un((self: ESelf) ++ xs)
     def keySet: NonEmpty[Set[K]] = un((self: ESelf).keySet)
-    def transform[W](f: (K, V) => W): NonEmpty[Map[K, W]] = un((self: ESelf) transform f)
+    def transform[W](f: (K, V) => W): NonEmpty[CC[K, W]] = un((self: ESelf) transform f)
   }
 
   /** Operations that can ''return'' new sets.  There is no reason to include any other
     * kind of operation here, because they are covered by `#widen`.
     */
-  implicit final class SetOps[A](private val self: NonEmpty[Set[A]]) extends AnyVal {
-    private type ESelf = Set[A]
+  implicit final class `Set Ops`[A, CC[_], C <: imm.SetOps[A, CC, C] with Iterable[A]](
+      private val self: NonEmpty[imm.SetOps[A, CC, C]]
+  ) extends AnyVal {
+    private type ESelf = imm.SetOps[A, CC, C]
     import NonEmpty.{unsafeNarrow => un}
     // You can't have + because of the dumb string-converting thing in stdlib
-    def incl(elem: A): NonEmpty[Set[A]] = un((self: ESelf) + elem)
-    def ++(that: Iterable[A]): NonEmpty[Set[A]] = un((self: ESelf) ++ that)
+    def incl(elem: A): NonEmpty[C] = un((self: ESelf) + elem)
+    def ++(that: IterableOnce[A]): NonEmpty[C] = un((self: ESelf) ++ that)
   }
 
   implicit final class NEPreservingOps[A, C](
       private val self: NonEmpty[IterableOps[A, imm.Iterable, C with imm.Iterable[A]]]
-  ) {
+  ) extends AnyVal {
     import NonEmpty.{unsafeNarrow => un}
     private type ESelf = IterableOps[A, imm.Iterable, C with imm.Iterable[A]]
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
     def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
-    def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf) match {
-      case is: imm.Seq[A] => is
-      case other => other.to(imm.Seq)
-    }) // can just use .toSeq in scala 2.13
+    def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf).toSeq)
     def toSet: NonEmpty[Set[A]] = un((self: ESelf).toSet)
     def toMap[K, V](implicit isPair: A <:< (K, V)): NonEmpty[Map[K, V]] = un((self: ESelf).toMap)
-    // ideas for extension: safe head/tail (not valuable unless also using
-    // wartremover to disable partial Seq ops)
+    def to[C1 <: imm.Iterable[A]](factory: Factory[A, C1]) = un((self: ESelf) to factory)
+    // (not so valuable unless also using wartremover to disable partial Seq ops)
+    @`inline` def head1: A = self.head
+    @`inline` def tail1: C = self.tail
   }
 
-  // Why not `map`?  Because it's a little tricky to do portably.  I suggest
-  // importing the appropriate Scalaz instances and using `.toF.map` if you need
-  // it; we can add collection-like `map` later if it seems to be really
-  // important.
+  implicit final class NEPreservingSeqOps[A, CC[X] <: imm.Seq[X], C](
+      private val self: NonEmpty[SeqOps[A, CC, C with imm.Seq[A]]]
+  ) extends AnyVal {
+    import NonEmpty.{unsafeNarrow => un}
+    private type ESelf = SeqOps[A, CC, C with imm.Iterable[A]]
+    // the +: :+ set here is so you don't needlessly "lose" your NE-ness
+    def +:[B >: A](elem: B): NonEmpty[CC[B]] = un(elem +: (self: ESelf))
+    def :+[B >: A](elem: B): NonEmpty[CC[B]] = un((self: ESelf) :+ elem)
+    // the +-: :-+ set here is to mirror the patterns, as the ones in
+    // `NE Seq Ops` are unreachable in normal usage, since implicit conversions
+    // do not compose
+    @`inline` def +-:[B >: A](elem: B): NonEmpty[CC[B]] = elem +: self
+    @`inline` def :-+[B >: A](elem: B): NonEmpty[CC[B]] = self :+ elem
+  }
 
   implicit final class `Seq Ops`[A, CC[_], C](
       private val self: NonEmpty[SeqOps[A, CC, C with CC[A]]]
@@ -157,6 +153,19 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def toOneAnd: OneAnd[CC, A] = {
       val h +-: t = self
       OneAnd(h, t)
+    }
+  }
+
+  implicit final class NEPseudofunctorOps[A, CC[X] <: imm.Iterable[X], C](
+      private val self: NonEmpty[IterableOps[A, CC, C with imm.Iterable[A]]]
+  ) extends AnyVal {
+    import NonEmpty.{unsafeNarrow => un}
+    private type ESelf = IterableOps[A, CC, C with imm.Iterable[A]]
+
+    def map[B](f: A => B): NonEmpty[CC[B]] = un((self: ESelf) map f)
+    def flatMap[B](f: A => NonEmpty[IterableOnce[B]]): NonEmpty[CC[B]] = {
+      type K[F[_]] = (F[ESelf], A => F[IterableOnce[B]]) => F[CC[B]]
+      NonEmpty.subst[K](_ flatMap _)(self, f)
     }
   }
 

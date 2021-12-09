@@ -7,6 +7,7 @@ import java.util.concurrent.CompletionStage
 
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import com.daml.telemetry.TelemetryContext
 
 /** An interface for uploading packages via a participant. */
@@ -35,7 +36,8 @@ trait WritePackagesService {
     *   describing where it got the package from, e.g., when, where, or by whom
     *   the packages were uploaded.
     * @param archives           Daml-LF archives to be uploaded to the ledger.
-    * @param telemetryContext   An implicit context for tracing.
+    *    All archives must be valid, i.e., they must successfully decode and pass
+    *    Daml engine validation.
     *
     * @return an async result of a [[SubmissionResult]]
     */
@@ -43,5 +45,8 @@ trait WritePackagesService {
       submissionId: Ref.SubmissionId,
       archives: List[Archive],
       sourceDescription: Option[String],
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult]
 }

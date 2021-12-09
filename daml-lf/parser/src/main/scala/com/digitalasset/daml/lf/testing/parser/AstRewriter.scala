@@ -131,6 +131,10 @@ private[daml] class AstRewriter(
           EFromInterface(apply(iface), apply(tpl), apply(value))
         case ECallInterface(iface, method, value) =>
           ECallInterface(apply(iface), method, apply(value))
+        case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+          EToRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
+        case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+          EFromRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {
@@ -166,8 +170,15 @@ private[daml] class AstRewriter(
         UpdateFetchInterface(apply(interface), apply(contractId))
       case UpdateExercise(templateId, choice, cid, arg) =>
         UpdateExercise(apply(templateId), choice, cid, apply(arg))
-      case UpdateExerciseInterface(interface, choice, cid, arg) =>
-        UpdateExerciseInterface(apply(interface), choice, cid, apply(arg))
+      case UpdateExerciseInterface(interface, choice, cid, arg, typeRep, guard) =>
+        UpdateExerciseInterface(
+          apply(interface),
+          choice,
+          cid,
+          apply(arg),
+          apply(typeRep),
+          apply(guard),
+        )
       case UpdateExerciseByKey(templateId, choice, key, arg) =>
         UpdateExerciseByKey(apply(templateId), choice, apply(key), apply(arg))
       case UpdateGetTime => x
@@ -220,8 +231,8 @@ private[daml] class AstRewriter(
         x
       case DDataType(serializable @ _, params @ _, DataInterface) =>
         x
-      case DValue(typ, noPartyLiterals, body, isTest) =>
-        DValue(apply(typ), noPartyLiterals, apply(body), isTest)
+      case DValue(typ, body, isTest) =>
+        DValue(apply(typ), apply(body), isTest)
 
       case DTypeSyn(params @ _, typ @ _) =>
         throw new RuntimeException("TODO #3616,AstRewriter,DTypeSyn")
@@ -327,8 +338,9 @@ private[daml] class AstRewriter(
 
   def apply(x: DefInterface): DefInterface =
     x match {
-      case DefInterface(param, fixedChoices, methods, precond) =>
+      case DefInterface(requires, param, fixedChoices, methods, precond) =>
         DefInterface(
+          requires,
           param,
           fixedChoices.transform((_, v) => apply(v)),
           methods.transform((_, v) => apply(v)),

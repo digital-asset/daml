@@ -9,6 +9,7 @@ The Ledger API
 
    services
    grpc/index
+   grpc/error-codes
    grpc/proto-docs
    grpc/daml-to-ledger-api
    daml-lf-translation

@@ -5,7 +5,6 @@ package com.daml.ledger.api.auth
 
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.google.rpc.ErrorInfo
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, ServerCall, Status}
 import org.mockito.captor.ArgCaptor
@@ -42,9 +41,7 @@ class AuthorizationInterceptorSpec
       actualStatus.getDescription shouldBe "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>"
 
       val actualRpcStatus = StatusProto.fromStatusAndTrailers(actualStatus, actualMetadata)
-      actualRpcStatus.getDetailsList.size() shouldBe 1
-      val errorInfo = actualRpcStatus.getDetailsList.get(0).unpack(classOf[ErrorInfo])
-      errorInfo.getReason shouldBe "INTERNAL_AUTHORIZATION_ERROR"
+      actualRpcStatus.getDetailsList.size() shouldBe 0
     }
   }
 

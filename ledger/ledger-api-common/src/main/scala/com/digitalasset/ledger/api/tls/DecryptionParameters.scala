@@ -8,12 +8,13 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import javax.crypto.Cipher
 import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
-
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.io.IOUtils
+import org.slf4j.LoggerFactory
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
-import scala.util.Using
+import java.util.Base64
+import scala.util.{Try, Using}
 
 final class PrivateKeyDecryptionException(cause: Throwable) extends Exception(cause)
 
@@ -29,6 +30,7 @@ case class DecryptionParameters(
     keyInHex: String,
     initializationVectorInHex: String,
 ) {
+  import DecryptionParameters._
 
   def decrypt(encrypted: File): Array[Byte] = {
     val bytes = Files.readAllBytes(encrypted.toPath)
@@ -46,7 +48,8 @@ case class DecryptionParameters(
     val cipher = Cipher.getInstance(transformation)
     val ivParameterSpec = new IvParameterSpec(iv)
     cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec)
-    cipher.doFinal(encrypted)
+    val binary = decodeBase64OrGetVerbatim(encrypted)
+    cipher.doFinal(binary)
   }
 }
 
@@ -78,6 +81,27 @@ object DecryptionParameters {
     import spray.json._
     val jsonAst: JsValue = payload.parseJson
     jsonAst.convertTo[DecryptionParameters]
+  }
+
+  private val logger = LoggerFactory.getLogger(getClass)
+
+  // According to MIME's section of java.util.Base64 javadoc "All line separators or other
+  // characters not found in the base64 alphabet table are ignored in decoding operation."
+  // For this reason a buffer needs to be screened whether it contains only the allowed
+  // Base64 characters before attempting to decode it.
+  private[tls] def decodeBase64OrGetVerbatim(encrypted: Array[Byte]): Array[Byte] = {
+    val allowedBase64Char =
+      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz/+=\n\r".getBytes(
+        StandardCharsets.UTF_8
+      )
+    encrypted.find(!allowedBase64Char.contains(_)) match {
+      case None =>
+        logger.debug(s"Encrypted key contains only MIME Base64 characters. Attempting to decode")
+        Try(Base64.getMimeDecoder.decode(encrypted)).getOrElse(encrypted)
+      case _ =>
+        logger.debug(s"Encrypted key contains non MIME Base64 characters. Using it verbatim")
+        encrypted
+    }
   }
 
 }

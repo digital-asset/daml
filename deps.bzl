@@ -30,18 +30,20 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-rules_scala_version = "e4560ac332e9da731c1e50a76af2579c55836a5c"
-rules_scala_sha256 = "ccf19e8f966022eaaca64da559c6140b23409829cb315f2eff5dc3e757fb6ad8"
+rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
+rules_scala_sha256 = "a8faef92f59a4f1428ed9a93c7c313a996466a66ad64c119fc49b5c7dea98c59"
 
-rules_haskell_version = "673e74aea244a6a9ee1eccec719677c80348aebf"
-rules_haskell_sha256 = "73a06dc6e0d928ceeab64e2cd3159f863eb2e263ecc64d79e3952c770cd1ee51"
+rules_haskell_version = "a7241fa64c7cd36462a1f6ac4c660d1247d5e07b"
+rules_haskell_sha256 = "9ca581c79dbda507da05ca4c3e958eb5865c9fbc7e393656cdcb8216b20d8821"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-    "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-8.10.7-bindist.patch",
+    # This can be removed once the following upstream PR has been merged:
+    # https://github.com/tweag/rules_haskell/pull/1648
+    "@com_github_digital_asset_daml//bazel_tools:haskell-cabal-reproducible.patch",
 ]
 rules_nixpkgs_version = "81f61c4b5afcf50665b7073f7fce4c1755b4b9a3"
 rules_nixpkgs_sha256 = "33fd540d0283cf9956d0a5a640acb1430c81539a84069114beaf9640c96d221a"
@@ -63,8 +65,10 @@ rules_nodejs_version = "4.4.2"
 rules_nodejs_sha256 = "3aa6296f453ddc784e1377e0811a59e1e6807da364f44b27856e34f5042043fe"
 rules_jvm_external_version = "3.3"
 rules_jvm_external_sha256 = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
-rules_go_version = "0.23.6"
-rules_go_sha256 = "8663604808d2738dc615a2c3eb70eba54a9a982089dd09f6ffe5d0e75771bc4f"
+rules_go_version = "0.29.0"
+rules_go_sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53b0f"
+bazel_gazelle_version = "67a3e22af6547f43bb9b8e4dd0bad5f354ad4e60"
+bazel_gazelle_sha256 = "c71b12d890d1e299e012bfa6f08dc3d9e57281a0955dc28a1e9c16769d556203"
 rules_bazel_common_version = "9e3880428c1837db9fb13335ed390b7e33e346a7"
 rules_bazel_common_sha256 = "48a209fed9575c9d108eaf11fb77f7fe6178a90135e4d60cac6f70c2603aa53a"
 
@@ -121,12 +125,37 @@ def daml_deps():
             sha256 = zlib_sha256,
         )
 
+    if "go_googleapis" not in native.existing_rules():
+        # The Haskell gRPC bindings require access to the status.proto source file.
+        # This import of go_googleapis is taken from rules_go and extended with the status.proto patch.
+        http_archive(
+            name = "go_googleapis",
+            # master, as of 2021-10-06
+            urls = [
+                "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/409e134ffaacc243052b08e6fb8e2d458014ed37.zip",
+                "https://github.com/googleapis/googleapis/archive/409e134ffaacc243052b08e6fb8e2d458014ed37.zip",
+            ],
+            sha256 = "a85c6a00e9cf0f004992ebea1d10688e3beea9f8e1a5a04ee53f367e72ee85af",
+            strip_prefix = "googleapis-409e134ffaacc243052b08e6fb8e2d458014ed37",
+            patches = [
+                # releaser:patch-cmd find . -name BUILD.bazel -delete
+                "@io_bazel_rules_go//third_party:go_googleapis-deletebuild.patch",
+                # set gazelle directives; change workspace name
+                "@io_bazel_rules_go//third_party:go_googleapis-directives.patch",
+                # releaser:patch-cmd gazelle -repo_root .
+                "@io_bazel_rules_go//third_party:go_googleapis-gazelle.patch",
+                # The Haskell gRPC bindings require access to the status.proto source file.
+                "//bazel_tools:googleapis-status-proto.patch",
+            ],
+            patch_args = ["-E", "-p1"],
+        )
+
     if "io_bazel_rules_go" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_go",
             urls = [
-                "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v{version}/rules_go-v{version}.tar.gz".format(version = rules_go_version),
-                "https://github.com/bazelbuild/rules_go/releases/download/v{version}/rules_go-v{version}.tar.gz".format(version = rules_go_version),
+                "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v{version}/rules_go-v{version}.zip".format(version = rules_go_version),
+                "https://github.com/bazelbuild/rules_go/releases/download/v{version}/rules_go-v{version}.zip".format(version = rules_go_version),
             ],
             sha256 = rules_go_sha256,
         )
@@ -152,24 +181,14 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
-    if "com_google_protobuf" not in native.existing_rules():
-        http_archive(
-            name = "com_google_protobuf",
-            sha256 = "528927e398f4e290001886894dac17c5c6a2e5548f3fb68004cfb01af901b53a",
-            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-bdeps.bzl
-            strip_prefix = "protobuf-3.17.3",
-            urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.17.3.zip"],
-            patch_args = ["-p1"],
-        )
-
     if "bazel_gazelle" not in native.existing_rules():
         http_archive(
             name = "bazel_gazelle",
             urls = [
-                "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/bazel-gazelle/releases/download/v0.19.1/bazel-gazelle-v0.19.1.tar.gz",
-                "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.19.1/bazel-gazelle-v0.19.1.tar.gz",
+                "https://github.com/bazelbuild/bazel-gazelle/archive/{version}/bazel-gazelle-{version}.tar.gz".format(version = bazel_gazelle_version),
             ],
-            sha256 = "86c6d481b3f7aedc1d60c1c211c6f76da282ae197c3b3160f54bd3a8f847896f",
+            strip_prefix = "bazel-gazelle-{version}".format(version = bazel_gazelle_version),
+            sha256 = bazel_gazelle_sha256,
         )
 
     if "io_bazel_rules_sass" not in native.existing_rules():
@@ -201,9 +220,9 @@ def daml_deps():
         # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.41.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.41.0.tar.gz"],
-            sha256 = "e5fb30aae1fa1cffa4ce00aa0bbfab908c0b899fcf0bbc30e268367d660d8656",
+            strip_prefix = "grpc-1.42.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.42.0.tar.gz"],
+            sha256 = "b2f2620c762427bfeeef96a68c1924319f384e877bc0e084487601e4cc6e434c",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
@@ -222,6 +241,16 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
+    if "com_google_protobuf" not in native.existing_rules():
+        http_archive(
+            name = "com_google_protobuf",
+            sha256 = "c6003e1d2e7fefa78a3039f19f383b4f3a61e81be8c19356f85b6461998ad3db",
+            strip_prefix = "protobuf-3.17.3",
+            urls = [
+                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.17.3.tar.gz",
+            ],
+        )
+
     if "io_grpc_grpc_java" not in native.existing_rules():
         http_archive(
             name = "io_grpc_grpc_java",
@@ -237,14 +266,6 @@ def daml_deps():
             sha256 = "841ae424eec3f322d411eb49d949622cc84787cb4189a30698fa9adadb98deac",
             strip_prefix = "bazel_jar_jar-20dbf71f09b1c1c2a8575a42005a968b38805519",
             urls = ["https://github.com/johnynek/bazel_jar_jar/archive/20dbf71f09b1c1c2a8575a42005a968b38805519.zip"],  # Latest commit SHA as at 2019/02/13
-        )
-
-    if "com_github_googleapis_googleapis" not in native.existing_rules():
-        http_archive(
-            name = "com_github_googleapis_googleapis",
-            strip_prefix = "googleapis-a9d8182ce540d418af825e3b21558e8413f29e66",
-            urls = ["https://github.com/googleapis/googleapis/archive/a9d8182ce540d418af825e3b21558e8413f29e66.tar.gz"],
-            sha256 = "75fcdf65a2423ca81d8f76e039e57b432378c10aa11f2fae41ec39d9d777d2f2",
         )
 
     if "com_github_bazelbuild_remote_apis" not in native.existing_rules():
@@ -303,30 +324,6 @@ def daml_deps():
                 "https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.3.1/grpc_health_probe-linux-amd64",
             ],
             executable = True,
-        )
-
-    if "davl-v3" not in native.existing_rules():
-        http_archive(
-            name = "davl-v3",
-            strip_prefix = "davl-{}".format(davl_v3_version),
-            urls = ["https://github.com/digital-asset/davl/archive/{}.tar.gz".format(davl_v3_version)],
-            sha256 = davl_v3_sha256,
-            build_file_content = """
-package(default_visibility = ["//visibility:public"])
-exports_files(["released/davl-v3.dar"])
-            """,
-        )
-
-    if "davl" not in native.existing_rules():
-        http_archive(
-            name = "davl",
-            strip_prefix = "davl-{}".format(davl_version),
-            urls = ["https://github.com/digital-asset/davl/archive/{}.tar.gz".format(davl_version)],
-            sha256 = davl_sha256,
-            build_file_content = """
-package(default_visibility = ["//visibility:public"])
-exports_files(["released/davl-v4.dar", "released/davl-v5.dar", "released/davl-upgrade-v3-v4.dar", "released/davl-upgrade-v4-v5.dar"])
-            """,
         )
 
     if "daml-cheat-sheet" not in native.existing_rules():

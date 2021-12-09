@@ -28,7 +28,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/kv-transaction-support",
         "//daml-lf/transaction",
@@ -67,8 +67,7 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_wordspec",
     ],
     deps = [
-        "@maven//:org_scalatest_scalatest_compatible",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
@@ -81,8 +80,10 @@ da_scala_test(
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
         "//libs-scala/contextualized-logging",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_mockito_mockito_core",
-    ] + (["@maven//:com_google_protobuf_protobuf_java"] if scala_major_version == "2.13" else []),
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
 )
 
 da_scala_binary(
@@ -166,7 +167,6 @@ da_scala_library(
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction-test-lib",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
@@ -245,8 +245,8 @@ da_scala_benchmark_jmh(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",

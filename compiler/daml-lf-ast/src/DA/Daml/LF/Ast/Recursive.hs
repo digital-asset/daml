@@ -53,6 +53,8 @@ data ExprF expr
   | EToInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | EFromInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | ECallInterfaceF !(Qualified TypeConName) !MethodName !expr
+  | EToRequiredInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
+  | EFromRequiredInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | EExperimentalF !T.Text !Type
   deriving (Foldable, Functor, Traversable)
 
@@ -65,7 +67,7 @@ data UpdateF expr
   | UCreateF   !(Qualified TypeConName) !expr
   | UCreateInterfaceF !(Qualified TypeConName) !expr
   | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !expr
-  | UExerciseInterfaceF !(Qualified TypeConName) !ChoiceName !expr !expr
+  | UExerciseInterfaceF !(Qualified TypeConName) !ChoiceName !expr !expr !expr !expr
   | UExerciseByKeyF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UFetchF    !(Qualified TypeConName) !expr
   | UFetchInterfaceF    !(Qualified TypeConName) !expr
@@ -114,7 +116,7 @@ projectUpdate = \case
   UCreate a b -> UCreateF a b
   UCreateInterface a b -> UCreateInterfaceF a b
   UExercise a b c d -> UExerciseF a b c d
-  UExerciseInterface a b c d -> UExerciseInterfaceF a b c d
+  UExerciseInterface a b c d e f -> UExerciseInterfaceF a b c d e f
   UExerciseByKey a b c d -> UExerciseByKeyF a b c d
   UFetch a b -> UFetchF a b
   UFetchInterface a b -> UFetchInterfaceF a b
@@ -134,7 +136,7 @@ embedUpdate = \case
   UCreateF a b -> UCreate a b
   UCreateInterfaceF a b -> UCreateInterface a b
   UExerciseF a b c d -> UExercise a b c d
-  UExerciseInterfaceF a b c d -> UExerciseInterface a b c d
+  UExerciseInterfaceF a b c d e f -> UExerciseInterface a b c d e f
   UExerciseByKeyF a b c d -> UExerciseByKey a b c d
   UFetchF a b -> UFetch a b
   UFetchInterfaceF a b -> UFetchInterface a b
@@ -207,6 +209,8 @@ instance Recursive Expr where
     EToInterface a b c -> EToInterfaceF a b c
     EFromInterface a b c -> EFromInterfaceF a b c
     ECallInterface a b c -> ECallInterfaceF a b c
+    EToRequiredInterface a b c -> EToRequiredInterfaceF a b c
+    EFromRequiredInterface a b c -> EFromRequiredInterfaceF a b c
     EExperimental a b -> EExperimentalF a b
 
 instance Corecursive Expr where
@@ -244,4 +248,6 @@ instance Corecursive Expr where
     EToInterfaceF a b c -> EToInterface a b c
     EFromInterfaceF a b c -> EFromInterface a b c
     ECallInterfaceF a b c -> ECallInterface a b c
+    EToRequiredInterfaceF a b c -> EToRequiredInterface a b c
+    EFromRequiredInterfaceF a b c -> EFromRequiredInterface a b c
     EExperimentalF a b -> EExperimental a b

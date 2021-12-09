@@ -21,6 +21,7 @@ import Control.Monad.Reader
 import Data.Int
 import Text.Read
 import           Data.List
+import    DA.Daml.StablePackagesList
 import           DA.Daml.LF.Mangling
 import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
 import qualified Data.NameMap as NM
@@ -170,8 +171,8 @@ decodePackageRef (LF1.PackageRef pref) =
 -- Decodings of everything else
 ------------------------------------------------------------------------
 
-decodeVersion :: T.Text -> Either Error Version
-decodeVersion minorText = do
+decodeVersion :: Maybe LF.PackageId -> T.Text -> Either Error Version
+decodeVersion mbPkgId minorText = do
   let unsupported :: Either Error a
       unsupported = throwError (UnsupportedMinorVersion minorText)
   -- we translate "no version" to minor version 0, since we introduced
@@ -183,16 +184,19 @@ decodeVersion minorText = do
     | Just minor <- LF.parseMinorVersion (T.unpack minorText) -> pure minor
     | otherwise -> unsupported
   let version = V1 minor
-  if version `elem` LF.supportedInputVersions then pure version else unsupported
+  if  isStablePackage || version `elem` LF.supportedInputVersions then pure version else unsupported
+  where
+    isStablePackage = maybe False (`elem` stablePackages) mbPkgId
 
 decodeInternedDottedName :: LF1.InternedDottedName -> Decode ([T.Text], Either String [UnmangledIdentifier])
 decodeInternedDottedName (LF1.InternedDottedName ids) = do
     (mangled, unmangledOrErr) <- unzip <$> mapM lookupString (V.toList ids)
     pure (mangled, sequence unmangledOrErr)
 
-decodePackage :: TL.Text -> LF.PackageRef -> LF1.Package -> Either Error Package
-decodePackage minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata internedTypesV) = do
-  version <- decodeVersion (decodeString minorText)
+-- The package id is optional since we also call this function from decodeScenarioModule
+decodePackage :: Maybe LF.PackageId -> TL.Text -> LF.PackageRef -> LF1.Package -> Either Error Package
+decodePackage mbPkgId minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata internedTypesV) = do
+  version <- decodeVersion mbPkgId (decodeString minorText)
   let internedStrings = V.map decodeMangledString internedStringsV
   let internedDottedNames = V.empty
   let internedTypes = V.empty
@@ -213,7 +217,7 @@ decodePackageMetadata LF1.PackageMetadata{..} = do
 
 decodeScenarioModule :: TL.Text -> LF1.Package -> Either Error Module
 decodeScenarioModule minorText protoPkg = do
-    Package { packageModules = modules } <- decodePackage minorText PRSelf protoPkg
+    Package { packageModules = modules } <- decodePackage Nothing minorText PRSelf protoPkg
     pure $ head $ NM.toList modules
 
 decodeModule :: LF1.Module -> Decode Module
@@ -233,6 +237,7 @@ decodeDefInterface :: LF1.DefInterface -> Decode DefInterface
 decodeDefInterface LF1.DefInterface {..} = do
   intLocation <- traverse decodeLocation defInterfaceLocation
   intName <- decodeDottedNameId TypeConName defInterfaceTyconInternedDname
+  intRequires <- decodeSet DuplicateRequires decodeTypeConName defInterfaceRequires
   intParam <- decodeNameId ExprVarName defInterfaceParamInternedStr
   intFixedChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceFixedChoices
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
@@ -250,12 +255,10 @@ decodeMethodName = decodeNameId MethodName
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
-  if not featureFlagsDontDivulgeContractIdsInCreateArguments || not featureFlagsDontDiscloseNonConsumingChoicesToObservers
+  if not featureFlagsDontDivulgeContractIdsInCreateArguments || not featureFlagsDontDiscloseNonConsumingChoicesToObservers || not featureFlagsForbidPartyLiterals
     -- We do not support these anymore -- see #157
-    then throwError (ParseError "Package uses unsupported flags dontDivulgeContractIdsInCreateArguments or dontDiscloseNonConsumingChoicesToObservers")
+    then throwError (ParseError "Package uses unsupported flags dontDivulgeContractIdsInCreateArguments, dontDiscloseNonConsumingChoicesToObservers or featureFlagsForbidPartyLiterals")
     else pure FeatureFlags
-      { forbidPartyLiterals = featureFlagsForbidPartyLiterals
-      }
 
 decodeDefTypeSyn :: LF1.DefTypeSyn -> Decode DefTypeSyn
 decodeDefTypeSyn LF1.DefTypeSyn{..} =
@@ -301,11 +304,12 @@ decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
 decodeDefValue :: LF1.DefValue -> Decode DefValue
-decodeDefValue (LF1.DefValue mbBinder mbBody noParties isTest mbLoc) =
+decodeDefValue (LF1.DefValue mbBinder mbBody noParties isTest mbLoc) = do
+  when (not noParties) $
+    throwError (ParseError "DefValue uses unsupported no_party_literals flag")
   DefValue
     <$> traverse decodeLocation mbLoc
     <*> mayDecode "defValueName" mbBinder decodeDefValueNameWithType
-    <*> pure (HasNoPartyLiterals noParties)
     <*> pure (IsTest isTest)
     <*> mayDecode "defValueExpr" mbBody decodeExpr
 
@@ -663,6 +667,14 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <$> mayDecode "expr_CallInterfaceInterfaceType" expr_CallInterfaceInterfaceType decodeTypeConName
     <*> decodeMethodName expr_CallInterfaceMethodInternedName
     <*> mayDecode "expr_CallInterfaceInterfaceExpr" expr_CallInterfaceInterfaceExpr decodeExpr
+  LF1.ExprSumToRequiredInterface LF1.Expr_ToRequiredInterface {..} -> EToRequiredInterface
+    <$> mayDecode "expr_ToRequiredInterfaceRequiredInterface" expr_ToRequiredInterfaceRequiredInterface decodeTypeConName
+    <*> mayDecode "expr_ToRequiredInterfaceRequiringInterface" expr_ToRequiredInterfaceRequiringInterface decodeTypeConName
+    <*> mayDecode "expr_ToRequiredInterfaceExpr" expr_ToRequiredInterfaceExpr decodeExpr
+  LF1.ExprSumFromRequiredInterface LF1.Expr_FromRequiredInterface {..} -> EFromRequiredInterface
+    <$> mayDecode "expr_FromRequiredInterfaceRequiredInterface" expr_FromRequiredInterfaceRequiredInterface decodeTypeConName
+    <*> mayDecode "expr_FromRequiredInterfaceRequiringInterface" expr_FromRequiredInterfaceRequiringInterface decodeTypeConName
+    <*> mayDecode "expr_FromRequiredInterfaceExpr" expr_FromRequiredInterfaceExpr decodeExpr
   LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty
@@ -696,6 +708,8 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> decodeNameId ChoiceName update_ExerciseInterfaceChoiceInternedStr
       <*> mayDecode "update_ExerciseInterfaceCid" update_ExerciseInterfaceCid decodeExpr
       <*> mayDecode "update_ExerciseInterfaceArg" update_ExerciseInterfaceArg decodeExpr
+      <*> mayDecode "update_ExerciseInterfaceTypeRep" update_ExerciseInterfaceTypeRep decodeExpr
+      <*> mayDecode "update_ExerciseInterfaceGuard" update_ExerciseInterfaceGuard decodeExpr
   LF1.UpdateSumExerciseByKey LF1.Update_ExerciseByKey{..} ->
     fmap EUpdate $ UExerciseByKey
       <$> mayDecode "update_ExerciseByKeyTemplate" update_ExerciseByKeyTemplate decodeTypeConName
@@ -816,8 +830,10 @@ decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
   LF1.PrimLitSumTextStr x -> pure $ BEText $ decodeString x
   LF1.PrimLitSumTextInternedStr strId ->  BEText . fst <$> lookupString strId
-  LF1.PrimLitSumPartyStr p -> pure $ BEParty $ PartyLiteral $ decodeString p
-  LF1.PrimLitSumPartyInternedStr strId -> BEParty . PartyLiteral . fst <$> lookupString strId
+  LF1.PrimLitSumPartyStr _ ->
+      throwError (ParseError "Party literals are not supported")
+  LF1.PrimLitSumPartyInternedStr _ ->
+      throwError (ParseError "Party literals are not supported")
   LF1.PrimLitSumDate days -> pure $ BEDate days
   LF1.PrimLitSumRoundingMode enum -> case enum of
     Proto.Enumerated (Right mode) -> pure $ case mode of

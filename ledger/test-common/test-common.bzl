@@ -14,6 +14,7 @@ def da_scala_dar_resources_library(
         lf_versions,
         add_maven_tag = False,
         maven_name_prefix = "",
+        exclusions = {},
         **kwargs):
     """
     Define a Scala library with dar files as resources.
@@ -23,8 +24,8 @@ def da_scala_dar_resources_library(
             # 1. Compile daml files
             daml_compile_name = "%s-tests-%s" % (daml_dir_name, lf_version)
             daml_compile_kwargs = {
-                "project_name": "%s-tests" % daml_dir_name,
-                "srcs": native.glob(["%s/%s/*.daml" % (daml_root_dir, daml_dir_name)]),
+                "project_name": "%s-tests" % daml_dir_name.replace("_", "-"),
+                "srcs": native.glob(["%s/%s/*.daml" % (daml_root_dir, daml_dir_name)], exclude = exclusions.get(lf_version, [])),
                 "target": lf_version,
             }
             daml_compile_kwargs.update(kwargs)

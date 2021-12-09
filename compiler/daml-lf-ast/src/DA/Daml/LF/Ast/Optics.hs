@@ -13,7 +13,6 @@ module DA.Daml.LF.Ast.Optics(
     moduleExpr,
     dataConsType,
     _PRSelfModule,
-    exprPartyLiteral,
     exprValueRef,
     packageRefs,
     templateExpr,
@@ -135,6 +134,9 @@ instance MonoTraversable ModuleRef (Qualified a) where
   monoTraverse f (Qualified pkg0 mod0 x) =
     (\(pkg1, mod1) -> Qualified pkg1 mod1 x) <$> f (pkg0, mod0)
 
+instance (Ord a, MonoTraversable ModuleRef a) => MonoTraversable ModuleRef (S.Set a) where
+  monoTraverse f = fmap S.fromList . traverse (monoTraverse f) . S.toList
+
 instance MonoTraversable ModuleRef ChoiceName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef MethodName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ExprValName where monoTraverse _ = pure
@@ -148,7 +150,6 @@ instance MonoTraversable ModuleRef VariantConName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef Version where monoTraverse _ = pure
 instance MonoTraversable ModuleRef PackageName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef PackageVersion where monoTraverse _ = pure
-instance MonoTraversable ModuleRef (S.Set ChoiceName) where monoTraverse _ = pure
 
 -- NOTE(MH): This is an optimization to avoid running into a dead end.
 instance {-# OVERLAPPING #-} MonoTraversable ModuleRef FilePath where monoTraverse _ = pure
@@ -191,7 +192,6 @@ instance MonoTraversable ModuleRef InterfaceChoice
 instance MonoTraversable ModuleRef InterfaceMethod
 instance MonoTraversable ModuleRef DefInterface
 
-instance MonoTraversable ModuleRef HasNoPartyLiterals
 instance MonoTraversable ModuleRef IsTest
 instance MonoTraversable ModuleRef DefValue
 
@@ -209,16 +209,6 @@ instance MonoTraversable ModuleRef Module
 instance MonoTraversable ModuleRef PackageMetadata
 instance MonoTraversable ModuleRef Package
 instance MonoTraversable ModuleRef T.Text where monoTraverse _ = pure
-
-exprPartyLiteral
-  :: forall f. Applicative f
-  => (PartyLiteral -> f PartyLiteral) -> (Expr -> f Expr)
-exprPartyLiteral f = cata go
-  where
-    go :: ExprF (f Expr) -> f Expr
-    go = \case
-      EBuiltinF (BEParty pty) -> EBuiltin . BEParty <$> f pty
-      e -> embed <$> sequenceA e
 
 -- | Traverse over all references to top-level values in an expression.
 exprValueRef

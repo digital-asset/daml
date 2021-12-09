@@ -52,7 +52,7 @@ alias(
             "@maven//:org_postgresql_postgresql",
         ],
         deps = [
-            "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+            "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
             "//daml-lf/data",
             "//daml-lf/engine",
             "//daml-lf/interpreter",
@@ -191,7 +191,7 @@ test_deps = [
     ":sandbox-classic-scala-tests-lib",
     "//bazel_tools/runfiles:scala_runfiles",
     "//daml-lf/archive:daml_lf_archive_reader",
-    "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+    "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
     "//daml-lf/data",
     "//daml-lf/engine",
     "//daml-lf/interpreter",
@@ -365,16 +365,16 @@ server_conformance_test(
     ],
 )
 
-# Full conformance test with self-service error codes (Postgres)
+# Full conformance test with legacy error codes (Postgres)
 server_conformance_test(
-    name = "conformance-test-self-service-error-codes",
+    name = "conformance-test-legacy-error-codes",
     lf_versions = [
         "default",
         "preview",
     ],
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--use-self-service-error-codes",
+        "--use-pre-1.18-error-codes",
     ],
     servers = {"postgresql": SERVERS["postgresql"]},
     test_tool_args = [
@@ -464,6 +464,16 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+        "--exclude=ContractKeysIT:CKFetchOrLookup",
+        "--exclude=ContractKeysIT:CKNoFetchUndisclosed",
+        "--exclude=ContractKeysIT:CKMaintainerScoped",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
+        # Below test suites are duplicates of the above ExceptionsIT and ContractKeysIT
+        # but with more generic assertions for the in-memory ledger
+        # TODO sandbox-classic removal: Delete these tests
+        "--additional=DeprecatedSandboxClassicMemoryContractKeysIT",
+        "--additional=DeprecatedSandboxClassicMemoryExceptionsIT",
     ],
 )
 
@@ -478,5 +488,15 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+        "--exclude=ContractKeysIT:CKFetchOrLookup",
+        "--exclude=ContractKeysIT:CKNoFetchUndisclosed",
+        "--exclude=ContractKeysIT:CKMaintainerScoped",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
+        # Below test suites are duplicates of the above ExceptionsIT and ContractKeysIT
+        # but with more generic assertions for the in-memory ledger
+        # TODO sandbox-classic removal: Delete these tests
+        "--additional=DeprecatedSandboxClassicMemoryContractKeysIT",
+        "--additional=DeprecatedSandboxClassicMemoryExceptionsIT",
     ],
 )

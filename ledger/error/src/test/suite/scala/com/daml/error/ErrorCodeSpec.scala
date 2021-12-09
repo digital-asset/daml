@@ -7,9 +7,9 @@ import ch.qos.logback.classic.Level
 import com.daml.error.ErrorCategory.TransientServerFailure
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.testpackage.SeriousError
-import com.daml.error.utils.testpackage.subpackage.MildErrors.NotSoSeriousError
+import com.daml.error.utils.testpackage.subpackage.MildErrorsParent.MildErrors.NotSoSeriousError
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.testing.LogCollector
+import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
 import io.grpc.protobuf.StatusProto
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
@@ -17,7 +17,11 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
 
-class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
+class ErrorCodeSpec
+    extends AnyFlatSpec
+    with Matchers
+    with BeforeAndAfter
+    with LogCollectorAssertions {
   implicit private val testLoggingContext: LoggingContext = LoggingContext.ForTesting
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLoggingContext: Option[String] => DamlContextualizedErrorLogger =
@@ -35,18 +39,17 @@ class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
     )(errorLoggingContext(Some("1234567890")))
 
     val actualLogs = LogCollector
-      .readWithMarkers[this.type, this.type]
-      .map { case (level, (errMsg, marker)) =>
-        level -> (errMsg -> marker.toString)
-      }
+      .readAsEntries[this.type, this.type]
 
     actualLogs.size shouldBe 1
-    val (actualLogLevel, (actualLogMessage, actualLogMarker)) = actualLogs.head
-
-    actualLogLevel shouldBe Level.ERROR
-    actualLogMessage shouldBe "BLUE_SCREEN(4,12345678): the error argument"
-    actualLogMarker should include regex "location=ErrorCodeSpec\\.scala\\:\\d+"
-    actualLogMarker should include regex "extra\\-context\\-key=extra\\-context\\-value"
+    assertLogEntry(
+      actualLogs.head,
+      expectedLogLevel = Level.ERROR,
+      expectedMsg = "BLUE_SCREEN(4,12345678): the error argument",
+      expectedMarkerRegex = Some(
+        "\\{err-context: \"\\{location=ErrorCodeSpec.scala:\\d+, extra-context-key=extra-context-value\\}\"\\}"
+      ),
+    )
   }
 
   s"$className.log" should s"truncate the cause size if larger than ${ErrorCode.MaxCauseLogLength}" in {
@@ -60,7 +63,8 @@ class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
   }
 
   s"$className.asGrpcErrorFromContext" should "output a GRPC error with correct status, message and metadata" in {
-    val error = NotSoSeriousError.Error("some error cause")
+    val contextMetadata = Map("some key" -> "some value", "another key" -> "another value")
+    val error = NotSoSeriousError.Error("some error cause", contextMetadata)
     val correlationId = "12345678"
 
     val actualGrpcError = error.asGrpcErrorFromContext(errorLoggingContext(Some(correlationId)))
@@ -78,11 +82,36 @@ class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
     actualGrpcError.getMessage shouldBe expectedErrorMessage
 
     errorDetails should contain theSameElementsAs Seq(
-      ErrorDetails.ErrorInfoDetail(NotSoSeriousError.id),
+      ErrorDetails.ErrorInfoDetail(
+        NotSoSeriousError.id,
+        Map("category" -> "1") ++ contextMetadata ++ Map("definite_answer" -> "true"),
+      ),
       ErrorDetails.RetryInfoDetail(TransientServerFailure.retryable.get.duration.toSeconds),
       ErrorDetails.RequestInfoDetail(correlationId),
       ErrorDetails.ResourceInfoDetail(error.resources.head._1.asString, error.resources.head._2),
     )
+  }
+
+  s"$className.asGrpcErrorFromContext" should "not propagate security sensitive information in gRPC statuses" in {
+    val error =
+      SeriousError.Error("some cause", Map("some sensitive key" -> "some sensitive value"))
+    val correlationId = "12345678"
+
+    val actualGrpcError = error.asGrpcErrorFromContext(errorLoggingContext(Some(correlationId)))
+    val expectedErrorMessage =
+      s"An error occurred. Please contact the operator and inquire about the request $correlationId"
+
+    val actualStatus = actualGrpcError.getStatus
+    val actualTrailers = actualGrpcError.getTrailers
+    val actualRpcStatus = StatusProto.fromStatusAndTrailers(actualStatus, actualTrailers)
+
+    val errorDetails =
+      ErrorDetails.from(actualRpcStatus.getDetailsList.asScala.toSeq)
+
+    actualStatus.getCode shouldBe io.grpc.Status.Code.INTERNAL
+    actualGrpcError.getStatus.getDescription shouldBe expectedErrorMessage
+
+    errorDetails should contain theSameElementsAs Seq(ErrorDetails.RequestInfoDetail(correlationId))
   }
 
   private def logSeriousError(

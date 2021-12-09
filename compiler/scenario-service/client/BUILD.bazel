@@ -41,7 +41,8 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-proto:daml-lf-proto-encode",
+        "//compiler/daml-lf-proto:daml-lf-util",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",
         "//daml-assistant:daml-project-config",

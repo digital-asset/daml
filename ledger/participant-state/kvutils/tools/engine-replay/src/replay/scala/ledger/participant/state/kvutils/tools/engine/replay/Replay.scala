@@ -12,21 +12,15 @@ import com.daml.ledger.participant.state.kvutils.export.{
   SubmissionInfo,
 }
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Envelope, Raw}
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.engine.{Engine, EngineConfig, Error}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  SubmittedTransaction,
-  TransactionCoder => TxCoder,
-}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, SubmittedTransaction}
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.{Value, ValueCoder => ValCoder}
+import com.daml.lf.value.Value
 
 import scala.collection.compat._
 import scala.collection.compat.immutable.LazyList
@@ -127,13 +121,8 @@ private[replay] object Replay {
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val entry = submission.getTransactionEntry
-        val tx = TxCoder
-          .decodeTransaction(
-            TxCoder.NidDecoder,
-            ValCoder.CidDecoder,
-            submission.getTransactionEntry.getTransaction,
-          )
-          .fold(err => sys.error(err.toString), SubmittedTransaction(_))
+        val rawTransaction = Raw.Transaction(submission.getTransactionEntry.getRawTransaction)
+        val tx = SubmittedTransaction(Conversions.decodeTransaction(rawTransaction))
         LazyList(
           TxEntry(
             tx = tx,

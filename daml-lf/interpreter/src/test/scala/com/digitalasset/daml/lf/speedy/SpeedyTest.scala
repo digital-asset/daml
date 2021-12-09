@@ -154,21 +154,17 @@ class SpeedyTest extends AnyWordSpec with Matchers {
       module Test {
         record @serializable T1 = { party: Party } ;
         template (record : T1) = {
-          precondition True,
-          signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party),
-          observers Nil @Party,
-          agreement "Agreement",
-          choices {
-          }
+          precondition True;
+          signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
         } ;
         record @serializable T2 = { party: Party } ;
         template (record : T2) = {
-          precondition True,
-          signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party),
-          observers Nil @Party,
-          agreement "Agreement",
-          choices {
-          }
+          precondition True;
+          signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
         } ;
         record T3 (a: *) = { party: Party } ;
      }
@@ -176,13 +172,19 @@ class SpeedyTest extends AnyWordSpec with Matchers {
 
   val anyPkgs = typeAndCompile(anyPkg)
 
+  private val alice = SParty(Party.assertFromString("Alice"))
+
   "to_any" should {
 
     "succeed on Int64" in {
       eval(e"""to_any @Int64 1""", anyPkgs) shouldEqual Right(SAny(TBuiltin(BTInt64), SInt64(1)))
     }
     "succeed on record type without parameters" in {
-      eval(e"""to_any @Test:T1 (Test:T1 {party = 'Alice'})""", anyPkgs) shouldEqual
+      evalApp(
+        e"""\ (p: Party) -> to_any @Test:T1 (Test:T1 {party = p})""",
+        Array(alice),
+        anyPkgs,
+      ) shouldEqual
         Right(
           SAny(
             TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T1"))),
@@ -195,7 +197,11 @@ class SpeedyTest extends AnyWordSpec with Matchers {
         )
     }
     "succeed on record type with parameters" in {
-      eval(e"""to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = 'Alice'})""", anyPkgs) shouldEqual
+      evalApp(
+        e"""\ (p : Party) -> to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = p})""",
+        Array(alice),
+        anyPkgs,
+      ) shouldEqual
         Right(
           SAny(
             TApp(
@@ -209,7 +215,11 @@ class SpeedyTest extends AnyWordSpec with Matchers {
             ),
           )
         )
-      eval(e"""to_any @(Test:T3 Text) (Test:T3 @Text {party = 'Alice'})""", anyPkgs) shouldEqual
+      evalApp(
+        e"""\ (p : Party) -> to_any @(Test:T3 Text) (Test:T3 @Text {party = p})""",
+        Array(alice),
+        anyPkgs,
+      ) shouldEqual
         Right(
           SAny(
             TApp(
@@ -233,8 +243,9 @@ class SpeedyTest extends AnyWordSpec with Matchers {
     }
 
     "return Some(tpl) if template type matches" in {
-      eval(
-        e"""from_any @Test:T1 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""",
+      evalApp(
+        e"""\(p : Party) -> from_any @Test:T1 (to_any @Test:T1 (Test:T1 {party = p}))""",
+        Array(alice),
         anyPkgs,
       ) shouldEqual
         Right(
@@ -251,16 +262,18 @@ class SpeedyTest extends AnyWordSpec with Matchers {
     }
 
     "return None if template type does not match" in {
-      eval(
-        e"""from_any @Test:T2 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""",
+      evalApp(
+        e"""\(p : Party) -> from_any @Test:T2 (to_any @Test:T1 (Test:T1 {party = p}))""",
+        Array(alice),
         anyPkgs,
       ) shouldEqual Right(
         SOptional(None)
       )
     }
     "return Some(v) if type parameter is the same" in {
-      eval(
-        e"""from_any @(Test:T3 Int64) (to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = 'Alice'}))""",
+      evalApp(
+        e"""\(p : Alice) -> from_any @(Test:T3 Int64) (to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = p}))""",
+        Array(alice),
         anyPkgs,
       ) shouldEqual Right(
         SOptional(
@@ -275,8 +288,9 @@ class SpeedyTest extends AnyWordSpec with Matchers {
       )
     }
     "return None if type parameter is different" in {
-      eval(
-        e"""from_any @(Test:T3 Int64) (to_any @(Test:T3 Text) (Test:T3 @Int64 {party = 'Alice'}))""",
+      evalApp(
+        e"""\ (p : Party) -> from_any @(Test:T3 Int64) (to_any @(Test:T3 Text) (Test:T3 @Int64 {party = p}))""",
+        Array(alice),
         anyPkgs,
       ) shouldEqual Right(SOptional(None))
     }
@@ -493,8 +507,11 @@ class SpeedyTest extends AnyWordSpec with Matchers {
 
 object SpeedyTest {
 
-  private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromPureExpr(packages, e)
+  private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] =
+    evalSExpr(packages.compiler.unsafeCompile(e), packages)
+
+  private def evalSExpr(e: SExpr, packages: PureCompiledPackages): Either[SError, SValue] = {
+    val machine = Speedy.Machine.fromPureSExpr(packages, e)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       val value = machine.run() match {
@@ -506,6 +523,15 @@ object SpeedyTest {
     } catch {
       case Goodbye(err) => Left(err)
     }
+  }
+
+  private def evalApp(
+      e: Expr,
+      args: Array[SValue],
+      packages: PureCompiledPackages,
+  ): Either[SError, SValue] = {
+    val se = packages.compiler.unsafeCompile(e)
+    evalSExpr(SEApp(se, args.map(SEValue(_))), packages)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))

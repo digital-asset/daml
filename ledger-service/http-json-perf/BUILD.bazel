@@ -88,7 +88,7 @@ perf_runtime_deps = {
         "ce",
         "ee",
     ]
-] if scala_major_version == "2.13" else None
+]
 
 daml_compile(
     name = "LargeAcs",
@@ -150,6 +150,6 @@ daml_compile(
         "ce",
         "ee",
     ]
-] if scala_major_version == "2.13" else None
+]
 
 exports_files(["release/json-api-perf-logback.xml"])

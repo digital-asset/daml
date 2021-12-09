@@ -71,6 +71,7 @@ private[kvutils] object TransactionRejections {
       recordTime: Timestamp,
       rejectionEntry: DamlTransactionRejectionEntry,
       errorVersionSwitch: ValueSwitch,
+      existingCommandSubmissionId: Option[String],
   )(implicit loggingContext: ContextualizedErrorLogger): Update.CommandRejected = {
     val definiteAnswer = rejectionEntry.getDefiniteAnswer
     Update.CommandRejected(
@@ -82,7 +83,7 @@ private[kvutils] object TransactionRejections {
       reasonTemplate = FinalReason(
         errorVersionSwitch.choose(
           V1.duplicateCommandsRejectionStatus(definiteAnswer, Code.ALREADY_EXISTS),
-          V2.duplicateCommandsRejectionStatus(definiteAnswer),
+          V2.duplicateCommandsRejectionStatus(definiteAnswer, existingCommandSubmissionId),
         )
       ),
     )
@@ -302,15 +303,19 @@ private[kvutils] object TransactionRejections {
   def duplicateCommandStatus(
       entry: DamlTransactionRejectionEntry,
       errorVersionSwitch: ValueSwitch,
-  )(implicit loggingContext: ContextualizedErrorLogger): Status =
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val rejectionReason = entry.getDuplicateCommand
     errorVersionSwitch.choose(
       V1.status(
         entry,
         Code.ALREADY_EXISTS,
         "Duplicate commands",
       ),
-      V2.duplicateCommandsRejectionStatus(),
+      V2.duplicateCommandsRejectionStatus(existingCommandSubmissionId =
+        Some(rejectionReason.getSubmissionId).filter(_.nonEmpty)
+      ),
     )
+  }
 
   @nowarn("msg=deprecated")
   def submitterCannotActViaParticipantStatus(
@@ -515,11 +520,12 @@ private[kvutils] object TransactionRejections {
         .asStatus
 
     def duplicateCommandsRejectionStatus(
-        definiteAnswer: Boolean = false
+        definiteAnswer: Boolean = false,
+        existingCommandSubmissionId: Option[String],
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       GrpcStatus.toProto(
         LedgerApiErrors.ConsistencyErrors.DuplicateCommand
-          .Reject(definiteAnswer)
+          .Reject(definiteAnswer, existingCommandSubmissionId)
           .asGrpcStatusFromContext
       )
 

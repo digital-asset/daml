@@ -23,11 +23,11 @@ template AssetDivulgence
     assetOwner: Party
   where
     signatory divulgee
+    observer assetOwner
 
-    controller assetOwner can
-      nonconsuming Divulge: ()
-        with
-          divulgedAsset: ContractId Asset
-        do
-          fetch divulgedAsset
-          return ()
+    nonconsuming choice Divulge: () with
+        divulgedAsset: ContractId Asset
+      controller assetOwner
+      do
+        fetch divulgedAsset
+        return ()

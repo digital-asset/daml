@@ -1,0 +1,17 @@
+-- Copyright (c) 2021, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+{-# OPTIONS_GHC -Wno-controller-can #-}
+
+module NoWarnControllerCan where
+
+template T with
+    p : Party
+    q : Party
+  where
+    signatory p
+
+    controller q can
+      nonconsuming Pass : ()
+        do
+          pure ()

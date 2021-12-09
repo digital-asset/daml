@@ -31,6 +31,7 @@ public class SubmitCommandsRequest {
   private final Optional<Instant> minLedgerTimeAbsolute;
   private final Optional<Duration> minLedgerTimeRelative;
   private final Optional<Duration> deduplicationTime;
+  private final Optional<String> submissionId;
   private final List<Command> commands;
 
   public SubmitCommandsRequest(
@@ -58,11 +59,82 @@ public class SubmitCommandsRequest {
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
+      @NonNull String submissionId,
+      @NonNull String party,
+      @NonNull Optional<Instant> minLedgerTimeAbsolute,
+      @NonNull Optional<Duration> minLedgerTimeRelative,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull Command> commands) {
+    this(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        minLedgerTimeAbsolute,
+        minLedgerTimeRelative,
+        deduplicationTime,
+        Optional.of(submissionId),
+        commands);
+  }
+
+  public SubmitCommandsRequest(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
       @NonNull Optional<Instant> minLedgerTimeAbsolute,
       @NonNull Optional<Duration> minLedgerTimeRelative,
       @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull Command> commands) {
+    this(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbsolute,
+        minLedgerTimeRelative,
+        deduplicationTime,
+        Optional.empty(),
+        commands);
+  }
+
+  public SubmitCommandsRequest(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String submissionId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbsolute,
+      @NonNull Optional<Duration> minLedgerTimeRelative,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull Command> commands) {
+    this(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbsolute,
+        minLedgerTimeRelative,
+        deduplicationTime,
+        Optional.of(submissionId),
+        commands);
+  }
+
+  private SubmitCommandsRequest(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbsolute,
+      @NonNull Optional<Duration> minLedgerTimeRelative,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull Optional<String> submissionId,
       @NonNull List<@NonNull Command> commands) {
     if (actAs.size() == 0) {
       throw new IllegalArgumentException("actAs must have at least one element");
@@ -76,11 +148,11 @@ public class SubmitCommandsRequest {
     this.minLedgerTimeAbsolute = minLedgerTimeAbsolute;
     this.minLedgerTimeRelative = minLedgerTimeRelative;
     this.deduplicationTime = deduplicationTime;
+    this.submissionId = submissionId;
     this.commands = commands;
   }
 
   public static SubmitCommandsRequest fromProto(CommandsOuterClass.Commands commands) {
-    String ledgerId = commands.getLedgerId();
     String workflowId = commands.getWorkflowId();
     String applicationId = commands.getApplicationId();
     String commandId = commands.getCommandId();
@@ -101,13 +173,21 @@ public class SubmitCommandsRequest {
                     commands.getMinLedgerTimeRel().getSeconds(),
                     commands.getMinLedgerTimeRel().getNanos()))
             : Optional.empty();
-    Optional<Duration> deduplicationTime =
-        commands.hasDeduplicationTime()
-            ? Optional.of(
-                Duration.ofSeconds(
-                    commands.getDeduplicationTime().getSeconds(),
-                    commands.getDeduplicationTime().getNanos()))
-            : Optional.empty();
+    Optional<Duration> deduplicationPeriod = Optional.empty();
+    switch (commands.getDeduplicationPeriodCase()) {
+      case DEDUPLICATION_DURATION:
+        com.google.protobuf.Duration d = commands.getDeduplicationDuration();
+        deduplicationPeriod = Optional.of(Duration.ofSeconds(d.getSeconds(), d.getNanos()));
+        break;
+      case DEDUPLICATION_TIME:
+        com.google.protobuf.Duration t = commands.getDeduplicationTime();
+        deduplicationPeriod = Optional.of(Duration.ofSeconds(t.getSeconds(), t.getNanos()));
+        break;
+      case DEDUPLICATIONPERIOD_NOT_SET:
+      default:
+        // Backwards compatibility: do not throw, this field could be empty from a previous version
+    }
+    String submissionId = commands.getSubmissionId();
     ArrayList<Command> listOfCommands = new ArrayList<>(commands.getCommandsCount());
     for (CommandsOuterClass.Command command : commands.getCommandsList()) {
       listOfCommands.add(Command.fromProtoCommand(command));
@@ -123,11 +203,12 @@ public class SubmitCommandsRequest {
         readAs,
         minLedgerTimeAbs,
         minLedgerTimeRel,
-        deduplicationTime,
+        deduplicationPeriod,
+        submissionId.isEmpty() ? Optional.empty() : Optional.of(submissionId),
         listOfCommands);
   }
 
-  public static CommandsOuterClass.Commands toProto(
+  private static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -137,6 +218,7 @@ public class SubmitCommandsRequest {
       @NonNull Optional<Instant> minLedgerTimeAbsolute,
       @NonNull Optional<Duration> minLedgerTimeRelative,
       @NonNull Optional<Duration> deduplicationTime,
+      @NonNull Optional<String> submissionId,
       @NonNull List<@NonNull Command> commands) {
     if (actAs.size() == 0) {
       throw new IllegalArgumentException("actAs must have at least one element");
@@ -171,7 +253,87 @@ public class SubmitCommandsRequest {
                 com.google.protobuf.Duration.newBuilder()
                     .setSeconds(dedup.getSeconds())
                     .setNanos(dedup.getNano())));
+    submissionId.ifPresent(builder::setSubmissionId);
     return builder.build();
+  }
+
+  public static CommandsOuterClass.Commands toProto(
+      @NonNull String ledgerId,
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbsolute,
+      @NonNull Optional<Duration> minLedgerTimeRelative,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull Command> commands) {
+    return toProto(
+        ledgerId,
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbsolute,
+        minLedgerTimeRelative,
+        deduplicationTime,
+        Optional.empty(),
+        commands);
+  }
+
+  public static CommandsOuterClass.Commands toProto(
+      @NonNull String ledgerId,
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String submissionId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbsolute,
+      @NonNull Optional<Duration> minLedgerTimeRelative,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull Command> commands) {
+    return toProto(
+        ledgerId,
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbsolute,
+        minLedgerTimeRelative,
+        deduplicationTime,
+        Optional.of(submissionId),
+        commands);
+  }
+
+  public static CommandsOuterClass.Commands toProto(
+      @NonNull String ledgerId,
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String submissionId,
+      @NonNull String party,
+      @NonNull Optional<Instant> minLedgerTimeAbsolute,
+      @NonNull Optional<Duration> minLedgerTimeRelative,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull Command> commands) {
+    List<String> empty_read_as = new ArrayList<>();
+    List<String> act_as = new ArrayList<>();
+    act_as.add(party);
+    return toProto(
+        ledgerId,
+        workflowId,
+        applicationId,
+        commandId,
+        act_as,
+        empty_read_as,
+        minLedgerTimeAbsolute,
+        minLedgerTimeRelative,
+        deduplicationTime,
+        Optional.of(submissionId),
+        commands);
   }
 
   public static CommandsOuterClass.Commands toProto(
@@ -197,6 +359,7 @@ public class SubmitCommandsRequest {
         minLedgerTimeAbsolute,
         minLedgerTimeRelative,
         deduplicationTime,
+        Optional.empty(),
         commands);
   }
 
@@ -246,6 +409,11 @@ public class SubmitCommandsRequest {
   }
 
   @NonNull
+  public Optional<String> getSubmissionId() {
+    return submissionId;
+  }
+
+  @NonNull
   public List<@NonNull Command> getCommands() {
     return commands;
   }
@@ -271,6 +439,8 @@ public class SubmitCommandsRequest {
         + minLedgerTimeRelative
         + ", deduplicationTime="
         + deduplicationTime
+        + ", submissionId="
+        + submissionId
         + ", commands="
         + commands
         + '}';
@@ -290,12 +460,12 @@ public class SubmitCommandsRequest {
         && Objects.equals(minLedgerTimeAbsolute, submitCommandsRequest1.minLedgerTimeAbsolute)
         && Objects.equals(minLedgerTimeRelative, submitCommandsRequest1.minLedgerTimeRelative)
         && Objects.equals(deduplicationTime, submitCommandsRequest1.deduplicationTime)
+        && Objects.equals(submissionId, submitCommandsRequest1.submissionId)
         && Objects.equals(commands, submitCommandsRequest1.commands);
   }
 
   @Override
   public int hashCode() {
-
     return Objects.hash(
         workflowId,
         applicationId,
@@ -306,6 +476,7 @@ public class SubmitCommandsRequest {
         minLedgerTimeAbsolute,
         minLedgerTimeRelative,
         deduplicationTime,
+        submissionId,
         commands);
   }
 }

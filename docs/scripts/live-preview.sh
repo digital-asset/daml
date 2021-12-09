@@ -21,6 +21,8 @@ cleanup()
   rm -rf ../source/getting-started/code
   rm -rf ../source/daml/stdlib
   rm -f ../source/app-dev/grpc/proto-docs.rst
+  rm -f ../source/app-dev/grpc/error-codes-inventory.rst.inc
+  rm -f ../source/app-dev/grpc/error-categories-inventory.rst.inc
   rm -f ../source/LICENSE
   rm -f ../source/NOTICES
   echo "Done cleanup ... quitting."
@@ -52,8 +54,7 @@ TEMPLATES_DIR=$BUILD_DIR/source/_templates
 mkdir -p $TEMPLATES_DIR
 tar -zxf $BAZEL_BIN/templates/templates-tarball.tar.gz -C $TEMPLATES_DIR --strip-components=1
 
-# Error codes: create JSON file with error codes information
-bazel build //docs:generate-error-codes-json
+GEN_ERROR_CODES=false
 
 for arg in "$@"
 do
@@ -63,6 +64,10 @@ do
         cp -L ../../bazel-bin/docs/DigitalAssetSDK.pdf $BUILD_DIR/gen/_downloads
     fi
     if [ "$arg" = "--gen" ]; then
+        # NOTE:
+        # $BUILD_DIR/source is a symlink into the versioned controlled directory with source .rst files.
+        # When generating files into that directory make sure to remove them before this script ends.
+
         # Hoogle
         bazel build //compiler/damlc:daml-base-hoogle.txt
         mkdir -p $BUILD_DIR/gen/hoogle_db
@@ -79,13 +84,26 @@ do
 
         #StdLib
         bazel build //compiler/damlc:daml-base-rst.tar.gz
+        mkdir -p ../source/daml/stdlib
         tar xf ../../bazel-bin/compiler/damlc/daml-base-rst.tar.gz \
             --strip-components 1 -C ../source/daml/stdlib
+
+    fi
+    if  [ "$arg" = "--gen" ] || [ "$arg" = "--gen-error-codes" ]; then
+      GEN_ERROR_CODES=true
     fi
 done
+
+if  [ "$GEN_ERROR_CODES" = "true" ]; then
+    # Error codes and error categories
+    bazel build //docs:generate-docs-error-codes-inventory-into-rst-file
+    cp -L ../../bazel-bin/docs/error-codes-inventory.rst $BUILD_DIR/source/app-dev/grpc/error-codes-inventory.rst.inc
+    bazel build //docs:generate-docs-error-categories-inventory-into-rst-file
+    cp -L ../../bazel-bin/docs/error-categories-inventory.rst $BUILD_DIR/source/app-dev/grpc/error-categories-inventory.rst.inc
+fi
 
 DATE=$(date +"%Y-%m-%d")
 echo { \"$DATE\" : \"$DATE\" } >  $BUILD_DIR/gen/versions.json
 
 pipenv install
-pipenv run sphinx-autobuild -D error_codes_json_export=../../bazel-bin/docs/error_codes_export.json -c $BUILD_DIR/configs/html $BUILD_DIR/source $BUILD_DIR/gen
+pipenv run sphinx-autobuild -c $BUILD_DIR/configs/html $BUILD_DIR/source $BUILD_DIR/gen

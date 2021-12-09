@@ -41,6 +41,7 @@ instance RenderDoc ModuleDoc where
         , RenderModuleHeader ("Module " <> unModulename md_name)
         , renderDoc md_descr
         , section "Templates" md_templates
+        , section "Interfaces" md_interfaces
         , section "Typeclasses" md_classes
         , section "Orphan Typeclass Instances" (filter id_isOrphan md_instances)
         , section "Data Types" md_adts
@@ -75,7 +76,36 @@ instance RenderDoc TemplateDoc where
             , fieldTable td_payload
             , RenderList (map renderDoc td_choices)
             ]
+        , if null td_impls
+          then mempty
+          else RenderBlock $ mconcat
+                [ RenderList (map renderDoc td_impls)
+                ]
         ]
+
+instance RenderDoc InterfaceDoc where
+    renderDoc InterfaceDoc{..} = mconcat
+        [ renderDoc if_anchor
+        , RenderParagraph . renderUnwords . concat $
+            [ [RenderStrong "interface"]
+            , [maybeAnchorLink if_anchor (unTypename if_name)]
+            ]
+        , RenderBlock $ mconcat
+            [ renderDoc if_descr
+            , RenderList (map renderDoc if_choices)
+            , RenderList (map renderDoc if_methods)
+            ]
+        ]
+
+instance RenderDoc ImplDoc where
+    renderDoc ImplDoc {..} =
+        RenderParagraph $
+            renderUnwords [ RenderStrong "implements", renderType impl_iface ]
+
+instance RenderDoc MethodDoc where
+    renderDoc MethodDoc {..} = mconcat
+      [ RenderParagraph $ RenderStrong ("Method " <> unTypename mtd_name <> " : ") <> renderType mtd_type
+      ]
 
 instance RenderDoc ChoiceDoc where
     renderDoc ChoiceDoc{..} = mconcat

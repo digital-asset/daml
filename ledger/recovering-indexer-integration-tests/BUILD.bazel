@@ -44,6 +44,7 @@ da_scala_test_suite(
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
         "//ledger/ledger-on-memory",
+        "//ledger/ledger-on-memory:app",
         "//ledger/ledger-resources",
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",

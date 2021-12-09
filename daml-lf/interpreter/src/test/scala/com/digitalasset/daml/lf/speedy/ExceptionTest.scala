@@ -12,7 +12,8 @@ import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SError.SErrorDamlException
-import com.daml.lf.speedy.SValue.SUnit
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SValue.{SUnit, SParty}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.Validation
@@ -23,6 +24,11 @@ import org.scalatest.wordspec.AnyWordSpec
 
 // TEST_EVIDENCE: Semantics: Exceptions, throw/catch.
 class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+
+  private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
+    val se = pkgs.compiler.unsafeCompile(e)
+    SEApp(se, Array(SEValue(SParty(p))))
+  }
 
   "unhandled throw" should {
 
@@ -464,12 +470,14 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   "rollback of creates" should {
 
     val party = Party.assertFromString("Alice")
-    val example: Expr = EApp(e"M:causeRollback", EPrimLit(PLParty(party)))
+    val example: Expr = e"M:causeRollback"
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
     "works as expected for a contract version POST-dating exceptions" in {
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_dev)
-      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, example, party).run()
+      val res = Speedy.Machine
+        .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
+        .run()
       res shouldBe SResultFinalValue(SUnit)
     }
 
@@ -482,7 +490,9 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
         IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
 
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11)
-      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, example, party).run()
+      val res = Speedy.Machine
+        .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
+        .run()
       res shouldBe SResultError(SErrorDamlException(anException))
     }
 
@@ -503,19 +513,17 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
         record @serializable T1 = { party: Party, info: Int64 } ;
         template (record : T1) = {
-          precondition True,
-          signatories Cons @Party [M:T1 {party} record] (Nil @Party),
-          observers Nil @Party,
-          agreement "Agreement",
-          choices {
-            choice MyChoice (self) (i : Unit) : Unit
-            , controllers Cons @Party [M:T1 {party} record] (Nil @Party)
+          precondition True;
+          signatories Cons @Party [M:T1 {party} record] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
+          choice MyChoice (self) (i : Unit) : Unit, 
+            controllers Cons @Party [M:T1 {party} record] (Nil @Party)
             to
               ubind
                 x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
                 x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
-              in upure @Unit ()
-          }
+              in upure @Unit ();
         };
 
         val causeRollback : Party -> Update Unit = \(party: Party) ->
@@ -549,7 +557,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
   private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("ExceptionTest.scala")
-    Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, party).run()
+    Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party)).run()
   }
 
   "rollback of creates (mixed versions)" should {
@@ -568,11 +576,10 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       module OldM {
         record @serializable OldT = { party: Party } ;
         template (record : OldT) = {
-          precondition True,
-          signatories Cons @Party [OldM:OldT {party} record] (Nil @Party),
-          observers Nil @Party,
-          agreement "Agreement",
-          choices {}
+          precondition True;
+          signatories Cons @Party [OldM:OldT {party} record] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
         };
       } """
     }
@@ -590,39 +597,34 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
         record @serializable NewT = { party: Party } ;
         template (record : NewT) = {
-          precondition True,
-          signatories Cons @Party [NewM:NewT {party} record] (Nil @Party),
-          observers Nil @Party,
-          agreement "Agreement",
-          choices {
-
-            choice MyChoiceCreateJustNew (self) (i : Unit) : Unit
-            , controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+          precondition True;
+          signatories Cons @Party [NewM:NewT {party} record] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
+          choice MyChoiceCreateJustNew (self) (i : Unit) : Unit,
+            controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
             to
               ubind
                 new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
                 new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
-              in upure @Unit (),
-
-            choice MyChoiceCreateOldAndNew (self) (i : Unit) : Unit
-            , controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+              in upure @Unit ();
+          choice MyChoiceCreateOldAndNew (self) (i : Unit) : Unit,
+            controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
             to
               ubind
                 new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
                 old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
                 new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
-              in upure @Unit (),
-
-            choice MyChoiceCreateOldAndNewThenThrow (self) (i : Unit) : Unit
-            , controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+              in upure @Unit ();
+          choice MyChoiceCreateOldAndNewThenThrow (self) (i : Unit) : Unit,
+            controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
             to
               ubind
                 new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
                 old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
                 new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
                 u: Unit <- throw @(Update Unit) @NewM:AnException (NewM:AnException {})
-              in upure @Unit ()
-          }
+              in upure @Unit ();
         };
 
         val causeRollback : Party -> Update Unit = \(party: Party) ->
@@ -691,22 +693,25 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
-    val causeRollback: Expr = EApp(e"NewM:causeRollback", EPrimLit(PLParty(party)))
-    val causeUncatchable: Expr = EApp(e"NewM:causeUncatchable", EPrimLit(PLParty(party)))
-    val causeUncatchable2: Expr = EApp(e"NewM:causeUncatchable2", EPrimLit(PLParty(party)))
+    val causeRollback: SExpr = applyToParty(pkgs, e"NewM:causeRollback", party)
+    val causeUncatchable: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable", party)
+    val causeUncatchable2: SExpr = applyToParty(pkgs, e"NewM:causeUncatchable2", party)
 
     "create rollback when old contacts are not within try-catch context" in {
-      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeRollback, party).run()
+      val res =
+        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party)).run()
       res shouldBe SResultFinalValue(SUnit)
     }
 
     "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
-      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeUncatchable, party).run()
+      val res =
+        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, Set(party)).run()
       res shouldBe SResultError(SErrorDamlException(anException))
     }
 
     "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
-      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeUncatchable2, party).run()
+      val res =
+        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, Set(party)).run()
       res shouldBe SResultError(SErrorDamlException(anException))
     }
 

@@ -206,7 +206,9 @@ genModule pkgMap (Scope scope) curPkgId mod
           : map (internalImportDecl jsSyntax rootPath) internalImports
           : body
 
-        (jsBody, tsDeclsBody) = unzip $ map (unzip . map renderTsDecl) (decls ++ ifaceDecls)
+        (jsBody, tsDeclsBody) = unzip $ map (unzip . map renderTsDecl) (ifaceDecls ++ decls)
+        -- ifaceDecls need to come before decls, otherwise (JavaScript) interface choice objects
+        -- will not be defined in template object.
         depends = Set.map (Dependency . pkgRefStr pkgMap) externalImports
    in Just ((makeMod ES5 jsBody, makeMod ES6 tsDeclsBody), depends)
   where
@@ -382,35 +384,47 @@ data TemplateDef = TemplateDef
   }
 
 renderTemplateDef :: TemplateDef -> (T.Text, T.Text)
-renderTemplateDef TemplateDef{..} =
-    let jsSource = T.unlines $ concat
-          [ [ "exports." <> tplName <> " = {"
-            , "  templateId: '" <> templateId <> "',"
-            , "  keyDecoder: " <> renderDecoder (DecoderLazy keyDec) <> ","
-            , "  keyEncode: " <> renderEncode tplKeyEncode <> ","
-            , "  decoder: " <> renderDecoder (DecoderLazy tplDecoder) <> ","
-            , "  encode: " <> renderEncode tplEncode <> ","
+renderTemplateDef TemplateDef {..} =
+  let jsSource =
+        T.unlines $
+        concat
+          [ ["exports." <> tplName <> " = Object.assign("]
+          , ["exports." <> impl <> "," | impl <- tplImplements']
+          -- we spread in the interface choices, the templateId field of the interface will be overwritten by the template object.
+          , [ T.unlines $
+              concat
+                [ ["{"]
+                , [ "  templateId: '" <> templateId <> "',"
+                  , "  keyDecoder: " <> renderDecoder (DecoderLazy keyDec) <> ","
+                  , "  keyEncode: " <> renderEncode tplKeyEncode <> ","
+                  , "  decoder: " <> renderDecoder (DecoderLazy tplDecoder) <> ","
+                  , "  encode: " <> renderEncode tplEncode <> ","
+                  ]
+                , concat
+                    [ [ "  " <> chcName' <> ": {"
+                      , "    template: function () { return exports." <> tplName <> "; },"
+                      , "    choiceName: '" <> chcName' <> "',"
+                      , "    argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <>
+                        ","
+                      , "    argumentEncode: " <> renderEncode (EncodeRef chcArgTy) <> ","
+                      , "    resultDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcRetTy)) <>
+                        ","
+                      , "    resultEncode: " <> renderEncode (EncodeRef chcRetTy) <> ","
+                      , "  },"
+                    ]
+                    | ChoiceDef {..} <- tplChoices'
+                    ]
+                , ["}"]
+                ]
             ]
-          , concat
-            [ [ "  " <> chcName' <> ": {"
-              , "    template: function () { return exports." <> tplName <> "; },"
-              , "    choiceName: '" <> chcName' <> "',"
-              , "    argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <> ","
-              , "    argumentEncode: " <> renderEncode (EncodeRef chcArgTy) <> ","
-              , "    resultDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcRetTy)) <> ","
-              , "    resultEncode: " <> renderEncode (EncodeRef chcRetTy) <> ","
-              , "  },"
-              ]
-            | ChoiceDef{..} <- tplChoices'
-            ]
-          , [ "};" ]
+          , [");"]
           ]
-        tsDecl = T.unlines $ concat
-          [ ifaceDefTempl tplName (Just keyTy) tplImplements' tplChoices'
-          , [ "export declare const " <> tplName <> ":"
-            , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> & " <> tplName <> "Interface;"
-            ]
+      tsDecl = T.unlines $ concat
+        [ ifaceDefTempl tplName (Just keyTy) tplImplements' tplChoices'
+        , [ "export declare const " <> tplName <> ":"
+          , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> & " <> tplName <> "Interface;"
           ]
+        ]
     in (jsSource, tsDecl)
   where (keyTy, keyDec) = case tplKeyDecoder of
             Nothing -> ("undefined", DecoderConstant ConstantUndefined)
@@ -430,7 +444,24 @@ data InterfaceDef = InterfaceDef
 renderInterfaceDef :: InterfaceDef -> (T.Text, T.Text)
 renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSource, tsDecl)
   where
-    jsSource = ""
+    jsSource = T.unlines $ concat
+      [ [ "exports." <> ifName <> " = {"
+        , "  templateId: '" <> ifaceId <> "',"
+        ]
+      , concat
+        [ [ "  " <> chcName' <> ": {"
+          , "    template: function () { return exports." <> ifName <> "; },"
+          , "    choiceName: '" <> chcName' <> "',"
+          , "    argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <> ","
+          , "    argumentEncode: " <> renderEncode (EncodeRef chcArgTy) <> ","
+          , "    resultDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcRetTy)) <> ","
+          , "    resultEncode: " <> renderEncode (EncodeRef chcRetTy) <> ","
+          , "  },"
+          ]
+          | ChoiceDef{..} <- ifChoices
+          ]
+      , [ "};" ]
+      ]
     tsDecl = T.unlines $ concat
       [ifaceDefIface ifName Nothing ifChoices
       , ["export declare const " <> ifName <> ": damlTypes.Template<object, undefined, '" <> ifaceId <> "'> & " <> ifName <> "Interface<object>;"]

@@ -41,21 +41,19 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
             record @serializable Person = { person: Party, name: Text } ;
 
             template (this : Person) =  {
-              precondition True,
-              signatories Cons @Party [Mod:Person {person} this] (Nil @Party),
-              observers Cons @Party [Mod:Person {person} this] (Nil @Party),
-              agreement "Agreement",
-              choices {
-                choice Sleep (self) (u: Unit) : Unit, 
-                    controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
-                    observers Nil @Party
-                  to upure @Unit (),
-                choice @nonConsuming Nap (self) (i : Int64): Int64, 
-                    controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
-                    observers Cons @Party [Mod:Person {person} this] (Nil @Party)
-                to upure @Int64 i
-              },
-              key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
+              precondition True;
+              signatories Cons @Party [Mod:Person {person} this] (Nil @Party);
+              observers Cons @Party [Mod:Person {person} this] (Nil @Party);
+              agreement "Agreement";
+              choice Sleep (self) (u: Unit) : Unit, 
+                  controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
+                  observers Nil @Party
+                to upure @Unit ();
+              choice @nonConsuming Nap (self) (i : Int64): Int64, 
+                  controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
+                  observers Cons @Party [Mod:Person {person} this] (Nil @Party)
+              to upure @Int64 i;
+              key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
             };
 
            variant Tree (a : * ) = Leaf : Unit | Node : Mod:Tree.Node a ;
@@ -72,7 +70,6 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
            val aDecimal: Numeric 10 = 2.2000000000;
            val aDate: Date = 1879-03-14;
            val aTimestamp: Timestamp = 1970-01-01T00:00:00.000001Z;
-           val aParty: Party = 'party';
            val aString: Text = "a string";
            val aStruct: forall (a:*) (b:*). a ->  b -> < x1: a, x2: b > = /\ (a:*) (b:*). \ (x1: a) (x2: b) ->
              <x1 = x1, x2 = x2>;

@@ -41,27 +41,25 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
             cids: List (ContractId Mod:Contract)
           };
 
-          val @noPartyLiterals keyParties: (Mod:Key -> List Party) =
+          val keyParties: (Mod:Key -> List Party) =
             \(key: Mod:Key) ->
               Cons @Party [Mod:Key {party} key] (Nil @Party);
 
-          val @noPartyLiterals contractParties : (Mod:Contract -> List Party) =
+          val contractParties : (Mod:Contract -> List Party) =
             \(contract: Mod:Contract) ->
               Mod:keyParties (Mod:Contract {key} contract);
 
           template (this : Contract) =  {
-             precondition True,
-             signatories Mod:contractParties this,
-             observers Mod:contractParties this,
-             agreement "Agreement",
-             choices {
-               choice @nonConsuming Noop (self) (r: Mod:Record) : Mod:Record,
-                 controllers
-                   Mod:contractParties this
-                 to
-                   upure @Mod:Record r
-             },
-             key @Mod:Key (Mod:Contract {key} this) Mod:keyParties
+             precondition True;
+             signatories Mod:contractParties this;
+             observers Mod:contractParties this;
+             agreement "Agreement";
+             choice @nonConsuming Noop (self) (r: Mod:Record) : Mod:Record,
+               controllers
+                 Mod:contractParties this
+               to
+                 upure @Mod:Record r;
+             key @Mod:Key (Mod:Contract {key} this) Mod:keyParties;
           };
         }
 

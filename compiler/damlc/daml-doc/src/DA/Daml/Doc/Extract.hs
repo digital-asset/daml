@@ -87,19 +87,21 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
                         Nothing -> Left classDoc
                         Just templateName -> Right (templateName, classDoc)
             templateInstanceClassMap = MS.fromList templateInstanceClasses
+            templateImplementsMap = getTemplateImplementsMap ctx dc_decls
 
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc tcmod
-            md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap
+            md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap templateImplementsMap
+            md_interfaces = getInterfaceDocs ctx typeMap
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_instances = map (getInstanceDocs ctx) dc_insts
 
             -- Type constructor docs without data types corresponding to
-            -- templates and choices
+            -- templates, interfaces and choices
             adts
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
-                $ dc_templates : MS.elems dc_choices
+                $ dc_templates : dc_interfaces : MS.elems dc_choices
 
             md_adts = mapMaybe (filterTypeByExports md_name dc_exports) adts
 
@@ -145,7 +147,7 @@ buildDocCtx dc_extractOptions tcmod  =
         dc_decls
             = collectDocs . hsmodDecls . unLoc
             . pm_parsed_source $ parsedMod
-        (dc_templates, dc_choices) = getTemplateData parsedMod
+        (dc_templates, dc_interfaces, dc_choices) = getTemplateData parsedMod
 
         tythings = modInfoTyThings checkedModInfo
         dc_insts = modInfoInstances checkedModInfo
@@ -203,6 +205,20 @@ haddockParse diagsLogger opts f = MaybeT $ do
 
 ------------------------------------------------------------
 
+-- | Extracts the set of interface types implemented by each template type.
+getTemplateImplementsMap :: DocCtx -> [DeclData] -> MS.Map Typename (Set.Set DDoc.Type)
+getTemplateImplementsMap ctx@DocCtx{..} decls =
+    MS.fromListWith Set.union
+        [ (t, Set.singleton iface)
+        | DeclData decl _ <- decls
+        , name <- case unLoc decl of
+            SigD _ (TypeSig _ (L _ n :_) _) -> [packRdrName n]
+            _ -> []
+        , Just _ <- [T.stripPrefix "_implements_" name]
+        , Just id <- [MS.lookup (Fieldname name) dc_ids]
+        , TypeApp _ (Typename "ImplementsT") [TypeApp _ t [], iface] <- [typeToType ctx $ idType id]
+        ]
+
 -- | Extracts the documentation of a function. Comments are either
 --   adjacent to a type signature, or to the actual function definition. If
 --   neither a comment nor a function type is in the source, we omit the
@@ -229,6 +245,8 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
 
     guard (exportsFunction dc_exports fct_name)
     guard (not $ "_choice_" `T.isPrefixOf` packRdrName name)
+    guard (not $ "_implements_" `T.isPrefixOf` packRdrName name)
+    guard (not $ "_requires_" `T.isPrefixOf` packRdrName name)
     Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc

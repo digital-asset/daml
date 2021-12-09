@@ -52,7 +52,7 @@ class CommandDeduplicationSpec
   private val rejections = new Rejections(metrics)
   private val deduplicateCommandStep = CommandDeduplication.deduplicateCommandStep(rejections)
   private val setDeduplicationEntryStep =
-    CommandDeduplication.setDeduplicationEntryStep()
+    CommandDeduplication.setDeduplicationEntryStep(theDefaultConfig)
   private val timestamp: Timestamp = Timestamp.now()
 
   "deduplicateCommand" should {
@@ -171,6 +171,20 @@ class CommandDeduplicationSpec
                   deduplicateStepHasTransactionRejectionEntry(context)
                 }
               }
+
+              "include the submission id in the rejection" in {
+                val submissionId = "submissionId"
+                val (_, context) = contextBuilder(timestamp =>
+                  Some(
+                    newDedupValue(builder =>
+                      timeSetter(timestamp)(builder.setSubmissionId(submissionId))
+                    )
+                  )
+                )
+                val rejection = deduplicateStepHasTransactionRejectionEntry(context)
+                rejection.getDuplicateCommand.getSubmissionId shouldBe submissionId
+              }
+
             }
           }
         }
@@ -236,68 +250,135 @@ class CommandDeduplicationSpec
     }
   }
 
-  "setting dedup context" should {
+  "setting dedup context" when {
     val deduplicateUntil = protobuf.Timestamp.newBuilder().setSeconds(30).build()
     val submissionTime = protobuf.Timestamp.newBuilder().setSeconds(60).build()
     val deduplicationDuration = time.Duration.ofSeconds(3)
 
-    "set the time bounds for deduplication based on the committer context values" in {
-      val (context, transactionEntrySummary) =
-        buildContextAndTransaction(
-          submissionTime,
-          _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
-        )
-      val minimumRecordTime = timestamp
-      val maximumRecordTime = minimumRecordTime.subtract(Duration.ofSeconds(1))
-      context.maximumRecordTime = Some(maximumRecordTime)
-      context.minimumRecordTime = Some(minimumRecordTime)
-      setDeduplicationEntryStep(context, transactionEntrySummary)
-      val setTimeBounds = deduplicateValueStoredInContext(context, transactionEntrySummary)
-        .map(
-          _.getRecordTimeBounds
-        )
-        .value
-      setTimeBounds shouldBe PreExecutionDeduplicationBounds
-        .newBuilder()
-        .setMinRecordTime(buildTimestamp(minimumRecordTime))
-        .setMaxRecordTime(buildTimestamp(maximumRecordTime))
-        .build()
-    }
+    "using pre-execution" should {
 
-    "set the record time in the committer context values" in {
-      val recordTime = timestamp
-      val (context, transactionEntrySummary) =
-        buildContextAndTransaction(
-          submissionTime,
-          _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
-          Some(recordTime),
-        )
-      context.maximumRecordTime = Some(recordTime)
-      setDeduplicationEntryStep(context, transactionEntrySummary)
-      parseTimestamp(
-        deduplicateValueStoredInContext(context, transactionEntrySummary)
+      "set the time bounds for deduplication based on the committer context values" in {
+        val (context, transactionEntrySummary) =
+          buildContextAndTransaction(
+            submissionTime,
+            _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
+          )
+        val minimumRecordTime = timestamp
+        val maximumRecordTime = minimumRecordTime.subtract(Duration.ofSeconds(1))
+        context.maximumRecordTime = Some(maximumRecordTime)
+        context.minimumRecordTime = Some(minimumRecordTime)
+        setDeduplicationEntryStep(context, transactionEntrySummary)
+        val setTimeBounds = deduplicateValueStoredInContext(context, transactionEntrySummary)
           .map(
-            _.getRecordTime
+            _.getRecordTimeBounds
           )
           .value
-      ) shouldBe recordTime
+        setTimeBounds shouldBe PreExecutionDeduplicationBounds
+          .newBuilder()
+          .setMinRecordTime(buildTimestamp(minimumRecordTime))
+          .setMaxRecordTime(buildTimestamp(maximumRecordTime))
+          .build()
+      }
+
+      "set pruning time based on max record time" in {
+        val (context, transactionEntrySummary) =
+          buildContextAndTransaction(
+            submissionTime,
+            identity,
+          )
+        val minimumRecordTime = timestamp
+        val maximumRecordTime = minimumRecordTime.add(Duration.ofSeconds(1))
+        context.maximumRecordTime = Some(maximumRecordTime)
+        context.minimumRecordTime = Some(minimumRecordTime)
+        setDeduplicationEntryStep(context, transactionEntrySummary)
+        parseTimestamp(
+          deduplicateValueStoredInContext(context, transactionEntrySummary)
+            .map(
+              _.getPrunableFrom
+            )
+            .value
+        ) shouldBe maximumRecordTime
+          .add(theDefaultConfig.maxDeduplicationTime)
+          .add(theDefaultConfig.timeModel.minSkew)
+          .add(theDefaultConfig.timeModel.maxSkew)
+      }
+
+      "throw an error for missing record time bounds" in {
+        val (context, transactionEntrySummary) =
+          buildContextAndTransaction(
+            submissionTime,
+            _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
+          )
+        context.minimumRecordTime = Some(timestamp)
+        a[Err.InternalError] shouldBe thrownBy(
+          setDeduplicationEntryStep(context, transactionEntrySummary)
+        )
+        context.maximumRecordTime = Some(timestamp)
+        context.minimumRecordTime = None
+        a[Err.InternalError] shouldBe thrownBy(
+          setDeduplicationEntryStep(context, transactionEntrySummary)
+        )
+      }
     }
 
-    "throw an error for missing record time bounds" in {
+    "using normal execution" should {
+
+      "set the record time in the committer context values" in {
+        val recordTime = timestamp
+        val (context, transactionEntrySummary) =
+          buildContextAndTransaction(
+            submissionTime,
+            _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
+            Some(recordTime),
+          )
+        setDeduplicationEntryStep(context, transactionEntrySummary)
+        parseTimestamp(
+          deduplicateValueStoredInContext(context, transactionEntrySummary)
+            .map(
+              _.getRecordTime
+            )
+            .value
+        ) shouldBe recordTime
+      }
+
+      "set pruning time based on record time" in {
+        val recordTime = timestamp
+        val (context, transactionEntrySummary) =
+          buildContextAndTransaction(
+            submissionTime,
+            identity,
+            Some(recordTime),
+          )
+        setDeduplicationEntryStep(context, transactionEntrySummary)
+        parseTimestamp(
+          deduplicateValueStoredInContext(context, transactionEntrySummary)
+            .map(
+              _.getPrunableFrom
+            )
+            .value
+        ) shouldBe recordTime
+          .add(theDefaultConfig.maxDeduplicationTime)
+          .add(theDefaultConfig.timeModel.minSkew)
+          .add(theDefaultConfig.timeModel.maxSkew)
+      }
+
+    }
+
+    "set the submission id in the dedup value" in {
+      val submissionId = "submissionId"
       val (context, transactionEntrySummary) =
         buildContextAndTransaction(
           submissionTime,
-          _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
+          _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration))
+            .setSubmissionId(submissionId),
+          Some(timestamp),
         )
-      context.minimumRecordTime = Some(timestamp)
-      a[Err.InternalError] shouldBe thrownBy(
-        setDeduplicationEntryStep(context, transactionEntrySummary)
-      )
-      context.maximumRecordTime = Some(timestamp)
-      context.minimumRecordTime = None
-      a[Err.InternalError] shouldBe thrownBy(
-        setDeduplicationEntryStep(context, transactionEntrySummary)
-      )
+      setDeduplicationEntryStep(context, transactionEntrySummary)
+      deduplicateValueStoredInContext(context, transactionEntrySummary)
+        .map(
+          _.getSubmissionId
+        )
+        .value shouldBe submissionId
     }
 
     "throw an error for unsupported deduplication periods" in {

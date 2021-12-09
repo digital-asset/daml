@@ -21,9 +21,7 @@ module DA.Internal.LF
 
   , TextMap
 
-  #ifdef DAML_GENMAP
   , Map
-  #endif
 
   , Update
 
@@ -125,26 +123,24 @@ instance Ord Time where (<=) = primitive @"BELessEq"
 data TextMap a =
   TextMap Opaque
 
-#ifdef DAML_GENMAP
 -- | The `Map a b` type represents an associative array from keys of type `a`
 -- to values of type `b`. It uses the built-in equality for keys. Import
 -- `DA.Map` to use it.
 data Map a b =
   Map Opaque
-#endif
 
 -- | The `ContractId a` type represents an ID for a contract created from a template `a`.
 --   You can use the ID to fetch the contract, among other things.
 data ContractId a =
   ContractId Opaque
 instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
-#ifdef DAML_GENERIC_COMPARISON
+
 instance Ord (ContractId a) where
   (<) = primitive @"BELess"
   (<=) = primitive @"BELessEq"
   (>) = primitive @"BEGreater"
   (>=) = primitive @"BEGreaterEq"
-#endif
+
 instance Show (ContractId a) where
 #ifdef DAML_CONTRACT_ID_TO_TEXT
   show cid = case primitive @"BEContractIdToText" cid of
@@ -267,13 +263,11 @@ data TypeRep = TypeRep Opaque
 instance Eq TypeRep where
   (==) = primitive @"BEEqual"
 
-#ifdef DAML_GENERIC_COMPARISON
 instance Ord TypeRep where
   (<=) = primitive @"BELessEq"
   (>=) = primitive @"BEGreaterEq"
   (<) = primitive @"BELess"
   (>) = primitive @"BEGreater"
-#endif -- DAML_GENERIC_COMPARISON
 #endif
 
 #ifdef DAML_EXCEPTIONS

@@ -89,7 +89,10 @@ object ApiPartyManagementServiceSpec {
         hint: Option[Ref.Party],
         displayName: Option[String],
         submissionId: Ref.SubmissionId,
-    )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
+    )(implicit
+        loggingContext: LoggingContext,
+        telemetryContext: TelemetryContext,
+    ): CompletionStage[state.SubmissionResult] = {
       telemetryContext.setAttribute(
         anApplicationIdSpanAttribute._1,
         anApplicationIdSpanAttribute._2,

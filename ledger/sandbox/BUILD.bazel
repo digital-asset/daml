@@ -38,8 +38,8 @@ alias(
             "@maven//:org_xerial_sqlite_jdbc",
         ],
         deps = [
+            "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
             "//daml-lf/archive:daml_lf_archive_reader",
-            "//daml-lf/archive:daml_lf_dev_archive_proto_java",
             "//daml-lf/data",
             "//daml-lf/engine",
             "//daml-lf/language",
@@ -57,6 +57,7 @@ alias(
             "//ledger/metrics",
             "//ledger/participant-integration-api",
             "//ledger/participant-state",
+            "//ledger/participant-state-index",
             "//ledger/participant-state-metrics",
             "//ledger/participant-state/kvutils",
             "//ledger/sandbox-common:sandbox-common-{}".format(edition),
@@ -184,8 +185,8 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
             ":sandbox",
             ":sandbox-scala-tests-lib",
             "//bazel_tools/runfiles:scala_runfiles",
+            "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
             "//daml-lf/archive:daml_lf_archive_reader",
-            "//daml-lf/archive:daml_lf_dev_archive_proto_java",
             "//daml-lf/data",
             "//daml-lf/engine",
             "//daml-lf/interpreter",
@@ -269,7 +270,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--port=6865",
-        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--open-world",
@@ -306,7 +306,6 @@ conformance_test(
         "--port=6865",
         "--contract-id-seeding=testing-weak",
         "--static-time",
-        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--static-time",

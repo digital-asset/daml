@@ -4,7 +4,7 @@
 .. _da-model-daml:
 
 Daml: Defining Contract Models Compactly
-----------------------------------------
+########################################
 
 As described in preceding sections, both the integrity and privacy notions depend on
 a contract model, and such a model must specify:
@@ -75,7 +75,7 @@ of a simple IOU with a unit amount, shown earlier.
 
 .. _da-daml-model-controller-observer:
 
-In this example, the owner is automatically made an observer on the contract, as the :code:`Transfer` and :code:`Settle` choices use the :code:`controller owner can` syntax.
+In this example, the owner is specified as an observer, since it must be able to see the contract to exercise the :code:`Transfer` and :code:`Settle` choices on it.
 
 The template identifiers of contracts are created
 through a content-addressing scheme. This means every contract is

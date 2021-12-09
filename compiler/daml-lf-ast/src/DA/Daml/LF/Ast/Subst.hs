@@ -198,6 +198,10 @@ applySubstInExpr subst@Subst{..} = \case
         (applySubstInExpr subst e)
     ECallInterface t m e -> ECallInterface t m
         (applySubstInExpr subst e)
+    EToRequiredInterface t1 t2 e -> EToRequiredInterface t1 t2
+        (applySubstInExpr subst e)
+    EFromRequiredInterface t1 t2 e -> EFromRequiredInterface t1 t2
+        (applySubstInExpr subst e)
     EUpdate u -> EUpdate
         (applySubstInUpdate subst u)
     EScenario s -> EScenario
@@ -252,11 +256,13 @@ applySubstInUpdate subst = \case
         choiceName
         (applySubstInExpr subst e1)
         (applySubstInExpr subst e2)
-    UExerciseInterface interface choiceName e1 e2 -> UExerciseInterface
+    UExerciseInterface interface choiceName e1 e2 e3 e4 -> UExerciseInterface
         interface
         choiceName
         (applySubstInExpr subst e1)
         (applySubstInExpr subst e2)
+        (applySubstInExpr subst e3)
+        (applySubstInExpr subst e4)
     UExerciseByKey templateName choiceName e1 e2 -> UExerciseByKey
         templateName
         choiceName

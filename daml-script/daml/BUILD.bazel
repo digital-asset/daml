@@ -4,7 +4,7 @@
 # TODO Once daml_compile uses build instead of package we should use
 # daml_compile instead of a genrule.
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "SCRIPT_LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 
 # Build one DAR per LF version to bundle with the SDK.
 # Also build one DAR with the default LF version for test-cases.
@@ -46,7 +46,7 @@ EOF
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for lf_version in SCRIPT_LF_VERSIONS + [""]
+    for lf_version in COMPILER_LF_VERSIONS + [""]
     for suffix in [("-" + lf_version) if lf_version else ""]
 ]
 
@@ -54,7 +54,7 @@ filegroup(
     name = "daml-script-dars",
     srcs = [
         "daml-script-{}.dar".format(lf_version)
-        for lf_version in SCRIPT_LF_VERSIONS
+        for lf_version in COMPILER_LF_VERSIONS
     ],
     visibility = ["//visibility:public"],
 )

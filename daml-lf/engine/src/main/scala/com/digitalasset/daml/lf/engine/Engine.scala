@@ -314,6 +314,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         readAs = readAs,
         validating = validating,
         contractKeyUniqueness = config.contractKeyUniqueness,
+        limits = config.limits,
       )
       interpretLoop(machine, ledgerTime)
     }

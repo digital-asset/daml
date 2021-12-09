@@ -6,6 +6,8 @@
 
 module DA.Ledger.GrpcWrapUtils (
     unwrap, unwrapWithNotFound, unwrapWithInvalidArgument,
+    unwrapWithCommandSubmissionFailure,
+    unwrapWithTransactionFailures,
     sendToStream,
     ) where
 
@@ -16,6 +18,7 @@ import Control.Monad.Fail (fail)
 import Control.Monad.Fix (fix)
 import DA.Ledger.Stream
 import DA.Ledger.Convert (Perhaps,runRaise)
+import Data.Either.Extra (eitherToMaybe)
 import Network.GRPC.HighLevel (clientCallCancel)
 import Network.GRPC.HighLevel.Generated
 
@@ -25,19 +28,28 @@ unwrap = \case
     ClientErrorResponse (ClientIOError e) -> throwIO e
     ClientErrorResponse ce -> fail (show ce)
 
-unwrapWithNotFound :: ClientResult 'Normal a -> IO (Maybe a)
-unwrapWithNotFound = \case
-    ClientNormalResponse x _m1 _m2 _status _details -> return $ Just x
-    ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusNotFound _)) -> return Nothing
+unwrapWithExpectedFailures :: [StatusCode] -> ClientResult 'Normal a -> IO (Either String a)
+unwrapWithExpectedFailures errs = \case
+    ClientNormalResponse x _m1 _m2 _status _details -> return $ Right x
+    ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode code details))
+        | code `elem` errs ->
+          return $ Left $ show $ unStatusDetails details
     ClientErrorResponse (ClientIOError e) -> throwIO e
     ClientErrorResponse ce -> fail (show ce)
 
+unwrapWithNotFound :: ClientResult 'Normal a -> IO (Maybe a)
+unwrapWithNotFound = fmap eitherToMaybe . unwrapWithExpectedFailures [StatusNotFound]
+
 unwrapWithInvalidArgument :: ClientResult 'Normal a -> IO (Either String a)
-unwrapWithInvalidArgument = \case
-    ClientNormalResponse x _m1 _m2 _status _details -> return $ Right x
-    ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) -> return $ Left $ show $ unStatusDetails details
-    ClientErrorResponse (ClientIOError e) -> throwIO e
-    ClientErrorResponse ce -> fail (show ce)
+unwrapWithInvalidArgument = unwrapWithExpectedFailures [StatusInvalidArgument]
+
+unwrapWithCommandSubmissionFailure :: ClientResult 'Normal a -> IO (Either String a)
+unwrapWithCommandSubmissionFailure =
+    unwrapWithExpectedFailures [StatusInvalidArgument, StatusNotFound, StatusFailedPrecondition, StatusAlreadyExists]
+
+unwrapWithTransactionFailures :: ClientResult 'Normal a -> IO (Either String a)
+unwrapWithTransactionFailures =
+    unwrapWithExpectedFailures [StatusInvalidArgument, StatusNotFound]
 
 sendToStream :: Show b => Int -> MetadataMap -> a -> (b -> Perhaps c) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
 sendToStream timeout mdm request convertResponse stream rpc = do

@@ -63,4 +63,60 @@ public class SubmitRequest {
                 commands))
         .build();
   }
+
+  public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
+      @NonNull String ledgerId,
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String submissionId,
+      @NonNull String party,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull Command> commands) {
+    return CommandSubmissionServiceOuterClass.SubmitRequest.newBuilder()
+        .setCommands(
+            SubmitCommandsRequest.toProto(
+                ledgerId,
+                workflowId,
+                applicationId,
+                commandId,
+                submissionId,
+                party,
+                minLedgerTimeAbs,
+                minLedgerTimeRel,
+                deduplicationTime,
+                commands))
+        .build();
+  }
+
+  public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
+      @NonNull String ledgerId,
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String submissionId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull Command> commands) {
+    return CommandSubmissionServiceOuterClass.SubmitRequest.newBuilder()
+        .setCommands(
+            SubmitCommandsRequest.toProto(
+                ledgerId,
+                workflowId,
+                applicationId,
+                commandId,
+                submissionId,
+                actAs,
+                readAs,
+                minLedgerTimeAbs,
+                minLedgerTimeRel,
+                deduplicationTime,
+                commands))
+        .build();
+  }
 }

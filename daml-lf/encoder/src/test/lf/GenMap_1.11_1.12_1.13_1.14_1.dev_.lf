@@ -9,12 +9,10 @@ module GenMapMod {
   } ;
 
   template (this : Box) =  {
-    precondition True,
-    signatories (PartyMod:one (GenMapMod:Box {party} this)),
-    observers (Nil @Party),
-    agreement "Agreement GenMapMod:Box",
-    choices {
-    }
+    precondition True;
+    signatories (PartyMod:one (GenMapMod:Box {party} this));
+    observers (Nil @Party);
+    agreement "Agreement GenMapMod:Box";
   };
 
   val insert :
@@ -28,7 +26,10 @@ module GenMapMod {
     GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10))->
       Scenario (ContractId GenMapMod:Box)
     = \ (x: GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10))) ->
-        commit @(ContractId GenMapMod:Box) 'Bob' (create @GenMapMod:Box (GenMapMod:Box { x = x, party = 'Bob' }));
+        sbind
+          bob : Party <- sget_party "Bob"
+        in
+          commit @(ContractId GenMapMod:Box) bob (create @GenMapMod:Box (GenMapMod:Box { x = x, party = bob }));
 
   val map0: GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10)) =
     GENMAP_EMPTY @(RecordMod:Pair Int64 (Numeric 10)) @(VariantMod:Either Int64 (Numeric 10));

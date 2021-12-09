@@ -23,66 +23,86 @@ import DA.List hiding (foldBalanced1, head, tail, init, last, foldl1, foldr1,
 
 import qualified DA.List
 
-head : ActionFail m => [a] -> m a
-head (x::_) = pure x
-head [] = fail "head: empty list"
+-- | Return the first element of a list. Return `None` if list is empty.
+head : [a] -> Optional a
+head = \case
+  (x :: _) -> Some x
+  [] -> None
 
-tail : ActionFail m => [a] -> m [a]
-tail (_::xs) = pure xs
-tail [] = fail "tail: empty list"
+-- | Return all but the first element of a list. Return `None` if list is empty.
+tail : [a] -> Optional [a]
+tail = \case
+  (_ :: xs) -> Some xs
+  [] -> None
 
-last : ActionFail m => [a] -> m a
+-- | Extract the last element of a list. Returns `None` if list is empty.
+last : [a] -> Optional a
 last = foldl1 (flip const)
 
-init : ActionFail m => [a] -> m [a]
-init [_]     = pure []
-init (x::xs) = do i <- init xs; pure (x :: i)
-init []      = fail "init: empty list"
+-- | Return all the elements of a list except the last one. Returns `None` if list is empty.
+init : [a] -> Optional [a]
+init = \case
+  [] -> None
+  [_] -> Some []
+  (x :: xs) -> do
+    xs' <- init xs
+    Some (x :: xs')
 
 infixl 9 !!
-(!!) : ActionFail m => [a] -> Int -> m a
-_ !! i | i < 0 = fail "(!!): negative index"
-[] !! _ = fail "(!!): index too large"
-(x::_) !! 0 = pure x
+-- | Return the nth element of a list. Return `None` if index is out of bounds.
+(!!) : [a] -> Int -> Optional a
+_ !! i | i < 0 = None
+[] !! _ = None
+(x::_) !! 0 = Some x
 (_::xs) !! i = xs !! (i-1)
 
-foldl1 : ActionFail m => (a -> a -> a) -> [a] -> m a
-foldl1 f (x::xs) = pure (foldl f x xs)
-foldl1 _  [] = fail "foldl1: empty list"
+-- | Fold left starting with the head of the list.
+-- For example, `foldl1 f [a,b,c] = f (f a b) c`.
+-- Return `None` if list is empty.
+foldl1 : (a -> a -> a) -> [a] -> Optional a
+foldl1 f (x::xs) = Some (foldl f x xs)
+foldl1 _  [] = None
 
-foldr1 : ActionFail m => (a -> a -> a) -> [a] -> m a
-foldr1 f [] = fail "foldr1: empty list"
+-- | Fold right starting with the last element of the list.
+-- For example, `foldr1 f [a,b,c] = f a (f b c)`
+foldr1 : (a -> a -> a) -> [a] -> Optional a
+foldr1 f [] = None
 foldr1 f xs = foldl1 (flip f) (reverse xs)
 
-foldBalanced1 : ActionFail m => (a -> a -> a) -> [a] -> m a
-foldBalanced1 _ [] = fail "foldBalanced1: empty list"
-foldBalanced1 _ [x] = pure x
-foldBalanced1 f xs = foldBalanced1 f (combinePairs f xs)
+-- | Fold a non-empty list in a balanced way. Balanced means that each
+-- element has approximately the same depth in the operator
+-- tree. Approximately the same depth means that the difference
+-- between maximum and minimum depth is at most 1. The accumulation
+-- operation must be associative and commutative in order to get the
+-- same result as `foldl1` or `foldr1`.
+--
+-- Return `None` if list is empty.
+foldBalanced1 : (a -> a -> a) -> [a] -> Optional a
+foldBalanced1 f [] = None
+foldBalanced1 f xs = Some (DA.List.foldBalanced1 f xs)
 
--- | `minimumBy f xs` returns the first element `x` of `xs` for which `f x y`
--- is either `LT` or `EQ` for all other `y` in `xs`. The result is
--- wrapped in a monadic context, with a failure if `xs` is empty.
-minimumBy : (ActionFail m) => (a -> a -> Ordering) -> [a] -> m a
-minimumBy _ [] = fail "minimumBy: empty list"
-minimumBy f xs = pure $ DA.List.minimumBy f xs
+-- | Return the least element of a list according to the given comparison function.
+-- Return `None` if list  is empty.
+minimumBy : (a -> a -> Ordering) -> [a] -> Optional a
+minimumBy _ [] = None
+minimumBy f xs = Some (DA.List.minimumBy f xs)
 
--- | `maximumBy f xs` returns the first element `x` of `xs` for which `f x y`
--- is either `GT` or `EQ` for all other `y` in `xs`. The result is
--- wrapped in a monadic context, with a failure if `xs` is empty.
-maximumBy : (ActionFail m) => (a -> a -> Ordering) -> [a] -> m a
-maximumBy _ [] = fail "maximumBy: empty list"
-maximumBy f xs = pure $ DA.List.maximumBy f xs
+-- | Return the greatest element of a list according to the given comparison function.
+-- Return `None` if list is empty.
+maximumBy : (a -> a -> Ordering) -> [a] -> Optional a
+maximumBy _ [] = None
+maximumBy f xs = Some (DA.List.maximumBy f xs)
 
--- | `minimumOn f xs` returns the first element `x` of `xs` for which `f x`
--- is smaller than or equal to any other `f y` for `y` in `xs`. The result is
--- wrapped in a monadic context, with a failure if `xs` is empty.
-minimumOn : (ActionFail m, Ord k) => (a -> k) -> [a] -> m a
-minimumOn _ [] = fail "minimumOn: empty list"
-minimumOn f xs = pure $ DA.List.minimumOn f xs
+-- | Return the least element of a list when comparing by a key function.
+-- For example `minimumOn (\(x,y) -> x + y) [(1,2), (2,0)] == Some (2,0)`.
+-- Return `None` if list is empty.
+minimumOn : (Ord k) => (a -> k) -> [a] -> Optional a
+minimumOn _ [] = None
+minimumOn f xs = Some (DA.List.minimumOn f xs)
 
--- | `maximumOn f xs` returns the first element `x` of `xs` for which `f x`
--- is greater than or equal to any other `f y` for `y` in `xs`. The result is
--- wrapped in a monadic context, with a failure if `xs` is empty.
-maximumOn : (ActionFail m, Ord k) => (a -> k) -> [a] -> m a
-maximumOn _ [] = fail "maximumOn: empty list"
-maximumOn f xs = pure $ DA.List.maximumOn f xs
+-- | Return the greatest element of a list when comparing by a key function.
+-- For example `maximumOn (\(x,y) -> x + y) [(1,2), (2,0)] == Some (1,2)`.
+-- Return `None` if list is empty.
+maximumOn : (Ord k) => (a -> k) -> [a] -> Optional a
+maximumOn _ [] = None
+maximumOn f xs = Some (DA.List.maximumOn f xs)

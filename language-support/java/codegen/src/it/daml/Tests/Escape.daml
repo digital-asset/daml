@@ -39,7 +39,7 @@ template EscapeTemplates
     where
         signatory owner
 
-        controller owner can
-            Void : ()
-                with switch : ()
-                do return ()
+        choice Void : ()
+            with switch : ()
+            controller owner
+            do return ()

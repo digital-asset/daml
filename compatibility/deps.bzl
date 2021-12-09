@@ -30,10 +30,14 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load(
     "@daml//:deps.bzl",
+    "bazel_gazelle_sha256",
+    "bazel_gazelle_version",
     "buildifier_sha256",
     "buildifier_version",
     "rules_bazel_common_sha256",
     "rules_bazel_common_version",
+    "rules_go_sha256",
+    "rules_go_version",
     "rules_haskell_patches",
     "rules_haskell_sha256",
     "rules_haskell_version",
@@ -130,6 +134,26 @@ def daml_deps():
                 "@daml//bazel_tools:scala-escape-jvmflags.patch",
             ],
             patch_args = ["-p1"],
+        )
+
+    if "bazel_gazelle" not in native.existing_rules():
+        http_archive(
+            name = "bazel_gazelle",
+            urls = [
+                "https://github.com/bazelbuild/bazel-gazelle/archive/{version}/bazel-gazelle-{version}.tar.gz".format(version = bazel_gazelle_version),
+            ],
+            strip_prefix = "bazel-gazelle-{version}".format(version = bazel_gazelle_version),
+            sha256 = bazel_gazelle_sha256,
+        )
+
+    if "io_bazel_rules_go" not in native.existing_rules():
+        http_archive(
+            name = "io_bazel_rules_go",
+            urls = [
+                "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v{version}/rules_go-v{version}.zip".format(version = rules_go_version),
+                "https://github.com/bazelbuild/rules_go/releases/download/v{version}/rules_go-v{version}.zip".format(version = rules_go_version),
+            ],
+            sha256 = rules_go_sha256,
         )
 
     if "com_github_google_bazel_common" not in native.existing_rules():

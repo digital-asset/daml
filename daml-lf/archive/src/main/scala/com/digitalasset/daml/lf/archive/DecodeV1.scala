@@ -64,7 +64,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     val internedTypes = decodeInternedTypes(env0, lfPackage)
     val env = env0.copy(internedTypes = internedTypes)
 
-    Package(
+    Package.build(
       modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_)),
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
@@ -289,7 +289,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         }
       }
 
-      Module(
+      Module.build(
         moduleName,
         defs,
         templates,
@@ -349,19 +349,17 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         getInternedDottedName(internedDName)
       }
 
-    private[this] def decodeFeatureFlags(flags: PLF.FeatureFlags): FeatureFlags = {
+    private[lf] def decodeFeatureFlags(flags: PLF.FeatureFlags): FeatureFlags = {
       // NOTE(JM, #157): We disallow loading packages with these flags because they impact the Ledger API in
       // ways that would currently make it quite complicated to support them.
       if (
-        !flags.getDontDivulgeContractIdsInCreateArguments || !flags.getDontDiscloseNonConsumingChoicesToObservers
+        !flags.getDontDivulgeContractIdsInCreateArguments || !flags.getDontDiscloseNonConsumingChoicesToObservers || !flags.getForbidPartyLiterals
       ) {
         throw Error.Parsing(
           "Deprecated feature flag settings detected, refusing to parse package"
         )
       }
-      FeatureFlags(
-        forbidPartyLiterals = flags.getForbidPartyLiterals
-      )
+      FeatureFlags.default
     }
 
     private[this] def decodeDefDataType(lfDataType: PLF.DefDataType): DDataType = {
@@ -472,7 +470,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         "EnumConstructors.constructors",
       )
 
-    private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue = {
+    private[lf] def decodeDefValue(lfValue: PLF.DefValue): DValue = {
+      if (!lfValue.getNoPartyLiterals) {
+        throw Error.Parsing("DefValue must have no_party_literals set to true")
+      }
       val name = handleDottedName(
         lfValue.getNameWithType.getNameDnameList.asScala,
         lfValue.getNameWithType.getNameInternedDname,
@@ -480,7 +481,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       )
       DValue(
         typ = decodeType(lfValue.getNameWithType.getType),
-        noPartyLiterals = lfValue.getNoPartyLiterals,
         body = decodeExpr(lfValue.getExpr, name.toString),
         isTest = lfValue.getIsTest,
       )
@@ -583,16 +583,14 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         lfTempl.getParamInternedStr,
         "DefTemplate.param.param",
       )
-      Template(
+      Template.build(
         param = paramName,
         precond = if (lfTempl.hasPrecond) decodeExpr(lfTempl.getPrecond, s"$tpl:ensure") else ETrue,
         signatories = decodeExpr(lfTempl.getSignatories, s"$tpl.signatory"),
         agreementText = decodeExpr(lfTempl.getAgreement, s"$tpl:agreement"),
-        choices = lfTempl.getChoicesList.asScala
-          .map(decodeChoice(tpl, _))
-          .map(ch => (ch.name, ch)),
+        choices = lfTempl.getChoicesList.asScala.view.map(decodeChoice(tpl, _)),
         observers = decodeExpr(lfTempl.getObservers, s"$tpl:observer"),
-        implements = lfImplements.map(decodeTemplateImplements).map(impl => (impl.interface, impl)),
+        implements = lfImplements.view.map(decodeTemplateImplements),
         key =
           if (lfTempl.hasKey) Some(decodeTemplateKey(tpl, lfTempl.getKey, paramName))
           else None,
@@ -602,21 +600,19 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     private[this] def decodeTemplateImplements(
         lfImpl: PLF.DefTemplate.Implements
     ): TemplateImplements =
-      TemplateImplements(
-        interface = decodeTypeConName(lfImpl.getInterface),
-        methods = lfImpl.getMethodsList.asScala
-          .map(decodeTemplateImplementsMethod)
-          .map(method => (method.name, method)),
-        inheritedChoices = lfImpl.getInheritedChoiceInternedNamesList.asScala
-          .map(getInternedName(_, "TemplateImplements.inheritedChoices"))
-          .toSet,
+      TemplateImplements.build(
+        interfaceId = decodeTypeConName(lfImpl.getInterface),
+        methods = lfImpl.getMethodsList.asScala.view.map(decodeTemplateImplementsMethod),
+        inheritedChoices = lfImpl.getInheritedChoiceInternedNamesList.asScala.view
+          .map(getInternedName(_, "TemplateImplements.inheritedChoices")),
       )
 
     private[this] def decodeTemplateImplementsMethod(
         lfMethod: PLF.DefTemplate.ImplementsMethod
     ): TemplateImplementsMethod =
       TemplateImplementsMethod(
-        name = getInternedName(lfMethod.getMethodInternedName, "TemplateImplementsMethod.name"),
+        methodName =
+          getInternedName(lfMethod.getMethodInternedName, "TemplateImplementsMethod.name"),
         value = decodeExpr(lfMethod.getValue, "TemplateImplementsMethod.value"),
       )
 
@@ -669,14 +665,11 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         id: DottedName,
         lfInterface: PLF.DefInterface,
     ): DefInterface =
-      DefInterface(
+      DefInterface.build(
+        requires = lfInterface.getRequiresList.asScala.view.map(decodeTypeConName),
         param = getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
-        fixedChoices = lfInterface.getFixedChoicesList.asScala.view
-          .map(decodeChoice(id, _))
-          .map(choice => choice.name -> choice),
-        methods = lfInterface.getMethodsList.asScala.view
-          .map(decodeInterfaceMethod)
-          .map(method => method.name -> method),
+        fixedChoices = lfInterface.getFixedChoicesList.asScala.view.map(decodeChoice(id, _)),
+        methods = lfInterface.getMethodsList.asScala.view.map(decodeInterfaceMethod),
         precond = decodeExpr(lfInterface.getPrecond, s"$id:ensure"),
       )
 
@@ -1126,8 +1119,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           assertSince(LV.Features.interfaces, "Expr.to_interface")
           val toInterface = lfExpr.getToInterface
           EToInterface(
-            iface = decodeTypeConName(toInterface.getInterfaceType),
-            tpl = decodeTypeConName(toInterface.getTemplateType),
+            interfaceId = decodeTypeConName(toInterface.getInterfaceType),
+            templateId = decodeTypeConName(toInterface.getTemplateType),
             value = decodeExpr(toInterface.getTemplateExpr, definition),
           )
 
@@ -1135,8 +1128,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           assertSince(LV.Features.interfaces, "Expr.from_interface")
           val fromInterface = lfExpr.getFromInterface
           EFromInterface(
-            iface = decodeTypeConName(fromInterface.getInterfaceType),
-            tpl = decodeTypeConName(fromInterface.getTemplateType),
+            interfaceId = decodeTypeConName(fromInterface.getInterfaceType),
+            templateId = decodeTypeConName(fromInterface.getTemplateType),
             value = decodeExpr(fromInterface.getInterfaceExpr, definition),
           )
 
@@ -1144,9 +1137,28 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           assertSince(LV.Features.interfaces, "Expr.call_interface")
           val callInterface = lfExpr.getCallInterface
           ECallInterface(
-            iface = decodeTypeConName(callInterface.getInterfaceType),
-            method = getInternedName(callInterface.getMethodInternedName, "ECallInterface.method"),
+            interfaceId = decodeTypeConName(callInterface.getInterfaceType),
+            methodName =
+              getInternedName(callInterface.getMethodInternedName, "ECallInterface.method"),
             value = decodeExpr(callInterface.getInterfaceExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.TO_REQUIRED_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.to_required_interface")
+          val toRequiredInterface = lfExpr.getToRequiredInterface
+          EToRequiredInterface(
+            requiredIfaceId = decodeTypeConName(toRequiredInterface.getRequiredInterface),
+            requiringIfaceId = decodeTypeConName(toRequiredInterface.getRequiringInterface),
+            body = decodeExpr(toRequiredInterface.getExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.FROM_REQUIRED_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.from_required_interface")
+          val fromRequiredInterface = lfExpr.getFromRequiredInterface
+          EFromRequiredInterface(
+            requiredIfaceId = decodeTypeConName(fromRequiredInterface.getRequiredInterface),
+            requiringIfaceId = decodeTypeConName(fromRequiredInterface.getRequiringInterface),
+            body = decodeExpr(fromRequiredInterface.getExpr, definition),
           )
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
@@ -1283,7 +1295,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.Update.SumCase.CREATE_INTERFACE =>
           val create = lfUpdate.getCreateInterface
           UpdateCreateInterface(
-            interface = decodeTypeConName(create.getInterface),
+            interfaceId = decodeTypeConName(create.getInterface),
             arg = decodeExpr(create.getExpr, definition),
           )
 
@@ -1307,10 +1319,12 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           assertSince(LV.Features.interfaces, "exerciseInterface")
           val exercise = lfUpdate.getExerciseInterface
           UpdateExerciseInterface(
-            interface = decodeTypeConName(exercise.getInterface),
+            interfaceId = decodeTypeConName(exercise.getInterface),
             choice = handleInternedName(exercise.getChoiceInternedStr),
             cidE = decodeExpr(exercise.getCid, definition),
             argE = decodeExpr(exercise.getArg, definition),
+            typeRepE = decodeExpr(exercise.getTypeRep, definition),
+            guardE = decodeExpr(exercise.getGuard, definition),
           )
 
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>
@@ -1340,7 +1354,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           assertSince(LV.Features.interfaces, "fetchInterface")
           val fetch = lfUpdate.getFetchInterface
           UpdateFetchInterface(
-            interface = decodeTypeConName(fetch.getInterface),
+            interfaceId = decodeTypeConName(fetch.getInterface),
             contractId = decodeExpr(fetch.getCid, definition),
           )
 
@@ -1467,9 +1481,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.PrimLit.SumCase.TEXT_STR =>
           assertUntil(LV.Features.internedStrings, "PrimLit.text_str")
           PLText(lfPrimLit.getTextStr)
-        case PLF.PrimLit.SumCase.PARTY_STR =>
-          assertUntil(LV.Features.internedStrings, "PrimLit.party_str")
-          toPLParty(lfPrimLit.getPartyStr)
         case PLF.PrimLit.SumCase.TIMESTAMP =>
           val t = Time.Timestamp.fromLong(lfPrimLit.getTimestamp)
           t.fold(e => throw Error.Parsing("error decoding timestamp: " + e), PLTimestamp)
@@ -1482,12 +1493,11 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.PrimLit.SumCase.NUMERIC_INTERNED_STR =>
           assertSince(LV.Features.numeric, "PrimLit.numeric")
           toPLNumeric(getInternedStr(lfPrimLit.getNumericInternedStr))
-        case PLF.PrimLit.SumCase.PARTY_INTERNED_STR =>
-          assertSince(LV.Features.internedStrings, "PrimLit.party_interned_str")
-          toPLParty(getInternedStr(lfPrimLit.getPartyInternedStr))
         case PLF.PrimLit.SumCase.ROUNDING_MODE =>
           assertSince(LV.Features.bigNumeric, "Expr.rounding_mode")
           PLRoundingMode(java.math.RoundingMode.valueOf(lfPrimLit.getRoundingModeValue))
+        case PLF.PrimLit.SumCase.PARTY_STR | PLF.PrimLit.SumCase.PARTY_INTERNED_STR =>
+          throw Error.Parsing("Party literals are not supported")
         case PLF.PrimLit.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("PrimLit.SUM_NOT_SET")
       }
@@ -1519,9 +1529,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
   private[this] def toPLDecimal(s: String) =
     PLNumeric(eitherToParseError(Decimal.fromString(s)))
-
-  private[this] def toPLParty(s: String) =
-    PLParty(eitherToParseError(Party.fromString(s)))
 
   // maxVersion excluded
   private[this] def assertUntil(maxVersion: LV, description: => String): Unit =

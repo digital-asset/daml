@@ -1,4 +1,4 @@
-FROM adoptopenjdk:8-jdk-hotspot
+FROM eclipse-temurin:11
 ARG VERSION
 # This is needed to get the DNS requests
 # from Haskell binaries to succeed.

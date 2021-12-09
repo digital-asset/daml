@@ -57,6 +57,10 @@ final case class SandboxConfig(
     maxParallelSubmissions: Int, // only used by Sandbox Classic
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
+    acsIdPageSize: Int,
+    acsIdFetchingParallelism: Int,
+    acsContractFetchingParallelism: Int,
+    acsGlobalParallelism: Int,
     lfValueTranslationEventCacheConfiguration: SizedCache.Configuration,
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
     profileDir: Option[Path],
@@ -93,6 +97,10 @@ object SandboxConfig {
 
   val DefaultEventsPageSize: Int = 1000
   val DefaultEventsProcessingParallelism: Int = 8
+  val DefaultAcsIdPageSize: Int = 20000
+  val DefaultAcsIdFetchingParallelism: Int = 2
+  val DefaultAcsContractFetchingParallelism: Int = 2
+  val DefaultAcsGlobalParallelism: Int = 10
 
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
 
@@ -144,6 +152,10 @@ object SandboxConfig {
       maxParallelSubmissions = 512,
       eventsPageSize = DefaultEventsPageSize,
       eventsProcessingParallelism = DefaultEventsProcessingParallelism,
+      acsIdPageSize = DefaultAcsIdPageSize,
+      acsIdFetchingParallelism = DefaultAcsIdFetchingParallelism,
+      acsContractFetchingParallelism = DefaultAcsContractFetchingParallelism,
+      acsGlobalParallelism = DefaultAcsGlobalParallelism,
       lfValueTranslationEventCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,
@@ -152,7 +164,7 @@ object SandboxConfig {
       managementServiceTimeout = DefaultManagementServiceTimeout,
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableCompression = false,
-      enableSelfServiceErrorCodes = false,
+      enableSelfServiceErrorCodes = true,
     )
 
   sealed abstract class EngineMode extends Product with Serializable

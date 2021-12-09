@@ -4,7 +4,7 @@
 .. _da-model-privacy:
 
 Privacy
--------
+#######
 
 The previous sections have addressed two out of three questions posed in the
 introduction: "what the ledger looks like", and "who may request which changes".
@@ -20,7 +20,7 @@ And maintainers see all changes to the contract keys they maintain.
 To make this more precise, a stakeholder concept is needed.
 
 Contract Observers and Stakeholders
-+++++++++++++++++++++++++++++++++++
+***********************************
 
 Intuitively, as signatories are bound by a contract, they have a stake in it.
 Actors might not be bound by the contract, but they still have a stake in their actions, as these are the actor's rights.
@@ -40,7 +40,7 @@ In the graphical representation of the paint offer acceptance below, contract ob
    :width: 60%
 
 Choice Observers
-++++++++++++++++
+****************
 
 In addition to contract observers, the contract model can also specify **choice observers** on individual **Exercise** actions.
 Choice observers get to see a specific exercise on a contract, and to view its consequences.
@@ -50,7 +50,7 @@ on an action, for the purposes of projection (see below).
 .. _da-model-projections:
 
 Projections
-+++++++++++
+***********
 
 Stakeholders should see changes to contracts they hold a stake in, but that does not
 mean that they have to see the entirety of any transaction that their contract is
@@ -182,7 +182,7 @@ projections.
 .. _da-model-privacy-authorization:
 
 Privacy through authorization
-+++++++++++++++++++++++++++++
+*****************************
 
 Setting the maintainers as required authorizers for a **NoSuchKey** assertion ensures
 that parties cannot learn about the existence of a contract without having a right to know about their existence.
@@ -208,7 +208,7 @@ Requiring all maintainers to authorize a **NoSuchKey** assertion avoids the prob
 .. _da-model-divulgence:
 
 Divulgence: When Non-Stakeholders See Contracts
-+++++++++++++++++++++++++++++++++++++++++++++++
+***********************************************
 
 The guiding principle for the privacy model of Daml ledgers is that
 contracts should only be shown to their stakeholders. However,

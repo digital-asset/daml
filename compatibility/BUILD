@@ -1,7 +1,7 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "daml_lf_compatible", "sdk_platform_test")
 load(
     "//bazel_tools/daml_script:daml_script.bzl",
@@ -123,18 +123,14 @@ first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
        versions.is_at_least(sdk_version, platform_version)
 ]
 
-# We have two migration tests: migration-stable runs through all stable releases
-# including current HEAD. migration-all includes snapshot releases.
-
 migration_test(
-    name = "migration-stable",
+    name = "migration",
     timeout = "eternal",
+    quick_tags = ["head-quick"],
     # Exclusive due to hardcoded postgres ports.
     tags = [
         "exclusive",
-    ] +
-    # These tests are fairly slow so on PRs we only run them on Linux
-    (["head-quick"] if is_linux else []),
+    ],
     versions = [
         version
         for version in stable_versions
@@ -147,6 +143,7 @@ migration_test(
 
 migration_test(
     name = "meta-migration-test",
+    quick_tags = [],
     tags = [
         "exclusive",
         "manual",
@@ -156,21 +153,6 @@ migration_test(
         "0.0.0",
     ],
 )
-
-migration_test(
-    name = "migration-all",
-    timeout = "eternal",
-    # Exclusive due to hardcoded postgres ports.
-    tags = ["exclusive"],
-    versions = [
-        version
-        for version in platform_versions
-        # We skip versions before 1.6.0. These versions had a bug where ledger
-        # effective time was stored at higher precision than it should have
-        # been. See https://github.com/digital-asset/daml/pull/11512#discussion_r751041534
-        if versions.is_at_least("1.6.0", version)
-    ],
-) if not is_windows else None
 
 [
     data_dependencies_coins(

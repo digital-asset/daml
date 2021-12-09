@@ -7,11 +7,13 @@ package speedy
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.language.Ast.{Package, Expr, PrimLit, PLParty, EPrimLit, EApp}
+import com.daml.lf.language.Ast.{Package, Expr}
 import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.PartialTransaction.{CompleteTransaction, IncompleteTransaction}
 import com.daml.lf.speedy.SResult.SResultFinalValue
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.Node
@@ -24,9 +26,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  import ExceptionTest._
+  import RollbackTest._
 
   implicit val defaultParserParameters: ParserParameters[this.type] = {
     ParserParameters(
@@ -47,7 +49,9 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       pkgs1: PureCompiledPackages
   )(e: Expr, party: Party): SubmittedTransaction = {
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("RollbackTest.scala")
-    val machine = Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, party)
+    val se = pkgs1.compiler.unsafeCompile(e)
+    val example = SEApp(se, Array(SEValue(SParty(party))))
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs1, transactionSeed, example, Set(party))
     val res = machine.run()
     res match {
       case _: SResultFinalValue =>
@@ -74,33 +78,29 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
         record @serializable T1 = { party: Party, info: Int64 } ;
         template (record : T1) = {
-          precondition True,
-          signatories Cons @Party [M:T1 {party} record] (Nil @Party),
-          observers Nil @Party,
-          agreement "Agreement",
-          choices {
-            choice Ch1 (self) (i : Unit) : Unit
-            , controllers Cons @Party [M:T1 {party} record] (Nil @Party)
+          precondition True;
+          signatories Cons @Party [M:T1 {party} record] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
+          choice Ch1 (self) (i : Unit) : Unit,
+            controllers Cons @Party [M:T1 {party} record] (Nil @Party)
             to
               ubind
                 x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
                 x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
-              in upure @Unit (),
-
-            choice Ch2 (self) (i : Unit) : Unit
-            , controllers Cons @Party [M:T1 {party} record] (Nil @Party)
+              in upure @Unit ();
+          choice Ch2 (self) (i : Unit) : Unit,
+            controllers Cons @Party [M:T1 {party} record] (Nil @Party)
             to
               ubind
                 x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
                 u: Unit <- throw @(Update Unit) @M:MyException (M:MyException {message = "oops"});
                 x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
-              in upure @Unit (),
-
-            choice ChControllerThrow (self) (i : Unit) : Unit
-            , controllers (throw @(List Party) @M:MyException (M:MyException {message = "oops"}))
+              in upure @Unit ();
+          choice ChControllerThrow (self) (i : Unit) : Unit,
+            controllers (throw @(List Party) @M:MyException (M:MyException {message = "oops"}))
             to
-              upure @Unit ()
-          }
+              upure @Unit ();
         };
 
         val create0 : Party -> Update Unit = \(party: Party) ->
@@ -241,10 +241,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   forEvery(testCases) { (exp: String, expected: List[Tree]) =>
     s"""$exp, contracts expected: $expected """ in {
       val party = Party.assertFromString("Alice")
-      val lit: PrimLit = PLParty(party)
-      val arg: Expr = EPrimLit(lit)
-      val example: Expr = EApp(e"M:$exp", arg)
-      val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(example, party)
+      val tx: SubmittedTransaction = runUpdateExprGetTx(pkgs)(e"M:$exp", party)
       val ids: List[Tree] = shapeOfTransaction(tx)
       ids shouldBe expected
     }
@@ -252,7 +249,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
 }
 
-object ExceptionTest {
+object RollbackTest {
 
   sealed trait Tree //minimal transaction tree, for purposes of writing test expectation
   final case class C(x: Long) extends Tree //Create Node

@@ -1,6 +1,5 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Daml.Trigger.LowLevel
@@ -47,9 +46,6 @@ module Daml.Trigger.LowLevel
 import DA.Action.State
 import DA.Action.State.Class
 import DA.Functor ((<&>))
-#ifndef DAML_GENMAP && DAML_GENERIC_COMPARISON
-import DA.Next.Map (MapKey(..))
-#endif
 import DA.Time (RelTime(..))
 import Daml.Script.Free (Free(..), lift, foldFree)
 
@@ -60,9 +56,7 @@ data AnyContractId = AnyContractId
   , contractId : ContractId ()
   } deriving Eq
 
-#ifdef DAML_GENERIC_COMPARISON
 deriving instance Ord AnyContractId
-#endif
 
 -- We can’t derive the Show instance since TemplateTypeRep does not have a Show instance
 -- but it is useful for debugging so we add one that omits the type.
@@ -93,11 +87,7 @@ newtype EventId = EventId Text
   deriving (Show, Eq)
 
 newtype CommandId = CommandId Text
-#ifndef DAML_GENMAP && DAML_GENERIC_COMPARISON
-  deriving (Show, Eq, Ord, MapKey)
-#else
   deriving (Show, Eq, Ord)
-#endif
 
 data Transaction = Transaction
  { transactionId : TransactionId
@@ -272,7 +262,7 @@ liftStateT ma = StateT $ \s -> (,s) <$> ma
 instance Action m => Applicative (StateT s m) where
   pure a = StateT (\s -> pure (a, s))
   f <*> x = f >>= (<$> x)
-  
+
 instance Action m => Action (StateT s m) where
   StateT x >>= f = StateT $ \s -> do
     (x', s') <- x s

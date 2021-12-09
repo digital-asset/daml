@@ -12,15 +12,14 @@ class MeteredStreamObserver[T](
     val streamName: String,
     logger: Logger,
     manager: MetricsManager[T],
-) extends ObserverWithResult[T, MetricsCollector.Message.MetricsResult](logger) {
+) extends ObserverWithResult[T, StreamResult](logger) {
 
   override def onNext(value: T): Unit = {
     manager.sendNewValue(value)
     super.onNext(value)
   }
 
-  override def completeWith(): Future[MetricsCollector.Message.MetricsResult] = {
-    logger.debug(withStreamName(s"Asking for stream result..."))
+  override def completeWith(): Future[StreamResult] = {
     manager.result()
   }
 

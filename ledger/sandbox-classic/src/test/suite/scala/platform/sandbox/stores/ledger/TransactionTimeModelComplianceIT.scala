@@ -56,9 +56,7 @@ class TransactionTimeModelComplianceIT
     val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
       enableSelfServiceErrorCodes = true
     )
-    val errorFactories = ErrorFactories(
-      errorCodesVersionSwitcher
-    )
+    val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     fixtureId match {
       case BackendType.InMemory =>

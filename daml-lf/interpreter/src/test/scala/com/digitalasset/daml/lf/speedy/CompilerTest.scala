@@ -26,11 +26,10 @@ class CompilerTest extends AnyWordSpec with Matchers {
           record @serializable Record = { };
 
           template (this : Record) =  {
-            precondition True,
-            signatories Nil @Party,
-            observers Nil @Party,
-            agreement "Agreement",
-            choices { }
+            precondition True;
+            signatories Nil @Party;
+            observers Nil @Party;
+            agreement "Agreement";
           } ;
         }
     """

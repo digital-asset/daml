@@ -144,7 +144,7 @@ unsupported typ x = conversionError errMsg
     where
          errMsg =
              "Failure to process DAML program, this feature is not currently supported.\n" ++
-             typ ++ ".\n" ++
+             typ ++ "\n" ++
              prettyPrint x
 
 unknown :: HasCallStack => GHC.UnitId -> MS.Map GHC.UnitId DalfPackage -> ConvertM e
@@ -177,7 +177,8 @@ data Env = Env
     ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envImplements :: MS.Map TypeConName [GHC.TyCon]
-    ,envInterfaceInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) (GHC.Expr GHC.CoreBndr)
+    ,envRequires :: MS.Map TypeConName [GHC.TyCon]
+    ,envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
     ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envInterfaces :: MS.Map TypeConName GHC.TyCon
     ,envIsGenerated :: Bool
@@ -281,7 +282,7 @@ convertInt64 x
     | toInteger (minBound :: Int64) <= x && x <= toInteger (maxBound :: Int64) =
         pure $ EBuiltin $ BEInt64 (fromInteger x)
     | otherwise =
-        unsupported "Int literal out of bounds" (negate x)
+        unsupported "Int literal out of bounds." (negate x)
 
 -- | Convert a rational number into a (legacy) Decimal literal.
 convertRationalDecimal :: Env -> Integer -> Integer -> ConvertM LF.Expr
@@ -300,7 +301,7 @@ convertRationalDecimal env num denom
         unsupported
             ("Rational is out of bounds: " ++
              show ((fromInteger num / fromInteger denom) :: Double) ++
-             ".  Maximal supported precision is e^-10, maximal range after multiplying with 10^10 is [10^38 -1, -10^38 + 1]")
+             ".  Maximal supported precision is e^-10, maximal range after multiplying with 10^10 is [10^38 -1, -10^38 + 1].")
             (num, denom)
   where
     r = num % denom
@@ -314,17 +315,17 @@ convertRationalNumericMono :: Env -> Integer -> Integer -> Integer -> ConvertM L
 convertRationalNumericMono env scale num denom
     | scale < 0 || scale > fromIntegral numericMaxScale =
         unsupported
-            ("Tried to construct value of type Numeric " ++ show scale ++ ", but scale is out of bounds. Scale must be between 0 through 37, not " ++ show scale)
+            ("Tried to construct value of type Numeric " ++ show scale ++ ", but scale is out of bounds. Scale must be between 0 through 37, not " ++ show scale ++ ".")
             scale
 
     | abs (rational * 10 ^ scale) >= 10 ^ numericMaxPrecision =
         unsupported
-            ("Rational is out of bounds: " ++ show double ++ ". The Numeric " ++ show scale ++ " type can only represent numbers greater than -10^" ++ show maxPower ++ " and smaller than 10^" ++ show maxPower)
+            ("Rational is out of bounds: " ++ show double ++ ". The Numeric " ++ show scale ++ " type can only represent numbers greater than -10^" ++ show maxPower ++ " and smaller than 10^" ++ show maxPower ++ ".")
             (num, denom)
 
     | (num * 10^scale) `mod` denom /= 0 =
         unsupported
-            ("Rational is out of bounds: " ++ show double ++ ". It cannot be represented without loss of precision. Maximum precision for the Numeric " ++ show scale ++ " type is 10^-" ++ show scale)
+            ("Rational is out of bounds: " ++ show double ++ ". It cannot be represented without loss of precision. Maximum precision for the Numeric " ++ show scale ++ " type is 10^-" ++ show scale ++ ".")
             (num, denom)
 
     | otherwise =
@@ -350,7 +351,7 @@ convertRationalBigNumeric num denom = case numericFromRational rational of
 
     where
         rational = num % denom
-        invalid = unsupported "Large BigNumeric (larger than Numeric) literals are not currently supported. Please construct the number from smaller literals" ()
+        invalid = unsupported "Large BigNumeric (larger than Numeric) literals are not currently supported. Please construct the number from smaller literals." ()
 
 data TemplateBinds = TemplateBinds
     { tbTyCon :: Maybe GHC.TyCon
@@ -435,41 +436,55 @@ interfaceNames lfVersion tyThings
         ]
     | otherwise = MS.empty
 
-convertInterfaces :: Env -> [TyThing] -> ConvertM [Definition]
-convertInterfaces env tyThings = interfaceClasses
+convertInterfaceTyCon :: Env -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertInterfaceTyCon env tycon
+    | hasDamlInterfaceCtx tycon = do
+        lfType <- convertTyCon env tycon
+        case lfType of
+            TCon con -> pure con
+            _ -> unhandled "interface type" tycon
+    | otherwise =
+        unhandled "interface type" tycon
+
+convertInterfaces :: Env -> [(Var, GHC.Expr Var)] -> ConvertM [Definition]
+convertInterfaces env binds = interfaceDefs
   where
-    interfaceClasses :: ConvertM [Definition]
-    interfaceClasses = sequence
-        [ DInterface <$> convertInterface name tycon cls
-        | ATyCon t <- tyThings
-        , Just cls <- [tyConClass_maybe t]
-        , Just interface <- [T.stripPrefix "Is" (getOccText t)]
-        , let name = TypeConName [interface]
-        , Just tycon <- [MS.lookup name (envInterfaces env)]
+    interfaceDefs :: ConvertM [Definition]
+    interfaceDefs = sequence
+        [ DInterface <$> convertInterface name tycon
+        | (name, tycon) <- MS.toList (envInterfaces env)
         ]
 
-    convertInterface :: LF.TypeConName -> GHC.TyCon -> Class -> ConvertM DefInterface
-    convertInterface intName tyCon cls = do
+    convertInterface :: LF.TypeConName -> GHC.TyCon -> ConvertM DefInterface
+    convertInterface intName tyCon = do
         let intLocation = convNameLoc (GHC.tyConName tyCon)
         let intParam = this
         let precond = fromMaybe (error $ "Missing precondition for interface " <> show intName)
                         $ (MS.lookup intName $ envInterfaceBinds env) >>= ibEnsure
         withRange intLocation $ do
-            intMethods <- NM.fromList <$> mapM convertMethod (drop 4 $ classMethods cls)
+            intRequires <- fmap S.fromList $ mapM (convertInterfaceTyCon env) $
+                MS.findWithDefault [] intName (envRequires env)
+            intMethods <- NM.fromList <$> convertMethods tyCon
             intFixedChoices <- convertChoices env intName emptyTemplateBinds
             intPrecondition <- useSingleMethodDict env precond (`ETmApp` EVar intParam)
             pure DefInterface {..}
 
-    convertMethod :: Var -> ConvertM InterfaceMethod
-    convertMethod method = do
-        retTy <- convertType env (varType method) >>= \case
-            TForall _ (_dict :-> _iface :-> retTy) -> pure retTy
-            ty -> unsupported "Interface method must be a function" (varType method)
-        let methodName = occNameString (getOccName (varName method))
+    convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
+    convertMethods tyCon = sequence $ do
+      (name, val) <- binds
+      DFunId _ <- [idDetails name]
+      TypeCon hasMethodCls
+        [ TypeCon ((== tyCon) -> True) []
+        , StrLitTy methodName
+        , retTy
+        ] <- [varType name]
+      NameIn DA_Internal_Desugar "HasMethod" <- [hasMethodCls]
+      pure $ do
+        retTy' <- convertType env retTy
         pure InterfaceMethod
           { ifmLocation = Nothing
-          , ifmName = MethodName (T.pack methodName)
-          , ifmType = retTy
+          , ifmName = MethodName methodName
+          , ifmType = retTy'
           }
 
 convertConsuming :: LF.Type -> ConvertM Consuming
@@ -497,7 +512,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
     depOrphanModules <- convertDepOrphanModules env depOrphanModules
     templates <- convertTemplateDefs env
     exceptions <- convertExceptionDefs env
-    interfaces <- convertInterfaces env (eltsUFM (cm_types x))
+    interfaces <- convertInterfaces env binds
     exports <- convertExports env (md_exports details)
     let defs =
             types
@@ -525,20 +540,44 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
           ]
         interfaceCons = interfaceNames lfVersion (eltsUFM (cm_types x))
         tplImplements = MS.fromListWith (++)
-           [ (mkTypeCon [getOccText tplTy], [ifaceTy])
-           | (name, _) <- binds
-           , "_implements_" `T.isPrefixOf` getOccText name
-           , TypeCon _ [TypeCon tplTy [], TypeCon ifaceTy []] <- [varType name]
-           ]
-        tplInterfaceInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) (GHC.Expr GHC.CoreBndr)
-        tplInterfaceInstances = MS.fromList
-           [ ((mod, mkTypeCon [iface], mkTypeCon [getOccText tpl]), val)
-           | (name, val) <- binds
-           , DFunId _ <- [idDetails name]
-           , TypeCon ifaceCls [TypeCon tpl []] <- [varType name]
-           , Just iface <- [T.stripPrefix "Is" $ getOccText ifaceCls]
-           , Just mod <- [nameModule_maybe (getName ifaceCls)]
-           ]
+          [ (mkTypeCon [getOccText tpl], [iface])
+          | (name, _val) <- binds
+          , "_implements_" `T.isPrefixOf` getOccText name
+          , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
+          , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
+          ]
+        ifaceRequires = MS.fromListWith (++)
+          [ (mkTypeCon [getOccText iface1], [iface2])
+          | (name, _val) <- binds
+          , "_requires_" `T.isPrefixOf` getOccText name
+          , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
+          , NameIn DA_Internal_Desugar "RequiresT" <- [requiresT]
+          ]
+        tplInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
+        tplInterfaceMethodInstances = MS.fromListWith (++)
+          [
+            ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
+            , [(methodName, body)]
+            )
+          | (name, val) <- binds
+          , TypeCon methodNewtype
+            [ TypeCon tpl []
+            , TypeCon iface []
+            , StrLitTy methodName
+            , _methodType
+            ] <- [varType name]
+          , NameIn DA_Internal_Desugar "Method" <- [methodNewtype]
+          , Just mod <- [nameModule_maybe (getName iface)]
+          , Var (NameIn DA_Internal_Desugar "mkMethod")
+            `App` Type _tpl
+            `App` Type _iface
+            `App` Type _methodName
+            `App` Type _methodType
+            `App` _implDict
+            `App` _hasMethodDict
+            `App` body
+              <- [untick val]
+          ]
         choiceData = MS.fromListWith (++)
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
             | (name, v) <- binds
@@ -573,7 +612,8 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
           , envInterfaceBinds = interfaceBinds
           , envExceptionBinds = exceptionBinds
           , envImplements = tplImplements
-          , envInterfaceInstances = tplInterfaceInstances
+          , envRequires = ifaceRequires
+          , envInterfaceMethodInstances = tplInterfaceMethodInstances
           , envChoiceData = choiceData
           , envIsGenerated = isGenerated
           , envTypeVars = MS.empty
@@ -599,18 +639,22 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , n `elementOfUniqSet` desugarTypes
     -> pure []
 
-    | hasDamlInterfaceCtx t && envLfVersion env `supports` featureInterfaces
-    -> pure
-      [ DDataType DefDataType
-         { dataLocation = Nothing
-         , dataTypeCon = mkTypeCon [getOccText t]
-         , dataSerializable = IsSerializable False
-         -- TODO https://github.com/digital-asset/daml/issues/10810
-         -- validate that the type has no parameters.
-         , dataParams = []
-         , dataCons = DataInterface
-         }
-      ]
+    | hasDamlInterfaceCtx t
+    ->  if envLfVersion env `supports` featureInterfaces then
+            pure [ DDataType DefDataType
+                { dataLocation = Nothing
+                , dataTypeCon = mkTypeCon [getOccText t]
+                , dataSerializable = IsSerializable False
+                -- TODO https://github.com/digital-asset/daml/issues/10810
+                -- validate that the type has no parameters.
+                , dataParams = []
+                , dataCons = DataInterface
+                }
+            ]
+        else
+            unsupported "Daml interfaces are only available with --target=1.dev" ()
+            -- TODO https://github.com/digital-asset/daml/issues/12051
+            --   Change when interfaces are released.
 
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
@@ -642,7 +686,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     -> convertVariantDef env t
 
     | otherwise
-    -> unsupported ("Data definition, of type " ++ prettyPrint (tyConFlavour t)) o
+    -> unsupported ("Data definition, of type " ++ prettyPrint (tyConFlavour t) ++ ".") o
 
 convertTypeDef env x = pure []
 
@@ -839,7 +883,7 @@ convertVariantConDef env tycon tyVars con =
             argTy' <- convertType env argTy
             pure ((ctorName, argTy'), [])
         ([], _:_:_) ->
-            unsupported "Data constructor with multiple unnamed fields" (prettyPrint (getName tycon))
+            unsupported "Data constructor with multiple unnamed fields." (prettyPrint (getName tycon))
         (labels, args) -> do
             fields <- zipExact labels <$> mapM (convertType env) args
             let recName = synthesizeVariantRecord ctorName tconName
@@ -951,31 +995,24 @@ useSingleMethodDict env x _ =
     unhandled "useSingleMethodDict: not a single method type class dictionary" x
 
 convertImplements :: Env -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
-convertImplements env tplTypeCon = NM.fromList <$>
-    mapM convertInterface (MS.findWithDefault [] tplTypeCon (envImplements env))
+convertImplements env tpl = NM.fromList <$>
+  mapM convertInterface (MS.findWithDefault [] tpl (envImplements env))
   where
-    convertInterface ty = do
-        ty' <- convertTyCon env ty
-        con <- case ty' of
-            TCon con -> pure con
-            _ -> unhandled "interface type" ty
-        let mod = nameModule (getName ty)
-        dictExpr <- case MS.lookup (mod, qualObject con, tplTypeCon) (envInterfaceInstances env) of
-            Just e -> pure e
-            Nothing -> unhandled ("missing interface instance for " <> show con) ()
-        fields <- convertExpr env dictExpr >>= \case
-            EStructCon fields -> pure fields
-            e -> unhandled ("Expected struct for interface dict but got " <> show e) ()
-        -- Drop superclass constraints and to/fromIface & to/fromIfaceContractId
-        -- which are always at the beginning.
-        let methodFields = drop 4 (filter (\(FieldName f, _) -> "m_" `T.isPrefixOf` f) fields)
-        let methods = NM.fromList
-                [ TemplateImplementsMethod (MethodName methodName) e
-                | (FieldName fieldName, e) <- methodFields
-                , Just methodName <- [T.stripPrefix "m_" fieldName]
-                ]
-        let inheritedChoiceNames = S.empty -- This is filled during LF post-processing (in the LF completer).
-        pure (TemplateImplements con methods inheritedChoiceNames)
+    convertInterface iface = do
+      con <- convertInterfaceTyCon env iface
+      let mod = nameModule (getName iface)
+
+      methods <- convertMethods $ MS.findWithDefault []
+        (mod, qualObject con, tpl)
+        (envInterfaceMethodInstances env)
+
+      let inheritedChoiceNames = S.empty -- This is filled during LF post-processing (in the LF completer).
+      pure (TemplateImplements con methods inheritedChoiceNames)
+
+    convertMethods ms = fmap NM.fromList . sequence $
+      [ TemplateImplementsMethod (MethodName k) <$> convertExpr env v
+      | (k, v) <- ms
+      ]
 
 convertChoices :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env tplTypeCon tbinds =
@@ -1007,7 +1044,7 @@ convertChoice env tbinds (ChoiceData ty expr) = do
           archiveSelf <- useSingleMethodDict env fArchive (`ETmApp` EVar self)
           pure $ EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) update
         PreConsuming | otherwise ->
-          unsupported "preconsuming choice for interface" ()
+          unsupported "Preconsuming choice for interface." ()
         PostConsuming | Just fArchive <- tbArchive tbinds -> do
           archiveSelf <- useSingleMethodDict env fArchive (`ETmApp` EVar self)
           pure $
@@ -1015,7 +1052,7 @@ convertChoice env tbinds (ChoiceData ty expr) = do
             EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) $
             EUpdate $ UPure choiceRetTy $ EVar res
         PostConsuming | otherwise ->
-          unsupported "postconsuming choice for interface" ()
+          unsupported "Postconsuming choice for interface." ()
     pure TemplateChoice
         { chcLocation = Nothing
         , chcName = choiceName
@@ -1041,6 +1078,11 @@ convertBind env (name, x)
     = pure []
     -- These are only used as markers for the LF conversion.
     | "_implements_" `T.isPrefixOf` getOccText name
+    = pure []
+    | "_requires_" `T.isPrefixOf` getOccText name
+    = pure []
+    -- These are moved into interface implementations so we can drop them
+    | "_method_" `T.isPrefixOf` getOccText name
     = pure []
 
     -- Remove internal functions.
@@ -1092,6 +1134,12 @@ convertBind env (name, x)
     | ConstraintTupleProjectionName _ _ <- name
     = pure []
 
+    -- HasMethod instances are only used for desugaring.
+    | DFunId _ <- idDetails name
+    , TypeCon hasMethodCls _ <- varType name
+    , NameIn DA_Internal_Desugar "HasMethod" <- hasMethodCls
+    = pure []
+
     -- Typeclass instance dictionaries
     | DFunId isNewtype <- idDetails name
     = withRange (convNameLoc name) $ do
@@ -1137,7 +1185,16 @@ internalTypes = mkUniqSet
     ]
 
 desugarTypes :: UniqSet FastString
-desugarTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming", "Implements"]
+desugarTypes = mkUniqSet
+    [ "Consuming"
+    , "PreConsuming"
+    , "PostConsuming"
+    , "NonConsuming"
+    , "Method"
+    , "HasMethod"
+    , "ImplementsT"
+    , "RequiresT"
+    ]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
@@ -1148,6 +1205,10 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
     , ("DA.Internal.LF", "unpackPair" : map ("$W" <>) (nonDetEltsUniqSet internalTypes))
     , ("GHC.Base",
         [ "getTag"
+        ])
+    , ("DA.Internal.Desugar",
+        [ "mkMethod"
+        , "$sel:unMethod:Method"
         ])
     ]
 
@@ -1196,7 +1257,7 @@ convertExpr env0 e = do
                     ECallInterface iface (MethodName $ T.pack $ unpackFS y) (EVar $ mkVar "i")
                   , args
                   )
-            _ -> unsupported "primitiveInterface was not applied to function from interface" t
+            _ -> unsupported "primitiveInterface not applied to function from interface." t
     -- NOTE(MH): `getFieldPrim` and `setFieldPrim` are used by the record
     -- preprocessor to magically implement the `HasField` instances for records.
     go env (VarIn DA_Internal_Record "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
@@ -1235,7 +1296,7 @@ convertExpr env0 e = do
     go env (VarIn GHC_Real "fromRational") (LType (TypeCon (NameIn GHC_Types "BigNumeric") []) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalBigNumeric top bot
     go env (VarIn GHC_Real "fromRational") (LType scaleTyCoRep : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
-        = unsupported ("Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (" ++ show (fromRational (top % bot) :: Decimal.Decimal) ++ " : Numeric 10)") ()
+        = unsupported ("Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (" ++ show (fromRational (top % bot) :: Decimal.Decimal) ++ " : Numeric 10).") ()
     go env (VarIn GHC_Num "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 (negate x)
     go env (VarIn GHC_Integer_Type "fromInteger") (LExpr (Lit (LitNumber _ x _)) : args)
@@ -1420,7 +1481,7 @@ convertExpr env0 e = do
     go env (Var x) args
         | Just internals <- lookupUFM internalFunctions modName
         , getOccFS x `elementOfUniqSet` internals
-        = unsupported "Direct call to internal function" x
+        = unsupported "Direct call to internal function." x
         where
             modName = maybe (envGHCModuleName env) GHC.moduleName $ nameModule_maybe $ getName x
 
@@ -1483,7 +1544,7 @@ convertExpr env0 e = do
             tcon | isSimpleRecordCon con || isClassCon con -> do
                 let fields = ctorLabels con
                 case zipExactMay vs fields of
-                    Nothing -> unsupported "Pattern match with existential type" alt
+                    Nothing -> unsupported "Pattern match with existential type." alt
                     Just vsFields -> convertLet env bind scrutinee $ \env -> do
                         bindRef <- convertExpr env (Var bind)
                         x' <- convertExpr env x
@@ -1509,7 +1570,7 @@ convertExpr env0 e = do
         else pure $
             ELet (Binding bind' scrutinee') $
             mkCase env bindTy resultType' (EVar $ convVar bind) alts'
-    go env (Let (Rec xs) _) args = unsupported "Local variables defined recursively - recursion can only happen at the top level" $ map fst xs
+    go env (Let (Rec xs) _) args = unsupported "Local variables defined recursively - recursion can only happen at the top level." $ map fst xs
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
 
@@ -1760,7 +1821,7 @@ convertLet env binder bound mkBody = do
 convertUnitId :: GHC.UnitId -> MS.Map GHC.UnitId DalfPackage -> UnitId -> ConvertM LF.PackageRef
 convertUnitId thisUnitId _pkgMap unitId | unitId == thisUnitId = pure LF.PRSelf
 convertUnitId _thisUnitId pkgMap unitId = case unitId of
-  IndefiniteUnitId x -> unsupported "Indefinite unit id's" x
+  IndefiniteUnitId x -> unsupported "Indefinite unit id's." x
   DefiniteUnitId _ -> case MS.lookup unitId pkgMap of
     Just DalfPackage{..} -> pure $ LF.PRImport dalfPackageId
     Nothing -> unknown unitId pkgMap
@@ -1798,9 +1859,9 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
 
         SimpleVariantCon -> do
             when (length vs /= dataConRepArity con) $
-                unsupported "Pattern match with existential type" alt
+                unsupported "Pattern match with existential type." alt
             when (length vs >= 2) $
-                unsupported "Data constructor with multiple unnamed fields" alt
+                unsupported "Data constructor with multiple unnamed fields." alt
 
             let patBinder = maybe vArg convVar (listToMaybe vs)
             GCA (GCPNormal CPVariant{..}) <$> convertExpr env x
@@ -1812,13 +1873,13 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
             let fields = ctorLabels con
                 patBinder = vArg
             case zipExactMay vs fields of
-                Nothing -> unsupported "Pattern match with existential type" alt
+                Nothing -> unsupported "Pattern match with existential type." alt
                 Just vsFlds -> do
                     x' <- convertExpr env x
                     projBinds <- mkProjBindings env (EVar vArg) (TypeConApp (synthesizeVariantRecord patVariant <$> tcon) targs) vsFlds x'
                     pure $ GCA (GCPNormal CPVariant{..}) projBinds
 
-convertAlt _ _ x = unsupported "Case alternative of this form" x
+convertAlt _ _ x = unsupported "Case alternative of this form." x
 
 mkProjBindings :: Env -> LF.Expr -> TypeConApp -> [(Var, FieldName)] -> LF.Expr -> ConvertM LF.Expr
 mkProjBindings env recExpr recTyp vsFlds e =
@@ -2154,7 +2215,7 @@ convertType env = go env
     go env t | Just m <- isNumLitTy t
         = case typeLevelNatE m of
             Left TLNEOutOfBounds ->
-                unsupported "type-level natural outside of supported range [0, 37]" m
+                unsupported "type-level natural outside of supported range [0, 37]." m
             Right n ->
                 pure (TNat n)
 
@@ -2175,7 +2236,7 @@ convertKind x@(TypeCon t ts)
         k1 <- convertKind t1
         k2 <- convertKind t2
         case k2 of
-            KNat -> unsupported "Nat kind on the right-hand side of kind arrow" x
+            KNat -> unsupported "Nat kind on the right-hand side of kind arrow." x
             _ -> pure (KArrow k1 k2)
 convertKind (TyVarTy x) = convertKind $ tyVarKind x
 convertKind x = unhandled "Kind" x
@@ -2209,7 +2270,7 @@ defTypeSyn name params ty =
 
 defValue :: NamedThing a => a -> (ExprValName, LF.Type) -> LF.Expr -> Definition
 defValue loc binder@(name, lftype) body =
-  DValue $ DefValue (convNameLoc loc) binder (HasNoPartyLiterals True) (IsTest isTest) body
+  DValue $ DefValue (convNameLoc loc) binder (IsTest isTest) body
   where
     isTest = case view _TForalls lftype of
       (_, LF.TScenario _)  -> True

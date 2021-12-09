@@ -1,10 +1,5 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# LANGUAGE CPP #-}
-
-#ifndef DAML_GENMAP
-module DA.List.BuiltinOrder where
-#else
 
 -- | Note: This is only supported in DAML-LF 1.11 or later.
 --
@@ -151,4 +146,3 @@ goUniqueOn f m (x :: xs) =
   in case Map.lookup (f x) m of
     None -> goUniqueOn f (Map.insert k () m) xs
     Some _ -> False
-#endif

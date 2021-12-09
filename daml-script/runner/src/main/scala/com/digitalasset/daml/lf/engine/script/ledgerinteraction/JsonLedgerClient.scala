@@ -18,7 +18,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
-import com.daml.ledger.api.domain.PartyDetails
+import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
@@ -57,6 +57,8 @@ class JsonLedgerClient(
   import JsonLedgerClient.JsonProtocol._
   import JsonLedgerClient._
 
+  override val transport = "JSON API"
+
   private val decodedJwt = JwtDecoder.decode(token) match {
     case -\/(e) => throw new IllegalArgumentException(e.toString)
     case \/-(a) => a
@@ -93,7 +95,7 @@ class JsonLedgerClient(
           resp.entity.dataBytes
             .runFold(ByteString.empty)((b, a) => b ++ a)
             .map(_.utf8String)
-            .map(body => ErrorResponse(status = resp.status, errors = List(body)))
+            .map(body => NonJsonErrorResponse(status = resp.status, body = body))
         }
       )
   }
@@ -130,6 +132,8 @@ class JsonLedgerClient(
     request[A, B](path, a).flatMap {
       case ErrorResponse(errors, status) =>
         Future.failed(FailedJsonApiRequest(path, Some(a.toJson), status, errors))
+      case NonJsonErrorResponse(status, body) =>
+        Future.failed(FailedJsonApiRequest(path, Some(a.toJson), status, List(body)))
       case SuccessResponse(result, _) => Future.successful(result)
     }
 
@@ -137,6 +141,8 @@ class JsonLedgerClient(
     request[A](path).flatMap {
       case ErrorResponse(errors, status) =>
         Future.failed(FailedJsonApiRequest(path, None, status, errors))
+      case NonJsonErrorResponse(status, body) =>
+        Future.failed(FailedJsonApiRequest(path, None, status, List(body)))
       case SuccessResponse(result, _) => Future.successful(result)
     }
 
@@ -463,7 +469,7 @@ class JsonLedgerClient(
 
   private[this] val SubmissionFailures: Set[StatusCode] = {
     import StatusCodes._
-    Set(InternalServerError, BadRequest, Conflict)
+    Set(InternalServerError, BadRequest, Conflict, NotFound)
   }
 
   def commandRequest[In, Out](endpoint: String, argument: In, partySets: Option[SubmitParties])(
@@ -493,9 +499,76 @@ class JsonLedgerClient(
             errors,
           )
         )
+      case NonJsonErrorResponse(status, body) =>
+        Future.failed(
+          new FailedJsonApiRequest(
+            uri.path./("v1")./(endpoint),
+            Some(argumentWithPartySets),
+            status,
+            List(body),
+          )
+        )
       case SuccessResponse(result, _) => Future.successful(Right(result))
     }
   }
+
+  override def createUser(
+      user: User,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[User] =
+    unsupportedOn("createUser")
+
+  override def getUser(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Option[User]] =
+    unsupportedOn("getUser")
+
+  override def deleteUser(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] =
+    unsupportedOn("deleteUser")
+
+  override def listUsers()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[User]] =
+    unsupportedOn("listUsers")
+
+  override def grantUserRights(
+      id: UserId,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    unsupportedOn("grantUserRights")
+
+  override def revokeUserRights(
+      id: UserId,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    unsupportedOn("revokeUserRights")
+
+  override def listUserRights(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    unsupportedOn("listUserRights")
 }
 
 object JsonLedgerClient {
@@ -566,6 +639,7 @@ object JsonLedgerClient {
     def status: StatusCode
   }
   final case class ErrorResponse[A](errors: List[String], status: StatusCode) extends Response[A]
+  final case class NonJsonErrorResponse[A](status: StatusCode, body: String) extends Response[A]
   final case class SuccessResponse[A](result: A, status: StatusCode) extends Response[A]
 
   final case class QueryArgs(templateId: Identifier)

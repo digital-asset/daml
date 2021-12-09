@@ -10,7 +10,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "ENCODER_LF_VERSIONS",
+    "LF_VERSIONS",
     "lf_version_configuration",
     "mangle_for_java",
 )
@@ -27,8 +27,8 @@ da_scala_library(
     scalacopts = lf_scalacopts,
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -39,7 +39,7 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    data = [":testing-dar-%s" % target for target in ENCODER_LF_VERSIONS],
+    data = [":testing-dar-%s" % target for target in LF_VERSIONS],
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -51,8 +51,8 @@ da_scala_test_suite(
     deps = [
         ":encoder",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
@@ -72,8 +72,8 @@ da_scala_binary(
     deps = [
         ":encoder",
         "//:sdk-version-scala-lib",
+        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/archive/encoder",
         "//daml-lf/data",
         "//daml-lf/language",
@@ -91,7 +91,7 @@ da_scala_binary(
             "src/test/lf/*_%s_*.lf" % target,
         ]),
     )
-    for target in ENCODER_LF_VERSIONS
+    for target in LF_VERSIONS
 ]
 
 [
@@ -121,7 +121,7 @@ da_scala_binary(
             ],
         ),
     ]
-    for target in ENCODER_LF_VERSIONS
+    for target in LF_VERSIONS
 ]
 
 [
@@ -161,6 +161,6 @@ EOF
 
 filegroup(
     name = "testing-dars",
-    srcs = ["testing-dar-%s" % version for version in ENCODER_LF_VERSIONS],
+    srcs = ["testing-dar-%s" % version for version in LF_VERSIONS],
     visibility = ["//visibility:public"],
 )

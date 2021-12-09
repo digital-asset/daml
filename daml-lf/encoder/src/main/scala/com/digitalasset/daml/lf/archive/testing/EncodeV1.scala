@@ -92,7 +92,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       builder.setFlags(
         PLF.FeatureFlags
           .newBuilder()
-          .setForbidPartyLiterals(module.featureFlags.forbidPartyLiterals)
+          .setForbidPartyLiterals(true)
           .setDontDivulgeContractIdsInCreateArguments(true)
           .setDontDiscloseNonConsumingChoicesToObservers(true)
       )
@@ -380,12 +380,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           builder.setExercise(b)
-        case UpdateExerciseInterface(interface, choice, cid, arg) =>
+        case UpdateExerciseInterface(interface, choice, cid, arg, typeRep, guard) =>
           val b = PLF.Update.ExerciseInterface.newBuilder()
           b.setInterface(interface)
           setInternedString(choice, b.setChoiceInternedStr)
           b.setCid(cid)
           b.setArg(arg)
+          b.setTypeRep(typeRep)
+          b.setGuard(guard)
           builder.setExerciseInterface(b)
         case UpdateExerciseByKey(templateId, choice, key, arg) =>
           assertSince(LV.Features.exerciseByKey, "exerciseByKey")
@@ -465,8 +467,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           setString(value, builder.setTextStr, builder.setTextInternedStr)
         case PLTimestamp(value) =>
           builder.setTimestamp(value.micros)
-        case PLParty(party) =>
-          setString(party, builder.setPartyStr, builder.setPartyInternedStr)
         case PLDate(date) =>
           builder.setDate(date.days)
         case PLRoundingMode(rounding) =>
@@ -770,7 +770,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         .newBuilder()
         .setNameWithType(dottedName -> value.typ)
         .setExpr(value.body)
-        .setNoPartyLiterals(value.noPartyLiterals)
+        .setNoPartyLiterals(true)
         .setIsTest(value.isTest)
         .build()
     }

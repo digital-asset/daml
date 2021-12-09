@@ -42,6 +42,10 @@ final case class Config[Extra](
     maxDeduplicationDuration: Option[Duration],
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
+    acsIdPageSize: Int,
+    acsIdFetchingParallelism: Int,
+    acsContractFetchingParallelism: Int,
+    acsGlobalParallelism: Int,
     stateValueCache: caching.WeightedCache.Configuration,
     lfValueTranslationEventCache: caching.SizedCache.Configuration,
     lfValueTranslationContractCache: caching.SizedCache.Configuration,
@@ -76,6 +80,10 @@ object Config {
       configurationLoadTimeout = Duration.ofSeconds(10),
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
+      acsIdPageSize = IndexConfiguration.DefaultAcsIdPageSize,
+      acsIdFetchingParallelism = IndexConfiguration.DefaultAcsIdFetchingParallelism,
+      acsContractFetchingParallelism = IndexConfiguration.DefaultAcsContractFetchingParallelism,
+      acsGlobalParallelism = IndexConfiguration.DefaultAcsGlobalParallelism,
       stateValueCache = caching.WeightedCache.Configuration.none,
       lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
       lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
@@ -87,7 +95,7 @@ object Config {
       enableInMemoryFanOutForLedgerApi = false,
       maxDeduplicationDuration = None,
       extra = extra,
-      enableSelfServiceErrorCodes = false,
+      enableSelfServiceErrorCodes = true,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
@@ -466,6 +474,52 @@ object Config {
             config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
           )
 
+        opt[Int]("acs-id-page-size")
+          .optional()
+          .text(
+            s"Number of contract ids fetched from the index for every round trip when serving ACS calls. Default is ${IndexConfiguration.DefaultAcsIdPageSize}."
+          )
+          .validate { acsIdPageSize =>
+            if (acsIdPageSize > 0) Right(())
+            else Left("acs-id-page-size should be strictly positive")
+          }
+          .action((acsIdPageSize, config) => config.copy(acsIdPageSize = acsIdPageSize))
+
+        opt[Int]("acs-id-fetching-parallelism")
+          .optional()
+          .text(
+            s"Number of contract id pages fetched in parallel when serving ACS calls. Default is ${IndexConfiguration.DefaultAcsIdFetchingParallelism}."
+          )
+          .validate { acsIdFetchingParallelism =>
+            if (acsIdFetchingParallelism > 0) Right(())
+            else Left("acs-id-fetching-parallelism should be strictly positive")
+          }
+          .action((acsIdFetchingParallelism, config) =>
+            config.copy(acsIdFetchingParallelism = acsIdFetchingParallelism)
+          )
+
+        opt[Int]("acs-contract-fetching-parallelism")
+          .optional()
+          .text(
+            s"Number of event pages fetched in parallel when serving ACS calls. Default is ${IndexConfiguration.DefaultAcsContractFetchingParallelism}."
+          )
+          .validate { acsContractFetchingParallelism =>
+            if (acsContractFetchingParallelism > 0) Right(())
+            else Left("acs-contract-fetching-parallelism should be strictly positive")
+          }
+          .action((acsContractFetchingParallelism, config) =>
+            config.copy(acsContractFetchingParallelism = acsContractFetchingParallelism)
+          )
+
+        opt[Int]("acs-global-parallelism-limit")
+          .optional()
+          .text(
+            s"Maximum number of concurrent ACS queries to the index database. Default is ${IndexConfiguration.DefaultAcsGlobalParallelism}."
+          )
+          .action((acsGlobalParallelism, config) =>
+            config.copy(acsGlobalParallelism = acsGlobalParallelism)
+          )
+
         opt[Long]("max-state-value-cache-size")
           .optional()
           .text(
@@ -584,11 +638,12 @@ object Config {
           else success
         )
 
-        opt[Unit]("use-self-service-error-codes")
+        opt[Unit]("use-pre-1.18-error-codes")
           .optional()
-          .hidden()
-          .text("Enable self-service error codes.")
-          .action((_, config) => config.copy(enableSelfServiceErrorCodes = true))
+          .text(
+            "Enables gRPC error code compatibility mode to the pre-1.18 behaviour. This option is deprecated and will be removed in a future release."
+          )
+          .action((_, config: Config[Extra]) => config.copy(enableSelfServiceErrorCodes = false))
       }
     extraOptions(parser)
     parser

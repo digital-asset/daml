@@ -21,6 +21,6 @@ abstract class ErrorGroup()(implicit parent: ErrorClass) {
           s"Could not parse full class name: '${fullClassName}' for the error class name"
         )
       )
-    parent.extend(Grouping(name, Some(this)))
+    parent.extend(Grouping(docName = name, fullClassName = fullClassName))
   }
 }

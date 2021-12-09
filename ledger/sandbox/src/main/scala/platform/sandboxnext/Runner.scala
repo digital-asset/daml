@@ -7,6 +7,7 @@ import java.io.File
 import java.time.{Clock, Instant}
 import java.util.UUID
 import java.util.concurrent.Executors
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
@@ -32,7 +33,7 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.LanguageVersion
-import com.daml.logging.ContextualizedLogger
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver._
@@ -242,33 +243,43 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   ),
                 )
               }
-              apiServer <- new StandaloneApiServer(
+              apiServerConfig = ApiServerConfig(
+                participantId = config.participantId,
+                archiveFiles = if (isReset) List.empty else config.damlPackages,
+                // Re-use the same port when resetting the server.
+                port = currentPort.getOrElse(config.port),
+                address = config.address,
+                jdbcUrl = indexJdbcUrl,
+                databaseConnectionPoolSize = config.databaseConnectionPoolSize,
+                databaseConnectionTimeout = config.databaseConnectionTimeout,
+                tlsConfig = config.tlsConfig,
+                maxInboundMessageSize = config.maxInboundMessageSize,
+                initialLedgerConfiguration = Some(config.initialLedgerConfiguration),
+                configurationLoadTimeout = config.configurationLoadTimeout,
+                eventsPageSize = config.eventsPageSize,
+                portFile = config.portFile,
+                // TODO append-only: augment the following defaults for enabling the features for sandbox next
+                seeding = config.seeding.get,
+                managementServiceTimeout = config.managementServiceTimeout,
+                maxContractStateCacheSize = 0L,
+                maxContractKeyStateCacheSize = 0L,
+                enableMutableContractStateCache = false,
+                maxTransactionsInMemoryFanOutBufferSize = 0L,
+                enableInMemoryFanOutForLedgerApi = false,
+                enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+              )
+              indexService <- StandaloneIndexService(
                 ledgerId = ledgerId,
-                config = ApiServerConfig(
-                  participantId = config.participantId,
-                  archiveFiles = if (isReset) List.empty else config.damlPackages,
-                  // Re-use the same port when resetting the server.
-                  port = currentPort.getOrElse(config.port),
-                  address = config.address,
-                  jdbcUrl = indexJdbcUrl,
-                  databaseConnectionPoolSize = config.databaseConnectionPoolSize,
-                  databaseConnectionTimeout = config.databaseConnectionTimeout,
-                  tlsConfig = config.tlsConfig,
-                  maxInboundMessageSize = config.maxInboundMessageSize,
-                  initialLedgerConfiguration = Some(config.initialLedgerConfiguration),
-                  configurationLoadTimeout = config.configurationLoadTimeout,
-                  eventsPageSize = config.eventsPageSize,
-                  portFile = config.portFile,
-                  // TODO append-only: augment the following defaults for enabling the features for sandbox next
-                  seeding = config.seeding.get,
-                  managementServiceTimeout = config.managementServiceTimeout,
-                  maxContractStateCacheSize = 0L,
-                  maxContractKeyStateCacheSize = 0L,
-                  enableMutableContractStateCache = false,
-                  maxTransactionsInMemoryFanOutBufferSize = 0L,
-                  enableInMemoryFanOutForLedgerApi = false,
-                  enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
-                ),
+                config = apiServerConfig,
+                metrics = metrics,
+                engine = engine,
+                servicesExecutionContext = servicesExecutionContext,
+                lfValueTranslationCache = lfValueTranslationCache,
+              )
+              apiServer <- StandaloneApiServer(
+                indexService = indexService,
+                ledgerId = ledgerId,
+                config = apiServerConfig,
                 engine = engine,
                 commandConfig = config.commandConfig,
                 partyConfig = PartyConfiguration.default.copy(
@@ -283,7 +294,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 otherServices = List(resetService),
                 otherInterceptors = List(resetService),
                 servicesExecutionContext = servicesExecutionContext,
-                lfValueTranslationCache = lfValueTranslationCache,
               )
               _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
             } yield {
@@ -316,7 +326,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     }
 
   private def uploadDar(from: File, to: WritePackagesService)(implicit
-      executionContext: ExecutionContext
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
   ): Future[Unit] = DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
     implicit telemetryContext =>
       val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)

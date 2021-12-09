@@ -5,6 +5,17 @@ resource "google_compute_network" "es" {
   name = "es-network"
 }
 
+/*
+Instruct ES to move all data out of blue nodes:
+PUT _cluster/settings
+{
+  "transient" : {
+    "cluster.routing.allocation.exclude._ip" : "es-blue-*"
+  }
+}
+use null to reset
+*/
+
 locals {
   es_ssh  = 0
   es_feed = 1
@@ -12,7 +23,7 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 5,
+      size           = 0,
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
@@ -21,11 +32,11 @@ locals {
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 0,
+      size           = 5,
       init           = "[]",
-      type           = "n2-highcpu-16",
+      type           = "n2-highmem-2",
       xmx            = "12g",
-      disk_size      = 300,
+      disk_size      = 500,
     },
     {
       suffix         = "-init",
@@ -41,6 +52,7 @@ locals {
   es_ports = [
     { name = "es", port = "9200" },
     { name = "kibana", port = "5601" },
+    { name = "cerebro", port = "9000" },
   ]
 }
 
@@ -77,7 +89,7 @@ resource "google_compute_firewall" "es-http" {
 
   allow {
     protocol = "tcp"
-    ports    = ["5601", "9200"]
+    ports    = [for p in local.es_ports : p.port]
   }
 }
 
@@ -148,6 +160,15 @@ apt-get -y upgrade
 curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
 
 ## Install Docker
+
+mkdir -p /etc/docker
+cat <<CONFIG > /etc/docker/daemon.json
+{
+  "log-driver": "json-file",
+  "log-opts": {"max-size": "10m", "max-file": "3"}
+}
+CONFIG
+
 apt-get install -y \
   apt-transport-https \
   ca-certificates \
@@ -188,6 +209,9 @@ RUN bin/elasticsearch-plugin install --batch discovery-gce
 COPY es.yml /usr/share/elasticsearch/config/elasticsearch.yml
 EOF
 
+mkdir -p /root/es-data
+chown 1000:0 /root/es-data
+
 docker build -t es .
 docker run -d \
            --restart on-failure \
@@ -195,6 +219,7 @@ docker run -d \
            -p 9200:9200 \
            -p 9300:9300 \
            -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx}" \
+           -v /root/es-data:/usr/share/elasticsearch/data \
            es
 
 docker run -d \
@@ -205,10 +230,17 @@ docker run -d \
            -e TELEMETRY_ENABLED=false \
            docker.elastic.co/kibana/kibana:7.13.2
 
+docker run -d \
+           -p 9000:9000 \
+           --link es \
+           --name cerebro \
+           lmenezes/cerebro:0.9.4
+
 ## Getting container output directly to the GCP console
 
 ( exec 1> >(while IFS= read -r line; do echo "elastic: $line"; done); docker logs -f es ) &
 ( exec 1> >(while IFS= read -r line; do echo "kibana: $line"; done); docker logs -f kibana ) &
+( exec 1> >(while IFS= read -r line; do echo "cerebro: $line"; done); docker logs -f cerebro ) &
 
 for job in $(jobs -p); do
     wait $job
@@ -358,12 +390,8 @@ resource "google_compute_security_policy" "es" {
   }
 }
 
-output "es_address" {
-  value = google_compute_address.es[0].address
-}
-
-output "kibana_address" {
-  value = google_compute_address.es[1].address
+output "es_addresses" {
+  value = { for idx, p in local.es_ports : p.name => google_compute_address.es[idx].address }
 }
 
 resource "google_compute_address" "es-feed" {

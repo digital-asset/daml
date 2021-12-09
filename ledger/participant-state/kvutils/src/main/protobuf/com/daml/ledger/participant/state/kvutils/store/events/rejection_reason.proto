@@ -47,6 +47,7 @@ message InvalidLedgerTime {
 // key during its implementation specific deduplication window.
 message Duplicate {
   string details = 1;
+  string submission_id = 2;
 }
 
 // A party mentioned as a stakeholder or actor has not been on-boarded on

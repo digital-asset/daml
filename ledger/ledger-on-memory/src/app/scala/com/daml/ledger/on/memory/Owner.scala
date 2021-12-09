@@ -13,6 +13,6 @@ object Owner {
       dispatcher <- dispatcherOwner
       sharedState = InMemoryState.empty
       factory = new InMemoryLedgerFactory(dispatcher, sharedState)
-      runner <- new Runner(RunnerName, factory).owner(config)
+      runner <- new Runner(RunnerName, factory, InMemoryConfigProvider).owner(config)
     } yield runner
 }

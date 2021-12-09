@@ -16,7 +16,12 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.on.memory
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.on.memory.{InMemoryLedgerReader, InMemoryLedgerWriter, InMemoryState}
+import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
+import com.daml.ledger.participant.state.kvutils.api.{
+  KeyValueParticipantStateReader,
+  KeyValueParticipantStateWriter,
+}
 import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.ledger.validator.StateKeySerializationStrategy
@@ -29,15 +34,15 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao, LedgerReadDao}
-import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
+import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
-import org.mockito.{ArgumentMatchers, MockitoSugar}
 import org.mockito.Mockito._
+import org.mockito.{ArgumentMatchers, MockitoSugar}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -184,7 +189,7 @@ class RecoveringIndexerIntegrationSpec
   private def participantServer(
       newParticipantState: ParticipantStateFactory,
       restartDelay: FiniteDuration = 100.millis,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[(ParticipantState, Materializer)] = {
+  )(implicit loggingContext: LoggingContext): ResourceOwner[(WriteService, Materializer)] = {
     val ledgerId = Ref.LedgerString.assertFromString(s"ledger-$testId")
     val participantId = Ref.ParticipantId.assertFromString(s"participant-$testId")
     val jdbcUrl =
@@ -197,7 +202,7 @@ class RecoveringIndexerIntegrationSpec
         .map(ExecutionContext.fromExecutorService)
       participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
       _ <- new StandaloneIndexerServer(
-        readService = participantState,
+        readService = participantState._1,
         config = IndexerConfig(
           participantId = participantId,
           jdbcUrl = jdbcUrl,
@@ -208,7 +213,7 @@ class RecoveringIndexerIntegrationSpec
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       )(materializer, loggingContext)
-    } yield participantState -> materializer
+    } yield participantState._2 -> materializer
   }
 
   private def eventuallyPartiesShouldBe(partyNames: String*)(materializer: Materializer)(implicit
@@ -251,6 +256,10 @@ class RecoveringIndexerIntegrationSpec
           dbDispatcher = dbDispatcher,
           eventsPageSize = 100,
           eventsProcessingParallelism = 8,
+          acsIdPageSize = 20000,
+          acsIdFetchingParallelism = 2,
+          acsContractFetchingParallelism = 2,
+          acsGlobalParallelism = 10,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -268,7 +277,7 @@ class RecoveringIndexerIntegrationSpec
 
 object RecoveringIndexerIntegrationSpec {
 
-  private type ParticipantState = ReadService with WriteService
+  private type ParticipantState = (ReadService, WriteService)
 
   private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
 
@@ -293,22 +302,29 @@ object RecoveringIndexerIntegrationSpec {
         committerExecutionContext <- ResourceOwner
           .forExecutorService(() => Executors.newCachedThreadPool())
           .map(ExecutionContext.fromExecutorService)
-        readerWriter <- new memory.InMemoryLedgerReaderWriter.Owner(
-          ledgerId = ledgerId,
+        state = InMemoryState.empty
+        offsetBuilder = new KVOffsetBuilder(version = 0)
+        writer <- new InMemoryLedgerWriter.Owner(
           participantId = participantId,
-          offsetVersion = 0,
           keySerializationStrategy = StateKeySerializationStrategy.createDefault(),
           metrics = metrics,
           dispatcher = dispatcher,
-          state = memory.InMemoryState.empty,
+          state = state,
           engine = Engine.DevEngine(),
           committerExecutionContext = committerExecutionContext,
+          offsetBuilder = offsetBuilder,
         )
-      } yield new KeyValueParticipantState(
-        readerWriter,
-        readerWriter,
-        metrics,
-        enableSelfServiceErrorCodes = false,
+        reader = new InMemoryLedgerReader(ledgerId, dispatcher, offsetBuilder, state, metrics)
+      } yield (
+        KeyValueParticipantStateReader(
+          reader = reader,
+          metrics = metrics,
+          enableSelfServiceErrorCodes = true,
+        ),
+        new KeyValueParticipantStateWriter(
+          writer = writer,
+          metrics = metrics,
+        ),
       )
     }
   }
@@ -319,13 +335,13 @@ object RecoveringIndexerIntegrationSpec {
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] =
       SimpleParticipantState(ledgerId, participantId)
-        .map { delegate =>
+        .map { case (readingDelegate, writeDelegate) =>
           var lastFailure: Option[Offset] = None
           // This spy inserts a failure after each state update to force the indexer to restart.
-          val failingParticipantState = spy(delegate)
+          val failingParticipantState = spy(readingDelegate)
           doAnswer(invocation => {
             val beginAfter = invocation.getArgument[Option[Offset]](0)
-            delegate.stateUpdates(beginAfter).flatMapConcat { case value @ (offset, _) =>
+            readingDelegate.stateUpdates(beginAfter).flatMapConcat { case value @ (offset, _) =>
               if (lastFailure.isEmpty || lastFailure.get < offset) {
                 lastFailure = Some(offset)
                 Source.single(value).concat(Source.failed(new StateUpdatesFailedException))
@@ -337,7 +353,7 @@ object RecoveringIndexerIntegrationSpec {
             .stateUpdates(
               ArgumentMatchers.any[Option[Offset]]()
             )(ArgumentMatchers.any[LoggingContext])
-          failingParticipantState
+          failingParticipantState -> writeDelegate
         }
 
     private class StateUpdatesFailedException extends RuntimeException("State updates failed.")

@@ -336,7 +336,10 @@ object ApiConfigManagementServiceSpec {
         maxRecordTime: Time.Timestamp,
         submissionId: Ref.SubmissionId,
         config: Configuration,
-    )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
+    )(implicit
+        loggingContext: LoggingContext,
+        telemetryContext: TelemetryContext,
+    ): CompletionStage[state.SubmissionResult] = {
       telemetryContext.setAttribute(
         anApplicationIdSpanAttribute._1,
         anApplicationIdSpanAttribute._2,
@@ -389,7 +392,10 @@ object ApiConfigManagementServiceSpec {
           maxRecordTime: Time.Timestamp,
           submissionId: SubmissionId,
           configuration: Configuration,
-      )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
+      )(implicit
+          loggingContext: LoggingContext,
+          telemetryContext: TelemetryContext,
+      ): CompletionStage[SubmissionResult] = {
         configurationQueue.offer((currentOffset.getAndIncrement(), submissionId, configuration))
         completedFuture(state.SubmissionResult.Acknowledged)
       }

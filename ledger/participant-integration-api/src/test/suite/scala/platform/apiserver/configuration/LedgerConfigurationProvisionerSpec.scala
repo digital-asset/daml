@@ -73,7 +73,7 @@ final class LedgerConfigurationProvisionerSpec
             any[Timestamp],
             any[Ref.SubmissionId],
             any[Configuration],
-          )(any[TelemetryContext])
+          )(any[LoggingContext], any[TelemetryContext])
 
           scheduler.timePasses(100.millis)
           eventually {
@@ -81,7 +81,7 @@ final class LedgerConfigurationProvisionerSpec
               eqTo(Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60))),
               eqTo(submissionId),
               eqTo(configurationToSubmit),
-            )(any[TelemetryContext])
+            )(any[LoggingContext], any[TelemetryContext])
           }
           succeed
         }
@@ -115,7 +115,7 @@ final class LedgerConfigurationProvisionerSpec
             any[Timestamp],
             any[Ref.SubmissionId],
             any[Configuration],
-          )(any[TelemetryContext])
+          )(any[LoggingContext], any[TelemetryContext])
           succeed
         }
     }
@@ -158,7 +158,7 @@ final class LedgerConfigurationProvisionerSpec
           any[Timestamp],
           any[Ref.SubmissionId],
           any[Configuration],
-        )(any[TelemetryContext])
+        )(any[LoggingContext], any[TelemetryContext])
         succeed
       }
   }
@@ -192,7 +192,7 @@ final class LedgerConfigurationProvisionerSpec
           any[Timestamp],
           any[Ref.SubmissionId],
           any[Configuration],
-        )(any[TelemetryContext])
+        )(any[LoggingContext], any[TelemetryContext])
         succeed
       }
   }

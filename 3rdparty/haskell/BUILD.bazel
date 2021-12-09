@@ -8,7 +8,7 @@ genrule(
     srcs = [
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:remote_execution.proto",
         "@com_google_protobuf//:well_known_protos",
-        "@com_github_googleapis_googleapis//google/rpc:status.proto",
+        "@go_googleapis//google/rpc:status.proto",
     ],
     outs = ["Build/Bazel/Remote/Execution/V2/RemoteExecution.hs"],
     cmd = """
@@ -20,7 +20,7 @@ genrule(
       --proto "$$PROTO_FILE_NAME" \
       --includeDir "$$PROTO_DIR" \
       --includeDir "external/com_google_protobuf/src" \
-      --includeDir "external/com_github_googleapis_googleapis" \
+      --includeDir "external/go_googleapis" \
       --out $(RULEDIR)
   """,
     tools = [

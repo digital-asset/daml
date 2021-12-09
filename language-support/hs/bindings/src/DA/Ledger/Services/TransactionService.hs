@@ -52,15 +52,15 @@ getTransactionByEventId lid eid parties =
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetTransactionByEventId=rpc} = service
         rpc (ClientNormalRequest (mkByEventIdRequest lid eid parties) timeout mdm)
-            >>= unwrapWithNotFound
+            >>= unwrapWithTransactionFailures
             >>= \case
-            Just (LL.GetTransactionResponse Nothing) ->
+            Right (LL.GetTransactionResponse Nothing) ->
                 fail "GetTransactionResponse, transaction field is missing"
-            Just (LL.GetTransactionResponse (Just tx)) ->
+            Right (LL.GetTransactionResponse (Just tx)) ->
                 case raiseTransactionTree tx of
                     Left reason -> fail (show reason)
                     Right x -> return $ Just x
-            Nothing ->
+            Left _err ->
                 return Nothing
 
 getTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe TransactionTree)
@@ -70,15 +70,15 @@ getTransactionById lid trid parties =
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetTransactionById=rpc} = service
         rpc (ClientNormalRequest (mkByIdRequest lid trid parties) timeout mdm)
-            >>= unwrapWithNotFound
+            >>= unwrapWithTransactionFailures
             >>= \case
-            Just (LL.GetTransactionResponse Nothing) ->
+            Right (LL.GetTransactionResponse Nothing) ->
                 fail "GetTransactionResponse, transaction field is missing"
-            Just (LL.GetTransactionResponse (Just tx)) ->
+            Right (LL.GetTransactionResponse (Just tx)) ->
                 case raiseTransactionTree tx of
                     Left reason -> fail (show reason)
                     Right x -> return $ Just x
-            Nothing ->
+            Left _err ->
                 return Nothing
 
 getFlatTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe Transaction)
@@ -88,15 +88,15 @@ getFlatTransactionByEventId lid eid parties =
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetFlatTransactionByEventId=rpc} = service
         rpc (ClientNormalRequest (mkByEventIdRequest lid eid parties) timeout mdm)
-            >>= unwrapWithNotFound
+            >>= unwrapWithTransactionFailures
             >>= \case
-            Just (LL.GetFlatTransactionResponse Nothing) ->
+            Right (LL.GetFlatTransactionResponse Nothing) ->
                 fail "GetFlatTransactionResponse, transaction field is missing"
-            Just (LL.GetFlatTransactionResponse (Just tx)) ->
+            Right (LL.GetFlatTransactionResponse (Just tx)) ->
                 case raiseTransaction tx of
                     Left reason -> fail (show reason)
                     Right x -> return $ Just x
-            Nothing ->
+            Left _err ->
                 return Nothing
 
 getFlatTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe Transaction)
@@ -106,15 +106,15 @@ getFlatTransactionById lid trid parties =
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetFlatTransactionById=rpc} = service
         rpc (ClientNormalRequest (mkByIdRequest lid trid parties) timeout mdm)
-            >>= unwrapWithNotFound
+            >>= unwrapWithTransactionFailures
             >>= \case
-            Just (LL.GetFlatTransactionResponse Nothing) ->
+            Right (LL.GetFlatTransactionResponse Nothing) ->
                 fail "GetFlatTransactionResponse, transaction field is missing"
-            Just (LL.GetFlatTransactionResponse (Just tx)) ->
+            Right (LL.GetFlatTransactionResponse (Just tx)) ->
                 case raiseTransaction tx of
                     Left reason -> fail (show reason)
                     Right x -> return $ Just x
-            Nothing ->
+            Left _err ->
                 return Nothing
 
 ledgerEnd :: LedgerId -> LedgerService AbsOffset

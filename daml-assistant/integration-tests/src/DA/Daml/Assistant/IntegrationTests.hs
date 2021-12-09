@@ -226,6 +226,7 @@ tests tmpDir =
             , cleanTests cleanDir
             , templateTests
             , codegenTests codegenDir
+            , cantonTests
             ]
   where
     quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
@@ -810,3 +811,35 @@ codegenTests codegenDir = testGroup "daml codegen" (
                             , "-o", outDir]
                 contents <- listDirectory (projectDir </> outDir)
                 assertBool "bindings were written" (not $ null contents)
+
+cantonTests :: TestTree
+cantonTests = testGroup "daml canton-sandbox"
+  [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
+      step "Creating project"
+      callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
+      step "Building project"
+      callCommandSilentIn (dir </> "skeleton") "daml build"
+      step "Finding free ports"
+      ledgerApiPort <- getFreePort
+      adminApiPort <- getFreePort
+      domainPublicApiPort <- getFreePort
+      domainAdminApiPort <- getFreePort
+      step "Staring Canton sandbox"
+      withDamlServiceIn (dir </> "skeleton") "canton-sandbox"
+        [ "--port", show ledgerApiPort
+        , "--admin-api-port", show adminApiPort
+        , "--domain-public-port", show domainPublicApiPort
+        , "--domain-admin-port", show domainAdminApiPort
+        ] $ do
+        waitForConnectionOnPort (threadDelay 500000) (fromIntegral ledgerApiPort)
+        step "Uploading DAR"
+        callCommandSilentIn (dir </> "skeleton") $ unwords
+          ["daml ledger upload-dar --host=localhost --port=" <> show ledgerApiPort, ".daml/dist/skeleton-0.0.1.dar"]
+        step "Running script"
+        callCommandSilentIn (dir </> "skeleton") $ unwords
+          [ "daml script"
+          , "--dar", ".daml/dist/skeleton-0.0.1.dar"
+          , "--script-name Main:setup"
+          , "--ledger-host=localhost", "--ledger-port=" <> show ledgerApiPort
+          ]
+  ]

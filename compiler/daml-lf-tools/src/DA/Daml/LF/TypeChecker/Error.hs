@@ -122,7 +122,6 @@ data Error
   | EDataTypeCycle         ![TypeConName] -- TODO: implement check for this error
   | EValueCycle            ![ExprValName]
   | EImpredicativePolymorphism !Type
-  | EForbiddenPartyLiterals ![PartyLiteral] ![Qualified ExprValName]
   | EContext               !Context !Error
   | EKeyOperationOnTemplateWithNoKey !(Qualified TypeConName)
   | EUnsupportedFeature !Feature
@@ -135,6 +134,7 @@ data Error
   | EDuplicateInterfaceChoiceName !TypeConName !ChoiceName
   | EDuplicateInterfaceMethodName !TypeConName !MethodName
   | EUnknownInterface !TypeConName
+  | EMissingRequiredInterface { emriTemplate :: !TypeConName, emriRequiringInterface :: !(Qualified TypeConName), emriRequiredInterface :: !(Qualified TypeConName) }
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
   | EBadInterfaceChoiceImplConsuming !ChoiceName !Bool !Bool
@@ -143,6 +143,7 @@ data Error
   | EMissingInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
   | EUnknownInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
   | ETemplateDoesNotImplementInterface !(Qualified TypeConName) !(Qualified TypeConName)
+  | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -353,17 +354,6 @@ instance Pretty Error where
       [ "impredicative polymorphism is not supported:"
       , "* found:" <-> pretty typ
       ]
-    EForbiddenPartyLiterals parties badRefs ->
-      vcat $ [partiesDoc | not (null parties)] ++ [badRefsDoc | not (null badRefs)]
-      where
-        partiesDoc =
-          vcat $
-            "Found forbidden party literals:"
-            : map (\party -> "*" <-> pretty party) parties
-        badRefsDoc =
-          vcat $
-            "Found forbidden references to functions containing party literals:"
-            : map (\badRef -> "*" <-> pretty badRef) badRefs
     EKeyOperationOnTemplateWithNoKey tpl -> do
       "tried to perform key lookup or fetch on template " <> pretty tpl
     EExpectedOptionalType typ -> do
@@ -390,6 +380,10 @@ instance Pretty Error where
     EDuplicateInterfaceMethodName iface method ->
       "Duplicate method name '" <> pretty method <> "' in interface definition for " <> pretty iface
     EUnknownInterface tcon -> "Unknown interface: " <> pretty tcon
+    EMissingRequiredInterface {..} ->
+      "Template " <> pretty emriTemplate <>
+      " is missing an implementation of interface " <> pretty emriRequiredInterface <>
+      " required by interface " <> pretty emriRequiringInterface
     EBadInheritedChoices {ebicInterface, ebicExpected, ebicGot} ->
       vcat
       [ "List of inherited choices does not match interface definition for " <> pretty ebicInterface
@@ -421,6 +415,8 @@ instance Pretty Error where
       "Template " <> pretty tpl <> " implements " <> pretty method <> " but interface " <> pretty iface <> " has no such method."
     ETemplateDoesNotImplementInterface tpl iface ->
       "Template " <> pretty tpl <> " does not implement interface " <> pretty iface
+    EWrongInterfaceRequirement requiringIface requiredIface ->
+      "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
 
 prettyConsuming :: Bool -> Doc ann
 prettyConsuming consuming = if consuming then "consuming" else "non-consuming"

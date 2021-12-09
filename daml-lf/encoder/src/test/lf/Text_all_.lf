@@ -6,17 +6,16 @@ module TextMod {
   record @serializable Box = { x: Text, party: Party  } ;
 
   template (this : Box) =  {
-    precondition True,
-    signatories (PartyMod:one (TextMod:Box {party} this)),
-    observers (Nil @Party),
-    agreement "Agreement for TextMod:Box",
-    choices {
-    }
+    precondition True;
+    signatories (PartyMod:one (TextMod:Box {party} this));
+    observers (Nil @Party);
+    agreement "Agreement for TextMod:Box";
   };
 
-  val build: TextMod:Box = TextMod:Box {
-    x  = "some text",
-    party = 'Alice'
-  };
+  val build: Party -> TextMod:Box = \(p : Party) ->
+    TextMod:Box {
+      x  = "some text",
+      party = p
+    };
 
 }

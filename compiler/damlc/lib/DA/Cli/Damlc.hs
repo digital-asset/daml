@@ -614,8 +614,10 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
                 loggerH <- getLogger opts "build"
                 Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
-                let warnings = checkPkgConfig pkgConfig
-                unless (null warnings) $ putStrLn $ unlines warnings
+                let errors = checkPkgConfig pkgConfig
+                unless (null errors) $ do
+                    mapM_ (Logger.logError loggerH) errors
+                    exitFailure
                 withDamlIdeState
                     opts
                       { optMbPackageName = Just pName

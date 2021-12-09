@@ -97,12 +97,12 @@ object Dependencies {
 
   /** The Daml-LF version to target based on the DALF dependencies.
     *
-    * Chooses the latest LF version among the DALFs but at least 1.7 as that is the minimum required for Daml Script.
+    * Chooses the latest LF version among the DALFs but at least 1.14 as that is the minimum supported by damlc.
     * Returns None if no DALFs are given.
     */
   def targetLfVersion(dalfs: Iterable[LanguageVersion]): Option[LanguageVersion] = {
     if (dalfs.isEmpty) { None }
-    else { Some((List(LanguageVersion.v1_7) ++ dalfs).max) }
+    else { Some((List(LanguageVersion.v1_14) ++ dalfs).max) }
   }
 
   def targetFlag(v: LanguageVersion): String =

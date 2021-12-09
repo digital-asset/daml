@@ -71,6 +71,7 @@ final class AkkaGrpcServicePrinter(
       .add(s"protected val killSwitch = akka.stream.KillSwitches.shared($killSwitchName)")
       .add("protected val closed = new java.util.concurrent.atomic.AtomicBoolean(false)")
       .add(
+        // TODO error code: Use self service error code
         "protected def closingError = new io.grpc.StatusRuntimeException(io.grpc.Status.UNAVAILABLE.withDescription(\"Server is shutting down\")) with scala.util.control.NoStackTrace"
       )
       .add("def close(): Unit = {")

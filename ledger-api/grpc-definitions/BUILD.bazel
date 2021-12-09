@@ -22,14 +22,14 @@ proto_jars(
     maven_group = "com.daml",
     visibility = ["//visibility:public"],
     deps = [
-        "@com_github_googleapis_googleapis//google/rpc:error_details_proto",
-        "@com_github_googleapis_googleapis//google/rpc:status_proto",
         "@com_google_protobuf//:any_proto",
         "@com_google_protobuf//:descriptor_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:timestamp_proto",
         "@com_google_protobuf//:wrappers_proto",
+        "@go_googleapis//google/rpc:errdetails_proto",
+        "@go_googleapis//google/rpc:status_proto",
     ],
 )
 
@@ -65,12 +65,12 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
-google_rpc_src = "external/com_github_googleapis_googleapis"
+google_rpc_src = "external/go_googleapis"
 
 genrule(
     name = "google-rpc-haskellpb-sources",
     srcs = [
-        "@com_github_googleapis_googleapis//google/rpc:status.proto",
+        "@go_googleapis//google/rpc:status.proto",
         "@com_google_protobuf//:well_known_protos",
     ],
     outs = ["Google/Rpc/Status.hs"],
@@ -116,7 +116,7 @@ genrule(
     name = "ledger-api-haskellpb-sources",
     srcs = [
         "@com_google_protobuf//:well_known_protos",
-        "@com_github_googleapis_googleapis//google/rpc:status.proto",
+        "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg",
     ],
     outs = ["Com/Daml/Ledger/Api/V1/" + b for b in ledger_api_haskellpb_sources],
@@ -150,7 +150,7 @@ genrule(
     name = "ledger-api-haskellpb-sources-testing",
     srcs = [
         "@com_google_protobuf//:well_known_protos",
-        "@com_github_googleapis_googleapis//google/rpc:status.proto",
+        "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg-testing",
     ],
     outs = ["Com/Daml/Ledger/Api/V1/Testing/" + b for b in ledger_api_haskellpb_sources_testing],
@@ -187,7 +187,7 @@ genrule(
     name = "ledger-api-haskellpb-sources-admin",
     srcs = [
         "@com_google_protobuf//:well_known_protos",
-        "@com_github_googleapis_googleapis//google/rpc:status.proto",
+        "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg-admin",
     ],
     outs = ["Com/Daml/Ledger/Api/V1/Admin/" + b for b in ledger_api_haskellpb_sources_admin],

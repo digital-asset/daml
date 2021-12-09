@@ -42,7 +42,7 @@ jobs:
   variables:
     cache_key: $[ dependencies.patch_bazel_pre_check.outputs['out.cache_key'] ]
     should_run: $[ dependencies.patch_bazel_pre_check.outputs['out.should_run'] ]
-    bazel_base_version: 4.1.0
+    bazel_base_version: 4.2.1
   pool:
     vmImage: windows-2019
   steps:

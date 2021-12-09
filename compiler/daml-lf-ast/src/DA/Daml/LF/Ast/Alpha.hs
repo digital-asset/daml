@@ -234,6 +234,18 @@ alphaExpr' env = \case
             && alphaMethod m1 m2
             && alphaExpr' env e1 e2
         _ -> False
+    EToRequiredInterface t1a t1b e1 -> \case
+        EToRequiredInterface t2a t2b e2
+            -> alphaTypeCon t1a t2a
+            && alphaTypeCon t1b t2b
+            && alphaExpr' env e1 e2
+        _ -> False
+    EFromRequiredInterface t1a t1b e1 -> \case
+        EFromRequiredInterface t2a t2b e2
+            -> alphaTypeCon t1a t2a
+            && alphaTypeCon t1b t2b
+            && alphaExpr' env e1 e2
+        _ -> False
     EUpdate u1 -> \case
         EUpdate u2 -> alphaUpdate env u1 u2
         _ -> False
@@ -309,11 +321,13 @@ alphaUpdate env = \case
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
         _ -> False
-    UExerciseInterface i1 c1 e1a e1b -> \case
-        UExerciseInterface i2 c2 e2a e2b -> alphaTypeCon i1 i2
+    UExerciseInterface i1 c1 e1a e1b e1c e1d -> \case
+        UExerciseInterface i2 c2 e2a e2b e2c e2d -> alphaTypeCon i1 i2
             && c1 == c2
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
+            && alphaExpr' env e1c e2c
+            && alphaExpr' env e1d e2d
         _ -> False
     UExerciseByKey t1 c1 e1a e1b -> \case
         UExerciseByKey t2 c2 e2a e2b -> alphaTypeCon t1 t2

@@ -614,7 +614,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "name: a"
               , "source: ."
               , "dependencies: [daml-prim, daml-stdlib]"
-              , "build-options: [--target=1.8]"
+              , "build-options: [--target=1.dev]"
               ]
           writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
               [ "module A where"
@@ -633,13 +633,13 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "  - daml-stdlib"
               , "data-dependencies:"
               , "  - " <> show (tmpDir </> "a" </> "a.dar")
-              , "build-options: [--target=1.7]"
+              , "build-options: [--target=1.14]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
               [ "module B where"
               , "import A ()"
               ]
-          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.7 but dependencies have newer LF versions"
+          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.14 but dependencies have newer LF versions"
 
     , testCaseSteps "Error on newer LF dependency" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'a"
@@ -650,7 +650,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "name: a"
               , "source: ."
               , "dependencies: [daml-prim, daml-stdlib]"
-              , "build-options: [--target=1.8]"
+              , "build-options: [--target=1.dev]"
               ]
           writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
               [ "module A where"
@@ -668,13 +668,13 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "  - daml-prim"
               , "  - daml-stdlib"
               , "  - " <> show (tmpDir </> "a" </> "a.dar")
-              , "build-options: [--target=1.7]"
+              , "build-options: [--target=1.14]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
               [ "module B where"
               , "import A ()"
               ]
-          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.7 but dependencies have different LF versions"
+          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.14 but dependencies have different LF versions"
 
     , testCaseSteps "Error on inconsistent LF dependency" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'a"
@@ -685,7 +685,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "name: a"
               , "source: ."
               , "dependencies: [daml-prim, daml-stdlib]"
-              , "build-options: [--target=1.6]"
+              , "build-options: [--target=1.14]"
               ]
           writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
               [ "module A where"
@@ -703,13 +703,13 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "  - daml-prim"
               , "  - daml-stdlib"
               , "  - " <> show (tmpDir </> "a" </> "a.dar")
-              , "build-options: [--target=1.7]"
+              , "build-options: [--target=1.dev]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
               [ "module B where"
               , "import A ()"
               ]
-          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.7 but dependencies have different LF versions"
+          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.dev but dependencies have different LF versions"
 
     , testCase "build-options + project-root" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")

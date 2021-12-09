@@ -927,6 +927,22 @@ message Expr {
     Expr interface_expr = 3;
   }
 
+  // Upcast from an interface payload to an interface it requires.
+  // *Available in versions >= 1.dev*
+  message ToRequiredInterface {
+    TypeConName required_interface = 1;
+    TypeConName requiring_interface = 2;
+    Expr expr = 3;
+  }
+
+  // Downcast from an interface payload to an interface that requires it, if possible.
+  // *Available in versions >= 1.dev*
+  message FromRequiredInterface {
+    TypeConName required_interface = 1;
+    TypeConName requiring_interface = 2;
+    Expr expr = 3;
+  }
+
   // Invoke an interface method.
   // *Available in versions >= 1.dev*
   message CallInterface {
@@ -1056,6 +1072,11 @@ message Expr {
     // Invoke an interface method.
     // *Available in versions >= 1.dev*
     CallInterface call_interface = 38;
+
+    // Upcast/downcast interface payloads.
+    // *Available in versions >= 1.dev*
+    ToRequiredInterface to_required_interface = 39;
+    FromRequiredInterface from_required_interface = 40;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }
@@ -1230,6 +1251,10 @@ message Update {
     Expr cid = 3;
     // argument
     Expr arg = 4;
+    // optional type rep for expected template id
+    Expr type_rep = 5;
+    // exercise guard (Interface -> Bool)
+    Expr guard = 6;
   }
 
  // ExerciseByKey Update
@@ -1528,12 +1553,13 @@ message InterfaceMethod {
 message DefInterface {
   Location location = 1;
   int32 tycon_interned_dname = 2;
-  repeated InterfaceMethod methods = 3;
+  repeated TypeConName requires = 3;
+  repeated InterfaceMethod methods = 4;
 
-  // Binder for interface value ("this") in fixed choices.
-  int32 param_interned_str = 4;
-  repeated TemplateChoice fixed_choices = 5;
+  // Binder for interface value ("this") in precond and fixed choices.
+  int32 param_interned_str = 5;
   Expr precond = 6;
+  repeated TemplateChoice fixed_choices = 7;
 }
 
 // Exception definition
@@ -1632,12 +1658,8 @@ message DefValue {
 
   Expr expr = 2;
 
-  // If true, the value must not contain any party literals and not reference
-  // values which contain party literals.
-  // This flag is used to simplify package validation by not requiring an
-  // inference but only a check. Such a check must validate that this flag is
-  // set correctly and that templates do not reference values which have this
-  // flag set to false.
+  // Always true for SDK > 1.18. Setting it to false
+  // will result in the package being rejected.
   bool no_party_literals = 3;
 
   bool is_test = 4;

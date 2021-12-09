@@ -43,7 +43,7 @@ da_scala_library(
         "@maven//:io_netty_netty_transport",
         "@maven//:org_slf4j_slf4j_api",
     ],
-) if scala_major_version == "2.13" else None
+)
 
 filegroup(
     name = "test-simulation-logs",
@@ -73,4 +73,4 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
-) if scala_major_version == "2.13" else None
+)

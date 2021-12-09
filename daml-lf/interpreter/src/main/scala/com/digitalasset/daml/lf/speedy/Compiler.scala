@@ -91,7 +91,7 @@ private[lf] object Compiler {
   private val SEGetTime = s.SEBuiltin(SBGetTime)
 
   private def SBCompareNumeric(b: SBuiltinPure) =
-    s.SEAbs(3, s.SEApp(s.SEBuiltin(b), Array(s.SEVar(2), s.SEVar(1))))
+    s.SEAbs(3, s.SEApp(s.SEBuiltin(b), List(s.SEVar(2), s.SEVar(1))))
   private val SBLessNumeric = SBCompareNumeric(SBLess)
   private val SBLessEqNumeric = SBCompareNumeric(SBLessEq)
   private val SBGreaterNumeric = SBCompareNumeric(SBGreater)
@@ -128,14 +128,14 @@ private[lf] object Compiler {
   }
 
   // Hand-implemented `map` uses less stack.
-  private def mapToArray[A, B: ClassTag](input: ImmArray[A])(f: A => B): Array[B] = {
+  private def mapToArray[A, B: ClassTag](input: ImmArray[A])(f: A => B): List[B] = {
     val output = Array.ofDim[B](input.length)
     var i = 0
     input.foreach { value =>
       output(i) = f(value)
       i += 1
     }
-    output
+    output.toList
   }
 
 }
@@ -263,7 +263,7 @@ private[lf] final class Compiler(
       case None => expr
     }
 
-  private[this] def app(f: s.SExpr, a: s.SExpr) = s.SEApp(f, Array(a))
+  private[this] def app(f: s.SExpr, a: s.SExpr) = s.SEApp(f, List(a))
 
   private[this] def let(env: Env, bound: s.SExpr)(f: (Position, Env) => s.SExpr): s.SELet =
     f(env.nextPosition, env.pushVar) match {
@@ -300,6 +300,10 @@ private[lf] final class Compiler(
   private val Env2 = Env1.pushVar
   private val Position3 = Env2.nextPosition
   private val Env3 = Env2.pushVar
+  private val Position4 = Env3.nextPosition
+  private val Env4 = Env3.pushVar
+  private val Position5 = Env4.nextPosition
+  private val Env5 = Env4.pushVar
 
   private[this] def topLevelFunction1[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
@@ -322,10 +326,19 @@ private[lf] final class Compiler(
   ): (SDefRef, SDefinition) =
     topLevelFunction(ref)(s.SEAbs(3, body(Position1, Position2, Position3, Env3)))
 
+  private[this] def topLevelFunction5[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
+      ref: SDefRef
+  )(
+      body: (Position, Position, Position, Position, Position, Env) => s.SExpr
+  ): (SDefRef, SDefinition) =
+    topLevelFunction(ref)(
+      s.SEAbs(5, body(Position1, Position2, Position3, Position4, Position5, Env5))
+    )
+
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompile(cmds: ImmArray[Command]): t.SExpr =
-    validateCompilation(compilationPipeline(compileCommands(cmds)))
+    validateCompilation(compilationPipeline(compileCommands(Env.Empty, cmds)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -363,7 +376,7 @@ private[lf] final class Compiler(
     }
 
     module.definitions.foreach {
-      case (defName, DValue(_, _, body, _)) =>
+      case (defName, DValue(_, body, _)) =>
         val ref = t.LfDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
         builder += (ref -> SDefinition(withLabelT(ref, unsafeCompile(body))))
       case _ =>
@@ -377,10 +390,10 @@ private[lf] final class Compiler(
       addDef(compileSignatories(identifier, tmpl))
       addDef(compileObservers(identifier, tmpl))
       tmpl.implements.values.foreach { impl =>
-        addDef(compileCreateByInterface(identifier, tmpl, impl.interface))
-        addDef(compileImplements(identifier, impl.interface))
+        addDef(compileCreateByInterface(identifier, tmpl, impl.interfaceId))
+        addDef(compileImplements(identifier, impl.interfaceId))
         impl.methods.values.foreach(method =>
-          addDef(compileImplementsMethod(identifier, impl.interface, method))
+          addDef(compileImplementsMethod(identifier, impl.interfaceId, method))
         )
       }
 
@@ -398,9 +411,10 @@ private[lf] final class Compiler(
       addDef(compileCreateInterface(identifier))
       addDef(compileFetchInterface(identifier))
       addDef(compileInterfacePrecond(identifier, iface.param, iface.precond))
-      iface.fixedChoices.values.foreach(
-        builder += compileFixedChoice(identifier, iface.param, _)
-      )
+      iface.fixedChoices.values.foreach { choice =>
+        addDef(compileInterfaceChoice(identifier, iface.param, choice))
+        addDef(compileInterfaceGuardedChoice(identifier, iface.param, choice))
+      }
     }
 
     builder.result()
@@ -513,7 +527,7 @@ private[lf] final class Compiler(
       case ECons(_, front, tail) =>
         // TODO(JM): Consider emitting SEValue(SList(...)) for
         // constant lists?
-        val args = (front.iterator.map(compile(env, _)) ++ Seq(compile(env, tail))).toArray
+        val args = (front.iterator.map(compile(env, _)) ++ Seq(compile(env, tail))).toList
         if (front.length == 1) {
           s.SEApp(s.SEBuiltin(SBCons), args)
         } else {
@@ -563,6 +577,10 @@ private[lf] final class Compiler(
         SBFromInterface(tpl)(compile(env, e))
       case ECallInterface(iface, methodName, e) =>
         SBCallInterface(iface, methodName)(compile(env, e))
+      case EToRequiredInterface(requiredIfaceId @ _, requiringIfaceId @ _, body @ _) =>
+        compile(env, body)
+      case EFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, body @ _) =>
+        SBFromRequiredInterface(requiringIfaceId)(compile(env, body))
       case EExperimental(name, _) =>
         SBExperimental(name)
 
@@ -710,7 +728,6 @@ private[lf] final class Compiler(
       case PLNumeric(d) => SNumeric(d)
       case PLText(t) => SText(t)
       case PLTimestamp(ts) => STimestamp(ts)
-      case PLParty(p) => SParty(p)
       case PLDate(d) => SDate(d)
       case PLRoundingMode(roundingMode) => SInt64(roundingMode.ordinal.toLong)
     })
@@ -742,7 +759,7 @@ private[lf] final class Compiler(
     else
       s.SEApp(
         s.SEBuiltin(SBRecCon(tApp.tycon, fields.map(_._1))),
-        fields.iterator.map(f => compile(env, f._2)).toArray,
+        fields.iterator.map(f => compile(env, f._2)).toList,
       )
 
   private[this] def compileERecUpd(env: Env, erecupd: ERecUpd): s.SExpr = {
@@ -848,8 +865,13 @@ private[lf] final class Compiler(
         t.CreateDefRef(iface)(compile(env, arg))
       case UpdateExercise(tmplId, chId, cidE, argE) =>
         t.ChoiceDefRef(tmplId, chId)(compile(env, cidE), compile(env, argE))
-      case UpdateExerciseInterface(ifaceId, chId, cidE, argE) =>
-        t.ChoiceDefRef(ifaceId, chId)(compile(env, cidE), compile(env, argE))
+      case UpdateExerciseInterface(ifaceId, chId, cidE, argE, typeRepE, guardE) =>
+        t.GuardedChoiceDefRef(ifaceId, chId)(
+          compile(env, cidE),
+          compile(env, argE),
+          compile(env, typeRepE),
+          compile(env, guardE),
+        )
       case UpdateExerciseByKey(tmplId, chId, keyE, argE) =>
         t.ChoiceByKeyDefRef(tmplId, chId)(compile(env, keyE), compile(env, argE))
       case UpdateGetTime =>
@@ -899,7 +921,7 @@ private[lf] final class Compiler(
       case _ if args.isEmpty =>
         compile(env, expr0)
       case _ =>
-        s.SEApp(compile(env, expr0), args.toArray)
+        s.SEApp(compile(env, expr0), args)
     }
 
   private[this] def translateType(env: Env, typ: Type): Option[s.SExpr] =
@@ -1080,7 +1102,7 @@ private[lf] final class Compiler(
 
   // TODO https://github.com/digital-asset/daml/issues/10810:
   //   Try to factorise this with compileChoiceBody above.
-  private[this] def compileFixedChoiceBody(
+  private[this] def compileInterfaceChoiceBody(
       env: Env,
       ifaceId: TypeConName,
       param: ExprVarName,
@@ -1089,38 +1111,77 @@ private[lf] final class Compiler(
       choiceArgPos: Position,
       cidPos: Position,
       tokenPos: Position,
+      typeRepPos: Position,
+      guardPos: Position,
   ) =
-    let(env, SBUFetchInterface(ifaceId)(env.toSEVar(cidPos))) { (payloadPos, _env) =>
-      val env = _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
-      let(
-        env,
-        SBResolveSBUBeginExercise(choice.name, choice.consuming, byKey = false, ifaceId = ifaceId)(
-          env.toSEVar(payloadPos),
-          env.toSEVar(choiceArgPos),
-          env.toSEVar(cidPos),
-          compile(env, choice.controllers),
-          choice.choiceObservers match {
-            case Some(observers) => compile(env, observers)
-            case None => s.SEValue.EmptyList
-          },
-        ),
-      ) { (_, _env) =>
-        val env = _env.bindExprVar(choice.selfBinder, cidPos)
-        s.SEScopeExercise(app(compile(env, choice.update), env.toSEVar(tokenPos)))
-      }
+    let(env, SBUFetchInterface(ifaceId)(env.toSEVar(cidPos), env.toSEVar(typeRepPos))) {
+      (payloadPos, _env) =>
+        val env = _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+        let(
+          env,
+          SBApplyChoiceGuard(choice.name, Some(ifaceId))(
+            env.toSEVar(guardPos),
+            env.toSEVar(payloadPos),
+            env.toSEVar(cidPos),
+          ),
+        ) { (_, env) =>
+          let(
+            env,
+            SBResolveSBUBeginExercise(
+              choice.name,
+              choice.consuming,
+              byKey = false,
+              ifaceId = ifaceId,
+            )(
+              env.toSEVar(payloadPos),
+              env.toSEVar(choiceArgPos),
+              env.toSEVar(cidPos),
+              compile(env, choice.controllers),
+              choice.choiceObservers match {
+                case Some(observers) => compile(env, observers)
+                case None => s.SEValue.EmptyList
+              },
+            ),
+          ) { (_, _env) =>
+            val env = _env.bindExprVar(choice.selfBinder, cidPos)
+            s.SEScopeExercise(app(compile(env, choice.update), env.toSEVar(tokenPos)))
+          }
+        }
     }
 
-  private[this] def compileFixedChoice(
+  private[this] def compileInterfaceChoice(
       ifaceId: TypeConName,
       param: ExprVarName,
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction3(t.ChoiceDefRef(ifaceId, choice.name)) {
       (cidPos, choiceArgPos, tokenPos, env) =>
-        compileFixedChoiceBody(env, ifaceId, param, choice)(
+        let(env, s.SEValue(SOptional(None))) { (typeRepPos, env) =>
+          let(env, s.SEBuiltin(SBGuardConstTrue)) { (guardPos, env) =>
+            compileInterfaceChoiceBody(env, ifaceId, param, choice)(
+              choiceArgPos,
+              cidPos,
+              tokenPos,
+              typeRepPos,
+              guardPos,
+            )
+          }
+        }
+    }
+
+  private[this] def compileInterfaceGuardedChoice(
+      ifaceId: TypeConName,
+      param: ExprVarName,
+      choice: TemplateChoice,
+  ): (t.SDefinitionRef, SDefinition) =
+    topLevelFunction5(t.GuardedChoiceDefRef(ifaceId, choice.name)) {
+      (cidPos, choiceArgPos, typeRepPos, guardPos, tokenPos, env) =>
+        compileInterfaceChoiceBody(env, ifaceId, param, choice)(
           choiceArgPos,
           cidPos,
           tokenPos,
+          typeRepPos,
+          guardPos,
         )
     }
 
@@ -1217,19 +1278,28 @@ private[lf] final class Compiler(
       compileFetchBody(env, tmplId, tmpl)(cidPos, None, tokenPos)
     }
 
-  // TODO https://github.com/digital-asset/daml/issues/10810:
-  //  Here we fetch twice, once by interface Id once by template Id. Try to bypass the second fetch.
-  private[this] def compileFetchInterface(
-      ifaceId: Identifier
-  ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction2(t.FetchDefRef(ifaceId)) { (cidPos, _, env) =>
-      let(env, SBUFetchInterface(ifaceId)(env.toSEVar(cidPos))) { (payloadPos, env) =>
+  private[this] def compileFetchInterfaceBody(
+      env: Env,
+      ifaceId: Identifier,
+      cidPos: Position,
+      typeRepPos: Position,
+  ) =
+    let(env, SBUFetchInterface(ifaceId)(env.toSEVar(cidPos), env.toSEVar(typeRepPos))) {
+      (payloadPos, env) =>
         let(
           env,
           SBResolveSBUInsertFetchNode(ifaceId)(env.toSEVar(payloadPos), env.toSEVar(cidPos)),
         ) { (_, env) =>
           env.toSEVar(payloadPos)
         }
+    }
+
+  private[this] def compileFetchInterface(
+      ifaceId: Identifier
+  ): (t.SDefinitionRef, SDefinition) =
+    topLevelFunction2(t.FetchDefRef(ifaceId)) { (cidPos, _, env) =>
+      let(env, s.SEValue(SOptional(None))) { (typeRepPos, env) =>
+        compileFetchInterfaceBody(env, ifaceId, cidPos, typeRepPos)
       }
     }
 
@@ -1305,7 +1375,7 @@ private[lf] final class Compiler(
       (Iterator(compile(env2, tmpl.precond)) ++ implementsPrecondsIterator ++ Iterator(
         s.SEValue.EmptyList
       )).to(ImmArray)
-    val preconds = s.SEApp(s.SEBuiltin(SBConsMany(precondsArray.length - 1)), precondsArray.toArray)
+    val preconds = s.SEApp(s.SEBuiltin(SBConsMany(precondsArray.length - 1)), precondsArray.toList)
     // We check precondition in a separated builtin to prevent
     // further evaluation of agreement, signatories, observers and key
     // in case of failed precondition.
@@ -1357,21 +1427,21 @@ private[lf] final class Compiler(
   }
 
   private[this] def compileCreateAndExercise(
+      env: Env,
       tmplId: Identifier,
       createArg: SValue,
       choiceId: ChoiceName,
       choiceArg: SValue,
   ): s.SExpr =
-    labeledUnaryFunction(Profile.CreateAndExerciseLabel(tmplId, choiceId), Env.Empty) {
-      (tokenPos, env) =>
-        let(env, t.CreateDefRef(tmplId)(s.SEValue(createArg), env.toSEVar(tokenPos))) {
-          (cidPos, env) =>
-            t.ChoiceDefRef(tmplId, choiceId)(
-              env.toSEVar(cidPos),
-              s.SEValue(choiceArg),
-              env.toSEVar(tokenPos),
-            )
-        }
+    labeledUnaryFunction(Profile.CreateAndExerciseLabel(tmplId, choiceId), env) { (tokenPos, env) =>
+      let(env, t.CreateDefRef(tmplId)(s.SEValue(createArg), env.toSEVar(tokenPos))) {
+        (cidPos, env) =>
+          t.ChoiceDefRef(tmplId, choiceId)(
+            env.toSEVar(cidPos),
+            s.SEValue(choiceArg),
+            env.toSEVar(tokenPos),
+          )
+      }
     }
 
   private[this] def compileLookupByKey(
@@ -1424,31 +1494,60 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] def compileCommand(cmd: Command): s.SExpr = cmd match {
+  private[this] def compileExerciseByInterface(
+      env: Env,
+      interfaceId: TypeConName,
+      templateId: TypeConName,
+      contractId: SValue,
+      choiceId: ChoiceName,
+      argument: SValue,
+  ): s.SExpr =
+    unaryFunction(env) { (tokenPos, env) =>
+      t.GuardedChoiceDefRef(interfaceId, choiceId)(
+        s.SEValue(contractId),
+        s.SEValue(argument),
+        s.SEValue(SOptional(Some(STypeRep(TTyCon(templateId))))),
+        s.SEBuiltin(SBGuardConstTrue),
+        env.toSEVar(tokenPos),
+      )
+    }
+
+  private[this] def compileFetchByInterface(
+      env: Env,
+      interfaceId: TypeConName,
+      templateId: TypeConName,
+      contractId: SValue,
+  ): s.SExpr =
+    unaryFunction(env) { (_, env) =>
+      let(env, s.SEValue(contractId)) { (cidPos, env) =>
+        let(env, s.SEValue(SOptional(Some(STypeRep(TTyCon(templateId)))))) { (typeRepPos, env) =>
+          compileFetchInterfaceBody(env, interfaceId, cidPos, typeRepPos)
+        }
+      }
+    }
+
+  private[this] def compileCommand(env: Env, cmd: Command): s.SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
     case Command.CreateByInterface(interfaceId, templateId, argument) =>
       t.CreateByInterfaceDefRef(templateId, interfaceId)(s.SEValue(argument))
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
-    case Command.ExerciseByInterface(interfaceId, templateId @ _, contractId, choiceId, argument) =>
-      // TODO https://github.com/digital-asset/daml/issues/11703
-      //   Ensure that fetched template has expected templateId.
-      t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
+    case Command.ExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument) =>
+      compileExerciseByInterface(env, interfaceId, templateId, contractId, choiceId, argument)
     case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       t.ChoiceByKeyDefRef(templateId, choiceId)(s.SEValue(contractKey), s.SEValue(argument))
     case Command.Fetch(templateId, coid) =>
       t.FetchDefRef(templateId)(s.SEValue(coid))
-    case Command.FetchByInterface(interfaceId, templateId @ _, coid) =>
-      // TODO https://github.com/digital-asset/daml/issues/11703
-      //   Ensure that fetched template has expected templateId.
-      t.FetchDefRef(interfaceId)(s.SEValue(coid))
+    case Command.FetchByInterface(interfaceId, templateId, coid) =>
+      compileFetchByInterface(env, interfaceId, templateId, coid)
     case Command.FetchByKey(templateId, key) =>
       t.FetchByKeyDefRef(templateId)(s.SEValue(key))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>
       compileCreateAndExercise(
+        env,
         templateId,
         createArg,
         choice,
@@ -1474,22 +1573,22 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileCommandForReinterpretation(cmd: Command): s.SExpr =
-    catchEverything(compileCommand(cmd))
+    catchEverything(compileCommand(Env.Empty, cmd))
 
-  private[this] def compileCommands(bindings: ImmArray[Command]): s.SExpr =
+  private[this] def compileCommands(env: Env, bindings: ImmArray[Command]): s.SExpr =
     // commands are compile similarly as update block
     // see compileBlock
     bindings.toList match {
       case Nil =>
         SEUpdatePureUnit
       case first :: rest =>
-        let(Env.Empty, compileCommand(first)) { (firstPos, env) =>
+        let(env, compileCommand(env, first)) { (firstPos, env) =>
           unaryFunction(env) { (tokenPos, env) =>
             let(env, app(env.toSEVar(firstPos), env.toSEVar(tokenPos))) { (_, _env) =>
               // we cannot process `rest` recursively without exposing ourselves to stack overflow.
               var env = _env
               val exprs = rest.map { cmd =>
-                val expr = app(compileCommand(cmd), env.toSEVar(tokenPos))
+                val expr = app(compileCommand(env, cmd), env.toSEVar(tokenPos))
                 env = env.pushVar
                 expr
               }

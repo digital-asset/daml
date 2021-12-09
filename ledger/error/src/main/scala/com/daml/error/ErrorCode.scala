@@ -67,18 +67,20 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       getStatusInfo(err)
 
     // Provide error id and context via ErrorInfo
-    val errInfoBld = com.google.rpc.ErrorInfo.newBuilder().setReason(id)
-    if (!code.category.securitySensitive) {
-      contextMap.foreach { case (k, v) => errInfoBld.putMetadata(k, v) }
-    }
+    val maybeErrInfo =
+      if (!code.category.securitySensitive) {
+        val errInfoBld = com.google.rpc.ErrorInfo.newBuilder()
+        contextMap.foreach { case (k, v) => errInfoBld.putMetadata(k, v) }
+        errInfoBld.setReason(id)
 
-    // TODO error codes: Resolve dependency and use constant
-    //    val definiteAnswerKey = com.daml.ledger.grpc.GrpcStatuses.DefiniteAnswerKey
-    val definiteAnswerKey = "definite_answer"
-    err.definiteAnswerO.foreach { definiteAnswer =>
-      errInfoBld.putMetadata(definiteAnswerKey, definiteAnswer.toString)
-    }
-    val errInfo = com.google.protobuf.Any.pack(errInfoBld.build())
+        // TODO error codes: Resolve dependency and use constant
+        //    val definiteAnswerKey = com.daml.ledger.grpc.GrpcStatuses.DefiniteAnswerKey
+        val definiteAnswerKey = "definite_answer"
+        err.definiteAnswerO.foreach { definiteAnswer =>
+          errInfoBld.putMetadata(definiteAnswerKey, definiteAnswer.toString)
+        }
+        Some(com.google.protobuf.Any.pack(errInfoBld.build()))
+      } else None
 
     // Build retry info
     val retryInfo = err.retryable.map { ri =>
@@ -124,7 +126,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       .setCode(codeGrpc.value())
       .setMessage(message)
 
-    (Seq(errInfo) ++ retryInfo.toList ++ requestInfo.toList ++ resourceInfo)
+    (maybeErrInfo.toList ++ retryInfo.toList ++ requestInfo.toList ++ resourceInfo)
       .foldLeft(statusBuilder) { case (acc, item) =>
         acc.addDetails(item)
       }
@@ -165,7 +167,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     val correlationId = loggingContext.correlationId
     val message =
       if (code.category.securitySensitive)
-        s"${BaseError.SecuritySensitiveMessageOnApi} ${correlationId.getOrElse("<no-correlation-id>")}"
+        s"${BaseError.SecuritySensitiveMessageOnApiPrefix} ${correlationId.getOrElse("<no-correlation-id>")}"
       else
         code.toMsg(err.cause, loggingContext.correlationId)
     val codeGrpc = category.grpcCode
@@ -273,9 +275,8 @@ object ErrorCode {
 }
 
 // Use these annotations to add more information to the documentation for an error on the website
-case class Deprecation(deprecation: String) extends StaticAnnotation
 case class Explanation(explanation: String) extends StaticAnnotation
 case class Resolution(resolution: String) extends StaticAnnotation
 case class Description(description: String) extends StaticAnnotation
 case class RetryStrategy(retryStrategy: String) extends StaticAnnotation
-case class DeprecatedDocs(description: String) extends StaticAnnotation
+case class DeprecatedDocs(deprecation: String) extends StaticAnnotation

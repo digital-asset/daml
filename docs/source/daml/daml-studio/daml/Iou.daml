@@ -12,11 +12,12 @@ template Iou
     currency : Text
   where
     signatory issuer
+    observer owner
 
-    controller owner can
-      Transfer : ContractId Iou
-        with newOwner : Party
-        do create this with owner = newOwner
+    choice Transfer : ContractId Iou
+      with newOwner : Party
+      controller owner
+      do create this with owner = newOwner
 
 run = scenario do
     bank <- getParty "Bank"

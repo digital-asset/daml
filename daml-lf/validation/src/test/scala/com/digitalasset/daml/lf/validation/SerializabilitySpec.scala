@@ -149,64 +149,62 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
           // well-formed module
           module NegativeTestCase {
-            record @serializable SerializableRecord = {};
+            record @serializable SerializableRecord = { alice: Party };
 
             template (this : SerializableRecord) =  {
-              precondition True,
-              signatories Nil @Party,
-              observers Nil @Party,
-              agreement "Agreement",
-              choices {
-                choice Ch (self) (i : Mod:SerializableType) : Mod:SerializableType, controllers $partiesAlice to upure @Mod:SerializableType (Mod:SerializableType {})
-              }
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "Agreement";
+              choice Ch (self) (i : Mod:SerializableType) : Mod:SerializableType, controllers ${partiesAlice(
+          "NegativeTestCase:SerializableRecord"
+        )} to upure @Mod:SerializableType (Mod:SerializableType {});
             } ;
           }
 
           module PositiveTestCase1 {
-            record UnserializableRecord = {};
+            record UnserializableRecord = { alice: Party };
 
             template (this : UnserializableRecord) =  {    // disallowed unserializable type
-              precondition True,
-              signatories Nil @Party,
-              observers Nil @Party,
-              agreement "Agreement",
-              choices {
-                choice Ch (self) (i : Mod:SerializableType) :
-                  Mod:SerializableType, controllers $partiesAlice
-                    to upure @Mod:SerializableType (Mod:SerializableType {})
-              }
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "Agreement";
+              choice Ch (self) (i : Mod:SerializableType) :
+                Mod:SerializableType, controllers ${partiesAlice(
+          "PositiveTestCase1:UnserializableRecord"
+        )}
+                  to upure @Mod:SerializableType (Mod:SerializableType {});
             } ;
           }
 
           module PositiveTestCase2 {
-            record @serializable SerializableRecord = {};
+            record @serializable SerializableRecord = { alice: Party };
 
             template (this : SerializableRecord) =  {
-              precondition True,
-              signatories Nil @Party,
-              observers Nil @Party,
-              agreement "Agreement",
-              choices {
-                choice Ch (self) (i : Mod:UnserializableType) :     // disallowed unserializable type
-                 Unit, controllers $partiesAlice to
-                     upure @Unit ()
-              }
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "Agreement";
+              choice Ch (self) (i : Mod:UnserializableType) :     // disallowed unserializable type
+               Unit, controllers ${partiesAlice("PositiveTestCase2:SerializableRecord")} to
+                   upure @Unit ();
             } ;
           }
 
           module PositiveTestCase3 {
-            record @serializable SerializableRecord = {};
+            record @serializable SerializableRecord = { alice: Party };
 
             template (this : SerializableRecord) =  {
-              precondition True,
-              signatories Nil @Party,
-              observers Nil @Party,
-              agreement "Agreement",
-              choices {
-                choice Ch (self) (i : Mod:SerializableType) :
-                  Mod:UnserializableType, controllers $partiesAlice to       // disallowed unserializable type
-                     upure @Mod:UnserializableType (Mod:UnserializableType {})
-              }
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "Agreement";
+              choice Ch (self) (i : Mod:SerializableType) :
+                Mod:UnserializableType, controllers ${partiesAlice(
+          "PositiveTestCase3:SerializableRecord"
+        )} to       // disallowed unserializable type
+                   upure @Mod:UnserializableType (Mod:UnserializableType {});
             } ;
           }
          """
@@ -261,12 +259,10 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
             record @serializable SerializableRecord = {};
 
             template (this : SerializableRecord) =  {
-              precondition True,
-              signatories Nil @Party,
-              observers Nil @Party,
-              agreement "Agreement",
-              choices {
-              }
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "Agreement";
             } ;
 
             record @serializable SerializableContractId = { cid : ContractId NegativeTestCase1:SerializableRecord };
@@ -331,15 +327,13 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
         record R (a: *) (b: *) = {f: a -> b };
 
-        record @serializable T = {};
+        record @serializable T = {alice: Party, bob: Party};
           template (this : T) =  {
-            precondition True,
-            signatories Cons @Party ['Bob'] (Nil @Party),
-            observers Cons @Party ['Alice'] (Nil @Party),
-            agreement "Agreement",
-            choices {
-              choice Ch (self) (x: Int64) : Decimal, controllers 'Bob' to upure @Int64 (DECIMAL_TO_INT64 x)
-            }
+            precondition True;
+            signatories Cons @Party [bob] (Nil @Party);
+            observers Cons @Party [alice] (Nil @Party);
+            agreement "Agreement";
+            choice Ch (self) (x: Int64) : Decimal, controllers bob to upure @Int64 (DECIMAL_TO_INT64 x);
           } ;
 
         val f : Int64 -> Int64  =  ERROR @(Int64 -> Int64) "not implemented";
@@ -358,6 +352,6 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
     Serializability.checkModule(w, defaultPackageId, mod)
   }
 
-  private val partiesAlice = "(Cons @Party ['Alice'] (Nil @Party))"
+  private def partiesAlice(r: String) = s"(Cons @Party [$r {alice} this] (Nil @Party))"
 
 }

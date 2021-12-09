@@ -132,7 +132,10 @@ object ApiPackageManagementServiceSpec {
         submissionId: Ref.SubmissionId,
         archives: List[DamlLf.Archive],
         sourceDescription: Option[String],
-    )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
+    )(implicit
+        loggingContext: LoggingContext,
+        telemetryContext: TelemetryContext,
+    ): CompletionStage[state.SubmissionResult] = {
       telemetryContext.setAttribute(
         anApplicationIdSpanAttribute._1,
         anApplicationIdSpanAttribute._2,

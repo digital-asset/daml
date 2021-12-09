@@ -4,7 +4,7 @@
 package com.daml.lf.testing.parser
 
 import com.daml.lf.data.Ref.{Location, Name}
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.language.Ast._
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
@@ -42,6 +42,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eFromAnyException |
       eToTextTypeConName |
       eThrow |
+      eCallInterface |
+      eToInterface |
+      eFromInterface |
       (id ^? builtinFunctions) ^^ EBuiltin |
       experimental |
       caseOf |
@@ -70,13 +73,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       acceptMatch("Text", { case Text(s) => PLText(s) }) |
       acceptMatch("Timestamp", { case Timestamp(l) => PLTimestamp(l) }) |
       acceptMatch("Date", { case Date(l) => PLDate(l) }) |
-      acceptMatch(
-        "Party",
-        {
-          case SimpleString(s) if Ref.Party.fromString(s).isRight =>
-            PLParty(Ref.Party.assertFromString(s))
-        },
-      ) |
       (id ^? roundingModes) ^^ PLRoundingMode
 
   private lazy val primCon =
@@ -220,6 +216,18 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val eToTextTypeConName: Parser[Expr] =
     `type_rep` ~>! argTyp ^^ ETypeRep
 
+  private lazy val eToInterface: Parser[Expr] =
+    `to_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ^^ {
+      case ifaceId ~ _ ~ tmplId ~ e =>
+        EToInterface(ifaceId, tmplId, e)
+    }
+
+  private lazy val eFromInterface: Parser[Expr] =
+    `from_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ^^ {
+      case ifaceId ~ _ ~ tmplId ~ e =>
+        EFromInterface(ifaceId, tmplId, e)
+    }
+
   private lazy val pattern: Parser[CasePat] =
     primCon ^^ CPPrimCon |
       (`nil` ^^^ CPNil) |
@@ -324,7 +332,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "BIGNUMERIC_TO_TEXT" -> BBigNumericToText,
   )
 
-  private lazy val experimental: Parser[Expr] =
+  private lazy val eCallInterface: Parser[ECallInterface] =
+    `call_method` ~! `@` ~> fullIdentifier ~ id ~ expr0 ^^ { case ifaceId ~ name ~ body =>
+      ECallInterface(interfaceId = ifaceId, methodName = name, value = body)
+    }
+
+  private lazy val experimental: Parser[EExperimental] =
     Id("experimental") ~>! id ~ typeParser.typ ^^ { case id ~ typ => EExperimental(id, typ) }
 
   /* Scenarios */
@@ -390,14 +403,30 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       UpdateCreate(t, e)
     }
 
+  private lazy val updateCreateInterface =
+    Id("create_by_interface") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case iface ~ e =>
+      UpdateCreateInterface(iface, e)
+    }
+
   private lazy val updateFetch =
     Id("fetch") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case t ~ e =>
       UpdateFetch(t, e)
     }
 
+  private lazy val updateFetchInterface =
+    Id("fetch_by_interface") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case iface ~ e =>
+      UpdateFetchInterface(iface, e)
+    }
+
   private lazy val updateExercise =
     Id("exercise") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ { case t ~ choice ~ cid ~ arg =>
       UpdateExercise(t, choice, cid, arg)
+    }
+
+  private lazy val updateExerciseInterface =
+    Id("exercise_by_interface") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ~ expr0 ~ expr0 ^^ {
+      case iface ~ choice ~ cid ~ arg ~ typeRep ~ guard =>
+        UpdateExerciseInterface(iface, choice, cid, arg, typeRep, guard)
     }
 
   private lazy val updateExerciseByKey =
@@ -432,8 +461,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     updatePure |
       updateBlock |
       updateCreate |
+      updateCreateInterface |
       updateFetch |
+      updateFetchInterface |
       updateExercise |
+      updateExerciseInterface |
       updateExerciseByKey |
       updateFetchByKey |
       updateLookupByKey |

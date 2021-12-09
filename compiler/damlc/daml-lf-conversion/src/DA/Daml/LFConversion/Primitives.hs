@@ -335,10 +335,14 @@ convertPrim _ "UExercise"
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
 convertPrim _ "UExerciseInterface"
-    (TContractId (TCon iface) :-> TCon choice :-> TUpdate _returnTy) =
+    (TContractId (TCon iface) :-> TCon choice :-> TOptional TTypeRep :-> TUpdate _returnTy) =
     ETmLam (mkVar "this", TContractId (TCon iface)) $
     ETmLam (mkVar "arg", TCon choice) $
-    EUpdate $ UExerciseInterface iface choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
+    ETmLam (mkVar "typeRep", TOptional TTypeRep) $
+    EUpdate $ UExerciseInterface iface choiceName (EVar (mkVar "this")) (EVar (mkVar "arg")) (EVar (mkVar "typeRep"))
+        -- TODO https://github.com/digital-asset/daml/issues/11703
+        --   Pass the guard argument in from daml.
+        (ETmLam (mkVar "payload", TCon iface) (EBuiltin (BEBool True)))
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
@@ -422,7 +426,7 @@ convertPrim version "EToAnyContractKey"
 
 convertPrim _ "ESignatoryInterface" (TCon interface :-> TList TParty) =
     ETmLam (mkVar "this", TCon interface) $
-    EExperimental "RESOLVE_VIRTUAL_SIGNATORIES"
+    EExperimental "RESOLVE_VIRTUAL_SIGNATORY"
         (TCon interface :-> TCon interface :-> TList TParty)
         `ETmApp` EVar (mkVar "this") `ETmApp` EVar (mkVar "this")
 

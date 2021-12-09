@@ -155,17 +155,15 @@ private[lf] object Anf {
     *    it absolute because an offset doesn't change as new bindings are pushed onto the
     *    stack.
     *
-    *    Note the contrast with the expression form `ELocS` which contains a relative offset
-    *    from the end of the stack. This relative-position is used in both the original
-    *    expression which we traverse AND the new ANF expression we are constructing. The
+    *    Happily, the source expressions use absolute stack offsets in `SELocAbsoluteS`.
+    *    In contrast to the target expressions which use relative offsets in `SELocS`. The
     *    relative-offset to a binding varies as new bindings are pushed on the stack.
     */
   private[this] case class AbsBinding(abs: DepthA)
 
-  private[this] def makeAbsoluteB(env: Env, rel: Int): AbsBinding = {
-    val oldAbs = env.oldDepth.incr(-rel)
-    env.absMap.get(oldAbs) match {
-      case None => throw CompilationError(s"makeAbsoluteB(env=$env,rel=$rel)")
+  private[this] def makeAbsoluteB(env: Env, abs: Int): AbsBinding = {
+    env.absMap.get(DepthE(abs)) match {
+      case None => throw CompilationError(s"makeAbsoluteB(env=$env,abs=$abs)")
       case Some(abs) => AbsBinding(abs)
     }
   }
@@ -176,25 +174,12 @@ private[lf] object Anf {
 
   private[this] type AbsAtom = Either[target.SExprAtomic, AbsBinding]
 
-  private def convertLoc(x: source.SELoc): target.SELoc = {
-    x match {
-      case source.SELocS(x) => target.SELocS(x)
-      case source.SELocA(x) => target.SELocA(x)
-      case source.SELocF(x) => target.SELocF(x)
-    }
-  }
-
-  private def convertAtom(x: source.SExprAtomic): target.SExprAtomic = {
-    x match {
-      case loc: source.SELoc => convertLoc(loc)
-      case source.SEValue(x) => target.SEValue(x)
-      case source.SEBuiltin(x) => target.SEBuiltin(x)
-    }
-  }
-
   private[this] def makeAbsoluteA(env: Env, atom: source.SExprAtomic): AbsAtom = atom match {
-    case source.SELocS(rel) => Right(makeAbsoluteB(env, rel))
-    case x => Left(convertAtom(x))
+    case source.SELocAbsoluteS(abs) => Right(makeAbsoluteB(env, abs))
+    case source.SELocA(x) => Left(target.SELocA(x))
+    case source.SELocF(x) => Left(target.SELocF(x))
+    case source.SEValue(x) => Left(target.SEValue(x))
+    case source.SEBuiltin(x) => Left(target.SEBuiltin(x))
   }
 
   private[this] def makeRelativeA(depth: DepthA)(atom: AbsAtom): target.SExprAtomic = atom match {
@@ -206,14 +191,15 @@ private[lf] object Anf {
   private[this] type AbsLoc = Either[source.SELoc, AbsBinding]
 
   private[this] def makeAbsoluteL(env: Env, loc: source.SELoc): AbsLoc = loc match {
-    case source.SELocS(rel) => Right(makeAbsoluteB(env, rel))
+    case source.SELocAbsoluteS(abs) => Right(makeAbsoluteB(env, abs))
     case x: source.SELocA => Left(x)
     case x: source.SELocF => Left(x)
   }
 
   private[this] def makeRelativeL(depth: DepthA)(loc: AbsLoc): target.SELoc = loc match {
-    case Left(x: source.SELocS) => throw CompilationError(s"makeRelativeL: unexpected: $x")
-    case Left(loc) => convertLoc(loc)
+    case Left(x: source.SELocAbsoluteS) => throw CompilationError(s"makeRelativeL: unexpected: $x")
+    case Left(source.SELocA(x)) => target.SELocA(x)
+    case Left(source.SELocF(x)) => target.SELocF(x)
     case Right(binding) => target.SELocS(makeRelativeB(depth, binding))
   }
 
@@ -301,7 +287,7 @@ private[lf] object Anf {
 
       case source.SEVal(x) => Bounce(() => transform(depth, target.SEVal(x), k))
 
-      case source.SEAppGeneral(func, args) =>
+      case source.SEApp(func, args) =>
         // It's safe to perform ANF if the func-expression has no effects when evaluated.
         val safeFunc =
           func match {
@@ -311,22 +297,22 @@ private[lf] object Anf {
           }
         // It's also safe to perform ANF for applications of a single argument.
         if (safeFunc || args.size == 1) {
-          transformMultiApp[A](depth, env, func, args, k)(transform)
+          transformMultiApp[A](depth, env, func, args.toArray, k)(transform)
         } else {
-          transformMultiAppSafely[A](depth, env, func, args, k)(transform)
+          transformMultiAppSafely[A](depth, env, func, args.toArray, k)(transform)
         }
 
       case source.SEMakeClo(fvs0, arity, body0) =>
         val fvs = fvs0.map((loc) => makeRelativeL(depth)(makeAbsoluteL(env, loc)))
         val body = flattenToAnfInternal(body0).wrapped
-        Bounce(() => transform(depth, target.SEMakeClo(fvs, arity, body), k))
+        Bounce(() => transform(depth, target.SEMakeClo(fvs.toArray, arity, body), k))
 
       case source.SECase(scrut, alts0) => {
         Bounce(() =>
           atomizeExp(depth, env, scrut, k) { (depth, scrut, txK) =>
             val scrut1 = makeRelativeA(depth)(scrut)
             Bounce(() =>
-              flattenAlts(depth, env, alts0) { alts =>
+              flattenAlts(depth, env, alts0.toArray) { alts =>
                 Bounce(() => transform(depth, target.SECaseAtomic(scrut1, alts), txK))
               }
             )

@@ -107,6 +107,8 @@ freeVarsStep = \case
     EToInterfaceF _ _ e -> e
     EFromInterfaceF _ _ e -> e
     ECallInterfaceF _ _ e -> e
+    EToRequiredInterfaceF _ _ e -> e
+    EFromRequiredInterfaceF _ _ e -> e
     EExperimentalF _ t -> freeVarsInType t
 
   where
@@ -137,7 +139,7 @@ freeVarsStep = \case
         UCreateF _ e -> e
         UCreateInterfaceF _ e -> e
         UExerciseF _ _ e1 e2 -> e1 <> e2
-        UExerciseInterfaceF _ _ e1 e2 -> e1 <> e2
+        UExerciseInterfaceF _ _ e1 e2 e3 e4 -> e1 <> e2 <> e3 <> e4
         UExerciseByKeyF _ _ e1 e2 -> e1 <> e2
         UFetchF _ e -> e
         UFetchInterfaceF _ e -> e

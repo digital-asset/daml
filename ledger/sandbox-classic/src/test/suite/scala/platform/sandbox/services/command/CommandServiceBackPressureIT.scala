@@ -80,7 +80,7 @@ sealed trait CommandServiceBackPressureITBase
       info(s"${errors.size}/$commands requests failed")
       info(s"${errors.count(pushedBack)}/${errors.size} errors are push-backs")
       errors should not be empty
-      forAll(errors)(IsStatusException(Status.RESOURCE_EXHAUSTED))
+      forAll(errors)(IsStatusException(Status.ABORTED))
     }
 
   "CommandSubmissionService" when {

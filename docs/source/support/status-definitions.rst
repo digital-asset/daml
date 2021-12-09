@@ -2,12 +2,12 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Status Definitions
-==================
+##################
 
 Throughout the documentation, we use labels to mark features of APIs not yet deemed stable. This page gives meaning to those labels.
 
 Early Access Features
----------------------
+*********************
 
 Features or components covered by these docs are :ref:`Stable <status_definitions>` by default. :ref:`Stable <status_definitions>` features and components constitute Daml's "public API" in the sense of :ref:`Semantic Versioning <versioning>`. Feature and components that are not :ref:`Stable <status_definitions>` are called "Early Access" and called out explicitly.
 
@@ -28,7 +28,7 @@ Beta
   Beta components and features are preview versions of features that are close to maturity. They are characterized by being considered feature complete, and the APIs close to the final public APIs. It is relatively safe to build on Beta features as long as the documented caveats to runtime characteristics are understood and bugs and minor API adjustments are not too costly.
 
 Deprecation
------------
+***********
 
 In addition to being labelled Early Access, features and components can also be labelled "Deprecated". Deprecation follows a deprecation cycle laid out in the table below. The date of deprecation is documented in :doc:`overview`.
 
@@ -37,7 +37,7 @@ Deprecated features can be relied upon during the deprecation cycle to the same 
 .. _status_definitions:
 
 Comparison of Statuses
-----------------------
+**********************
 
 The table below gives a concise overview of the labels used for Daml features and components.
 

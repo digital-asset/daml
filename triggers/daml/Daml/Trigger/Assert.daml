@@ -14,13 +14,8 @@ module Daml.Trigger.Assert
  ) where
 
 import qualified DA.List as List
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import DA.Map (Map)
 import qualified DA.Map as Map
-#else
-import DA.Next.Map (Map)
-import qualified DA.Next.Map as Map
-#endif
 import qualified DA.Text as Text
 
 import Daml.Trigger hiding (queryContractId)

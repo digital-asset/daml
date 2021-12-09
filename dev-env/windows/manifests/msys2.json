@@ -8,7 +8,7 @@
         "https://repo.msys2.org/msys/x86_64/patch-2.7.6-1-x86_64.pkg.tar.xz#/patch.msys2",
         "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-openssl-1.1.1.j-1-any.pkg.tar.zst#/openssl.msys2",
         "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-python-3.8.8-2-any.pkg.tar.zst#/python.msys2",
-        "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-postgresql-12.2-1-any.pkg.tar.xz#/pgsql.msys2"
+        "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-postgresql-12.4-1-any.pkg.tar.zst#/pgsql.msys2"
     ],
     "hash": [
         "3f2ceb097a081789d9d497e0d3df8d99c16a1591b9984b0469440cd5bfa65092",
@@ -17,7 +17,7 @@
         "5c18ce8979e9019d24abd2aee7ddcdf8824e31c4c7e162a204d4dc39b3b73776",
         "cc4e172354f7e4465b3348aa988bc79f992d64f587feffaaa81fcbd4b7d552cb",
         "d5e6b484435225a0f9bdc3e09cac76a479d05bd07b4064badf7bb453d02cb69d",
-        "e43179f90814e20210ffc5e023839725da372b3a7f2a61f9c95b2db4680fca17"
+        "13712ce2b639117b93dfce61481ab9895e8877d762410b96432d68852dd5f727"
     ],
     "env_add_path": ".",
     "installer": {

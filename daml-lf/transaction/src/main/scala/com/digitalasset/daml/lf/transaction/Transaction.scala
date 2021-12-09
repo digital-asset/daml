@@ -256,6 +256,7 @@ sealed abstract class HasTxNodes {
     KeyInputError,
     DuplicateKeys,
     InconsistentKeys,
+    ChildrenRecursion,
   }
 
   def nodes: Map[NodeId, Node]
@@ -374,10 +375,10 @@ sealed abstract class HasTxNodes {
   final def consumedContracts[Cid2 >: ContractId]: Set[Cid2] =
     foldInExecutionOrder(Set.empty[Cid2])(
       exerciseBegin = (acc, _, exe) => {
-        if (exe.consuming) { (acc + exe.targetCoid, true) }
-        else { (acc, true) }
+        if (exe.consuming) { (acc + exe.targetCoid, ChildrenRecursion.DoRecurse) }
+        else { (acc, ChildrenRecursion.DoRecurse) }
       },
-      rollbackBegin = (acc, _, _) => (acc, false),
+      rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
       leaf = (acc, _, _) => acc,
       exerciseEnd = (acc, _, _) => acc,
       rollbackEnd = (acc, _, _) => acc,
@@ -430,12 +431,12 @@ sealed abstract class HasTxNodes {
     foldInExecutionOrder[State](State(LedgerState(Set.empty, Set.empty), Nil))(
       exerciseBegin = (acc, _, exe) =>
         if (exe.consuming) {
-          (acc.archive(exe.targetCoid), true)
+          (acc.archive(exe.targetCoid), ChildrenRecursion.DoRecurse)
         } else {
-          (acc, true)
+          (acc, ChildrenRecursion.DoRecurse)
         },
       exerciseEnd = (acc, _, _) => acc,
-      rollbackBegin = (acc, _, _) => (acc.beginRollback(), true),
+      rollbackBegin = (acc, _, _) => (acc.beginRollback(), ChildrenRecursion.DoRecurse),
       rollbackEnd = (acc, _, _) => acc.endRollback(),
       leaf = (acc, _, leaf) =>
         leaf match {
@@ -598,9 +599,10 @@ sealed abstract class HasTxNodes {
     foldInExecutionOrder[Either[KeyInputError, State]](
       Right(State(Map.empty, List.empty, Map.empty))
     )(
-      exerciseBegin = (acc, _, exe) => (acc.flatMap(_.handleExercise(exe)), true),
+      exerciseBegin =
+        (acc, _, exe) => (acc.flatMap(_.handleExercise(exe)), ChildrenRecursion.DoRecurse),
       exerciseEnd = (acc, _, _) => acc,
-      rollbackBegin = (acc, _, _) => (acc.map(_.beginRollback), true),
+      rollbackBegin = (acc, _, _) => (acc.map(_.beginRollback), ChildrenRecursion.DoRecurse),
       rollbackEnd = (acc, _, _) => acc.map(_.endRollback),
       leaf = (acc, _, leaf) => acc.flatMap(_.handleLeaf(leaf)),
     )
@@ -619,11 +621,11 @@ sealed abstract class HasTxNodes {
             exec.key.fold(acc)(key =>
               acc.updated(GlobalKey.assertBuild(exec.templateId, key.key), None)
             ),
-            true,
+            ChildrenRecursion.DoRecurse,
           )
-        case (acc, _, _) => (acc, true)
+        case (acc, _, _) => (acc, ChildrenRecursion.DoRecurse)
       },
-      rollbackBegin = (acc, _, _) => (acc, false),
+      rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
       leaf = {
         case (acc, _, create: Node.Create) =>
           create.key.fold(acc)(key =>
@@ -640,8 +642,8 @@ sealed abstract class HasTxNodes {
   // Exercise/rollback nodes are visited twice: when execution reaches them and when execution leaves their body.
   // On the first visit of an execution/rollback node, the caller can prevent traversal of the children
   final def foreachInExecutionOrder(
-      exerciseBegin: (NodeId, Node.Exercise) => Boolean,
-      rollbackBegin: (NodeId, Node.Rollback) => Boolean,
+      exerciseBegin: (NodeId, Node.Exercise) => ChildrenRecursion,
+      rollbackBegin: (NodeId, Node.Rollback) => ChildrenRecursion,
       leaf: (NodeId, Node.LeafOnlyAction) => Unit,
       exerciseEnd: (NodeId, Node.Exercise) => Unit,
       rollbackEnd: (NodeId, Node.Rollback) => Unit,
@@ -657,16 +659,18 @@ sealed abstract class HasTxNodes {
         case FrontStackCons(nid, rest) =>
           nodes(nid) match {
             case rb: Node.Rollback =>
-              if (rollbackBegin(nid, rb)) {
-                loop(rb.children.toFrontStack, ((nid, Left(rb)), rest) +: stack)
-              } else {
-                loop(rest, stack)
+              rollbackBegin(nid, rb) match {
+                case ChildrenRecursion.DoRecurse =>
+                  loop(rb.children.toFrontStack, ((nid, Left(rb)), rest) +: stack)
+                case ChildrenRecursion.DoNotRecurse =>
+                  loop(rest, stack)
               }
             case exe: Node.Exercise =>
-              if (exerciseBegin(nid, exe)) {
-                loop(exe.children.toFrontStack, ((nid, Right(exe)), rest) +: stack)
-              } else {
-                loop(rest, stack)
+              exerciseBegin(nid, exe) match {
+                case ChildrenRecursion.DoRecurse =>
+                  loop(exe.children.toFrontStack, ((nid, Right(exe)), rest) +: stack)
+                case ChildrenRecursion.DoNotRecurse =>
+                  loop(rest, stack)
               }
             case node: Node.LeafOnlyAction =>
               leaf(nid, node)
@@ -693,8 +697,8 @@ sealed abstract class HasTxNodes {
   // This method visits to all nodes of the transaction in execution order.
   // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
   final def foldInExecutionOrder[A](z: A)(
-      exerciseBegin: (A, NodeId, Node.Exercise) => (A, Boolean),
-      rollbackBegin: (A, NodeId, Node.Rollback) => (A, Boolean),
+      exerciseBegin: (A, NodeId, Node.Exercise) => (A, ChildrenRecursion),
+      rollbackBegin: (A, NodeId, Node.Rollback) => (A, ChildrenRecursion),
       leaf: (A, NodeId, Node.LeafOnlyAction) => A,
       exerciseEnd: (A, NodeId, Node.Exercise) => A,
       rollbackEnd: (A, NodeId, Node.Rollback) => A,
@@ -721,8 +725,8 @@ sealed abstract class HasTxNodes {
   // This method returns all node-ids reachable from the roots of a transaction.
   final def reachableNodeIds: Set[NodeId] = {
     foldInExecutionOrder[Set[NodeId]](Set.empty)(
-      (acc, nid, _) => (acc + nid, true),
-      (acc, nid, _) => (acc + nid, true),
+      (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
+      (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
       (acc, nid, _) => acc + nid,
       (acc, _, _) => acc,
       (acc, _, _) => acc,
@@ -902,5 +906,11 @@ object Transaction {
     * was inconsistent with earlier nodes (in execution order).
     */
   final case class InconsistentKeys(key: GlobalKey) extends KeyInputError
+
+  sealed abstract class ChildrenRecursion
+  object ChildrenRecursion {
+    case object DoRecurse extends ChildrenRecursion
+    case object DoNotRecurse extends ChildrenRecursion
+  }
 
 }

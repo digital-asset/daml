@@ -17,7 +17,7 @@ template MyTemplate
     where
         signatory p
 
--- @ERROR range=21:1-21:17; Attempt to fetch or exercise a wrongly typed contract.
+-- @ERROR range=21:1-21:17; CRASH: ContractDoesNotImplementInterface unhandled in scenario service
 fetchBadContract = scenario do
     p <- getParty "Alice"
     p `submit` do
@@ -25,7 +25,7 @@ fetchBadContract = scenario do
         let cid' : ContractId MyInterface = coerceContractId cid
         fetch cid'
 
--- @ERROR range=29:1-29:20; Attempt to fetch or exercise a wrongly typed contract
+-- @ERROR range=29:1-29:20; CRASH: ContractDoesNotImplementInterface unhandled in scenario service
 exerciseBadContract = scenario do
     p <- getParty "Alice"
     p `submit` do

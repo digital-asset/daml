@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver
 
 import java.util.concurrent.Executor
-
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -13,6 +12,7 @@ import com.daml.ports.Port
 import io.grpc.ServerInterceptor
 
 import scala.concurrent.{Future, Promise}
+import scala.util.{Failure, Success}
 
 private[daml] final class LedgerApiServer(
     apiServicesOwner: ResourceOwner[ApiServices],
@@ -32,7 +32,7 @@ private[daml] final class LedgerApiServer(
     val servicesClosedPromise = Promise[Unit]()
 
     val apiServicesResource = apiServicesOwner.acquire()
-    for {
+    (for {
       apiServices <- apiServicesResource
       sslContext = tlsConfiguration.flatMap(_.server)
       _ = tlsConfiguration.map(_.setJvmTlsProperties())
@@ -65,6 +65,11 @@ private[daml] final class LedgerApiServer(
         override def servicesClosed(): Future[Unit] =
           servicesClosedPromise.future
       }
+    }).transformWith {
+      case Failure(ex) =>
+        logger.error("Failed to create LedgerApiServer", ex)
+        Resource.failed(ex)
+      case Success(s) => Resource.successful(s)
     }
   }
 }

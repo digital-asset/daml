@@ -52,7 +52,6 @@ Daml Documentation
    triggers/index
    tools/trigger-service/index
    tools/auth-middleware/index
-   error-codes/self-service/index
 
 .. toctree::
    :titlesonly:
@@ -70,7 +69,8 @@ Daml Documentation
    :hidden:
    :caption: Operating Daml
 
-   ops/index
+   ops/requirements
+   ops/pruning
    ops/connect/index
 
 .. toctree::

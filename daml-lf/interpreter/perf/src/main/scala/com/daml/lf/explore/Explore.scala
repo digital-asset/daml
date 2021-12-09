@@ -93,16 +93,16 @@ object PlaySpeedy {
 
     // The trailing numeral is the number of args at the scala level
 
-    def decrement1(x: SExpr): SExpr = SEApp(SEBuiltin(SBSubInt64), Array(x, SEValue(SInt64(1))))
+    def decrement1(x: SExpr): SExpr = SEApp(SEBuiltin(SBSubInt64), List(x, SEValue(SInt64(1))))
     val decrement = SEAbs(1, decrement1(SEVar(1)))
 
-    def subtract2(x: SExpr, y: SExpr): SExpr = SEApp(SEBuiltin(SBSubInt64), Array(x, y))
+    def subtract2(x: SExpr, y: SExpr): SExpr = SEApp(SEBuiltin(SBSubInt64), List(x, y))
     val subtract = SEAbs(2, subtract2(SEVar(2), SEVar(1)))
 
-    def twice2(f: SExpr, x: SExpr): SExpr = SEApp(f, Array(SEApp(f, Array(x))))
+    def twice2(f: SExpr, x: SExpr): SExpr = SEApp(f, List(SEApp(f, List(x))))
     val twice = SEAbs(2, twice2(SEVar(2), SEVar(1)))
 
-    def thrice2(f: SExpr, x: SExpr): SExpr = SEApp(f, Array(SEApp(f, Array(SEApp(f, Array(x))))))
+    def thrice2(f: SExpr, x: SExpr): SExpr = SEApp(f, List(SEApp(f, List(SEApp(f, List(x))))))
     val thrice = SEAbs(2, thrice2(SEVar(2), SEVar(1)))
 
     val examples = List(
@@ -119,30 +119,30 @@ object PlaySpeedy {
       (
         "subF", //88-55
         33,
-        SEApp(subtract, Array(num(88), num(55))),
+        SEApp(subtract, List(num(88), num(55))),
       ),
       (
         "thrice", // thrice (\x -> x - 1) 0
         -3,
-        SEApp(thrice, Array(decrement, num(0))),
+        SEApp(thrice, List(decrement, num(0))),
       ),
       (
         "thrice-thrice", //thrice thrice (\x -> x - 1) 0
         -27,
-        SEApp(thrice, Array(thrice, decrement, num(0))),
+        SEApp(thrice, List(thrice, decrement, num(0))),
       ),
       (
         "free", // let (a,b,c) = (30,100,21) in twice (\x -> x - (a-c)) b
         82,
-        SELet1General(
-          num(30),
-          SELet1General(
-            num(100),
-            SELet1General(
-              num(21),
+        SELet(
+          List(num(30)),
+          SELet(
+            List(num(100)),
+            SELet(
+              List(num(21)),
               SEApp(
                 twice,
-                Array(SEAbs(1, subtract2(SEVar(1), subtract2(SEVar(4), SEVar(2)))), SEVar(2)),
+                List(SEAbs(1, subtract2(SEVar(1), subtract2(SEVar(4), SEVar(2)))), SEVar(2)),
               ),
             ), //100
           ),

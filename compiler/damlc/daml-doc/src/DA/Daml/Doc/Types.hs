@@ -94,6 +94,7 @@ data ModuleDoc = ModuleDoc
   , md_name      :: Modulename
   , md_descr     :: Maybe DocText
   , md_templates :: [TemplateDoc]
+  , md_interfaces :: [InterfaceDoc]
   , md_adts      :: [ADTDoc]
   , md_functions :: [FunctionDoc]
   , md_classes   :: [ClassDoc]
@@ -114,8 +115,22 @@ data TemplateDoc = TemplateDoc
   , td_descr   :: Maybe DocText
   , td_payload :: [FieldDoc]
   , td_choices :: [ChoiceDoc]
+  , td_impls :: [ImplDoc]
   }
   deriving (Eq, Show, Generic)
+
+data InterfaceDoc = InterfaceDoc
+  { if_anchor :: Maybe Anchor
+  , if_name :: Typename
+  , if_choices :: [ChoiceDoc]
+  , if_methods :: [MethodDoc]
+  , if_descr :: Maybe DocText
+  }
+  deriving (Eq, Show, Generic)
+
+data ImplDoc = ImplDoc
+  { impl_iface :: Type
+  } deriving (Eq, Show, Generic)
 
 data ClassDoc = ClassDoc
   { cl_anchor :: Maybe Anchor
@@ -214,6 +229,11 @@ data ChoiceDoc = ChoiceDoc
   }
   deriving (Eq, Show, Generic)
 
+data MethodDoc = MethodDoc
+  { mtd_name :: Typename
+  , mtd_type :: Type
+  }
+  deriving (Eq, Show, Generic)
 
 -- | Documentation data for a field in a record
 data FieldDoc = FieldDoc
@@ -240,6 +260,7 @@ data FunctionDoc = FunctionDoc
 -- | Documentation on a typeclass instance.
 data InstanceDoc = InstanceDoc
     { id_type :: Type
+    , id_module :: Modulename
     , id_context :: Maybe Type
     , id_isOrphan :: Bool
     } deriving (Eq, Ord, Show, Generic)
@@ -301,10 +322,28 @@ instance ToJSON ChoiceDoc where
 instance FromJSON ChoiceDoc where
     parseJSON = genericParseJSON aesonOptions
 
+instance ToJSON ImplDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON ImplDoc where
+    parseJSON = genericParseJSON aesonOptions
+
 instance ToJSON TemplateDoc where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON TemplateDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON InterfaceDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON InterfaceDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON MethodDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON MethodDoc where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON InstanceDoc where
