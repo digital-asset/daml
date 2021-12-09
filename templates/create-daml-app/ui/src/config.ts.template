@@ -3,9 +3,16 @@
 
 import { encode } from 'jwt-simple';
 import { isRunningOnHub } from '@daml/hub-react';
+import Ledger from '@daml/ledger';
+
+export type UserManagement = {
+  tokenPayload: (loginName: string, ledgerId: string) => Object,
+  primaryParty: (loginName: string, ledger: Ledger) => Promise<string>,
+};
 
 export type Insecure = {
   provider: "none",
+  userManagement: UserManagement,
   makeToken: (party: string) => string,
 };
 
@@ -20,6 +27,38 @@ export type Auth0 =  {
 };
 
 export type Authentication = Insecure | DamlHub | Auth0;
+
+// This needs to be used for ledgers in SDK < 2.0.0 and VMBC <= 1.6
+export const noUserManagement: UserManagement = {
+  tokenPayload: (loginName: string, ledgerId: string) =>
+  ({
+    "https://daml.com/ledger-api": {
+      "ledgerId": ledgerId,
+      "applicationId": '__PROJECT_NAME__',
+      "actAs": [loginName]
+    }
+  }),
+  primaryParty: async (loginName: string, ledger: Ledger) => loginName,
+};
+
+// Used on SDK >= 2.0.0 with the exception of VMBC
+export const withUserManagement: UserManagement = {
+  tokenPayload: (loginName: string, ledgerId: string) =>
+  ({
+    sub: loginName,
+  }),
+  primaryParty: async (loginName, ledger: Ledger) => {
+    const user = await ledger.getUser();
+    // TODO https://github.com/digital-asset/daml/issues/12275
+    // Improve error handling
+    return user.primaryParty!;
+  }
+};
+
+export const userManagement: UserManagement =
+  // We default to assuming that user management is enabled so we interpret everything that
+  // isn’t explicitly "false" as supporting user management.
+  process.env.REACT_APP_SUPPORTS_USERMANAGEMENT?.toLowerCase() !== "false" ? withUserManagement : noUserManagement;
 
 export const authConfig: Authentication = (() => {
   if (isRunningOnHub()) {
@@ -42,14 +81,9 @@ export const authConfig: Authentication = (() => {
     const ledgerId: string = process.env.REACT_APP_LEDGER_ID ?? "__PROJECT_NAME__-sandbox"
     const auth: Insecure = {
       provider: "none",
-      makeToken: (party) => {
-        const payload = {
-          "https://daml.com/ledger-api": {
-            "ledgerId": ledgerId,
-            "applicationId": '__PROJECT_NAME__',
-            "actAs": [party]
-          }
-        }
+      userManagement: userManagement,
+      makeToken: (loginName) => {
+        const payload = userManagement.tokenPayload(loginName, ledgerId);
         return encode(payload, "secret", "HS256");
       }
     };

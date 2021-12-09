@@ -1,0 +1,10 @@
+module Setup where
+
+import DA.Foldable
+import Daml.Script
+
+setup : Script ()
+setup = do
+  forA_ [("Alice", "alice"), ("Bob", "bob"), ("Charlie", "charlie")] $ \(displayName, userName) -> do
+    p <- allocatePartyWithHint displayName (PartyIdHint ("p" <> userName))
+    createUser (User userName (Some p)) [CanActAs p]
