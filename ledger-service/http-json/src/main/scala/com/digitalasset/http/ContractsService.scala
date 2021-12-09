@@ -31,7 +31,7 @@ import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, OneAnd, OptionT, Show, Tag, \/, \/-}
+import scalaz.{-\/, OneAnd, OptionT, Show, \/, \/-}
 import spray.json.JsValue
 
 import scala.collection.compat._
@@ -557,7 +557,7 @@ class ContractsService(
     val contractsAndBoundary = startOffset.cata(
       so =>
         Source
-          .single(Tag unsubst AbsoluteBookmark(so.offset))
+          .single(AbsoluteBookmark(so.offset))
           .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
       source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right),
     )

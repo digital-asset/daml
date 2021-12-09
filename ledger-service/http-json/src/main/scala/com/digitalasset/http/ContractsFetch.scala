@@ -293,7 +293,7 @@ private class ContractsFetch(
     val graph = RunnableGraph.fromGraph(
       GraphDSL.create(
         Sink.queue[ConnectionIO[Unit]](),
-        Sink.last[BeginBookmark[String]],
+        Sink.last[BeginBookmark[domain.Offset]],
       )(Keep.both) { implicit builder => (acsSink, offsetSink) =>
         import GraphDSL.Implicits._
 
@@ -319,7 +319,7 @@ private class ContractsFetch(
 
           case (AbsoluteBookmark(_), _) | (LedgerBegin, true) =>
             val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
-            stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(startOffset))
+            stepsAndOffset.in <~ Source.single(startOffset)
             (
               (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
               stepsAndOffset.out1,
@@ -343,9 +343,7 @@ private class ContractsFetch(
     for {
       _ <- sinkCioSequence_(acsQueue)
       offset0 <- connectionIOFuture(lastOffsetFuture)
-      offsetOrError <- (domain.Offset.tag.subst(offset0) max AbsoluteBookmark(
-        absEnd.toDomain
-      )) match {
+      offsetOrError <- offset0 max AbsoluteBookmark(absEnd.toDomain) match {
         case ab @ AbsoluteBookmark(newOffset) =>
           ContractDao
             .updateOffset(parties, templateId, newOffset, offsets)
