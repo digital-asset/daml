@@ -25,6 +25,37 @@ class CliSpec extends AsyncWordSpec with Matchers {
     cli.configFile.nonEmpty shouldBe true
   }
 
+  "should take default values on loading minimal config" in {
+    val file = requiredResource("triggers/service/auth/src/test/resources/oauth2-middleware-minimal.conf")
+    val cli = loadCli(file.getAbsolutePath)
+    cli.configFile.nonEmpty shouldBe true
+    cli.loadConfig match {
+      case Left(ex) => fail(ex.msg)
+      case Right(c) =>
+        c.address shouldBe "127.0.0.1"
+        c.port shouldBe Config.DefaultHttpPort
+        c.callbackUri shouldBe Some(Uri("https://example.com/auth/cb"))
+        c.maxLoginRequests shouldBe Config.DefaultMaxLoginRequests
+        c.loginTimeout shouldBe Config.DefaultLoginTimeout
+        c.cookieSecure shouldBe Config.DefaultCookieSecure
+        c.oauthAuth shouldBe Uri("https://oauth2/uri")
+        c.oauthToken shouldBe Uri("https://oauth2/token")
+
+        c.oauthAuthTemplate shouldBe None
+        c.oauthTokenTemplate shouldBe None
+        c.oauthRefreshTemplate shouldBe None
+
+        c.clientId shouldBe sys.env.getOrElse("DAML_CLIENT_ID", "foo")
+        c.clientSecret shouldBe SecretString(sys.env.getOrElse("DAML_CLIENT_SECRET", "bar"))
+
+        // token verifier needs to be set.
+        c.tokenVerifier match {
+          case _: JwksVerifier => succeed
+          case _ => fail("expected JwksVerifier based on supplied config")
+        }
+    }
+  }
+
   "should be able to successfully load the config based on the file provided" in {
     val file = requiredResource(confFile)
     val cli = loadCli(file.getAbsolutePath)

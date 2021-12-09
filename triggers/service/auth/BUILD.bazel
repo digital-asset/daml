@@ -179,6 +179,7 @@ da_scala_test(
     srcs = glob(["src/test/scala/com/daml/auth/middleware/oauth2/**/*.scala"]),
     data = [
         ":src/test/resources/oauth2-middleware.conf",
+        ":src/test/resources/oauth2-middleware-minimal.conf",
     ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",

@@ -79,17 +79,30 @@ repository](https://github.com/digital-asset/ex-secure-daml-infra).
   $ DAML_CLIENT_ID=CLIENTID \
     DAML_CLIENT_SECRET=CLIENTSECRET \
     bazel run //triggers/service/auth:oauth-middleware-binary -- \
-      --port 3000 \
-      --oauth-auth AUTHURL \
-      --oauth-token TOKENURL
+      --config oauth-middleware.conf 
   ```
   - Replace `CLIENTID` and `CLIENTSECRET` by the "Client ID" and "Client
     Secret" from above.
-  - Replace `AUTHURL` and `TOKENURL` by the "OAuth Authorization URL"
-    and "OAuth Token URL" from above. They should look as follows:
+    
+   The basic minimal config that needs to be supplied needs to have appropriate
+  `callback-uri`,`oauth-auth` and `oauth-token` urls defined,
+   along with the `token-verifier`,`client-id` and `client-secret` fields. e.g
     ```
-    https://XYZ.auth0.com/authorize
-    https://XYZ.auth0.com/oauth/token
+    {
+      callback-uri = "https://example.com/auth/cb"
+      oauth-auth = "https://XYZ.auth0.com/authorize"
+      oauth-token = "https://XYZ.auth0.com/oauth/token"
+    
+      client-id = ${DAML_CLIENT_ID}
+      client-secret = ${DAML_CLIENT_SECRET}
+    
+      // type can be one of rs256-crt, es256-crt, es512-crt, rs256-jwks
+      // uri is the uri to the cert file or the jwks url
+      token-verifier {
+        type = "rs256-jwks"
+        uri = "https://example.com/.well-known/jwks.json"
+      }
+    }    
     ```
 - Browse to the middleware's login endpoint.
   - URL `http://localhost:3000/login?redirect_uri=callback&claims=actAs:Alice`
