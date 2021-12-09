@@ -524,3 +524,10 @@ final case class ENotClosedInterfaceRequires(
   protected def prettyInternal: String =
     s"Interface $iface is missing requirements $missingRequiredIface required by $requiredIface"
 }
+final case class ECircularInterfaceRequires(
+    context: Context,
+    iface: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Circular interface requirement is not allowed: interface $iface requires itself."
+}

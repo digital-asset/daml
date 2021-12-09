@@ -456,6 +456,8 @@ private[validation] object Typing {
       iface match {
         case DefInterface(requires, param, fixedChoices, methods, precond) =>
           val env = introExprVar(param, TTyCon(ifaceName))
+          if (requires(ifaceName))
+            throw ECircularInterfaceRequires(ctx, ifaceName)
           for {
             required <- requires
             requiredRequired <- handleLookup(ctx, interface.lookupInterface(required)).requires
