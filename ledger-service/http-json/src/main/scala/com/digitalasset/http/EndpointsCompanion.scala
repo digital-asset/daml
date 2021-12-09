@@ -14,10 +14,8 @@ import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
-import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
-import com.daml.ledger.client.withoutledgerid.LedgerClient
 import com.daml.scalautil.ExceptionOps._
 import io.grpc.Status.{Code => GrpcCode}
 import scalaz.syntax.std.option._
@@ -122,7 +120,7 @@ object EndpointsCompanion {
                 else \/-(NonEmptyList(actAs.head: String, actAs.tail: _*))
             } yield JwtWritePayload(
               lar.LedgerId(ledgerId),
-              lar.ApplicationId("DUMMY"),
+              lar.ApplicationId(userId),
               lar.Party.subst(actAsNonEmpty),
               lar.Party.subst(readAs),
             )
