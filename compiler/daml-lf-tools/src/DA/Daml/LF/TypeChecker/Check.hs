@@ -841,7 +841,7 @@ checkIface m iface = do
   forM_ (intRequires iface) $ \requiredIfaceId -> do
     requiredIface <- inWorld (lookupInterface requiredIfaceId)
     let missing = intRequires requiredIface `S.difference` intRequires iface
-    when (tcon `S.member` missing) $
+    when (tcon `S.member` intRequires requiredIface) $
       throwWithContext (ECircularInterfaceRequires (intName iface) (Just requiredIfaceId))
     whenJust (listToMaybe (S.toList missing)) $ \missingIfaceId ->
       throwWithContext (ENotClosedInterfaceRequires (intName iface) requiredIfaceId missingIfaceId)
