@@ -515,3 +515,12 @@ final case class EWrongInterfaceRequirement(
   protected def prettyInternal: String =
     s"Interface $requiringIface does not require $wrongRequiredIface"
 }
+final case class ENotClosedInterfaceRequires(
+    context: Context,
+    iface: TypeConName,
+    requiredIface: TypeConName,
+    missingRequiredIface: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Interface $iface is missing requirements $missingRequiredIface required by $requiredIface"
+}

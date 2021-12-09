@@ -456,7 +456,11 @@ private[validation] object Typing {
       iface match {
         case DefInterface(requires, param, fixedChoices, methods, precond) =>
           val env = introExprVar(param, TTyCon(ifaceName))
-          requires.foreach(required => handleLookup(ctx, interface.lookupInterface(required)))
+          for {
+            required <- requires
+            requiredRequired <- handleLookup(ctx, interface.lookupInterface(required)).requires
+            if !requires(requiredRequired)
+          } throw EMissingRequiredInterface(ctx, ifaceName, required, requiredRequired)
           env.checkExpr(precond, TBool)
           methods.values.foreach(checkIfaceMethod)
           fixedChoices.values.foreach(env.checkChoice(ifaceName, _))
