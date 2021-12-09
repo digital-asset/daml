@@ -415,6 +415,7 @@ object ScriptF {
   final case class CreateUser(
       user: User,
       rights: List[UserRight],
+      participant: Option[Participant],
       stackTrace: StackTrace,
       continue: SValue,
   ) extends Cmd {
@@ -425,9 +426,7 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        // TODO https://github.com/digital-asset/daml/issues/11997
-        // support multiple participants
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
         user <- client.createUser(user, rights)
         user <- Converter.toFuture(Converter.fromUser(env.scriptIds, user))
       } yield SEApp(SEValue(continue), Array(SEValue(user)))
@@ -435,6 +434,7 @@ object ScriptF {
 
   final case class GetUser(
       userId: UserId,
+      participant: Option[Participant],
       stackTrace: StackTrace,
       continue: SValue,
   ) extends Cmd {
@@ -445,9 +445,7 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        // TODO https://github.com/digital-asset/daml/issues/11997
-        // support multiple participants
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
         user <- client.getUser(userId)
         user <- Converter.toFuture(
           Converter.fromOptional(user, Converter.fromUser(env.scriptIds, _))
@@ -457,6 +455,7 @@ object ScriptF {
 
   final case class DeleteUser(
       userId: UserId,
+      participant: Option[Participant],
       stackTrace: StackTrace,
       continue: SValue,
   ) extends Cmd {
@@ -467,14 +466,16 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        // TODO https://github.com/digital-asset/daml/issues/11997
-        // support multiple participants
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.deleteUser(userId)
       } yield SEApp(SEValue(continue), Array(SEValue(SUnit)))
   }
 
-  final case class ListUsers(stackTrace: StackTrace, continue: SValue) extends Cmd {
+  final case class ListUsers(
+      participant: Option[Participant],
+      stackTrace: StackTrace,
+      continue: SValue,
+  ) extends Cmd {
     override def description = "listUsers"
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
@@ -482,9 +483,7 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        // TODO https://github.com/digital-asset/daml/issues/11997
-        // support multiple participants
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
         users <- client.listUsers()
         users <- Converter.toFuture(
           users.to(FrontStack).traverse(Converter.fromUser(env.scriptIds, _))
@@ -495,6 +494,7 @@ object ScriptF {
   final case class GrantUserRights(
       userId: UserId,
       rights: List[UserRight],
+      participant: Option[Participant],
       stackTrace: StackTrace,
       continue: SValue,
   ) extends Cmd {
@@ -505,9 +505,7 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        // TODO https://github.com/digital-asset/daml/issues/11997
-        // support multiple participants
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
         rights <- client.grantUserRights(userId, rights)
         rights <- Converter.toFuture(
           rights.to(FrontStack).traverse(Converter.fromUserRight(env.scriptIds, _))
@@ -518,6 +516,7 @@ object ScriptF {
   final case class RevokeUserRights(
       userId: UserId,
       rights: List[UserRight],
+      participant: Option[Participant],
       stackTrace: StackTrace,
       continue: SValue,
   ) extends Cmd {
@@ -528,9 +527,7 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        // TODO https://github.com/digital-asset/daml/issues/11997
-        // support multiple participants
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
         rights <- client.revokeUserRights(userId, rights)
         rights <- Converter.toFuture(
           rights.to(FrontStack).traverse(Converter.fromUserRight(env.scriptIds, _))
@@ -540,6 +537,7 @@ object ScriptF {
 
   final case class ListUserRights(
       userId: UserId,
+      participant: Option[Participant],
       stackTrace: StackTrace,
       continue: SValue,
   ) extends Cmd {
@@ -550,9 +548,7 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        // TODO https://github.com/digital-asset/daml/issues/11997
-        // support multiple participants
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
         rights <- client.listUserRights(userId)
         rights <- Converter.toFuture(
           rights.to(FrontStack).traverse(Converter.fromUserRight(env.scriptIds, _))
@@ -796,73 +792,80 @@ object ScriptF {
 
   private def parseCreateUser(ctx: Ctx, v: SValue): Either[String, CreateUser] =
     v match {
-      case SRecord(_, _, JavaList(user, rights, continue, stackTrace)) =>
+      case SRecord(_, _, JavaList(user, rights, participant, continue, stackTrace)) =>
         for {
           user <- Converter.toUser(user)
+          participant <- Converter.toParticipantName(participant)
           rights <- Converter.toList(rights, Converter.toUserRight)
           stackTrace <- toStackTrace(ctx, Some(stackTrace))
-        } yield CreateUser(user, rights, stackTrace, continue)
+        } yield CreateUser(user, rights, participant, stackTrace, continue)
       case _ => Left(s"Exected CreateUser payload but got $v")
     }
 
   private def parseGetUser(ctx: Ctx, v: SValue): Either[String, GetUser] =
     v match {
-      case SRecord(_, _, JavaList(userId, continue, stackTrace)) =>
+      case SRecord(_, _, JavaList(userId, participant, continue, stackTrace)) =>
         for {
           userId <- Converter.toUserId(userId)
+          participant <- Converter.toParticipantName(participant)
           stackTrace <- toStackTrace(ctx, Some(stackTrace))
-        } yield GetUser(userId, stackTrace, continue)
+        } yield GetUser(userId, participant, stackTrace, continue)
       case _ => Left(s"Expected GetUser payload but got $v")
     }
 
   private def parseDeleteUser(ctx: Ctx, v: SValue): Either[String, DeleteUser] =
     v match {
-      case SRecord(_, _, JavaList(userId, continue, stackTrace)) =>
+      case SRecord(_, _, JavaList(userId, participant, continue, stackTrace)) =>
         for {
           userId <- Converter.toUserId(userId)
+          participant <- Converter.toParticipantName(participant)
           stackTrace <- toStackTrace(ctx, Some(stackTrace))
-        } yield DeleteUser(userId, stackTrace, continue)
+        } yield DeleteUser(userId, participant, stackTrace, continue)
       case _ => Left(s"Expected DeleteUser payload but got $v")
     }
 
   private def parseListUsers(ctx: Ctx, v: SValue): Either[String, ListUsers] =
     v match {
-      case SRecord(_, _, JavaList(continue, stackTrace)) =>
+      case SRecord(_, _, JavaList(participant, continue, stackTrace)) =>
         for {
+          participant <- Converter.toParticipantName(participant)
           stackTrace <- toStackTrace(ctx, Some(stackTrace))
-        } yield ListUsers(stackTrace, continue)
+        } yield ListUsers(participant, stackTrace, continue)
       case _ => Left(s"Expected ListUsers payload but got $v")
     }
 
   private def parseGrantUserRights(ctx: Ctx, v: SValue): Either[String, GrantUserRights] =
     v match {
-      case SRecord(_, _, JavaList(userId, rights, continue, stackTrace)) =>
+      case SRecord(_, _, JavaList(userId, rights, participant, continue, stackTrace)) =>
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
+          participant <- Converter.toParticipantName(participant)
           stackTrace <- toStackTrace(ctx, Some(stackTrace))
-        } yield GrantUserRights(userId, rights, stackTrace, continue)
+        } yield GrantUserRights(userId, rights, participant, stackTrace, continue)
       case _ => Left(s"Expected GrantUserRights payload but got $v")
     }
 
   private def parseRevokeUserRights(ctx: Ctx, v: SValue): Either[String, RevokeUserRights] =
     v match {
-      case SRecord(_, _, JavaList(userId, rights, continue, stackTrace)) =>
+      case SRecord(_, _, JavaList(userId, rights, participant, continue, stackTrace)) =>
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
+          participant <- Converter.toParticipantName(participant)
           stackTrace <- toStackTrace(ctx, Some(stackTrace))
-        } yield RevokeUserRights(userId, rights, stackTrace, continue)
+        } yield RevokeUserRights(userId, rights, participant, stackTrace, continue)
       case _ => Left(s"Expected RevokeUserRights payload but got $v")
     }
 
   private def parseListUserRights(ctx: Ctx, v: SValue): Either[String, ListUserRights] =
     v match {
-      case SRecord(_, _, JavaList(userId, continue, stackTrace)) =>
+      case SRecord(_, _, JavaList(userId, participant, continue, stackTrace)) =>
         for {
           userId <- Converter.toUserId(userId)
+          participant <- Converter.toParticipantName(participant)
           stackTrace <- toStackTrace(ctx, Some(stackTrace))
-        } yield ListUserRights(userId, stackTrace, continue)
+        } yield ListUserRights(userId, participant, stackTrace, continue)
       case _ => Left(s"Expected ListUserRights payload but got $v")
     }
 

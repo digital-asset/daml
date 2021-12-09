@@ -55,13 +55,21 @@ module Daml.Script
   , User(..)
   , UserRight(..)
   , createUser
+  , createUserOn
   , getUser
+  , getUserOn
   , deleteUser
+  , deleteUserOn
   , listUsers
+  , listUsersOn
   , grantUserRights
+  , grantUserRightsOn
   , revokeUserRights
+  , revokeUserRightsOn
   , listUserRights
+  , listUserRightsOn
   , submitUser
+  , submitUserOn
   ) where
 
 #ifdef DAML_EXCEPTIONS
@@ -766,7 +774,15 @@ data UserRight
 
 -- | HIDE Create a user with the given rights
 createUser : HasCallStack => User -> [UserRight] -> Script User
-createUser user rights = lift $ Free $ CreateUser CreateUserPayload with
+createUser user rights = createUser' user rights None
+
+-- | HIDE Create a user with the given rights on the given participant.
+createUserOn : HasCallStack => User -> [UserRight] -> ParticipantName -> Script User
+createUserOn user rights participant = createUser' user rights (Some participant)
+
+createUser' : HasCallStack => User -> [UserRight] -> Optional ParticipantName -> Script User
+createUser' user rights participant = lift $ Free $ CreateUser CreateUserPayload with
+  participant = fmap participantName participant
   continue = pure
   locations = getCallStack callStack
   user
@@ -774,20 +790,44 @@ createUser user rights = lift $ Free $ CreateUser CreateUserPayload with
 
 -- | HIDE Fetch a user by user id
 getUser : HasCallStack => Text -> Script (Optional User)
-getUser userId = lift $ Free $ GetUser GetUserPayload with
+getUser userId  = getUser' userId None
+
+-- | HIDE Fetch a user by user id from the given participant.
+getUserOn : HasCallStack => Text -> ParticipantName -> Script (Optional User)
+getUserOn userId participant  = getUser' userId (Some participant)
+
+getUser' : HasCallStack => Text -> Optional ParticipantName -> Script (Optional User)
+getUser' userId participant = lift $ Free $ GetUser GetUserPayload with
+  participant = fmap participantName participant
   continue = pure
   locations = getCallStack callStack
   userId
 
--- | HIDE List all users on the participant
+-- | Hide List all users
 listUsers : Script [User]
-listUsers = lift $ Free $ ListUsers ListUsersPayload with
+listUsers = listUsers' None
+
+-- | Hide List all users on the given participant
+listUsersOn : ParticipantName -> Script [User]
+listUsersOn participant = listUsers' (Some participant)
+
+listUsers' : Optional ParticipantName -> Script [User]
+listUsers' participant = lift $ Free $ ListUsers ListUsersPayload with
+  participant = fmap participantName participant
   continue = pure
   locations = getCallStack callStack
 
 -- | HIDE Grant the user the given rights. Returns the rights that have been newly granted.
 grantUserRights : HasCallStack => Text -> [UserRight] -> Script [UserRight]
-grantUserRights userId rights = lift $ Free $ GrantUserRights GrantUserRightsPayload with
+grantUserRights userId rights = grantUserRights' userId rights None
+
+-- | HIDE Grant the user on the given participant the given rights. Returns the rights that have been newly granted.
+grantUserRightsOn : HasCallStack => Text -> [UserRight] -> ParticipantName -> Script [UserRight]
+grantUserRightsOn userId rights participant = grantUserRights' userId rights (Some participant)
+
+grantUserRights' : HasCallStack => Text -> [UserRight] -> Optional ParticipantName -> Script [UserRight]
+grantUserRights' userId rights participant = lift $ Free $ GrantUserRights GrantUserRightsPayload with
+  participant = fmap participantName participant
   continue = pure
   locations = getCallStack callStack
   userId
@@ -795,7 +835,14 @@ grantUserRights userId rights = lift $ Free $ GrantUserRights GrantUserRightsPay
 
 -- | HIDE Revoke the rights of the given user. Returns the revoked rights.
 revokeUserRights : HasCallStack => Text -> [UserRight] -> Script [UserRight]
-revokeUserRights userId rights = lift $ Free $ RevokeUserRights RevokeUserRightsPayload with
+revokeUserRights userId rights = revokeUserRights' userId rights None
+
+revokeUserRightsOn : HasCallStack => Text -> [UserRight] -> ParticipantName -> Script [UserRight]
+revokeUserRightsOn userId rights participant = revokeUserRights' userId rights (Some participant)
+
+revokeUserRights' : HasCallStack => Text -> [UserRight] -> Optional ParticipantName -> Script [UserRight]
+revokeUserRights' userId rights participant = lift $ Free $ RevokeUserRights RevokeUserRightsPayload with
+  participant = fmap participantName participant
   continue = pure
   locations = getCallStack callStack
   userId
@@ -803,22 +850,46 @@ revokeUserRights userId rights = lift $ Free $ RevokeUserRights RevokeUserRights
 
 -- | HIDE Delete the given user. Fails if the user does not exist.
 deleteUser : HasCallStack => Text -> Script ()
-deleteUser userId = lift $ Free $ DeleteUser DeleteUserPayload with
+deleteUser userId = deleteUser' userId None
+
+-- | HIDE Delete the given user on the given participant. Fails if the user does not exist.
+deleteUserOn : HasCallStack => Text -> ParticipantName -> Script ()
+deleteUserOn userId participant = deleteUser' userId (Some participant)
+
+deleteUser' : HasCallStack => Text -> Optional ParticipantName -> Script ()
+deleteUser' userId participant = lift $ Free $ DeleteUser DeleteUserPayload with
+  participant = fmap participantName participant
   continue = pure
   locations = getCallStack callStack
   userId
 
--- | HIDE List the rights of the given user
+-- | HIDE List the rights of the given user .
 listUserRights : HasCallStack => Text -> Script [UserRight]
-listUserRights userId = lift $ Free $ ListUserRights ListUserRightsPayload with
+listUserRights userId = listUserRights' userId None
+
+-- | HIDE List the rights of the user on the given participant.
+listUserRightsOn : HasCallStack => Text -> ParticipantName -> Script [UserRight]
+listUserRightsOn userId participant = listUserRights' userId (Some participant)
+
+listUserRights' : HasCallStack => Text -> Optional ParticipantName -> Script [UserRight]
+listUserRights' userId participant = lift $ Free $ ListUserRights ListUserRightsPayload with
+  participant = fmap participantName participant
   continue = pure
   locations = getCallStack callStack
   userId
 
 -- | HIDE Submit the commands with the actAs and readAs claims granted to the user.
-submitUser : HasCallStack => User -> Commands a -> Script a
-submitUser u cmds = do
-  rights <- listUserRights u.id
+submitUser : HasCallStack => Text -> Commands a -> Script a
+submitUser userId cmds = submitUser' userId None cmds
+
+-- | HIDE Submit the commands with the actAs and readAs claims granted
+-- to the user on the given participant
+submitUserOn : HasCallStack => Text -> ParticipantName -> Commands a -> Script a
+submitUserOn userId participant cmds = submitUser' userId (Some participant) cmds
+
+submitUser' : HasCallStack => Text -> Optional ParticipantName -> Commands a -> Script a
+submitUser' userId participant cmds = do
+  rights <- listUserRights' userId participant
   let actAs = [ p | CanActAs p <- rights ]
   let readAs = [ p | CanReadAs p <- rights ]
   submitMulti actAs readAs cmds
@@ -827,6 +898,7 @@ data CreateUserPayload a = CreateUserPayload
   with
     user: User
     rights: [UserRight]
+    participant : Optional Text
     continue : User -> a
     locations : [(Text, SrcLoc)]
   deriving Functor
@@ -834,6 +906,7 @@ data CreateUserPayload a = CreateUserPayload
 data GetUserPayload a = GetUserPayload
   with
     userId : Text
+    participant : Optional Text
     continue : Optional User -> a
     locations : [(Text, SrcLoc)]
   deriving Functor
@@ -841,12 +914,14 @@ data GetUserPayload a = GetUserPayload
 data DeleteUserPayload a = DeleteUserPayload
   with
     userId : Text
+    participant : Optional Text
     continue : () -> a
     locations : [(Text, SrcLoc)]
   deriving Functor
 
 data ListUsersPayload a = ListUsersPayload
   with
+    participant : Optional Text
     continue : [User] -> a
     locations : [(Text, SrcLoc)]
   deriving Functor
@@ -855,6 +930,7 @@ data GrantUserRightsPayload a = GrantUserRightsPayload
   with
     userId : Text
     rights : [UserRight]
+    participant : Optional Text
     continue : [UserRight] -> a
     locations : [(Text, SrcLoc)]
   deriving Functor
@@ -863,6 +939,7 @@ data RevokeUserRightsPayload a = RevokeUserRightsPayload
   with
     userId : Text
     rights : [UserRight]
+    participant : Optional Text
     continue : [UserRight] -> a
     locations : [(Text, SrcLoc)]
   deriving Functor
@@ -870,6 +947,7 @@ data RevokeUserRightsPayload a = RevokeUserRightsPayload
 data ListUserRightsPayload a = ListUserRightsPayload
   with
     userId : Text
+    participant : Optional Text
     continue : [UserRight] -> a
     locations : [(Text, SrcLoc)]
   deriving Functor
