@@ -68,7 +68,7 @@ class KVCommandDeduplicationIT(
   )(test: FiniteDuration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
     // deduplication duration is adjusted by min skew and max skew when running using pre-execution
     // to account for this we adjust the time model
-    val skew = scaledDuration(1.second).asProtobuf
+    val skew = scaledDuration(3.second).asProtobuf
     runWithUpdatedTimeModel(
       participants,
       _.update(_.minSkew := skew, _.maxSkew := skew),
