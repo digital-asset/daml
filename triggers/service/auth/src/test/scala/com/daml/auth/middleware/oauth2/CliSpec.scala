@@ -3,16 +3,16 @@
 
 package com.daml.auth.middleware.oauth2
 
+import akka.http.scaladsl.model.Uri
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.jwt.JwksVerifier
 
-object CliSpec {
-  def resourceFile(name: String) = {
-    getClass.getClassLoader.getResource(name)
-  }
+import java.nio.file.Paths
 
-}
+import scala.concurrent.duration._
+
 class CliSpec extends AsyncWordSpec with Matchers {
   val confFile = "triggers/service/auth/src/test/resources/oauth2-middleware.conf"
   def loadCli(file: String) = {
@@ -33,6 +33,26 @@ class CliSpec extends AsyncWordSpec with Matchers {
       case Left(ex) => fail(ex.msg)
       case Right(c) =>
         c.address shouldBe "127.0.0.1"
+        c.port shouldBe 3000
+        c.callbackUri shouldBe Some(Uri("https://example.com/auth/cb"))
+        c.maxLoginRequests shouldBe 10
+        c.loginTimeout shouldBe FiniteDuration(60, SECONDS)
+        c.cookieSecure shouldBe false
+        c.oauthAuth shouldBe Uri("https://oauth2/uri")
+        c.oauthToken shouldBe Uri("https://oauth2/token")
+
+        c.oauthAuthTemplate shouldBe Some(Paths.get("file://path/auth/template"))
+        c.oauthTokenTemplate shouldBe Some(Paths.get("file://path/token/template"))
+        c.oauthRefreshTemplate shouldBe Some(Paths.get("file://path/refresh/template"))
+
+        c.clientId shouldBe sys.env.getOrElse("DAML_CLIENT_ID", "foo")
+        c.clientSecret shouldBe SecretString(sys.env.getOrElse("DAML_CLIENT_SECRET", "bar"))
+
+        c.tokenVerifier match {
+          case _: JwksVerifier => succeed
+          case _ => fail("expected JwksVerifier based on supplied config")
+        }
+
     }
   }
 

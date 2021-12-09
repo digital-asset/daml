@@ -25,19 +25,21 @@ final case class ConfigParseError(msg: String) extends ConfigError
 case class Cli(configFile: Option[File] = None) {
   import Cli._
   def loadConfig: Either[ConfigError, Config] = {
-    import cats.implicits._
     configFile
       .map(f =>
-        Either.catchOnly[ConfigReaderException[Config]](ConfigSource.file(f).loadOrThrow[Config])
+        try {
+          Right(ConfigSource.file(f).loadOrThrow[Config])
+        } catch {
+          case ex: ConfigReaderException[_] => Left(ConfigParseError(ex.failures.head.description))
+        }
       )
-      .map(_.leftMap(f => ConfigParseError(f.failures.head.description)))
       .getOrElse(Left(MissingConfigError))
   }
 }
 
 object Cli {
   implicit val tokenVerifierReader =
-    ConfigReader.forProduct2[JwtVerifierBase, String, String]("type", "path") { case (t, p) =>
+    ConfigReader.forProduct2[JwtVerifierBase, String, String]("type", "uri") { case (t, p) =>
       // rs256-crt, es256-crt, es512-crt, rs256-jwks
       t match {
         case "rs256-crt" =>
