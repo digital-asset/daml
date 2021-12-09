@@ -13,7 +13,7 @@ package speedy
   *
   * 1: convert from LF
   *     - reducing binding forms (update & scenario becoming builtins)
-  *     - moving to de Bruijn indexing for variable
+  *     - convert named variables to de Bruijn levels
   *     - moving to multi-argument applications and abstractions.
   *
   * 2: closure conversion
@@ -54,13 +54,11 @@ private[speedy] object SExpr0 {
 
   sealed abstract class SExpr extends Product with Serializable
 
-  /** Reference to a variable. 'index' is the 1-based de Bruijn index,
-    * that is, SEVar(1) points to the nearest enclosing variable binder.
-    * which could be an SELam, SELet, or a binding variant of SECasePat.
+  /** Reference to a variable. 'level' is the 0-based de Bruijn LEVEL (not INDEX)
     * https://en.wikipedia.org/wiki/De_Bruijn_index
     * This expression form is only allowed prior to closure conversion
     */
-  final case class SEVar(index: Int) extends SExpr
+  final case class SEVarLevel(level: Int) extends SExpr
 
   /** Reference to a value. On first lookup the evaluated expression is
     * stored in 'cached'.
@@ -80,14 +78,6 @@ private[speedy] object SExpr0 {
 
   /** Lambda abstraction. Transformed to SEMakeClo during closure conversion */
   final case class SEAbs(arity: Int, body: SExpr) extends SExpr
-
-  object SEAbs {
-    // Helper for constructing abstraction expressions:
-    // SEAbs(1) { ... }
-    def apply(arity: Int)(body: SExpr): SExpr = SEAbs(arity, body)
-
-    val identity: SEAbs = SEAbs(1, SEVar(1))
-  }
 
   /** Pattern match. */
   final case class SECase(scrut: SExpr, alts: List[SCaseAlt]) extends SExpr
