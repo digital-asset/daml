@@ -840,11 +840,11 @@ checkIface m iface = do
     throwWithContext (ECircularInterfaceRequires (intName iface) Nothing)
   forM_ (intRequires iface) $ \requiredIfaceId -> do
     requiredIface <- inWorld (lookupInterface requiredIfaceId)
-    let missing = intRequires requiredIface `S.difference` intRequires iface
     when (tcon `S.member` intRequires requiredIface) $
       throwWithContext (ECircularInterfaceRequires (intName iface) (Just requiredIfaceId))
-    whenJust (listToMaybe (S.toList missing)) $ \missingIfaceId ->
-      throwWithContext (ENotClosedInterfaceRequires (intName iface) requiredIfaceId missingIfaceId)
+    let missing = intRequires requiredIface `S.difference` intRequires iface
+    unless (S.null missing) $ throwWithContext $
+      ENotClosedInterfaceRequires (intName iface) requiredIfaceId (S.toList missing)
 
   -- check methods
   checkUnique (EDuplicateInterfaceMethodName (intName iface)) $ NM.names (intMethods iface)

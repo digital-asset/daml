@@ -135,7 +135,7 @@ data Error
   | EDuplicateInterfaceMethodName !TypeConName !MethodName
   | EUnknownInterface !TypeConName
   | ECircularInterfaceRequires !TypeConName !(Maybe (Qualified TypeConName))
-  | ENotClosedInterfaceRequires !TypeConName !(Qualified TypeConName) !(Qualified TypeConName)
+  | ENotClosedInterfaceRequires !TypeConName !(Qualified TypeConName) ![Qualified TypeConName]
   | EMissingRequiredInterface { emriTemplate :: !TypeConName, emriRequiringInterface :: !(Qualified TypeConName), emriRequiredInterface :: !(Qualified TypeConName) }
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
