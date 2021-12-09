@@ -102,7 +102,7 @@ class DeduplicationPeriodSupportSpec
           offset,
           applicationId,
           Set.empty,
-          submittedAt,
+          maxRecordTimeFromSubmissionTime,
         )
       ).thenReturn(Future.successful(Right(durationPeriod.duration)))
       when(periodValidator.validate(durationPeriod, maxDeduplicationDuration))
@@ -113,7 +113,7 @@ class DeduplicationPeriodSupportSpec
             offset,
             applicationId,
             Set.empty,
-            submittedAt,
+            maxRecordTimeFromSubmissionTime,
           )
           verify(periodValidator).validate(durationPeriod, maxDeduplicationDuration)
           result shouldBe statusRuntimeException
@@ -129,7 +129,7 @@ class DeduplicationPeriodSupportSpec
           offset,
           applicationId,
           Set.empty,
-          submittedAt,
+          maxRecordTimeFromSubmissionTime,
         )
       ).thenReturn(
         Future.successful(Left(DeduplicationConversionFailure.CompletionOffsetNotMatching))
@@ -146,7 +146,12 @@ class DeduplicationPeriodSupportSpec
         .map { result =>
           verify(
             periodConverter
-          ).convertOffsetToDuration(offset, applicationId, Set.empty, submittedAt)
+          ).convertOffsetToDuration(
+            offset,
+            applicationId,
+            Set.empty,
+            maxRecordTimeFromSubmissionTime,
+          )
           verify(errorFactories).invalidDeduplicationDuration(
             any[String],
             any[String],

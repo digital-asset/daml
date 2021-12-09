@@ -236,15 +236,25 @@ final class CommandsValidator(
     optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
       Left(missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer = Some(false)))
     ) { maxDeduplicationDuration =>
-      val convertedDeduplicationPeriod = deduplicationPeriod match {
+      deduplicationPeriod match {
         case commands.Commands.DeduplicationPeriod.Empty =>
           Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
         case commands.Commands.DeduplicationPeriod.DeduplicationTime(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
-          Right(DeduplicationPeriod.DeduplicationDuration(deduplicationDuration))
+          deduplicationPeriodValidator
+            .validateDuration(
+              deduplicationDuration,
+              maxDeduplicationDuration,
+            )
+            .map(DeduplicationPeriod.DeduplicationDuration)
         case commands.Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
-          Right(DeduplicationPeriod.DeduplicationDuration(deduplicationDuration))
+          deduplicationPeriodValidator
+            .validateDuration(
+              deduplicationDuration,
+              maxDeduplicationDuration,
+            )
+            .map(DeduplicationPeriod.DeduplicationDuration)
         case commands.Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
           Ref.HexString
             .fromString(offset)
@@ -260,13 +270,6 @@ final class CommandsValidator(
               DeduplicationPeriod.DeduplicationOffset(Offset.fromHexString(hexOffset))
             )
       }
-      convertedDeduplicationPeriod.flatMap(deduplicationPeriod =>
-        deduplicationPeriodValidator
-          .validate(
-            deduplicationPeriod,
-            maxDeduplicationDuration,
-          )
-      )
     }
 }
 
