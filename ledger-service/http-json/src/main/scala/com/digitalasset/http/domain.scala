@@ -24,6 +24,10 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
 
+  trait UserToken {
+    val username: String
+  }
+
   trait JwtPayloadTag
 
   trait JwtPayloadG {

@@ -12,11 +12,13 @@ import com.daml.http.json.SprayJson
 import util.GrpcHttpErrorCodes._
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
+import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.scalautil.ExceptionOps._
 import io.grpc.Status.{Code => GrpcCode}
 import scalaz.syntax.std.option._
-import scalaz.{-\/, NonEmptyList, Show, \/, \/-}
+import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
 import spray.json.JsValue
 
 import scala.concurrent.Future
@@ -55,22 +57,108 @@ object EndpointsCompanion {
       case NonFatal(t) => ServerError(t.description)
     }
   }
-
+  private type ET[A] = EitherT[Future, Unauthorized, A]
   trait ParsePayload[A] {
-    def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ A
+    def parsePayload(
+        jwt: DecodedJwt[String]
+    ): Error \/ A
+  }
+
+  trait ParsePayloadFromUserToken[A] {
+    def parsePayload(
+        jwt: DecodedJwt[String],
+        token: Jwt,
+        userManagementClient: UserManagementClient,
+    ): ET[A]
+  }
+
+  object ParsePayloadFromUserToken {
+
+    import com.daml.http.util.FutureUtil.either
+    import com.daml.lf.data.Ref.UserId
+
+    trait FromUser[A, B] {
+      def apply(actAs: List[String], readAs: List[String]): A \/ B
+    }
+
+    private def parseUserToken[B](
+        payload: String,
+        token: Jwt,
+        userManagementClient: UserManagementClient,
+    )(
+        fromUser: FromUser[Unauthorized, B]
+    )(implicit
+        fm: Monad[Future]
+    ): EitherT[Future, Unauthorized, B] = {
+      def fromJwtPayload: String => String \/ UserId = _ => \/ fromEither UserId.fromString("DUMMY")
+
+      for {
+        userId <- either(fromJwtPayload(payload).leftMap(Unauthorized): Unauthorized \/ UserId)
+        rights <- EitherT.rightT(userManagementClient.listUserRights(userId, Some(token.value)))
+        actAs = rights.collect { case CanActAs(party) =>
+          party
+        }
+        readAs = rights.collect { case CanReadAs(party) =>
+          party
+        }
+        res <- either(fromUser(actAs.toList, readAs.toList))
+      } yield res
+    }
+
+    private[http] implicit def jwtWriteParsePayloadFromUserToken(implicit
+        mf: Monad[Future]
+    ): ParsePayloadFromUserToken[JwtWritePayload] =
+      (jwt: DecodedJwt[String], token: Jwt, userManagementClient: UserManagementClient) =>
+        parseUserToken(jwt.payload, token, userManagementClient)((actAs, readAs) =>
+          for {
+            actAsNonEmpty <-
+              if (actAs.isEmpty)
+                -\/ apply Unauthorized(
+                  "ActAs list of user was empty, this is an invalid state for converting it to a JwtWritePayload"
+                )
+              else \/-(NonEmptyList(actAs.head: String, actAs.tail: _*))
+          } yield JwtWritePayload(
+            lar.LedgerId("DUMMY"),
+            lar.ApplicationId("DUMMY"),
+            lar.Party.subst(actAsNonEmpty),
+            lar.Party.subst(readAs),
+          )
+        )
+
+    private[http] implicit def jwtParsePayloadLedgerIdOnlyFromUserToken(implicit
+        mf: Monad[Future]
+    ): ParsePayloadFromUserToken[JwtPayloadLedgerIdOnly] =
+      (_: DecodedJwt[String], _: Jwt, _: UserManagementClient) =>
+        EitherT.pure(JwtPayloadLedgerIdOnly(lar.LedgerId("DUMMY")))
+
+    private[http] implicit def jwtParsePayloadFromUserToken(implicit
+        mf: Monad[Future]
+    ): ParsePayloadFromUserToken[JwtPayload] =
+      (jwt: DecodedJwt[String], token: Jwt, userManagementClient: UserManagementClient) =>
+        parseUserToken(jwt.payload, token, userManagementClient)((actAs, readAs) =>
+          \/ fromEither JwtPayload(
+            lar.LedgerId("DUMMY"),
+            lar.ApplicationId("DUMMY"),
+            actAs = lar.Party.subst(actAs),
+            readAs = lar.Party.subst(readAs),
+          ).toRight(Unauthorized("Something went wrong and IDK what I can write here :D"))
+        )
+
   }
 
   object ParsePayload {
     @inline def apply[A](implicit ev: ParsePayload[A]): ParsePayload[A] = ev
 
     private[http] implicit val jwtWriteParsePayload: ParsePayload[JwtWritePayload] =
-      (jwt: DecodedJwt[String]) => {
+      (
+        jwt: DecodedJwt[String],
+      ) => {
         // AuthServiceJWTCodec is the JWT reader used by the sandbox and some Daml-on-X ledgers.
         // Most JWT fields are optional for the sandbox, but not for the JSON API.
         AuthServiceJWTCodec
           .readFromString(jwt.payload)
           .fold(
-            e => -\/(Unauthorized(e.getMessage)),
+            e => -\/ apply Unauthorized(e.getMessage),
             payload =>
               for {
                 ledgerId <- payload.ledgerId
@@ -90,6 +178,7 @@ object EndpointsCompanion {
               ),
           )
       }
+
     private[http] implicit val jwtParsePayloadLedgerIdOnly: ParsePayload[JwtPayloadLedgerIdOnly] =
       (jwt: DecodedJwt[String]) => {
         import spray.json._
@@ -122,7 +211,7 @@ object EndpointsCompanion {
         AuthServiceJWTCodec
           .readFromString(jwt.payload)
           .fold(
-            e => -\/(Unauthorized(e.getMessage)),
+            e => -\/ apply Unauthorized(e.getMessage),
             payload =>
               for {
                 ledgerId <- payload.ledgerId
@@ -132,8 +221,8 @@ object EndpointsCompanion {
                 payload <- JwtPayload(
                   lar.LedgerId(ledgerId),
                   lar.ApplicationId(applicationId),
-                  actAs = payload.actAs.map(lar.Party(_)),
-                  readAs = payload.readAs.map(lar.Party(_)),
+                  actAs = lar.Party.subst(payload.actAs),
+                  readAs = lar.Party.subst(payload.readAs),
                 ).toRightDisjunction(Unauthorized("No parties in actAs and readAs"))
               } yield payload,
           )
@@ -175,12 +264,28 @@ object EndpointsCompanion {
 
   private[http] def format(a: JsValue): ByteString = ByteString(a.compactPrint)
 
-  private[http] def decodeAndParsePayload[A](jwt: Jwt, decodeJwt: ValidateJwt)(implicit
+  private[http] def legacyDecodeAndParsePayload[A](jwt: Jwt, decodeJwt: ValidateJwt)(implicit
       parse: ParsePayload[A]
-  ): Unauthorized \/ (Jwt, A) = {
+  ) =
     for {
       a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
       p <- parse.parsePayload(a)
+    } yield (jwt, p)
+
+  private[http] def decodeAndParsePayload[A](
+      jwt: Jwt,
+      decodeJwt: ValidateJwt,
+      userManagementClient: UserManagementClient,
+  )(implicit
+      legacyParse: ParsePayload[A],
+      parse: ParsePayloadFromUserToken[A],
+      fm: Monad[Future],
+  ): ET[(Jwt, A)] = {
+    for {
+      a <- EitherT.either(decodeJwt(jwt): Unauthorized \/ DecodedJwt[String])
+      p <- legacyParse
+        .parsePayload(a)
+        .fold(_ => parse.parsePayload(a, jwt, userManagementClient), EitherT.pure(_): ET[A])
     } yield (jwt, p)
   }
 }

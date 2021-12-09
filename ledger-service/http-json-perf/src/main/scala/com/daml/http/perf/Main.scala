@@ -4,13 +4,12 @@
 package com.daml.http.perf
 
 import java.nio.file.{Files, Path}
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.dbutils
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.http.HttpServiceTestFixture.{withLedger, withHttpService}
+import com.daml.http.HttpServiceTestFixture.{withHttpService, withLedger}
 import com.daml.http.domain.{JwtPayload, LedgerId}
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
@@ -27,7 +26,6 @@ import scalaz.std.scalaFuture._
 import scalaz.std.string._
 import scalaz.syntax.tag._
 import scalaz.{-\/, EitherT, \/, \/-}
-
 import Config.QueryStoreIndex
 import com.daml.dbutils.ConnectionPool
 
@@ -121,7 +119,6 @@ object Main extends StrictLogging {
           new IllegalArgumentException("Cannot infer Ledger ID from JWT")
         )
       ): ET[LedgerId]
-
       _ <- either(
         config.traverse(s => resolveSimulationClass(s))
       ): ET[Config[Class[_ <: Simulation]]]
@@ -269,9 +266,11 @@ object Main extends StrictLogging {
     }
   }
 
-  private def getLedgerId(jwt: Jwt): EndpointsCompanion.Unauthorized \/ LedgerId = {
+  private def getLedgerId(
+      jwt: Jwt
+  ): EndpointsCompanion.Error \/ LedgerId = {
     EndpointsCompanion
-      .decodeAndParsePayload[JwtPayload](jwt, HttpService.decodeJwt)
+      .legacyDecodeAndParsePayload[JwtPayload](jwt, HttpService.decodeJwt)
       .map { case (_, payload) => payload.ledgerId }
   }
 
