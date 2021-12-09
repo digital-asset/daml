@@ -1,0 +1,91 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+module InterfaceGuarded where
+
+import DA.Exception (GeneralError (..), throwPure)
+
+interface Token where
+  getOwner : Party
+  getAmount : Int
+  setAmount : Int -> Token
+
+  ensure (getAmount this >= 0)
+
+  choice GetRich : ContractId Token
+    with
+      byHowMuch : Int
+    controller getOwner this
+    do
+        assert (byHowMuch > 0)
+        create $ setAmount this (getAmount this + byHowMuch)
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory owner
+
+    implements Token where
+      let getOwner = owner
+      let getAmount = amount
+      let setAmount = \x -> toInterface @Token (this with amount = x)
+
+exception GuardException
+    with
+        m : Text
+    where
+        message m
+
+main = scenario do
+  p <- getParty "Alice"
+  let
+    assetTpl = Asset with
+      issuer = p
+      owner = p
+      amount = 100
+    getRich = GetRich with byHowMuch = 1000000
+
+  p `submit` do
+    -- OK if guard returns True
+    asset <- create assetTpl
+    exerciseGuarded (const True) asset getRich
+
+  p `submitMustFail` do
+    -- Fail if guard returns False
+    asset <- create assetTpl
+    exerciseGuarded (const False) asset getRich
+
+  p `submitMustFail` do
+    -- Fail if guard throws exception
+    asset <- create assetTpl
+    exerciseGuarded (\_ -> error "foo") asset getRich
+
+  p `submitMustFail` do
+    -- Fail if guard throws custom exception
+    asset <- create assetTpl
+    exerciseGuarded (\_ -> throwPure (GuardException "bar")) asset getRich
+
+  p `submitMustFail` do
+    -- Fail if guard throws exception, even in `try-catch` block
+    asset <- create assetTpl
+    try do
+      exerciseGuarded (\_ -> error "foo") asset getRich
+    catch
+      GeneralError {} ->
+        pure $ toInterfaceContractId @Token asset
+
+  p `submitMustFail` do
+    -- Fail if guard throws custom exception, even in `try-catch` block
+    asset <- create assetTpl
+    try do
+      exerciseGuarded (\_ -> throwPure (GuardException "bar")) asset getRich
+    catch
+      GuardException {} ->
+        pure $ toInterfaceContractId @Token asset
+
+  pure ()
