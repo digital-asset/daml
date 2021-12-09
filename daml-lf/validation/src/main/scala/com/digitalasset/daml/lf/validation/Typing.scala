@@ -460,7 +460,7 @@ private[validation] object Typing {
             required <- requires
             requiredRequired <- handleLookup(ctx, interface.lookupInterface(required)).requires
             if !requires(requiredRequired)
-          } throw EMissingRequiredInterface(ctx, ifaceName, required, requiredRequired)
+          } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
           env.checkExpr(precond, TBool)
           methods.values.foreach(checkIfaceMethod)
           fixedChoices.values.foreach(env.checkChoice(ifaceName, _))
