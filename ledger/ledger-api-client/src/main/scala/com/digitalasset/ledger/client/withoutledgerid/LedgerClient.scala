@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServic
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
+import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
@@ -24,6 +25,7 @@ import com.daml.ledger.client.services.admin.{
 }
 import com.daml.ledger.client.services.commands.SynchronousCommandClient
 import com.daml.ledger.client.services.commands.withoutledgerid.CommandClient
+import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.ledger.client.services.pkg.withoutledgerid.PackageClient
 import com.daml.ledger.client.services.transactions.withoutledgerid.TransactionClient
 import com.daml.ledger.client.services.version.withoutledgerid.VersionClient
@@ -85,6 +87,11 @@ class LedgerClient private (
   val userManagementClient: UserManagementClient = new UserManagementClient(
     ClassicLedgerClient.stub(UserManagementServiceGrpc.stub(channel), config.token)
   )
+
+  val identityClient =
+    new LedgerIdentityClient(
+      ClassicLedgerClient.stub(LedgerIdentityServiceGrpc.stub(channel), config.token)
+    )
 
   override def close(): Unit = GrpcChannel.close(channel)
 }

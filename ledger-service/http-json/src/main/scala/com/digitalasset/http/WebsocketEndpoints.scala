@@ -19,6 +19,7 @@ import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
 import com.daml.http.domain.JwtPayload
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.ledger.client.services.admin.UserManagementClient
+import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
 
@@ -43,6 +44,7 @@ object WebsocketEndpoints {
       req: WebSocketUpgrade,
       subprotocol: String,
       userManagementClient: UserManagementClient,
+      ledgerIdentityClient: LedgerIdentityClient,
   )(implicit mf: Monad[Future]): EitherT[Future, Err, (Jwt, JwtPayload)] =
     for {
       _ <- EitherT.either(
@@ -51,9 +53,12 @@ object WebsocketEndpoints {
         ): Err)
       )
       jwt0 <- EitherT.either(findJwtFromSubProtocol[Err](req))
-      payload <- decodeAndParsePayload[JwtPayload](jwt0, decodeJwt, userManagementClient).leftMap(
-        it => it: Err
-      )
+      payload <- decodeAndParsePayload[JwtPayload](
+        jwt0,
+        decodeJwt,
+        userManagementClient,
+        ledgerIdentityClient,
+      ).leftMap(it => it: Err)
     } yield payload
 }
 
@@ -61,6 +66,7 @@ class WebsocketEndpoints(
     decodeJwt: ValidateJwt,
     webSocketService: WebSocketService,
     userManagementClient: UserManagementClient,
+    ledgerIdentityClient: LedgerIdentityClient,
 )(implicit ec: ExecutionContext) {
 
   import WebsocketEndpoints._
@@ -90,6 +96,7 @@ class WebsocketEndpoints(
                   upgradeReq,
                   wsProtocol,
                   userManagementClient,
+                  ledgerIdentityClient,
                 )
                 (jwt, jwtPayload) = payload
               } yield handleWebsocketRequest[domain.SearchForeverRequest](
@@ -115,6 +122,7 @@ class WebsocketEndpoints(
                   upgradeReq,
                   wsProtocol,
                   userManagementClient,
+                  ledgerIdentityClient,
                 )
                 (jwt, jwtPayload) = payload
               } yield handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](

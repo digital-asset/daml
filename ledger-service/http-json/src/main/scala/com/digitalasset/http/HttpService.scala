@@ -172,6 +172,7 @@ object HttpService {
         decoder,
         logLevel.exists(!_.isGreaterOrEqual(LogLevel.INFO)), // Everything below DEBUG enables this
         client.userManagementClient,
+        client.identityClient,
       )
 
       websocketService = new WebSocketService(
@@ -186,6 +187,7 @@ object HttpService {
         validateJwt,
         websocketService,
         client.userManagementClient,
+        client.identityClient,
       )
 
       defaultEndpoints =

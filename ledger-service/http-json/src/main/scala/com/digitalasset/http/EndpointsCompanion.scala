@@ -14,7 +14,10 @@ import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
 import com.daml.ledger.client.services.admin.UserManagementClient
+import com.daml.ledger.client.services.identity.LedgerIdentityClient
+import com.daml.ledger.client.withoutledgerid.LedgerClient
 import com.daml.scalautil.ExceptionOps._
 import io.grpc.Status.{Code => GrpcCode}
 import scalaz.syntax.std.option._
@@ -64,84 +67,91 @@ object EndpointsCompanion {
     ): Error \/ A
   }
 
-  trait ParsePayloadFromUserToken[A] {
-    def parsePayload(
-        jwt: DecodedJwt[String],
+  trait CreateFromUserToken[A] {
+    def apply(
         token: Jwt,
         userManagementClient: UserManagementClient,
+        identityClient: LedgerIdentityClient,
     ): ET[A]
   }
 
-  object ParsePayloadFromUserToken {
+  object CreateFromUserToken {
 
     import com.daml.http.util.FutureUtil.either
-    import com.daml.lf.data.Ref.UserId
 
     trait FromUser[A, B] {
-      def apply(actAs: List[String], readAs: List[String]): A \/ B
+      def apply(userId: String, actAs: List[String], readAs: List[String], ledgerId: String): A \/ B
     }
 
-    private def parseUserToken[B](
-        payload: String,
+    private def transformUserTokenTo[B](
         token: Jwt,
         userManagementClient: UserManagementClient,
+        ledgerIdentityClient: LedgerIdentityClient,
     )(
         fromUser: FromUser[Unauthorized, B]
     )(implicit
         fm: Monad[Future]
     ): EitherT[Future, Unauthorized, B] = {
-      def fromJwtPayload: String => String \/ UserId = _ => \/ fromEither UserId.fromString("DUMMY")
 
       for {
-        userId <- either(fromJwtPayload(payload).leftMap(Unauthorized): Unauthorized \/ UserId)
-        rights <- EitherT.rightT(userManagementClient.listUserRights(userId, Some(token.value)))
+        user <- EitherT.rightT(userManagementClient.getAuthenticatedUser(Some(token.value)))
+        rights <- EitherT.rightT(userManagementClient.listUserRights(user.id, Some(token.value)))
         actAs = rights.collect { case CanActAs(party) =>
           party
         }
         readAs = rights.collect { case CanReadAs(party) =>
           party
         }
-        res <- either(fromUser(actAs.toList, readAs.toList))
+        ledgerId <- EitherT.rightT(ledgerIdentityClient.getLedgerId(Some(token.value)))
+        res <- either(fromUser(user.id, actAs.toList, readAs.toList, ledgerId))
       } yield res
     }
 
-    private[http] implicit def jwtWriteParsePayloadFromUserToken(implicit
+    private[http] implicit def jwtWritePayloadFromUserToken(implicit
         mf: Monad[Future]
-    ): ParsePayloadFromUserToken[JwtWritePayload] =
-      (jwt: DecodedJwt[String], token: Jwt, userManagementClient: UserManagementClient) =>
-        parseUserToken(jwt.payload, token, userManagementClient)((actAs, readAs) =>
-          for {
-            actAsNonEmpty <-
-              if (actAs.isEmpty)
-                -\/ apply Unauthorized(
-                  "ActAs list of user was empty, this is an invalid state for converting it to a JwtWritePayload"
-                )
-              else \/-(NonEmptyList(actAs.head: String, actAs.tail: _*))
-          } yield JwtWritePayload(
-            lar.LedgerId("DUMMY"),
-            lar.ApplicationId("DUMMY"),
-            lar.Party.subst(actAsNonEmpty),
-            lar.Party.subst(readAs),
-          )
+    ): CreateFromUserToken[JwtWritePayload] =
+      (token: Jwt, userManagementClient: UserManagementClient, ledgerIdentityClient) =>
+        transformUserTokenTo(token, userManagementClient, ledgerIdentityClient)(
+          (userId, actAs, readAs, ledgerId) =>
+            for {
+              actAsNonEmpty <-
+                if (actAs.isEmpty)
+                  -\/ apply Unauthorized(
+                    "ActAs list of user was empty, this is an invalid state for converting it to a JwtWritePayload"
+                  )
+                else \/-(NonEmptyList(actAs.head: String, actAs.tail: _*))
+            } yield JwtWritePayload(
+              lar.LedgerId(ledgerId),
+              lar.ApplicationId("DUMMY"),
+              lar.Party.subst(actAsNonEmpty),
+              lar.Party.subst(readAs),
+            )
         )
 
-    private[http] implicit def jwtParsePayloadLedgerIdOnlyFromUserToken(implicit
+    private[http] implicit def jwtPayloadLedgerIdOnlyFromUserToken(implicit
         mf: Monad[Future]
-    ): ParsePayloadFromUserToken[JwtPayloadLedgerIdOnly] =
-      (_: DecodedJwt[String], _: Jwt, _: UserManagementClient) =>
-        EitherT.pure(JwtPayloadLedgerIdOnly(lar.LedgerId("DUMMY")))
+    ): CreateFromUserToken[JwtPayloadLedgerIdOnly] =
+      (jwt: Jwt, _: UserManagementClient, ledgerIdentityClient: LedgerIdentityClient) =>
+        for {
+          ledgerId <- EitherT.rightT(ledgerIdentityClient.getLedgerId(Some(jwt.value)))
+        } yield JwtPayloadLedgerIdOnly(lar.LedgerId(ledgerId))
 
-    private[http] implicit def jwtParsePayloadFromUserToken(implicit
+    private[http] implicit def jwtPayloadFromUserToken(implicit
         mf: Monad[Future]
-    ): ParsePayloadFromUserToken[JwtPayload] =
-      (jwt: DecodedJwt[String], token: Jwt, userManagementClient: UserManagementClient) =>
-        parseUserToken(jwt.payload, token, userManagementClient)((actAs, readAs) =>
-          \/ fromEither JwtPayload(
-            lar.LedgerId("DUMMY"),
-            lar.ApplicationId("DUMMY"),
-            actAs = lar.Party.subst(actAs),
-            readAs = lar.Party.subst(readAs),
-          ).toRight(Unauthorized("Something went wrong and IDK what I can write here :D"))
+    ): CreateFromUserToken[JwtPayload] =
+      (
+          token: Jwt,
+          userManagementClient: UserManagementClient,
+          ledgerIdentityClient: LedgerIdentityClient,
+      ) =>
+        transformUserTokenTo(token, userManagementClient, ledgerIdentityClient)(
+          (userId, actAs, readAs, ledgerId) =>
+            \/ fromEither JwtPayload(
+              lar.LedgerId(ledgerId),
+              lar.ApplicationId(userId),
+              actAs = lar.Party.subst(actAs),
+              readAs = lar.Party.subst(readAs),
+            ).toRight(Unauthorized("Something went wrong and IDK what I can write here :D"))
         )
 
   }
@@ -276,16 +286,20 @@ object EndpointsCompanion {
       jwt: Jwt,
       decodeJwt: ValidateJwt,
       userManagementClient: UserManagementClient,
+      ledgerIdentityClient: LedgerIdentityClient,
   )(implicit
       legacyParse: ParsePayload[A],
-      parse: ParsePayloadFromUserToken[A],
+      createFromUserToken: CreateFromUserToken[A],
       fm: Monad[Future],
   ): ET[(Jwt, A)] = {
     for {
       a <- EitherT.either(decodeJwt(jwt): Unauthorized \/ DecodedJwt[String])
       p <- legacyParse
         .parsePayload(a)
-        .fold(_ => parse.parsePayload(a, jwt, userManagementClient), EitherT.pure(_): ET[A])
+        .fold(
+          _ => createFromUserToken(jwt, userManagementClient, ledgerIdentityClient),
+          EitherT.pure(_): ET[A],
+        )
     } yield (jwt, p)
   }
 }

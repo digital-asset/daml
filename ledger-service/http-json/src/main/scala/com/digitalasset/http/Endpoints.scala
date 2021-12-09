@@ -57,6 +57,7 @@ import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
+import com.daml.ledger.client.services.identity.LedgerIdentityClient
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -70,6 +71,7 @@ class Endpoints(
     decoder: DomainJsonDecoder,
     shouldLogHttpBodies: Boolean,
     userManagementClient: UserManagementClient,
+    ledgerIdentityClient: LedgerIdentityClient,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
 )(implicit ec: ExecutionContext, mat: Materializer) {
 
@@ -642,9 +644,9 @@ class Endpoints(
 
   private[http] def withJwtPayload[A, P](fa: (Jwt, A))(implicit
       legacyParse: ParsePayload[P],
-      parse: ParsePayloadFromUserToken[P],
+      createFromUserToken: CreateFromUserToken[P],
   ): EitherT[Future, Unauthorized, (Jwt, P, A)] =
-    decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient).map(t2 =>
+    decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient, ledgerIdentityClient).map(t2 =>
       (t2._1, t2._2, fa._2)
     )
 
@@ -652,14 +654,14 @@ class Endpoints(
       req: HttpRequest
   )(implicit
       legacyParse: ParsePayload[P],
-      parse: ParsePayloadFromUserToken[P],
+      createFromUserToken: CreateFromUserToken[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): EitherT[Future, Unauthorized, (Jwt, P, String)] =
     eitherT(input(req)).flatMap(it => withJwtPayload[String, P](it))
 
   private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
       legacyParse: ParsePayload[P],
-      parse: ParsePayloadFromUserToken[P],
+      createFromUserToken: CreateFromUserToken[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): EitherT[Future, Error, (Jwt, P, JsValue)] =
     inputJsVal(req).flatMap(x => withJwtPayload[JsValue, P](x).leftMap(it => it: Error))
