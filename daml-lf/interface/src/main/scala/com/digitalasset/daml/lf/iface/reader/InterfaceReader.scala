@@ -144,8 +144,9 @@ object InterfaceReader {
             case Ast.DataInterface =>
               \/-(
                 None
-              ) // TODO https://github.com/digital-asset/daml/issues/12051
-                //    Add support for interfaces.
+              )
+            // TODO https://github.com/digital-asset/daml/issues/12051
+            //    Add support for interfaces.
           }
 
         locate(Symbol("name"), rootErrOf[ErrorLoc](result)) match {

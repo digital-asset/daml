@@ -316,8 +316,8 @@ object ValueGenerators {
       stakeholders,
       key,
       None,
-        // TODO https://github.com/digital-asset/daml/issues/12051
-        //   also vary byInterface
+      // TODO https://github.com/digital-asset/daml/issues/12051
+      //   also vary byInterface
       version,
     )
   }
@@ -346,8 +346,8 @@ object ValueGenerators {
       key,
       byKey,
       None,
-        // TODO https://github.com/digital-asset/daml/issues/12051
-        //   also vary byInterface
+      // TODO https://github.com/digital-asset/daml/issues/12051
+      //   also vary byInterface
       version,
     )
   }
@@ -405,8 +405,8 @@ object ValueGenerators {
       key,
       byKey,
       None,
-        // TODO https://github.com/digital-asset/daml/issues/12051
-        //   also vary byInterface (but it requires an interface choice)
+      // TODO https://github.com/digital-asset/daml/issues/12051
+      //   also vary byInterface (but it requires an interface choice)
       version,
     )
   }

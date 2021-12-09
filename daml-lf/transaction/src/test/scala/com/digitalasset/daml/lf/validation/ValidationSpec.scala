@@ -97,8 +97,8 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       stakeholders = samParties2,
       key = key,
       byInterface = None,
-        // TODO https://github.com/digital-asset/daml/issues/12051
-        //   also vary byInterface
+      // TODO https://github.com/digital-asset/daml/issues/12051
+      //   also vary byInterface
       version = version,
     )
 
@@ -116,8 +116,8 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       key = key,
       byKey = samBool1,
       byInterface = None,
-        // TODO https://github.com/digital-asset/daml/issues/12051
-        //   also vary byInterface
+      // TODO https://github.com/digital-asset/daml/issues/12051
+      //   also vary byInterface
       version = version,
     )
 
@@ -152,8 +152,8 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       key = key,
       byKey = samBool2,
       byInterface = None,
-        // TODO https://github.com/digital-asset/daml/issues/12051
-        //   also vary byInterface (but this requires an interface choice)
+      // TODO https://github.com/digital-asset/daml/issues/12051
+      //   also vary byInterface (but this requires an interface choice)
       version = version,
     )
 
