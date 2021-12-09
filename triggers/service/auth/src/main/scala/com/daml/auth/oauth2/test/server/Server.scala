@@ -104,7 +104,6 @@ class Server(config: Config) {
       admin = admin,
       actAs = actAs.toList,
       readAs = readAs.toList,
-      isCustomDamlToken = true, // legacy
     )
   }
   // Whether the current configuration of unauthorized parties and admin rights allows to grant the given token payload.
