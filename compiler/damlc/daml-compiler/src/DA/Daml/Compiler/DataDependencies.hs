@@ -642,7 +642,7 @@ generateSrcFromLf env = noLoc mod
                 | conName <- cons
                 ]
 
-        -- TODO https://github.com/digital-asset/daml/issues/10810
+        -- TODO https://github.com/digital-asset/daml/issues/12051
         LF.DataInterface -> error "interfaces are not implemented"
       where
         occName = mkOccName varName (T.unpack dataTypeCon0)
@@ -1165,7 +1165,7 @@ refsFromDataCons = \case
     LF.DataRecord fields -> foldMap (refsFromType . snd) fields
     LF.DataVariant cons -> foldMap (refsFromType . snd) cons
     LF.DataEnum _ -> mempty
-    -- TODO https://github.com/digital-asset/daml/issues/10810
+    -- TODO https://github.com/digital-asset/daml/issues/12051
     LF.DataInterface -> error "interfaces are not implemented"
 
 rootRefs :: Config -> LF.World -> DL.DList Ref

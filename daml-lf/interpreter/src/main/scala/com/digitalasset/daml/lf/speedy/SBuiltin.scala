@@ -1262,6 +1262,7 @@ private[lf] object SBuiltin {
         machine: Machine,
     ) = {
       val record = getSRecord(args, 0)
+      // TODO https://github.com/digital-asset/daml/issues/12051
       // TODO https://github.com/digital-asset/daml/issues/11345
       //  The lookup is probably slow. We may want to investigate way to make the feature faster.
       machine.returnValue = machine.compiledPackages.interface.lookupTemplate(record.id) match {

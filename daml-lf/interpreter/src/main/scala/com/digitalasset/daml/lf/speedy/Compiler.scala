@@ -1108,7 +1108,7 @@ private[lf] final class Compiler(
       }
     }
 
-  // TODO https://github.com/digital-asset/daml/issues/10810:
+  // TODO https://github.com/digital-asset/daml/issues/12051
   //   Try to factorise this with compileChoiceBody above.
   private[this] def compileInterfaceChoiceBody(
       env: Env,

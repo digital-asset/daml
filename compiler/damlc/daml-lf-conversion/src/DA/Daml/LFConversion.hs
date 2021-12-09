@@ -645,7 +645,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
                 { dataLocation = Nothing
                 , dataTypeCon = mkTypeCon [getOccText t]
                 , dataSerializable = IsSerializable False
-                -- TODO https://github.com/digital-asset/daml/issues/10810
+                -- TODO https://github.com/digital-asset/daml/issues/12051
                 -- validate that the type has no parameters.
                 , dataParams = []
                 , dataCons = DataInterface
@@ -1090,9 +1090,7 @@ convertBind env (name, x)
     , getOccFS name `elementOfUniqSet` internals
     = pure []
 
-    -- TODO https://github.com/digital-asset/daml/issues/10810
-    -- Reconsider once we have a constructor for existential interfaces
-    -- in LF.
+    -- Remove interface worker.
     | Just iface <- T.stripPrefix "$W" (getOccText name)
     , mkTypeCon [iface] `MS.member` envInterfaces env = pure []
 
