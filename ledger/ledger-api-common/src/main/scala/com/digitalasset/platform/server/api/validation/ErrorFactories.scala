@@ -300,6 +300,24 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     )
   }
 
+  def offsetAfterLedgerEnd_wasInvalidArgument(
+      offsetType: String,
+      requestedOffset: String,
+      ledgerEnd: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = invalidArgumentV1(
+        definiteAnswer = None,
+        s"prune_up_to needs to be before ledger end $ledgerEnd",
+      ),
+      v2 = LedgerApiErrors.RequestValidation.OffsetAfterLedgerEnd
+        .Reject(offsetType, requestedOffset, ledgerEnd)
+        .asGrpcError,
+    )
+  }
+
   def nonHexOffset(
       definiteAnswer: Option[Boolean]
   )(fieldName: String, offsetValue: String, message: String)(implicit

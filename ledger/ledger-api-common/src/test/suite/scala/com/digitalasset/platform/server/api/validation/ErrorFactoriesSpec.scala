@@ -459,6 +459,30 @@ class ErrorFactoriesSpec
       )
     }
 
+    "return an offsetAfterLedgerEnd_wasInvalidArgument error" in {
+      val expectedMessage = s"Absolute offset (AABBCC) is after ledger end (E)"
+      val msg = s"OFFSET_AFTER_LEDGER_END(12,$truncatedCorrelationId): $expectedMessage"
+      assertVersionedError(_.offsetAfterLedgerEnd_wasInvalidArgument("Absolute", "AABBCC", "E"))(
+        v1_code = Code.INVALID_ARGUMENT,
+        v1_message = "Invalid argument: prune_up_to needs to be before ledger end E",
+        v1_details = Seq.empty,
+        v2_code = Code.OUT_OF_RANGE,
+        v2_message = msg,
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail(
+            "OFFSET_AFTER_LEDGER_END",
+            Map("category" -> "12", "definite_answer" -> "false"),
+          ),
+          expectedCorrelationIdRequestInfo,
+        ),
+        v2_logEntry = ExpectedLogEntry(
+          Level.INFO,
+          msg,
+          Some(excpectedLocationLogMarkerRegex),
+        ),
+      )
+    }
+
     "return a offsetOutOfRange error" in {
       val msg = s"OFFSET_OUT_OF_RANGE(9,$truncatedCorrelationId): message123"
       assertVersionedError(_.offsetOutOfRange(None)("message123"))(

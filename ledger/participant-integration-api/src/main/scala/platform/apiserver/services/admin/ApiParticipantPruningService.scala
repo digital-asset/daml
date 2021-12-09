@@ -171,13 +171,13 @@ final class ApiParticipantPruningService private (
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
       _ <-
-        if (pruneUpToString < ledgerEnd.value) Future.successful(())
+        if (pruneUpToString <= ledgerEnd.value) Future.successful(())
         else
           Future.failed(
-            // TODO error codes: Relax the constraint (pruneUpToString <= ledgerEnd.value)
-            //                   and use offsetAfterLedgerEnd
-            offsetOutOfRange(None)(
-              s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
+            errorFactories.offsetAfterLedgerEnd_wasInvalidArgument(
+              offsetType = "Absolute",
+              requestedOffset = pruneUpToString,
+              ledgerEnd = ledgerEnd.value,
             )
           )
     } yield pruneUpToProto
