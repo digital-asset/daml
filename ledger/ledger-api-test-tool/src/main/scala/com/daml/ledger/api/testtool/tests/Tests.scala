@@ -59,7 +59,6 @@ object Tests {
       new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
-      new UserManagementServiceIT,
     ) ++ (if (supportsExceptions) Vector(new ExceptionsIT, new ExceptionRaceConditionIT)
           else Vector.empty)
 
@@ -79,6 +78,7 @@ object Tests {
       new MonotonicRecordTimeIT,
       new TLSOnePointThreeIT,
       new TLSAtLeastOnePointTwoIT,
+      new UserManagementServiceIT, // TODO (i12076): make this a default test once it reads a feature descriptor
       // TODO sandbox-classic removal: Remove
       new DeprecatedSandboxClassicMemoryContractKeysIT,
       new DeprecatedSandboxClassicMemoryExceptionsIT,
