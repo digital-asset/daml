@@ -36,10 +36,11 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
 
       // We deliberately allow situations where no non-transient contract is created and verify the transactions
       // order when such contract is actually created.
-      transactions.find(isCreate(_, ExceptionRaceTests.ContractWithKey.TemplateName)).foreach { nonTransientCreateTransaction =>
-        transactions
-          .filter(isExercise(_, ExceptionRaceTests.CreateWrapper.ChoiceCreateRollback))
-          .foreach(assertTransactionOrder(_, nonTransientCreateTransaction))
+      transactions.find(isCreate(_, ExceptionRaceTests.ContractWithKey.TemplateName)).foreach {
+        nonTransientCreateTransaction =>
+          transactions
+            .filter(isExercise(_, ExceptionRaceTests.CreateWrapper.ChoiceCreateRollback))
+            .foreach(assertTransactionOrder(_, nonTransientCreateTransaction))
       }
     }
   }
@@ -198,7 +199,7 @@ object ExceptionRaceConditionIT {
 
     def isCreate(tx: TransactionTree, templateName: String): Boolean =
       tx.hasEventsNumber(1) &&
-    tx.containsEvent(isCreated(templateName))
+        tx.containsEvent(isCreated(templateName))
 
     def isExercise(tx: TransactionTree, choiceName: String): Boolean =
       tx.hasEventsNumber(1) &&
