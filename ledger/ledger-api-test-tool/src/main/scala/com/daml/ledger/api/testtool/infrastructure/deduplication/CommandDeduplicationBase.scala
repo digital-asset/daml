@@ -7,6 +7,7 @@ import java.util.UUID
 
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
+import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -351,7 +352,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           // This is done so that we can validate that the third command is accepted
           _ <- delayForOffsetIfRequired(ledger, delay)
           // Submit command again using the first offset as the deduplication offset
-          (offset2, _) <- submitRequestAndAssertAsyncDeduplication(ledger)(
+          (_, _) <- submitRequestAndAssertAsyncDeduplication(ledger)(
             request.update(
               _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationOffset(
                 Ref.HexString.assertFromString(offset1.getAbsolute)
@@ -359,11 +360,15 @@ private[testtool] abstract class CommandDeduplicationBase(
             ),
             party,
           )
+          (offset3, _) <- submitRequestAndAssertCompletionAccepted(ledger)(
+            ledger.submitRequest(party, Dummy(party).create.command),
+            party,
+          )
           // Submit command again using the rejection offset as a deduplication period
           _ <- submitRequestAndAssertCompletionAccepted(ledger)(
             request.update(
               _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationOffset(
-                Ref.HexString.assertFromString(offset2.getAbsolute)
+                Ref.HexString.assertFromString(offset3.getAbsolute)
               )
             ),
             party,
@@ -491,7 +496,12 @@ private[testtool] abstract class CommandDeduplicationBase(
     submitRequestAndFindCompletion(ledger)(request, parties: _*).map { case (offset, completion) =>
       assert(
         completion.getStatus.code == statusCode.value(),
-        s"Expecting completion with status code $statusCode but completion has status ${completion.status}.\n  Request: $request\n  Completion: $completion",
+        s"""Expecting completion with status code $statusCode but completion has status ${completion.status}.
+           |Request: $request  
+           |Completion: $completion 
+           |Metadata: ${extractErrorInfoMetadata(
+          GrpcStatus.toJavaProto(completion.getStatus)
+        )}""".stripMargin,
       )
       offset -> completion
     }
