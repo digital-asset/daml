@@ -19,6 +19,10 @@ bazel build //release:sdk-release-tarball-ce //release:sdk-release-tarball-ee
 cp bazel-bin/release/sdk-release-tarball-ce.tar.gz $OUTPUT_DIR/github/$TARBALL
 cp bazel-bin/release/sdk-release-tarball-ee.tar.gz $OUTPUT_DIR/artifactory/$EE_TARBALL
 
+
+bazel build //compiler/damlc:damlc-dist
+cp bazel-bin/compiler/damlc/damlc-dist.tar.gz $OUTPUT_DIR/split-release/damlc-$RELEASE_TAG-$NAME.tar.gz
+
 # Platform independent artifacts are only built on Linux.
 if [[ "$NAME" == "linux" ]]; then
     bazel build //release:protobufs
@@ -86,9 +90,6 @@ if [[ "$NAME" == "linux" ]]; then
     cp bazel-bin/runtime-components/non-repudiation-client/non-repudiation-client_pom.xml $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_POM
     cp bazel-bin/runtime-components/non-repudiation-client/libnon-repudiation-client-src.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_SRC
     cp bazel-bin/runtime-components/non-repudiation-client/non-repudiation-client_javadoc.jar $OUTPUT_DIR/artifactory/$NON_REPUDIATION_CLIENT_DOC
-
-    bazel build //compiler/damlc:damlc-dist
-    cp bazel-bin/compiler/damlc/damlc-dist.tar.gz $OUTPUT_DIR/split-release/damlc-$RELEASE_TAG.tar.gz
 
     mkdir -p $OUTPUT_DIR/split-release/daml-libs/daml-script
     bazel build //daml-script/daml:daml-script-dars
