@@ -14,6 +14,7 @@ import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorCodesVersionSwitcher,
+  ErrorsAssertions,
 }
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.lf.data.Ref
@@ -41,7 +42,8 @@ class ErrorFactoriesSpec
     with TableDrivenPropertyChecks
     with MockitoSugar
     with BeforeAndAfter
-    with LogCollectorAssertions {
+    with LogCollectorAssertions
+    with ErrorsAssertions {
 
   private val logger = ContextualizedLogger.get(getClass)
   private val loggingContext = LoggingContext.ForTesting
@@ -52,10 +54,14 @@ class ErrorFactoriesSpec
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, Some(originalCorrelationId))
 
-  private val expectedCorrelationIdRequestInfo: ErrorDetails.RequestInfoDetail =
+  private val expectedCorrelationIdRequestInfo =
     ErrorDetails.RequestInfoDetail(originalCorrelationId)
-  private val excpectedLocationLogMarkerRegex =
+  private val expectedLocationLogMarkerRegex =
     "\\{err-context: \"\\{location=ErrorFactories.scala:\\d+\\}\"\\}"
+  private val expectedInternalErrorMessage =
+    s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId"
+  private val expectedInternalErrorDetails =
+    Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo)
 
   private val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
 
@@ -86,7 +92,7 @@ class ErrorFactoriesSpec
         expectedLogEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -100,13 +106,12 @@ class ErrorFactoriesSpec
           .sqlNonTransientException(new SQLNonTransientException(failureReason))
       )(
         expectedCode = Code.INTERNAL,
-        expectedMessage =
-          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-        expectedDetails = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+        expectedMessage = expectedInternalErrorMessage,
+        expectedDetails = expectedInternalErrorDetails,
         expectedLogEntry = ExpectedLogEntry(
           Level.ERROR,
           msg,
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -125,9 +130,8 @@ class ErrorFactoriesSpec
           v1_message = "some message: Exception: message123",
           v1_details = Seq(errorDetails),
           v2_code = Code.INTERNAL,
-          v2_message =
-            s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-          v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+          v2_message = expectedInternalErrorMessage,
+          v2_details = expectedInternalErrorDetails,
           v2_logEntry = ExpectedLogEntry(
             Level.ERROR,
             s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): some message: Exception: message123",
@@ -224,7 +228,7 @@ class ErrorFactoriesSpec
           v2_logEntry = ExpectedLogEntry(
             Level.INFO,
             msg,
-            Some(excpectedLocationLogMarkerRegex),
+            Some(expectedLocationLogMarkerRegex),
           ),
         )
       }
@@ -238,9 +242,8 @@ class ErrorFactoriesSpec
           v1_message = "Missing status in completion response.",
           v1_details = Seq(),
           v2_code = Code.INTERNAL,
-          v2_message =
-            s"An error occurred. Please contact the operator and inquire about the request cor-id-12345679",
-          v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+          v2_message = expectedInternalErrorMessage,
+          v2_details = expectedInternalErrorDetails,
           v2_logEntry = ExpectedLogEntry(
             Level.ERROR,
             s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): Missing status in completion response.",
@@ -271,7 +274,7 @@ class ErrorFactoriesSpec
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -282,13 +285,12 @@ class ErrorFactoriesSpec
         v1_message = "message123",
         v1_details = Seq.empty,
         v2_code = Code.INTERNAL,
-        v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-        v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+        v2_message = expectedInternalErrorMessage,
+        v2_details = expectedInternalErrorDetails,
         v2_logEntry = ExpectedLogEntry(
           Level.ERROR,
           s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): message123",
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -311,7 +313,7 @@ class ErrorFactoriesSpec
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -336,7 +338,7 @@ class ErrorFactoriesSpec
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -360,7 +362,7 @@ class ErrorFactoriesSpec
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -371,13 +373,12 @@ class ErrorFactoriesSpec
         v1_message = "",
         v1_details = Seq.empty,
         v2_code = Code.PERMISSION_DENIED,
-        v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-        v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+        v2_message = expectedInternalErrorMessage,
+        v2_details = expectedInternalErrorDetails,
         v2_logEntry = ExpectedLogEntry(
           Level.WARN,
           s"PERMISSION_DENIED(7,$truncatedCorrelationId): some cause",
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -403,7 +404,7 @@ class ErrorFactoriesSpec
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -430,7 +431,7 @@ class ErrorFactoriesSpec
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -454,7 +455,7 @@ class ErrorFactoriesSpec
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -477,7 +478,7 @@ class ErrorFactoriesSpec
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -488,13 +489,12 @@ class ErrorFactoriesSpec
         v1_message = "",
         v1_details = Seq.empty,
         v2_code = Code.UNAUTHENTICATED,
-        v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-        v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+        v2_message = expectedInternalErrorMessage,
+        v2_details = expectedInternalErrorDetails,
         v2_logEntry = ExpectedLogEntry(
           Level.WARN,
           s"UNAUTHENTICATED(6,$truncatedCorrelationId): The command is missing a JWT token",
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -507,13 +507,12 @@ class ErrorFactoriesSpec
         v1_message = someSecuritySafeMessage,
         v1_details = Seq.empty,
         v2_code = Code.INTERNAL,
-        v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-        v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+        v2_message = expectedInternalErrorMessage,
+        v2_details = expectedInternalErrorDetails,
         v2_logEntry = ExpectedLogEntry(
           Level.ERROR,
           s"INTERNAL_AUTHORIZATION_ERROR(4,$truncatedCorrelationId): nothing security sensitive in here",
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -546,7 +545,7 @@ class ErrorFactoriesSpec
           v2_logEntry = ExpectedLogEntry(
             Level.INFO,
             msg,
-            Some(excpectedLocationLogMarkerRegex),
+            Some(expectedLocationLogMarkerRegex),
           ),
         )
       }
@@ -633,7 +632,7 @@ class ErrorFactoriesSpec
           v2_logEntry = ExpectedLogEntry(
             Level.INFO,
             msg,
-            Some(excpectedLocationLogMarkerRegex),
+            Some(expectedLocationLogMarkerRegex),
           ),
         )
       }
@@ -667,7 +666,7 @@ class ErrorFactoriesSpec
           v2_logEntry = ExpectedLogEntry(
             Level.INFO,
             msg,
-            Some(excpectedLocationLogMarkerRegex),
+            Some(expectedLocationLogMarkerRegex),
           ),
         )
       }
@@ -699,7 +698,7 @@ class ErrorFactoriesSpec
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(excpectedLocationLogMarkerRegex),
+          Some(expectedLocationLogMarkerRegex),
         ),
       )
     }
@@ -710,9 +709,8 @@ class ErrorFactoriesSpec
         v1_message = "message123",
         v1_details = Seq.empty,
         v2_code = Code.INTERNAL,
-        v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-        v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
+        v2_message = expectedInternalErrorMessage,
+        v2_details = expectedInternalErrorDetails,
         v2_logEntry = ExpectedLogEntry(
           Level.ERROR,
           s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): message123",
@@ -843,7 +841,7 @@ class ErrorFactoriesSpec
           v2_logEntry = ExpectedLogEntry(
             Level.INFO,
             msg,
-            Some(excpectedLocationLogMarkerRegex),
+            Some(expectedLocationLogMarkerRegex),
           ),
         )
       }
@@ -873,7 +871,7 @@ class ErrorFactoriesSpec
           v2_logEntry = ExpectedLogEntry(
             Level.INFO,
             msg,
-            Some(excpectedLocationLogMarkerRegex),
+            Some(expectedLocationLogMarkerRegex),
           ),
         )
       }
@@ -888,7 +886,10 @@ class ErrorFactoriesSpec
 
   private def expectedMarkerRegex(extraInner: String): Some[String] = {
     val locationRegex = "location=ErrorFactories.scala:\\d+"
-    val inner = List(Pattern.quote(extraInner), locationRegex).mkString("\"\\{", ", ", "\\}\"")
+    val inner = List(extraInner -> Pattern.quote(extraInner), locationRegex -> locationRegex)
+      .sortBy(_._1)
+      .map(_._2)
+      .mkString("\"\\{", ", ", "\\}\"")
     Some(s"\\{err-context: $inner\\}")
   }
 
@@ -950,14 +951,13 @@ class ErrorFactoriesSpec
       expectedMessage: String,
       expectedDetails: Seq[ErrorDetails.ErrorDetail],
       expectedLogEntry: ExpectedLogEntry,
-  )(implicit dummyImplicit: DummyImplicit, dummyImplicit2: DummyImplicit): Unit = {
-    val status = StatusProto.fromThrowable(statusRuntimeException)
-    status.getCode shouldBe expectedCode.value()
-    status.getMessage shouldBe expectedMessage
-    val details = status.getDetailsList.asScala.toSeq
-    val _ = ErrorDetails.from(details) should contain theSameElementsAs expectedDetails
-    val actualLogs: Seq[LogCollector.Entry] = LogCollector.readAsEntries[this.type, this.type]
-    actualLogs should have size 1
-    assertLogEntry(actualLogs.head, expectedLogEntry)
+  ): Unit = {
+    assertError[this.type, this.type](
+      actual = statusRuntimeException,
+      expectedCode,
+      expectedMessage,
+      expectedDetails,
+      expectedLogEntry,
+    )
   }
 }

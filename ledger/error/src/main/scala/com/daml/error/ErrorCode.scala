@@ -262,6 +262,8 @@ object ErrorCode {
   def formatContextAsString(contextMap: Map[String, String]): String = {
     contextMap
       .filter(_._2.nonEmpty)
+      .toSeq
+      .sortBy(_._1)
       .map { case (k, v) =>
         s"$k=$v"
       }

@@ -47,7 +47,7 @@ private[apiserver] object GrpcServer {
     builder.permitKeepAliveWithoutCalls(true)
     builder.executor(servicesExecutor)
     builder.maxInboundMessageSize(maxInboundMessageSize)
-    // NOTE: Interceptors add here will run in the reverse order in which they were added.
+    // NOTE: Interceptors run in the reverse order in which they were added.
     interceptors.foreach(builder.intercept)
     builder.intercept(new MetricsInterceptor(metrics))
     builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
