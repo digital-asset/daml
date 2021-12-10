@@ -17,7 +17,6 @@ import com.daml.lf.data.Ref
 import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, ErrorFactories}
 import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
-import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -27,32 +26,14 @@ class DeduplicationPeriodSupportSpec
     extends AsyncWordSpec
     with MockitoSugar
     with Matchers
-    with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll
     with TestLoggers
     with ArgumentMatchersSugar {
-  private val periodConverter: DeduplicationPeriodConverter = mock[DeduplicationPeriodConverter]
-  private val periodValidator: DeduplicationPeriodValidator = mock[DeduplicationPeriodValidator]
-  private val errorFactories: ErrorFactories = mock[ErrorFactories]
-  private val service = new DeduplicationPeriodSupport(
-    periodConverter,
-    periodValidator,
-    errorFactories,
-  )
-  private val maxDeduplicationDuration = Duration.ofSeconds(5)
-  private val ledgerTimeModel = LedgerTimeModel.reasonableDefault
-  private val applicationId = ApplicationId(Ref.LedgerString.assertFromString("applicationid"))
-  private val submittedAt = Instant.now()
-  private val maxRecordTimeFromSubmissionTime = submittedAt.plus(ledgerTimeModel.minSkew)
-  private val statusRuntimeException = new StatusRuntimeException(Status.OK)
-  private val deduplicationPeriodOffset =
-    Offset.fromHexString(Hash.hashPrivateKey("offset").toHexString)
-  private val offset = deduplicationPeriodOffset.toHexString
-
-  override protected def afterEach(): Unit = reset(periodConverter, periodValidator, errorFactories)
 
   "using deduplication duration" should {
     "passthrough without validation" in {
+      val fixture = getFixture
+      import fixture._
       val period = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1))
       callServiceWithDeduplicationPeriod(period)
         .map { result =>
@@ -65,6 +46,8 @@ class DeduplicationPeriodSupportSpec
 
   "using deduplication offset" should {
     "convert offset and validate result" in {
+      val fixture = getFixture
+      import fixture._
       val offsetPeriod = DeduplicationPeriod.DeduplicationOffset(
         deduplicationPeriodOffset
       )
@@ -93,6 +76,8 @@ class DeduplicationPeriodSupportSpec
     }
 
     "convert offset and return validation failure" in {
+      val fixture = getFixture
+      import fixture._
       val offsetPeriod = DeduplicationPeriod.DeduplicationOffset(
         deduplicationPeriodOffset
       )
@@ -121,6 +106,8 @@ class DeduplicationPeriodSupportSpec
     }
 
     "fail to convert offset and return failure" in {
+      val fixture = getFixture
+      import fixture._
       val offsetPeriod = DeduplicationPeriod.DeduplicationOffset(
         deduplicationPeriodOffset
       )
@@ -164,15 +151,35 @@ class DeduplicationPeriodSupportSpec
 
   }
 
-  private def callServiceWithDeduplicationPeriod(
-      offsetPeriod: DeduplicationPeriod
-  ) = service
-    .supportedDeduplicationPeriod(
-      deduplicationPeriod = offsetPeriod,
-      maxDeduplicationDuration,
-      ledgerTimeModel,
-      applicationId,
-      Set.empty,
-      submittedAt,
+  private def getFixture = new {
+    val periodConverter: DeduplicationPeriodConverter = mock[DeduplicationPeriodConverter]
+    val periodValidator: DeduplicationPeriodValidator = mock[DeduplicationPeriodValidator]
+    val errorFactories: ErrorFactories = mock[ErrorFactories]
+    val service = new DeduplicationPeriodSupport(
+      periodConverter,
+      periodValidator,
+      errorFactories,
     )
+    val maxDeduplicationDuration = Duration.ofSeconds(5)
+    val ledgerTimeModel = LedgerTimeModel.reasonableDefault
+    val applicationId = ApplicationId(Ref.LedgerString.assertFromString("applicationid"))
+    val submittedAt = Instant.now()
+    val maxRecordTimeFromSubmissionTime = submittedAt.plus(ledgerTimeModel.minSkew)
+    val statusRuntimeException = new StatusRuntimeException(Status.OK)
+    val deduplicationPeriodOffset =
+      Offset.fromHexString(Hash.hashPrivateKey("offset").toHexString)
+    val offset = deduplicationPeriodOffset.toHexString
+
+    def callServiceWithDeduplicationPeriod(
+        offsetPeriod: DeduplicationPeriod
+    ) = service
+      .supportedDeduplicationPeriod(
+        deduplicationPeriod = offsetPeriod,
+        maxDeduplicationDuration,
+        ledgerTimeModel,
+        applicationId,
+        Set.empty,
+        submittedAt,
+      )
+  }
 }
