@@ -107,7 +107,7 @@ private[testtool] object RaceConditionTests {
       tx.hasEventsNumber(1) &&
         tx.containsEvent(isExerciseEvent(RaceTests.ContractWithKey.ChoiceArchive))
 
-    def isNonConsumingExercise(tx: TransactionTree): Boolean =
+    def isExercise(tx: TransactionTree): Boolean =
       tx.hasEventsNumber(1) &&
         tx.containsEvent(isExerciseEvent(RaceTests.ContractWithKey.ChoiceExercise))
 

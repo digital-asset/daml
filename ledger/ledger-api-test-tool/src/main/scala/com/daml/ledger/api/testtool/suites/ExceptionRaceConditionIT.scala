@@ -59,7 +59,7 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       import TransactionUtil._
       val archivalTransaction = assertSingleton("archivals", transactions.filter(isArchival))
       transactions
-        .filter(isNonConsumingExercise)
+        .filter(isExercise)
         .foreach(assertTransactionOrder(_, archivalTransaction))
     }
   }
@@ -84,7 +84,7 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       import TransactionUtil._
       val archivalTransaction = assertSingleton("archivals", transactions.filter(isArchival))
       transactions
-        .filter(isNonConsumingExercise)
+        .filter(isExercise)
         .foreach(assertTransactionOrder(_, archivalTransaction))
     }
   }
