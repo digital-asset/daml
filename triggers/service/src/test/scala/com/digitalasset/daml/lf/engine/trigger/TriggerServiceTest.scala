@@ -94,14 +94,22 @@ trait AbstractTriggerServiceTest
       triggerName: String,
       party: Party,
       applicationId: Option[ApplicationId] = None,
+      readAs: Set[Party] = Set(),
   ): Future[HttpResponse] = {
+    import Request.PartyFormat
+    val readAsContent =
+      if (readAs.isEmpty) "null"
+      else {
+        import spray.json.DefaultJsonProtocol._
+        readAs.toJson.compactPrint
+      }
     val req = HttpRequest(
       method = HttpMethods.POST,
       uri = uri.withPath(Uri.Path("/v1/triggers")),
       entity = HttpEntity(
         ContentTypes.`application/json`,
         s"""{"triggerName": "$triggerName", "party": "$party", "applicationId": "${applicationId
-          .getOrElse("null")}"}""",
+          .getOrElse("null")}", "readAs": $readAsContent}""",
       ),
     )
     httpRequestFollow(req)
@@ -251,6 +259,54 @@ trait AbstractTriggerServiceTest
       resp <- stopTrigger(uri, triggerId, alice)
       stoppedTriggerId <- parseTriggerId(resp)
       _ <- stoppedTriggerId shouldBe triggerId
+    } yield succeed
+  }
+
+  it should "successfully start a trigger that uses multi-read-as" in withTriggerService(
+    List(dar)
+  ) { uri: Uri =>
+    val visibleToPublicId = Identifier(testPkgId, "ReadAs", "VisibleToPublic")
+    def visibleToPublic(party: String): CreateCommand =
+      CreateCommand(
+        templateId = Some(visibleToPublicId),
+        createArguments = Some(
+          Record(fields = Seq(RecordField("public", Some(Value().withParty(party)))))
+        ),
+      )
+    for {
+      (client, public) <- for {
+        client <- sandboxClient(
+          ApiTypes.ApplicationId("exp-app-id"),
+          actAs = List(ApiTypes.Party(alice.unwrap)),
+          admin = true,
+        )
+
+        public <- client.partyManagementClient.allocateParty(Some("public"), Some("public"), None)
+        clientWeWant <- sandboxClient(
+          ApiTypes.ApplicationId("exp-app-id"),
+          actAs = List(ApiTypes.Party(alice.unwrap), ApiTypes.Party(public.party.toString)),
+        )
+      } yield (clientWeWant, Party(public.party.toString))
+
+      _ <- submitCmd(
+        client,
+        public.unwrap,
+        Command().withCreate(visibleToPublic(public.unwrap)),
+      )
+
+      // Start the trigger
+      resp <- startTrigger(
+        uri,
+        s"$testPkgId:ReadAs:test",
+        alice,
+        Some(ApplicationId("exp-app-id")),
+        readAs = Set(public),
+      )
+
+      triggerId <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(triggerId))
+      _ <- assertTriggerStatus(triggerId, _.last == "running")
+
     } yield succeed
   }
 

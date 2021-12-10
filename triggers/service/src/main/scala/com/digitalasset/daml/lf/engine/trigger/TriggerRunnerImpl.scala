@@ -40,6 +40,7 @@ object TriggerRunnerImpl {
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
+      readAs: Set[Party],
   ) {
     private[trigger] def withLoggingContext[T](f: LoggingContextOf[Config with Trigger] => T): T =
       trigger.withLoggingContext.labelled[Config]("triggerId" -> triggerInstance.toString)(f)
@@ -189,8 +190,7 @@ object TriggerRunnerImpl {
           config.applicationId,
           TriggerParties(
             actAs = config.party,
-            // TODO (MK) Support multi-party readAs in the trigger service.
-            readAs = Set.empty,
+            readAs = config.readAs,
           ),
         )
         (acs, offset) <- runner.queryACS()
