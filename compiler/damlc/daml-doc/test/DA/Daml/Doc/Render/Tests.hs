@@ -25,6 +25,8 @@ mkTestTree externalAnchors = do
       zipWith (renderTest Markdown externalAnchors) cases expectMarkdown
     ]
 
+ctx0 :: Context
+ctx0 = Context []
 
 cases :: [(String, ModuleDoc)]
 cases = [ ("Empty module",
@@ -43,15 +45,15 @@ cases = [ ("Empty module",
           )
         , ("Documented function",
            ModuleDoc (Just "module-function1") "Function1" Nothing [] [] []
-            [FunctionDoc (Just "function-function1-f") "f" Nothing (TypeApp Nothing "TheType" []) (Just "the doc")] [] []
+            [FunctionDoc (Just "function-function1-f") "f" ctx0 (TypeApp Nothing "TheType" []) (Just "the doc")] [] []
           )
         , ("Undocumented function",
            ModuleDoc (Just "module-function3") "Function3" Nothing [] [] []
-            [FunctionDoc (Just "function-function3-f") "f" Nothing (TypeApp Nothing "TheType" []) Nothing] [] []
+            [FunctionDoc (Just "function-function3-f") "f" ctx0 (TypeApp Nothing "TheType" []) Nothing] [] []
           )
         , ("Module with only a type class",
            ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] [] []
-            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [ClassMethodDoc (Just "function-onlyclass-member") "member" False Nothing Nothing (TypeApp Nothing "a" []) Nothing] Nothing] [])
+            [ClassDoc (Just "class-onlyclass-c") "C" Nothing ctx0 ["a"] [ClassMethodDoc (Just "function-onlyclass-member") "member" False ctx0 ctx0 (TypeApp Nothing "a" []) Nothing] Nothing] [])
         , ("Multiline field description",
            ModuleDoc
              (Just "module-multilinefield")
@@ -75,7 +77,7 @@ cases = [ ("Empty module",
             (Just "module-functionctx") "FunctionCtx"
             Nothing [] [] []
             [ FunctionDoc (Just "function-g") "g"
-                (Just $ TypeTuple [TypeApp Nothing "Eq" [TypeApp Nothing "t" []]])
+                (Context [TypeApp Nothing "Eq" [TypeApp Nothing "t" []]])
                 (TypeFun [TypeApp Nothing "t" [], TypeApp Nothing "Bool" []])
                 (Just "function with context")
             ] [] []
