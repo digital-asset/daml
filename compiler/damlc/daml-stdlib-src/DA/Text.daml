@@ -52,6 +52,8 @@ module DA.Text
   , DA.Text.sha256
   , DA.Text.toCodePoints
   , DA.Text.fromCodePoints
+  , DA.Text.asciiToLower
+  , DA.Text.asciiToUpper
 
 #ifdef DAML_UNSTABLE
   -- unstable, experimental primitives
@@ -345,6 +347,25 @@ toCodePoints = primitive @"BETextToCodePoints"
 fromCodePoints : [Int] -> Text
 fromCodePoints = primitive @"BECodePointsToText"
 
+-- | Convert the uppercase ASCII characters of a `Text` to lowercase;
+-- all other characters remain unchanged.
+asciiToLower : Text -> Text
+asciiToLower = fromCodePoints . fmap toLowerCP . toCodePoints
+  where
+    toLowerCP x
+      | cpA <= x && x <= cpZ = x + (cpa - cpA)
+      | otherwise = x
+    [cpA, cpZ, cpa] = toCodePoints "AZa"
+
+-- | Convert the lowercase ASCII characters of a `Text` to uppercase;
+-- all other characters remain unchanged.
+asciiToUpper : Text -> Text
+asciiToUpper = fromCodePoints . fmap toUpperCP . toCodePoints
+  where
+    toUpperCP x
+      | cpa <= x && x <= cpz = x - (cpa - cpA)
+      | otherwise = x
+    [cpA, cpa, cpz] = toCodePoints "Aaz"
 
 #ifdef DAML_UNSTABLE
 

@@ -306,3 +306,17 @@ testNuls = scenario do
 testCodePoints = scenario do
     T.toCodePoints "Hello" === [72, 101, 108, 108, 111]
     T.fromCodePoints [87, 111, 114, 108, 100] === "World"
+
+testAsciiToLower = scenario do
+  T.asciiToLower "HELLO WORLD" === "hello world"
+  T.asciiToLower "HELLO world" === "hello world"
+  T.asciiToLower "\0DAML" === "\0daml"
+  T.asciiToLower "DA\0⛄ML" === "da\0⛄ml"
+  T.asciiToLower "ÁÈÏÕǓ" === "ÁÈÏÕǓ" -- non-ASCII characters are unchanged
+
+testAsciiToUpper = scenario do
+  T.asciiToUpper "hello world" === "HELLO WORLD"
+  T.asciiToUpper "HELLO world" === "HELLO WORLD"
+  T.asciiToUpper "\0daml" === "\0DAML"
+  T.asciiToUpper "da\0⛄ml" === "DA\0⛄ML"
+  T.asciiToUpper "áèïõǔ" === "áèïõǔ" -- non-ASCII characters are unchanged
