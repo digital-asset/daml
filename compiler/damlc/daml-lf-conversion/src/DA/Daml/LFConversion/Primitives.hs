@@ -335,14 +335,24 @@ convertPrim _ "UExercise"
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
 convertPrim _ "UExerciseInterface"
-    (TContractId (TCon iface) :-> TCon choice :-> TOptional TTypeRep :-> TUpdate _returnTy) =
+    (   TContractId (TCon iface)
+    :-> TCon choice
+    :-> TOptional TTypeRep
+    :-> (TCon iface2 :-> TBuiltin BTBool)
+    :->  TUpdate _returnTy)
+    | iface == iface2 =
     ETmLam (mkVar "this", TContractId (TCon iface)) $
     ETmLam (mkVar "arg", TCon choice) $
     ETmLam (mkVar "typeRep", TOptional TTypeRep) $
-    EUpdate $ UExerciseInterface iface choiceName (EVar (mkVar "this")) (EVar (mkVar "arg")) (EVar (mkVar "typeRep"))
-        -- TODO https://github.com/digital-asset/daml/issues/11703
-        --   Pass the guard argument in from daml.
-        (ETmLam (mkVar "payload", TCon iface) (EBuiltin (BEBool True)))
+    ETmLam (mkVar "pred", TCon iface :-> TBuiltin BTBool) $
+    EUpdate $ UExerciseInterface
+        { exeInterface  = iface
+        , exeChoice     = choiceName
+        , exeContractId = EVar (mkVar "this")
+        , exeArg        = EVar (mkVar "arg")
+        , exeTypeRep    = EVar (mkVar "typeRep")
+        , exeGuard      = EVar (mkVar "pred")
+        }
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 

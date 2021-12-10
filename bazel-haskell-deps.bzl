@@ -17,11 +17,11 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHC_LIB_REV = "1dd06147ccf58fc618bdd8383b24829e"
-GHC_LIB_SHA256 = "48ec2212bcf2861dc860c03f846e48b50e5c43eb1c3bc5e8bfec6ba3fe34c8e5"
+GHC_LIB_REV = "19b95e4093fb1b4fb49488e3e5ac8e07"
+GHC_LIB_SHA256 = "ac7d61d4c1501fa8ee2d56738b601465e18ce0d41d604a53ed677df97e7bdf9c"
 GHC_LIB_VERSION = "8.8.1"
-GHC_LIB_PARSER_REV = "1dd06147ccf58fc618bdd8383b24829e"
-GHC_LIB_PARSER_SHA256 = "c6d3e5fd347c805851af32c92bc9e9ba916df0c4302dbe8a81e6ac24786e900f"
+GHC_LIB_PARSER_REV = "19b95e4093fb1b4fb49488e3e5ac8e07"
+GHC_LIB_PARSER_SHA256 = "6ad7f127225416adc5ff9ef5b71bedc734910c17f6c2641f2f72530698d70a4a"
 GHC_LIB_PARSER_VERSION = "8.8.1"
 GHCIDE_REV = "e04b5386b3741b839eb5c3d2a2586fd2aa97229c"
 GHCIDE_SHA256 = "1d27926e0ad3c2a9536f23b454875a385ecc766ae68ce48a0ec88d0867884b46"
