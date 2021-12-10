@@ -63,8 +63,8 @@ ScriptTest:testQueryContractId SUCCESS
 ScriptTest:testQueryContractKey SUCCESS
 ScriptTest:testSetTime SUCCESS
 ScriptTest:testStack SUCCESS
-ScriptTest:testUserManagement FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command listUsers failed: UNIMPLEMENTED: Method not found: com.daml.ledger.api.v1.admin.UserManagementService/ListUsers
-ScriptTest:testUserRightManagement FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command createUser failed: UNIMPLEMENTED: Method not found: com.daml.ledger.api.v1.admin.UserManagementService/CreateUser
+ScriptTest:testUserManagement SUCCESS
+ScriptTest:testUserRightManagement SUCCESS
 ScriptTest:traceOrder SUCCESS
 ScriptTest:tree SUCCESS
 ScriptTest:tupleKey SUCCESS
