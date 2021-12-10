@@ -38,7 +38,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   // revoke user rights
   // list user rights
   test(
-    "UserManagement_CreateUser_INVALID_ARGUMENT",
+    "UserManagementCreateUserInvalidArguments",
     "Test argument validation for UserManagement#CreateUser",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
