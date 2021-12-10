@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.version_service.{
   FeaturesDescriptor,
   GetLedgerApiVersionRequest,
   GetLedgerApiVersionResponse,
+  UserManagementFeature,
   VersionServiceGrpc,
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -45,6 +46,16 @@ private[apiserver] final class ApiVersionService private (enableSelfServiceError
   private val versionFile: String = "ledger-api/VERSION"
   private lazy val apiVersion: Try[String] = readVersion(versionFile)
 
+  private val featuresDescriptor =
+    FeaturesDescriptor(
+      userManagement = Some(UserManagementFeature()),
+      experimental = Some(
+        ExperimentalFeatures(selfServiceErrorCodes =
+          Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes())
+        )
+      ),
+    )
+
   override def getLedgerApiVersion(
       request: GetLedgerApiVersionRequest
   ): Future[GetLedgerApiVersionResponse] =
@@ -57,13 +68,7 @@ private[apiserver] final class ApiVersionService private (enableSelfServiceError
       }
 
   private def apiVersionResponse(version: String) =
-    if (enableSelfServiceErrorCodes)
-      GetLedgerApiVersionResponse(version).withFeatures(
-        FeaturesDescriptor().withExperimental(
-          ExperimentalFeatures().withSelfServiceErrorCodes(ExperimentalSelfServiceErrorCodes())
-        )
-      )
-    else GetLedgerApiVersionResponse(version)
+    GetLedgerApiVersionResponse(version, Some(featuresDescriptor))
 
   private lazy val internalError: Future[Nothing] =
     Future.failed(

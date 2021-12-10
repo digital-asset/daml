@@ -56,6 +56,7 @@ object Tests {
       new TransactionServiceStreamsIT,
       new TransactionServiceValidationIT,
       new TransactionServiceVisibilityIT,
+      new UserManagementServiceIT,
       new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
@@ -78,7 +79,6 @@ object Tests {
       new MonotonicRecordTimeIT,
       new TLSOnePointThreeIT,
       new TLSAtLeastOnePointTwoIT,
-      new UserManagementServiceIT, // TODO (i12076): make this a default test once it reads a feature descriptor
       // TODO sandbox-classic removal: Remove
       new DeprecatedSandboxClassicMemoryContractKeysIT,
       new DeprecatedSandboxClassicMemoryExceptionsIT,

@@ -5,25 +5,18 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionResponse
 
+final case class Features(selfServiceErrorCodes: Boolean = false, userManagement: Boolean = false)
+
 object Features {
+  val noFeatures = Features()
+
   def fromApiVersionResponse(request: GetLedgerApiVersionResponse): Features = {
-    val selfServiceErrorCodesFeature = for {
-      features <- request.features
-      experimental <- features.experimental
-      _ <- experimental.selfServiceErrorCodes
-    } yield SelfServiceErrorCodes
+    val features = request.features
+    val experimental = features.flatMap(_.experimental)
 
-    Features(selfServiceErrorCodesFeature.toList)
+    Features(
+      selfServiceErrorCodes = experimental.flatMap(_.selfServiceErrorCodes).isDefined,
+      userManagement = features.flatMap(_.userManagement).isDefined,
+    )
   }
-}
-case class Features(features: Seq[Feature]) {
-  val selfServiceErrorCodes: Boolean = SelfServiceErrorCodes.enabled(features)
-}
-
-sealed trait Feature
-
-sealed trait ExperimentalFeature extends Feature
-
-case object SelfServiceErrorCodes extends ExperimentalFeature {
-  def enabled(features: Seq[Feature]): Boolean = features.contains(SelfServiceErrorCodes)
 }

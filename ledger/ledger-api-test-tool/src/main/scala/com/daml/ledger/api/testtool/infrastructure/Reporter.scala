@@ -73,8 +73,8 @@ object Reporter {
               s.println(green(s"Success (${duration.toMillis} ms)"))
             case Right(Result.Retired) =>
               s.println(yellow(s"Skipped (retired test)"))
-            case Right(Result.Excluded) =>
-              s.println(yellow(s"Skipped (excluded test)"))
+            case Right(Result.Excluded(reason)) =>
+              s.println(yellow(s"Skipped ($reason)"))
             case Left(Result.TimedOut) => s.println(red(s"Timeout"))
             case Left(Result.Failed(cause)) =>
               val message =
