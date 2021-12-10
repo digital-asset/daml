@@ -5,11 +5,10 @@ package com.daml.telemetry
 
 import java.util.{HashMap => jHashMap, Map => jMap}
 
-import com.daml.dec.DirectExecutionContext
 import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.context.Context
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 trait TelemetryContext {
@@ -112,7 +111,7 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
         subSpan.end()
       case Success(_) =>
         subSpan.end()
-    }(DirectExecutionContext)
+    }(ExecutionContext.parasitic)
   }
 
   override def runInNewSpan[T](

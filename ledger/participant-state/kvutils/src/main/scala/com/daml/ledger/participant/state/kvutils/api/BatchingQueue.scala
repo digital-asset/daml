@@ -7,14 +7,13 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch
 import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 
 object BatchingQueue {
   type CommitBatchFunction =
@@ -154,7 +153,7 @@ case class DefaultBatchingQueue(
               RunningBatchingQueueState.Complete,
             )
             ()
-          }(DirectExecutionContext)
+          }(ExecutionContext.parasitic)
       }
     }
   }

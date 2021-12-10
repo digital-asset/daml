@@ -8,7 +8,6 @@ import java.util.concurrent.Executors
 import javax.sql.DataSource
 
 import com.daml.concurrent.{ExecutionContext, Future}
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.on.sql.Database._
 import com.daml.ledger.on.sql.queries._
 import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
@@ -143,7 +142,7 @@ object Database {
         implicit val writerConnectionPool: ConnectionPool[Writer] =
           new ConnectionPool(writerDataSource)
         implicit val adminConnectionPool: ConnectionPool[Migrator] =
-          new ConnectionPool(adminDataSource)(DirectExecutionContext)
+          new ConnectionPool(adminDataSource)(ExecutionContext.parasitic)
         new UninitializedDatabase(system, offsetBuilder, metrics)
       }
   }
@@ -169,7 +168,7 @@ object Database {
         implicit val readerWriterConnectionPool: ConnectionPool[Reader with Writer] =
           new ConnectionPool(readerWriterDataSource)
         implicit val adminConnectionPool: ConnectionPool[Migrator] =
-          new ConnectionPool(adminDataSource)(DirectExecutionContext)
+          new ConnectionPool(adminDataSource)(ExecutionContext.parasitic)
         new UninitializedDatabase(system, offsetBuilder, metrics)
       }
   }

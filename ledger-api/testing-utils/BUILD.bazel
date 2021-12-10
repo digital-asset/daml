@@ -34,7 +34,6 @@ da_scala_library(
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
-        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/resources",

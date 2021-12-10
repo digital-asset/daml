@@ -9,7 +9,6 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.{
   IsStatusException,
@@ -90,10 +89,12 @@ final class CommandClientIT
       configuration,
     )
 
-  private def timeProvider(ledgerId: domain.LedgerId): Future[TimeProvider] = {
+  private def timeProvider(
+      ledgerId: domain.LedgerId
+  ): Future[TimeProvider] = {
     StaticTime
       .updatedVia(TimeServiceGrpc.stub(channel), ledgerId.unwrap)
-      .recover { case NonFatal(_) => TimeProvider.UTC }(DirectExecutionContext)
+      .recover { case NonFatal(_) => TimeProvider.UTC }
   }
 
   private def commandClient(
@@ -102,9 +103,7 @@ final class CommandClientIT
       configuration: CommandClientConfiguration = defaultCommandClientConfiguration,
   ): Future[CommandClient] =
     timeProvider(ledgerId)
-      .map(_ => commandClientWithoutTime(ledgerId, applicationId, configuration))(
-        DirectExecutionContext
-      )
+      .map(_ => commandClientWithoutTime(ledgerId, applicationId, configuration))
 
   override protected def config: SandboxConfig =
     super.config.copy(ledgerIdMode = LedgerIdMode.Static(testLedgerId))
@@ -171,7 +170,7 @@ final class CommandClientIT
         notOk.grpcStatus.code should be(expectedErrorCode.value)
         notOk.grpcStatus.message should include(expectedMessageSubString)
       }
-    }(DirectExecutionContext)
+    }
 
   /** Reads a set of command IDs expected in the given client after the given checkpoint.
     * Returns a pair of sets (elements seen, elements not seen).

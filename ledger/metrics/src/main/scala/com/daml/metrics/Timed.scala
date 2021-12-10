@@ -9,9 +9,8 @@ import akka.Done
 import akka.stream.scaladsl.{Keep, Source}
 import com.codahale.metrics.{Counter, Meter, Timer}
 import com.daml.concurrent
-import com.daml.dec.DirectExecutionContext
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object Timed {
 
@@ -56,25 +55,25 @@ object Timed {
   def future[T](timer: Timer, future: => Future[T]): Future[T] = {
     val ctx = timer.time()
     val result = future
-    result.onComplete(_ => ctx.stop())(DirectExecutionContext)
+    result.onComplete(_ => ctx.stop())(ExecutionContext.parasitic)
     result
   }
 
   def future[EC, T](timer: Timer, future: => concurrent.Future[EC, T]): concurrent.Future[EC, T] = {
     val ctx = timer.time()
     val result = future
-    result.onComplete(_ => ctx.stop())(DirectExecutionContext)
+    result.onComplete(_ => ctx.stop())(concurrent.ExecutionContext.parasitic)
     result
   }
 
   def trackedFuture[T](counter: Counter, future: => Future[T]): Future[T] = {
     counter.inc()
-    future.andThen { case _ => counter.dec() }(DirectExecutionContext)
+    future.andThen { case _ => counter.dec() }(ExecutionContext.parasitic)
   }
 
   def trackedFuture[T](meter: Meter, future: => Future[T]): Future[T] = {
     meter.mark(+1)
-    future.andThen { case _ => meter.mark(-1) }(DirectExecutionContext)
+    future.andThen { case _ => meter.mark(-1) }(ExecutionContext.parasitic)
   }
 
   def timedAndTrackedFuture[T](timer: Timer, counter: Counter, future: => Future[T]): Future[T] = {
@@ -90,7 +89,7 @@ object Timed {
     source
       .watchTermination()(Keep.both[Mat, Future[Done]])
       .mapMaterializedValue { case (mat, done) =>
-        done.onComplete(_ => ctx.stop())(DirectExecutionContext)
+        done.onComplete(_ => ctx.stop())(ExecutionContext.parasitic)
         mat
       }
   }

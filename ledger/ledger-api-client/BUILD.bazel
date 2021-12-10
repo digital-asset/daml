@@ -36,7 +36,6 @@ da_scala_library(
         "//ledger/ledger-grpc",
         "//ledger/ledger-resources",
         "//ledger/metrics",
-        "//libs-scala/concurrent",
         "//libs-scala/grpc-utils",
         "//libs-scala/ports",
         "//libs-scala/resources",

@@ -6,7 +6,6 @@ package com.daml.platform.store
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId}
 import com.daml.ledger.api.health.HealthStatus
@@ -47,8 +46,6 @@ private[platform] abstract class BaseLedger(
     pruneBuffers: PruneBuffers,
     dispatcher: Dispatcher[Offset],
 ) extends ReadOnlyLedger {
-
-  implicit private val DEC: ExecutionContext = DirectExecutionContext
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
@@ -166,9 +163,7 @@ private[platform] abstract class BaseLedger(
       .getLfArchive(packageId)
       .flatMap(archiveO =>
         Future.fromTry(Try(archiveO.map(archive => Decode.assertDecodeArchive(archive)._2)))
-      )(
-        DEC
-      )
+      )(ExecutionContext.parasitic)
 
   override def packageEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext

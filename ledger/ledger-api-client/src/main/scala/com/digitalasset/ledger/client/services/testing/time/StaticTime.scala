@@ -8,13 +8,12 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink}
 import akka.stream.{ClosedShape, KillSwitches, Materializer, UniqueKillSwitch}
-import com.daml.api.util.{TimeProvider, TimestampConversion}
 import com.daml.api.util.TimestampConversion._
+import com.daml.api.util.{TimeProvider, TimestampConversion}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.akka.ClientAdapter
-import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest}
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.{TimeService, TimeServiceStub}
+import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest}
 import com.daml.ledger.client.LedgerClient
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -68,7 +67,7 @@ object StaticTime {
           // We serve this in a future which completes when the first element has passed through.
           // Thus we make sure that the object we serve already received time data from the ledger.
           futureOfFirstElem.map(_ => new StaticTime(timeService, clockRef, killSwitch, ledgerId))(
-            DirectExecutionContext
+            ExecutionContext.parasitic
           )
         } { implicit b => (killSwitch, sinkHead) =>
           import GraphDSL.Implicits._

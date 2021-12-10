@@ -5,14 +5,13 @@ package com.daml.lf.engine.trigger
 
 import java.util.UUID
 
-import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.dec.DirectExecutionContext
 import com.daml.dbutils.JdbcConfig
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref.PackageId
@@ -20,16 +19,16 @@ import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.lf.speedy.Compiler
 import com.daml.logging.ContextualizedLogger
 import com.daml.ports.{Port, PortFiles}
-import com.daml.scalautil.Statement.discard
 import com.daml.runtime.JdbcDrivers
+import com.daml.scalautil.Statement.discard
+import scalaz.std.either._
+import scalaz.std.list._
+import scalaz.syntax.traverse._
 
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.sys.ShutdownHookThread
 import scala.util.{Failure, Success, Try}
-import scalaz.syntax.traverse._
-import scalaz.std.list._
-import scalaz.std.either._
 
 object ServiceMain {
 
@@ -135,8 +134,8 @@ object ServiceMain {
             case Some(c) =>
               Try(
                 Await.result(
-                  DbTriggerDao(c)(DirectExecutionContext)
-                    .initialize(config.allowExistingSchema)(DirectExecutionContext),
+                  DbTriggerDao(c)(ExecutionContext.parasitic)
+                    .initialize(config.allowExistingSchema)(ExecutionContext.parasitic),
                   Duration(30, SECONDS),
                 )
               ) match {
