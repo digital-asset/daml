@@ -10,6 +10,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.Inside
@@ -252,14 +253,14 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
         case SResultNeedPackage(pkgId, _, cb) =>
           ref.packageId shouldBe pkgId
           cb(pkgs3)
-          inside(machine.run()) { case SResultError(_: SErrorCrash) =>
+          inside(machine.run()) { case SResultError(SErrorCrash(loc, msg)) =>
+            loc shouldBe "com.daml.lf.speedy.Speedy.Machine.lookupVal"
+            msg should include(s"definition ${LfDefRef(ref)} not found")
           }
         case _ =>
           fail(s"expected result to be missing definition, got $result")
       }
-
     }
-
   }
 
 }
