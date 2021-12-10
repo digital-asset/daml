@@ -4,6 +4,7 @@
 package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref.Location
+import org.apache.commons.text.StringEscapeUtils
 import org.slf4j.Logger
 
 private[lf] trait TraceLog {
@@ -19,7 +20,11 @@ private[lf] final case class RingBufferTraceLog(logger: Logger, capacity: Int) e
 
   def add(message: String, optLocation: Option[Location]): Unit = {
     if (logger.isDebugEnabled) {
-      logger.debug(s"${Pretty.prettyLoc(optLocation).renderWideStream.mkString}: $message")
+      logger.debug(
+        "{}: {}",
+        StringEscapeUtils.escapeJava(Pretty.prettyLoc(optLocation).renderWideStream.mkString),
+        StringEscapeUtils.escapeJava(message),
+      )
     }
     buffer(pos) = (message, optLocation)
     pos = (pos + 1) % capacity

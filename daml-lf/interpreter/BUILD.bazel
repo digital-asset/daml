@@ -40,6 +40,7 @@ da_scala_library(
         "//libs-scala/nameof",
         "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_apache_commons_commons_text",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
