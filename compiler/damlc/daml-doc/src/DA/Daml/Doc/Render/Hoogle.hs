@@ -106,7 +106,7 @@ cls2hoogle env ClassDoc{..} = concat
     [ hooglify cl_descr
     , [ urlTag env cl_anchor
       , T.unwords $ ["class"]
-                 ++ maybe [] ((:["=>"]) . type2hoogle) cl_super
+                 ++ contextToHoogle cl_super
                  ++ wrapOp (unTypename cl_name) : cl_args
       , "" ]
     , concatMap (classMethod2hoogle env) cl_methods
@@ -119,7 +119,7 @@ classMethod2hoogle env ClassMethodDoc{..} = concat
     , [ urlTag env cm_anchor
       , T.unwords . concat $
           [ [wrapOp (unFieldname cm_name), "::"]
-          , maybe [] ((:["=>"]) . type2hoogle) cm_globalContext
+          , contextToHoogle cm_globalContext
           , [type2hoogle cm_type]
           ]
       , "" ]
@@ -131,7 +131,7 @@ fct2hoogle env FunctionDoc{..} = concat
     , [ urlTag env fct_anchor
       , T.unwords . concat $
           [ [wrapOp (unFieldname fct_name), "::"]
-          , maybe [] ((:["=>"]) . type2hoogle) fct_context
+          , contextToHoogle fct_context
           , [type2hoogle fct_type]
           ]
       , "" ]
@@ -149,9 +149,16 @@ t2hg f _ (TypeFun ts) = f $
     T.intercalate " -> " $ map (t2hg inParens id) ts
 t2hg _ _ (TypeList t1) =
     "[" <> t2hg id id t1 <> "]"
-t2hg _ _ (TypeTuple ts) =
-    "(" <> T.intercalate ", " (map (t2hg id id) ts) <> ")"
+t2hg _ _ (TypeTuple ts) = typeTupleToHoogle ts
 t2hg _ _ (TypeApp _ n []) = unTypename n
 t2hg _ f (TypeApp _ name args) = f $
     T.unwords (wrapOp (unTypename name) : map (t2hg inParens inParens) args)
 t2hg _ _ (TypeLit lit) = lit
+
+typeTupleToHoogle :: [Type] -> T.Text
+typeTupleToHoogle ts = "(" <> T.intercalate ", " (map type2hoogle ts) <> ")"
+
+contextToHoogle :: Context -> [T.Text]
+contextToHoogle = \case
+  Context [] -> []
+  Context ts -> [typeTupleToHoogle ts, "=>"]

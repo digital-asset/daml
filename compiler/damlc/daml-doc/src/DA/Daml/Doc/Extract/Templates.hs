@@ -32,10 +32,9 @@ import "ghc-lib-parser" OccName
 getTemplateDocs ::
     DocCtx
     -> MS.Map Typename ADTDoc -- ^ maps template names to their ADT docs
-    -> MS.Map Typename ClassDoc -- ^ maps template names to their template instance class docs
     -> MS.Map Typename (Set.Set DDoc.Type)-- ^ maps template names to their implemented interfaces' types
     -> [TemplateDoc]
-getTemplateDocs DocCtx{..} typeMap templateInstanceMap templateImplementsMap =
+getTemplateDocs DocCtx{..} typeMap templateImplementsMap =
     map mkTemplateDoc $ Set.toList dc_templates
   where
     -- The following functions use the type map and choice map in scope, so
@@ -44,8 +43,6 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap templateImplementsMap =
     mkTemplateDoc name = TemplateDoc
       { td_anchor = ad_anchor tmplADT
       , td_name = ad_name tmplADT
-      , td_args = ad_args tmplADT
-      , td_super = cl_super =<< MS.lookup name templateInstanceMap
       , td_descr = ad_descr tmplADT
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
