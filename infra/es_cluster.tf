@@ -28,6 +28,7 @@ locals {
       type           = "n2-highmem-2",
       xmx            = "12g",
       disk_size      = 300,
+      log4j          = ""
     },
     {
       suffix         = "-green",
@@ -37,6 +38,7 @@ locals {
       type           = "n2-highmem-2",
       xmx            = "12g",
       disk_size      = 500,
+      log4j          = " -Dlog4j2.formatMsgNoLookups=true"
     },
     {
       suffix         = "-init",
@@ -46,6 +48,7 @@ locals {
       type           = "e2-standard-2",
       xmx            = "6g",
       disk_size      = 200,
+      log4j          = ""
     },
   ]
 
@@ -218,7 +221,7 @@ docker run -d \
            --name es \
            -p 9200:9200 \
            -p 9300:9300 \
-           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx}" \
+           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx}${local.es_clusters[count.index].log4j}" \
            -v /root/es-data:/usr/share/elasticsearch/data \
            es
 
