@@ -76,20 +76,6 @@ featureNumeric = Feature
     , featureCppFlag = Just "DAML_NUMERIC"
     }
 
-featureAnyType :: Feature
-featureAnyType = Feature
-   { featureName = "Any type"
-   , featureMinVersion = version1_7
-   , featureCppFlag = Just "DAML_ANY_TYPE"
-   }
-
-featureTypeRep :: Feature
-featureTypeRep = Feature
-    { featureName = "TypeRep type"
-    , featureMinVersion = version1_7
-    , featureCppFlag = Just "DAML_TYPE_REP"
-    }
-
 featureStringInterning :: Feature
 featureStringInterning = Feature
     { featureName = "String interning"
@@ -187,8 +173,6 @@ featureExperimental = Feature
 allFeatures :: [Feature]
 allFeatures =
     [ featureNumeric
-    , featureAnyType
-    , featureTypeRep
     , featureStringInterning
     , featureGenericComparison
     , featureGenMap

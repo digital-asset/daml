@@ -259,7 +259,6 @@ data Any = Any Opaque
 -- We do not expose this directly and instead only expose TemplateTypeRep.
 data TypeRep = TypeRep Opaque
 
-#ifdef DAML_TYPE_REP
 instance Eq TypeRep where
   (==) = primitive @"BEEqual"
 
@@ -268,7 +267,6 @@ instance Ord TypeRep where
   (>=) = primitive @"BEGreaterEq"
   (<) = primitive @"BELess"
   (>) = primitive @"BEGreater"
-#endif
 
 #ifdef DAML_EXCEPTIONS
 

@@ -2095,20 +2095,8 @@ convertTyCon env t
             "Time" -> pure TTimestamp
             "TextMap" -> pure (TBuiltin BTTextMap)
             "Map" -> pure (TBuiltin BTGenMap)
-            "Any" ->
-                -- We just translate this to TUnit when it is not supported.
-                -- We can’t get rid of it completely since the template desugaring uses
-                -- this and we do not want to make that dependent on the DAML-LF version.
-                pure $ if envLfVersion env `supports` featureAnyType
-                    then TAny
-                    else TUnit
-            "TypeRep" ->
-                -- We just translate this to TUnit when it is not supported.
-                -- We can’t get rid of it completely since the template desugaring uses
-                -- this and we do not want to make that dependent on the DAML-LF version.
-                pure $ if envLfVersion env `supports` featureTypeRep
-                    then TTypeRep
-                    else TUnit
+            "Any" -> pure TAny
+            "TypeRep" -> pure TTypeRep
             "AnyException" -> pure (TBuiltin BTAnyException)
             _ -> defaultTyCon
     | NameIn DA_Internal_Prelude "Optional" <- t = pure (TBuiltin BTOptional)
