@@ -20,14 +20,6 @@ interface B requires A where
     controller getOwner this
     do pure (getCoolness this)
 
--- TODO https://github.com/digital-asset/daml/issues/12051
--- TODO https://github.com/digital-asset/daml/issues/11978
---   Implement "requires" instances.
-instance DA.Internal.Desugar.HasToInterface B A where
-    _toInterface = GHC.Types.primitive @"EToRequiredInterface"
-instance DA.Internal.Desugar.HasFromInterface B A where
-    fromInterface = GHC.Types.primitive @"EFromRequiredInterface"
-
 template T1
   with
     p1 : Party
