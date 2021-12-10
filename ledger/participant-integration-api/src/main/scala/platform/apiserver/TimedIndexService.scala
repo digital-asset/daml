@@ -233,6 +233,4 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
-
-  override def cacheOffset(): Offset = delegate.cacheOffset()
 }

@@ -301,7 +301,7 @@ private final class ReadOnlySqlLedgerWithMutableCache(
         RestartSettings(minBackoff = 1.second, maxBackoff = 10.seconds, randomFactor = 0.2)
       )(() =>
         Source
-          .tick(0.millis, 25.millis, ())
+          .tick(0.millis, 100.millis, ())
           .mapAsync(1) {
             implicit val ec: ExecutionContext = mat.executionContext
             _ =>

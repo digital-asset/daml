@@ -57,8 +57,6 @@ private[platform] abstract class BaseLedger(
   ): Future[Option[ContractId]] =
     contractStore.lookupContractKey(forParties, key)
 
-  override def cacheOffset(): Offset = contractStore.cacheOffset()
-
   override def flatTransactions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],

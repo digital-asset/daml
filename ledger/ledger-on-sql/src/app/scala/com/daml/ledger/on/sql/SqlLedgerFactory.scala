@@ -5,7 +5,6 @@ package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
 import com.daml.caching
-import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
@@ -18,8 +17,6 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import scopt.OptionParser
-
-import java.util.concurrent.atomic.AtomicReference
 
 object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
   override val defaultExtraConfig: ExtraConfig = ExtraConfig(
@@ -48,7 +45,6 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-      contractStore: AtomicReference[Option[ContractStore]],
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,

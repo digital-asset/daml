@@ -5,7 +5,6 @@ package com.daml.ledger.on.memory
 
 import akka.stream.Materializer
 import com.daml.caching
-import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, ParticipantConfig}
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
@@ -13,12 +12,8 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import scopt.OptionParser
-
-import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.ExecutionContext
 
 private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
     extends LedgerFactory[KeyValueParticipantState, Unit] {
@@ -27,12 +22,9 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       config: Config[Unit],
       participantConfig: ParticipantConfig,
       engine: Engine,
-      contractStore: AtomicReference[Option[ContractStore]],
-      metrics: Metrics,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
-      ec: ExecutionContext,
   ): ResourceOwner[KeyValueParticipantState] = {
     val metrics = createMetrics(participantConfig, config)
     for {

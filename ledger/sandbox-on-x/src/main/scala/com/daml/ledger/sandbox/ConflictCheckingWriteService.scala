@@ -4,23 +4,19 @@
 package com.daml.ledger.sandbox
 
 import akka.NotUsed
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
-import com.daml.ledger.configuration.{
-  Configuration,
-  LedgerId,
-  LedgerInitialConditions,
-  LedgerTimeModel,
-}
+import com.daml.ledger.configuration.{Configuration, LedgerId}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2._
-import com.daml.ledger.sandbox.ConflictCheckingLedgerBridge.Submission._
-import com.daml.ledger.sandbox.ConflictCheckingLedgerBridge.fromOffset
+import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.sandbox.ConflictCheckingWriteService.Submission._
+import com.daml.ledger.sandbox.ConflictCheckingWriteService.fromOffset
 import com.daml.ledger.sandbox.SoxRejection._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
@@ -43,20 +39,20 @@ import com.google.common.primitives.Longs
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 
-import scala.concurrent.duration._
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import java.util.concurrent.{CompletableFuture, CompletionStage}
+import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-case class ConflictCheckingLedgerBridge(
+case class ConflictCheckingWriteService(
+    readServiceWithFeedSubscriber: ReadServiceWithFeedSubscriber,
     participantId: Ref.ParticipantId,
     ledgerId: LedgerId,
     maxDedupSeconds: Int,
     submissionBufferSize: Int,
-    // Hack needed for avoiding the cyclic dependency in the kvutils app Runner
-    indexServiceRef: AtomicReference[Option[IndexService]],
+    indexService: IndexService,
     metrics: Metrics,
     // TODO SoX: Wire up in config
     implicitPartyAllocation: Boolean = false,
@@ -64,8 +60,7 @@ case class ConflictCheckingLedgerBridge(
     mat: Materializer,
     loggingContext: LoggingContext,
     servicesExecutionContext: ExecutionContext,
-) extends ReadService
-    with WriteService
+) extends WriteService
     with AutoCloseable {
   private lazy val offsetIdx = new AtomicLong(
     Await.result(
@@ -77,9 +72,6 @@ case class ConflictCheckingLedgerBridge(
     )
   )
 
-  private lazy val indexService =
-    indexServiceRef.get().getOrElse(throw new RuntimeException("ContractStore not there yet"))
-
   // Note: ledger entries are written in batches, and this variable is updated while writing a ledger configuration
   // changed entry. Transactions written around the same time as a configuration change entry might not use the correct
   // time model.
@@ -89,9 +81,7 @@ case class ConflictCheckingLedgerBridge(
       Await.result(indexService.lookupConfiguration(), 10.seconds).map(_._2)
     )
 
-  private var stateUpdatesWasCalledAlready = false
-
-  import ConflictCheckingLedgerBridge._
+  import ConflictCheckingWriteService._
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
@@ -114,9 +104,15 @@ case class ConflictCheckingLedgerBridge(
       .mapAsyncUnordered(64) { tx =>
         precomputeTransactionOutputs(tx).map(_.map((tx, _)))
       }
-      .map(_.map { case (tx, transactionEffects) =>
-        (indexService.cacheOffset(), tx, transactionEffects)
-      })
+      .mapAsync(1) {
+        case Left(rejection) => Future.successful(Left(rejection))
+        case Right((tx, transactionEffects)) =>
+          indexService
+            .currentLedgerEnd()
+            .map(ledgerEnd =>
+              Right((ApiOffset.assertFromString(ledgerEnd.value), tx, transactionEffects))
+            )
+      }
       .mapAsync(64) {
         case Left(rejection) => Future.successful(Left(rejection))
         case Right((noConflictUpTo, tx, transactionEffects @ (keyInputs, inputContracts, _, _))) =>
@@ -207,41 +203,6 @@ case class ConflictCheckingLedgerBridge(
     CompletableFuture.completedFuture(
       PruningResult.ParticipantPruned
     )
-
-  override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
-    Source.single(
-      LedgerInitialConditions(
-        ledgerId = ledgerId,
-        config = Configuration(
-          generation = 1L,
-          timeModel = LedgerTimeModel.reasonableDefault,
-          maxDeduplicationTime = java.time.Duration.ofSeconds(maxDedupSeconds.toLong),
-        ),
-        initialRecordTime = Timestamp.now(),
-      )
-    )
-
-  override def stateUpdates(
-      beginAfter: Option[Offset]
-  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] = {
-    // TODO for PoC purposes:
-    //   This method may only be called once, either with `beginAfter` set or unset.
-    //   A second call will result in an error unless the server is restarted.
-    //   Bootstrapping the bridge from indexer persistence is supported.
-    synchronized {
-      if (stateUpdatesWasCalledAlready)
-        throw new IllegalStateException("not allowed to call this twice")
-      else stateUpdatesWasCalledAlready = true
-    }
-    logger.info("Indexer subscribed to state updates.")
-    beginAfter.foreach(offset =>
-      logger.warn(
-        s"Indexer subscribed from a specific offset $offset. This offset is not taking into consideration, and does not change the behavior of the ReadWriteServiceBridge. Only valid use case supported: service starting from an already ingested database, and indexer subscribes from exactly the ledger-end."
-      )
-    )
-
-    queueSource.merge(source)
-  }
 
   val (queue: BoundedSourceQueue[Submission], queueSource: Source[(Offset, Update), NotUsed]) =
     Source
@@ -499,6 +460,10 @@ case class ConflictCheckingLedgerBridge(
         }
       }
 
+  Sink
+    .fromSubscriber(readServiceWithFeedSubscriber.subscriber)
+    .runWith(source merge queueSource)
+
   override def close(): Unit = {
     logger.info("Shutting down ConflictCheckingLedgerBridge.")
     queue.complete()
@@ -506,8 +471,35 @@ case class ConflictCheckingLedgerBridge(
   }
 }
 
-object ConflictCheckingLedgerBridge {
+object ConflictCheckingWriteService {
   private implicit val errorLoggingContext: ContextualizedErrorLogger = NoLogging
+
+  def owner(
+      readServiceWithFeedSubscriber: ReadServiceWithFeedSubscriber,
+      participantId: Ref.ParticipantId,
+      ledgerId: LedgerId,
+      maxDedupSeconds: Int,
+      submissionBufferSize: Int,
+      indexService: IndexService,
+      metrics: Metrics,
+      // TODO SoX: Wire up in config
+      implicitPartyAllocation: Boolean = false,
+  )(implicit
+      mat: Materializer,
+      loggingContext: LoggingContext,
+      servicesExecutionContext: ExecutionContext,
+  ): ResourceOwner[ConflictCheckingWriteService] = ResourceOwner.forCloseable(() =>
+    new ConflictCheckingWriteService(
+      readServiceWithFeedSubscriber = readServiceWithFeedSubscriber,
+      participantId = participantId,
+      ledgerId = ledgerId,
+      maxDedupSeconds = maxDedupSeconds,
+      submissionBufferSize = submissionBufferSize,
+      indexService = indexService,
+      metrics = metrics,
+      implicitPartyAllocation = implicitPartyAllocation,
+    )
+  )
 
   trait Submission extends Serializable with Product
   object Submission {

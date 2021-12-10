@@ -94,8 +94,6 @@ private[platform] final class LedgerBackedIndexService(
         .map(_._2)
     })
 
-  override def cacheOffset(): Offset = ledger.cacheOffset()
-
   override def transactions(
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset],

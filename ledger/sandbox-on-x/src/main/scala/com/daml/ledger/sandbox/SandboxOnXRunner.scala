@@ -1,48 +1,52 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.app
+package com.daml
+package ledger.sandbox
 
-import java.nio.file.Path
-import java.util.UUID
-import java.util.concurrent.{Executors, TimeUnit}
+import error.ErrorCodesVersionSwitcher
+import ledger.api.health.HealthChecks
+import ledger.participant.state.index.v2.IndexService
+import ledger.participant.state.kvutils.app.{Config, Mode, ParticipantRunMode}
+import ledger.participant.state.v2.WritePackagesService
+import ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
+import ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import lf.archive.DarParser
+import lf.data.Ref
+import lf.engine.{Engine, EngineConfig}
+import logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
+import logging.{ContextualizedLogger, LoggingContext}
+import metrics.JvmMetricSet
+import platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
+import platform.indexer.StandaloneIndexerServer
+import platform.server.api.validation.ErrorFactories
+import platform.store.{IndexMetadata, LfValueTranslationCache}
+import telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
-import com.daml.error.ErrorCodesVersionSwitcher
-import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.v2.WritePackagesService
-import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.archive.DarParser
-import com.daml.lf.data.Ref
-import com.daml.lf.engine.{Engine, EngineConfig}
-import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.JvmMetricSet
-import com.daml.platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
-import com.daml.platform.indexer.StandaloneIndexerServer
-import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
-import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
+import java.nio.file.Path
+import java.time.Duration
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{Executors, TimeUnit}
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-final class Runner[T <: ReadWriteService, Extra](
-    name: String,
-    factory: LedgerFactory[ReadWriteService, Extra],
+final class SandboxOnXRunner(
+    name: String
 ) {
   def owner(args: collection.Seq[String]): ResourceOwner[Unit] =
     Config
-      .owner(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
+      .owner(name, BridgeConfig.extraConfigParser, BridgeConfig.defaultExtraConfig, args)
       .flatMap(owner)
 
-  def owner(originalConfig: Config[Extra]): ResourceOwner[Unit] = new ResourceOwner[Unit] {
+  def owner(originalConfig: Config[BridgeConfig]): ResourceOwner[Unit] = new ResourceOwner[Unit] {
     override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
-      val config = factory.manipulateConfig(originalConfig)
+      val config = BridgeConfig.manipulateConfig(originalConfig)
       val errorFactories = ErrorFactories(
         new ErrorCodesVersionSwitcher(originalConfig.enableSelfServiceErrorCodes)
       )
@@ -83,7 +87,7 @@ final class Runner[T <: ReadWriteService, Extra](
   }
 
   private def run(
-      config: Config[Extra]
+      config: Config[BridgeConfig]
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     implicit val actorSystem: ActorSystem = ActorSystem(
       "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-")
@@ -97,6 +101,8 @@ final class Runner[T <: ReadWriteService, Extra](
       )
     )
 
+    val indexServiceRef = new AtomicReference[Option[IndexService]](None)
+
     newLoggingContext { implicit loggingContext =>
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
@@ -108,7 +114,7 @@ final class Runner[T <: ReadWriteService, Extra](
         _ <- Resource.sequence(config.participants.map { participantConfig =>
           withEnrichedLoggingContext("participantId" -> participantConfig.participantId) {
             implicit loggingContext =>
-              val metrics = factory.createMetrics(participantConfig, config)
+              val metrics = BridgeConfig.createMetrics(participantConfig, config)
               metrics.registry.registerAll(new JvmMetricSet)
               val lfValueTranslationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
                 eventConfiguration = config.lfValueTranslationEventCache,
@@ -122,25 +128,6 @@ final class Runner[T <: ReadWriteService, Extra](
                     .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
                     .acquire()
                 )
-                ledger <- factory
-                  .readWriteServiceOwner(config, participantConfig, sharedEngine)
-                  .acquire()
-                readService = new TimedReadService(ledger, metrics)
-                writeService = new TimedWriteService(ledger, metrics)
-                healthChecks = new HealthChecks(
-                  "read" -> readService,
-                  "write" -> writeService,
-                )
-                _ <- Resource.sequence(
-                  config.archiveFiles.map(path =>
-                    Resource.fromFuture(
-                      uploadDar(path, writeService)(
-                        loggingContext,
-                        resourceContext.executionContext,
-                      )
-                    )
-                  )
-                )
                 servicesExecutionContext <- ResourceOwner
                   .forExecutorService(() =>
                     new InstrumentedExecutorService(
@@ -151,19 +138,27 @@ final class Runner[T <: ReadWriteService, Extra](
                   )
                   .map(ExecutionContext.fromExecutorService)
                   .acquire()
-                healthChecksWithIndexer <- participantConfig.mode match {
+                // LEDGER needs INDEX_SERVICE
+                soxReadService = new SoXReadService(config.ledgerId, 15 /* fill in */ )(
+                  loggingContext,
+                  materializer,
+                )
+                readService = new TimedReadService(soxReadService, metrics)
+                indexerHealthCheck <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
+                    // INDEXER needs READ_SERVICE
                     new StandaloneIndexerServer(
                       readService = readService,
-                      config = factory.indexerConfig(participantConfig, config),
+                      config = BridgeConfig.indexerConfig(participantConfig, config),
                       servicesExecutionContext = servicesExecutionContext,
                       metrics = metrics,
                       lfValueTranslationCache = lfValueTranslationCache,
-                    ).acquire().map(indexerHealth => healthChecks + ("indexer" -> indexerHealth))
+                    ).acquire().map(healthCheck => Seq("indexer" -> healthCheck))
                   case ParticipantRunMode.LedgerApiServer =>
-                    Resource.successful(healthChecks)
+                    Resource.successful(Seq.empty)
                 }
-                apiServerConfig = factory.apiServerConfig(participantConfig, config)
+                apiServerConfig = BridgeConfig.apiServerConfig(participantConfig, config)
+                // INDEX_SERVICE needs the ledger initialized (needs INDEXER)
                 indexService <- StandaloneIndexService(
                   ledgerId = config.ledgerId,
                   config = apiServerConfig,
@@ -172,6 +167,40 @@ final class Runner[T <: ReadWriteService, Extra](
                   servicesExecutionContext = servicesExecutionContext,
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()
+                _ <- Resource.successful(indexServiceRef.set(Some(indexService)))
+                writeService <- ConflictCheckingWriteService
+                  .owner(
+                    soxReadService,
+                    participantId = participantConfig.participantId,
+                    ledgerId = config.ledgerId,
+                    // TODO SoX: Wire up
+                    maxDedupSeconds = config.maxDeduplicationDuration
+                      .getOrElse(Duration.ofSeconds(15))
+                      .getSeconds
+                      .toInt,
+                    // TODO Sox: Configure
+                    submissionBufferSize = 128,
+                    // TODO Sox: Remove
+                    indexService = indexService,
+                    metrics = metrics,
+                    implicitPartyAllocation = false, // TODO SoX: Wire up
+                  )(materializer, loggingContext, servicesExecutionContext)
+                  .acquire()
+                timedWriteService = new TimedWriteService(writeService, metrics)
+                healthChecks = new HealthChecks(
+                  "read" -> readService,
+                  "write" -> timedWriteService,
+                )
+                _ <- Resource.sequence(
+                  config.archiveFiles.map(path =>
+                    Resource.fromFuture(
+                      uploadDar(path, timedWriteService)(
+                        loggingContext,
+                        resourceContext.executionContext,
+                      )
+                    )
+                  )
+                )
                 _ <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
                     StandaloneApiServer(
@@ -180,13 +209,14 @@ final class Runner[T <: ReadWriteService, Extra](
                       config = apiServerConfig,
                       commandConfig = config.commandConfig,
                       submissionConfig = config.submissionConfig,
-                      partyConfig = factory.partyConfig(config),
-                      optWriteService = Some(writeService),
-                      authService = factory.authService(config),
-                      healthChecks = healthChecksWithIndexer,
+                      partyConfig = BridgeConfig.partyConfig(config),
+                      optWriteService = Some(timedWriteService),
+                      authService = BridgeConfig.authService(config),
+                      healthChecks =
+                        indexerHealthCheck.headOption.fold(healthChecks)(healthChecks + _),
                       metrics = metrics,
-                      timeServiceBackend = factory.timeServiceBackend(config),
-                      otherInterceptors = factory.interceptors(config),
+                      timeServiceBackend = BridgeConfig.timeServiceBackend(config),
+                      otherInterceptors = BridgeConfig.interceptors(config),
                       engine = sharedEngine,
                       servicesExecutionContext = servicesExecutionContext,
                     ).acquire()

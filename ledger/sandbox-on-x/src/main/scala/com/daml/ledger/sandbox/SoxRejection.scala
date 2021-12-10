@@ -6,8 +6,8 @@ package ledger.sandbox
 
 import error.ContextualizedErrorLogger
 import error.definitions.LedgerApiErrors
-import ledger.sandbox.ConflictCheckingLedgerBridge.Submission
-import ledger.sandbox.ConflictCheckingLedgerBridge.Submission.Transaction
+import ledger.sandbox.ConflictCheckingWriteService.Submission
+import ledger.sandbox.ConflictCheckingWriteService.Submission.Transaction
 import lf.data.Time.Timestamp
 import lf.transaction.GlobalKey
 import platform.server.api.validation.ErrorFactories
