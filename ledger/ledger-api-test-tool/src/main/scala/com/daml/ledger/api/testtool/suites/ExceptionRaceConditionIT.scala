@@ -8,6 +8,8 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.RaceConditionTests._
+import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
+import com.daml.ledger.api.v1.value.RecordField
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.semantic.ExceptionRaceTests._
 
@@ -27,13 +29,13 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       )
       transactions <- transactions(ledger, alice)
     } yield {
-      import TransactionUtil._
+      import ExceptionRaceConditionIT.TransactionUtil._
 
       // We deliberately allow situations where no non-transient contract is created and verify the transactions
       // order when such contract is actually created.
       transactions.find(isCreateNonTransient).foreach { nonTransientCreateTransaction =>
         transactions
-          .filter(isTransientCreate)
+          .filter(isRollbackCreate)
           .foreach(assertTransactionOrder(_, nonTransientCreateTransaction))
       }
     }
@@ -56,10 +58,10 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       )
       transactions <- transactions(ledger, alice)
     } yield {
-      import TransactionUtil._
+      import ExceptionRaceConditionIT.TransactionUtil._
       val archivalTransaction = assertSingleton("archivals", transactions.filter(isArchival))
       transactions
-        .filter(isNonConsumingExercise)
+        .filter(isRollbackNonConsumingExercise)
         .foreach(assertTransactionOrder(_, archivalTransaction))
     }
   }
@@ -81,10 +83,10 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       )
       transactions <- transactions(ledger, alice)
     } yield {
-      import TransactionUtil._
+      import ExceptionRaceConditionIT.TransactionUtil._
       val archivalTransaction = assertSingleton("archivals", transactions.filter(isArchival))
       transactions
-        .filter(isNonConsumingExercise)
+        .filter(isRollbackConsumingExercise)
         .foreach(assertTransactionOrder(_, archivalTransaction))
     }
   }
@@ -103,10 +105,10 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       )
       transactions <- transactions(ledger, alice)
     } yield {
-      import TransactionUtil._
+      import ExceptionRaceConditionIT.TransactionUtil._
       val archivalTransaction = assertSingleton("archivals", transactions.filter(isArchival))
       transactions
-        .filter(isFetch)
+        .filter(isRollbackFetch)
         .foreach(assertTransactionOrder(_, archivalTransaction))
     }
   }
@@ -125,10 +127,10 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       )
       transactions <- transactions(ledger, alice)
     } yield {
-      import TransactionUtil._
+      import ExceptionRaceConditionIT.TransactionUtil._
       val archivalTransaction = assertSingleton("archivals", transactions.filter(isArchival))
       transactions
-        .filter(isContractLookup(success = true))
+        .filter(isRollbackContractLookup(success = true))
         .foreach(assertTransactionOrder(_, archivalTransaction))
     }
   }
@@ -146,13 +148,13 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
       )
       transactions <- transactions(ledger, alice)
     } yield {
-      import TransactionUtil._
+      import ExceptionRaceConditionIT.TransactionUtil._
       val createNonTransientTransaction = assertSingleton(
         "create-non-transient transactions",
         transactions.filter(isCreateNonTransient),
       )
       transactions
-        .filter(isContractLookup(success = false))
+        .filter(isRollbackContractLookup(success = false))
         .foreach(assertTransactionOrder(_, createNonTransientTransaction))
     }
   }
@@ -172,4 +174,94 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
     )(implicit ec => { case Participants(Participant(ledger, party)) =>
       testCase(ec)(ledger)(party)
     })
+}
+
+object ExceptionRaceConditionIT {
+  object TransactionUtil {
+
+    private implicit class TransactionTreeTestOps(tx: TransactionTree) {
+      def hasEventsNumber(expectedNumberOfEvents: Int): Boolean =
+        tx.eventsById.size == expectedNumberOfEvents
+
+      def containsEvent(condition: TreeEvent => Boolean): Boolean =
+        tx.eventsById.values.toList.exists(condition)
+    }
+
+    private def isCreated(templateName: String)(event: TreeEvent): Boolean =
+      event.kind.isCreated && event.getCreated.templateId.exists(_.entityName == templateName)
+
+    private def isExerciseEvent(choiceName: String)(event: TreeEvent): Boolean =
+      event.kind.isExercised && event.getExercised.choice == choiceName
+
+    // def isCreateDummyContract(tx: TransactionTree): Boolean =
+    //   tx.containsEvent(isCreated(RaceTests.DummyContract.TemplateName))
+
+    def isCreateNonTransient(tx: TransactionTree): Boolean =
+      tx.hasEventsNumber(1) &&
+        tx.containsEvent(isCreated(ExceptionRaceTests.ContractWithKey.TemplateName))
+
+    def isRollbackCreate(tx: TransactionTree): Boolean =
+      // Note that we cannot assert that the create is present because
+      // rollback nodes are not visible on the ledger API.
+      tx.containsEvent(isExerciseEvent(ExceptionRaceTests.CreateWrapper.ChoiceCreateRollback))
+
+    def isArchival(tx: TransactionTree): Boolean =
+      tx.hasEventsNumber(1) &&
+        tx.containsEvent(isExerciseEvent(ExceptionRaceTests.ContractWithKey.ChoiceArchive))
+
+    def isRollbackNonConsumingExercise(tx: TransactionTree): Boolean =
+      tx.hasEventsNumber(1) &&
+        tx.containsEvent(
+          isExerciseEvent(ExceptionRaceTests.ExerciseWrapper.ChoiceNonConsumingRollback)
+        )
+
+    def isRollbackConsumingExercise(tx: TransactionTree): Boolean =
+      tx.hasEventsNumber(1) &&
+        tx.containsEvent(
+          isExerciseEvent(ExceptionRaceTests.ExerciseWrapper.ChoiceConsumingRollback)
+        )
+
+    def isRollbackFetch(tx: TransactionTree): Boolean =
+      tx.hasEventsNumber(1) &&
+        tx.containsEvent(isExerciseEvent(ExceptionRaceTests.FetchWrapper.ChoiceFetch))
+
+    private def isFoundContractField(found: Boolean)(field: RecordField) = {
+      field.label == "found" && field.value.exists(_.getBool == found)
+    }
+
+    def isRollbackContractLookup(success: Boolean)(tx: TransactionTree): Boolean =
+      tx.containsEvent { event =>
+        isCreated(ExceptionRaceTests.LookupResult.TemplateName)(event) &&
+        event.getCreated.getCreateArguments.fields.exists(isFoundContractField(found = success))
+      }
+  }
+
+  private object ExceptionRaceTests {
+    object ContractWithKey {
+      val TemplateName = "ContractWithKey"
+      val ChoiceArchive = "ContractWithKey_Archive"
+//      val ChoiceExercise = "ContractWithKey_Exercise"
+    }
+
+    // object DummyContract {
+    //   val TemplateName = "DummyContract"
+    // }
+
+    object FetchWrapper {
+      val ChoiceFetch = "FetchWrapper_Fetch"
+    }
+
+    object LookupResult {
+      val TemplateName = "LookupResult"
+    }
+
+    object CreateWrapper {
+      val ChoiceCreateRollback = "CreateWrapper_CreateRollback"
+    }
+
+    object ExerciseWrapper {
+      val ChoiceNonConsumingRollback = "ExerciseWrapper_ExerciseNonConsumingRollback"
+      val ChoiceConsumingRollback = "ExerciseWrapper_ExerciseConsumingRollback"
+    }
+  }
 }
