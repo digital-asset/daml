@@ -10,7 +10,7 @@ Instruct ES to move all data out of blue nodes:
 PUT _cluster/settings
 {
   "transient" : {
-    "cluster.routing.allocation.exclude._ip" : "es-blue-*"
+    "cluster.routing.allocation.exclude._name" : "es-blue-*"
   }
 }
 use null to reset
@@ -23,7 +23,7 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 0,
+      size           = 5,
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
@@ -32,7 +32,7 @@ locals {
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 5,
+      size           = 0,
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
