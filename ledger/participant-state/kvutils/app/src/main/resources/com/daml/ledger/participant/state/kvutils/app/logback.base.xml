@@ -18,6 +18,8 @@
     <!-- Disable noisy DB logging at the start of sandbox -->
     <logger name="com.daml.platform.store.FlywayMigrations" level="WARN" />
     <logger name="org.flywaydb" level="INFO" />
+    <!-- Flyway prints jdbc string at info level -->
+    <logger name="org.flywaydb.core.internal.database.base.BaseDatabaseType" level="WARN" />
     <logger name="com.zaxxer.hikari" level="ERROR" />
     <logger name="com.daml.platform" level="WARN" />
 
