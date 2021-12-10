@@ -762,8 +762,6 @@ convertClassDef env tycon
     pure $ [typeDef]
         ++ [funDepDef | classHasFds cls]
         ++ [minimalDef | not minimalIsDefault]
-        -- NOTE (SF): No reason to generate fundep & minimal metadata with old-style typeclasses,
-        -- since data-dependencies support for old-style typeclasses is extremely limited.
 
 convertDepOrphanModules :: Env -> [GHC.Module] -> ConvertM [Definition]
 convertDepOrphanModules env orphanModules = do
