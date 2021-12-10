@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 
-.. Set max depth of the local table contents (visible in the right hand sidebar in rendered HTML)
+.. Set max depth of the local table contents (visible in the right hand sidebar in the rendered HTML)
 .. See https://www.sphinx-doc.org/en/master/usage/restructuredtext/field-lists.html?highlight=tocdepth
 
 :tocdepth: 2
