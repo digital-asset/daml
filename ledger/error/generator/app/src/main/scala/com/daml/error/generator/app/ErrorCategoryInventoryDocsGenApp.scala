@@ -35,7 +35,7 @@ object ErrorCategoryInventoryDocsGenApp {
       val retryStrategy: String = annotations.retryStrategy.getOrElse("").replace("\n", " ")
 
       s"""${name}
-         |------------------------------------------------------------------------------------------------------------------
+         |${"=" * 120}
          |    **Category id**: ${categoryId}
          |
          |    **gRPC status code**: ${grpcCode}
