@@ -411,6 +411,7 @@
 			| template
 			| interface
 			| implements
+			| requires
 			| key
 			| maintainer
 			| daml
