@@ -78,7 +78,9 @@ private[daml] object AcsTxStreams {
       val dup = b add Broadcast[GACR](2)
       val acs = b add (Flow fromFunction ((_: GACR).activeContracts))
       val off = b add Flow[GACR]
-        .collect { case gacr if gacr.offset.nonEmpty => AbsoluteBookmark(domain.Offset(gacr.offset)) }
+        .collect {
+          case gacr if gacr.offset.nonEmpty => AbsoluteBookmark(domain.Offset(gacr.offset))
+        }
         .via(last(LedgerBegin: BeginBookmark[domain.Offset]))
       discard { dup ~> acs }
       discard { dup ~> off }
