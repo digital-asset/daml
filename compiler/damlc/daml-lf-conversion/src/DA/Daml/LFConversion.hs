@@ -506,7 +506,7 @@ convertModule
     -> [GHC.Module]
     -> ModDetails
     -> Either FileDiagnostic LF.Module
-convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModules details = runConvertM (ConversionEnv file Nothing) $ do
+convertModule envLfVersion envPkgMap envStablePackages envIsGenerated file x depOrphanModules details = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env bind) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     depOrphanModules <- convertDepOrphanModules env depOrphanModules
@@ -522,11 +522,11 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
             ++ interfaces
             ++ depOrphanModules
             ++ exports
-    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags defs)
+    pure (LF.moduleFromDefinitions envLFModuleName (Just $ fromNormalizedFilePath file) flags defs)
     where
-        ghcModName = GHC.moduleName $ cm_module x
-        thisUnitId = GHC.moduleUnitId $ cm_module x
-        lfModName = convertModuleName ghcModName
+        envGHCModuleName = GHC.moduleName $ cm_module x
+        envModuleUnitId = GHC.moduleUnitId $ cm_module x
+        envLFModuleName = convertModuleName envGHCModuleName
         flags = LF.daml12FeatureFlags
         binds =
           [ bind
@@ -538,23 +538,23 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
                 | otherwise -> [(name, body)]
               Rec binds -> binds
           ]
-        interfaceCons = interfaceNames lfVersion (eltsUFM (cm_types x))
-        tplImplements = MS.fromListWith (++)
+        envInterfaces = interfaceNames envLfVersion (eltsUFM (cm_types x))
+        envImplements = MS.fromListWith (++)
           [ (mkTypeCon [getOccText tpl], [iface])
           | (name, _val) <- binds
           , "_implements_" `T.isPrefixOf` getOccText name
           , TypeCon implementsT [TypeCon tpl [], TypeCon iface []] <- [varType name]
           , NameIn DA_Internal_Desugar "ImplementsT" <- [implementsT]
           ]
-        ifaceRequires = MS.fromListWith (++)
+        envRequires = MS.fromListWith (++)
           [ (mkTypeCon [getOccText iface1], [iface2])
           | (name, _val) <- binds
           , "_requires_" `T.isPrefixOf` getOccText name
           , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- [varType name]
           , NameIn DA_Internal_Desugar "RequiresT" <- [requiresT]
           ]
-        tplInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
-        tplInterfaceMethodInstances = MS.fromListWith (++)
+        envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
+        envInterfaceMethodInstances = MS.fromListWith (++)
           [
             ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
             , [(methodName, body)]
@@ -578,48 +578,31 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
             `App` body
               <- [untick val]
           ]
-        choiceData = MS.fromListWith (++)
+        envChoiceData = MS.fromListWith (++)
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
             | (name, v) <- binds
             , "_choice_" `T.isPrefixOf` getOccText name
             , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
             ]
-        ifChoiceData = MS.fromListWith (++)
+        envInterfaceChoiceData = MS.fromListWith (++)
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
             | (name, v) <- binds
             , "_interface_choice_" `T.isPrefixOf` getOccText name
             , ty@(TypeCon _ [_, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
             ]
-        templateBinds = scrapeTemplateBinds binds
-        interfaceBinds = scrapeInterfaceBinds binds
-        exceptionBinds
-            | lfVersion `supports` featureExceptions =
+        envTemplateBinds = scrapeTemplateBinds binds
+        envInterfaceBinds = scrapeInterfaceBinds binds
+        envExceptionBinds
+            | envLfVersion `supports` featureExceptions =
                 scrapeExceptionBinds binds
             | otherwise =
                 MS.empty
 
-        env = Env
-          { envLFModuleName = lfModName
-          , envGHCModuleName = ghcModName
-          , envModuleUnitId = thisUnitId
-          , envAliases = MS.empty
-          , envPkgMap = pkgMap
-          , envStablePackages = stablePackages
-          , envLfVersion = lfVersion
-          , envInterfaces = interfaceCons
-          , envInterfaceChoiceData = ifChoiceData
-          , envTemplateBinds = templateBinds
-          , envInterfaceBinds = interfaceBinds
-          , envExceptionBinds = exceptionBinds
-          , envImplements = tplImplements
-          , envRequires = ifaceRequires
-          , envInterfaceMethodInstances = tplInterfaceMethodInstances
-          , envChoiceData = choiceData
-          , envIsGenerated = isGenerated
-          , envTypeVars = MS.empty
-          , envTypeVarNames = S.empty
-          , envModInstanceInfo = modInstanceInfoFromDetails details
-          }
+        envAliases = MS.empty
+        envTypeVars = MS.empty
+        envTypeVarNames = S.empty
+        envModInstanceInfo = modInstanceInfoFromDetails details
+        env = Env {..}
 
 data Consuming = PreConsuming
                | Consuming
