@@ -13,7 +13,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.offset.Offset
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{Ref, Time}
 import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, ErrorFactories}
 import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -164,7 +164,8 @@ class DeduplicationPeriodSupportSpec
     val ledgerTimeModel = LedgerTimeModel.reasonableDefault
     val applicationId = ApplicationId(Ref.LedgerString.assertFromString("applicationid"))
     val submittedAt = Instant.now()
-    val maxRecordTimeFromSubmissionTime = submittedAt.plus(ledgerTimeModel.minSkew)
+    val maxRecordTimeFromSubmissionTime =
+      ledgerTimeModel.maxRecordTime(Time.Timestamp.assertFromInstant(submittedAt)).toInstant
     val statusRuntimeException = new StatusRuntimeException(Status.OK)
     val deduplicationPeriodOffset =
       Offset.fromHexString(Hash.hashPrivateKey("offset").toHexString)
