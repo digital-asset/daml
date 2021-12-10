@@ -24,6 +24,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantStateReader,
   KeyValueParticipantStateWriter,
   TimedLedgerWriter,
+  WriteServiceWithDeduplicationSupport,
 }
 import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v2.WritePackagesService
@@ -276,6 +277,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 servicesExecutionContext = servicesExecutionContext,
                 lfValueTranslationCache = lfValueTranslationCache,
               )
+              writeServiceWithDeduplicationSupport = WriteServiceWithDeduplicationSupport(
+                writeService,
+                indexService,
+                config.enableSelfServiceErrorCodes,
+              )
               apiServer <- StandaloneApiServer(
                 indexService = indexService,
                 ledgerId = ledgerId,
@@ -286,7 +292,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   implicitPartyAllocation = config.implicitPartyAllocation
                 ),
                 submissionConfig = SubmissionConfiguration.default,
-                optWriteService = Some(writeService),
+                optWriteService = Some(writeServiceWithDeduplicationSupport),
                 authService = authService,
                 healthChecks = healthChecks,
                 metrics = metrics,
