@@ -6,9 +6,7 @@ package speedy
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.Inside.inside
@@ -378,29 +376,19 @@ object SBuiltinBigNumericTest {
   val compiledPackages =
     PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
-  private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] = {
+  private def eval(e: Expr, onLedger: Boolean = true): Either[SError.SError, SValue] =
     evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)
-  }
 
-  private def evalSExpr(e: SExpr, onLedger: Boolean): Either[SError, SValue] = {
-    val machine = if (onLedger) {
-      Speedy.Machine.fromScenarioSExpr(
-        compiledPackages,
-        scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
-      )
-    } else {
-      Speedy.Machine.fromPureSExpr(compiledPackages, e)
-    }
-    final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
-    try {
-      val value = machine.run() match {
-        case SResultFinalValue(v) => v
-        case SResultError(err) => throw Goodbye(err)
-        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-      }
-
-      Right(value)
-    } catch { case Goodbye(err) => Left(err) }
+  private def evalSExpr(e: SExpr, onLedger: Boolean): Either[SError.SError, SValue] = {
+    val machine =
+      if (onLedger)
+        Speedy.Machine.fromScenarioSExpr(
+          compiledPackages,
+          scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
+        )
+      else
+        Speedy.Machine.fromPureSExpr(compiledPackages, e)
+    SpeedyTestLib.run(machine)
   }
 
 }

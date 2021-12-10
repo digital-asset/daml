@@ -13,7 +13,6 @@ import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.Validation
@@ -512,17 +511,7 @@ object SpeedyTest {
 
   private def evalSExpr(e: SExpr, packages: PureCompiledPackages): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromPureSExpr(packages, e)
-    final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
-    try {
-      val value = machine.run() match {
-        case SResultFinalValue(v) => v
-        case SResultError(err) => throw Goodbye(err)
-        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-      }
-      Right(value)
-    } catch {
-      case Goodbye(err) => Left(err)
-    }
+    SpeedyTestLib.run(machine)
   }
 
   private def evalApp(
