@@ -1491,7 +1491,7 @@ convertExpr env0 e = do
             let fldIndex = fromJust (elemIndex x vs)
             let fldName = fldNames !! fldIndex
             recTyp <- convertType env (varType bind)
-            pure $ mkDictProj env (fromTCon recTyp) fldName scrutinee' `ETmApp` EUnit
+            pure $ mkDictProj fldName scrutinee' `ETmApp` EUnit
     go env o@(Case scrutinee bind resultType [alt@(DataAlt con, vs, x)]) args = fmap (, args) $ do
         convertType env (varType bind) >>= \case
             -- opaque types have no patterns that can be matched
@@ -1860,8 +1860,8 @@ mkDictCon env tcon fields
     | null fields = EUnit
     | otherwise = EStructCon fields
 
-mkDictProj :: Env -> TypeConApp -> LF.FieldName -> LF.Expr -> LF.Expr
-mkDictProj env _tcon = EStructProj
+mkDictProj :: LF.FieldName -> LF.Expr -> LF.Expr
+mkDictProj = EStructProj
 
 -- Convert a coercion @S ~ T@ to a pair of lambdas
 -- @(to :: S -> T, from :: T -> S)@ in higher-order abstract syntax style.
@@ -1956,7 +1956,7 @@ convertCoercion env co = evalStateT (go env co) 0
         t' <- lift $ convertQualifiedTyCon env tCon
         let tcon = TypeConApp t' ts'
         pure $ if flv == ClassFlavour
-           then (\expr -> mkDictCon env tcon [(field, sanitizeTo expr)], sanitizeFrom . mkDictProj env tcon field)
+           then (\expr -> mkDictCon env tcon [(field, sanitizeTo expr)], sanitizeFrom . mkDictProj field)
            else (\expr -> ERecCon tcon [(field, expr)], ERecProj tcon field)
       where
           sanitizeTo x
