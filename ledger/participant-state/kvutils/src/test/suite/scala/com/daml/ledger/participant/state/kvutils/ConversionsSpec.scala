@@ -131,7 +131,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             ("Rejection", "Expected Code", "Expected Additional Details"),
             (
               Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
-              Code.INVALID_ARGUMENT,
+              Code.FAILED_PRECONDITION,
               Map.empty,
             ),
             (
@@ -242,7 +242,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             ),
             (
               Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
-              Code.INTERNAL,
+              Code.FAILED_PRECONDITION,
               Map.empty,
               Map.empty,
             ),
