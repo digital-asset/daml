@@ -193,9 +193,6 @@ object ExceptionRaceConditionIT {
     private def isExerciseEvent(choiceName: String)(event: TreeEvent): Boolean =
       event.kind.isExercised && event.getExercised.choice == choiceName
 
-    // def isCreateDummyContract(tx: TransactionTree): Boolean =
-    //   tx.containsEvent(isCreated(RaceTests.DummyContract.TemplateName))
-
     def isCreateNonTransient(tx: TransactionTree): Boolean =
       tx.hasEventsNumber(1) &&
         tx.containsEvent(isCreated(ExceptionRaceTests.ContractWithKey.TemplateName))
@@ -240,12 +237,7 @@ object ExceptionRaceConditionIT {
     object ContractWithKey {
       val TemplateName = "ContractWithKey"
       val ChoiceArchive = "ContractWithKey_Archive"
-//      val ChoiceExercise = "ContractWithKey_Exercise"
     }
-
-    // object DummyContract {
-    //   val TemplateName = "DummyContract"
-    // }
 
     object FetchWrapper {
       val ChoiceFetch = "FetchWrapper_Fetch"
