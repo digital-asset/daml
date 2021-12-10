@@ -329,12 +329,11 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
 
       val signatories = committers.take(1)
       val contract = mkContract(signatories, Set.empty)
-      val contracts = (_: Value.ContractId) => contract
       val cids = (1 to 99).map(i => Value.ContractId.V1(crypto.Hash.hashPrivateKey(s"contract$i")))
       val e = e"Mod:fetches"
 
       forEvery(testCases) { (i, succeed) =>
-        val result = eval(limits, contracts, committers, e, asSCids(cids.take(i)))
+        val result = eval(limits, _ => contract, committers, e, asSCids(cids.take(i)))
         if (succeed)
           result shouldBe a[Right[_, _]]
         else
@@ -391,43 +390,21 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
 
   private[this] def eval(
       limits: interpretation.Limits,
-      contracts: Value.ContractId => Versioned[Value.ContractInstance],
+      contracts: PartialFunction[Value.ContractId, Versioned[Value.ContractInstance]],
       committers: Set[Ref.Party],
       e: Ast.Expr,
       agrs: SValue*
-  ): Either[SError.SError, SubmittedTransaction] = {
-    val machine = Speedy.Machine.fromUpdateSExpr(
-      compiledPackages = pkgs,
-      transactionSeed = txSeed,
-      updateSE =
-        SExpr.SEApp(pkgs.compiler.unsafeCompile(e), agrs.view.map(SExpr.SEValue(_)).toArray),
-      committers = committers,
-      limits = limits,
+  ): Either[SError.SError, SubmittedTransaction] =
+    SpeedyTestLib.buildTransaction(
+      machine = Speedy.Machine.fromUpdateSExpr(
+        compiledPackages = pkgs,
+        transactionSeed = txSeed,
+        updateSE =
+          SExpr.SEApp(pkgs.compiler.unsafeCompile(e), agrs.view.map(SExpr.SEValue(_)).toArray),
+        committers = committers,
+        limits = limits,
+      ),
+      getContract = contracts,
     )
-    final case class Goodbye(e: SError.SError) extends RuntimeException("", null, false, false)
-    try {
-      var result = Option.empty[SubmittedTransaction]
-      while (result.isEmpty) {
-        machine.run() match {
-          case SResult.SResultFinalValue(_) =>
-            machine.withOnLedger("LimitsSpec")(_.ptx.finish match {
-              case PartialTransaction.CompleteTransaction(tx, _, _) =>
-                result = Some(tx)
-              case PartialTransaction.IncompleteTransaction(ptx) =>
-                throw new RuntimeException(s"Got unexpected incomplete transaction $ptx")
-            })
-          case SResult.SResultNeedContract(contractId, _, _, callback) =>
-            callback(contracts(contractId))
-          case SResult.SResultError(err) =>
-            throw Goodbye(err)
-          case res =>
-            throw new RuntimeException(s"Got unexpected interpretation result $res")
-        }
-      }
-      Right(result.get)
-    } catch {
-      case Goodbye(err) => Left(err)
-    }
-  }
 
 }

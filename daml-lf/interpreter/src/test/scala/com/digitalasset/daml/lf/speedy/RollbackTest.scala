@@ -10,8 +10,6 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast.{Package, Expr}
 import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
-import com.daml.lf.speedy.PartialTransaction.{CompleteTransaction, IncompleteTransaction}
-import com.daml.lf.speedy.SResult.SResultFinalValue
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
@@ -52,20 +50,9 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     val se = pkgs1.compiler.unsafeCompile(e)
     val example = SEApp(se, Array(SEValue(SParty(party))))
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs1, transactionSeed, example, Set(party))
-    val res = machine.run()
-    res match {
-      case _: SResultFinalValue =>
-        machine.withOnLedger("RollbackTest") { onLedger =>
-          onLedger.ptx.finish match {
-            case IncompleteTransaction(_) =>
-              sys.error("unexpected IncompleteTransaction")
-            case CompleteTransaction(tx, _, _) =>
-              tx
-          }
-        }
-      case _ =>
-        sys.error(s"unexpected res: $res")
-    }
+    SpeedyTestLib
+      .buildTransaction(machine)
+      .fold(e => fail(Pretty.prettyError(e).toString()), identity)
   }
 
   val pkgs: PureCompiledPackages = typeAndCompile(p"""

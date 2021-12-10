@@ -5,13 +5,11 @@ package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.{SError, SErrorCrash}
+import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue, SResultNeedPackage}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
@@ -22,6 +20,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.Inside
 
 import scala.language.implicitConversions
+import scala.util.{Failure, Try}
 
 class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
 
@@ -1536,10 +1535,13 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @Mod:ExceptionAppend (Mod:ExceptionAppend { front = "Hello", back = "world"}))"""
       ) shouldBe Right(SText("Helloworld"))
       inside(
-        eval(
-          e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
+        Try(
+          eval(
+            e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
+          )
         )
-      ) { case Left(SErrorCrash(_, "need package '-unknown-package-'")) =>
+      ) { case Failure(error) =>
+        error.getMessage should include("unknown package '-unknown-package-'")
       }
     }
 
@@ -1619,44 +1621,30 @@ object SBuiltinTest {
   val compiledPackages =
     PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
-  private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] = {
+  private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] =
     evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)
-  }
 
   private def evalApp(
       e: Expr,
       args: Array[SValue],
       onLedger: Boolean = true,
-  ): Either[SError, SValue] = {
+  ): Either[SError, SValue] =
     evalSExpr(SEApp(compiledPackages.compiler.unsafeCompile(e), args.map(SEValue(_))), onLedger)
-  }
 
   private[this] val committers = Set(Ref.Party.assertFromString("Alice"))
 
   private def evalSExpr(e: SExpr, onLedger: Boolean): Either[SError, SValue] = {
-    val machine = if (onLedger) {
-      val seed = crypto.Hash.hashPrivateKey("SBuiltinTest")
-      Speedy.Machine.fromUpdateSExpr(
-        compiledPackages,
-        transactionSeed = seed,
-        updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
-        committers = committers,
-      )
-    } else {
-      Speedy.Machine.fromPureSExpr(compiledPackages, e)
-    }
-    final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
-    try {
-      val value = machine.run() match {
-        case SResultFinalValue(v) => v
-        case SResultError(err) => throw Goodbye(err)
-        case SResultNeedPackage(pkgId, _, _) =>
-          throw Goodbye(SErrorCrash("", s"need package '$pkgId'"))
-        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-      }
-
-      Right(value)
-    } catch { case Goodbye(err) => Left(err) }
+    val machine =
+      if (onLedger)
+        Speedy.Machine.fromUpdateSExpr(
+          compiledPackages,
+          transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
+          updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
+          committers = committers,
+        )
+      else
+        Speedy.Machine.fromPureSExpr(compiledPackages, e)
+    SpeedyTestLib.run(machine)
   }
 
   def intList(xs: Long*): String =
