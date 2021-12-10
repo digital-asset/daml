@@ -23,20 +23,20 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 5,
-      init           = "[]",
-      type           = "n2-highmem-2",
-      xmx            = "12g",
-      disk_size      = 300,
-    },
-    {
-      suffix         = "-green",
-      ubuntu_version = "2004",
       size           = 0,
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
-      disk_size      = 500,
+      disk_size      = 800,
+    },
+    {
+      suffix         = "-green",
+      ubuntu_version = "2004",
+      size           = 5,
+      init           = "[]",
+      type           = "n2-highmem-2",
+      xmx            = "12g",
+      disk_size      = 800,
     },
     {
       suffix         = "-init",
@@ -218,7 +218,7 @@ docker run -d \
            --name es \
            -p 9200:9200 \
            -p 9300:9300 \
-           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx}" \
+           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx} -Dlog4j2.formatMsgNoLookups=true" \
            -v /root/es-data:/usr/share/elasticsearch/data \
            es
 
