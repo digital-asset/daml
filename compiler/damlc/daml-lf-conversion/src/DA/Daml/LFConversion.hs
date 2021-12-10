@@ -702,8 +702,7 @@ convertTypeSynonym env tycon
     | NameIn DA_Generics _ <- GHC.tyConName tycon
     = pure []
 
-    | envLfVersion env `supports` featureTypeSynonyms
-    , Just (params, body) <- synTyConDefn_maybe tycon
+    | Just (params, body) <- synTyConDefn_maybe tycon
     , not (isKindTyCon tycon)
     = do
         let isConstraintSynonym =
@@ -733,17 +732,8 @@ convertClassDef env tycon
     fieldTypes <- mapM (convertType env') (theta ++ args)
 
     let fields = zipExact labels (map sanitize fieldTypes)
-        tconName = mkTypeCon [getOccText tycon]
         tsynName = mkTypeSyn [getOccText tycon]
-        newStyle = envLfVersion env `supports` featureTypeSynonyms
-            -- "new-style typeclasses" are type synonyms
-            -- "old-style typeclasses" were record types
-        typeDef
-            | newStyle =
-                -- LF structs must have > 0 fields, therefore we define the
-                -- typeclass as a synonym for Unit if it has no fields.
-                defTypeSyn tsynName tyVars (if null fields then TUnit else TStruct fields)
-            | otherwise = defDataType tconName tyVars (DataRecord fields)
+        typeDef = defTypeSyn tsynName tyVars (if null fields then TUnit else TStruct fields)
 
     let funDeps = snd (classTvsFds cls)
     funDeps' <- mapM (mapFunDepM (convTypeVarName env')) funDeps
@@ -770,8 +760,8 @@ convertClassDef env tycon
         minimalDef = DValue (mkMetadataStub (minimalName tsynName) minimalType)
 
     pure $ [typeDef]
-        ++ [funDepDef | classHasFds cls && newStyle]
-        ++ [minimalDef | not minimalIsDefault && newStyle]
+        ++ [funDepDef | classHasFds cls]
+        ++ [minimalDef | not minimalIsDefault]
         -- NOTE (SF): No reason to generate fundep & minimal metadata with old-style typeclasses,
         -- since data-dependencies support for old-style typeclasses is extremely limited.
 
@@ -784,14 +774,10 @@ convertDepOrphanModules env orphanModules = do
     pure [moduleImportsDef]
 
 convertExports :: Env -> [GHC.AvailInfo] -> ConvertM [Definition]
-convertExports env availInfos =
-    if envLfVersion env `supports` featureTypeSynonyms
-        then do
-            let externalExportInfos = filter isExternalAvailInfo availInfos
-            exportInfos <- mapM availInfoToExportInfo externalExportInfos
-            pure $ zipWith mkExportDef [0..] exportInfos
-        else
-            pure []
+convertExports env availInfos = do
+    let externalExportInfos = filter isExternalAvailInfo availInfos
+    exportInfos <- mapM availInfoToExportInfo externalExportInfos
+    pure $ zipWith mkExportDef [0..] exportInfos
     where
         isExternalAvailInfo :: GHC.AvailInfo -> Bool
         isExternalAvailInfo = isExternalName . GHC.availName
@@ -1130,10 +1116,7 @@ convertBind env (name, x)
     let sanitized_x'
           | isNewtype = x'
           | otherwise =
-            let fieldsPrism
-                  | envLfVersion env `supports` featureTypeSynonyms = _EStructCon
-                  | otherwise = _ERecCon . _2
-            in over (_ETyLams . _2 . _ETmLams . _2 . fieldsPrism . each . _2) (ETmLam (mkVar "_", TUnit)) x'
+            over (_ETyLams . _2 . _ETmLams . _2 . _EStructCon . each . _2) (ETmLam (mkVar "_", TUnit)) x'
     name' <- convValWithType env name
 
     -- OVERLAP* annotations
@@ -1874,15 +1857,11 @@ mkDictCon :: Env -> TypeConApp -> [(LF.FieldName, LF.Expr)] -> LF.Expr
 mkDictCon env tcon fields
 -- Structs must have > 0 fields, therefore we simply make a typeclass a synonym for Unit
 -- if it has no fields.
-    | envLfVersion env `supports` featureTypeSynonyms && null fields = EUnit
-    | envLfVersion env `supports` featureTypeSynonyms = EStructCon fields
-    | otherwise = ERecCon tcon fields
+    | null fields = EUnit
+    | otherwise = EStructCon fields
 
 mkDictProj :: Env -> TypeConApp -> LF.FieldName -> LF.Expr -> LF.Expr
-mkDictProj env tcon =
-    if envLfVersion env `supports` featureTypeSynonyms
-      then EStructProj
-      else ERecProj tcon
+mkDictProj env _tcon = EStructProj
 
 -- Convert a coercion @S ~ T@ to a pair of lambdas
 -- @(to :: S -> T, from :: T -> S)@ in higher-order abstract syntax style.
@@ -2174,8 +2153,7 @@ convertType env = go env
             fieldTys <- mapM (go env) ts
             let fieldNames = map mkSuperClassField [1..]
             pure $ TStruct (zip fieldNames fieldTys)
-        | tyConFlavour t == ClassFlavour
-        , envLfVersion env `supports` featureTypeSynonyms = do
+        | tyConFlavour t == ClassFlavour = do
            tySyn <- convertQualifiedTySyn env t
            TSynApp tySyn <$> mapM (go env) ts
         | otherwise =

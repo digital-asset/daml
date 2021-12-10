@@ -111,13 +111,6 @@ featureGenMap = Feature
     , featureCppFlag = Just "DAML_GENMAP"
     }
 
-featureTypeSynonyms :: Feature
-featureTypeSynonyms = Feature
-    { featureName = "LF type synonyms"
-    , featureMinVersion = version1_8
-    , featureCppFlag = Nothing
-    }
-
 featurePackageMetadata :: Feature
 featurePackageMetadata = Feature
     { featureName = "Package metadata"
@@ -196,7 +189,6 @@ allFeatures =
     [ featureNumeric
     , featureAnyType
     , featureTypeRep
-    , featureTypeSynonyms
     , featureStringInterning
     , featureGenericComparison
     , featureGenMap
