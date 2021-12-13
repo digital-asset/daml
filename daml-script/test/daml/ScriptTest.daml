@@ -203,9 +203,9 @@ traceOrder : Script ()
 traceOrder = do
   let y: Script () = abort "foobar"
   forA_ [0,1] $ \i -> do
-    debug "abc"
+    debugRaw "abc"
     x <- getTime
-    debug "def"
+    debugRaw "def"
 
 jsonBasic : Party -> Script Int
 jsonBasic p = do
