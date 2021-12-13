@@ -29,6 +29,8 @@ da_scala_library(
         "//ledger-service/jwt",
         "//ledger/error",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/participant-state-index",
         "//libs-scala/contextualized-logging",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_grpc_grpc_api",
@@ -67,6 +69,7 @@ da_scala_test_suite(
     deps = [
         ":ledger-api-auth",
         "//ledger/error",
+        "//ledger/participant-state-index",
         "//ledger/test-common",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",

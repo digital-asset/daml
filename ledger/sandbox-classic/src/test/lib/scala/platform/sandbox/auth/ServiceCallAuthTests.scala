@@ -44,6 +44,9 @@ trait ServiceCallAuthTests
   protected def expectUnauthenticated(f: Future[Any]): Future[Assertion] =
     expectFailure(f, Status.Code.UNAUTHENTICATED)
 
+  protected def expectInvalidArgument(f: Future[Any]): Future[Assertion] =
+    expectFailure(f, Status.Code.INVALID_ARGUMENT)
+
   protected def expectUnimplemented(f: Future[Any]): Future[Assertion] =
     expectFailure(f, Status.Code.UNIMPLEMENTED)
 
@@ -59,49 +62,83 @@ trait ServiceCallAuthTests
   protected def ledgerBegin: LedgerOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
 
+  protected val randomParty: String = UUID.randomUUID.toString
   protected val canActAsRandomParty: Option[String] =
-    Option(toHeader(readWriteToken(UUID.randomUUID.toString)))
+    Option(customTokenToHeader(readWriteToken(randomParty)))
   protected val canActAsRandomPartyExpired: Option[String] =
-    Option(toHeader(expiringIn(Duration.ofDays(-1), readWriteToken(UUID.randomUUID.toString))))
+    Option(
+      customTokenToHeader(expiringIn(Duration.ofDays(-1), readWriteToken(UUID.randomUUID.toString)))
+    )
   protected val canActAsRandomPartyExpiresTomorrow: Option[String] =
-    Option(toHeader(expiringIn(Duration.ofDays(1), readWriteToken(UUID.randomUUID.toString))))
+    Option(
+      customTokenToHeader(expiringIn(Duration.ofDays(1), readWriteToken(UUID.randomUUID.toString)))
+    )
 
   protected val canReadAsRandomParty: Option[String] =
-    Option(toHeader(readOnlyToken(UUID.randomUUID.toString)))
+    Option(customTokenToHeader(readOnlyToken(randomParty)))
   protected val canReadAsRandomPartyExpired: Option[String] =
-    Option(toHeader(expiringIn(Duration.ofDays(-1), readOnlyToken(UUID.randomUUID.toString))))
+    Option(
+      customTokenToHeader(expiringIn(Duration.ofDays(-1), readOnlyToken(UUID.randomUUID.toString)))
+    )
   protected val canReadAsRandomPartyExpiresTomorrow: Option[String] =
-    Option(toHeader(expiringIn(Duration.ofDays(1), readOnlyToken(UUID.randomUUID.toString))))
+    Option(
+      customTokenToHeader(expiringIn(Duration.ofDays(1), readOnlyToken(UUID.randomUUID.toString)))
+    )
 
   protected val canReadAsAdmin: Option[String] =
-    Option(toHeader(adminToken))
+    Option(customTokenToHeader(adminToken))
+
   protected val canReadAsAdminExpired: Option[String] =
-    Option(toHeader(expiringIn(Duration.ofDays(-1), adminToken)))
+    Option(customTokenToHeader(expiringIn(Duration.ofDays(-1), adminToken)))
   protected val canReadAsAdminExpiresTomorrow: Option[String] =
-    Option(toHeader(expiringIn(Duration.ofDays(1), adminToken)))
+    Option(customTokenToHeader(expiringIn(Duration.ofDays(1), adminToken)))
+
+  // Standard tokens for user authentication
+  protected val canReadAsAdminStandardJWT: Option[String] =
+    Option(toHeader(adminTokenStandardJWT))
+  protected val canReadAsUnknownUserStandardJWT: Option[String] =
+    Option(toHeader(unknownUserTokenStandardJWT))
+
+  // Special tokens to test decoding users and rights from custom tokens
+  protected val randomUserCanReadAsRandomParty: Option[String] =
+    Option(customTokenToHeader(readOnlyToken(randomParty).copy(applicationId = Some(randomUserId))))
+  protected val randomUserCanActAsRandomParty: Option[String] =
+    Option(
+      customTokenToHeader(readWriteToken(randomParty).copy(applicationId = Some(randomUserId)))
+    )
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
   protected lazy val canReadAsRandomPartyActualLedgerId: Option[String] =
-    Option(toHeader(forLedgerId(unwrappedLedgerId, readOnlyToken(UUID.randomUUID.toString))))
+    Option(
+      customTokenToHeader(forLedgerId(unwrappedLedgerId, readOnlyToken(UUID.randomUUID.toString)))
+    )
   protected val canReadAsRandomPartyRandomLedgerId: Option[String] =
-    Option(toHeader(forLedgerId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString))))
+    Option(
+      customTokenToHeader(
+        forLedgerId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString))
+      )
+    )
   protected val canReadAsRandomPartyActualParticipantId: Option[String] =
     Option(
-      toHeader(forParticipantId("sandbox-participant", readOnlyToken(UUID.randomUUID.toString)))
+      customTokenToHeader(
+        forParticipantId("sandbox-participant", readOnlyToken(UUID.randomUUID.toString))
+      )
     )
   protected val canReadAsRandomPartyRandomParticipantId: Option[String] =
     Option(
-      toHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString)))
+      customTokenToHeader(
+        forParticipantId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString))
+      )
     )
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
   protected lazy val canReadAsAdminActualLedgerId: Option[String] =
-    Option(toHeader(forLedgerId(unwrappedLedgerId, adminToken)))
+    Option(customTokenToHeader(forLedgerId(unwrappedLedgerId, adminToken)))
   protected val canReadAsAdminRandomLedgerId: Option[String] =
-    Option(toHeader(forLedgerId(UUID.randomUUID.toString, adminToken)))
+    Option(customTokenToHeader(forLedgerId(UUID.randomUUID.toString, adminToken)))
   protected val canReadAsAdminActualParticipantId: Option[String] =
-    Option(toHeader(forParticipantId("sandbox-participant", adminToken)))
+    Option(customTokenToHeader(forParticipantId("sandbox-participant", adminToken)))
   protected val canReadAsAdminRandomParticipantId: Option[String] =
-    Option(toHeader(forParticipantId(UUID.randomUUID.toString, adminToken)))
+    Option(customTokenToHeader(forParticipantId(UUID.randomUUID.toString, adminToken)))
 
 }

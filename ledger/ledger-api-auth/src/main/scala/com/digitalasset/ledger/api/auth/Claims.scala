@@ -86,13 +86,15 @@ object ClaimSet {
     * @param participantId  If set, the claims will only be valid on the given participant identifier.
     * @param applicationId  If set, the claims will only be valid on the given application identifier.
     * @param expiration     If set, the claims will cease to be valid at the given time.
+    * @param resolvedFromUser  If set, then the claims were resolved from a user in the user management service.
     */
   final case class Claims(
       claims: Seq[Claim],
-      ledgerId: Option[String] = None,
-      participantId: Option[String] = None,
-      applicationId: Option[String] = None,
-      expiration: Option[Instant] = None,
+      ledgerId: Option[String],
+      participantId: Option[String],
+      applicationId: Option[String],
+      expiration: Option[Instant],
+      resolvedFromUser: Boolean,
   ) extends ClaimSet {
     def validForLedger(id: String): Either[AuthorizationError, Unit] =
       Either.cond(ledgerId.forall(_ == id), (), AuthorizationError.InvalidLedger(ledgerId.get, id))
@@ -155,6 +157,13 @@ object ClaimSet {
     }
   }
 
+  /** The representation of a user that was authenticated, but whose [[Claims]] have not yet been resolved. */
+  final case class AuthenticatedUser(
+      userId: String, // TODO (i12049): use Ref.UserId here
+      participantId: Option[String],
+      expiration: Option[Instant],
+  ) extends ClaimSet
+
   object Claims {
 
     /** A set of [[Claims]] that does not have any authorization */
@@ -164,6 +173,7 @@ object ClaimSet {
       participantId = None,
       applicationId = None,
       expiration = None,
+      resolvedFromUser = false,
     )
 
     /** A set of [[Claims]] that has all possible authorizations */

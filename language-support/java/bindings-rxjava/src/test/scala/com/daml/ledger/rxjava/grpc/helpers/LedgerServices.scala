@@ -4,10 +4,10 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import com.daml.error.ErrorCodesVersionSwitcher
-
 import java.net.{InetSocketAddress, SocketAddress}
 import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
+
 import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
 import com.daml.ledger.rxjava.{CommandCompletionClient, LedgerConfigurationClient, PackageClient}
@@ -31,6 +31,7 @@ import com.daml.ledger.api.v1.package_service.{
   ListPackagesResponse,
 }
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
+import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
@@ -93,6 +94,7 @@ final class LedgerServices(val ledgerId: String) {
   ): Server = {
     val authorizationInterceptor = AuthorizationInterceptor(
       authService,
+      new InMemoryUserManagementStore(),
       executionContext,
       new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
     )

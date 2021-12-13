@@ -36,6 +36,7 @@ import com.daml.platform.apiserver.services.admin.{
   ApiPackageManagementService,
   ApiParticipantPruningService,
   ApiPartyManagementService,
+  ApiUserManagementService,
 }
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
 import com.daml.platform.configuration.{
@@ -76,6 +77,7 @@ private[daml] object ApiServices {
       participantId: Ref.ParticipantId,
       optWriteService: Option[state.WriteService],
       indexService: IndexService,
+      userManagementService: UserManagementStore,
       authorizer: Authorizer,
       engine: Engine,
       timeProvider: TimeProvider,
@@ -201,6 +203,9 @@ private[daml] object ApiServices {
 
       val apiHealthService = new GrpcHealthService(healthChecks, errorsVersionsSwitcher)
 
+      val apiUserManagementService =
+        new ApiUserManagementService(userManagementService, errorsVersionsSwitcher)
+
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
         List(
@@ -213,6 +218,7 @@ private[daml] object ApiServices {
           apiReflectionService,
           apiHealthService,
           apiVersionService,
+          new UserManagementServiceAuthorization(apiUserManagementService, authorizer),
         )
     }
 

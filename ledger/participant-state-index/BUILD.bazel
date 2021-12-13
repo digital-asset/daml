@@ -8,7 +8,7 @@ load(
 
 da_scala_library(
     name = "participant-state-index",
-    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/index/v2/*.scala"]),
+    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/index/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",

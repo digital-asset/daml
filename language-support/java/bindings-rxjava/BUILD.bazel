@@ -76,6 +76,7 @@ da_scala_library(
         "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
+        "//ledger/participant-state-index",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",

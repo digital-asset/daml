@@ -71,6 +71,17 @@ class FieldValidations private (errorFactories: ErrorFactories) {
         } yield parties + party
     }
 
+  def requireUserId(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Ref.UserId] =
+    Ref.UserId.fromString(s) match {
+      case Right(userId) => Right(userId)
+      case Left(msg) => Left(invalidField(fieldName, msg, definiteAnswer = Some(false)))
+    }
+
   def requireLedgerString(
       s: String,
       fieldName: String,
@@ -92,12 +103,10 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   def validateSubmissionId(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Option[domain.SubmissionId]] =
-    if (s.isEmpty) {
-      Right(None)
-    } else {
+    optionalString(s) { nonEmptyString =>
       Ref.SubmissionId
-        .fromString(s)
-        .map(submissionId => Some(domain.SubmissionId(submissionId)))
+        .fromString(nonEmptyString)
+        .map(domain.SubmissionId(_))
         .left
         .map(invalidField("submission_id", _, definiteAnswer = Some(false)))
     }
@@ -144,6 +153,11 @@ class FieldValidations private (errorFactories: ErrorFactories) {
       en <- requireDottedName(identifier.entityName, "entity_name")
     } yield Ref.Identifier(packageId, Ref.QualifiedName(mn, en))
 
+  def optionalString[T](s: String)(
+      someValidation: String => Either[StatusRuntimeException, T]
+  ): Either[StatusRuntimeException, Option[T]] =
+    if (s.isEmpty) Right(None)
+    else someValidation(s).map(Option(_))
 }
 
 object FieldValidations {

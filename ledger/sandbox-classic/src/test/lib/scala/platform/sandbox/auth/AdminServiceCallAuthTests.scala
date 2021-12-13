@@ -7,7 +7,7 @@ import java.util.UUID
 
 trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
-  private val signedIncorrectly = Option(toHeader(adminToken, UUID.randomUUID.toString))
+  private val signedIncorrectly = Option(customTokenToHeader(adminToken, UUID.randomUUID.toString))
 
   it should "deny calls with an invalid signature" in {
     expectUnauthenticated(serviceCallWithToken(signedIncorrectly))
@@ -27,7 +27,12 @@ trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "allow calls with admin token without expiration" in {
     expectSuccess(serviceCallWithToken(canReadAsAdmin))
   }
-
+  it should "allow calls with standard token for 'participant_admin' without expiration" in {
+    expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
+  }
+  it should "deny calls with standard token for 'unknown_user' without expiration" in {
+    expectUnauthenticated(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
+  }
   it should "allow calls with the correct ledger ID" in {
     expectSuccess(serviceCallWithToken(canReadAsAdminActualLedgerId))
   }

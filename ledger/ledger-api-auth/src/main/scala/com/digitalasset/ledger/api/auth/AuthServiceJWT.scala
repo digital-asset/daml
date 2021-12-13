@@ -42,14 +42,14 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
       token => payloadToClaims(token),
     )
 
-  private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] = {
-    import AuthServiceJWTCodec.JsonImplicits._
-    Try(JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]).toEither.left.map(t =>
+  private[this] def parsePayload(jwtPayload: String): Either[Error, SupportedJWTPayload] = {
+    import SupportedJWTCodec.JsonImplicits._
+    Try(JsonParser(jwtPayload).convertTo[SupportedJWTPayload]).toEither.left.map(t =>
       Error("Could not parse JWT token: " + t.getMessage)
     )
   }
 
-  private[this] def parseJWTPayload(header: String): Either[Error, AuthServiceJWTPayload] = {
+  private[this] def parseJWTPayload(header: String): Either[Error, SupportedJWTPayload] = {
     val BearerTokenRegex = "Bearer (.*)".r
 
     for {
@@ -66,28 +66,37 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
     } yield parsed
   }
 
-  private[this] def payloadToClaims(payload: AuthServiceJWTPayload): ClaimSet.Claims = {
-    val claims = ListBuffer[Claim]()
+  private[this] def payloadToClaims(payload: SupportedJWTPayload): ClaimSet = payload match {
+    case CustomDamlJWTPayload(payload) =>
+      val claims = ListBuffer[Claim]()
 
-    // Any valid token authorizes the user to use public services
-    claims.append(ClaimPublic)
+      // Any valid token authorizes the user to use public services
+      claims.append(ClaimPublic)
 
-    if (payload.admin)
-      claims.append(ClaimAdmin)
+      if (payload.admin)
+        claims.append(ClaimAdmin)
 
-    payload.actAs
-      .foreach(party => claims.append(ClaimActAsParty(Ref.Party.assertFromString(party))))
+      payload.actAs
+        .foreach(party => claims.append(ClaimActAsParty(Ref.Party.assertFromString(party))))
 
-    payload.readAs
-      .foreach(party => claims.append(ClaimReadAsParty(Ref.Party.assertFromString(party))))
+      payload.readAs
+        .foreach(party => claims.append(ClaimReadAsParty(Ref.Party.assertFromString(party))))
 
-    ClaimSet.Claims(
-      claims = claims.toList,
-      ledgerId = payload.ledgerId,
-      participantId = payload.participantId,
-      applicationId = payload.applicationId,
-      expiration = payload.exp,
-    )
+      ClaimSet.Claims(
+        claims = claims.toList,
+        ledgerId = payload.ledgerId,
+        participantId = payload.participantId,
+        applicationId = payload.applicationId,
+        expiration = payload.exp,
+        resolvedFromUser = false,
+      )
+
+    case StandardJWTPayload(payload) =>
+      ClaimSet.AuthenticatedUser(
+        participantId = payload.participantId,
+        userId = payload.applicationId.get,
+        expiration = payload.exp,
+      )
   }
 }
 

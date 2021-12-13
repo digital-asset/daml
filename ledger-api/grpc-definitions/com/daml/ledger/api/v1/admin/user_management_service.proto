@@ -9,8 +9,6 @@ option java_outer_classname = "UserManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
-import "google/protobuf/empty.proto";
-
 
 // Experimental API to manage users and their rights for interacting with the Ledger API
 // served by a participant node.
@@ -135,7 +133,7 @@ message DeleteUserResponse {
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message ListUsersRequest {
-    // TODO: add pagination, cf. https://cloud.google.com/apis/design/design_patterns#list_pagination
+    // TODO (i12052): add pagination following https://cloud.google.com/apis/design/design_patterns#list_pagination
 }
 
 message ListUsersResponse {
@@ -176,7 +174,7 @@ message ListUserRightsRequest {
     // If set to empty string (the default), then the rights for the authenticated user will be listed.
     string user_id = 1;
 
-    // TODO: add pagination, cf. https://cloud.google.com/apis/design/design_patterns#list_pagination
+    // TODO (i12052): add pagination following https://cloud.google.com/apis/design/design_patterns#list_pagination
 }
 
 message ListUserRightsResponse {

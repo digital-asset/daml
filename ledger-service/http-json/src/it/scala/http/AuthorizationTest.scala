@@ -46,7 +46,7 @@ final class AuthorizationTest
   private val publicToken = "public"
   private val emptyToken = "empty"
   private val mockedAuthService = Option(AuthServiceStatic {
-    case `publicToken` => ClaimSet.Claims(Seq[Claim](ClaimPublic))
+    case `publicToken` => ClaimSet.Claims.Empty.copy(claims = Seq[Claim](ClaimPublic))
     case `emptyToken` => ClaimSet.Unauthenticated
   })
 

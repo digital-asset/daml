@@ -12,8 +12,10 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import java.util.concurrent.CompletableFuture
+
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
+
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.Promise
 import scala.util.Success
@@ -49,6 +51,7 @@ class AuthorizationInterceptorSpec
       usesSelfServiceErrorCodes: Boolean
   )(assertRpcStatus: (Status, Metadata) => Assertion) = {
     val authService = mock[AuthService]
+    val userManagementService = mock[UserManagementStore]
     val serverCall = mock[ServerCall[Nothing, Nothing]]
     val failedMetadataDecode = CompletableFuture.supplyAsync[ClaimSet](() =>
       throw new RuntimeException("some internal failure")
@@ -63,7 +66,7 @@ class AuthorizationInterceptorSpec
 
     val errorCodesStatusSwitcher = new ErrorCodesVersionSwitcher(usesSelfServiceErrorCodes)
     val authorizationInterceptor =
-      AuthorizationInterceptor(authService, global, errorCodesStatusSwitcher)
+      AuthorizationInterceptor(authService, userManagementService, global, errorCodesStatusSwitcher)
 
     val statusCaptor = ArgCaptor[Status]
     val metadataCaptor = ArgCaptor[Metadata]
