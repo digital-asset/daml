@@ -11,7 +11,7 @@ Many things can fail during this time window:
 
 - The application can crash.
 - The participant node can crash.
-- Messages can be lost on the network
+- Messages can be lost on the network.
 - The ledger may be slow to respond due to a high load.
 
 If you want to make sure that an intended ledger change is not executed twice, your application needs to robustly handle all failure scenarios.
@@ -60,7 +60,7 @@ A command submission is considered a **duplicate submission** if at least one of
 
 The outcome of command deduplication is communicated as follows:
 
-- Command submissions via the :ref:`command service <command-service>` indicate the command deduplication outcome as a synchronous gRPC response unless when the `gRPC deadline <https://grpc.io/blog/deadlines/>`_ was exceeded.
+- Command submissions via the :ref:`command service <command-service>` indicate the command deduplication outcome as a synchronous gRPC response unless the `gRPC deadline <https://grpc.io/blog/deadlines/>`_ was exceeded.
 
   .. note::
      The outcome MAY additionally appear as a completion event on the :ref:`command completion service <command-completion-service>`,
@@ -72,7 +72,7 @@ The outcome of command deduplication is communicated as follows:
 
 Independently of how the outcome is communicated, command deduplication generates the following outcomes of a command submission:
 
-- If there is no conflicting submission with the same :ref:`change ID <change-id>` on the Daml ledger or in-flight, the completion event and possibly the response convey the result of the submission (success or a gRPC error).
+- If there is no conflicting submission with the same :ref:`change ID <change-id>` on the Daml ledger or in-flight, the completion event and possibly the response convey the result of the submission (success or a gRPC error; :doc:`/app-dev/grpc/error-codes` explains how errors are communicated).
 
 - The gRPC status code ``ALREADY_EXISTS`` with error code ID :ref:`DUPLICATE_COMMAND <error_code_DUPLICATE_COMMAND>` indicates that there is an earlier command completion for the same :ref:`change ID <change-id>` within the effective deduplication period.
 
@@ -157,7 +157,7 @@ Under this caveat, the following strategy works for applications that use the :r
 
    - Set the timeout (gRPC deadline) to the expected submission processing time (Command Service) or submission hand-off time (Command Submission Service).
 
-     The **submission processing time** is time between when the application sends off a submission to the :ref:`Command Service <command-service>` and when it receives (synchronously, unless it times out) the acceptance or rejection.
+     The **submission processing time** is the time between when the application sends off a submission to the :ref:`Command Service <command-service>` and when it receives (synchronously, unless it times out) the acceptance or rejection.
      The **submission hand-off time** is the time between when the application sends off a submission to the :ref:`Command Submission Service <command-submission-service>` and when it obtains a synchronous response for this gRPC call.
      After the RPC timeout, the application considers the submission as lost and enters a retry loop.
      This timeout is typically much shorter than the deduplication duration.
@@ -184,7 +184,7 @@ Under this caveat, the following strategy works for applications that use the :r
 Error handling
 --------------
 
-Error handling is needed when the status code of the command submission RPC call or in the :ref:`in the completion event <com.daml.ledger.api.v1.Completion.status>` is not ``OK``.
+Error handling is needed when the status code of the command submission RPC call or in the :ref:`completion event <com.daml.ledger.api.v1.Completion.status>` is not ``OK``.
 The following table lists appropriate reactions by status code (written as ``STATUS_CODE``) and error code (written in capital letters with a link to the error code documentation).
 Fields in the error metadata are written as ``field`` in lowercase letters.
 
@@ -201,12 +201,12 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
      
      * Consider the submission lost.
        
-       Retry from :ref:`Step 2 <dedup-bounded-step-offset>`, "obtaining the completion offset ``OFF1``", and possibly increase the timeout.
+       Retry from :ref:`Step 2 <dedup-bounded-step-offset>`, obtaining the completion offset ``OFF1``, and possibly increase the timeout.
 
        
    - * Application crashed
      
-     * Retry from :ref:`Step 2 <dedup-bounded-step-offset>`, "obtaining the completion offset ``OFF1``".
+     * Retry from :ref:`Step 2 <dedup-bounded-step-offset>`, obtaining the completion offset ``OFF1``.
 
 
    - * ``ALREADY_EXISTS`` / :ref:`DUPLICATE_COMMAND <error_code_DUPLICATE_COMMAND>`
@@ -216,8 +216,6 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
        The optional field ``existing_submission_id`` contains the submission ID of the successful submission.
        Report success for the ledger change.
        
-       If desired, query the ``completion_offset`` via the :ref:`Command Completion Service <command-submission-service>` to find out about the earlier outcome.
-
        
    - * ``FAILED_PRECONDITION`` / :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>`
      
@@ -228,7 +226,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
 
        - Negotiate support for longer deduplication periods with the ledger operator.
 
-       - Set the deduplication offset to ``earliest_offset`` or the deduplication duration to ``longest_duration`` and retry from :ref:`Step 2 <dedup-bounded-step-offset>`,  "obtaining the completion offset ``OFF1``".
+       - Set the deduplication offset to ``earliest_offset`` or the deduplication duration to ``longest_duration`` and retry from :ref:`Step 2 <dedup-bounded-step-offset>`,  obtaining the completion offset ``OFF1``.
 	 This may lead to accepting the change twice within the originally intended deduplication period.
 
 	 
@@ -238,7 +236,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
        
      * There is already another submission in flight, with the submission ID in ``existing_submission_id``.
 
-       - When you use the :ref:`Command Service <command-service>`, wait a bit and retry from :ref:`Step 3 <dedup-bounded-step-submit>`, "submitting the command".
+       - When you use the :ref:`Command Service <command-service>`, wait a bit and retry from :ref:`Step 3 <dedup-bounded-step-submit>`, submitting the command.
 
 	 Since the in-flight submission might still be rejected, (repeated) resubmission ensures that you (eventually) learn the outcome:
          If an earlier submission was accepted, you will eventually receive a :ref:`DUPLICATE_COMMAND <error_code_DUPLICATE_COMMAND>` rejection.
@@ -250,7 +248,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
 
    - * ``ABORTED`` / other error codes
      
-     * Wait a bit and retry from :ref:`Step 2 <dedup-bounded-step-offset>`, "obtaining the completion offset ``OFF1``".
+     * Wait a bit and retry from :ref:`Step 2 <dedup-bounded-step-offset>`, obtaining the completion offset ``OFF1``.
 
        
    - * other error conditions
@@ -258,7 +256,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
      * Use background knowledge about the business workflow and the current ledger state to decide whether earlier submissions might still get accepted.
 
        - If you conclude that it cannot be accepted any more, stop retrying and report that the ledger change failed.
-       - Otherwise, retry from :ref:`Step 2 <dedup-bounded-step-offset>`, "obtaining a completion offset ``OFF1``", or give up without knowing for sure that the ledger change will not happen.
+       - Otherwise, retry from :ref:`Step 2 <dedup-bounded-step-offset>`, obtaining a completion offset ``OFF1``, or give up without knowing for sure that the ledger change will not happen.
 
        For example, if the ledger change only creates a contract instance of a template, you can never be sure, as any outstanding submission might still be accepted on the ledger.
        In particular, you must not draw any conclusions from not having received a :ref:`SUBMISSION_ALREADY_IN_FLIGHT <error_code_SUBMISSION_ALREADY_IN_FLIGHT>` error, because the outstanding submission may be queued somewhere and will reach the relevant processing point only later.
@@ -306,17 +304,18 @@ We recommend the following strategy for using deduplication offsets:
    
 #. Obtain a recent offset ``OFF0`` on the completion event stream and remember across crashes that you use ``OFF0`` with the chosen command ID. There are several ways to do so:
 
+   - Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :ref:`current ledger end <com.daml.ledger.api.v1.CompletionEndRequest>`.
+   
    - Use the :ref:`Command Service <command-service>` to obtain a recent offset by repeatedly submitting a dummy command, e.g., a :ref:`Create-And-Exercise command <com.daml.ledger.api.v1.CreateAndExerciseCommand>` of some single-signatory template with the :ref:`Archive <function-da-internal-template-functions-archive-52202>` choice, until you get a successful response.
      The response contains the :ref:`completion offset <com.daml.ledger.api.v1.SubmitAndWaitForTransactionIdResponse.completion_offset>`.
 
-   - Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :ref:`current ledger end <com.daml.ledger.api.v1.CompletionEndRequest>`.
 
    .. _dedup-unbounded-step-offset:
 
 #. When you use the :ref:`Command Completion Service <command-submission-service>`:
    
    - If you execute this step the first time, set ``OFF1 = OFF0``.
-   - If you execute this step as part of :ref:`error handling <dedup-unbounded-error-handling>` retrying from Step 3, "obtaining the completion offset ``OFF1``",
+   - If you execute this step as part of :ref:`error handling <dedup-unbounded-error-handling>` retrying from Step 3, obtaining the completion offset ``OFF1``,
      obtain a recent offset on the completion stream ``OFF1``, say its current end.
      (Analogous to :ref:`step 2 above <dedup-bounded-step-offset>`)
 
