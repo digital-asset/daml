@@ -112,7 +112,9 @@ private[transaction] class CommitterModelConformanceValidator(engine: Engine, me
       } yield ()
       stepResult.fold(identity, _ => StepContinue(transactionEntry))
     } catch {
-      case missingInputErr @ Err.MissingInputState(key) => // Missing package or contract not specified as input
+      case missingInputErr @ Err.MissingInputState(
+            key
+          ) => // Missing package or contract not specified as input
         logger.error(
           "Model conformance validation using on-ledger data failed due to a missing input state (most likely due to an invalid participant state).",
           missingInputErr,
