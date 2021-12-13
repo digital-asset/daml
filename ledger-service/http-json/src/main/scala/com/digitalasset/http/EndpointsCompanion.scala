@@ -13,10 +13,12 @@ import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import util.GrpcHttpErrorCodes._
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
+import com.daml.ledger.api.auth.AuthServiceJWTCodec.readStandardTokenPayload
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
+import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.scalautil.ExceptionOps._
 import io.grpc.Status.{Code => GrpcCode}
@@ -25,6 +27,7 @@ import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
 import spray.json.JsValue
 
 import scala.concurrent.Future
+import scala.util.Try
 import scala.util.control.NonFatal
 
 object EndpointsCompanion {
@@ -92,11 +95,28 @@ object EndpointsCompanion {
     )(implicit
         mf: Monad[Future]
     ): EitherT[Future, Unauthorized, B] = {
+      import scalaz.syntax.std.option._
+      import scalaz.syntax.std.either._
+      import spray.json._
       for {
-        user <- EitherT.rightT(userManagementClient.getAuthenticatedUser(Some(token.value)))
-        rights <- EitherT.rightT(
-          userManagementClient.listAuthenticatedUserRights(Some(token.value))
+        jsValue <- either(
+          Try(token.value.parseJson).toEither.left
+            .map(it => Unauthorized(it.getMessage))
+            .disjunction
         )
+        decodedToken <- either(
+          readStandardTokenPayload(
+            jsValue
+          ) \/> Unauthorized("Invalid token supplied")
+        )
+
+        userId <- either(
+          (decodedToken.applicationId \/> Unauthorized(
+            "This user token contains no applicationId/userId"
+          )).flatMap(UserId.fromString(_).left.map(Unauthorized).disjunction)
+        )
+        rights <- EitherT.rightT(userManagementClient.listUserRights(userId))
+
         actAs = rights.collect { case CanActAs(party) =>
           party
         }
@@ -104,7 +124,7 @@ object EndpointsCompanion {
           party
         }
         ledgerId <- EitherT.rightT(ledgerIdentityClient.getLedgerId(Some(token.value)))
-        res <- either(fromUser(user.id, actAs.toList, readAs.toList, ledgerId))
+        res <- either(fromUser(userId, actAs.toList, readAs.toList, ledgerId))
       } yield res
     }
 
