@@ -67,18 +67,18 @@ final class AuthorizationInterceptor(
     }
   }
 
-  private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] = {
+  private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] =
     claimSet match {
       case ClaimSet.AuthenticatedUser(userId, participantId, expiration) =>
         userManagementService
           .listUserRights(Ref.UserId.assertFromString(userId))
-          .map({
-            case Left(msg) => {
+          .map {
+            case Left(msg) =>
               logger.warn(
                 s"Authorization error: cannot resolve rights for user '$userId' due to $msg."
               )
               ClaimSet.Unauthenticated
-            }
+
             case Right(userClaims) =>
               ClaimSet.Claims(
                 claims = userClaims.view.map(userRightToClaim).toList.prepended(ClaimPublic),
@@ -88,10 +88,9 @@ final class AuthorizationInterceptor(
                 expiration = expiration,
                 resolvedFromUser = true,
               )
-          })
+          }
       case _ => Future.successful(claimSet)
     }
-  }
 
   private[this] def userRightToClaim(r: UserRight): Claim = r match {
     case UserRight.CanActAs(p) => ClaimActAsParty(Ref.Party.assertFromString(p))

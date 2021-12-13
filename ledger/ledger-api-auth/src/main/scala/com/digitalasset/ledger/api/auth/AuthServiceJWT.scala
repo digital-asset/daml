@@ -67,7 +67,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
   }
 
   private[this] val payloadToClaims: SupportedJWTPayload => ClaimSet = {
-    case CustomDamlJWTPayload(payload) => {
+    case CustomDamlJWTPayload(payload) =>
       val claims = ListBuffer[Claim]()
 
       // Any valid token authorizes the user to use public services
@@ -90,7 +90,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
         expiration = payload.exp,
         resolvedFromUser = false,
       )
-    }
+
     case StandardJWTPayload(payload) =>
       ClaimSet.AuthenticatedUser(
         participantId = payload.participantId,

@@ -52,17 +52,13 @@ private[daml] final class UserManagementServiceAuthorization(
           // Custom JWT token: decode the user from the token
           val userId = claims.applicationId.getOrElse("")
           // FIXME: make this more idiomatic ==> move to claims type
-          val actAsParties = claims.claims
-            .collect({ case ClaimActAsParty(p) =>
-              p
-            })
-            .toSet
-          val allParties = claims.claims
-            .collect({
-              case ClaimReadAsParty(p) => p
-              case ClaimActAsParty(p) => p
-            })
-            .toSet
+          val actAsParties = claims.claims.collect { case ClaimActAsParty(p) =>
+            p
+          }.toSet
+          val allParties = claims.claims.collect {
+            case ClaimReadAsParty(p) => p
+            case ClaimActAsParty(p) => p
+          }.toSet
 
           val user =
             if (allParties.size == 1)

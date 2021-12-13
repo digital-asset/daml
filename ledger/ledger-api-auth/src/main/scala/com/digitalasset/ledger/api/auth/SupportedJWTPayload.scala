@@ -17,7 +17,7 @@ import spray.json.{DefaultJsonProtocol, JsValue, RootJsonFormat}
   * like the JSON-API to parse tokens; and we don't want to meddle with that code as part of the PoC.
   */
 // TODO (i12049): clarify naming and inline case classes where possible.
-sealed trait SupportedJWTPayload {}
+sealed trait SupportedJWTPayload
 final case class CustomDamlJWTPayload(payload: AuthServiceJWTPayload) extends SupportedJWTPayload
 final case class StandardJWTPayload(payload: AuthServiceJWTPayload) extends SupportedJWTPayload
 
