@@ -202,7 +202,7 @@ instance Eq Int where
     (==) = primitive @"BEEqual"
 
 instance Eq (Numeric n) where
-    (==) = primitive @"BEEqualNumeric"
+    (==) = primitive @"BEEqual"
 
 #ifdef DAML_BIGNUMERIC
 instance Eq BigNumeric where
@@ -330,10 +330,10 @@ instance Ord Int where
     (>)  = primitive @"BEGreater"
 
 instance Ord (Numeric n) where
-    (<)  = primitive @"BELessNumeric"
-    (<=) = primitive @"BELessEqNumeric"
-    (>=) = primitive @"BEGreaterEqNumeric"
-    (>)  = primitive @"BEGreaterNumeric"
+    (<)  = primitive @"BELess"
+    (<=) = primitive @"BELessEq"
+    (>=) = primitive @"BEGreaterEq"
+    (>)  = primitive @"BEGreater"
 
 #ifdef DAML_BIGNUMERIC
 instance Ord BigNumeric where

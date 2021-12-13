@@ -133,7 +133,7 @@ data Map a b =
 --   You can use the ID to fetch the contract, among other things.
 data ContractId a =
   ContractId Opaque
-instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
+instance Eq (ContractId a) where (==) = primitive @"BEEqual"
 
 instance Ord (ContractId a) where
   (<) = primitive @"BELess"
@@ -142,13 +142,9 @@ instance Ord (ContractId a) where
   (>=) = primitive @"BEGreaterEq"
 
 instance Show (ContractId a) where
-#ifdef DAML_CONTRACT_ID_TO_TEXT
   show cid = case primitive @"BEContractIdToText" cid of
     None -> "<contract-id>"
     Some t -> t
-#else
-  show _ = "<contract-id>"
-#endif
 
 -- | HIDE This is currently used in the internals of Daml script and Daml triggers
 -- but not really something that we want to expose to users.

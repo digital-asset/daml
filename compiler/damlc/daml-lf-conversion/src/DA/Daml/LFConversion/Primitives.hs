@@ -44,15 +44,15 @@ convertPrim _ "SGetParty" (t1@TText :-> TScenario TParty) =
     ETmLam (varV1, t1) $ EScenario $ SGetParty $ EVar varV1
 
 -- Comparison
-convertPrim v "BEEqual" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+convertPrim _ "BEEqual" (a1 :-> a2 :-> TBool) | a1 == a2 =
     EBuiltin BEEqualGeneric `ETyApp` a1
-convertPrim v "BELess" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+convertPrim _ "BELess" (a1 :-> a2 :-> TBool) | a1 == a2 =
     EBuiltin BELessGeneric `ETyApp` a1
-convertPrim v "BELessEq" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+convertPrim _ "BELessEq" (a1 :-> a2 :-> TBool) | a1 == a2 =
     EBuiltin BELessEqGeneric `ETyApp` a1
-convertPrim v "BEGreater" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+convertPrim _ "BEGreater" (a1 :-> a2 :-> TBool) | a1 == a2 =
     EBuiltin BEGreaterGeneric `ETyApp` a1
-convertPrim v "BEGreaterEq" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenericComparison =
+convertPrim _ "BEGreaterEq" (a1 :-> a2 :-> TBool) | a1 == a2 =
     EBuiltin BEGreaterEqGeneric `ETyApp` a1
 convertPrim _ "BEEqual" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
     EBuiltin $ BEEqual a1
@@ -66,10 +66,6 @@ convertPrim _ "BEGreater" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
     EBuiltin $ BEGreater a1
 convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :-> TBool) | a1 == a2, a2 == a3, a3 == a4 =
     EBuiltin BEEqualList `ETyApp` a1
-convertPrim v "BEEqualContractId" (TContractId a1 :-> TContractId a2 :-> TBool) | a1 == a2 =
-    if v `supports` featureGenericComparison
-        then EBuiltin BEEqualGeneric `ETyApp` TContractId a1
-        else EBuiltin BEEqualContractId `ETyApp` a1
 
 -- Decimal arithmetic
 convertPrim _ "BEAddDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
@@ -231,26 +227,6 @@ convertPrim _ "BECastNumeric" (TNumeric n1 :-> TNumeric n2) =
     EBuiltin BECastNumeric `ETyApp` n1 `ETyApp` n2
 convertPrim _ "BEShiftNumeric" (TNumeric n1 :-> TNumeric n2) =
     EBuiltin BEShiftNumeric `ETyApp` n1 `ETyApp` n2
-convertPrim v "BEEqualNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    if v `supports` featureGenericComparison
-        then ETyApp (EBuiltin BEEqualGeneric) (TNumeric n1)
-        else ETyApp (EBuiltin BEEqualNumeric) n1
-convertPrim v "BELessNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    if v `supports` featureGenericComparison
-        then ETyApp (EBuiltin BELessGeneric) (TNumeric n1)
-        else ETyApp (EBuiltin BELessNumeric) n1
-convertPrim v "BELessEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    if v `supports` featureGenericComparison
-        then ETyApp (EBuiltin BELessEqGeneric) (TNumeric n1)
-        else ETyApp (EBuiltin BELessEqNumeric) n1
-convertPrim v "BEGreaterEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    if v `supports` featureGenericComparison
-        then ETyApp (EBuiltin BEGreaterEqGeneric) (TNumeric n1)
-        else ETyApp (EBuiltin BEGreaterEqNumeric) n1
-convertPrim v "BEGreaterNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    if v `supports` featureGenericComparison
-        then ETyApp (EBuiltin BEGreaterGeneric) (TNumeric n1)
-        else ETyApp (EBuiltin BEGreaterNumeric) n1
 convertPrim _ "BEInt64ToNumeric" (TInt64 :-> TNumeric n) =
     ETyApp (EBuiltin BEInt64ToNumeric) n
 convertPrim _ "BENumericToInt64" (TNumeric n :-> TInt64) =
