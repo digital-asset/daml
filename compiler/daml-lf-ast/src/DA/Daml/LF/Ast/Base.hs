@@ -254,21 +254,11 @@ data BuiltinExpr
   | BELessEqGeneric              -- :: ∀t. t -> t -> Bool
   | BEGreaterGeneric             -- :: ∀t. t -> t -> Bool
   | BEGreaterEqGeneric           -- :: ∀t. t -> t -> Bool
-  | BEEqual      !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
-  | BELess       !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
-  | BELessEq     !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
-  | BEGreaterEq  !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
-  | BEGreater    !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BEToText     !BuiltinType    -- :: t -> Text, where t is one of the builtin types
                                  -- {Int64, Decimal, Text, Timestamp, Date, Party}
   | BEContractIdToText           -- :: forall t. ContractId t -> Option Text
 
   -- Numeric arithmetic and comparisons
-  | BEEqualNumeric               -- :: ∀n. Numeric n -> Numeric n -> Bool, where t is the builtin type
-  | BELessNumeric                -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
-  | BELessEqNumeric              -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
-  | BEGreaterEqNumeric           -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
-  | BEGreaterNumeric             -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
   | BENumericToText              -- :: ∀(s:nat). Numeric s -> Text
   | BEAddNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
   | BESubNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
@@ -342,7 +332,6 @@ data BuiltinExpr
   | BENumericToBigNumeric      -- :: ∀(s:nat). Numeric s -> BigNumeric
 
   | BETrace                      -- :: forall a. Text -> a -> a
-  | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
   | BECoerceContractId           -- :: forall a b. ContractId a -> ContractId b
 
   -- Experimental Text Primitives

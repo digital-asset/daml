@@ -96,19 +96,9 @@ safetyStep = \case
       BELessEqGeneric     -> Safe 1 -- may crash if values are incomparable
       BEGreaterGeneric    -> Safe 1 -- may crash if values are incomparable
       BEGreaterEqGeneric  -> Safe 1 -- may crash if values are incomparable
-      BEEqual _           -> Safe 2
-      BELess _            -> Safe 2
-      BELessEq _          -> Safe 2
-      BEGreaterEq _       -> Safe 2
-      BEGreater _         -> Safe 2
       BEToText _          -> Safe 1
       BEContractIdToText  -> Safe 1
       BECodePointsToText  -> Safe 1
-      BEEqualNumeric      -> Safe 2
-      BELessNumeric       -> Safe 2
-      BELessEqNumeric     -> Safe 2
-      BEGreaterNumeric    -> Safe 2
-      BEGreaterEqNumeric  -> Safe 2
       BEAddNumeric        -> Safe 1
       BESubNumeric        -> Safe 1
       BEMulNumeric        -> Safe 1
@@ -160,7 +150,6 @@ safetyStep = \case
       BEDateToUnixDays -> Safe 1
       BEUnixDaysToDate -> Safe 0 -- can fail if the int represents an out-of-bounds date
       BETrace -> Unsafe -- we make it unsafe so that it never gets erased
-      BEEqualContractId -> Safe 2
       BEPartyToQuotedText -> Safe 1
       BETextToParty -> Safe 1
       BETextToInt64 -> Safe 1

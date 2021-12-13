@@ -394,43 +394,6 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionGREATER -> pure BEGreaterGeneric
   LF1.BuiltinFunctionGREATER_EQ -> pure BEGreaterEqGeneric
 
-  LF1.BuiltinFunctionEQUAL_INT64 -> pure (BEEqual BTInt64)
-  LF1.BuiltinFunctionEQUAL_NUMERIC -> pure BEEqualNumeric
-  LF1.BuiltinFunctionEQUAL_TEXT -> pure (BEEqual BTText)
-  LF1.BuiltinFunctionEQUAL_TIMESTAMP -> pure (BEEqual BTTimestamp)
-  LF1.BuiltinFunctionEQUAL_DATE -> pure (BEEqual BTDate)
-  LF1.BuiltinFunctionEQUAL_PARTY -> pure (BEEqual BTParty)
-  LF1.BuiltinFunctionEQUAL_BOOL -> pure (BEEqual BTBool)
-  LF1.BuiltinFunctionEQUAL_TYPE_REP -> pure (BEEqual BTTypeRep)
-
-  LF1.BuiltinFunctionLEQ_INT64 -> pure (BELessEq BTInt64)
-  LF1.BuiltinFunctionLEQ_NUMERIC -> pure BELessEqNumeric
-  LF1.BuiltinFunctionLEQ_TEXT -> pure (BELessEq BTText)
-  LF1.BuiltinFunctionLEQ_TIMESTAMP -> pure (BELessEq BTTimestamp)
-  LF1.BuiltinFunctionLEQ_DATE -> pure (BELessEq BTDate)
-  LF1.BuiltinFunctionLEQ_PARTY -> pure (BELessEq BTParty)
-
-  LF1.BuiltinFunctionLESS_INT64 -> pure (BELess BTInt64)
-  LF1.BuiltinFunctionLESS_NUMERIC -> pure BELessNumeric
-  LF1.BuiltinFunctionLESS_TEXT -> pure (BELess BTText)
-  LF1.BuiltinFunctionLESS_TIMESTAMP -> pure (BELess BTTimestamp)
-  LF1.BuiltinFunctionLESS_DATE -> pure (BELess BTDate)
-  LF1.BuiltinFunctionLESS_PARTY -> pure (BELess BTParty)
-
-  LF1.BuiltinFunctionGEQ_INT64 -> pure (BEGreaterEq BTInt64)
-  LF1.BuiltinFunctionGEQ_NUMERIC -> pure BEGreaterEqNumeric
-  LF1.BuiltinFunctionGEQ_TEXT -> pure (BEGreaterEq BTText)
-  LF1.BuiltinFunctionGEQ_TIMESTAMP -> pure (BEGreaterEq BTTimestamp)
-  LF1.BuiltinFunctionGEQ_DATE -> pure (BEGreaterEq BTDate)
-  LF1.BuiltinFunctionGEQ_PARTY -> pure (BEGreaterEq BTParty)
-
-  LF1.BuiltinFunctionGREATER_INT64 -> pure (BEGreater BTInt64)
-  LF1.BuiltinFunctionGREATER_NUMERIC -> pure BEGreaterNumeric
-  LF1.BuiltinFunctionGREATER_TEXT -> pure (BEGreater BTText)
-  LF1.BuiltinFunctionGREATER_TIMESTAMP -> pure (BEGreater BTTimestamp)
-  LF1.BuiltinFunctionGREATER_DATE -> pure (BEGreater BTDate)
-  LF1.BuiltinFunctionGREATER_PARTY -> pure (BEGreater BTParty)
-
   LF1.BuiltinFunctionINT64_TO_TEXT -> pure (BEToText BTInt64)
   LF1.BuiltinFunctionNUMERIC_TO_TEXT -> pure BENumericToText
   LF1.BuiltinFunctionTEXT_TO_TEXT -> pure (BEToText BTText)
@@ -497,7 +460,6 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionNUMERIC_TO_INT64 -> pure BENumericToInt64
 
   LF1.BuiltinFunctionTRACE -> pure BETrace
-  LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> pure BEEqualContractId
   LF1.BuiltinFunctionCOERCE_CONTRACT_ID -> pure BECoerceContractId
 
   LF1.BuiltinFunctionTEXT_TO_UPPER -> pure BETextToUpper
@@ -533,6 +495,48 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionDECIMAL_TO_INT64 -> unsupportedDecimal
   LF1.BuiltinFunctionEQUAL_DECIMAL -> unsupportedDecimal
   LF1.BuiltinFunctionTEXT_TO_DECIMAL -> unsupportedDecimal
+
+  LF1.BuiltinFunctionEQUAL_INT64 -> unsupportedEqual
+  LF1.BuiltinFunctionLEQ_INT64 -> unsupportedEqual
+  LF1.BuiltinFunctionGEQ_INT64 -> unsupportedEqual
+  LF1.BuiltinFunctionLESS_INT64 -> unsupportedEqual
+  LF1.BuiltinFunctionGREATER_INT64 -> unsupportedEqual
+
+  LF1.BuiltinFunctionEQUAL_TEXT -> unsupportedEqual
+  LF1.BuiltinFunctionLEQ_TEXT -> unsupportedEqual
+  LF1.BuiltinFunctionGEQ_TEXT -> unsupportedEqual
+  LF1.BuiltinFunctionLESS_TEXT -> unsupportedEqual
+  LF1.BuiltinFunctionGREATER_TEXT -> unsupportedEqual
+
+  LF1.BuiltinFunctionEQUAL_TIMESTAMP -> unsupportedEqual
+  LF1.BuiltinFunctionLEQ_TIMESTAMP -> unsupportedEqual
+  LF1.BuiltinFunctionGEQ_TIMESTAMP -> unsupportedEqual
+  LF1.BuiltinFunctionLESS_TIMESTAMP -> unsupportedEqual
+  LF1.BuiltinFunctionGREATER_TIMESTAMP -> unsupportedEqual
+
+  LF1.BuiltinFunctionEQUAL_DATE -> unsupportedEqual
+  LF1.BuiltinFunctionLEQ_DATE -> unsupportedEqual
+  LF1.BuiltinFunctionGEQ_DATE -> unsupportedEqual
+  LF1.BuiltinFunctionLESS_DATE -> unsupportedEqual
+  LF1.BuiltinFunctionGREATER_DATE -> unsupportedEqual
+
+  LF1.BuiltinFunctionEQUAL_PARTY -> unsupportedEqual
+  LF1.BuiltinFunctionLEQ_PARTY -> unsupportedEqual
+  LF1.BuiltinFunctionGEQ_PARTY -> unsupportedEqual
+  LF1.BuiltinFunctionLESS_PARTY -> unsupportedEqual
+  LF1.BuiltinFunctionGREATER_PARTY -> unsupportedEqual
+
+  LF1.BuiltinFunctionEQUAL_NUMERIC -> unsupportedEqual
+  LF1.BuiltinFunctionLEQ_NUMERIC -> unsupportedEqual
+  LF1.BuiltinFunctionGEQ_NUMERIC -> unsupportedEqual
+  LF1.BuiltinFunctionLESS_NUMERIC -> unsupportedEqual
+  LF1.BuiltinFunctionGREATER_NUMERIC -> unsupportedEqual
+
+  LF1.BuiltinFunctionEQUAL_BOOL -> unsupportedEqual
+
+  LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> unsupportedEqual
+
+  LF1.BuiltinFunctionEQUAL_TYPE_REP -> unsupportedEqual
 
 decodeLocation :: LF1.Location -> Decode SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do
@@ -985,3 +989,6 @@ decodeSet mkDuplicateError decode1 xs = do
 
 unsupportedDecimal :: Decode a
 unsupportedDecimal = throwError (ParseError "Decimal is unsupported in LF >= 1.8")
+
+unsupportedEqual :: Decode a
+unsupportedEqual = throwError (ParseError "Non-generic equality primitives are unsupported in LF >= 1.11")

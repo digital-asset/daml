@@ -220,11 +220,6 @@ typeOfBuiltin = \case
   BELessEqGeneric    -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BEGreaterGeneric   -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BEGreaterEqGeneric -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
-  BEEqual     btype  -> pure $ tComparison btype
-  BELess      btype  -> pure $ tComparison btype
-  BELessEq    btype  -> pure $ tComparison btype
-  BEGreater   btype  -> pure $ tComparison btype
-  BEGreaterEq btype  -> pure $ tComparison btype
   BEToText    btype  -> pure $ TBuiltin btype :-> TText
   BEContractIdToText -> pure $ TForall (alpha, KStar) $ TContractId tAlpha :-> TOptional TText
   BECodePointsToText -> pure $ TList TInt64 :-> TText
@@ -232,11 +227,6 @@ typeOfBuiltin = \case
   BETextToParty    -> pure $ TText :-> TOptional TParty
   BETextToInt64    -> pure $ TText :-> TOptional TInt64
   BETextToCodePoints -> pure $ TText :-> TList TInt64
-  BEEqualNumeric     -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
-  BELessNumeric      -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
-  BELessEqNumeric    -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
-  BEGreaterNumeric   -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
-  BEGreaterEqNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BEAddNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
   BESubNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
   BEMulNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
@@ -295,9 +285,6 @@ typeOfBuiltin = \case
   BEDateToUnixDays -> pure $ TDate :-> TInt64
   BEUnixDaysToDate -> pure $ TInt64 :-> TDate
   BETrace -> pure $ TForall (alpha, KStar) $ TText :-> tAlpha :-> tAlpha
-  BEEqualContractId -> pure $
-    TForall (alpha, KStar) $
-    TContractId tAlpha :-> TContractId tAlpha :-> TBool
   BECoerceContractId -> do
     pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TContractId tAlpha :-> TContractId tBeta
 
@@ -311,7 +298,6 @@ typeOfBuiltin = \case
   BETextIntercalate -> pure (TText :-> TList TText :-> TText)
 
   where
-    tComparison btype = TBuiltin btype :-> TBuiltin btype :-> TBool
     tBinop typ = typ :-> typ :-> typ
 
 checkRecCon :: MonadGamma m => TypeConApp -> [(FieldName, Expr)] -> m ()

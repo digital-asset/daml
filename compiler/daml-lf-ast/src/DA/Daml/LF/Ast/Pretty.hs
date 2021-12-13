@@ -226,11 +226,6 @@ instance Pretty BuiltinExpr where
     BELessEqGeneric -> "LESS_EQ"
     BEGreaterGeneric -> "GREATER"
     BEGreaterEqGeneric -> "GREATER_EQ"
-    BEEqual t     -> pPrintAppKeyword lvl prec "EQUAL"      [TyArg (TBuiltin t)]
-    BELess t      -> pPrintAppKeyword lvl prec "LESS"       [TyArg (TBuiltin t)]
-    BELessEq t    -> pPrintAppKeyword lvl prec "LESS_EQ"    [TyArg (TBuiltin t)]
-    BEGreater t   -> pPrintAppKeyword lvl prec "GREATER"    [TyArg (TBuiltin t)]
-    BEGreaterEq t -> pPrintAppKeyword lvl prec "GREATER_EQ" [TyArg (TBuiltin t)]
     BEToText t    -> pPrintAppKeyword lvl prec "TO_TEXT"    [TyArg (TBuiltin t)]
     BEContractIdToText -> "CONTRACT_ID_TO_TEXT"
     BEAddNumeric -> "ADD_NUMERIC"
@@ -242,11 +237,6 @@ instance Pretty BuiltinExpr where
     BEShiftNumeric -> "SHIFT_NUMERIC"
     BEInt64ToNumeric -> "INT64_TO_NUMERIC"
     BENumericToInt64 -> "NUMERIC_TO_INT64"
-    BEEqualNumeric -> "EQUAL_NUMERIC"
-    BELessEqNumeric -> "LEQ_NUMERIC"
-    BELessNumeric -> "LESS_NUMERIC"
-    BEGreaterEqNumeric -> "GEQ_NUMERIC"
-    BEGreaterNumeric -> "GREATER_NUMERIC"
     BETextToNumeric -> "TEXT_TO_NUMERIC"
     BENumericToText -> "NUMERIC_TO_TEXT"
     BEScaleBigNumeric -> "SCALE_BIGNUMERIC"
@@ -291,7 +281,6 @@ instance Pretty BuiltinExpr where
     BEImplodeText -> "IMPLODE_TEXT"
     BESha256Text -> "SHA256_TEXT"
     BETrace -> "TRACE"
-    BEEqualContractId -> "EQUAL_CONTRACT_ID"
     BETextToParty -> "TEXT_TO_PARTY"
     BETextToInt64 -> "TEXT_TO_INT64"
     BEPartyToQuotedText -> "PARTY_TO_QUOTED_TEXT"

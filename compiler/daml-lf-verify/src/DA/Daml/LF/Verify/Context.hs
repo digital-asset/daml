@@ -97,11 +97,6 @@ data BoolExpr
 toBoolExpr :: Expr -> [BoolExpr]
 toBoolExpr (EBuiltin (BEBool True)) = []
 toBoolExpr (ETmApp (ETmApp op e1) e2) = case op of
-  (EBuiltin (BEEqual _)) -> [BEq e1 e2]
-  (ETyApp (EBuiltin BEGreaterNumeric) _) -> [BGt e1 e2]
-  (ETyApp (EBuiltin BEGreaterEqNumeric) _) -> [BGtE e1 e2]
-  (ETyApp (EBuiltin BELessNumeric) _) -> [BLt e1 e2]
-  (ETyApp (EBuiltin BELessEqNumeric) _) -> [BLtE e1 e2]
   (ETyApp (EBuiltin BEEqualGeneric) _) -> [BEq e1 e2]
   (ETyApp (EBuiltin BEGreaterGeneric) _) -> [BGt e1 e2]
   (ETyApp (EBuiltin BEGreaterEqGeneric) _) -> [BGtE e1 e2]
