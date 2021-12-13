@@ -35,7 +35,7 @@ The first three form the :ref:`change ID <change-id>` that identifies the intend
 
 - The :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` is chosen by the application to identify the intended ledger change.
 
-- The :ref:`deduplication period <com.daml.ledger.api.v1.Commands.deduplication_period>` specifies the period for which no earlier submissions with the same change ID should have been accepted, as witnessed by a completion event on the :ref:`command completion service <command-completion-service>`.
+- The deduplication period specifies the period for which no earlier submissions with the same change ID should have been accepted, as witnessed by a completion event on the :ref:`command completion service <command-completion-service>`.
   If such a change has been accepted in that period, the current submission shall be rejected.
   The period is specified either as a :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` or as a :ref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_offset>` (inclusive).
 
@@ -134,13 +134,13 @@ Under this caveat, the following strategy works for applications that use the :r
 
    .. _dedup-bounded-step-offset:
 
-#. When you use the :ref:`Command Completion Service <command-submission-service>`, obtain a recent offset on the completion stream ``OFF1``, say the :ref:`current ledger end <com.daml.ledger.api.v1.CommandCompletionService.CompletionEnd>`.
+#. When you use the :ref:`Command Completion Service <command-submission-service>`, obtain a recent offset on the completion stream ``OFF1``, say the :ref:`current ledger end <com.daml.ledger.api.v1.CompletionEndRequest>`.
 
    .. _dedup-bounded-step-submit:
    
 #. Submit the command with the following parameters:
 
-   - Set the :ref:`command ID <<com.daml.ledger.api.v1.Commands.command_id>>` to the chosen command ID from :ref:`Step 1 <dedup-bounded-step-command-id>`.
+   - Set the :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` to the chosen command ID from :ref:`Step 1 <dedup-bounded-step-command-id>`.
 
    - Set the :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` to the bound ``B``.
 
@@ -184,7 +184,7 @@ Under this caveat, the following strategy works for applications that use the :r
 Error handling
 --------------
 
-Error handling is needed when the status code of the command submission RPC call or in the :ref:`in the completion event <com.daml.ledger.api.v1Completion.status>` is not ``OK``.
+Error handling is needed when the status code of the command submission RPC call or in the :ref:`in the completion event <com.daml.ledger.api.v1.Completion.status>` is not ``OK``.
 The following table lists appropriate reactions by status code (written as ``STATUS_CODE``) and error code (written in capital letters with a link to the error code documentation).
 Fields in the error metadata are written as ``field`` in lowercase letters.
 
@@ -309,7 +309,7 @@ We recommend the following strategy for using deduplication offsets:
    - Use the :ref:`Command Service <command-service>` to obtain a recent offset by repeatedly submitting a dummy command, e.g., a :ref:`Create-And-Exercise command <com.daml.ledger.api.v1.CreateAndExerciseCommand>` of some single-signatory template with the :ref:`Archive <function-da-internal-template-functions-archive-52202>` choice, until you get a successful response.
      The response contains the :ref:`completion offset <com.daml.ledger.api.v1.SubmitAndWaitForTransactionIdResponse.completion_offset>`.
 
-   - Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :ref:`current ledger end <com.daml.ledger.api.v1.CommandCompletionService.CompletionEnd>`.
+   - Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :ref:`current ledger end <com.daml.ledger.api.v1.CompletionEndRequest>`.
 
    .. _dedup-unbounded-step-offset:
 
@@ -322,7 +322,7 @@ We recommend the following strategy for using deduplication offsets:
 
 #. Submit the command with the following parameters (analogous to :ref:`Step 3 above <dedup-bounded-step-submit>` except for the deduplication period):
 
-   - Set the :ref:`command ID <<com.daml.ledger.api.v1.Commands.command_id>>` to the chosen command ID from :ref:`Step 1 <dedup-bounded-step-command-id>`.
+   - Set the :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` to the chosen command ID from :ref:`Step 1 <dedup-bounded-step-command-id>`.
 
    - Set the :ref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_offset>` to ``OFF0``.
 
@@ -369,7 +369,7 @@ The above strategy can fail in the following scenarios:
 
 
 
-.. todo:: 
+..
   Command deduplication on the JSON API
   *************************************
 
