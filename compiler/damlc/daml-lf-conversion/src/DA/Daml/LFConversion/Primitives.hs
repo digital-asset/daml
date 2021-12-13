@@ -71,18 +71,6 @@ convertPrim v "BEEqualContractId" (TContractId a1 :-> TContractId a2 :-> TBool) 
         then EBuiltin BEEqualGeneric `ETyApp` TContractId a1
         else EBuiltin BEEqualContractId `ETyApp` a1
 
--- Decimal arithmetic
-convertPrim _ "BEAddDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BEAddDecimal
-convertPrim _ "BESubDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BESubDecimal
-convertPrim _ "BEMulDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BEMulDecimal
-convertPrim _ "BEDivDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BEDivDecimal
-convertPrim _ "BERoundDecimal" (TInt64 :-> TDecimal :-> TDecimal) =
-    EBuiltin BERoundDecimal
-
 -- Integer arithmetic
 convertPrim _ "BEAddInt64" (TInt64 :-> TInt64 :-> TInt64) =
     EBuiltin BEAddInt64
@@ -106,12 +94,6 @@ convertPrim _ "BEDateToUnixDays" (TDate :-> TInt64) =
     EBuiltin BEDateToUnixDays
 convertPrim _ "BEUnixDaysToDate" (TInt64 :-> TDate) =
     EBuiltin BEUnixDaysToDate
-
--- Conversion to and from Decimal
-convertPrim _ "BEInt64ToDecimal" (TInt64 :-> TDecimal) =
-    EBuiltin BEInt64ToDecimal
-convertPrim _ "BEDecimalToInt64" (TDecimal :-> TInt64) =
-    EBuiltin BEDecimalToInt64
 
 -- List operations
 convertPrim _ "BEFoldl" ((b1 :-> a1 :-> b2) :-> b3 :-> TList a2 :-> b4) | a1 == a2, b1 == b2, b2 == b3, b3 == b4 =
@@ -142,8 +124,6 @@ convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
     EBuiltin BETextToParty
 convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =
     EBuiltin BETextToInt64
-convertPrim _ "BETextToDecimal" (TText :-> TOptional TDecimal) =
-    EBuiltin BETextToDecimal
 convertPrim _ "BETextToCodePoints" (TText :-> TList TInt64) =
     EBuiltin BETextToCodePoints
 convertPrim _ "BECodePointsToText" (TList TInt64 :-> TText) =
