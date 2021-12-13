@@ -182,7 +182,7 @@ object AuthServiceJWTCodec {
       )
   }
 
-  val readStandardTokenPayload: JsValue => Option[AuthServiceJWTPayload] = {
+  def readStandardTokenPayload(jsValue: JsValue): Option[AuthServiceJWTPayload] = jsValue match {
     // NOTE: there is the corner-case of a legacy Daml token containing a "sub" field.
     // We accept that risk.
     case JsObject(fields) if !fields.contains(oidcNamespace) && fields.contains("sub") =>
