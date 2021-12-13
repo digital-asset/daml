@@ -407,9 +407,8 @@ abstract class AbstractFuncIT
         )
       }
     }
-    // TODO https://github.com/digital-asset/daml/issues/11997
-    // Enable once #12063 is merged
-    "testUserManagement should succeed" ignore {
+
+    "testUserManagement should succeed" in {
       for {
         clients <- participantClients()
         r <-
@@ -420,9 +419,8 @@ abstract class AbstractFuncIT
           )
       } yield r shouldBe SUnit
     }
-    // TODO https://github.com/digital-asset/daml/issues/11997
-    // Enable once #12063 is merged
-    "testUserRightManagement should succeed" ignore {
+
+    "testUserRightManagement should succeed" in {
       for {
         clients <- participantClients()
         r <-
