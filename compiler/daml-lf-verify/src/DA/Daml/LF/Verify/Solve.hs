@@ -162,16 +162,12 @@ instance ConstrExpr Expr where
         BELessEqNumeric -> COp OpLtE
         BEAddInt64 -> CAdd
         BEAddNumeric -> CAdd
-        BEAddDecimal -> CAdd
         BESubInt64 -> CSub
         BESubNumeric -> CSub
-        BESubDecimal -> CSub
         BEMulInt64 -> CMul
         BEMulNumeric -> CMul
-        BEMulDecimal -> CMul
         BEDivInt64 -> CDiv
         BEDivNumeric -> CDiv
-        BEDivDecimal -> CDiv
         BEModInt64 -> CMod
         _ -> error ("Unsupported builtin operator: " ++ show op)
       builtin_op e = error ("Unsupported builtin expression: " ++ show e)

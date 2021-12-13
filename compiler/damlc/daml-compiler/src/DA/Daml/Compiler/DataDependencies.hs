@@ -957,7 +957,6 @@ convBuiltInTy :: Env -> LF.BuiltinType -> Gen (HsType GhcPs)
 convBuiltInTy env =
     \case
         LF.BTInt64 -> mkGhcType env "Int"
-        LF.BTDecimal -> mkGhcType env "Decimal"
         LF.BTText -> mkGhcType env "Text"
         LF.BTTimestamp -> mkLfInternalType env "Time"
         LF.BTDate -> mkLfInternalType env "Date"

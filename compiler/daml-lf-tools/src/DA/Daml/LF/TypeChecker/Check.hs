@@ -115,7 +115,6 @@ kindOfDataType = foldr (KArrow . snd) KStar . dataParams
 kindOfBuiltin :: BuiltinType -> Kind
 kindOfBuiltin = \case
   BTInt64 -> KStar
-  BTDecimal -> KStar
   BTNumeric -> KNat `KArrow` KStar
   BTText -> KStar
   BTTimestamp -> KStar
@@ -207,7 +206,6 @@ expandSynApp tsyn args = do
 typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
   BEInt64 _          -> pure TInt64
-  BEDecimal _        -> pure TDecimal
   BENumeric n        -> pure (TNumeric (TNat (typeLevelNat (numericScale n))))
   BEText    _        -> pure TText
   BETimestamp _      -> pure TTimestamp
@@ -233,13 +231,7 @@ typeOfBuiltin = \case
   BEPartyToQuotedText -> pure $ TParty :-> TText
   BETextToParty    -> pure $ TText :-> TOptional TParty
   BETextToInt64    -> pure $ TText :-> TOptional TInt64
-  BETextToDecimal  -> pure $ TText :-> TOptional TDecimal
   BETextToCodePoints -> pure $ TText :-> TList TInt64
-  BEAddDecimal       -> pure $ tBinop TDecimal
-  BESubDecimal       -> pure $ tBinop TDecimal
-  BEMulDecimal       -> pure $ tBinop TDecimal
-  BEDivDecimal       -> pure $ tBinop TDecimal
-  BERoundDecimal     -> pure $ TInt64 :-> TDecimal :-> TDecimal
   BEEqualNumeric     -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BELessNumeric      -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BELessEqNumeric    -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
@@ -273,8 +265,6 @@ typeOfBuiltin = \case
   BEDivInt64         -> pure $ tBinop TInt64
   BEModInt64         -> pure $ tBinop TInt64
   BEExpInt64         -> pure $ tBinop TInt64
-  BEInt64ToDecimal   -> pure $ TInt64 :-> TDecimal
-  BEDecimalToInt64   -> pure $ TDecimal :-> TInt64
   BEExplodeText      -> pure $ TText :-> TList TText
   BEAppendText       -> pure $ tBinop TText
   BEImplodeText      -> pure $ TList TText :-> TText

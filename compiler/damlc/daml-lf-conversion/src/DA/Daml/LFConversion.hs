@@ -1492,7 +1492,6 @@ convertExpr env0 e = do
         convertType env (varType bind) >>= \case
             -- opaque types have no patterns that can be matched
             TText -> asLet
-            TDecimal -> asLet
             TNumeric _ -> asLet
             TParty -> asLet
             TTimestamp -> asLet
