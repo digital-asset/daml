@@ -643,6 +643,7 @@ class Endpoints(
     } yield (t2._1, jsVal)
 
   private[http] def withJwtPayload[A, P](fa: (Jwt, A))(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
       legacyParse: ParsePayload[P],
       createFromUserToken: CreateFromUserToken[P],
   ): EitherT[Future, Unauthorized, (Jwt, P, A)] =

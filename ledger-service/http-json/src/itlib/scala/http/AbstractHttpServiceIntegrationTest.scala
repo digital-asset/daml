@@ -166,6 +166,20 @@ trait AbstractHttpServiceIntegrationTestFuns
     )(testFn(_, _, _, _, ledgerId))
   }
 
+  protected def withHttpServiceAndClient[A](token: Jwt)(
+      testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
+  ): Future[A] = usingLedger[A](testId, Some(token.value)) { case (ledgerPort, _, ledgerId) =>
+    HttpServiceTestFixture.withHttpService[A](
+      testId,
+      ledgerPort,
+      jdbcConfig,
+      staticContentConfig,
+      useTls = useTls,
+      wsConfig = wsConfig,
+      token = Some(token),
+    )(testFn(_, _, _, _, ledgerId))
+  }
+
   protected def withHttpService[A](
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerId) => Future[A]
   ): Future[A] =
@@ -1239,7 +1253,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "should be able to serialize and deserialize domain commands" in withLedger {
     (client, ledgerId) =>
       instanceUUIDLogCtx(implicit lc =>
-        jsonCodecs(client, ledgerId).flatMap { case (encoder, decoder) =>
+        jsonCodecs(client, ledgerId, None).flatMap { case (encoder, decoder) =>
           testCreateCommandEncodingDecoding(encoder, decoder, ledgerId) *>
             testExerciseCommandEncodingDecoding(
               encoder,

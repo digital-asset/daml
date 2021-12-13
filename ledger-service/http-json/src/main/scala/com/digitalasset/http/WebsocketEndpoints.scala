@@ -45,7 +45,10 @@ object WebsocketEndpoints {
       subprotocol: String,
       userManagementClient: UserManagementClient,
       ledgerIdentityClient: LedgerIdentityClient,
-  )(implicit mf: Monad[Future]): EitherT[Future, Err, (Jwt, JwtPayload)] =
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      mf: Monad[Future],
+  ): EitherT[Future, Err, (Jwt, JwtPayload)] =
     for {
       _ <- EitherT.either(
         req.requestedProtocols.contains(subprotocol) either (()) or (Unauthorized(

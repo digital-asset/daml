@@ -9,6 +9,7 @@ import akka.http.scaladsl.server.{RequestContext, Route}
 import akka.util.ByteString
 import com.daml.http.domain.{JwtPayload, JwtPayloadLedgerIdOnly, JwtWritePayload}
 import com.daml.http.json.SprayJson
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import util.GrpcHttpErrorCodes._
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
@@ -16,6 +17,7 @@ import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.scalautil.ExceptionOps._
 import io.grpc.Status.{Code => GrpcCode}
 import scalaz.syntax.std.option._
@@ -88,12 +90,13 @@ object EndpointsCompanion {
     )(
         fromUser: FromUser[Unauthorized, B]
     )(implicit
-        fm: Monad[Future]
+        mf: Monad[Future]
     ): EitherT[Future, Unauthorized, B] = {
-
       for {
         user <- EitherT.rightT(userManagementClient.getAuthenticatedUser(Some(token.value)))
-        rights <- EitherT.rightT(userManagementClient.listUserRights(user.id, Some(token.value)))
+        rights <- EitherT.rightT(
+          userManagementClient.listAuthenticatedUserRights(Some(token.value))
+        )
         actAs = rights.collect { case CanActAs(party) =>
           party
         }
@@ -130,9 +133,9 @@ object EndpointsCompanion {
         mf: Monad[Future]
     ): CreateFromUserToken[JwtPayloadLedgerIdOnly] =
       (jwt: Jwt, _: UserManagementClient, ledgerIdentityClient: LedgerIdentityClient) =>
-        for {
-          ledgerId <- EitherT.rightT(ledgerIdentityClient.getLedgerId(Some(jwt.value)))
-        } yield JwtPayloadLedgerIdOnly(lar.LedgerId(ledgerId))
+        EitherT
+          .rightT(ledgerIdentityClient.getLedgerId(Some(jwt.value)))
+          .map(ledgerId => JwtPayloadLedgerIdOnly(lar.LedgerId(ledgerId)))
 
     private[http] implicit def jwtPayloadFromUserToken(implicit
         mf: Monad[Future]
@@ -250,6 +253,7 @@ object EndpointsCompanion {
     val resp = errorResponse(error)
     httpResponse(resp.status, SprayJson.encodeUnsafe(resp))
   }
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   private[http] def errorResponse(error: Error): domain.ErrorResponse = {
     val (status, errorMsg): (StatusCode, String) = error match {
@@ -286,6 +290,7 @@ object EndpointsCompanion {
       userManagementClient: UserManagementClient,
       ledgerIdentityClient: LedgerIdentityClient,
   )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
       legacyParse: ParsePayload[A],
       createFromUserToken: CreateFromUserToken[A],
       fm: Monad[Future],
@@ -295,7 +300,10 @@ object EndpointsCompanion {
       p <- legacyParse
         .parsePayload(a)
         .fold(
-          _ => createFromUserToken(jwt, userManagementClient, ledgerIdentityClient),
+          { _ =>
+            logger.debug("No legacy token found, trying to process the token as user token.")
+            createFromUserToken(jwt, userManagementClient, ledgerIdentityClient)
+          },
           EitherT.pure(_): ET[A],
         )
     } yield (jwt, p)
