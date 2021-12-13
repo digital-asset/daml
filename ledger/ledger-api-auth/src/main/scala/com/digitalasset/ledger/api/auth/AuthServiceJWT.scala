@@ -66,7 +66,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
     } yield parsed
   }
 
-  private[this] val payloadToClaims: SupportedJWTPayload => ClaimSet = {
+  private[this] def payloadToClaims(payload: SupportedJWTPayload): ClaimSet = payload match {
     case CustomDamlJWTPayload(payload) =>
       val claims = ListBuffer[Claim]()
 
