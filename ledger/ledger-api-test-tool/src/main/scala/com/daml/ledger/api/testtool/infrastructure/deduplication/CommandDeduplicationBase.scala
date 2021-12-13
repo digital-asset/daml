@@ -341,6 +341,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     s"${testNamingPrefix}DeduplicateUsingOffsets",
     "Deduplicate commands within the deduplication period defined by the offset",
     allocate(SingleParty),
+    runConcurrently = false, // updates the time model
   )(implicit ec =>
     configuredParticipants => { case Participants(Participant(ledger, party)) =>
       val request = ledger
