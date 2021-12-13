@@ -25,9 +25,10 @@ object WorkflowConfigParser {
 
   object Decoders {
     implicit val objectivesDecoder: Decoder[StreamConfig.Objectives] =
-      Decoder.forProduct2(
+      Decoder.forProduct3(
         "max_delay_seconds",
         "min_consumption_speed",
+        "min_item_rate",
       )(StreamConfig.Objectives.apply)
 
     implicit val offsetDecoder: Decoder[LedgerOffset] =
@@ -58,9 +59,10 @@ object WorkflowConfigParser {
       )(StreamConfig.TransactionTreesStreamConfig.apply)
 
     implicit val activeContractsStreamDecoder: Decoder[StreamConfig.ActiveContractsStreamConfig] =
-      Decoder.forProduct2(
+      Decoder.forProduct3(
         "name",
         "filters",
+        "objectives",
       )(StreamConfig.ActiveContractsStreamConfig.apply)
 
     implicit val completionsStreamDecoder: Decoder[StreamConfig.CompletionsStreamConfig] =

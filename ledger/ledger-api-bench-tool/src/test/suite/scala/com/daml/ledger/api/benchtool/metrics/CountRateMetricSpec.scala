@@ -5,10 +5,12 @@ package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.metrics.CountRateMetric
 import com.daml.ledger.api.benchtool.metrics.CountRateMetric.Value
+import com.daml.ledger.api.benchtool.metrics.objectives.MinRate
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Duration
+import scala.language.existentials
 
 class CountRateMetricSpec extends AnyWordSpec with Matchers {
   CountRateMetric.getClass.getSimpleName should {
@@ -95,9 +97,57 @@ class CountRateMetricSpec extends AnyWordSpec with Matchers {
         ratePerSecond = totalCount / totalDuration.getSeconds.toDouble
       )
     }
+
+    "compute violated minimum rate SLO and the corresponing violating value" in {
+      val periodDuration: Duration = Duration.ofSeconds(2)
+      val minAllowedRatePerSecond = 2.0
+      val objective = MinRate(minAllowedRatePerSecond)
+      val metric = anEmptyStringMetric(Some(objective))
+
+      val violatedObjective =
+        metric
+          .onNext("abc")
+          .onNext("de")
+          .periodicValue(periodDuration)
+          ._1
+          .onNext("f")
+          .onNext("gh")
+          // During this period we get 3 elements: f, g, h, which means that the rate is 1.5
+          .periodicValue(periodDuration)
+          ._1
+          .onNext("ijklmn")
+          .violatedObjective
+
+      violatedObjective shouldBe Some(
+        objective -> CountRateMetric.Value(1.5)
+      )
+    }
+
+    "not report not violated objectives" in {
+      val periodDuration: Duration = Duration.ofSeconds(2)
+      val minAllowedRatePerSecond = 2.0
+      val objective = MinRate(minAllowedRatePerSecond)
+      val metric = anEmptyStringMetric(Some(objective))
+
+      val violatedObjective =
+        metric
+          .onNext("abc")
+          .onNext("de")
+          .periodicValue(periodDuration)
+          ._1
+          .onNext("f")
+          .onNext("gh")
+          .onNext("ijk")
+          .periodicValue(periodDuration)
+          ._1
+          .onNext("lmnoprst")
+          .violatedObjective
+
+      violatedObjective shouldBe None
+    }
   }
 
   private def stringLength(value: String): Int = value.length
-  private def anEmptyStringMetric(): CountRateMetric[String] =
-    CountRateMetric.empty[String](countingFunction = stringLength)
+  private def anEmptyStringMetric(objective: Option[MinRate] = None): CountRateMetric[String] =
+    CountRateMetric.empty[String](countingFunction = stringLength, objective = objective)
 }

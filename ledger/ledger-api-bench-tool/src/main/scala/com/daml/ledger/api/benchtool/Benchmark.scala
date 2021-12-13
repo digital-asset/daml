@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 object Benchmark {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -28,7 +27,10 @@ object Benchmark {
       reportingPeriod: FiniteDuration,
       apiServices: LedgerApiServices,
       metricsReporter: MetricsReporter,
-  )(implicit ec: ExecutionContext, resourceContext: ResourceContext): Future[Unit] = {
+  )(implicit
+      ec: ExecutionContext,
+      resourceContext: ResourceContext,
+  ): Future[Either[String, Unit]] = {
     val resources = for {
       system <- TypedActorSystemResourceOwner.owner()
       registry <- new MetricRegistryOwner(
@@ -108,13 +110,10 @@ object Benchmark {
                 apiServices.commandCompletionService.completions(streamConfig, observer)
               }
         }
-        .transform {
-          case Success(results) =>
-            if (results.contains(StreamResult.ObjectivesViolated))
-              Failure(new RuntimeException("Metrics objectives not met."))
-            else Success(())
-          case Failure(ex) =>
-            Failure(ex)
+        .map { results =>
+          if (results.contains(StreamResult.ObjectivesViolated))
+            Left("Metrics objectives not met.")
+          else Right(())
         }
     }
   }

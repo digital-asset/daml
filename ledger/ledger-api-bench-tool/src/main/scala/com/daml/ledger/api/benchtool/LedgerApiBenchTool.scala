@@ -25,14 +25,23 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 object LedgerApiBenchTool {
   def main(args: Array[String]): Unit = {
+    import scala.concurrent.ExecutionContext.Implicits.global
     ConfigMaker.make(args) match {
       case Left(error) =>
         logger.error(s"Configuration error: ${error.details}")
       case Right(config) =>
         logger.info(s"Starting benchmark with configuration:\n${prettyPrint(config)}")
         val result = run(config)(ExecutionContext.Implicits.global)
+          .map {
+            case Right(()) =>
+              logger.info(s"Benchmark finished successfully.")
+            case Left(error) =>
+              logger.info(s"Benchmark failed: $error")
+              // Exit with error status code to facilitate scripting
+              sys.exit(1)
+          }
           .recover { case ex =>
-            println(s"Error: ${ex.getMessage}")
+            logger.error(s"ledger-api-bench-tool failure: ${ex.getMessage}", ex)
             sys.exit(1)
           }(scala.concurrent.ExecutionContext.Implicits.global)
         Await.result(result, atMost = Duration.Inf)
@@ -40,12 +49,12 @@ object LedgerApiBenchTool {
     }
   }
 
-  private def run(config: Config)(implicit ec: ExecutionContext): Future[Unit] = {
+  private def run(config: Config)(implicit ec: ExecutionContext): Future[Either[String, Unit]] = {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
     apiServicesOwner(config).use { apiServices =>
-      def benchmarkStep(streams: List[WorkflowConfig.StreamConfig]): Future[Unit] =
+      def benchmarkStep(streams: List[WorkflowConfig.StreamConfig]): Future[Either[String, Unit]] =
         if (streams.isEmpty) {
-          Future.successful(logger.info(s"No streams defined. Skipping the benchmark step."))
+          Future.successful(Right(logger.info(s"No streams defined. Skipping the benchmark step.")))
         } else {
           Benchmark.run(
             streams = streams,
@@ -80,8 +89,8 @@ object LedgerApiBenchTool {
         _ = logger.info(
           s"Stream configs adapted after the submission step: ${prettyPrint(streams)}"
         )
-        _ <- benchmarkStep(streams)
-      } yield ()
+        benchmarkResult <- benchmarkStep(streams)
+      } yield benchmarkResult
     }
   }
 
