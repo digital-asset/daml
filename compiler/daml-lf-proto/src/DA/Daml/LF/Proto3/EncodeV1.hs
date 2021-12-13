@@ -945,13 +945,8 @@ encodeTemplateKey TemplateKey{..} = do
     pure P.DefTemplate_DefKey{..}
 
 encodeChoiceObservers :: Maybe Expr -> Encode (Just P.Expr)
-encodeChoiceObservers chcObservers = do
-  EncodeEnv{..} <- get
-  -- The choice-observers field is mandatory when supported. So, when choice-observers are
-  -- not syntactically explicit, we generate an empty-party-list expression here.
-  if version `supports` featureChoiceObservers
-  then encodeExpr (fromMaybe (ENil TParty) chcObservers)
-  else traverse encodeExpr' chcObservers
+encodeChoiceObservers chcObservers =
+  encodeExpr (fromMaybe (ENil TParty) chcObservers)
 
 encodeTemplateChoice :: TemplateChoice -> Encode P.TemplateChoice
 encodeTemplateChoice TemplateChoice{..} = do
@@ -978,7 +973,7 @@ encodeScenarioModule :: Version -> Module -> P.Package
 encodeScenarioModule version mod =
     encodePackage (Package version (NM.insert mod NM.empty) metadata)
   where
-    metadata = getPackageMetadata version (PackageName "scenario") Nothing
+    metadata = Just (getPackageMetadata (PackageName "scenario") Nothing)
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do

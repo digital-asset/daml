@@ -1301,9 +1301,9 @@ convertExpr env0 e = do
             | (con, i) <- zip (tyConDataCons t) [0..]
             ]
     go env (VarIn GHC_Prim "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr (op0 `App` x `App` y) : args)
-        | VarIn GHC_Prim "==#" <- op0 = go (mkBuiltinEqual (envLfVersion env))
-        | VarIn GHC_Prim "<#"  <- op0 = go (mkBuiltinLess (envLfVersion env))
-        | VarIn GHC_Prim ">#"  <- op0 = go (mkBuiltinGreater (envLfVersion env))
+        | VarIn GHC_Prim "==#" <- op0 = go mkBuiltinEqual
+        | VarIn GHC_Prim "<#"  <- op0 = go mkBuiltinLess
+        | VarIn GHC_Prim ">#"  <- op0 = go mkBuiltinGreater
         where
           go op1 = fmap (, args) $ do
               x' <- convertExpr env x
@@ -1311,7 +1311,7 @@ convertExpr env0 e = do
               pure (op1 BTInt64 `ETmApp` x' `ETmApp` y')
     go env (VarIn GHC_Prim "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr x : args) = fmap (, args) $ do
         x' <- convertExpr env x
-        pure $ mkBuiltinEqual (envLfVersion env) BTInt64 `ETmApp` EBuiltin (BEInt64 1) `ETmApp` x'
+        pure $ mkBuiltinEqual BTInt64 `ETmApp` EBuiltin (BEInt64 1) `ETmApp` x'
     go env (VarIn GHC_Prim "tagToEnum#") (LType tt@(TypeCon t _) : LExpr x : args) = fmap (, args) $ do
         -- FIXME: Should generate a binary tree of eq and compare
         tt' <- convertType env tt
@@ -1325,7 +1325,7 @@ convertExpr env0 e = do
               = EEnumCon (tcaTypeCon (fromTCon tt')) (mkVariantCon (getOccText con))
               | otherwise
               = EVariantCon (fromTCon tt') (mkVariantCon (getOccText con)) EUnit
-            mkEqInt i = mkBuiltinEqual (envLfVersion env) BTInt64 `ETmApp` x' `ETmApp` EBuiltin (BEInt64 i)
+            mkEqInt i = mkBuiltinEqual BTInt64 `ETmApp` x' `ETmApp` EBuiltin (BEInt64 i)
         pure (foldr ($) (mkCtor c1) [mkIf (mkEqInt i) (mkCtor c) | (i,c) <- zipFrom 0 cs])
 
     -- built ins because they are lazy
@@ -1594,14 +1594,7 @@ mkCase env scrutineeType resultType scrutinee galts =
 
     mkScrutineeEquality :: LF.Expr -> LF.Expr
     mkScrutineeEquality pattern
-        | TBuiltin scrutineeBuiltinType <- scrutineeType
-        = mkBuiltinEqual (envLfVersion env) scrutineeBuiltinType `ETmApp` scrutinee `ETmApp` pattern
-
-        | envLfVersion env `supports` featureGenericComparison
         = EBuiltin BEEqualGeneric `ETyApp` scrutineeType `ETmApp` scrutinee `ETmApp` pattern
-
-        | otherwise
-        = error "mkScrutineeEquality: No built-in equality exists for target LF version and type."
 
 -- | Is this a constraint tuple?
 isConstraintTupleTyCon :: TyCon -> Bool

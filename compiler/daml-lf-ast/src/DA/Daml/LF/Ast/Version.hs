@@ -69,6 +69,7 @@ data Feature = Feature
         -- ^ CPP flag to test for availability of the feature.
     } deriving Show
 
+-- | Kept for serialization of stable packages.
 featureStringInterning :: Feature
 featureStringInterning = Feature
     { featureName = "String interning"
@@ -76,24 +77,11 @@ featureStringInterning = Feature
     , featureCppFlag = Nothing
     }
 
-featureGenericComparison :: Feature
-featureGenericComparison = Feature
-    { featureName = "Generic order relation"
+-- | Kept for serialization of stable packages.
+featureTypeInterning :: Feature
+featureTypeInterning = Feature
+    { featureName = "Type interning"
     , featureMinVersion = version1_11
-    , featureCppFlag = Just "DAML_GENERIC_COMPARISON"
-    }
-
-featureGenMap :: Feature
-featureGenMap = Feature
-    { featureName = "Generic map"
-    , featureMinVersion = version1_11
-    , featureCppFlag = Just "DAML_GENMAP"
-    }
-
-featurePackageMetadata :: Feature
-featurePackageMetadata = Feature
-    { featureName = "Package metadata"
-    , featureMinVersion = version1_8
     , featureCppFlag = Nothing
     }
 
@@ -105,27 +93,6 @@ featureUnstable = Feature
     { featureName = "Unstable, experimental features"
     , featureMinVersion = versionDev
     , featureCppFlag = Just "DAML_UNSTABLE"
-    }
-
-featureToTextContractId :: Feature
-featureToTextContractId = Feature
-    { featureName = "CONTRACT_ID_TO_TEXT primitive"
-    , featureMinVersion = version1_11
-    , featureCppFlag = Just "DAML_CONTRACT_ID_TO_TEXT"
-    }
-
-featureChoiceObservers :: Feature
-featureChoiceObservers = Feature
-    { featureName = "Choice observers"
-    , featureMinVersion = version1_11
-    , featureCppFlag = Just "DAML_CHOICE_OBSERVERS"
-    }
-
-featureTypeInterning :: Feature
-featureTypeInterning = Feature
-    { featureName = "Type interning"
-    , featureMinVersion = version1_11
-    , featureCppFlag = Nothing
     }
 
 featureBigNumeric :: Feature
@@ -166,18 +133,13 @@ featureExperimental = Feature
 allFeatures :: [Feature]
 allFeatures =
     [ featureStringInterning
-    , featureGenericComparison
-    , featureGenMap
-    , featurePackageMetadata
-    , featureUnstable
-    , featureToTextContractId
-    , featureChoiceObservers
     , featureTypeInterning
     , featureBigNumeric
     , featureExceptions
     , featureNatSynonyms
-    , featureExperimental
     , featureInterfaces
+    , featureUnstable
+    , featureExperimental
     ]
 
 featureVersionMap :: MS.Map T.Text Version
