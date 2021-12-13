@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.deduplication
 
+import java.math.BigInteger
+
 import com.daml.lf.data.Ref
 import org.scalacheck.Gen
 import org.scalatest.OptionValues
@@ -27,7 +29,7 @@ class HexOffsetSpec
   "building lexicographical string" should {
 
     "return None if the lexicographically previous string does not exist" in {
-      HexOffset.firstBefore(
+      HexOffset.previous(
         Ref.HexString.assertFromString("000000000000")
       ) shouldBe None
     }
@@ -45,15 +47,19 @@ class HexOffsetSpec
           "00007a94" -> "00007a93",
         )
       ) { case (offset, expectedOffset) =>
-        HexOffset.firstBefore(
+        HexOffset.previous(
           Ref.HexString.assertFromString(offset)
         ) shouldBe Some(Ref.HexString.assertFromString(expectedOffset))
       }
     }
 
     "return lower offset" in forAll(offsets) { offset =>
-      val lowerOffset = HexOffset.firstBefore(offset).value
-      offset should be > [String] lowerOffset
+      if (new BigInteger(offset, 16) == BigInteger.ZERO) {
+        HexOffset.previous(offset) shouldBe None
+      } else {
+        val lowerOffset = HexOffset.previous(offset).value
+        offset should be > [String] lowerOffset
+      }
     }
 
   }

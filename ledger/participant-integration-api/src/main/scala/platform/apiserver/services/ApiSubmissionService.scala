@@ -3,15 +3,18 @@
 
 package com.daml.platform.apiserver.services
 
+import java.time.{Duration, Instant}
+import java.util.UUID
+
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggingApiException
+import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorCause,
   ErrorCodesVersionSwitcher,
 }
-import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
@@ -38,8 +41,6 @@ import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
 import io.grpc.{Status, StatusRuntimeException}
 
-import java.time.{Duration, Instant}
-import java.util.UUID
 import scala.annotation.nowarn
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
@@ -164,31 +165,37 @@ private[apiserver] final class ApiSubmissionService private[services] (
       telemetryContext: TelemetryContext,
       contextualizedErrorLogger: ContextualizedErrorLogger,
   ): Future[Unit] =
-    submissionService
-      .deduplicateCommand(
-        commands.commandId,
-        commands.actAs.toList,
-        commands.submittedAt,
+    Future
+      .fromTry(
         DeduplicationPeriod.deduplicateUntil(
           commands.submittedAt,
           commands.deduplicationPeriod,
-        ),
+        )
       )
-      .flatMap {
-        case CommandDeduplicationNew =>
-          evaluateAndSubmit(seed, commands, ledgerConfig)
-            .transform(handleSubmissionResult)
-            .recoverWith { case NonFatal(originalCause) =>
-              submissionService
-                .stopDeduplicatingCommand(commands.commandId, commands.actAs.toList)
-                .transform(_ => Failure(originalCause))
-            }
-        case _: CommandDeduplicationDuplicate =>
-          metrics.daml.commands.deduplicatedCommands.mark()
-          Future.failed(
-            errorFactories.duplicateCommandException(None)
+      .flatMap(deduplicateUntil =>
+        submissionService
+          .deduplicateCommand(
+            commands.commandId,
+            commands.actAs.toList,
+            commands.submittedAt,
+            deduplicateUntil,
           )
-      }
+          .flatMap {
+            case CommandDeduplicationNew =>
+              evaluateAndSubmit(seed, commands, ledgerConfig)
+                .transform(handleSubmissionResult)
+                .recoverWith { case NonFatal(originalCause) =>
+                  submissionService
+                    .stopDeduplicatingCommand(commands.commandId, commands.actAs.toList)
+                    .transform(_ => Failure(originalCause))
+                }
+            case _: CommandDeduplicationDuplicate =>
+              metrics.daml.commands.deduplicatedCommands.mark()
+              Future.failed(
+                errorFactories.duplicateCommandException(None)
+              )
+          }
+      )
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
       loggingContext: LoggingContext

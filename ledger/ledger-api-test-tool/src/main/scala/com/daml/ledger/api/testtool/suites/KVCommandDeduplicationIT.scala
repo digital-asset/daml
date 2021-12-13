@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase
+import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.DeduplicationOffsetSupport.OffsetConversionToDurationSupport
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.{
   DeduplicationFeatures,
   DelayMechanism,
@@ -36,7 +37,8 @@ class KVCommandDeduplicationIT(
 
   override def deduplicationFeatures: CommandDeduplicationBase.DeduplicationFeatures =
     DeduplicationFeatures(
-      participantDeduplication = false
+      participantDeduplication = false,
+      deduplicationOffsetSupport = OffsetConversionToDurationSupport,
     )
 
   protected override def runWithDeduplicationDelay(
@@ -66,7 +68,7 @@ class KVCommandDeduplicationIT(
   )(test: FiniteDuration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
     // deduplication duration is adjusted by min skew and max skew when running using pre-execution
     // to account for this we adjust the time model
-    val skew = scaledDuration(1.second).asProtobuf
+    val skew = scaledDuration(3.second).asProtobuf
     runWithUpdatedTimeModel(
       participants,
       _.update(_.minSkew := skew, _.maxSkew := skew),

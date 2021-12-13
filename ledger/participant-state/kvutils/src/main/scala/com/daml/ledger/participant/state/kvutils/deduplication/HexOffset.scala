@@ -20,7 +20,7 @@ object HexOffset {
     *   - for 00000ab00 it returns Some(00000aaff)
     *   - for 00007a900 it returns Some(00007a8ff)
     */
-  def firstBefore(value: Ref.HexString): Option[Ref.HexString] = {
+  def previous(value: Ref.HexString): Option[Ref.HexString] = {
     val offsetInteger = new BigInteger(value, 16)
     if (offsetInteger == BigInteger.ZERO) {
       None

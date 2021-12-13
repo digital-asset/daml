@@ -3,6 +3,9 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import java.util
+import java.util.regex.Pattern
+
 import com.daml.error.ErrorCode
 import com.daml.error.utils.ErrorDetails
 import com.daml.grpc.{GrpcException, GrpcStatus}
@@ -13,7 +16,6 @@ import io.grpc.protobuf.StatusProto
 import io.grpc.{Status, StatusRuntimeException}
 import munit.{ComparisonFailException, Assertions => MUnit}
 
-import java.util.regex.Pattern
 import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -115,8 +117,20 @@ object Assertions {
     }
 
   private def assertDefiniteAnswer(exception: Exception): Unit = {
-    val details = StatusProto.fromThrowable(exception).getDetailsList.asScala
-    val metadata = details
+    val status = StatusProto.fromThrowable(exception)
+    val metadata = extractErrorInfoMetadata(status)
+    val value = metadata.get("definite_answer")
+    if (value == null) {
+      fail(s"The error did not contain a definite answer. Metadata was: [$metadata]")
+    }
+    if (!Set("true", "false").contains(value.toLowerCase)) {
+      fail(s"The error contained an invalid definite answer: [$value]")
+    }
+  }
+
+  def extractErrorInfoMetadata(status: com.google.rpc.Status): util.Map[String, String] = {
+    val details = status.getDetailsList.asScala
+    details
       .find(_.is(classOf[ErrorInfo]))
       .map { any =>
         val errorInfo = any.unpack(classOf[ErrorInfo])
@@ -127,13 +141,6 @@ object Assertions {
           s"The error did not contain a definite answer. Details were: ${details.mkString("[", ", ", "]")}"
         )
       }
-    val value = metadata.get("definite_answer")
-    if (value == null) {
-      fail(s"The error did not contain a definite answer. Metadata was: [$metadata]")
-    }
-    if (!Set("true", "false").contains(value.toLowerCase)) {
-      fail(s"The error contained an invalid definite answer: [$value]")
-    }
   }
 
   def assertSelfServiceErrorCode(

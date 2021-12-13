@@ -23,7 +23,7 @@ class CompletionBasedDeduplicationPeriodConverter(
       offset: Ref.HexString,
       applicationId: ApplicationId,
       actAs: Set[Ref.Party],
-      submittedAt: Instant,
+      maxRecordTime: Instant,
   )(implicit
       mat: Materializer,
       ec: ExecutionContext,
@@ -37,7 +37,7 @@ class CompletionBasedDeduplicationPeriodConverter(
       if (checkpoint.offset.flatMap(_.value.absolute).contains(offset)) {
         checkpoint.recordTime match {
           case Some(recordTime) =>
-            val duration = Duration.between(recordTime.asJavaInstant, submittedAt)
+            val duration = Duration.between(recordTime.asJavaInstant, maxRecordTime)
             Right(duration)
           case None => Left(DeduplicationConversionFailure.CompletionRecordTimeNotAvailable)
         }
@@ -57,10 +57,10 @@ class CompletionBasedDeduplicationPeriodConverter(
       mat: Materializer,
       loggingContext: LoggingContext,
   ): Future[Option[CompletionStreamResponse]] = {
-    val firstOffsetBefore = HexOffset.firstBefore(offset)
+    val previousOffset = HexOffset.previous(offset)
     completionService
       .getCompletions(
-        firstOffsetBefore.map(LedgerOffset.Absolute).getOrElse(LedgerOffset.LedgerBegin),
+        previousOffset.map(LedgerOffset.Absolute).getOrElse(LedgerOffset.LedgerBegin),
         LedgerOffset.Absolute(offset),
         applicationId,
         actAs,
