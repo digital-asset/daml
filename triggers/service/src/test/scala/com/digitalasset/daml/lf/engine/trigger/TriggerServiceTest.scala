@@ -52,7 +52,7 @@ trait AbstractTriggerServiceTest
     with Eventually {
 
   implicit override val patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(10, Seconds)))
+    PatienceConfig(timeout = scaled(Span(30, Seconds)))
 
   import AbstractTriggerServiceTest.CompatAssertion
 
@@ -380,7 +380,7 @@ trait AbstractTriggerServiceTest
         submitCmd(client, aliceAcs.unwrap, cmd)
       }
       // Query ACS until we see a B contract
-      _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
         getActiveContracts(client, aliceAcs, Identifier(testPkgId, "TestTrigger", "B"))
           .map(_.length shouldBe 1)
       }
