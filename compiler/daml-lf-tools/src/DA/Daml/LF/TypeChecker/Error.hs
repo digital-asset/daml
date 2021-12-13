@@ -134,6 +134,9 @@ data Error
   | EDuplicateInterfaceChoiceName !TypeConName !ChoiceName
   | EDuplicateInterfaceMethodName !TypeConName !MethodName
   | EUnknownInterface !TypeConName
+  | ECircularInterfaceRequires !TypeConName !(Maybe (Qualified TypeConName))
+  | ENotClosedInterfaceRequires !TypeConName !(Qualified TypeConName) ![Qualified TypeConName]
+  | EMissingRequiredInterface { emriTemplate :: !TypeConName, emriRequiringInterface :: !(Qualified TypeConName), emriRequiredInterface :: !(Qualified TypeConName) }
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
   | EBadInterfaceChoiceImplConsuming !ChoiceName !Bool !Bool
@@ -142,6 +145,7 @@ data Error
   | EMissingInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
   | EUnknownInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
   | ETemplateDoesNotImplementInterface !(Qualified TypeConName) !(Qualified TypeConName)
+  | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -378,6 +382,21 @@ instance Pretty Error where
     EDuplicateInterfaceMethodName iface method ->
       "Duplicate method name '" <> pretty method <> "' in interface definition for " <> pretty iface
     EUnknownInterface tcon -> "Unknown interface: " <> pretty tcon
+    ECircularInterfaceRequires iface Nothing ->
+      "Circular interface requirement is not allowed: interface " <> pretty iface <> " requires itself."
+    ECircularInterfaceRequires iface (Just otherIface) ->
+      "Circular interface requirement is not allowed: interface "
+        <> pretty iface <> " requires "
+        <> pretty otherIface <> " requires "
+        <> pretty iface
+    ENotClosedInterfaceRequires iface ifaceRequired ifaceMissing ->
+      "Interface " <> pretty iface
+        <> " is missing requirement " <> pretty ifaceMissing
+        <> " required by " <> pretty ifaceRequired
+    EMissingRequiredInterface {..} ->
+      "Template " <> pretty emriTemplate <>
+      " is missing an implementation of interface " <> pretty emriRequiredInterface <>
+      " required by interface " <> pretty emriRequiringInterface
     EBadInheritedChoices {ebicInterface, ebicExpected, ebicGot} ->
       vcat
       [ "List of inherited choices does not match interface definition for " <> pretty ebicInterface
@@ -409,6 +428,8 @@ instance Pretty Error where
       "Template " <> pretty tpl <> " implements " <> pretty method <> " but interface " <> pretty iface <> " has no such method."
     ETemplateDoesNotImplementInterface tpl iface ->
       "Template " <> pretty tpl <> " does not implement interface " <> pretty iface
+    EWrongInterfaceRequirement requiringIface requiredIface ->
+      "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
 
 prettyConsuming :: Bool -> Doc ann
 prettyConsuming consuming = if consuming then "consuming" else "non-consuming"

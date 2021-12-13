@@ -9,8 +9,9 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
 import com.daml.platform.akkastreams.dispatcher.SignalDispatcher.Signal
-import com.daml.dec.DirectExecutionContext
 import org.slf4j.LoggerFactory
+
+import scala.concurrent.ExecutionContext
 
 /** A fanout signaller that can be subscribed to dynamically.
   * Signals may be coalesced, but if a signal is sent, we guarantee that all consumers subscribed before
@@ -53,7 +54,7 @@ class SignalDispatcher private () extends AutoCloseable {
         q.watchCompletion()
           .onComplete { _ =>
             runningState.updateAndGet(_.map(s => s - q))
-          }(DirectExecutionContext)
+          }(ExecutionContext.parasitic)
         NotUsed
       }
 

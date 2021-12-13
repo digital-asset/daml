@@ -42,7 +42,6 @@ da_scala_library(
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//libs-scala/build-info",
-        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",

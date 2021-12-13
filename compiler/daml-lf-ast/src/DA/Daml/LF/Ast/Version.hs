@@ -69,27 +69,6 @@ data Feature = Feature
         -- ^ CPP flag to test for availability of the feature.
     } deriving Show
 
-featureNumeric :: Feature
-featureNumeric = Feature
-    { featureName = "Numeric type"
-    , featureMinVersion = version1_7
-    , featureCppFlag = Just "DAML_NUMERIC"
-    }
-
-featureAnyType :: Feature
-featureAnyType = Feature
-   { featureName = "Any type"
-   , featureMinVersion = version1_7
-   , featureCppFlag = Just "DAML_ANY_TYPE"
-   }
-
-featureTypeRep :: Feature
-featureTypeRep = Feature
-    { featureName = "TypeRep type"
-    , featureMinVersion = version1_7
-    , featureCppFlag = Just "DAML_TYPE_REP"
-    }
-
 featureStringInterning :: Feature
 featureStringInterning = Feature
     { featureName = "String interning"
@@ -109,13 +88,6 @@ featureGenMap = Feature
     { featureName = "Generic map"
     , featureMinVersion = version1_11
     , featureCppFlag = Just "DAML_GENMAP"
-    }
-
-featureTypeSynonyms :: Feature
-featureTypeSynonyms = Feature
-    { featureName = "LF type synonyms"
-    , featureMinVersion = version1_8
-    , featureCppFlag = Nothing
     }
 
 featurePackageMetadata :: Feature
@@ -193,11 +165,7 @@ featureExperimental = Feature
 
 allFeatures :: [Feature]
 allFeatures =
-    [ featureNumeric
-    , featureAnyType
-    , featureTypeRep
-    , featureTypeSynonyms
-    , featureStringInterning
+    [ featureStringInterning
     , featureGenericComparison
     , featureGenMap
     , featurePackageMetadata

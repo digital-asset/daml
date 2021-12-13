@@ -1251,6 +1251,29 @@ private[lf] object SBuiltin {
     }
   }
 
+  // Convert an interface `requiredIface` to another interface `requiringIface`, if
+  // the `requiringIface` implements `requiredIface`.
+  final case class SBFromRequiredInterface(
+      requiringIface: TypeConName
+  ) extends SBuiltin(1) {
+
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ) = {
+      val record = getSRecord(args, 0)
+      // TODO https://github.com/digital-asset/daml/issues/12051
+      // TODO https://github.com/digital-asset/daml/issues/11345
+      //  The lookup is probably slow. We may want to investigate way to make the feature faster.
+      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(record.id) match {
+        case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIface) =>
+          SOptional(Some(record))
+        case _ =>
+          SOptional(None)
+      }
+    }
+  }
+
   final case class SBCallInterface(
       ifaceId: TypeConName,
       methodName: MethodName,

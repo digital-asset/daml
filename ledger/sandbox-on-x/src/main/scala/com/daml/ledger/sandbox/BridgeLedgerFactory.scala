@@ -47,7 +47,7 @@ object BridgeLedgerFactory extends LedgerFactory[BridgeConfig] {
         new ReadWriteServiceFactory {
           override def readService(): ReadService = readWriteService
 
-          override def writePackageService(): WritePackagesService = readWriteService
+          override def writePackagesService(): WritePackagesService = readWriteService
 
           override def writeService(): WriteService = readWriteService
         }

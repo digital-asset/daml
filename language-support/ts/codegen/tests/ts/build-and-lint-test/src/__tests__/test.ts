@@ -338,7 +338,7 @@ test('create + fetch & exercise', async () => {
 });
 
 
-// TODO https://github.com/digital-asset/daml/issues/10810
+// TODO https://github.com/digital-asset/daml/issues/12051
 // Reenable full test when JSON API can handle interface contract IDs.
 test("interfaces", async () => {
   const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});

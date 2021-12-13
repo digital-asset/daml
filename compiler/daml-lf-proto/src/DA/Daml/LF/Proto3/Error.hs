@@ -23,6 +23,7 @@ data Error
   | DuplicateMethod MethodName
   | DuplicateException TypeConName
   | DuplicateInterface TypeConName
+  | DuplicateRequires (Qualified TypeConName)
   | DuplicateImplements (Qualified TypeConName)
   | UnsupportedMinorVersion T.Text
   | BadStringId Int32

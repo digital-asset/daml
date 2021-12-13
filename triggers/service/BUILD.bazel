@@ -90,8 +90,6 @@ scala_binary_deps = [
 
 binary_deps = [
     ":trigger-service",
-    "//libs-scala/ports",
-    "//libs-scala/concurrent",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
     "//daml-lf/data",
@@ -100,6 +98,7 @@ binary_deps = [
     "//ledger/ledger-api-common",
     "//libs-scala/contextualized-logging",
     "//libs-scala/db-utils",
+    "//libs-scala/ports",
     "//libs-scala/scala-utils",
     "//triggers/service/auth:middleware-api",
     "@maven//:org_slf4j_slf4j_api",
@@ -300,6 +299,7 @@ genrule(
       cp -L $(location :test-model/TestTrigger.daml) $$TMP_DIR/daml
       cp -L $(location :test-model/ErrorTrigger.daml) $$TMP_DIR/daml
       cp -L $(location :test-model/LowLevelErrorTrigger.daml) $$TMP_DIR/daml
+      cp -L $(location :test-model/ReadAs.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR
       cat << EOF > $$TMP_DIR/daml.yaml

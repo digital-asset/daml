@@ -53,6 +53,8 @@ data ExprF expr
   | EToInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | EFromInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | ECallInterfaceF !(Qualified TypeConName) !MethodName !expr
+  | EToRequiredInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
+  | EFromRequiredInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | EExperimentalF !T.Text !Type
   deriving (Foldable, Functor, Traversable)
 
@@ -207,6 +209,8 @@ instance Recursive Expr where
     EToInterface a b c -> EToInterfaceF a b c
     EFromInterface a b c -> EFromInterfaceF a b c
     ECallInterface a b c -> ECallInterfaceF a b c
+    EToRequiredInterface a b c -> EToRequiredInterfaceF a b c
+    EFromRequiredInterface a b c -> EFromRequiredInterfaceF a b c
     EExperimental a b -> EExperimentalF a b
 
 instance Corecursive Expr where
@@ -244,4 +248,6 @@ instance Corecursive Expr where
     EToInterfaceF a b c -> EToInterface a b c
     EFromInterfaceF a b c -> EFromInterface a b c
     ECallInterfaceF a b c -> ECallInterface a b c
+    EToRequiredInterfaceF a b c -> EToRequiredInterface a b c
+    EFromRequiredInterfaceF a b c -> EFromRequiredInterface a b c
     EExperimentalF a b -> EExperimental a b

@@ -52,7 +52,7 @@ trait QueryBenchmark extends ContractDaoBenchmark {
     val result = instanceUUIDLogCtx(implicit lc =>
       dao
         .transact(
-          ContractDao.selectContracts(NonEmpty.pour(Party(party)) into Set, tpid, fr"1 = 1")
+          ContractDao.selectContracts(NonEmpty(Set, Party(party)), tpid, fr"1 = 1")
         )
         .unsafeRunSync()
     )

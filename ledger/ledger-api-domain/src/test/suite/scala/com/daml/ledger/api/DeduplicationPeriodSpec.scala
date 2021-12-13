@@ -4,10 +4,12 @@
 package com.daml.ledger.api
 
 import com.daml.lf.data.Time.Timestamp
-
 import java.time.Duration
+
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+
+import scala.util.Success
 
 class DeduplicationPeriodSpec extends AnyWordSpec with Matchers {
   "calculating deduplication until" should {
@@ -18,7 +20,7 @@ class DeduplicationPeriodSpec extends AnyWordSpec with Matchers {
         time,
         DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(3)),
       )
-      deduplicateUntil shouldEqual time.add(Duration.ofSeconds(3))
+      deduplicateUntil shouldEqual Success(time.add(Duration.ofSeconds(3)))
     }
 
     "accept long durations" in {

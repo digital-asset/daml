@@ -497,3 +497,37 @@ final case class ETemplateDoesNotImplementInterface(
   override protected def prettyInternal: String =
     s"Template $template does not implement interface $iface"
 }
+
+final case class EMissingRequiredInterface(
+    context: Context,
+    template: TypeConName,
+    requiringIface: TypeConName,
+    missingRequiredIface: TypeConName,
+) extends ValidationError {
+  override protected def prettyInternal: String =
+    s"Template $template is missing an implementation of interface $missingRequiredIface required by interface $requiringIface"
+}
+final case class EWrongInterfaceRequirement(
+    context: Context,
+    requiringIface: TypeConName,
+    wrongRequiredIface: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Interface $requiringIface does not require $wrongRequiredIface"
+}
+final case class ENotClosedInterfaceRequires(
+    context: Context,
+    iface: TypeConName,
+    requiredIface: TypeConName,
+    missingRequiredIface: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Interface $iface is missing requirements $missingRequiredIface required by $requiredIface"
+}
+final case class ECircularInterfaceRequires(
+    context: Context,
+    iface: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Circular interface requirement is not allowed: interface $iface requires itself."
+}

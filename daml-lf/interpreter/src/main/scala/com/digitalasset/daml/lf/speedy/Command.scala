@@ -54,6 +54,7 @@ object Command {
       choiceId: ChoiceName,
       argument: SValue,
   ) extends Command {
+    // TODO https://github.com/digital-asset/daml/issues/12051
     // TODO https://github.com/digital-asset/daml/issues/11342
     //   The actual template id isn't known until run time.
     //   The interface id is the best we've got.

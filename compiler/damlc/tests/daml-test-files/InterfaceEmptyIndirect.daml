@@ -1,0 +1,17 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+-- | Test that empty interfaces work fine across modules.
+module InterfaceEmptyIndirect where
+
+import InterfaceEmpty (I)
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    implements I where

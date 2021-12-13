@@ -43,5 +43,6 @@ package trigger {
       triggerApplicationId: ApplicationId,
       triggerAccessToken: Option[AccessToken],
       triggerRefreshToken: Option[RefreshToken],
+      triggerReadAs: Set[Party],
   )
 }

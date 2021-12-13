@@ -41,6 +41,7 @@ instance RenderDoc ModuleDoc where
         , RenderModuleHeader ("Module " <> unModulename md_name)
         , renderDoc md_descr
         , section "Templates" md_templates
+        , section "Interfaces" md_interfaces
         , section "Typeclasses" md_classes
         , section "Orphan Typeclass Instances" (filter id_isOrphan md_instances)
         , section "Data Types" md_adts
@@ -64,11 +65,9 @@ maybeReferenceLink = maybe RenderPlain RenderLink
 instance RenderDoc TemplateDoc where
     renderDoc TemplateDoc{..} = mconcat
         [ renderDoc td_anchor
-        , RenderParagraph . renderUnwords . concat $
-            [ [RenderStrong "template"]
-            , renderContext td_super
-            , [maybeAnchorLink td_anchor (unTypename td_name)]
-            , map RenderPlain td_args
+        , RenderParagraph . renderUnwords $
+            [ RenderStrong "template"
+            , maybeAnchorLink td_anchor (unTypename td_name)
             ]
         , RenderBlock $ mconcat
             [ renderDoc td_descr
@@ -82,10 +81,29 @@ instance RenderDoc TemplateDoc where
                 ]
         ]
 
+instance RenderDoc InterfaceDoc where
+    renderDoc InterfaceDoc{..} = mconcat
+        [ renderDoc if_anchor
+        , RenderParagraph . renderUnwords . concat $
+            [ [RenderStrong "interface"]
+            , [maybeAnchorLink if_anchor (unTypename if_name)]
+            ]
+        , RenderBlock $ mconcat
+            [ renderDoc if_descr
+            , RenderList (map renderDoc if_choices)
+            , RenderList (map renderDoc if_methods)
+            ]
+        ]
+
 instance RenderDoc ImplDoc where
     renderDoc ImplDoc {..} =
         RenderParagraph $
             renderUnwords [ RenderStrong "implements", renderType impl_iface ]
+
+instance RenderDoc MethodDoc where
+    renderDoc MethodDoc {..} = mconcat
+      [ RenderParagraph $ RenderStrong ("Method " <> unTypename mtd_name <> " : ") <> renderType mtd_type
+      ]
 
 instance RenderDoc ChoiceDoc where
     renderDoc ChoiceDoc{..} = mconcat
@@ -236,19 +254,24 @@ renderTypePrec prec = \case
             $ map (renderTypePrec 1) ts
     TypeList t ->
         renderEnclose "[" "]" (renderTypePrec 0 t)
-    TypeTuple [t] ->
-        renderTypePrec prec t
     TypeTuple ts ->
-        renderInParens
-            . renderIntercalate ", "
-            $ map (renderTypePrec 0) ts
+        renderTypeTuplePrec prec ts
     TypeLit lit ->
         RenderPlain lit
 
+renderTypeTuplePrec :: Int -> [Type] -> RenderText
+renderTypeTuplePrec prec = \case
+    [t] -> renderTypePrec prec t
+    ts -> renderInParens
+            . renderIntercalate ", "
+            $ map (renderTypePrec 0) ts
+
 -- | Render type context as a list of words. Nothing is rendered as [],
 -- and Just t is rendered as [render t, "=>"].
-renderContext :: Maybe Type -> [RenderText]
-renderContext = maybe [] (\x -> [renderTypePrec 1 x, RenderPlain "=>"])
+renderContext :: Context -> [RenderText]
+renderContext = \case
+    Context [] -> []
+    Context ts -> [renderTypeTuplePrec 1 ts, RenderPlain "=>"]
 
 renderInParens :: RenderText -> RenderText
 renderInParens = renderEnclose "(" ")"

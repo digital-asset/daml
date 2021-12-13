@@ -16,7 +16,9 @@ da_scala_library(
     ],
     deps = [
         "//ledger-api/rs-grpc-bridge",
-        "//libs-scala/concurrent",
+        "//ledger/error",
+        "//libs-scala/contextualized-logging",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_reactivestreams_reactive_streams",
     ],

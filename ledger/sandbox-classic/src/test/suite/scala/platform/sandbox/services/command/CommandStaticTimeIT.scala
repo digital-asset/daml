@@ -6,7 +6,6 @@ package com.daml.platform.sandbox.services.command
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.api.util.TimeProvider
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.{
@@ -27,7 +26,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 final class CommandStaticTimeIT
@@ -46,10 +45,12 @@ final class CommandStaticTimeIT
 
   private lazy val unwrappedLedgerId = ledgerId().unwrap
 
-  private def createCommandClient(): Future[CommandClient] =
+  private def createCommandClient()(implicit
+      executionContext: ExecutionContext
+  ): Future[CommandClient] =
     StaticTime
       .updatedVia(TimeServiceGrpc.stub(channel), unwrappedLedgerId)
-      .recover { case NonFatal(_) => TimeProvider.UTC }(DirectExecutionContext)
+      .recover { case NonFatal(_) => TimeProvider.UTC }
       .map(_ =>
         new CommandClient(
           CommandSubmissionServiceGrpc.stub(channel),
@@ -62,7 +63,7 @@ final class CommandStaticTimeIT
             defaultDeduplicationTime = java.time.Duration.ofSeconds(30),
           ),
         )
-      )(DirectExecutionContext)
+      )
 
   private lazy val submitRequest: SubmitRequest =
     MockMessages.submitRequest.update(

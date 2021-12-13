@@ -19,6 +19,7 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
 import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
 import com.daml.ledger.api.validation.CommandsValidator.{Submitters, effectiveSubmitters}
 import com.daml.ledger.api.{DeduplicationPeriod, domain}
+import com.daml.ledger.offset.Offset
 import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
@@ -235,20 +236,36 @@ final class CommandsValidator(
     optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
       Left(missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer = Some(false)))
     ) { maxDeduplicationDuration =>
-      val convertedDeduplicationPeriod = deduplicationPeriod match {
+      deduplicationPeriod match {
         case commands.Commands.DeduplicationPeriod.Empty =>
-          maxDeduplicationDuration
+          Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
         case commands.Commands.DeduplicationPeriod.DeduplicationTime(duration) =>
-          DurationConversion.fromProto(duration)
+          val deduplicationDuration = DurationConversion.fromProto(duration)
+          deduplicationPeriodValidator
+            .validateDuration(deduplicationDuration, maxDeduplicationDuration)
+            .map(DeduplicationPeriod.DeduplicationDuration)
         case commands.Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
-          DurationConversion.fromProto(duration)
+          val deduplicationDuration = DurationConversion.fromProto(duration)
+          deduplicationPeriodValidator
+            .validateDuration(deduplicationDuration, maxDeduplicationDuration)
+            .map(DeduplicationPeriod.DeduplicationDuration)
+        case commands.Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
+          Ref.HexString
+            .fromString(offset)
+            .fold(
+              _ =>
+                Left(
+                  nonHexOffset(None)(
+                    fieldName = "deduplication_period",
+                    offsetValue = offset,
+                    message =
+                      s"the deduplication offset has to be a hexadecimal string and not $offset",
+                  )
+                ),
+              hexOffset =>
+                Right(DeduplicationPeriod.DeduplicationOffset(Offset.fromHexString(hexOffset))),
+            )
       }
-      deduplicationPeriodValidator
-        .validateDuration(
-          convertedDeduplicationPeriod,
-          maxDeduplicationDuration,
-        )
-        .map(DeduplicationPeriod.DeduplicationDuration)
     }
 }
 

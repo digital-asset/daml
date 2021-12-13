@@ -857,7 +857,6 @@ genType (TypeRef curModName t) mbSubst = go t
         TUnit -> ("{}", "damlTypes.Unit")
         TBool -> ("boolean", "damlTypes.Bool")
         TInt64 -> dupe "damlTypes.Int"
-        TDecimal -> dupe "damlTypes.Decimal"
         TNumeric (TNat n) -> (
             "damlTypes.Numeric"
           , "damlTypes.Numeric(" <> T.pack (show (fromTypeLevelNat n :: Integer)) <> ")"

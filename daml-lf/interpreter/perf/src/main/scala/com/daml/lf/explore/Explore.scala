@@ -90,20 +90,21 @@ object PlaySpeedy {
   def examples: Map[String, (Int, SExpr)] = {
 
     def num(n: Long): SExpr = SEValue(SInt64(n))
+    def mkVar(level: Int) = SEVarLevel(level)
 
-    // The trailing numeral is the number of args at the scala level
+    // The trailing numeral is the number of args at the scala mkVar
 
     def decrement1(x: SExpr): SExpr = SEApp(SEBuiltin(SBSubInt64), List(x, SEValue(SInt64(1))))
-    val decrement = SEAbs(1, decrement1(SEVar(1)))
+    val decrement = SEAbs(1, decrement1(mkVar(0)))
 
     def subtract2(x: SExpr, y: SExpr): SExpr = SEApp(SEBuiltin(SBSubInt64), List(x, y))
-    val subtract = SEAbs(2, subtract2(SEVar(2), SEVar(1)))
+    val subtract = SEAbs(2, subtract2(mkVar(0), mkVar(1)))
 
     def twice2(f: SExpr, x: SExpr): SExpr = SEApp(f, List(SEApp(f, List(x))))
-    val twice = SEAbs(2, twice2(SEVar(2), SEVar(1)))
+    val twice = SEAbs(2, twice2(mkVar(3), mkVar(4)))
 
     def thrice2(f: SExpr, x: SExpr): SExpr = SEApp(f, List(SEApp(f, List(SEApp(f, List(x))))))
-    val thrice = SEAbs(2, thrice2(SEVar(2), SEVar(1)))
+    val thrice = SEAbs(2, thrice2(mkVar(0), mkVar(1)))
 
     val examples = List(
       (
@@ -142,7 +143,10 @@ object PlaySpeedy {
               List(num(21)),
               SEApp(
                 twice,
-                List(SEAbs(1, subtract2(SEVar(1), subtract2(SEVar(4), SEVar(2)))), SEVar(2)),
+                List(
+                  SEAbs(1, subtract2(mkVar(3), subtract2(mkVar(0), mkVar(2)))),
+                  mkVar(1),
+                ),
               ),
             ), //100
           ),

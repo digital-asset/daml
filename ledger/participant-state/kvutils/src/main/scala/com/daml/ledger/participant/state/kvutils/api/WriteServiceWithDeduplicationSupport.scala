@@ -12,7 +12,11 @@ import com.daml.ledger.api.domain.ApplicationId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kvutils.deduplication.DeduplicationPeriodSupport
+import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
+import com.daml.ledger.participant.state.kvutils.deduplication.{
+  CompletionBasedDeduplicationPeriodConverter,
+  DeduplicationPeriodSupport,
+}
 import com.daml.ledger.participant.state.v2.{
   PruningResult,
   SubmissionResult,
@@ -24,6 +28,7 @@ import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.Time
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, ErrorFactories}
 import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.ExecutionContext
@@ -52,6 +57,7 @@ class WriteServiceWithDeduplicationSupport(
       .supportedDeduplicationPeriod(
         submitterInfo.deduplicationPeriod,
         submitterInfo.ledgerConfiguration.maxDeduplicationTime,
+        submitterInfo.ledgerConfiguration.timeModel,
         ApplicationId(submitterInfo.applicationId),
         submitterInfo.actAs.toSet,
         transactionMeta.submissionTime.toInstant,
@@ -109,4 +115,28 @@ class WriteServiceWithDeduplicationSupport(
       telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult] =
     delegate.submitConfiguration(maxRecordTime, submissionId, config)
+
+  override def isApiDeduplicationEnabled: Boolean = delegate.isApiDeduplicationEnabled
+
+}
+
+object WriteServiceWithDeduplicationSupport {
+  def apply(
+      delegate: WriteService,
+      indexCompletionService: IndexCompletionsService,
+      enableSelfServiceErrorCodes: Boolean,
+  )(implicit
+      materializer: Materializer,
+      ec: ExecutionContext,
+  ): WriteServiceWithDeduplicationSupport = {
+    val errorFactories = ErrorFactories(enableSelfServiceErrorCodes)
+    new WriteServiceWithDeduplicationSupport(
+      delegate,
+      new DeduplicationPeriodSupport(
+        new CompletionBasedDeduplicationPeriodConverter(indexCompletionService),
+        new DeduplicationPeriodValidator(errorFactories),
+        errorFactories,
+      ),
+    )
+  }
 }

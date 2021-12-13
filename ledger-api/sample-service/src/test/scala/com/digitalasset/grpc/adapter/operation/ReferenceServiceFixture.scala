@@ -3,7 +3,7 @@
 
 package com.daml.grpc.adapter.operation
 
-import com.daml.grpc.sampleservice.implementations.ReferenceImplementation
+import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.testing.utils.{GrpcServiceFixture, SuiteResourceManagementAroundAll}
 import com.daml.platform.hello.HelloServiceGrpc
 import com.daml.platform.hello.HelloServiceGrpc.HelloServiceStub
@@ -23,6 +23,6 @@ trait ReferenceServiceFixture
   }
 
   override protected def services =
-    List(new ReferenceImplementation())
+    List(new HelloServiceReferenceImplementation())
 
 }

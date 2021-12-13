@@ -26,9 +26,7 @@ module GHC.Types (
         DamlInterface,
         DamlTemplate,
 
-#ifdef DAML_NUMERIC
         Nat, Numeric,
-#endif
 #ifdef DAML_BIGNUMERIC
         BigNumeric,
         RoundingMode(..),
@@ -178,8 +176,6 @@ instance DamlTemplate
 class DamlInterface
 instance DamlInterface
 
-#ifdef DAML_NUMERIC
-
 -- | (Kind) This is the kind of type-level naturals.
 data Nat
 
@@ -203,22 +199,7 @@ data Numeric (n:Nat) =
 
 type Decimal = Numeric 10
 
-#else
-
--- | A type for fixed-point decimals: numbers of the form
---   `x / 10e10` where `x` is an integer with `|x| < 10e38`.
---   For example, `1.25`.
-data Decimal =
-  -- | HIDE
-  Decimal Opaque
-
-
-#endif
-
 #ifdef DAML_BIGNUMERIC
-
--- TODO https://github.com/digital-asset/daml/issues/8719
---  Better documentation for BigNumeric and RoundingMode.
 
 -- | A big numeric type, capable of holding large decimal values with many digits.
 --

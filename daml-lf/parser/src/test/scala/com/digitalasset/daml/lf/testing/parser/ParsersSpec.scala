@@ -774,6 +774,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
       val interface =
         DefInterface(
+          requires = Set.empty,
           param = n"this",
           precond = e"False",
           methods = Map(

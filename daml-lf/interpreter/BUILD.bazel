@@ -46,12 +46,28 @@ da_scala_library(
 
 bigNumericTests = "src/test/scala/com/digitalasset/daml/lf/speedy/SBuiltinBigNumericTest.scala"
 
+da_scala_library(
+    name = "interpreter-test-lib",
+    srcs = glob(["src/test/**/*Lib.scala"]),
+    scalacopts = lf_scalacopts_stricter,
+    deps = [
+        ":interpreter",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//libs-scala/scala-utils",
+    ],
+)
+
 da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(
         ["src/test/**/*.scala"],
-        exclude = [bigNumericTests],
+        exclude = [
+            bigNumericTests,
+            "src/test/**/*Lib.scala",
+        ],
     ),
     scala_deps = [
         "@maven//:org_scala_lang_modules_scala_collection_compat",
@@ -68,6 +84,7 @@ da_scala_test_suite(
     scalacopts = lf_scalacopts,
     deps = [
         ":interpreter",
+        ":interpreter-test-lib",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/language",
@@ -95,9 +112,11 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":interpreter",
+        ":interpreter-test-lib",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
+        "//daml-lf/transaction",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

@@ -1,25 +1,26 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
-import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.language.Util._
-import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.testing.parser.Implicits._
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-import org.scalatest.matchers.should.Matchers
 import org.slf4j.LoggerFactory
 
 import scala.language.implicitConversions
 
-class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
@@ -230,38 +231,23 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     )
 
     "succeeds" in {
-      val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))
-      val result = machine.run()
-      result match {
-        case SResultNeedPackage(pkgId, _, cb) =>
-          ref.packageId shouldBe pkgId
-          cb(pkgs2)
-          val result = machine.run()
-          result shouldBe SResultFinalValue(SValue.SBool(true))
-        case _ =>
-          sys.error(s"expected result to be missing definition, got $result")
-      }
-
+      val result = SpeedyTestLib.run(
+        machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref)),
+        getPkg = { case pkgId if pkgId == ref.packageId => pkgs2 },
+      )
+      result shouldBe Right(SValue.SBool(true))
     }
 
     "crashes without definition" in {
-      val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))
-      val result = machine.run()
-      result match {
-        case SResultNeedPackage(pkgId, _, cb) =>
-          ref.packageId shouldBe pkgId
-          try {
-            cb(pkgs3)
-            sys.error(s"expected crash when definition not provided")
-          } catch {
-            case _: SErrorCrash => ()
-          }
-        case _ =>
-          sys.error(s"expected result to be missing definition, got $result")
+      val result = SpeedyTestLib.run(
+        machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref)),
+        getPkg = { case pkgId if pkgId == ref.packageId => pkgs3 },
+      )
+      inside(result) { case Left(SError.SErrorCrash(loc, msg)) =>
+        loc shouldBe "com.daml.lf.speedy.Speedy.Machine.lookupVal"
+        msg should include(s"definition ${LfDefRef(ref)} not found")
       }
-
     }
-
   }
 
 }

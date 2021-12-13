@@ -1,6 +1,13 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+
+.. Set max depth of the local table contents (visible in the right hand sidebar in the rendered HTML)
+.. See https://www.sphinx-doc.org/en/master/usage/restructuredtext/field-lists.html?highlight=tocdepth
+
+:tocdepth: 2
+
+
 Error Codes
 ###########
 
@@ -34,7 +41,7 @@ The goal is to enable users, developers and operators to act on the encountered
 errors in a self-service manner, either in an automated-way or manually.
 
 Configuration
-======================================
+*********************************************
 
 The new error code formats and adapted gRPC response statuses are returned by default starting with the Daml 1.18 SDK release.
 Clients can still migrate to Daml SDK 1.18 and use the pre-1.18 gRPC status code response behavior by using ``--use-pre-1.18-error-codes``
@@ -42,7 +49,7 @@ as a command line option. However, this option is deprecated and will be removed
 
 
 Glossary
-======================================
+*********************************************
 
 Error
         Represents an occurrence of a failure.
@@ -81,19 +88,8 @@ Correlation id
                   We use request's submission id for correlation id.
 
 
-Error Categories
-======================================
-
-The error categories allow to group errors such that application logic can be built
-in a sensible way to automatically deal with errors and decide whether to retry
-a request or escalate to the operator.
-
-.. This file is generated:
-.. include:: error-categories-inventory.rst.inc
-
-
 Anatomy of an Error
-======================================
+*********************************************
 
 
 Errors returned to users contain a `gRPC status code`_, a description and additional machine readable information
@@ -101,7 +97,7 @@ represented in the `rich gRPC error model`_.
 
 
 Error Description
---------------------------------------
+=============================================
 
 We use the `standard gRPC description`_ that additionally adheres to our custom message format:
 
@@ -137,7 +133,7 @@ In a concrete example an error description might look like this:
 
 
 Additional Machine Readable Information
-----------------------------------------------------------------------------
+=============================================
 
 We use following error details:
 
@@ -154,6 +150,94 @@ We use following error details:
 
 Many errors will include more information,
 but there is no guarantee given that additional information will be preserved across versions.
+
+
+
+Working with Error Codes
+*********************************************
+
+This example shows how a user can extract the relevant error information.
+
+.. code-block:: scala
+
+    object SampleClientSide {
+
+      import com.google.rpc.ResourceInfo
+      import com.google.rpc.{ErrorInfo, RequestInfo, RetryInfo}
+      import io.grpc.StatusRuntimeException
+      import scala.jdk.CollectionConverters._
+
+      def example(): Unit = {
+        try {
+          DummmyServer.serviceEndpointDummy()
+        } catch {
+          case e: StatusRuntimeException =>
+
+            // Converting to a status object.
+            val status = io.grpc.protobuf.StatusProto.fromThrowable(e)
+
+            // Extracting error code id.
+            assert(status.getCode == 10)
+
+            // Extracting error message, both
+            // machine oriented part: "MY_ERROR_CODE_ID(2,full-cor):",
+            // and human oriented part: "A user oriented message".
+            assert(status.getMessage == "MY_ERROR_CODE_ID(2,full-cor): A user oriented message")
+
+            // Getting all the details
+            val rawDetails: Seq[com.google.protobuf.Any] = status.getDetailsList.asScala.toSeq
+
+            // Extracting error code id, error category id and optionally additional metadata.
+            assert {
+              rawDetails.collectFirst {
+                case any if any.is(classOf[ErrorInfo]) =>
+                  val v = any.unpack(classOf[ErrorInfo])
+                  assert(v.getReason == "MY_ERROR_CODE_ID")
+                  assert(v.getMetadataMap.asScala.toMap == Map("category" -> "2", "foo" -> "bar"))
+              }.isDefined
+            }
+
+            // Extracting full correlation id, if present.
+            assert {
+              rawDetails.collectFirst {
+                case any if any.is(classOf[RequestInfo]) =>
+                  val v = any.unpack(classOf[RequestInfo])
+                  assert(v.getRequestId == "full-correlation-id-123456790")
+              }.isDefined
+            }
+
+            // Extracting retry information if the error is retryable.
+            assert {
+              rawDetails.collectFirst {
+                case any if any.is(classOf[RetryInfo]) =>
+                  val v = any.unpack(classOf[RetryInfo])
+                  assert(v.getRetryDelay.getSeconds == 123)
+              }.isDefined
+            }
+
+            // Extracting resource if the error pertains to some well defined resource.
+            assert {
+              rawDetails.collectFirst {
+                case any if any.is(classOf[ResourceInfo]) =>
+                  val v = any.unpack(classOf[ResourceInfo])
+                  assert(v.getResourceType == "CONTRACT_ID")
+                  assert(v.getResourceName == "someContractId")
+              }.isDefined
+            }
+        }
+      }
+    }
+
+
+Error Categories Inventory
+*********************************************
+
+The error categories allow to group errors such that application logic can be built
+in a sensible way to automatically deal with errors and decide whether to retry
+a request or escalate to the operator.
+
+.. This file is generated:
+.. include:: error-categories-inventory.rst.inc
 
 
 

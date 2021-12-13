@@ -25,9 +25,7 @@ import GHC.Show as GHC
 import DA.Types as GHC (Either(..))
 import GHC.Tuple()
 import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum, ifThenElse
-#ifdef DAML_NUMERIC
   , Numeric
-#endif
 #ifdef DAML_BIGNUMERIC
   , BigNumeric
   , RoundingMode (..)
@@ -562,34 +560,25 @@ fst (x, _) = x
 snd : (a, b) -> b
 snd (_, x) = x
 
-#ifdef DAML_NUMERIC
-#define IF_NUMERIC(a,b) a
 #define NUMERIC_LIT(n) (primitive @"BEMulNumeric" (1.0 : Numeric 0) ((n) : Numeric 10))
-#else
-#define IF_NUMERIC(a,b) b
-#define NUMERIC_LIT(n) n
-#endif
 
 -- | `truncate x` rounds `x` toward zero.
-truncate : IF_NUMERIC(Numeric n, Decimal) -> Int
-truncate = primitive @IF_NUMERIC("BENumericToInt64", "BEDecimalToInt64")
+truncate : Numeric n -> Int
+truncate = primitive @"BENumericToInt64"
 
-#ifdef DAML_NUMERIC
 -- | Convert an `Int` to a `Numeric`.
 intToNumeric : Int -> Numeric n
 intToNumeric = primitive @"BEInt64ToNumeric"
-#endif
 
 -- | Convert an `Int` to a `Decimal`.
 intToDecimal : Int -> Decimal
-intToDecimal = IF_NUMERIC(intToNumeric, primitive @"BEInt64ToDecimal")
+intToDecimal = intToNumeric
 
 -- | Bankers' Rounding: `roundBankers dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded to the nearest even digit.
-roundBankers : Int -> IF_NUMERIC(Numeric n -> Numeric n, Decimal -> Decimal)
-roundBankers = primitive @IF_NUMERIC("BERoundNumeric", "BERoundDecimal")
+roundBankers : Int -> Numeric n -> Numeric n
+roundBankers = primitive @"BERoundNumeric"
 
 -- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
-#ifdef DAML_NUMERIC
 roundCommercial : forall n. NumericScale n => Int -> Numeric n -> Numeric n
 roundCommercial d x =
   -- We must avoid conversions to Int, otherwise this will crash in some cases.
@@ -607,34 +596,24 @@ roundCommercial d x =
   in if diff == problematicDiff
        then x + problematicDiff
        else t
-#else
-roundCommercial : Int -> Decimal -> Decimal
-roundCommercial d x =
-  -- This suffers from the same issue as the Numeric implementation but given
-  -- that Decimal is dead for newer LF versions anyway, we don’t bother fixing it.
-  let t = intToDecimal (10 ^ d)
-      v = round (x * t)
-      w = intToDecimal v
-  in w / t
-#endif
 
 -- | Round a `Decimal` to the nearest integer, where a `.5` is rounded away from zero.
-round : IF_NUMERIC(Numeric n, Decimal) -> Int
+round : Numeric n -> Int
 round x = if x > NUMERIC_LIT(0.0)
     then truncate (x + NUMERIC_LIT(0.5))
     else truncate (x - NUMERIC_LIT(0.5))
 
 -- | Round a `Decimal` down to the nearest integer.
-floor : IF_NUMERIC(Numeric n, Decimal) -> Int
+floor : Numeric n -> Int
 floor x =
   let i = truncate x
-  in if IF_NUMERIC(intToNumeric, intToDecimal) i <= x then i else i - 1
+  in if intToNumeric i <= x then i else i - 1
 
 -- | Round a `Decimal` up to the nearest integer.
-ceiling : IF_NUMERIC(Numeric n, Decimal) -> Int
+ceiling : Numeric n -> Int
 ceiling x =
   let i = truncate x
-  in if IF_NUMERIC(intToNumeric, intToDecimal) i < x then i + 1 else i
+  in if intToNumeric i < x then i + 1 else i
 
 -- | Is the list empty? `null xs` is true if `xs` is the empty list.
 null : [a] -> Bool

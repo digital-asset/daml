@@ -521,7 +521,7 @@ private[lf] object Speedy {
                       this.compiledPackages = packages
                       // To avoid infinite loop in case the packages are not updated properly by the caller
                       assert(compiledPackages.packageIds.contains(ref.packageId))
-                      lookupVal(eval)
+                      ctrl = eval
                     },
                   )
                 )

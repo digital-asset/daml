@@ -3,28 +3,34 @@
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | HIDE Automatically imported qualified in every module.
 module DA.Internal.Desugar (
     module DA.Internal.Template,
     module DA.Internal.Template.Functions,
     module DA.Internal.Exception,
+    module DA.Internal.Interface,
     Eq(..), Show(..),
     Bool(..), Text, Optional(..),
     concat, magic,
     Party, ContractId, Update, Any,
     NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..),
-    HasInterfaceTypeRep(..),
-    Implements(..),
     TypeRep,
+    ImplementsT(..),
+    HasIsInterfaceType(..),
+    RequiresT(..),
     HasMethod,
     mkMethod,
+    _exerciseDefault,
+    _exerciseInterfaceGuard,
+    _typeRepForInterfaceExercise,
 ) where
 
 import DA.Internal.Prelude
 import DA.Internal.Template
 import DA.Internal.Template.Functions
+import DA.Internal.Interface
 import DA.Internal.LF
 #ifndef DAML_EXCEPTIONS
 import DA.Internal.Exception ()
@@ -39,14 +45,22 @@ data PreConsuming t = PreConsuming {}
 data Consuming t = Consuming {}
 data PostConsuming t = PostConsuming {}
 
-class HasInterfaceTypeRep i where
-  interfaceTypeRep : i -> TypeRep
+-- Used to construct markers representing the fact that
+-- a template `t` implements an interface `i`.
+data ImplementsT t i = ImplementsT
 
-class HasInterfaceTypeRep i => Implements t i where
-  toInterface : t -> i
-  fromInterface : i -> Optional t
-  toInterfaceContractId : ContractId t -> ContractId i
-  fromInterfaceContractId : ContractId i -> Update (Optional (ContractId t))
+class HasIsInterfaceType t where
+  _isInterfaceType : proxy t -> Bool
+
+_typeRepForInterfaceExercise : (HasTemplateTypeRep t, HasIsInterfaceType t) => proxy t -> Optional TypeRep
+_typeRepForInterfaceExercise p =
+  if _isInterfaceType p
+    then None
+    else Some (_templateTypeRep p)
+
+-- Used to mark interface hierarchies, i.e. when
+-- an interface A requires an interface B.
+data RequiresT a b = RequiresT
 
 {-
 Together, `HasMethod`, `Method` and `mkMethod` allow us to desugar the methods of
@@ -96,3 +110,12 @@ newtype Method t i (m : Symbol) r = Method { unMethod : t -> r }
 
 mkMethod : (Implements t i, HasMethod i m r) => (t -> r) -> Method t i m r
 mkMethod = Method
+
+-- | Gives a valid implementation of `HasExercise.exercise`
+-- for types that implement `HasExerciseGuarded`.
+_exerciseDefault : HasExerciseGuarded t c r => ContractId t -> c -> Update r
+_exerciseDefault = exerciseGuarded (const True)
+
+_exerciseInterfaceGuard : forall i t. HasFromInterface t i => (t -> Bool) -> (i -> Bool)
+_exerciseInterfaceGuard pred iface =
+  optional False pred (fromInterface iface)

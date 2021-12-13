@@ -134,6 +134,9 @@ instance MonoTraversable ModuleRef (Qualified a) where
   monoTraverse f (Qualified pkg0 mod0 x) =
     (\(pkg1, mod1) -> Qualified pkg1 mod1 x) <$> f (pkg0, mod0)
 
+instance (Ord a, MonoTraversable ModuleRef a) => MonoTraversable ModuleRef (S.Set a) where
+  monoTraverse f = fmap S.fromList . traverse (monoTraverse f) . S.toList
+
 instance MonoTraversable ModuleRef ChoiceName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef MethodName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ExprValName where monoTraverse _ = pure
@@ -147,7 +150,6 @@ instance MonoTraversable ModuleRef VariantConName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef Version where monoTraverse _ = pure
 instance MonoTraversable ModuleRef PackageName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef PackageVersion where monoTraverse _ = pure
-instance MonoTraversable ModuleRef (S.Set ChoiceName) where monoTraverse _ = pure
 
 -- NOTE(MH): This is an optimization to avoid running into a dead end.
 instance {-# OVERLAPPING #-} MonoTraversable ModuleRef FilePath where monoTraverse _ = pure

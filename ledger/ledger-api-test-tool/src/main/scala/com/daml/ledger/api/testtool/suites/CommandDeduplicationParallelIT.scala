@@ -179,7 +179,7 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
             completion.submissionId == submissionId
           })
           .map {
-            case Some(completion) =>
+            case Some((_, completion)) =>
               Status.fromCodeValue(completion.getStatus.code).getCode
             case None =>
               fail(s"Did not find completion for request with submission id $submissionId")

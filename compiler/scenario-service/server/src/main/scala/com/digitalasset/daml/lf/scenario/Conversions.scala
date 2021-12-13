@@ -101,7 +101,7 @@ final class Conversions(
               case UserError(msg) =>
                 builder.setUserError(msg)
               case ContractNotFound(cid) =>
-                // TODO https://github.com/digital-asset/daml/issues/9974
+                // NOTE https://github.com/digital-asset/daml/issues/9974
                 // We crash here because:
                 //  1. You cannot construct a cid yourself in scenarios or
                 //     daml script
@@ -165,7 +165,7 @@ final class Conversions(
                     .setExpected(convertIdentifier(expected))
                 )
               case _: ContractDoesNotImplementInterface =>
-                // TODO https://github.com/digital-asset/daml/issues/10810
+                // TODO https://github.com/digital-asset/daml/issues/12051
                 //   Implement this.
                 builder.setCrash(s"ContractDoesNotImplementInterface unhandled in scenario service")
               case FailedAuthorization(nid, fa) =>
@@ -195,7 +195,7 @@ final class Conversions(
                 }
 
               case _: ChoiceGuardFailed =>
-                // TODO https://github.com/digital-asset/daml/issues/11703
+                // TODO https://github.com/digital-asset/daml/issues/12051
                 //   Implement this.
                 builder.setCrash(s"ChoiceGuardFailed unhandled in scenario service")
             }
@@ -249,6 +249,10 @@ final class Conversions(
 
       case Error.PartyAlreadyExists(party) =>
         builder.setScenarioPartyAlreadyExists(party)
+
+      case Error.UserManagement(err) =>
+        // TODO https://github.com/digital-asset/daml/issues/11997
+        setCrash(s"User management error: $err")
     }
     builder.build
   }

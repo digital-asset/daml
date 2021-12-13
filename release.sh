@@ -32,6 +32,7 @@ check() {
     while read line; do
         sha=$(echo "$line" | gawk '{print $1}')
         ver=$(echo "$line" | gawk '{print $2}')
+        split=$(echo "$line" | gawk '{print $3}')
         if ! echo "$ver" | grep -q -P $VERSION_REGEX; then
             echo "Invalid version number in LATEST file, needs manual correction."
             echo "Offending version: '$ver'."
@@ -43,6 +44,10 @@ check() {
                 echo "$ver does not match $sha, please correct. ($ver_sha != ${sha:0:8})"
                 exit 1
             fi
+        fi
+
+        if [ ! -z "$split" ] && [ "$split" != "SPLIT_RELEASE" ]; then
+            echo "Invalid entry in third column, must be SPLIT_RELEASE or non-existent."
         fi
     done < LATEST
 }

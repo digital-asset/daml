@@ -91,8 +91,15 @@ trait LocationMixin {
 
 object BaseError {
   private val ignoreFields = Set("cause", "throwable", "loggingContext")
-  val SecuritySensitiveMessageOnApi =
+  val SecuritySensitiveMessageOnApiPrefix =
     "An error occurred. Please contact the operator and inquire about the request"
+
+  def isSanitizedSecuritySensitiveMessage(msg: String): Boolean = {
+    // NOTE: Currently we can't be much more precise than checking only the message prefix
+    // as the suffix is a correlation id which is unbounded as ledger implementations
+    // are free to choose whatever kind of value is most appropriate for them.
+    msg.startsWith(SecuritySensitiveMessageOnApiPrefix)
+  }
 
   def extractContext[D](obj: D): Map[String, String] =
     obj.getClass.getDeclaredFields

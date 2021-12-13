@@ -449,13 +449,20 @@ private[validation] object Typing {
         checkExpr(key.maintainers, TFun(key.typ, TParties))
         ()
       }
-      implementations.values.foreach(env.checkIfaceImplementation(tplName, _))
+      env.checkIfaceImplementations(tplName, implementations)
     }
 
     def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(param, fixedChoices, methods, precond) =>
+        case DefInterface(requires, param, fixedChoices, methods, precond) =>
           val env = introExprVar(param, TTyCon(ifaceName))
+          if (requires(ifaceName))
+            throw ECircularInterfaceRequires(ctx, ifaceName)
+          for {
+            required <- requires
+            requiredRequired <- handleLookup(ctx, interface.lookupInterface(required)).requires
+            if !requires(requiredRequired)
+          } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
           env.checkExpr(precond, TBool)
           methods.values.foreach(checkIfaceMethod)
           fixedChoices.values.foreach(env.checkChoice(ifaceName, _))
@@ -469,31 +476,41 @@ private[validation] object Typing {
       AlphaEquiv.alphaEquiv(t1, t2) ||
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
-    def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
-      val DefInterfaceSignature(_, fixedChoices, methods, _) =
-        handleLookup(ctx, interface.lookupInterface(impl.interfaceId))
+    def checkIfaceImplementations(
+        tplTcon: TypeConName,
+        impls: Map[TypeConName, TemplateImplements],
+    ): Unit = {
 
-      val fixedChoiceSet = fixedChoices.keySet
-      if (impl.inheritedChoices != fixedChoiceSet) {
-        throw EBadInheritedChoices(
-          ctx,
-          impl.interfaceId,
-          tplTcon,
-          fixedChoiceSet,
-          impl.inheritedChoices,
-        )
-      }
+      impls.foreach { case (iface, impl) =>
+        val DefInterfaceSignature(requires, _, fixedChoices, methods, _) =
+          handleLookup(ctx, interface.lookupInterface(impl.interfaceId))
 
-      methods.values.foreach { (method: InterfaceMethod) =>
-        if (!impl.methods.contains(method.name))
-          throw EMissingInterfaceMethod(ctx, tplTcon, impl.interfaceId, method.name)
-      }
-      impl.methods.values.foreach { (tplMethod: TemplateImplementsMethod) =>
-        methods.get(tplMethod.name) match {
-          case None =>
-            throw EUnknownInterfaceMethod(ctx, tplTcon, impl.interfaceId, tplMethod.name)
-          case Some(method) =>
-            checkExpr(tplMethod.value, TFun(TTyCon(tplTcon), method.returnType))
+        requires
+          .filterNot(impls.contains)
+          .foreach(required => throw EMissingRequiredInterface(ctx, tplTcon, iface, required))
+
+        val fixedChoiceSet = fixedChoices.keySet
+        if (impl.inheritedChoices != fixedChoiceSet) {
+          throw EBadInheritedChoices(
+            ctx,
+            impl.interfaceId,
+            tplTcon,
+            fixedChoiceSet,
+            impl.inheritedChoices,
+          )
+        }
+
+        methods.values.foreach { (method: InterfaceMethod) =>
+          if (!impl.methods.contains(method.name))
+            throw EMissingInterfaceMethod(ctx, tplTcon, impl.interfaceId, method.name)
+        }
+        impl.methods.values.foreach { (tplMethod: TemplateImplementsMethod) =>
+          methods.get(tplMethod.name) match {
+            case None =>
+              throw EUnknownInterfaceMethod(ctx, tplTcon, impl.interfaceId, tplMethod.name)
+            case Some(method) =>
+              checkExpr(tplMethod.value, TFun(TTyCon(tplTcon), method.returnType))
+          }
         }
       }
     }
@@ -1155,6 +1172,18 @@ private[validation] object Typing {
         checkImplements(tpl, iface)
         checkExpr(value, TTyCon(iface))
         TOptional(TTyCon(tpl))
+      case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+        val requiringIface = handleLookup(ctx, interface.lookupInterface(requiringIfaceId))
+        if (!requiringIface.requires.contains(requiredIfaceId))
+          throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
+        checkExpr(body, TTyCon(requiringIfaceId))
+        TTyCon(requiredIfaceId)
+      case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
+        val requiringIface = handleLookup(ctx, interface.lookupInterface(requiringIfaceId))
+        if (!requiringIface.requires.contains(requiredIfaceId))
+          throw EWrongInterfaceRequirement(ctx, requiringIfaceId, requiredIfaceId)
+        checkExpr(body, TTyCon(requiredIfaceId))
+        TOptional(TTyCon(requiringIfaceId))
       case ECallInterface(iface, methodName, value) =>
         val method = handleLookup(ctx, interface.lookupInterfaceMethod(iface, methodName))
         checkExpr(value, TTyCon(iface))

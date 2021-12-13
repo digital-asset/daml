@@ -167,7 +167,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     val correlationId = loggingContext.correlationId
     val message =
       if (code.category.securitySensitive)
-        s"${BaseError.SecuritySensitiveMessageOnApi} ${correlationId.getOrElse("<no-correlation-id>")}"
+        s"${BaseError.SecuritySensitiveMessageOnApiPrefix} ${correlationId.getOrElse("<no-correlation-id>")}"
       else
         code.toMsg(err.cause, loggingContext.correlationId)
     val codeGrpc = category.grpcCode
@@ -262,6 +262,8 @@ object ErrorCode {
   def formatContextAsString(contextMap: Map[String, String]): String = {
     contextMap
       .filter(_._2.nonEmpty)
+      .toSeq
+      .sortBy(_._1)
       .map { case (k, v) =>
         s"$k=$v"
       }

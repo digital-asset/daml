@@ -91,6 +91,7 @@ conformance_test(
         ",CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationBasic" +  # sync vs async error (part of canton #6301)
         ",CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateSubmitterBasic" +
         ",CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationMixedClients" +
+        ",CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets" +  # temporary disabled until we adapt it for canton
         # Also exclude "optional tests" - which are run separately below
         ",CompletionDeduplicationInfoITCommandService" +
         ",CompletionDeduplicationInfoITCommandSubmissionService" +

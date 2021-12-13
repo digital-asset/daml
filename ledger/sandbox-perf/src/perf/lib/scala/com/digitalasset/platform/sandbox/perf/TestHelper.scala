@@ -7,7 +7,6 @@ import java.io.File
 import java.util.UUID
 
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.lf.data.Ref.PackageId
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands}
@@ -15,11 +14,11 @@ import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.client.services.acs.ActiveContractSetClient
-import com.daml.dec.DirectExecutionContext
+import com.daml.lf.data.Ref.PackageId
 import com.daml.platform.sandbox.perf.util.DarUtil
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 
 trait TestHelper {
 
@@ -31,12 +30,11 @@ trait TestHelper {
   val applicationId: String = "app1"
 
   val party = "party"
-  val rangeOfIntsTemplateId =
-    Identifier(
-      packageId = largeTxPackageId,
-      moduleName = "LargeTransaction",
-      entityName = "RangeOfInts",
-    )
+  val rangeOfIntsTemplateId = Identifier(
+    packageId = largeTxPackageId,
+    moduleName = "LargeTransaction",
+    entityName = "RangeOfInts",
+  )
 
   val listUtilTemplateId = Identifier(
     packageId = largeTxPackageId,
@@ -67,7 +65,7 @@ trait TestHelper {
       applicationId = applicationId,
       commandId = commandId,
       party = party,
-      commands = Seq(Command(command)),
+      commands = Seq(Command.of(command)),
     )
     SubmitAndWaitRequest(Some(commands))
   }
@@ -115,7 +113,7 @@ trait TestHelper {
       workflowId: String = "",
   ): Future[Unit] = {
     val request: SubmitAndWaitRequest = submitAndWaitRequest(command, commandId, workflowId)
-    state.ledger.commandService.submitAndWait(request).map(_ => ())(DirectExecutionContext)
+    state.ledger.commandService.submitAndWait(request).map(_ => ())(ExecutionContext.parasitic)
   }
 
   def activeContractIds(

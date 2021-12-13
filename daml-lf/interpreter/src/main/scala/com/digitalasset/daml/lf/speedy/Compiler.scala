@@ -27,7 +27,7 @@ import scala.reflect.ClassTag
 
 /** Compiles LF expressions into Speedy expressions.
   * This includes:
-  *  - Writing variable references into de Bruijn indices.
+  *  - Translating variable references into de Bruijn levels.
   *  - Closure conversion: EAbs turns into SEMakeClo, which creates a closure by copying free variables into a closure object.
   *   - Rewriting of update and scenario actions into applications of builtin functions that take an "effect" token.
   *
@@ -89,14 +89,6 @@ private[lf] object Compiler {
   }
 
   private val SEGetTime = s.SEBuiltin(SBGetTime)
-
-  private def SBCompareNumeric(b: SBuiltinPure) =
-    s.SEAbs(3, s.SEApp(s.SEBuiltin(b), List(s.SEVar(2), s.SEVar(1))))
-  private val SBLessNumeric = SBCompareNumeric(SBLess)
-  private val SBLessEqNumeric = SBCompareNumeric(SBLessEq)
-  private val SBGreaterNumeric = SBCompareNumeric(SBGreater)
-  private val SBGreaterEqNumeric = SBCompareNumeric(SBGreaterEq)
-  private val SBEqualNumeric = SBCompareNumeric(SBEqual)
 
   private val SBEToTextNumeric = s.SEAbs(1, s.SEBuiltin(SBToText))
 
@@ -182,7 +174,7 @@ private[lf] final class Compiler(
       varIndices: Map[VarRef, Position],
   ) {
 
-    def toSEVar(p: Position): s.SEVar = s.SEVar(position - p.idx)
+    def toSEVar(p: Position) = s.SEVarLevel(p.idx)
 
     def nextPosition = Position(position)
 
@@ -214,14 +206,14 @@ private[lf] final class Compiler(
 
     private[this] def vars: List[VarRef] = varIndices.keys.toList
 
-    private[this] def lookupVar(varRef: VarRef): Option[s.SEVar] =
+    private[this] def lookupVar(varRef: VarRef): Option[s.SExpr] =
       varIndices.get(varRef).map(toSEVar)
 
-    def lookupExprVar(name: ExprVarName): s.SEVar =
+    def lookupExprVar(name: ExprVarName): s.SExpr =
       lookupVar(EVarRef(name))
         .getOrElse(throw CompilationError(s"Unknown variable: $name. Known: ${vars.mkString(",")}"))
 
-    def lookupTypeVar(name: TypeVarName): Option[s.SEVar] =
+    def lookupTypeVar(name: TypeVarName): Option[s.SExpr] =
       lookupVar(TVarRef(name))
 
   }
@@ -338,7 +330,7 @@ private[lf] final class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompile(cmds: ImmArray[Command]): t.SExpr =
-    validateCompilation(compilationPipeline(compileCommands(cmds)))
+    validateCompilation(compilationPipeline(compileCommands(Env.Empty, cmds)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -477,7 +469,7 @@ private[lf] final class Compiler(
       case EVal(ref) =>
         s.SEVal(t.LfDefRef(ref))
       case EBuiltin(bf) =>
-        compileBuiltin(bf)
+        compileBuiltin(env, bf)
       case EPrimCon(con) =>
         compilePrimCon(con)
       case EPrimLit(lit) =>
@@ -577,15 +569,34 @@ private[lf] final class Compiler(
         SBFromInterface(tpl)(compile(env, e))
       case ECallInterface(iface, methodName, e) =>
         SBCallInterface(iface, methodName)(compile(env, e))
+      case EToRequiredInterface(requiredIfaceId @ _, requiringIfaceId @ _, body @ _) =>
+        compile(env, body)
+      case EFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, body @ _) =>
+        SBFromRequiredInterface(requiringIfaceId)(compile(env, body))
       case EExperimental(name, _) =>
         SBExperimental(name)
 
     }
 
   @inline
-  private[this] def compileBuiltin(bf: BuiltinFunction): s.SExpr =
+  private[this] def compileIdentity(env: Env) = s.SEAbs(1, s.SEVarLevel(env.position))
+
+  @inline
+  private[this] def compileBuiltin(env: Env, bf: BuiltinFunction): s.SExpr = {
+
+    def SBCompareNumeric(b: SBuiltinPure) = {
+      val d = env.position
+      s.SEAbs(3, s.SEApp(s.SEBuiltin(b), List(s.SEVarLevel(d + 1), s.SEVarLevel(d + 2))))
+    }
+
+    val SBLessNumeric = SBCompareNumeric(SBLess)
+    val SBLessEqNumeric = SBCompareNumeric(SBLessEq)
+    val SBGreaterNumeric = SBCompareNumeric(SBGreater)
+    val SBGreaterEqNumeric = SBCompareNumeric(SBGreaterEq)
+    val SBEqualNumeric = SBCompareNumeric(SBEqual)
+
     bf match {
-      case BCoerceContractId => s.SEAbs.identity
+      case BCoerceContractId => compileIdentity(env)
       // Numeric Comparisons
       case BLessNumeric => SBLessNumeric
       case BLessEqNumeric => SBLessEqNumeric
@@ -708,6 +719,7 @@ private[lf] final class Compiler(
           case BAnyExceptionMessage => SBAnyExceptionMessage
         })
     }
+  }
 
   @inline
   private[this] def compilePrimCon(con: PrimCon): s.SExpr =
@@ -1096,7 +1108,7 @@ private[lf] final class Compiler(
       }
     }
 
-  // TODO https://github.com/digital-asset/daml/issues/10810:
+  // TODO https://github.com/digital-asset/daml/issues/12051
   //   Try to factorise this with compileChoiceBody above.
   private[this] def compileInterfaceChoiceBody(
       env: Env,
@@ -1341,7 +1353,7 @@ private[lf] final class Compiler(
       ifaceId: Identifier,
   ): (t.SDefinitionRef, SDefinition) =
     t.ImplementsDefRef(tmplId, ifaceId) ->
-      SDefinition(unsafeClosureConvert(s.SEAbs.identity))
+      SDefinition(unsafeClosureConvert(compileIdentity(Env.Empty)))
 
   // Compile the implementation of an interface method.
   private[this] def compileImplementsMethod(
@@ -1423,21 +1435,21 @@ private[lf] final class Compiler(
   }
 
   private[this] def compileCreateAndExercise(
+      env: Env,
       tmplId: Identifier,
       createArg: SValue,
       choiceId: ChoiceName,
       choiceArg: SValue,
   ): s.SExpr =
-    labeledUnaryFunction(Profile.CreateAndExerciseLabel(tmplId, choiceId), Env.Empty) {
-      (tokenPos, env) =>
-        let(env, t.CreateDefRef(tmplId)(s.SEValue(createArg), env.toSEVar(tokenPos))) {
-          (cidPos, env) =>
-            t.ChoiceDefRef(tmplId, choiceId)(
-              env.toSEVar(cidPos),
-              s.SEValue(choiceArg),
-              env.toSEVar(tokenPos),
-            )
-        }
+    labeledUnaryFunction(Profile.CreateAndExerciseLabel(tmplId, choiceId), env) { (tokenPos, env) =>
+      let(env, t.CreateDefRef(tmplId)(s.SEValue(createArg), env.toSEVar(tokenPos))) {
+        (cidPos, env) =>
+          t.ChoiceDefRef(tmplId, choiceId)(
+            env.toSEVar(cidPos),
+            s.SEValue(choiceArg),
+            env.toSEVar(tokenPos),
+          )
+      }
     }
 
   private[this] def compileLookupByKey(
@@ -1491,13 +1503,14 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileExerciseByInterface(
+      env: Env,
       interfaceId: TypeConName,
       templateId: TypeConName,
       contractId: SValue,
       choiceId: ChoiceName,
       argument: SValue,
   ): s.SExpr =
-    unaryFunction(Env.Empty) { (tokenPos, env) =>
+    unaryFunction(env) { (tokenPos, env) =>
       t.GuardedChoiceDefRef(interfaceId, choiceId)(
         s.SEValue(contractId),
         s.SEValue(argument),
@@ -1508,11 +1521,12 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileFetchByInterface(
+      env: Env,
       interfaceId: TypeConName,
       templateId: TypeConName,
       contractId: SValue,
   ): s.SExpr =
-    unaryFunction(Env.Empty) { (_, env) =>
+    unaryFunction(env) { (_, env) =>
       let(env, s.SEValue(contractId)) { (cidPos, env) =>
         let(env, s.SEValue(SOptional(Some(STypeRep(TTyCon(templateId)))))) { (typeRepPos, env) =>
           compileFetchInterfaceBody(env, interfaceId, cidPos, typeRepPos)
@@ -1520,7 +1534,7 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] def compileCommand(cmd: Command): s.SExpr = cmd match {
+  private[this] def compileCommand(env: Env, cmd: Command): s.SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
     case Command.CreateByInterface(interfaceId, templateId, argument) =>
@@ -1528,7 +1542,7 @@ private[lf] final class Compiler(
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument) =>
-      compileExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument)
+      compileExerciseByInterface(env, interfaceId, templateId, contractId, choiceId, argument)
     case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
@@ -1536,11 +1550,12 @@ private[lf] final class Compiler(
     case Command.Fetch(templateId, coid) =>
       t.FetchDefRef(templateId)(s.SEValue(coid))
     case Command.FetchByInterface(interfaceId, templateId, coid) =>
-      compileFetchByInterface(interfaceId, templateId, coid)
+      compileFetchByInterface(env, interfaceId, templateId, coid)
     case Command.FetchByKey(templateId, key) =>
       t.FetchByKeyDefRef(templateId)(s.SEValue(key))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>
       compileCreateAndExercise(
+        env,
         templateId,
         createArg,
         choice,
@@ -1566,22 +1581,22 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileCommandForReinterpretation(cmd: Command): s.SExpr =
-    catchEverything(compileCommand(cmd))
+    catchEverything(compileCommand(Env.Empty, cmd))
 
-  private[this] def compileCommands(bindings: ImmArray[Command]): s.SExpr =
+  private[this] def compileCommands(env: Env, bindings: ImmArray[Command]): s.SExpr =
     // commands are compile similarly as update block
     // see compileBlock
     bindings.toList match {
       case Nil =>
         SEUpdatePureUnit
       case first :: rest =>
-        let(Env.Empty, compileCommand(first)) { (firstPos, env) =>
+        let(env, compileCommand(env, first)) { (firstPos, env) =>
           unaryFunction(env) { (tokenPos, env) =>
             let(env, app(env.toSEVar(firstPos), env.toSEVar(tokenPos))) { (_, _env) =>
               // we cannot process `rest` recursively without exposing ourselves to stack overflow.
               var env = _env
               val exprs = rest.map { cmd =>
-                val expr = app(compileCommand(cmd), env.toSEVar(tokenPos))
+                val expr = app(compileCommand(env, cmd), env.toSEVar(tokenPos))
                 env = env.pushVar
                 expr
               }

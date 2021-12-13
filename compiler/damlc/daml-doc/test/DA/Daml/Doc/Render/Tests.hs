@@ -25,38 +25,41 @@ mkTestTree externalAnchors = do
       zipWith (renderTest Markdown externalAnchors) cases expectMarkdown
     ]
 
+ctx0 :: Context
+ctx0 = Context []
 
 cases :: [(String, ModuleDoc)]
 cases = [ ("Empty module",
-           ModuleDoc Nothing "Empty" Nothing [] [] [] [] [])
+           ModuleDoc Nothing "Empty" Nothing [] [] [] [] [] [])
         , ("Type def with argument",
-           ModuleDoc (Just "module-typedef") "Typedef" Nothing []
+           ModuleDoc (Just "module-typedef") "Typedef" Nothing [] []
             [TypeSynDoc (Just "type-typedef-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [TypeApp Nothing "TTT" []]) Nothing]
             [] [] []
           )
         , ("Two types",
-           ModuleDoc (Just "module-twotypes") "TwoTypes" Nothing []
+           ModuleDoc (Just "module-twotypes") "TwoTypes" Nothing [] []
             [ TypeSynDoc (Just "type-twotypes-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" []) Nothing
             , ADTDoc (Just "data-twotypes-d") "D" Nothing ["d"] [PrefixC (Just "constr-twotypes-d") "D" (Just "D descr") [TypeApp Nothing "a" []]] Nothing
             ]
             [] [] []
           )
         , ("Documented function",
-           ModuleDoc (Just "module-function1") "Function1" Nothing [] []
-            [FunctionDoc (Just "function-function1-f") "f" Nothing (TypeApp Nothing "TheType" []) (Just "the doc")] [] []
+           ModuleDoc (Just "module-function1") "Function1" Nothing [] [] []
+            [FunctionDoc (Just "function-function1-f") "f" ctx0 (TypeApp Nothing "TheType" []) (Just "the doc")] [] []
           )
         , ("Undocumented function",
-           ModuleDoc (Just "module-function3") "Function3" Nothing [] []
-            [FunctionDoc (Just "function-function3-f") "f" Nothing (TypeApp Nothing "TheType" []) Nothing] [] []
+           ModuleDoc (Just "module-function3") "Function3" Nothing [] [] []
+            [FunctionDoc (Just "function-function3-f") "f" ctx0 (TypeApp Nothing "TheType" []) Nothing] [] []
           )
         , ("Module with only a type class",
-           ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] []
-            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [ClassMethodDoc (Just "function-onlyclass-member") "member" False Nothing Nothing (TypeApp Nothing "a" []) Nothing] Nothing] [])
+           ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] [] []
+            [ClassDoc (Just "class-onlyclass-c") "C" Nothing ctx0 ["a"] [ClassMethodDoc (Just "function-onlyclass-member") "member" False ctx0 ctx0 (TypeApp Nothing "a" []) Nothing] Nothing] [])
         , ("Multiline field description",
            ModuleDoc
              (Just "module-multilinefield")
              "MultiLineField"
              Nothing
+             []
              []
              [ADTDoc
                 (Just "data-multilinefield-d")
@@ -72,9 +75,9 @@ cases = [ ("Empty module",
         , ("Functions with context",
            ModuleDoc
             (Just "module-functionctx") "FunctionCtx"
-            Nothing [] []
+            Nothing [] [] []
             [ FunctionDoc (Just "function-g") "g"
-                (Just $ TypeTuple [TypeApp Nothing "Eq" [TypeApp Nothing "t" []]])
+                (Context [TypeApp Nothing "Eq" [TypeApp Nothing "t" []]])
                 (TypeFun [TypeApp Nothing "t" [], TypeApp Nothing "Bool" []])
                 (Just "function with context")
             ] [] []

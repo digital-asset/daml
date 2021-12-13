@@ -294,6 +294,8 @@ object domain {
 
   sealed trait ApplicationIdTag
 
+  /** Identifiers for applications connecting to the Ledger API.
+    */
   type ApplicationId = Ref.ApplicationId @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
 
@@ -391,5 +393,17 @@ object domain {
   object Logging {
     implicit def `tagged value to LoggingValue`[T: ToLoggingValue, Tag]: ToLoggingValue[T @@ Tag] =
       value => value.unwrap
+  }
+
+  final case class User(
+      id: Ref.UserId,
+      primaryParty: Option[Ref.Party],
+  )
+
+  sealed abstract class UserRight extends Product with Serializable
+  object UserRight {
+    final case object ParticipantAdmin extends UserRight
+    final case class CanActAs(party: Ref.Party) extends UserRight
+    final case class CanReadAs(party: Ref.Party) extends UserRight
   }
 }

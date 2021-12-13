@@ -4,9 +4,12 @@
 package com.daml.ledger.api
 
 import java.time.Duration
+
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+
+import scala.util.{Failure, Success, Try}
 
 /** Specifies the deduplication period for a command submission.
   * Note that we would like to keep this easily extensible to support offsets and absolute
@@ -26,11 +29,13 @@ object DeduplicationPeriod {
   def deduplicateUntil(
       time: Timestamp,
       period: DeduplicationPeriod,
-  ): Timestamp = period match {
+  ): Try[Timestamp] = period match {
     case DeduplicationDuration(duration) =>
-      time.addMicros(duration.toNanos / 1000)
+      Success(time.addMicros(duration.toNanos / 1000))
     case DeduplicationOffset(_) =>
-      throw new NotImplementedError("Offset deduplication is not supported")
+      Failure(
+        new NotImplementedError("Offset deduplication is not supported")
+      )
   }
 
   /** Computes deduplication duration as the duration `time + minSkew - deduplicationStart`.

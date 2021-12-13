@@ -10,6 +10,7 @@ import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
@@ -45,6 +46,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: ApplicationId)
     extends ScriptLedgerClient {
+  override val transport = "gRPC API"
+
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -338,4 +341,64 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       case TreeEvent(TreeEvent.Kind.Empty) =>
         throw new ConverterException("Invalid tree event Empty")
     }
+
+  override def createUser(
+      user: User,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[User] =
+    grpcClient.userManagementClient.createUser(user, rights)
+
+  override def getUser(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Option[User]] =
+    grpcClient.userManagementClient.getUser(id).map(Some(_)).recover {
+      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+    }
+
+  override def deleteUser(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] =
+    grpcClient.userManagementClient.deleteUser(id)
+
+  override def listUsers()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[User]] =
+    grpcClient.userManagementClient.listUsers().map(_.toList)
+
+  override def grantUserRights(
+      id: UserId,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    grpcClient.userManagementClient.grantUserRights(id, rights).map(_.toList)
+
+  override def revokeUserRights(
+      id: UserId,
+      rights: List[UserRight],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    grpcClient.userManagementClient.revokeUserRights(id, rights).map(_.toList)
+
+  override def listUserRights(id: UserId)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[UserRight]] =
+    grpcClient.userManagementClient.listUserRights(id).map(_.toList)
 }

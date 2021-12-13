@@ -11,7 +11,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-// TODO https://github.com/digital-asset/daml/issues/10810
+// TODO https://github.com/digital-asset/daml/issues/12051
 //  Test Interface logic
 
 class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
@@ -224,6 +224,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       List("choice1", "choice2", "choice3").map(Name.assertFromString)
 
     "catch implements interface repetition " ignore {
+      // TODO https://github.com/digital-asset/daml/issues/12051
       // TODO https://github.com/digital-asset/daml/issues/10917
       // implement
     }
@@ -266,10 +267,12 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "GenDefInterface.build " should {
     "catch duplicate choices" ignore {
+      // TODO https://github.com/digital-asset/daml/issues/12051
       // TODO https://github.com/digital-asset/daml/issues/10917
       // implement
     }
     "catch duplicate method" ignore {
+      // TODO https://github.com/digital-asset/daml/issues/12051
       // TODO https://github.com/digital-asset/daml/issues/10917
       // implement
     }

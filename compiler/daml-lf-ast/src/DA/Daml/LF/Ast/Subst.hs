@@ -198,6 +198,10 @@ applySubstInExpr subst@Subst{..} = \case
         (applySubstInExpr subst e)
     ECallInterface t m e -> ECallInterface t m
         (applySubstInExpr subst e)
+    EToRequiredInterface t1 t2 e -> EToRequiredInterface t1 t2
+        (applySubstInExpr subst e)
+    EFromRequiredInterface t1 t2 e -> EFromRequiredInterface t1 t2
+        (applySubstInExpr subst e)
     EUpdate u -> EUpdate
         (applySubstInUpdate subst u)
     EScenario s -> EScenario

@@ -10,7 +10,6 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Snapshot}
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
@@ -44,7 +43,7 @@ class IndexerBenchmark() {
       .use(db => {
         println(s"Running the indexer benchmark against the ephemeral Postgres database ${db.url}")
         run(createUpdates, config.copy(indexerConfig = config.indexerConfig.copy(jdbcUrl = db.url)))
-      })(DirectExecutionContext)
+      })(ExecutionContext.parasitic)
   }
 
   def run(

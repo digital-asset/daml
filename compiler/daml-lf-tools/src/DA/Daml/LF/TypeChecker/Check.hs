@@ -43,6 +43,7 @@ import           Data.List.Extended
 import Data.Generics.Uniplate.Data (para)
 import qualified Data.Set as S
 import qualified Data.HashSet as HS
+import           Data.Maybe (listToMaybe)
 import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
 import qualified Data.IntSet as IntSet
@@ -114,7 +115,6 @@ kindOfDataType = foldr (KArrow . snd) KStar . dataParams
 kindOfBuiltin :: BuiltinType -> Kind
 kindOfBuiltin = \case
   BTInt64 -> KStar
-  BTDecimal -> KStar
   BTNumeric -> KNat `KArrow` KStar
   BTText -> KStar
   BTTimestamp -> KStar
@@ -206,7 +206,6 @@ expandSynApp tsyn args = do
 typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
   BEInt64 _          -> pure TInt64
-  BEDecimal _        -> pure TDecimal
   BENumeric n        -> pure (TNumeric (TNat (typeLevelNat (numericScale n))))
   BEText    _        -> pure TText
   BETimestamp _      -> pure TTimestamp
@@ -232,13 +231,7 @@ typeOfBuiltin = \case
   BEPartyToQuotedText -> pure $ TParty :-> TText
   BETextToParty    -> pure $ TText :-> TOptional TParty
   BETextToInt64    -> pure $ TText :-> TOptional TInt64
-  BETextToDecimal  -> pure $ TText :-> TOptional TDecimal
   BETextToCodePoints -> pure $ TText :-> TList TInt64
-  BEAddDecimal       -> pure $ tBinop TDecimal
-  BESubDecimal       -> pure $ tBinop TDecimal
-  BEMulDecimal       -> pure $ tBinop TDecimal
-  BEDivDecimal       -> pure $ tBinop TDecimal
-  BERoundDecimal     -> pure $ TInt64 :-> TDecimal :-> TDecimal
   BEEqualNumeric     -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BELessNumeric      -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BELessEqNumeric    -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
@@ -272,8 +265,6 @@ typeOfBuiltin = \case
   BEDivInt64         -> pure $ tBinop TInt64
   BEModInt64         -> pure $ tBinop TInt64
   BEExpInt64         -> pure $ tBinop TInt64
-  BEInt64ToDecimal   -> pure $ TInt64 :-> TDecimal
-  BEDecimalToInt64   -> pure $ TDecimal :-> TInt64
   BEExplodeText      -> pure $ TText :-> TList TText
   BEAppendText       -> pure $ tBinop TText
   BEImplodeText      -> pure $ TList TText :-> TText
@@ -761,6 +752,18 @@ typeOf' = \case
     method <- inWorld (lookupInterfaceMethod (iface, method))
     checkExpr val (TCon iface)
     pure (ifmType method)
+  EToRequiredInterface requiredIface requiringIface expr -> do
+    allRequiredIfaces <- intRequires <$> inWorld (lookupInterface requiringIface)
+    unless (S.member requiredIface allRequiredIfaces) $ do
+      throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
+    checkExpr expr (TCon requiringIface)
+    pure (TCon requiredIface)
+  EFromRequiredInterface requiredIface requiringIface expr -> do
+    allRequiredIfaces <- intRequires <$> inWorld (lookupInterface requiringIface)
+    unless (S.member requiredIface allRequiredIfaces) $ do
+      throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
+    checkExpr expr (TCon requiredIface)
+    pure (TOptional (TCon requiringIface))
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
@@ -816,17 +819,32 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
   where
     base = checkType synType KStar
 
+
 -- | Check that an interface definition is well defined.
 checkIface :: MonadGamma m => Module -> DefInterface -> m ()
-checkIface m DefInterface{intName, intParam, intFixedChoices, intMethods, intPrecondition} = do
-  checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intFixedChoices
-  checkUnique (EDuplicateInterfaceMethodName intName) $ NM.names intMethods
-  forM_ intMethods checkIfaceMethod
+checkIface m iface = do
+  let tcon = Qualified PRSelf (moduleName m) (intName iface)
 
-  let tcon = Qualified PRSelf (moduleName m) intName
-  introExprVar intParam (TCon tcon) $ do
-    forM_ intFixedChoices (checkTemplateChoice tcon)
-    checkExpr intPrecondition TBool
+  -- check requires
+  when (tcon `S.member` intRequires iface) $
+    throwWithContext (ECircularInterfaceRequires (intName iface) Nothing)
+  forM_ (intRequires iface) $ \requiredIfaceId -> do
+    requiredIface <- inWorld (lookupInterface requiredIfaceId)
+    when (tcon `S.member` intRequires requiredIface) $
+      throwWithContext (ECircularInterfaceRequires (intName iface) (Just requiredIfaceId))
+    let missing = intRequires requiredIface `S.difference` intRequires iface
+    unless (S.null missing) $ throwWithContext $
+      ENotClosedInterfaceRequires (intName iface) requiredIfaceId (S.toList missing)
+
+  -- check methods
+  checkUnique (EDuplicateInterfaceMethodName (intName iface)) $ NM.names (intMethods iface)
+  forM_ (intMethods iface) checkIfaceMethod
+
+  -- check choices
+  checkUnique (EDuplicateInterfaceChoiceName (intName iface)) $ NM.names (intFixedChoices iface)
+  introExprVar (intParam iface) (TCon tcon) $ do
+    forM_ (intFixedChoices iface) (checkTemplateChoice tcon)
+    checkExpr (intPrecondition iface) TBool
 
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
 checkIfaceMethod InterfaceMethod{ifmType} = do
@@ -885,15 +903,20 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
   whenJust mbKey $ checkTemplateKey param tcon
-  forM_ implements $ checkIfaceImplementation tcon
+  forM_ implements $ checkIfaceImplementation t tcon
 
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
-checkIfaceImplementation tplTcon TemplateImplements{..} = do
+checkIfaceImplementation :: MonadGamma m => Template -> Qualified TypeConName -> TemplateImplements -> m ()
+checkIfaceImplementation Template{tplImplements} tplTcon TemplateImplements{..} = do
   let tplName = qualObject tplTcon
-  DefInterface {intFixedChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
+  DefInterface {intFixedChoices, intRequires, intMethods} <- inWorld $ lookupInterface tpiInterface
+
+  -- check requires
+  let missingRequires = S.difference intRequires (S.fromList (NM.names tplImplements))
+  whenJust (listToMaybe (S.toList missingRequires)) $ \missingInterface ->
+    throwWithContext (EMissingRequiredInterface tplName tpiInterface missingInterface)
 
   -- check fixed choices
   let inheritedChoices = S.fromList (NM.names intFixedChoices)
@@ -902,9 +925,8 @@ checkIfaceImplementation tplTcon TemplateImplements{..} = do
 
   -- check methods
   let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)
-  case HS.toList missingMethods of
-    [] -> pure ()
-    (methodName:_) -> throwWithContext (EMissingInterfaceMethod tplName tpiInterface methodName)
+  whenJust (listToMaybe (HS.toList missingMethods)) $ \methodName ->
+    throwWithContext (EMissingInterfaceMethod tplName tpiInterface methodName)
   forM_ tpiMethods $ \TemplateImplementsMethod{tpiMethodName, tpiMethodExpr} -> do
     case NM.lookup tpiMethodName intMethods of
       Nothing -> throwWithContext (EUnknownInterfaceMethod tplName tpiInterface tpiMethodName)
@@ -932,9 +954,8 @@ checkDefException m DefException{..} = do
     unless (null tyParams) $ throwWithContext (EExpectedExceptionTypeHasNoParams modName exnName)
     checkExpr exnMessage (TCon tcon :-> TText)
     _ <- match _DataRecord (EExpectedExceptionTypeIsRecord modName exnName) dataCons
-    case NM.lookup exnName (moduleTemplates m) of
-        Nothing -> pure ()
-        Just _ -> throwWithContext (EExpectedExceptionTypeIsNotTemplate modName exnName)
+    whenJust (NM.lookup exnName (moduleTemplates m)) $ \_ ->
+      throwWithContext (EExpectedExceptionTypeIsNotTemplate modName exnName)
 
 -- NOTE(MH): It is important that the data type definitions are checked first.
 -- The type checker for expressions relies on the fact that data type

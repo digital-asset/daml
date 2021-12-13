@@ -20,13 +20,13 @@ final class DomainSpec extends AnyFreeSpec with Matchers {
     "parties deduplicates between actAs/submitter and readAs" in {
       val payload =
         JwtWritePayload(ledgerId, appId, submitter = NonEmptyList(alice), readAs = List(alice, bob))
-      payload.parties should ===(NonEmpty.pour(alice, bob) into Set)
+      payload.parties should ===(NonEmpty(Set, alice, bob))
     }
   }
   "JwtPayload" - {
     "parties deduplicates between actAs and readAs" in {
       val payload = JwtPayload(ledgerId, appId, actAs = List(alice), readAs = List(alice, bob))
-      payload.map(_.parties) should ===(Some(NonEmpty.pour(alice, bob) into Set))
+      payload.map(_.parties) should ===(Some(NonEmpty(Set, alice, bob)))
     }
     "returns None if readAs and actAs are empty" in {
       val payload = JwtPayload(ledgerId, appId, actAs = List(), readAs = List())

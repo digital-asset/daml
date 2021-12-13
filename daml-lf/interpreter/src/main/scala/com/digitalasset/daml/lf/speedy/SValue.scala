@@ -282,9 +282,6 @@ object SValue {
   // with SValue and we can remove one layer of indirection.
   sealed trait SPrimLit extends SValue with Equals
   final case class SInt64(value: Long) extends SPrimLit
-  // TODO https://github.com/digital-asset/daml/issues/8719
-  //  try to factorize SNumeric and SBigNumeric
-  //  note it seems that scale is relevant in SNumeric but lost in SBigNumeric
   final case class SNumeric(value: Numeric) extends SPrimLit
   object SNumeric {
     def fromBigDecimal(scale: Numeric.Scale, x: java.math.BigDecimal) =

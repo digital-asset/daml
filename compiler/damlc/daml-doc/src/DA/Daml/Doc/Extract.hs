@@ -52,9 +52,6 @@ import Data.Maybe
 import qualified Data.Map.Strict as MS
 import qualified Data.Set as Set
 import qualified Data.Text as T
-import Data.Either
-
-
 
 -- | Extract documentation in a dependency graph of modules.
 extractDocs ::
@@ -79,19 +76,15 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
         let tcmod = Service.tmrModule tmr
             ctx@DocCtx{..} = buildDocCtx extractOpts tcmod
             typeMap = MS.fromList $ mapMaybe (getTypeDocs ctx) dc_decls
-            classDocs = mapMaybe (getClsDocs ctx) dc_decls
+            md_classes = mapMaybe (getClsDocs ctx) dc_decls
 
-            (md_classes, templateInstanceClasses) =
-                partitionEithers . flip map classDocs $ \classDoc ->
-                    case stripInstanceSuffix (cl_name classDoc) of
-                        Nothing -> Left classDoc
-                        Just templateName -> Right (templateName, classDoc)
-            templateInstanceClassMap = MS.fromList templateInstanceClasses
+            templateImplementsMap = getTemplateImplementsMap ctx dc_decls
 
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc tcmod
-            md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap
+            md_templates = getTemplateDocs ctx typeMap templateImplementsMap
+            md_interfaces = getInterfaceDocs ctx typeMap
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_instances = map (getInstanceDocs ctx) dc_insts
 
@@ -203,6 +196,20 @@ haddockParse diagsLogger opts f = MaybeT $ do
 
 ------------------------------------------------------------
 
+-- | Extracts the set of interface types implemented by each template type.
+getTemplateImplementsMap :: DocCtx -> [DeclData] -> MS.Map Typename (Set.Set DDoc.Type)
+getTemplateImplementsMap ctx@DocCtx{..} decls =
+    MS.fromListWith Set.union
+        [ (t, Set.singleton iface)
+        | DeclData decl _ <- decls
+        , name <- case unLoc decl of
+            SigD _ (TypeSig _ (L _ n :_) _) -> [packRdrName n]
+            _ -> []
+        , Just _ <- [T.stripPrefix "_implements_" name]
+        , Just id <- [MS.lookup (Fieldname name) dc_ids]
+        , TypeApp _ (Typename "ImplementsT") [TypeApp _ t [], iface] <- [typeToType ctx $ idType id]
+        ]
+
 -- | Extracts the documentation of a function. Comments are either
 --   adjacent to a type signature, or to the actual function definition. If
 --   neither a comment nor a function type is in the source, we omit the
@@ -229,6 +236,8 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
 
     guard (exportsFunction dc_exports fct_name)
     guard (not $ "_choice_" `T.isPrefixOf` packRdrName name)
+    guard (not $ "_implements_" `T.isPrefixOf` packRdrName name)
+    guard (not $ "_requires_" `T.isPrefixOf` packRdrName name)
     Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
@@ -243,10 +252,7 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ ClassDecl{..})) tcdocs) = do
             [ (Fieldname $ packId id, (id, dmInfoM))
             | (id, dmInfoM) <- classOpItems tycls ]
         cl_methods = concatMap (getMethodDocs opMap cl_anchor cl_name cl_args) subDecls
-        cl_super = do
-            let theta = classSCTheta tycls
-            guard (notNull theta)
-            Just (TypeTuple $ map (typeToType ctx) theta)
+        cl_super = Context (map (typeToType ctx) (classSCTheta tycls))
         cl_instances = Nothing -- filled out later in 'distributeInstanceDocs'
     guard (exportsType dc_exports cl_name)
     Just ClassDoc {..}
@@ -300,25 +306,16 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ ClassDecl{..})) tcdocs) = do
                             idType id
                     cm_type = typeToType ctx ghcType
                     cm_globalContext = typeToContext ctx ghcType
-                    cm_localContext = do
-                        context <- cm_globalContext
-                        dropMemberContext cl_anchor cl_args context
+                    cm_localContext = dropMemberContext cl_anchor cl_args cm_globalContext
                 guard (exportsField dc_exports cl_name cm_name)
                 Just ClassMethodDoc{..}
 
         _ -> []
 
     -- | Remove the implied context from typeclass member functions.
-    dropMemberContext :: Maybe Anchor -> [T.Text] -> DDoc.Type -> Maybe DDoc.Type
-    dropMemberContext cl_anchor cl_args = \case
-        TypeTuple xs -> do
-            let xs' = filter (not . matchesMemberContext cl_anchor cl_args) xs
-            guard (notNull xs')
-            Just (TypeTuple xs')
-
-        _ -> error "dropMemberContext: expected type tuple as context"
-            -- TODO: Move to using a more appropriate type
-            -- for contexts in damldocs, to avoid this case.
+    dropMemberContext :: Maybe Anchor -> [T.Text] -> DDoc.Context -> DDoc.Context
+    dropMemberContext cl_anchor cl_args (Context xs) = Context $
+        filter (not . matchesMemberContext cl_anchor cl_args) xs
 
     -- | Is this the implied context for member functions? We use an anchor
     -- for comparison because it is more accurate than typenames (which are

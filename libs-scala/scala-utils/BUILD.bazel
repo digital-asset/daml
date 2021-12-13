@@ -25,7 +25,6 @@ da_scala_library(
         silencer_plugin,
     ],
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = scalacopts,

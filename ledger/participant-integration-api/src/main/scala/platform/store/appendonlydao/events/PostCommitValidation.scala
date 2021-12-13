@@ -9,6 +9,7 @@ import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.v2
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{CommittedTransaction, GlobalKey}
 import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -146,10 +147,10 @@ private[appendonlydao] object PostCommitValidation {
         .foldInExecutionOrder[Result](Right(State.empty(contractStorageBackend)))(
           exerciseBegin = (acc, _, exe) => {
             val newAcc = acc.flatMap(validateKeyUsages(exe, _))
-            (newAcc, true)
+            (newAcc, ChildrenRecursion.DoRecurse)
           },
           exerciseEnd = (acc, _, _) => acc,
-          rollbackBegin = (acc, _, _) => (acc.map(_.beginRollback()), true),
+          rollbackBegin = (acc, _, _) => (acc.map(_.beginRollback()), ChildrenRecursion.DoRecurse),
           rollbackEnd = (acc, _, _) => acc.map(_.endRollback()),
           leaf = (acc, _, leaf) => acc.flatMap(validateKeyUsages(leaf, _)),
         )

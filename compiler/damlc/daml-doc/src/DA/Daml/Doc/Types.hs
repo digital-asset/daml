@@ -55,6 +55,10 @@ data Type = TypeApp !(Maybe Reference) !Typename [Type] -- ^ Type application
           | TypeLit Text -- ^ a literal (e.g. "foo") appearing at the type level
   deriving (Eq, Ord, Show, Generic)
 
+-- | Function/class context (appears on left-hand-side of "=>").
+newtype Context = Context [Type]
+  deriving (Eq, Ord, Show, Generic)
+
 getTypeAppAnchor :: Type -> Maybe Anchor
 getTypeAppAnchor = \case
     TypeApp refM _ _ -> referenceAnchor <$> refM
@@ -94,6 +98,7 @@ data ModuleDoc = ModuleDoc
   , md_name      :: Modulename
   , md_descr     :: Maybe DocText
   , md_templates :: [TemplateDoc]
+  , md_interfaces :: [InterfaceDoc]
   , md_adts      :: [ADTDoc]
   , md_functions :: [FunctionDoc]
   , md_classes   :: [ClassDoc]
@@ -109,8 +114,6 @@ data ModuleDoc = ModuleDoc
 data TemplateDoc = TemplateDoc
   { td_anchor  :: Maybe Anchor
   , td_name    :: Typename
-  , td_super   :: Maybe Type
-  , td_args    :: [Text]
   , td_descr   :: Maybe DocText
   , td_payload :: [FieldDoc]
   , td_choices :: [ChoiceDoc]
@@ -122,9 +125,10 @@ data InterfaceDoc = InterfaceDoc
   { if_anchor :: Maybe Anchor
   , if_name :: Typename
   , if_choices :: [ChoiceDoc]
-  , if_methods :: [ClassMethodDoc]
+  , if_methods :: [MethodDoc]
   , if_descr :: Maybe DocText
   }
+  deriving (Eq, Show, Generic)
 
 data ImplDoc = ImplDoc
   { impl_iface :: Type
@@ -134,7 +138,7 @@ data ClassDoc = ClassDoc
   { cl_anchor :: Maybe Anchor
   , cl_name :: Typename
   , cl_descr :: Maybe DocText
-  , cl_super :: Maybe Type
+  , cl_super :: Context
   , cl_args :: [Text]
   , cl_methods :: [ClassMethodDoc]
   , cl_instances :: Maybe [InstanceDoc] -- relevant instances
@@ -159,7 +163,7 @@ data ClassMethodDoc = ClassMethodDoc
         --
         -- The former method would have 'cm_isDefault' set to 'False',
         -- the latter would have 'cm_isDefault' set to 'True'.
-    , cm_localContext :: Maybe Type
+    , cm_localContext :: Context
         -- ^ Context of class method inside typeclass declaration.
         -- For example, 'fold' from @'Foldable' t@:
         --
@@ -169,8 +173,8 @@ data ClassMethodDoc = ClassMethodDoc
         --         ...
         -- @
         --
-        -- Would have the 'cm_contextLocal' of @('Monoid' m)@.
-    , cm_globalContext :: Maybe Type
+        -- Would have the 'cm_localContext' of @('Monoid' m)@.
+    , cm_globalContext :: Context
         -- ^ Context of class method outside typeclass declaration.
         -- Following the previous example, 'fold' from @'Foldable' t@
         -- would have the 'cm_globalContext' of @('Foldable' t, 'Monoid' m)@.
@@ -227,6 +231,11 @@ data ChoiceDoc = ChoiceDoc
   }
   deriving (Eq, Show, Generic)
 
+data MethodDoc = MethodDoc
+  { mtd_name :: Typename
+  , mtd_type :: Type
+  }
+  deriving (Eq, Show, Generic)
 
 -- | Documentation data for a field in a record
 data FieldDoc = FieldDoc
@@ -244,17 +253,16 @@ data FieldDoc = FieldDoc
 data FunctionDoc = FunctionDoc
   { fct_anchor :: Maybe Anchor
   , fct_name  :: Fieldname
-  , fct_context :: Maybe Type
+  , fct_context :: Context
   , fct_type  :: Type
   , fct_descr :: Maybe DocText
-  }
-  deriving (Eq, Show, Generic)
+  } deriving (Eq, Show, Generic)
 
 -- | Documentation on a typeclass instance.
 data InstanceDoc = InstanceDoc
     { id_type :: Type
     , id_module :: Modulename
-    , id_context :: Maybe Type
+    , id_context :: Context
     , id_isOrphan :: Bool
     } deriving (Eq, Ord, Show, Generic)
 
@@ -271,6 +279,12 @@ instance ToJSON Type where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON Type where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON Context where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON Context where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON FunctionDoc where
@@ -325,6 +339,18 @@ instance ToJSON TemplateDoc where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON TemplateDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON InterfaceDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON InterfaceDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON MethodDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON MethodDoc where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON InstanceDoc where

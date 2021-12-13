@@ -23,6 +23,7 @@ jobs:
   dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
   condition: and(succeeded(),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                 eq(dependencies.check_for_release.outputs['out.split_release_process'], 'false'),
                  eq(variables['Build.SourceBranchName'], 'main'))
   pool:
     name: 'ubuntu_20_04'
@@ -149,6 +150,68 @@ jobs:
         trigger_sha: '$(trigger_sha)'
     - template: ci/report-end.yml
 
+- job: split_release
+  dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
+  condition: and(succeeded(),
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                 eq(dependencies.check_for_release.outputs['out.split_release_process'], 'true'),
+                 eq(variables['Build.SourceBranchName'], 'main'))
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  variables:
+    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+  steps:
+    - checkout: self
+      persistCredentials: true
+    - bash: |
+        set -euo pipefail
+        git checkout $(release_sha)
+      name: checkout_release
+    - template: ci/bash-lib.yml
+      parameters:
+        var_name: bash-lib
+    - bash: |
+        set -euo pipefail
+        if git tag v$(release_tag) $(release_sha); then
+          git push origin v$(release_tag)
+        fi
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: linux-release
+        targetPath: $(Build.StagingDirectory)/release-artifacts
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: macos-release
+        targetPath: $(Build.StagingDirectory)/release-artifacts
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: windows-release
+        targetPath: $(Build.StagingDirectory)/release-artifacts
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+    - bash: |
+        set -eou pipefail
+        eval "$(./dev-env/bin/dade-assist)"
+        mkdir -p $(Build.StagingDirectory)/split-release
+        ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
+    - bash: |
+        set -eou pipefail
+
+        source $(bash-lib)
+        cd $(Build.StagingDirectory)/split-release
+        gcs "$GCRED" -m cp -r github gs://daml-binaries/split-releases/$(release_tag)/
+        gcs "$GCRED" -m cp -r split-release gs://daml-binaries/split-releases/$(release_tag)/
+      name: upload_to_gcs
+      env:
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - template: ci/tell-slack-failed.yml
+      parameters:
+        trigger_sha: '$(trigger_sha)'
+
 - job: compat_versions_pr
   dependsOn:
   - git_sha
@@ -186,17 +249,22 @@ jobs:
           fi
       done
 
-      trap "git checkout $(branch_sha)" EXIT
-      git checkout origin/main
       cp .bazelrc compatibility/
       compatibility/update-versions.sh
       git add compatibility/versions.bzl compatibility/maven_install.json
 
-      BRANCH=update-compat-versions-for-$(release_tag)-$(Build.BuildId)
-      TITLE="update compat versions for $(release_tag)"
-      open_pr "$BRANCH" "$TITLE"
 
-      setvar "branch" "$BRANCH"
+      if ! git diff --cached --quiet; then
+        BRANCH=update-compat-versions-for-$(release_tag)-$(Build.BuildId)
+        TITLE="update compat versions for $(release_tag)"
+        open_pr "$BRANCH" "$TITLE"
+        setvar "branch" "$BRANCH"
+      else
+        echo "No changes"
+        setvar "branch" ""
+      fi
+
+
     name: out
 
   - template: ci/tell-slack-failed.yml
@@ -219,3 +287,4 @@ jobs:
       source $(bash-lib)
       trigger_azure $(System.AccessToken) PRs --branch $(branch)
       trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $(branch)
+    condition: and(succeeded(), not(eq(variables['branch'], '')))

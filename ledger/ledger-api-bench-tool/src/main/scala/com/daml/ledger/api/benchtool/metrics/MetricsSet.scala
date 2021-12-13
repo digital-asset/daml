@@ -5,7 +5,7 @@ package com.daml.ledger.api.benchtool.metrics
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.Objectives
-import com.daml.ledger.api.benchtool.metrics.objectives.{MaxDelay, MinConsumptionSpeed}
+import com.daml.ledger.api.benchtool.metrics.objectives.{MaxDelay, MinConsumptionSpeed, MinRate}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.transaction_service.{
@@ -134,7 +134,8 @@ object MetricsSet {
   ): List[Metric[T]] = {
     List[Metric[T]](
       CountRateMetric.empty[T](
-        countingFunction = countingFunction
+        countingFunction = countingFunction,
+        objective = objectives.minItemRate.map(MinRate),
       ),
       TotalCountMetric.empty[T](
         countingFunction = countingFunction

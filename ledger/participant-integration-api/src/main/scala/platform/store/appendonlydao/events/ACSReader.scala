@@ -6,7 +6,6 @@ package com.daml.platform.store.appendonlydao.events
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
-import com.daml.dec.DirectExecutionContext
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.definitions.LedgerApiErrors.ParticipantBackpressure
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
@@ -20,7 +19,7 @@ import com.daml.platform.store.utils.ConcurrencyLimiter
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 trait ACSReader {
   def acsStream(
@@ -189,7 +188,7 @@ private[events] object FilterTableACSReader {
         work(task).map { case (result, nextTask) =>
           queueState.finishTask(nextTask)
           task -> result
-        }(DirectExecutionContext)
+        }(ExecutionContext.parasitic)
       }
   }
 

@@ -666,6 +666,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         lfInterface: PLF.DefInterface,
     ): DefInterface =
       DefInterface.build(
+        requires = lfInterface.getRequiresList.asScala.view.map(decodeTypeConName),
         param = getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
         fixedChoices = lfInterface.getFixedChoicesList.asScala.view.map(decodeChoice(id, _)),
         methods = lfInterface.getMethodsList.asScala.view.map(decodeInterfaceMethod),
@@ -1140,6 +1141,24 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             methodName =
               getInternedName(callInterface.getMethodInternedName, "ECallInterface.method"),
             value = decodeExpr(callInterface.getInterfaceExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.TO_REQUIRED_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.to_required_interface")
+          val toRequiredInterface = lfExpr.getToRequiredInterface
+          EToRequiredInterface(
+            requiredIfaceId = decodeTypeConName(toRequiredInterface.getRequiredInterface),
+            requiringIfaceId = decodeTypeConName(toRequiredInterface.getRequiringInterface),
+            body = decodeExpr(toRequiredInterface.getExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.FROM_REQUIRED_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.from_required_interface")
+          val fromRequiredInterface = lfExpr.getFromRequiredInterface
+          EFromRequiredInterface(
+            requiredIfaceId = decodeTypeConName(fromRequiredInterface.getRequiredInterface),
+            requiringIfaceId = decodeTypeConName(fromRequiredInterface.getRequiringInterface),
+            body = decodeExpr(fromRequiredInterface.getExpr, definition),
           )
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>

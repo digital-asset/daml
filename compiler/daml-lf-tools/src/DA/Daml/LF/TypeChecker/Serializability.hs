@@ -83,7 +83,6 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
       TApp tfun targ -> HS.union <$> go tfun <*> go targ
       TBuiltin builtin -> case builtin of
         BTInt64 -> noConditions
-        BTDecimal -> noConditions
         BTText -> noConditions
         BTTimestamp -> noConditions
         BTDate -> noConditions

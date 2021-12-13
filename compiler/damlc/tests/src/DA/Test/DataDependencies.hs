@@ -695,7 +695,6 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
           validate $ projb </> "projb.dar"
 
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
-    , LF.supports depLfVer LF.featureTypeSynonyms -- only test for new-style typeclasses
     ] <>
     [ testCase "Cross-SDK typeclasses" $ withTempDir $ \tmpDir -> do
           writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines

@@ -10,7 +10,7 @@ Instruct ES to move all data out of blue nodes:
 PUT _cluster/settings
 {
   "transient" : {
-    "cluster.routing.allocation.exclude._ip" : "es-blue-*"
+    "cluster.routing.allocation.exclude._name" : "es-blue-*"
   }
 }
 use null to reset
@@ -27,7 +27,7 @@ locals {
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
-      disk_size      = 300,
+      disk_size      = 800,
     },
     {
       suffix         = "-green",
@@ -36,7 +36,7 @@ locals {
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
-      disk_size      = 500,
+      disk_size      = 800,
     },
     {
       suffix         = "-init",
@@ -218,7 +218,7 @@ docker run -d \
            --name es \
            -p 9200:9200 \
            -p 9300:9300 \
-           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx}" \
+           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx} -Dlog4j2.formatMsgNoLookups=true" \
            -v /root/es-data:/usr/share/elasticsearch/data \
            es
 

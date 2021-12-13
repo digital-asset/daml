@@ -68,7 +68,8 @@ Operating Daml
    :titlesonly:
    :maxdepth: 2
 
-   ops/index
+   ops/requirements
+   ops/pruning
    ops/connect/index
 
 Developer Tools
