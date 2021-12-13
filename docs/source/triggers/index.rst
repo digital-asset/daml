@@ -34,7 +34,7 @@ ledger client could not do.
 If you don't want to follow along, but still want to get the final code
 for this section to play with, you can get it by running::
 
-      daml new --template-name=gsg-trigger create-daml-app
+      daml new --template=gsg-trigger gsg-trigger
 
 How To Think About Triggers
 ===========================
