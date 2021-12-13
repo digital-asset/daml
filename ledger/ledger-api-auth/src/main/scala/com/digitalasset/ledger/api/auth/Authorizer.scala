@@ -159,20 +159,6 @@ final class Authorizer(
       }
     }
 
-  /** Use the claims to compute the result; use with caution to avoid missing authorization checks. */
-  def withClaims[Res](call: ClaimSet.Claims => Future[Res]): Future[Res] =
-    authenticatedClaimsFromContext()
-      .fold(
-        ex => {
-          // TODO error codes: Remove once fully relying on self-service error codes with logging on creation
-          logger.debug(
-            s"No authenticated claims found in the request context. Returning UNAUTHENTICATED"
-          )
-          Future.failed(ex)
-        },
-        claims => call(claims),
-      )
-
   /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */
   def requireReadClaimsForTransactionFilterOnStream[Req, Res](
       filter: Option[TransactionFilter],
@@ -206,10 +192,15 @@ final class Authorizer(
     },
   )
 
-  private def authenticatedClaimsFromContext(): Try[ClaimSet.Claims] =
+  /** Directly access the authenticated claims from the thread-local context.
+    *
+    * Prefer to use the more specialized methods of [[Authorizer]] instead of this
+    * method to avoid skipping required authorization checks.
+    */
+  def authenticatedClaimsFromContext(): Try[ClaimSet.Claims] =
     AuthorizationInterceptor
       .extractClaimSetFromContext()
-      .fold[Try[ClaimSet.Claims]](Failure(errorFactories.unauthenticatedMissingJwtToken())) {
+      .flatMap({
         case ClaimSet.Unauthenticated =>
           Failure(errorFactories.unauthenticatedMissingJwtToken())
         case authenticatedUser: ClaimSet.AuthenticatedUser =>
@@ -222,7 +213,7 @@ final class Authorizer(
             )
           )
         case claims: ClaimSet.Claims => Success(claims)
-      }
+      })
 
   private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
@@ -258,24 +249,17 @@ final class Authorizer(
   private[auth] def authorize[Req, Res](call: Req => Future[Res])(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
   ): Req => Future[Res] = request =>
-    authenticatedClaimsFromContext()
-      .fold(
-        ex => {
-          // TODO error codes: Remove once fully relying on self-service error codes with logging on creation
-          logger.debug(
-            s"No authenticated claims found in the request context. Returning UNAUTHENTICATED"
-          )
-          Future.failed(ex)
-        },
-        claims =>
-          authorized(claims) match {
-            case Right(_) => call(request)
-            case Left(authorizationError) =>
-              Future.failed(
-                errorFactories.permissionDenied(authorizationError.reason)
-              )
-          },
-      )
+    authenticatedClaimsFromContext() match {
+      case Failure(ex) => Future.failed(ex)
+      case Success(claims) =>
+        authorized(claims) match {
+          case Right(_) => call(request)
+          case Left(authorizationError) =>
+            Future.failed(
+              errorFactories.permissionDenied(authorizationError.reason)
+            )
+        }
+    }
 }
 
 object Authorizer {

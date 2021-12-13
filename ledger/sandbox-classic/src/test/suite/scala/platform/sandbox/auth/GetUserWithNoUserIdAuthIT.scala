@@ -35,24 +35,7 @@ class GetUserWithNoUserIdAuthIT extends ServiceCallAuthTests {
     expectUser(canReadAsAdminStandardJWT, User("participant_admin", ""))
   }
 
-  it should "return the user record corresponding to the decoded custom token for an admin" in {
-    expectUser(canReadAsAdmin, User())
+  it should "return invalid argument for custom token" in {
+    expectInvalidArgument(serviceCallWithToken(canReadAsAdmin))
   }
-
-  it should "return the user record corresponding to the decoded custom token for the random user with actAs rights" in {
-    expectUser(randomUserCanActAsRandomParty, User(randomUserId, randomParty))
-  }
-
-  it should "return the user record corresponding to the decoded custom token for the random user with readAs rights" in {
-    expectUser(randomUserCanReadAsRandomParty, User(randomUserId, randomParty))
-  }
-
-  it should "return the user record corresponding to the decoded custom token with no user, but actAs rights" in {
-    expectUser(canActAsRandomParty, User(primaryParty = randomParty))
-  }
-
-  it should "return the user record corresponding to the decoded custom token with no user, but readAs rights" in {
-    expectUser(canReadAsRandomParty, User(primaryParty = randomParty))
-  }
-
 }

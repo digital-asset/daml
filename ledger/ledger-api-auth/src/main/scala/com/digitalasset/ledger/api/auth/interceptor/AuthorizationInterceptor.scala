@@ -14,7 +14,7 @@ import io.grpc._
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /** This interceptor uses the given [[AuthService]] to get [[Claims]] for the current request,
   * and then stores them in the current [[Context]].
@@ -103,8 +103,17 @@ object AuthorizationInterceptor {
 
   private[auth] val contextKeyClaimSet = Context.key[ClaimSet]("AuthServiceDecodedClaim")
 
-  def extractClaimSetFromContext(): Option[ClaimSet] =
-    Option(contextKeyClaimSet.get())
+  def extractClaimSetFromContext(): Try[ClaimSet] = {
+    val claimSet = contextKeyClaimSet.get()
+    if (claimSet == null)
+      Failure(
+        new RuntimeException(
+          "Thread local context unexpectedly does not store authorization claims. Perhaps a Future was used in some intermediate computation and changed the executing thread?"
+        )
+      )
+    else
+      Success(claimSet)
+  }
 
   def apply(
       authService: AuthService,

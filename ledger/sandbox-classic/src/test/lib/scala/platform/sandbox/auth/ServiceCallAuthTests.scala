@@ -44,6 +44,9 @@ trait ServiceCallAuthTests
   protected def expectUnauthenticated(f: Future[Any]): Future[Assertion] =
     expectFailure(f, Status.Code.UNAUTHENTICATED)
 
+  protected def expectInvalidArgument(f: Future[Any]): Future[Assertion] =
+    expectFailure(f, Status.Code.INVALID_ARGUMENT)
+
   protected def expectUnimplemented(f: Future[Any]): Future[Assertion] =
     expectFailure(f, Status.Code.UNIMPLEMENTED)
 

@@ -58,6 +58,12 @@ final class UserManagementServiceIT extends LedgerTestSuite {
 
     for {
       _ <- createAndCheck(
+        "empty user-id",
+        User(""),
+        List.empty,
+        LedgerApiErrors.RequestValidation.InvalidField,
+      )
+      _ <- createAndCheck(
         "invalid user-id",
         User("!!"),
         List.empty,
@@ -76,6 +82,24 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         List(r),
         LedgerApiErrors.RequestValidation.InvalidArgument,
       )
+    } yield ()
+  })
+
+  test(
+    "UserManagementGetUserInvalidArguments",
+    "Test argument validation for UserManagement#GetUser",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    def getAndCheck(problem: String, userId: String, errorCode: ErrorCode): Future[Unit] =
+      for {
+        error <- ledger.userManagement
+          .getUser(GetUserRequest(userId))
+          .mustFail(problem)
+      } yield assertGrpcError(ledger, error, Status.Code.INVALID_ARGUMENT, errorCode, None)
+
+    for {
+      _ <- getAndCheck("empty user-id", "", LedgerApiErrors.RequestValidation.InvalidArgument)
+      _ <- getAndCheck("invalid user-id", "!!", LedgerApiErrors.RequestValidation.InvalidField)
     } yield ()
   })
 
