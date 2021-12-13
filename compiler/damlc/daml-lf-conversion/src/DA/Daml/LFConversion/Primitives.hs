@@ -54,16 +54,6 @@ convertPrim _ "BEGreater" (a1 :-> a2 :-> TBool) | a1 == a2 =
     EBuiltin BEGreaterGeneric `ETyApp` a1
 convertPrim _ "BEGreaterEq" (a1 :-> a2 :-> TBool) | a1 == a2 =
     EBuiltin BEGreaterEqGeneric `ETyApp` a1
-convertPrim _ "BEEqual" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BEEqual a1
-convertPrim _ "BELess" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BELess a1
-convertPrim _ "BELessEq" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BELessEq a1
-convertPrim _ "BEGreaterEq" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BEGreaterEq a1
-convertPrim _ "BEGreater" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BEGreater a1
 convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :-> TBool) | a1 == a2, a2 == a3, a3 == a4 =
     EBuiltin BEEqualList `ETyApp` a1
 
