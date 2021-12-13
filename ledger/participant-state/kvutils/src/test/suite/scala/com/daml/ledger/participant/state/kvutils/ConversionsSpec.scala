@@ -242,7 +242,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             ),
             (
               Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
-              Code.INTERNAL,
+              Code.FAILED_PRECONDITION,
               Map.empty,
               Map.empty,
             ),

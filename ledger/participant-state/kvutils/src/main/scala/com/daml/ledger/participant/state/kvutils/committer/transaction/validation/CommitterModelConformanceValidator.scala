@@ -35,21 +35,25 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
-/** Validates the submission's conformance to the Daml model.
+/** Validates the submission's conformance to the Daml model in the KV committer context.
   *
   * @param engine An [[Engine]] instance to reinterpret and validate the transaction.
   * @param metrics A [[Metrics]] instance to record metrics.
   */
-private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Metrics)
+private[transaction] class CommitterModelConformanceValidator(engine: Engine, metrics: Metrics)
     extends TransactionValidator {
-  import ModelConformanceValidator._
+  import CommitterModelConformanceValidator._
 
   private final val logger = ContextualizedLogger.get(getClass)
 
   /** Validates model conformance based on the transaction itself (where it's possible).
-    * Because fetch nodes don't contain contracts, we still need to get them from the current state ([[CommitContext]]).
-    * It first reinterprets the transaction to detect a potentially malicious participant or bugs.
-    * Then, checks the causal monotonicity.
+    * Because fetch nodes don't contain contract instances for performance reasons, we need to get
+    * them from the current committer state ([[CommitContext]]) instead, which means that we cannot
+    * really distinguish malicious participants inventing contracts from validation failures due to
+    * such contracts having been pruned.
+    *
+    * This validation step first reinterprets the transaction to detect a potentially malicious
+    * participant, bugs or pruned contracts. Then, it ensures causal monotonicity.
     *
     * @param rejections A helper object for creating rejection [[Step]]s.
     * @return A committer [[Step]] that performs validation.
@@ -108,9 +112,10 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       } yield ()
       stepResult.fold(identity, _ => StepContinue(transactionEntry))
     } catch {
+      // Missing package or contract not specified as input
       case missingInputErr @ Err.MissingInputState(key) =>
         logger.error(
-          "Model conformance validation failed due to a missing input state (most likely due to invalid state on the participant).",
+          "Model conformance validation using on-ledger data failed due to a missing input state (most likely due to an invalid participant state).",
           missingInputErr,
         )
         rejections.reject(
@@ -118,9 +123,11 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           Rejection.MissingInputState(key),
           commitContext.recordTime,
         )
+
+      // Archive decoding error or other bug
       case err: Err =>
         logger.error(
-          "Model conformance validation failed most likely due to invalid state on the participant.",
+          "Model conformance validation using on-ledger data failed (most likely due to an invalid participant state).",
           err,
         )
         rejections.reject(
@@ -233,7 +240,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
   }
 }
 
-private[transaction] object ModelConformanceValidator {
+private[transaction] object CommitterModelConformanceValidator {
 
   private def rejectionForKeyInputError(
       transactionEntry: DamlTransactionEntrySummary,

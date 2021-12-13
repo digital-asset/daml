@@ -21,6 +21,26 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 )
 object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
 
+  @Explanation("Errors that highlight transaction consistency issues in the committer context.")
+  object Consistency extends ErrorGroup() {
+
+    @Explanation("Validation of a transaction submission failed using on-ledger data.")
+    @Resolution("Either some input contracts have been pruned or the participant is misbehaving.")
+    object ValidationFailure
+        extends ErrorCode(
+          id = "VALIDATION_FAILURE",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(
+          details: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends KVLoggingTransactionErrorImpl(
+            cause = s"Validation failure: $details"
+          )
+    }
+
+  }
+
   @Explanation("Errors that relate to the Daml concepts of time.")
   object Time extends ErrorGroup() {
 
@@ -90,6 +110,7 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
 
   @Explanation("Errors that relate to system resources.")
   object Resources extends ErrorGroup() {
+
     @Explanation("A system resource has been exhausted.")
     @Resolution(
       "Retry the transaction submission or provide the details to the participant operator."
@@ -106,6 +127,7 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
             cause = s"Resources exhausted: $details"
           )
     }
+
   }
 
   @Explanation("Errors that arise from an internal system misbehavior.")
@@ -122,21 +144,6 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(
             cause = "No reason set for rejection"
-          )
-    }
-
-    @Explanation("An invalid transaction submission was not detected by the participant.")
-    @Resolution("Contact support.")
-    object ValidationFailure
-        extends ErrorCode(
-          id = "VALIDATION_FAILURE",
-          ErrorCategory.SystemInternalAssumptionViolated, // It should have been caught by the participant
-        ) {
-      case class Reject(
-          details: String
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause = s"Validation failure: $details"
           )
     }
 

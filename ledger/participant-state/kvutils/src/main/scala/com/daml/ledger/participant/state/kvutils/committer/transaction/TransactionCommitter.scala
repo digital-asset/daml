@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.{
   LedgerTimeValidator,
-  ModelConformanceValidator,
+  CommitterModelConformanceValidator,
   TransactionConsistencyValidator,
 }
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
@@ -64,7 +64,8 @@ private[kvutils] class TransactionCommitter(
 
   private val rejections = new Rejections(metrics)
   private val ledgerTimeValidator = new LedgerTimeValidator(defaultConfig)
-  private val modelConformanceValidator = new ModelConformanceValidator(engine, metrics)
+  private val committerModelConformanceValidator =
+    new CommitterModelConformanceValidator(engine, metrics)
 
   override protected val steps: Steps[DamlTransactionEntrySummary] = Iterable(
     "authorize_submitter" -> authorizeSubmitters,
@@ -72,7 +73,8 @@ private[kvutils] class TransactionCommitter(
     "set_time_bounds" -> TimeBoundBindingStep.setTimeBoundsInContextStep(defaultConfig),
     "deduplicate" -> CommandDeduplication.deduplicateCommandStep(rejections),
     "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
-    "validate_model_conformance" -> modelConformanceValidator.createValidationStep(rejections),
+    "validate_committer_model_conformance" -> committerModelConformanceValidator
+      .createValidationStep(rejections),
     "validate_consistency" -> TransactionConsistencyValidator.createValidationStep(rejections),
     "set_deduplication_entry" -> CommandDeduplication.setDeduplicationEntryStep(defaultConfig),
     "blind" -> blind,

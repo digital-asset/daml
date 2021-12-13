@@ -50,19 +50,19 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class ModelConformanceValidatorSpec
+class CommitterModelConformanceValidatorSpec
     extends AnyWordSpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar
     with TableDrivenPropertyChecks {
-  import ModelConformanceValidatorSpec._
+  import CommitterModelConformanceValidatorSpec._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private val metrics = new Metrics(new MetricRegistry)
 
-  private val defaultValidator = new ModelConformanceValidator(mock[Engine], metrics)
+  private val defaultValidator = new CommitterModelConformanceValidator(mock[Engine], metrics)
   private val rejections = new Rejections(metrics)
 
   private val inputCreate = create(
@@ -125,7 +125,7 @@ class ModelConformanceValidatorSpec
         )
       ).thenReturn(mockValidationResult)
 
-      val validator = new ModelConformanceValidator(mockEngine, metrics)
+      val validator = new CommitterModelConformanceValidator(mockEngine, metrics)
 
       validator.createValidationStep(rejections)(
         createCommitContext(
@@ -158,7 +158,7 @@ class ModelConformanceValidatorSpec
         )
       )
 
-      val validator = new ModelConformanceValidator(mockEngine, metrics)
+      val validator = new CommitterModelConformanceValidator(mockEngine, metrics)
 
       val step = validator
         .createValidationStep(rejections)(
@@ -206,7 +206,7 @@ class ModelConformanceValidatorSpec
       }
     }
 
-    def createThrowingValidator(consumeError: Err): ModelConformanceValidator = {
+    def createThrowingValidator(consumeError: Err): CommitterModelConformanceValidator = {
       val mockEngine = mock[Engine]
       val mockValidationResult = mock[Result[Unit]]
 
@@ -231,7 +231,7 @@ class ModelConformanceValidatorSpec
         )
       ).thenReturn(mockValidationResult)
 
-      new ModelConformanceValidator(mockEngine, metrics)
+      new CommitterModelConformanceValidator(mockEngine, metrics)
     }
   }
 
@@ -398,7 +398,7 @@ class ModelConformanceValidatorSpec
   }
 }
 
-object ModelConformanceValidatorSpec {
+object CommitterModelConformanceValidatorSpec {
 
   private val inputContractId = "#inputContractId"
   private val inputContractIdStateKey = makeContractIdStateKey(inputContractId)

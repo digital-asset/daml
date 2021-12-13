@@ -546,7 +546,7 @@ private[kvutils] object TransactionRejections {
     def validationFailureStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Internal.ValidationFailure
+      KVErrors.Consistency.ValidationFailure
         .Reject(details)
         .asStatus
 
