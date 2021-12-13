@@ -13,7 +13,7 @@ import lf.transaction.GlobalKey
 import platform.server.api.validation.ErrorFactories
 import platform.store.appendonlydao.events.ContractId
 
-import com.daml.ledger.configuration.LedgerTimeModel
+import ledger.configuration.LedgerTimeModel
 import com.google.protobuf.any.Any
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo
@@ -26,7 +26,7 @@ sealed trait SoxRejection extends Submission {
 }
 
 object SoxRejection {
-  private val useSelfServiceErrorCodes = true
+  private val useSelfServiceErrorCodes = false
   // Temporary until consuming applications can deal with error codes properly
   private val errorFactories = ErrorFactories(useSelfServiceErrorCodes = useSelfServiceErrorCodes)
 

@@ -161,7 +161,7 @@ object SandboxConfig {
       managementServiceTimeout = DefaultManagementServiceTimeout,
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableCompression = false,
-      enableSelfServiceErrorCodes = true,
+      enableSelfServiceErrorCodes = false,
     )
 
   sealed abstract class EngineMode extends Product with Serializable
