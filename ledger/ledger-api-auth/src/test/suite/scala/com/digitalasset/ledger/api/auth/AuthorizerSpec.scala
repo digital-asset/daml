@@ -35,19 +35,11 @@ class AuthorizerSpec extends AsyncFlatSpec with Matchers {
 
   behavior of s"$className.authorize (V1 error codes)"
 
-  it should "return unauthenticated if missing claims" in {
-    testUnauthenticated(selfServiceErrorCodes = false)
-  }
-
   it should "return permission denied on authorization error" in {
     testPermissionDenied(selfServiceErrorCodes = false)
   }
 
   behavior of s"$className.authorize (V2 error codes)"
-
-  it should "return unauthenticated if missing claims" in {
-    testUnauthenticated(selfServiceErrorCodes = true)
-  }
 
   it should "return permission denied on authorization error" in {
     testPermissionDenied(selfServiceErrorCodes = true)
@@ -63,16 +55,6 @@ class AuthorizerSpec extends AsyncFlatSpec with Matchers {
         )
       )
 
-  private def testUnauthenticated(selfServiceErrorCodes: Boolean) =
-    contextWithoutClaims {
-      authorizer(selfServiceErrorCodes).authorize(dummyReqRes)(allAuthorized)(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(selfServiceErrorCodes = selfServiceErrorCodes)(
-          Status.UNAUTHENTICATED.getCode
-        )
-      )
-
   private def assertExpectedFailure[T](
       selfServiceErrorCodes: Boolean
   )(expectedStatusCode: Status.Code): Try[T] => Try[Assertion] = {
@@ -84,8 +66,6 @@ class AuthorizerSpec extends AsyncFlatSpec with Matchers {
       Success(succeed)
     case ex => fail(s"Expected a failure with StatusRuntimeException but got $ex")
   }
-
-  private def contextWithoutClaims[R](f: => R): R = io.grpc.Context.ROOT.call(() => f)
 
   private def contextWithClaims[R](f: => R): R =
     io.grpc.Context.ROOT
