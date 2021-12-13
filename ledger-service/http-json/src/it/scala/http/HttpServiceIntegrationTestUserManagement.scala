@@ -12,7 +12,7 @@ import com.daml.http.json.JsonProtocol._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.StandardJWTPayload
 import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs}
+import com.daml.ledger.api.domain.UserRight.CanActAs
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
@@ -65,12 +65,11 @@ class HttpServiceIntegrationTestUserManagement
 
   def getUniqueUserName(name: String) = getUniqueParty(name).toString
 
-  "create IOU should support extra readAs parties" in withHttpServiceAndClient(
+  "create IOU should work with correct user rights" in withHttpServiceAndClient(
     participantAdminJwt
   ) { (uri, encoder, _, ledgerClient, _) =>
     logger.info("allocating party")
     val alice = getUniqueParty("Alice")
-    val bob = getUniqueParty("Bob")
     val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
     logger.info("Trying to create user")
@@ -78,8 +77,7 @@ class HttpServiceIntegrationTestUserManagement
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
         initialRights = List(
-          CanActAs(Ref.Party.assertFromString(alice.toString)),
-          CanReadAs(Ref.Party.assertFromString(bob.toString)),
+          CanActAs(Ref.Party.assertFromString(alice.toString))
         ),
       )
       _ = logger.info("successfully created user")
