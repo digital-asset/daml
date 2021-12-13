@@ -193,16 +193,6 @@ convertPrim _ "BEDivDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
     EBuiltin BEDivNumeric `ETyApp` TNat10 `ETyApp` TNat10 `ETyApp` TNat10
 convertPrim _ "BERoundDecimal" (TInt64 :-> TNumeric10 :-> TNumeric10) =
     ETyApp (EBuiltin BERoundNumeric) TNat10
-convertPrim _ "BEEqual" (TNumeric10 :-> TNumeric10 :-> TBool) =
-    ETyApp (EBuiltin BEEqualNumeric) TNat10
-convertPrim _ "BELess" (TNumeric10 :-> TNumeric10 :-> TBool) =
-    ETyApp (EBuiltin BELessNumeric) TNat10
-convertPrim _ "BELessEq" (TNumeric10 :-> TNumeric10 :-> TBool) =
-    ETyApp (EBuiltin BELessEqNumeric) TNat10
-convertPrim _ "BEGreaterEq" (TNumeric10 :-> TNumeric10 :-> TBool) =
-    ETyApp (EBuiltin BEGreaterEqNumeric) TNat10
-convertPrim _ "BEGreater" (TNumeric10 :-> TNumeric10 :-> TBool) =
-    ETyApp (EBuiltin BEGreaterNumeric) TNat10
 convertPrim _ "BEInt64ToDecimal" (TInt64 :-> TNumeric10) =
     ETyApp (EBuiltin BEInt64ToNumeric) TNat10
 convertPrim _ "BEDecimalToInt64" (TNumeric10 :-> TInt64) =
