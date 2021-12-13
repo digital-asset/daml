@@ -9,6 +9,7 @@ import com.daml.fetchcontracts.domain.TemplateId.OptionalPkg
 import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, getResult}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
+import com.daml.http.domain.{UserDetails, UserRights}
 import com.daml.http.json.JsonProtocol._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.StandardJWTPayload
@@ -152,6 +153,59 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       assertion <- {
         status shouldBe StatusCodes.BadRequest
         assertStatus(output, StatusCodes.BadRequest)
+      }
+    } yield assertion
+  }
+
+  import com.daml.http.json.JsonProtocol._
+  "requesting the user id should be possible via the user endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, ledgerClient, _) =>
+    for {
+      user <- createUser(ledgerClient)(
+        Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+        initialRights = List.empty,
+      )
+      (status, output) <- getRequest(
+        uri.withPath(Uri.Path("/v1/user")),
+        headers = headersWithUserAuth(user.id),
+      )
+      assertion <- {
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        getResult(output).convertTo[UserDetails] shouldEqual UserDetails(
+          user.id,
+          user.primaryParty.map(_.toString),
+        )
+      }
+    } yield assertion
+  }
+
+  "requesting the user rights should be possible via the user/rights endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, ledgerClient, _) =>
+    val alice = getUniqueParty("Alice")
+    val bob = getUniqueParty("Bob")
+    for {
+      user <- createUser(ledgerClient)(
+        Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+        initialRights = List(
+          CanActAs(Ref.Party.assertFromString(alice.toString)),
+          CanActAs(Ref.Party.assertFromString(bob.toString)),
+        ),
+      )
+      (status, output) <- getRequest(
+        uri.withPath(Uri.Path("/v1/user/rights")),
+        headers = headersWithUserAuth(user.id),
+      )
+      assertion <- {
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        getResult(output).convertTo[UserRights] shouldEqual UserRights(
+          canActAs = List(alice, bob),
+          canReadAs = List.empty,
+          isAdmin = false,
+        )
       }
     } yield assertion
   }

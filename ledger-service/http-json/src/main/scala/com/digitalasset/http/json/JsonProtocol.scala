@@ -70,6 +70,12 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit def `List reader only`[A: JsonReader]: JsonReaderList[A] = new JsonReaderList
 
+  implicit val userDetails: JsonFormat[domain.UserDetails] =
+    jsonFormat2(domain.UserDetails.apply)
+
+  // If one uses the uppercase name then the implicit resolution will fail
+  implicit val userRights: RootJsonFormat[domain.UserRights] = jsonFormat3(domain.UserRights.apply)
+
   implicit val PartyDetails: JsonFormat[domain.PartyDetails] =
     jsonFormat3(domain.PartyDetails.apply)
 
