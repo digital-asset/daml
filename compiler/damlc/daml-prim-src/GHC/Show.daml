@@ -114,13 +114,8 @@ deriving instance (Show a, Show b) => Show (Either a b)
 instance Show Int where
   show = primitive @"BEToText"
 
-#ifdef DAML_NUMERIC
 instance Show (Numeric n) where
   show = primitive @"BENumericToText"
-#else
-instance Show Decimal where
-  show = primitive @"BEToText"
-#endif
 
 #ifdef DAML_BIGNUMERIC
 instance Show BigNumeric where

@@ -120,22 +120,16 @@ instance Signed Int where
     signum x = if x == 0 then 0 else if x <= 0 then (-1) else 1
     abs x = if x <= 0 then negate x else x
 
-#ifdef DAML_NUMERIC
-#define IF_NUMERIC(a,b) a
 #define NUMERIC_LIT(n) (primitive @"BECastNumeric" ((n) : Numeric 10))
-#else
-#define IF_NUMERIC(a,b) b
-#define NUMERIC_LIT(n) n
-#endif
 
-instance Additive IF_NUMERIC((Numeric n), Decimal) where
-    (+) = primitive @IF_NUMERIC("BEAddNumeric", "BEAddDecimal")
-    (-) = primitive @IF_NUMERIC("BESubNumeric", "BESubDecimal")
+instance Additive (Numeric n) where
+    (+) = primitive @"BEAddNumeric"
+    (-) = primitive @"BESubNumeric"
     negate x = aunit - x
     aunit = NUMERIC_LIT(0.0)
 
-instance Multiplicative IF_NUMERIC((Numeric n), Decimal) where
-    (*) = primitive @IF_NUMERIC("BEMulNumeric", "BEMulDecimal")
+instance Multiplicative (Numeric n) where
+    (*) = primitive @"BEMulNumeric"
     munit = NUMERIC_LIT(1.0)
     x ^ n
         | n == 0 = munit
@@ -144,9 +138,9 @@ instance Multiplicative IF_NUMERIC((Numeric n), Decimal) where
         | n % 2 == 0 = (x ^ (n / 2)) ^ 2
         | otherwise = x * x ^ (n - 1)
 
-instance Number IF_NUMERIC((Numeric n), Decimal)
+instance Number (Numeric n)
 
-instance Signed IF_NUMERIC((Numeric n), Decimal) where
+instance Signed (Numeric n) where
     signum x = if x == aunit then aunit else if x <= aunit then negate munit else munit
     abs x = if x <= aunit then negate x else x
 
@@ -188,8 +182,8 @@ class (Multiplicative a) => Divisible a where
 instance Divisible Int where
     (/) = primitive @"BEDivInt64"
 
-instance Divisible IF_NUMERIC((Numeric n), Decimal) where
-    (/) = primitive @IF_NUMERIC("BEDivNumeric", "BEDivDecimal")
+instance Divisible (Numeric n) where
+    (/) = primitive @"BEDivNumeric"
 
 -- | Use the `Fractional` class for types that can be divided
 -- and where the reciprocal is well defined. Instances
@@ -204,7 +198,7 @@ class (Divisible a) => Fractional a where
     recip : a -> a
     recip x = munit / x
 
-instance Fractional IF_NUMERIC((Numeric n), Decimal)
+instance Fractional (Numeric n)
 
 -- | `x % y` calculates the remainder of `x` by `y`
 (%) : Int -> Int -> Int

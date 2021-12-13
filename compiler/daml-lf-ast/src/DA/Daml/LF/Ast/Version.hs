@@ -69,13 +69,6 @@ data Feature = Feature
         -- ^ CPP flag to test for availability of the feature.
     } deriving Show
 
-featureNumeric :: Feature
-featureNumeric = Feature
-    { featureName = "Numeric type"
-    , featureMinVersion = version1_7
-    , featureCppFlag = Just "DAML_NUMERIC"
-    }
-
 featureStringInterning :: Feature
 featureStringInterning = Feature
     { featureName = "String interning"
@@ -172,8 +165,7 @@ featureExperimental = Feature
 
 allFeatures :: [Feature]
 allFeatures =
-    [ featureNumeric
-    , featureStringInterning
+    [ featureStringInterning
     , featureGenericComparison
     , featureGenMap
     , featurePackageMetadata
