@@ -320,6 +320,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       partyName: String,
       amount: String = "999.9900000000",
       currency: String = "USD",
+      meta: Option[domain.CommandMeta] = None,
   ): domain.CreateCommand[v.Record, OptionalPkg] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
     val party = Ref.Party assertFromString partyName
@@ -333,7 +334,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       )
     )
 
-    domain.CreateCommand(templateId, arg, None)
+    domain.CreateCommand(templateId, arg, meta)
   }
 
   protected def iouExerciseTransferCommand(

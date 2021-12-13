@@ -20,6 +20,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.Inside
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.NonEmptyList
 import scalaz.syntax.show._
 import spray.json.JsValue
 
@@ -68,11 +69,9 @@ class HttpServiceIntegrationTestUserManagement
   "create IOU should work with correct user rights" in withHttpServiceAndClient(
     participantAdminJwt
   ) { (uri, encoder, _, ledgerClient, _) =>
-    logger.info("allocating party")
     val alice = getUniqueParty("Alice")
     val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-    logger.info("Trying to create user")
     for {
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
@@ -80,7 +79,6 @@ class HttpServiceIntegrationTestUserManagement
           CanActAs(Ref.Party.assertFromString(alice.toString))
         ),
       )
-      _ = logger.info("successfully created user")
       (status, output) <- postJsonRequest(
         uri.withPath(Uri.Path("/v1/create")),
         input,
@@ -98,12 +96,10 @@ class HttpServiceIntegrationTestUserManagement
   "create IOU should fail if user has no permission" in withHttpServiceAndClient(
     participantAdminJwt
   ) { (uri, encoder, _, ledgerClient, _) =>
-    logger.info("allocating party")
     val alice = getUniqueParty("Alice")
     val bob = getUniqueParty("Bob")
     val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice.unwrap)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-    logger.info("Trying to create user")
     for {
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
@@ -111,7 +107,35 @@ class HttpServiceIntegrationTestUserManagement
           CanActAs(Ref.Party.assertFromString(bob.toString))
         ),
       )
-      _ = logger.info("successfully created user")
+      (status, output) <- postJsonRequest(
+        uri.withPath(Uri.Path("/v1/create")),
+        input,
+        headers = headersWithUserAuth(user.id),
+      )
+      assertion <- {
+        status shouldBe StatusCodes.BadRequest
+        assertStatus(output, StatusCodes.BadRequest)
+      }
+    } yield assertion
+  }
+
+  "create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, encoder, _, ledgerClient, _) =>
+    val alice = getUniqueParty("Alice")
+    val bob = getUniqueParty("Bob")
+    val meta = domain.CommandMeta(None, Some(NonEmptyList(bob)), None)
+    val command: domain.CreateCommand[v.Record, OptionalPkg] =
+      iouCreateCommand(alice.unwrap, meta = Some(meta))
+    val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+    for {
+      user <- createUser(ledgerClient)(
+        Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+        initialRights = List(
+          CanActAs(Ref.Party.assertFromString(alice.toString)),
+          CanActAs(Ref.Party.assertFromString(bob.toString)),
+        ),
+      )
       (status, output) <- postJsonRequest(
         uri.withPath(Uri.Path("/v1/create")),
         input,
