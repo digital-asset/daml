@@ -51,9 +51,7 @@ module GHC.Classes(
     -- * Functions over Bool
     (&&), (||), not,
 
-    #ifdef DAML_NUMERIC
     NumericScale (numericScale),
-    #endif
     #ifdef DAML_BIGNUMERIC
     IsNumeric (..),
     #endif
@@ -203,13 +201,8 @@ instance Eq Bool where
 instance Eq Int where
     (==) = primitive @"BEEqual"
 
-#ifdef DAML_NUMERIC
 instance Eq (Numeric n) where
     (==) = primitive @"BEEqualNumeric"
-#else
-instance Eq Decimal where
-    (==) = primitive @"BEEqual"
-#endif
 
 #ifdef DAML_BIGNUMERIC
 instance Eq BigNumeric where
@@ -336,19 +329,11 @@ instance Ord Int where
     (>=) = primitive @"BEGreaterEq"
     (>)  = primitive @"BEGreater"
 
-#ifdef DAML_NUMERIC
 instance Ord (Numeric n) where
     (<)  = primitive @"BELessNumeric"
     (<=) = primitive @"BELessEqNumeric"
     (>=) = primitive @"BEGreaterEqNumeric"
     (>)  = primitive @"BEGreaterNumeric"
-#else
-instance Ord Decimal where
-    (<)  = primitive @"BELess"
-    (<=) = primitive @"BELessEq"
-    (>=) = primitive @"BEGreaterEq"
-    (>)  = primitive @"BEGreater"
-#endif
 
 #ifdef DAML_BIGNUMERIC
 instance Ord BigNumeric where
@@ -395,8 +380,6 @@ not                     : Bool -> Bool
 not True                =  False
 not False               =  True
 
-
-#ifdef DAML_NUMERIC
 
 -- | Is this a valid scale for the `Numeric` type?
 --
@@ -461,7 +444,6 @@ instance NumericScale 34 where numericScale _ = 34; numericScalePrivate _ = ()
 instance NumericScale 35 where numericScale _ = 35; numericScalePrivate _ = ()
 instance NumericScale 36 where numericScale _ = 36; numericScalePrivate _ = ()
 instance NumericScale 37 where numericScale _ = 37; numericScalePrivate _ = ()
-#endif
 
 #ifdef DAML_BIGNUMERIC
 

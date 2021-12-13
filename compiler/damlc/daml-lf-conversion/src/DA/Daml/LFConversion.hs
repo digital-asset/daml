@@ -294,9 +294,7 @@ convertRationalDecimal env num denom
     -- upper limit.
     if 10 ^ maxPrecision `mod` denom == 0 && abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 then
         pure $ EBuiltin $
-        if envLfVersion env `supports` featureNumeric
-            then BENumeric $ numericFromDecimal $ fromRational r
-            else BEDecimal $ fromRational r
+          BENumeric $ numericFromDecimal $ fromRational r
     else
         unsupported
             ("Rational is out of bounds: " ++
@@ -2078,10 +2076,7 @@ convertTyCon env t
         case n of
             "Text" -> pure TText
             "Numeric" -> pure (TBuiltin BTNumeric)
-            "Decimal" ->
-                if envLfVersion env `supports` featureNumeric
-                    then pure TNumeric10
-                    else pure TDecimal
+            "Decimal" -> pure TNumeric10
             "BigNumeric" -> pure TBigNumeric
             "RoundingMode" -> pure TRoundingMode
             _ -> defaultTyCon
