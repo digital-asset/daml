@@ -130,7 +130,7 @@ cmdIde numProcessors =
     cmd = execIde
         <$> telemetryOpt
         <*> debugOpt
-        <*> enableScenarioOpt
+        <*> enableScenarioServiceOpt
         <*> optionsParser numProcessors (EnableScenarioService True) (pure Nothing)
 
 cmdLicense :: Mod CommandFields Command

@@ -6,6 +6,7 @@
 module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
+    , EnableScenarios(..)
     , EnableScripts(..)
     , SkipScenarioValidation(..)
     , DlintUsage(..)
@@ -80,6 +81,9 @@ data Options = Options
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScenarioService :: EnableScenarioService
     -- ^ Controls whether the scenario service is started.
+  , optEnableScenarios :: EnableScenarios
+    -- ^ Whether old-style scenarios should be run by the scenario service.
+    -- This will be switched to False by default once scenarios have been deprecated.
   , optEnableScripts :: EnableScripts
     -- ^ Whether scripts should be run by the scenario service.
     -- This will be switched to True by default once it has stabilized.
@@ -133,6 +137,9 @@ newtype SkipScenarioValidation = SkipScenarioValidation { getSkipScenarioValidat
   deriving Show
 
 newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService :: Bool }
+    deriving Show
+
+newtype EnableScenarios = EnableScenarios { getEnableScenarios :: Bool }
     deriving Show
 
 newtype EnableScripts = EnableScripts { getEnableScripts :: Bool }
@@ -192,6 +199,7 @@ defaultOptions mbVersion =
         , optLogLevel = Logger.Info
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
+        , optEnableScenarios = EnableScenarios True -- TODO: set to False once scenarios are deprecated.
         , optEnableScripts = EnableScripts False
         , optSkipScenarioValidation = SkipScenarioValidation False
         , optDlintUsage = DlintDisabled
