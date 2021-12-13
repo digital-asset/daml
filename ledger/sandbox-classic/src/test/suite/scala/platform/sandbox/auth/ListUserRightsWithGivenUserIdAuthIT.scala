@@ -23,12 +23,11 @@ class ListUserRightsWithGivenUserIdAuthIT extends AdminServiceCallAuthTests {
       // test for a non-existent user
       _ <- stub(UserManagementServiceGrpc.stub(channel), token)
         .listUserRights(ListUserRightsRequest("non-existent-user-" + UUID.randomUUID().toString))
-        // FIXME: express this better using Scalatest expectations
         .transform({
           case scala.util.Success(u) =>
             scala.util.Failure(new RuntimeException(s"User $u unexpectedly exists."))
           case scala.util.Failure(e: StatusRuntimeException)
-              if (e.getStatus.getCode == Status.Code.NOT_FOUND) =>
+              if e.getStatus.getCode == Status.Code.NOT_FOUND =>
             scala.util.Success(())
           case scala.util.Failure(e: Throwable) => scala.util.Failure(e)
         })

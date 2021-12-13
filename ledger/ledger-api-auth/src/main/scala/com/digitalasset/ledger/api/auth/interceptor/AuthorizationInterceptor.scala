@@ -78,7 +78,6 @@ final class AuthorizationInterceptor(
                 s"Authorization error: cannot resolve rights for user '$userId' due to $msg."
               )
               ClaimSet.Unauthenticated
-
             case Right(userClaims) =>
               ClaimSet.Claims(
                 claims = userClaims.view.map(userRightToClaim).toList.prepended(ClaimPublic),
