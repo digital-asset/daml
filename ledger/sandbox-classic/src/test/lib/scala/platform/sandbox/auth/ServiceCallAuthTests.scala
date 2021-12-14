@@ -9,11 +9,7 @@ import java.util.UUID
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.auth.client.LedgerCallCredentials
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.api.v1.admin.user_management_service.{
-  CreateUserRequest,
-  User,
-  UserManagementServiceGrpc,
-}
+import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
@@ -148,10 +144,13 @@ trait ServiceCallAuthTests
   protected val canReadAsAdminRandomParticipantId: Option[String] =
     Option(customTokenToHeader(forParticipantId(UUID.randomUUID.toString, adminToken)))
 
-  protected def createUserAsAdmin(userId: String): Future[(User, Option[String])] = {
+  protected def createUserByAdmin(
+      userId: String,
+      rights: Vector[proto.Right] = Vector.empty,
+  ): Future[(proto.User, Option[String])] = {
     val userToken = Option(toHeader(standardToken(userId)))
-    val req = CreateUserRequest(Some(User(userId)))
-    stub(UserManagementServiceGrpc.stub(channel), canReadAsAdminStandardJWT)
+    val req = proto.CreateUserRequest(Some(proto.User(userId)), rights)
+    stub(proto.UserManagementServiceGrpc.stub(channel), canReadAsAdminStandardJWT)
       .createUser(req)
       .map((_, userToken))
   }

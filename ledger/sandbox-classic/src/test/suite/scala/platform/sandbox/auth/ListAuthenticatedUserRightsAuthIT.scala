@@ -54,7 +54,7 @@ class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
     val expectedRights = ListUserRightsResponse(Vector.empty)
     for {
       // admin creates user
-      (alice, aliceToken) <- createUserAsAdmin(testId + "-alice")
+      (alice, aliceToken) <- createUserByAdmin(testId + "-alice")
       // user accesses its own user record without specifying the id
       aliceRetrieved1 <- getRights(aliceToken, "")
       // user accesses its own user record with specifying the id

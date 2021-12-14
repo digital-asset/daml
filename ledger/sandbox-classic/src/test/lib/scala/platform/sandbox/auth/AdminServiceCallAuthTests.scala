@@ -4,6 +4,7 @@
 package com.daml.platform.sandbox.auth
 
 import java.util.UUID
+import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 
 trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
@@ -27,13 +28,22 @@ trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "allow calls with admin token without expiration" in {
     expectSuccess(serviceCallWithToken(canReadAsAdmin))
   }
-  it should "allow calls with standard token for 'participant_admin' without expiration" in {
+  it should "allow calls with user token for 'participant_admin' without expiration" in {
     expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
   }
-  it should "deny calls with standard token for 'unknown_user' without expiration" in {
+  it should "allow calls with freshly created admin user" in {
+    expectSuccess(
+      createUserByAdmin(
+        UUID.randomUUID().toString,
+        Vector(proto.Right(proto.Right.Kind.ParticipantAdmin(proto.Right.ParticipantAdmin()))),
+      )
+        .flatMap { case (_, token) => serviceCallWithToken(token) }
+    )
+  }
+  it should "deny calls with user token for 'unknown_user' without expiration" in {
     expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
-  it should "deny calls with standard token for '!!invalid_user!!' without expiration" in {
+  it should "deny calls with user token for '!!invalid_user!!' without expiration" in {
     expectInvalidArgument(serviceCallWithToken(canReadAsInvalidUserStandardJWT))
   }
   it should "allow calls with the correct ledger ID" in {
