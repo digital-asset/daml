@@ -17,21 +17,17 @@ object OracleEventStrategy extends EventStrategy {
     cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, internedWildcardParties)})"
   }
 
-  override def filterPartiesClause(
+  override def partiesAndTemplatesClause(
       witnessesColumnName: String,
-      internedPartiesTemplates: List[(Set[Int], Set[Int])],
-  ): List[CompositeSql] = {
-    internedPartiesTemplates
-      .map { case (parties, templateIds) =>
-        val clause =
-          OracleQueryStrategy.arrayIntersectionNonEmptyClause(
-            witnessesColumnName,
-            parties,
-          )
-        // TODO: Postgres and H2 use Array[Integer], Oracle uses Set[Int] to send the template Ids.
-        // Does it make a difference?
-        cSQL"( ($clause) AND (template_id IN ($templateIds)) )"
-      }
+      internedParties: Set[Int],
+      internedTemplates: Set[Int],
+  ): CompositeSql = {
+    val clause =
+      OracleQueryStrategy.arrayIntersectionNonEmptyClause(
+        witnessesColumnName,
+        internedParties,
+      )
+    cSQL"( ($clause) AND (template_id IN ($internedTemplates)) )"
   }
 
   override def pruneCreateFilters(pruneUpToInclusive: Offset): SimpleSql[Row] = {

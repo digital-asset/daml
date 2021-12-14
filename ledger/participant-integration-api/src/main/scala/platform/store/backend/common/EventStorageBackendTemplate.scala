@@ -359,11 +359,10 @@ abstract class EventStorageBackendTemplate(
       } else {
         eventStrategy.wildcardPartiesClause(witnessesColumn, internedWildcardParties) :: Nil
       }
-      val filterPartiesClauses = if (internedPartiesAndTemplates.isEmpty) {
-        Nil
-      } else {
-        eventStrategy.filterPartiesClause(witnessesColumn, internedPartiesAndTemplates)
+      val filterPartiesClauses = internedPartiesAndTemplates.map { case (parties, templates) =>
+        eventStrategy.partiesAndTemplatesClause(witnessesColumn, parties, templates)
       }
+
       val witnessesWhereClause =
         (wildcardPartiesClause ::: filterPartiesClauses).mkComposite("(", " or ", ")")
 
@@ -779,19 +778,19 @@ trait EventStrategy {
       internedWildcardParties: Set[Int],
   ): CompositeSql
 
-  /** Generates a clause that checks whether any of the given filters matches the contract,
-    *  i.e., whether the template id matches AND any of the parties is a witness
+  /** Generates a clause that checks whether the given parties+templates filter matches the contract,
+    *  i.e., whether any of the template ids matches AND any of the parties is a witness
     *
     * @param witnessesColumnName Name of the Array column holding witnesses
-    * @param internedPartiesTemplates List of all filters. For each filter, the list contains one element with
-    *                                 the list of interned party names and the list of interned template ids.
-    *                                 All sets of interned names are guaranteed to be non-empty.
-    * @return one composable SQL for each filter
+    * @param internedParties The non-empty list of interned party names
+    * @param internedTemplates The non-empty list of interned template names
+    * @return the composable SQL for this filter
     */
-  def filterPartiesClause(
+  def partiesAndTemplatesClause(
       witnessesColumnName: String,
-      internedPartiesTemplates: List[(Set[Int], Set[Int])],
-  ): List[CompositeSql]
+      internedParties: Set[Int],
+      internedTemplates: Set[Int],
+  ): CompositeSql
 
   /** Pruning participant_events_create_filter entries.
     *

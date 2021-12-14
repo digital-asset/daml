@@ -17,22 +17,20 @@ object H2EventStrategy extends EventStrategy {
     cSQL"(${H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, internedWildcardParties)})"
   }
 
-  override def filterPartiesClause(
+  override def partiesAndTemplatesClause(
       witnessesColumnName: String,
-      internedPartiesTemplates: List[(Set[Int], Set[Int])],
-  ): List[CompositeSql] = {
-    internedPartiesTemplates
-      .map { case (parties, templateIds) =>
-        val clause =
-          H2QueryStrategy.arrayIntersectionNonEmptyClause(
-            witnessesColumnName,
-            parties,
-          )
-        // anorm does not like primitive arrays, so we need to box it
-        val templateIdsArray = templateIds.map(Int.box).toArray
+      internedParties: Set[Int],
+      internedTemplates: Set[Int],
+  ): CompositeSql = {
+    val clause =
+      H2QueryStrategy.arrayIntersectionNonEmptyClause(
+        witnessesColumnName,
+        internedParties,
+      )
+    // anorm does not like primitive arrays, so we need to box it
+    val templateIdsArray = internedTemplates.map(Int.box).toArray
 
-        cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )"
-      }
+    cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )"
   }
 
   override def pruneCreateFilters(pruneUpToInclusive: Offset): SimpleSql[Row] = {

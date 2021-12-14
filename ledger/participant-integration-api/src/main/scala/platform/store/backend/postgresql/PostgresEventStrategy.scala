@@ -19,17 +19,15 @@ object PostgresEventStrategy extends EventStrategy {
     cSQL"(#$witnessesColumnName::integer[] && $internedWildcardPartiesArray::integer[])"
   }
 
-  override def filterPartiesClause(
+  override def partiesAndTemplatesClause(
       witnessesColumnName: String,
-      internedPartiesTemplates: List[(Set[Int], Set[Int])],
-  ): List[CompositeSql] = {
-    internedPartiesTemplates
-      .map { case (parties, templates) =>
-        // anorm does not like primitive arrays, so we need to box it
-        val partiesArray = parties.map(Int.box).toArray
-        val templateIdsArray = templates.map(Int.box).toArray
-        cSQL"( (#$witnessesColumnName::integer[] && $partiesArray::integer[]) AND (template_id = ANY($templateIdsArray::integer[])) )"
-      }
+      internedParties: Set[Int],
+      internedTemplates: Set[Int],
+  ): CompositeSql = {
+    // anorm does not like primitive arrays, so we need to box it
+    val partiesArray = internedParties.map(Int.box).toArray
+    val templateIdsArray = internedTemplates.map(Int.box).toArray
+    cSQL"( (#$witnessesColumnName::integer[] && $partiesArray::integer[]) AND (template_id = ANY($templateIdsArray::integer[])) )"
   }
 
   override def pruneCreateFilters(pruneUpToInclusive: Offset): SimpleSql[Row] = {
