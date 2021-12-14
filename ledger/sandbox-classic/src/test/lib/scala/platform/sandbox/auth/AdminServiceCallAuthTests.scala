@@ -31,10 +31,10 @@ trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
     expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
   }
   it should "deny calls with standard token for 'unknown_user' without expiration" in {
-    expectUnauthenticated(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
+    expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
   it should "deny calls with standard token for '!!invalid_user!!' without expiration" in {
-    expectUnauthenticated(serviceCallWithToken(canReadAsInvalidUserStandardJWT))
+    expectInvalidArgument(serviceCallWithToken(canReadAsInvalidUserStandardJWT))
   }
   it should "allow calls with the correct ledger ID" in {
     expectSuccess(serviceCallWithToken(canReadAsAdminActualLedgerId))
