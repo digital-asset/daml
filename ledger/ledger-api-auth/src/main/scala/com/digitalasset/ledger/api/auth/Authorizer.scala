@@ -122,24 +122,6 @@ final class Authorizer(
       }
     }
 
-  /** Checks whether the current Claims authorize to act as the given party, if any.
-    * Note: A missing party or applicationId does NOT result in an authorization error.
-    */
-  def requireActClaimsForParty[Req, Res](
-      party: Option[String],
-      applicationId: Option[String],
-      call: Req => Future[Res],
-  ): Req => Future[Res] =
-    authorize(call) { claims =>
-      for {
-        _ <- valid(claims)
-        _ <- party.map(claims.canActAs).getOrElse(Right(()))
-        _ <- applicationId.map(claims.validForApplication).getOrElse(Right(()))
-      } yield {
-        ()
-      }
-    }
-
   def requireActAndReadClaimsForParties[Req, Res](
       actAs: Set[String],
       readAs: Set[String],
