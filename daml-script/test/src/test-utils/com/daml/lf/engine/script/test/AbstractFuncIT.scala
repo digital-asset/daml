@@ -276,7 +276,7 @@ abstract class AbstractFuncIT
     }
     "traceOrder" should {
       "emit trace statements in correct order" in {
-        val msgRegex = raw"""\[DA.Internal.Prelude:\d+]: "(.*)"""".r
+        val msgRegex = raw"""\[DA.Internal.Prelude:\d+]: (.*)""".r
         def stripLoc(msg: String) = msg match {
           case msgRegex(msg_) => msg_
         }
@@ -290,7 +290,7 @@ abstract class AbstractFuncIT
           )
         } yield {
           assert(v == SUnit)
-          val logMsgs = LogCollector.events.map(_.getMessage)
+          val logMsgs = LogCollector.events.map(_.getFormattedMessage)
           assert(logMsgs.map(stripLoc(_)) == Seq("abc", "def", "abc", "def"))
         }
       }
