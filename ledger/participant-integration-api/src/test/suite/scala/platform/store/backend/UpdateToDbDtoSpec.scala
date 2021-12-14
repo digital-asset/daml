@@ -1463,7 +1463,7 @@ object UpdateToDbDtoSpec {
     commandId = someCommandId,
     optDeduplicationPeriod = None,
     submissionId = Some(someSubmissionId),
-    None, // TODO https://digitalasset.atlassian.net/browse/DPP-813
+    statistics = None, // TODO https://digitalasset.atlassian.net/browse/DPP-813
   )
   private val someTransactionMeta = state.TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
