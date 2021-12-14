@@ -13,8 +13,10 @@ import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
-
 import java.time.Instant
+
+import com.daml.error.definitions.LedgerApiErrors
+
 import scala.collection.compat._
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -170,6 +172,26 @@ final class Authorizer(
       call,
     )
 
+  def authenticatedUserId(): Try[Option[String]] =
+    authenticatedClaimsFromContext()
+      .flatMap(claims =>
+        if (claims.resolvedFromUser)
+          claims.applicationId match {
+            case Some(applicationId) => Success(Some(applicationId))
+            case None =>
+              Failure(
+                LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
+                  .Reject(
+                    "unexpectedly the user-id is not set in the authenticated claims",
+                    new RuntimeException(),
+                  )
+                  .asGrpcError
+              )
+          }
+        else
+          Success(None)
+      )
+
   private def assertServerCall[A](observer: StreamObserver[A]): ServerCallStreamObserver[A] =
     observer match {
       case _: ServerCallStreamObserver[_] =>
@@ -197,7 +219,7 @@ final class Authorizer(
     * Prefer to use the more specialized methods of [[Authorizer]] instead of this
     * method to avoid skipping required authorization checks.
     */
-  def authenticatedClaimsFromContext(): Try[ClaimSet.Claims] =
+  private def authenticatedClaimsFromContext(): Try[ClaimSet.Claims] =
     AuthorizationInterceptor
       .extractClaimSetFromContext()
       .flatMap({

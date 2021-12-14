@@ -64,39 +64,20 @@ private[daml] final class UserManagementServiceAuthorization(
 
   override def close(): Unit = service.close()
 
-  private def defaultToAuthenticatedUser(userId: String): Try[Option[String]] = {
-    // Note: doing all of this computation within a `Try` instead of a `Future` is very important
-    // as the authorization claims are stored in thread-local storage; and we thus must avoid switching
-    // the executing thread.
-    if (userId.isEmpty) {
-      authorizer
-        .authenticatedClaimsFromContext()
-        .flatMap(claims =>
-          if (claims.resolvedFromUser)
-            claims.applicationId match {
-              case Some(applicationId) => Success(Some(applicationId))
-              case None =>
-                Failure(
-                  LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
-                    .Reject(
-                      "unexpectedly the user-id is not set in authenticated claims",
-                      new RuntimeException(),
-                    )
-                    .asGrpcError
-                )
-            }
-          else {
-            // This case can be hit both when running without authentication and when using custom Daml tokens.
-            Failure(
-              LedgerApiErrors.RequestValidation.InvalidArgument
-                .Reject(
-                  "requests with an empty user-id are only supported if there is an authenticated user"
-                )
-                .asGrpcError
+  private def defaultToAuthenticatedUser(userId: String): Try[Option[String]] =
+    authorizer.authenticatedUserId().flatMap {
+      case Some(authUserId) if userId.isEmpty || userId == authUserId =>
+        // We include the case where the request userId is equal to the authenticated userId in the defaulting.
+        Success(Some(authUserId))
+      case None if userId.isEmpty =>
+        // This case can be hit both when running without authentication and when using custom Daml tokens.
+        Failure(
+          LedgerApiErrors.RequestValidation.InvalidArgument
+            .Reject(
+              "requests with an empty user-id are only supported if there is an authenticated user"
             )
-          }
+            .asGrpcError
         )
-    } else
-      Success(None)
-  }
+      case _ => Success(None)
+    }
 }

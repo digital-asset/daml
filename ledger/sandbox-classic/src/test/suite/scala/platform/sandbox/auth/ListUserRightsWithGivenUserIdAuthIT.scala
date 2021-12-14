@@ -14,12 +14,22 @@ class ListUserRightsWithGivenUserIdAuthIT extends AdminServiceCallAuthTests {
 
   override def serviceCallName: String = "UserManagementService#ListUserRights(given-user-id)"
 
-  // only admin users are allowed to specify a user-id for which to retrieve rights
+  // only admin users are allowed to specify a user-id other than their own for which to retrieve a user
   override def serviceCallWithToken(token: Option[String]): Future[Any] = {
+    val testId = UUID.randomUUID().toString
+
+    def getRights(userId: String): Future[ListUserRightsResponse] =
+      stub(UserManagementServiceGrpc.stub(channel), token)
+        .listUserRights(ListUserRightsRequest(userId))
+
     for {
-      // test for an existing user
-      _ <- stub(UserManagementServiceGrpc.stub(channel), token)
-        .listUserRights(ListUserRightsRequest("participant_admin"))
+      // create a normal users
+      (alice, _) <- createUserAsAdmin(testId + "-alice")
+
+      // test that only admins can retrieve his own user and the newly created alice user
+      _ <- getRights("participant_admin")
+      _ <- getRights(alice.id)
+
       // test for a non-existent user
       _ <- stub(UserManagementServiceGrpc.stub(channel), token)
         .listUserRights(ListUserRightsRequest("non-existent-user-" + UUID.randomUUID().toString))

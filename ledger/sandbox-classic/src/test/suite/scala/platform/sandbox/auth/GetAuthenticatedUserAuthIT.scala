@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
+import java.util.UUID
+
 import com.daml.ledger.api.v1.admin.user_management_service.{
   GetUserRequest,
   User,
@@ -11,15 +13,20 @@ import org.scalatest.Assertion
 
 import scala.concurrent.Future
 
-/** Tests covering the special behaviour of GetUser when not specifying a user-id. */
-class GetUserWithNoUserIdAuthIT extends ServiceCallAuthTests {
-  override def serviceCallName: String = "UserManagementService#GetUser(<no-user-id>)"
+/** Tests covering the special behaviour of GetUser wrt the authenticated user. */
+class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
+  private val testId = UUID.randomUUID().toString
+
+  override def serviceCallName: String = "UserManagementService#GetUser(<authenticated-user>)"
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
     stub(UserManagementServiceGrpc.stub(channel), token).getUser(GetUserRequest())
 
-  protected def expectUser(token: Option[String], expectedUser: User): Future[Assertion] =
+  private def expectUser(token: Option[String], expectedUser: User): Future[Assertion] =
     serviceCallWithToken(token).map(assertResult(expectedUser)(_))
+
+  private def getUser(token: Option[String], userId: String) =
+    stub(UserManagementServiceGrpc.stub(channel), token).getUser(GetUserRequest(userId))
 
   behavior of serviceCallName
 
@@ -37,5 +44,17 @@ class GetUserWithNoUserIdAuthIT extends ServiceCallAuthTests {
 
   it should "return invalid argument for custom token" in {
     expectInvalidArgument(serviceCallWithToken(canReadAsAdmin))
+  }
+
+  it should "allow access to a non-admin user's own user record" in {
+    for {
+      // admin creates user
+      (alice, aliceToken) <- createUserAsAdmin(testId + "-alice")
+      // user accesses its own user record without specifying the id
+      aliceRetrieved1 <- getUser(aliceToken, "")
+      // user accesses its own user record with specifying the id
+      aliceRetrieved2 <- getUser(aliceToken, alice.id)
+
+    } yield assertResult((alice, alice))((aliceRetrieved1, aliceRetrieved2))
   }
 }
