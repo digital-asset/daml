@@ -3,9 +3,7 @@
 
 package com.daml.platform.store.backend.common
 
-import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
-import com.daml.platform.store.interning.StringInterning
 
 trait QueryStrategy {
 
@@ -33,17 +31,8 @@ trait QueryStrategy {
     * have at least one element in common (eg their intersection is non empty).
     *
     * @param columnName the SQL table definition which holds the set of parties
-    * @param parties set of parties
+    * @param internedParties set of parties (their interned names)
     * @return the composable SQL
-    */
-  def arrayIntersectionNonEmptyClause(
-      columnName: String,
-      parties: Set[Ref.Party],
-      stringInterning: StringInterning,
-  ): CompositeSql
-
-  /** A version of [[arrayIntersectionNonEmptyClause]] where all parties have already been interned.
-    * The set of interned parties must be non-empty.
     */
   def arrayIntersectionNonEmptyClause(
       columnName: String,

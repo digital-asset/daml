@@ -3,24 +3,10 @@
 
 package com.daml.platform.store.backend.oracle
 
-import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.QueryStrategy
-import com.daml.platform.store.interning.StringInterning
 
 object OracleQueryStrategy extends QueryStrategy {
-
-  override def arrayIntersectionNonEmptyClause(
-      columnName: String,
-      parties: Set[Ref.Party],
-      stringInterning: StringInterning,
-  ): CompositeSql = {
-    val internedParties =
-      parties.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
-    if (internedParties.isEmpty) cSQL"1 = 0"
-    else
-      arrayIntersectionNonEmptyClause(columnName, internedParties)
-  }
 
   override def arrayIntersectionNonEmptyClause(
       columnName: String,

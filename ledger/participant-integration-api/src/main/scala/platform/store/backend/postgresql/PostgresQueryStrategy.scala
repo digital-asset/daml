@@ -3,25 +3,11 @@
 
 package com.daml.platform.store.backend.postgresql
 
-import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.ComposableQuery.CompositeSql
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.common.QueryStrategy
-import com.daml.platform.store.interning.StringInterning
 
 object PostgresQueryStrategy extends QueryStrategy {
-
-  override def arrayIntersectionNonEmptyClause(
-      columnName: String,
-      parties: Set[Ref.Party],
-      stringInterning: StringInterning,
-  ): CompositeSql = {
-    val partiesArray: Array[java.lang.Integer] =
-      parties
-        .flatMap(party => stringInterning.party.tryInternalize(party).map(Int.box).toList)
-        .toArray
-    cSQL"#$columnName::int[] && $partiesArray::int[]"
-  }
 
   override def arrayIntersectionNonEmptyClause(
       columnName: String,

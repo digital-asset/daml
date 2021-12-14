@@ -317,25 +317,35 @@ class ContractStorageBackendTemplate(
   }
 
   private def activeContract[T](
-      resultSetParser: ResultSetParser[T],
+      resultSetParser: ResultSetParser[Option[T]],
       resultColumns: List[String],
   )(
       readers: Set[Ref.Party],
       contractId: ContractId,
-  )(connection: Connection): T = {
-    val treeEventWitnessesClause: CompositeSql =
-      queryStrategy.arrayIntersectionNonEmptyClause(
-        columnName = "tree_event_witnesses",
-        parties = readers,
-        stringInterning = stringInterning,
+  )(connection: Connection): Option[T] = {
+    val internedReaders =
+      readers.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
+    if (internedReaders.isEmpty) {
+      None
+    } else {
+      val treeEventWitnessesClause: CompositeSql =
+        queryStrategy.arrayIntersectionNonEmptyClause(
+          columnName = "tree_event_witnesses",
+          internedParties = internedReaders,
+        )
+      val coalescedColumns: String = resultColumns
+        .map(columnName =>
+          s"COALESCE(divulgence_events.$columnName, create_event_unrestricted.$columnName)"
+        )
+        .mkString(", ")
+      activeContractSqlLiteral(
+        contractId,
+        treeEventWitnessesClause,
+        resultColumns,
+        coalescedColumns,
       )
-    val coalescedColumns: String = resultColumns
-      .map(columnName =>
-        s"COALESCE(divulgence_events.$columnName, create_event_unrestricted.$columnName)"
-      )
-      .mkString(", ")
-    activeContractSqlLiteral(contractId, treeEventWitnessesClause, resultColumns, coalescedColumns)
-      .as(resultSetParser)(connection)
+        .as(resultSetParser)(connection)
+    }
   }
 
   private val contractWithoutValueRowParser: RowParser[Int] =
@@ -388,23 +398,26 @@ class ContractStorageBackendTemplate(
   )(
       connection: Connection
   ): Option[T] = {
+    val internedReaders =
+      readers.map(_.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet)
+
     def withAndIfNonEmptyReaders(
-        queryF: Set[Ref.Party] => CompositeSql
-    ): CompositeSql =
-      readers match {
+        queryF: Set[Int] => CompositeSql
+    ): CompositeSql = {
+      internedReaders match {
         case Some(readers) =>
           cSQL"${queryF(readers)} AND"
 
         case None =>
           cSQL""
       }
+    }
 
     val lastContractKeyFlatEventWitnessesClause =
       withAndIfNonEmptyReaders(
         queryStrategy.arrayIntersectionNonEmptyClause(
           columnName = "last_contract_key_create.flat_event_witnesses",
           _,
-          stringInterning,
         )
       )
     val participantEventsFlatEventWitnessesClause =
@@ -412,7 +425,6 @@ class ContractStorageBackendTemplate(
         queryStrategy.arrayIntersectionNonEmptyClause(
           columnName = "participant_events.flat_event_witnesses",
           _,
-          stringInterning,
         )
       )
 
