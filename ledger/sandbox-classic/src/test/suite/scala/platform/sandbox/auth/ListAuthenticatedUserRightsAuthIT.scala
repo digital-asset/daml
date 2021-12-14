@@ -3,13 +3,18 @@
 
 package com.daml.platform.sandbox.auth
 
+import java.util.UUID
+
 import com.daml.ledger.api.v1.admin.user_management_service._
 import org.scalatest.Assertion
 
 import scala.concurrent.Future
 
-class ListUserRightsWithNoUserIdAuthIT extends ServiceCallAuthTests {
-  override def serviceCallName: String = "UserManagementService#ListUserRights(<no-user-id>)"
+class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
+  private val testId = UUID.randomUUID().toString
+
+  override def serviceCallName: String =
+    "UserManagementService#ListUserRights(<authenticated-user>)"
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
     stub(UserManagementServiceGrpc.stub(channel), token).listUserRights(ListUserRightsRequest())
@@ -19,6 +24,10 @@ class ListUserRightsWithNoUserIdAuthIT extends ServiceCallAuthTests {
       expectedRights: Vector[Right],
   ): Future[Assertion] =
     serviceCallWithToken(token).map(assertResult(ListUserRightsResponse(expectedRights))(_))
+
+  private def getRights(token: Option[String], userId: String) =
+    stub(UserManagementServiceGrpc.stub(channel), token)
+      .listUserRights(ListUserRightsRequest(userId))
 
   behavior of serviceCallName
 
@@ -41,4 +50,16 @@ class ListUserRightsWithNoUserIdAuthIT extends ServiceCallAuthTests {
     expectInvalidArgument(serviceCallWithToken(canReadAsAdmin))
   }
 
+  it should "allow access to a non-admin user's own rights" in {
+    val expectedRights = ListUserRightsResponse(Vector.empty)
+    for {
+      // admin creates user
+      (alice, aliceToken) <- createUserAsAdmin(testId + "-alice")
+      // user accesses its own user record without specifying the id
+      aliceRetrieved1 <- getRights(aliceToken, "")
+      // user accesses its own user record with specifying the id
+      aliceRetrieved2 <- getRights(aliceToken, alice.id)
+
+    } yield assertResult((expectedRights, expectedRights))((aliceRetrieved1, aliceRetrieved2))
+  }
 }
