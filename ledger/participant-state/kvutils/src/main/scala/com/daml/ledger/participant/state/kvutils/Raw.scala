@@ -76,4 +76,8 @@ object Raw {
 
   /** We store node IDs as strings (see [[com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.DisclosureEntry]]). */
   final case class NodeId(value: String) extends AnyVal
+
+  final case class TransactionNode(override val bytes: ByteString) extends Raw.Bytes
+
+  object TransactionNode extends Raw.Companion[TransactionNode]
 }
