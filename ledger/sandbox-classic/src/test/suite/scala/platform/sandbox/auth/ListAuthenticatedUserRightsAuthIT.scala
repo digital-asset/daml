@@ -36,7 +36,7 @@ class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
   }
 
   it should "deny access for a standard token referring to an unknown user" in {
-    expectUnauthenticated(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
+    expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
 
   it should "return rights of the 'participant_admin' when using its standard token" in {

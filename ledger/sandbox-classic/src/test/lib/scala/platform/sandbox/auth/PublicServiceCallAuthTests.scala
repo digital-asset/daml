@@ -19,7 +19,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
     expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
   }
   it should "deny calls with non-expired 'unknown_user' standard token" in {
-    expectUnauthenticated(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
+    expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
 
   it should "deny calls with an expired read/write token" in {

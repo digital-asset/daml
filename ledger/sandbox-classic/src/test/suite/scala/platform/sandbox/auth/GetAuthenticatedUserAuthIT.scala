@@ -35,7 +35,7 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
   }
 
   it should "deny access for a standard token referring to an unknown user" in {
-    expectUnauthenticated(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
+    expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
 
   it should "return the 'participant_admin' user when using its standard token" in {

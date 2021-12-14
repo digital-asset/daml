@@ -103,6 +103,8 @@ trait ServiceCallAuthTests
     Option(toHeader(adminTokenStandardJWT))
   protected val canReadAsUnknownUserStandardJWT: Option[String] =
     Option(toHeader(unknownUserTokenStandardJWT))
+  protected val canReadAsInvalidUserStandardJWT: Option[String] =
+    Option(toHeader(invalidUserTokenStandardJWT))
 
   // Special tokens to test decoding users and rights from custom tokens
   protected val randomUserCanReadAsRandomParty: Option[String] =

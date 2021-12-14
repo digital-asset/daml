@@ -44,17 +44,23 @@ final class AuthorizationInterceptor(
     // However, this is only done after we have asynchronously received the claims.
     // Therefore, we need to return a listener that buffers all messages until the target listener is available.
     new AsyncForwardingListener[ReqT] {
+      private def closeWithError(error: StatusRuntimeException) = {
+        call.close(error.getStatus, error.getTrailers)
+        new ServerCall.Listener[Nothing]() {}
+      }
+
       FutureConverters
         .toScala(authService.decodeMetadata(headers))
         .flatMap(resolveAuthenticatedUserRights)
         .onComplete {
-          case Failure(exception) =>
+          case Failure(error: StatusRuntimeException) =>
+            closeWithError(error)
+          case Failure(exception: Throwable) =>
             val error = errorFactories.internalAuthenticationError(
               securitySafeMessage = "Failed to get claims from request metadata",
               exception = exception,
             )(errorLogger)
-            call.close(error.getStatus, error.getTrailers)
-            new ServerCall.Listener[Nothing]() {}
+            closeWithError(error)
           case Success(claimSet) =>
             val nextCtx = prevCtx.withValue(AuthorizationInterceptor.contextKeyClaimSet, claimSet)
             // Contexts.interceptCall() creates a listener that wraps all methods of `nextListener`
@@ -69,25 +75,35 @@ final class AuthorizationInterceptor(
 
   private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] =
     claimSet match {
-      case ClaimSet.AuthenticatedUser(userId, participantId, expiration) =>
-        userManagementService
-          .listUserRights(Ref.UserId.assertFromString(userId))
-          .map {
-            case Left(msg) =>
-              logger.warn(
-                s"Authorization error: cannot resolve rights for user '$userId' due to $msg."
-              )
-              ClaimSet.Unauthenticated
-            case Right(userClaims) =>
-              ClaimSet.Claims(
-                claims = userClaims.view.map(userRightToClaim).toList.prepended(ClaimPublic),
-                ledgerId = None,
-                participantId = participantId,
-                applicationId = Some(userId),
-                expiration = expiration,
-                resolvedFromUser = true,
-              )
-          }
+      case ClaimSet.AuthenticatedUser(userIdStr, participantId, expiration) =>
+        Ref.UserId.fromString(userIdStr) match {
+          case Left(err) =>
+            Future.failed(
+              errorFactories.invalidArgument(None)(s"token $err")(errorLogger)
+            )
+          case Right(userId) =>
+            userManagementService
+              .listUserRights(userId)
+              .flatMap {
+                case Left(msg) =>
+                  Future.failed(
+                    errorFactories.permissionDenied(
+                      s"Could not resolve rights for user '$userId' due to $msg."
+                    )(errorLogger)
+                  )
+                case Right(userClaims) =>
+                  Future.successful(
+                    ClaimSet.Claims(
+                      claims = userClaims.view.map(userRightToClaim).toList.prepended(ClaimPublic),
+                      ledgerId = None,
+                      participantId = participantId,
+                      applicationId = Some(userId),
+                      expiration = expiration,
+                      resolvedFromUser = true,
+                    )
+                  )
+              }
+        }
       case _ => Future.successful(claimSet)
     }
 
