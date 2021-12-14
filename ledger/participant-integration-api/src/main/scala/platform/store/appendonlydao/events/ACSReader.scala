@@ -264,7 +264,9 @@ private[events] object FilterTableACSReader {
   ): () => ((TASK, Iterable[Long])) => Vector[Vector[Long]] = () => {
     val outputQueue = new BatchedDistinctOutputQueue(outputBatchSize)
     val taskQueue = new MergingTaskQueue[TASK](outputQueue.push)
-    val taskTracker = new TaskTracker[TASK](tasks, inputBatchSize)
+    // Limit the number of queued contact ids to 1M per filter
+    val maxTaskQueueSize = 1000000 / inputBatchSize
+    val taskTracker = new TaskTracker[TASK](tasks, inputBatchSize, maxTaskQueueSize)
 
     { case (task, ids) =>
       @tailrec def go(next: (Option[(Iterable[Long], TASK)], Boolean)): Unit = {
@@ -375,7 +377,7 @@ private[events] object FilterTableACSReader {
 
   /** Helper class to encapsulate stateful tracking of task streams.
     */
-  class TaskTracker[TASK](allTasks: Iterable[TASK], inputBatchSize: Int) {
+  class TaskTracker[TASK](allTasks: Iterable[TASK], inputBatchSize: Int, maxQueueSize: Int) {
     assert(inputBatchSize > 0)
 
     private val idle: mutable.Set[TASK] = mutable.Set.empty
@@ -392,7 +394,11 @@ private[events] object FilterTableACSReader {
       val toEnqueue =
         if (idle(task)) queueEntry(task, ids)
         else {
-          queuedRanges += (task -> queuedRanges.getOrElse(task, Vector.empty).:+(ids))
+          val previousRanges = queuedRanges.getOrElse(task, Vector.empty)
+          if (previousRanges.length >= maxQueueSize) {
+            throw new RuntimeException(s"More than $maxQueueSize id pages queued up")
+          }
+          queuedRanges += (task -> previousRanges.:+(ids))
           None
         }
       if (
