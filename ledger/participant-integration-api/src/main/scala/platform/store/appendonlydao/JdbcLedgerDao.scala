@@ -379,8 +379,14 @@ private class JdbcLedgerDao(
                   state.Update.CommandRejected(
                     recordTime = recordTime,
                     completionInfo = state
-                      .CompletionInfo(actAs, applicationId, commandId, None, submissionId
-                        , None), // TODO https://digitalasset.atlassian.net/browse/DPP-813
+                      .CompletionInfo(
+                        actAs,
+                        applicationId,
+                        commandId,
+                        None,
+                        submissionId,
+                        None, // TODO https://digitalasset.atlassian.net/browse/DPP-813
+                      ),
                     reasonTemplate = reason.toParticipantStateRejectionReason(errorFactories)(
                       new DamlContextualizedErrorLogger(logger, loggingContext, submissionId)
                     ),

@@ -43,7 +43,7 @@ case class CompletionInfo(
     commandId: Ref.CommandId,
     optDeduplicationPeriod: Option[DeduplicationPeriod],
     submissionId: Option[Ref.SubmissionId],
-    statistics: Option[TransactionNodesStatistics]
+    statistics: Option[TransactionNodesStatistics],
 ) {
   def changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 }
@@ -56,7 +56,7 @@ object CompletionInfo {
         "applicationId " -> applicationId,
         "commandId " -> commandId,
         "deduplicationPeriod " -> deduplicationPeriod,
-        "submissionId" -> submissionId
+        "submissionId" -> submissionId,
       )
   }
 }
