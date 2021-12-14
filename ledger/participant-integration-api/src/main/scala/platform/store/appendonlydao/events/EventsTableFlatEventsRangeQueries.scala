@@ -71,36 +71,25 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
       }
     }
 
-    query(offset, filterParams) match {
-      case QueryParts.ByArith(read) =>
-        EventsRange.readPage(
-          read,
-          offsetRange(offset),
-          pageSize,
-        )
-      case QueryParts.ByLimit(sql) =>
-        sql(pageSize)
-    }
+    val parts = query(offset, filterParams)
+    EventsRange.readPage(
+      parts.read,
+      offsetRange(offset),
+      pageSize,
+    )
   }
 }
 
 private[events] object EventsTableFlatEventsRangeQueries {
 
-  private[EventsTableFlatEventsRangeQueries] sealed abstract class QueryParts
-      extends Product
+  private[EventsTableFlatEventsRangeQueries] case class QueryParts(
+      read: (
+          EventsRange[Long],
+          Option[Int],
+          Option[Int],
+      ) => Connection => Vector[EventsTable.Entry[Raw.FlatEvent]]
+  ) extends Product
       with Serializable
-  private[EventsTableFlatEventsRangeQueries] object QueryParts {
-    final case class ByArith(
-        read: (
-            EventsRange[Long],
-            Option[Int],
-            Option[Int],
-        ) => Connection => Vector[EventsTable.Entry[Raw.FlatEvent]]
-    ) extends QueryParts
-    final case class ByLimit(
-        saferRead: Int => Connection => Vector[EventsTable.Entry[Raw.FlatEvent]]
-    ) extends QueryParts
-  }
 
   final class GetTransactions(
       storageBackend: EventStorageBackend
@@ -110,7 +99,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
         offset: EventsRange[Long],
         filterParams: FilterParams,
     ): QueryParts =
-      QueryParts.ByArith((range, limit, fetchSizeHint) =>
+      QueryParts((range, limit, fetchSizeHint) =>
         storageBackend.transactionEvents(
           rangeParams = RangeParams(
             startExclusive = range.startExclusive,
