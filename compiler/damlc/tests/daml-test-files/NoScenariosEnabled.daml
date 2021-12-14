@@ -1,0 +1,5 @@
+-- @ERROR Scenarios are deprecated.
+module NoScenariosEnabled where
+
+test = scenario do
+  pure ()

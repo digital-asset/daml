@@ -167,6 +167,11 @@ getIntegrationTests registerTODO scenarioService = do
     -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
     bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
     let allTestFiles = damlTestFiles ++ [("bond-trading/Test.daml", bondTradingLocation </> "Test.daml")]
+        noScenariosEnabledTestFiles =
+          [ "NoScenariosEnabled.daml"
+          ]
+        (noScenariosEnabledTests, scenariosEnabledTests) =
+          partition (\(f, _) -> takeFileName f `elem` noScenariosEnabledTestFiles) allTestFiles
 
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
@@ -199,8 +204,13 @@ getIntegrationTests registerTODO scenarioService = do
             (mkIde opts)
             shutdown
             $ \service ->
+          withResource
+            (mkIde opts { optEnableScenarios = EnableScenarios False })
+            shutdown
+            $ \serviceNoScenariosEnabled ->
           testGroup ("Tests for DAML-LF " ++ renderPretty version) $
-            map (testCase version service outdir registerTODO) allTestFiles
+            map (testCase version service outdir registerTODO) scenariosEnabledTests <>
+            map (testCase version serviceNoScenariosEnabled outdir registerTODO) noScenariosEnabledTests
 
     pure tree
 
