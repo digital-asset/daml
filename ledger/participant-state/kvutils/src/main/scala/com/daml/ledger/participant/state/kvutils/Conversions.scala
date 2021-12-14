@@ -318,11 +318,11 @@ object Conversions {
       )
     )
 
-  def encodeTransactionNodeId(nodeId: NodeId): String =
-    nodeId.index.toString
+  def encodeTransactionNodeId(nodeId: NodeId): Raw.NodeId =
+    Raw.NodeId(nodeId.index.toString)
 
-  def decodeTransactionNodeId(transactionNodeId: String): NodeId =
-    NodeId(transactionNodeId.toInt)
+  def decodeTransactionNodeId(transactionNodeId: Raw.NodeId): NodeId =
+    NodeId(transactionNodeId.value.toInt)
 
   /** Encodes a [[BlindingInfo]] into protobuf (i.e., [[DamlTransactionBlindingInfo]]).
     * It is consensus-safe because it does so deterministically.
@@ -350,7 +350,7 @@ object Conversions {
     val blindingInfoDisclosure = damlTransactionBlindingInfo.getDisclosuresList.asScala.map {
       disclosureEntry =>
         decodeTransactionNodeId(
-          disclosureEntry.getNodeId
+          Raw.NodeId(disclosureEntry.getNodeId)
         ) -> disclosureEntry.getDisclosedToLocalPartiesList.asScala.toSet
           .map(Ref.Party.assertFromString)
     }.toMap
@@ -549,7 +549,7 @@ object Conversions {
 
   private def encodeDisclosureEntry(disclosureEntry: (NodeId, Set[Ref.Party])): DisclosureEntry =
     DisclosureEntry.newBuilder
-      .setNodeId(encodeTransactionNodeId(disclosureEntry._1))
+      .setNodeId(encodeTransactionNodeId(disclosureEntry._1).value)
       .addAllDisclosedToLocalParties(encodeParties(disclosureEntry._2).asJava)
       .build
 
