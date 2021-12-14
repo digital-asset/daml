@@ -184,11 +184,21 @@ getIntegrationTests registerTODO scenarioService = do
                 , optDlintUsage = DlintEnabled dlintDataDir False
                 , optSkipScenarioValidation = SkipScenarioValidation skipValidation
                 }
+              mkIde options = do
+                damlEnv <- mkDamlEnv options (Just scenarioService)
+                initialise
+                  (mainRule options)
+                  (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ())
+                  IdeLogger.noLogging
+                  noopDebouncer
+                  damlEnv
+                  (toCompileOpts options)
+                  vfs
           in
-          withResource (mkDamlEnv opts (Just scenarioService)) (\_damlEnv -> pure ()) $ \getDamlEnv ->
           withResource
-          (getDamlEnv >>= \damlEnv -> initialise (mainRule opts) (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts) vfs)
-          shutdown $ \service ->
+            (mkIde opts)
+            shutdown
+            $ \service ->
           testGroup ("Tests for DAML-LF " ++ renderPretty version) $
             map (testCase version service outdir registerTODO) allTestFiles
 
