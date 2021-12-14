@@ -92,6 +92,8 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     "Test argument validation for UserManagement#GetUser",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
+    ledger.mustSupportUserManagement()
+
     def getAndCheck(problem: String, userId: String, errorCode: ErrorCode): Future[Unit] =
       for {
         error <- ledger.userManagement
