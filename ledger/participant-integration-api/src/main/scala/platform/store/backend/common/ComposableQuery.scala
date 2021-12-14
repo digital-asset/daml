@@ -82,8 +82,5 @@ object ComposableQuery {
           stringParts = start :: List.fill(composits.size - 1)(sep) ::: List(end),
           valueParts = composits.toSeq,
         )
-
-    def mkComposite(sep: String): CompositeSql = mkComposite("", sep, "")
-    def mkComposite: CompositeSql = mkComposite("", "", "")
   }
 }
