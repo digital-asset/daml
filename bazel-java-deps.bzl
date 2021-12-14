@@ -37,8 +37,8 @@ gatling_version = "3.5.1"
 def install_java_deps():
     maven_install(
         artifacts = version_specific.get(scala_major_version, []) + [
-            "ch.qos.logback:logback-classic:1.2.3",
-            "ch.qos.logback:logback-core:1.2.3",
+            "ch.qos.logback:logback-classic:1.2.8",
+            "ch.qos.logback:logback-core:1.2.8",
             "com.auth0:java-jwt:3.10.3",
             "com.auth0:jwks-rsa:0.11.0",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
