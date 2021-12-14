@@ -681,7 +681,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       commandId,
       None,
       Some(submissionId),
-      None, // TODO https://digitalasset.atlassian.net/browse/DPP-813
+      None, // TODO Ledger Metering
     )
 
   protected final def store(

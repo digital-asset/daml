@@ -338,7 +338,7 @@ private class JdbcLedgerDao(
                 commandId,
                 None,
                 Some(submissionId),
-                None, // TODO https://digitalasset.atlassian.net/browse/DPP-813
+                None, // TODO Ledger Metering
               )
 
               sequentialIndexer.store(
@@ -385,7 +385,7 @@ private class JdbcLedgerDao(
                         commandId,
                         None,
                         submissionId,
-                        None, // TODO https://digitalasset.atlassian.net/browse/DPP-813
+                        None, // TODO Ledger Metering
                       ),
                     reasonTemplate = reason.toParticipantStateRejectionReason(errorFactories)(
                       new DamlContextualizedErrorLogger(logger, loggingContext, submissionId)

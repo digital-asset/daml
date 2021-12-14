@@ -217,7 +217,7 @@ object Conversions {
         .map(
           Ref.SubmissionId.assertFromString
         ),
-      statistics = None, // TODO https://digitalasset.atlassian.net/browse/DPP-813
+      statistics = None, // TODO Ledger Metering
     )
   }
 
