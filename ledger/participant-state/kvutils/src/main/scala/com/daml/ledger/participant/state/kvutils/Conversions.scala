@@ -217,6 +217,7 @@ object Conversions {
         .map(
           Ref.SubmissionId.assertFromString
         ),
+      None, // TODO https://digitalasset.atlassian.net/browse/DPP-813
     )
   }
 

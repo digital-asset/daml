@@ -338,6 +338,7 @@ private class JdbcLedgerDao(
                 commandId,
                 None,
                 Some(submissionId),
+                None, // TODO https://digitalasset.atlassian.net/browse/DPP-813
               )
 
               sequentialIndexer.store(
@@ -378,7 +379,8 @@ private class JdbcLedgerDao(
                   state.Update.CommandRejected(
                     recordTime = recordTime,
                     completionInfo = state
-                      .CompletionInfo(actAs, applicationId, commandId, None, submissionId),
+                      .CompletionInfo(actAs, applicationId, commandId, None, submissionId
+                        , None), // TODO https://digitalasset.atlassian.net/browse/DPP-813
                     reasonTemplate = reason.toParticipantStateRejectionReason(errorFactories)(
                       new DamlContextualizedErrorLogger(logger, loggingContext, submissionId)
                     ),

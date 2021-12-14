@@ -804,7 +804,7 @@ object ParticipantStateIntegrationSpecBase {
   private def matchTransaction(update: Update, expectedCommandId: String): Assertion =
     inside(update) {
       case TransactionAccepted(
-            Some(CompletionInfo(_, _, actualCommandId, _, _)),
+            Some(CompletionInfo(_, _, actualCommandId, _, _, _)),
             _,
             _,
             _,

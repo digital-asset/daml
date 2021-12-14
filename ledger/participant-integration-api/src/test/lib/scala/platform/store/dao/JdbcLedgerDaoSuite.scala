@@ -675,7 +675,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       applicationId <- entry.applicationId
       commandId <- entry.commandId
       submissionId <- entry.submissionId
-    } yield state.CompletionInfo(actAs, applicationId, commandId, None, Some(submissionId))
+    } yield state.CompletionInfo(actAs, applicationId, commandId, None, Some(submissionId),
+      None) // TODO https://digitalasset.atlassian.net/browse/DPP-813
 
   protected final def store(
       offsetAndTx: (Offset, LedgerEntry.Transaction)

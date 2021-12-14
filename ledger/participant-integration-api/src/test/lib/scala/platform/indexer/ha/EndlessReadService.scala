@@ -176,6 +176,7 @@ object EndlessReadService {
     commandId = commandId(i),
     optDeduplicationPeriod = None,
     submissionId = None,
+    statistics = None, // TODO https://digitalasset.atlassian.net/browse/DPP-813
   )
   def transactionMeta(i: Int): TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = recordTime(i),

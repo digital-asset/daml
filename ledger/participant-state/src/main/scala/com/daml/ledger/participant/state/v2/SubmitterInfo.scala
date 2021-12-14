@@ -45,6 +45,7 @@ final case class SubmitterInfo(
     commandId,
     Some(deduplicationPeriod),
     submissionId,
+    None, // TODO https://digitalasset.atlassian.net/browse/DPP-813
   )
 }
 
