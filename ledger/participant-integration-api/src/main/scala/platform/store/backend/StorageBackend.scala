@@ -273,11 +273,6 @@ trait EventStorageBackend {
       rangeParams: RangeParams,
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def activeContractEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
-      endInclusiveOffset: Offset,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
   def activeContractEventIds(
       partyFilter: Ref.Party,
       templateIdFilter: Option[Ref.Identifier],

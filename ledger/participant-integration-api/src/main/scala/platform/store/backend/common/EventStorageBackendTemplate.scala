@@ -352,37 +352,6 @@ abstract class EventStorageBackendTemplate(
       .asVectorOf(rowParser(parties))(connection)
   }
 
-  override def activeContractEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
-      endInclusiveOffset: Offset,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    events(
-      columnPrefix = "active_cs",
-      joinClause = cSQL"",
-      additionalAndClause = cSQL"""
-            event_sequential_id > ${rangeParams.startExclusive} AND
-            event_sequential_id <= ${rangeParams.endInclusive} AND
-            active_cs.event_kind = 10 AND -- create
-            NOT EXISTS (
-              SELECT 1
-              FROM participant_events archived_cs
-              WHERE
-                archived_cs.contract_id = active_cs.contract_id AND
-                archived_cs.event_kind = 20 AND -- consuming
-                archived_cs.event_offset <= $endInclusiveOffset
-            ) AND""",
-      rowParser = rawFlatEventParser,
-      selectColumns = selectColumnsForFlatTransactions,
-      witnessesColumn = "flat_event_witnesses",
-    )(
-      limit = rangeParams.limit,
-      fetchSizeHint = rangeParams.fetchSizeHint,
-      filterParams,
-    )(connection)
-  }
-
   override def transactionEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,

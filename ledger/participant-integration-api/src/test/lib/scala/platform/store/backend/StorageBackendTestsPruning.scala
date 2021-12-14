@@ -109,7 +109,6 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
       // Make sure the events are visible
       before1 <- executeSql(backend.event.transactionEvents(range, filter))
-      before2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(1)))
       before3 <- executeSql(backend.event.flatTransaction(createTransactionId, filter))
       before4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
       before5 <- executeSql(backend.event.transactionTree(createTransactionId, filter))
@@ -132,7 +131,6 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       _ <- executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
       // Make sure the events are not visible anymore
       after1 <- executeSql(backend.event.transactionEvents(range, filter))
-      after2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(1)))
       after3 <- executeSql(backend.event.flatTransaction(createTransactionId, filter))
       after4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
       after5 <- executeSql(backend.event.transactionTree(createTransactionId, filter))
@@ -147,7 +145,6 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
     } yield {
       before1 should not be empty
-      before2 should not be empty
       before3 should not be empty
       before4 should not be empty
       before5 should not be empty
@@ -156,7 +153,6 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       before8 shouldBe empty
 
       after1 shouldBe empty
-      after2 shouldBe empty
       after3 shouldBe empty
       after4 shouldBe empty
       after5 shouldBe empty
@@ -190,7 +186,6 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
       // Make sure the events are visible
       before1 <- executeSql(backend.event.transactionEvents(range, filter))
-      before2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(2)))
       before3 <- executeSql(backend.event.flatTransaction(createTransactionId, filter))
       before4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
       before5 <- executeSql(backend.event.transactionTree(createTransactionId, filter))
@@ -213,7 +208,6 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       _ <- executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
       // Make sure the events are still visible - active contracts should not be pruned
       after1 <- executeSql(backend.event.transactionEvents(range, filter))
-      after2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(2)))
       after3 <- executeSql(backend.event.flatTransaction(createTransactionId, filter))
       after4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
       after5 <- executeSql(backend.event.transactionTree(createTransactionId, filter))
@@ -228,7 +222,6 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
     } yield {
       before1 should not be empty
-      before2 should not be empty
       before3 should not be empty
       before4 should not be empty
       before5 should not be empty
@@ -238,7 +231,6 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
 
       // TODO is it intended that the transaction lookups don't see the active contracts?
       after1 should not be empty
-      after2 should not be empty
       after3 shouldBe empty // should not be empty
       after4 should not be empty
       after5 shouldBe empty // should not be empty
