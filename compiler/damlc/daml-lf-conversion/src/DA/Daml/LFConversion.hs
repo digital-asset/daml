@@ -1127,6 +1127,16 @@ convertBind env (name, x)
 
     pure $ [defValue name name' sanitized_x'] ++ overlapModeDef
 
+    -- Scenario definitions when scenarios are disabled
+    | EnableScenarios False <- envEnableScenarios env
+    , ty@(TypeCon scenarioType [_]) <- varType name -- Scenario : * -> *
+    , NameIn DA_Internal_LF "Scenario" <- scenarioType
+    = withRange (convNameLoc name) $ conversionError $ unlines
+        [ "Scenarios are deprecated."
+        , "Instead, consider using Daml Script (https://docs.daml.com/daml-script/index.html)."
+        , "When compiling " <> prettyPrint name <> " : " <> prettyPrint ty <> "."
+        ]
+
     -- Regular functions
     | otherwise
     = withRange (convNameLoc name) $ do
