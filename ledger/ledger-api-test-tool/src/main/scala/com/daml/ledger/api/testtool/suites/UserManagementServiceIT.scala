@@ -42,6 +42,8 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     "Test argument validation for UserManagement#CreateUser",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
+    ledger.mustSupportUserManagement()
+
     val userId = UUID.randomUUID.toString
 
     def createAndCheck(
@@ -90,6 +92,8 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     "Test argument validation for UserManagement#GetUser",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
+    ledger.mustSupportUserManagement()
+
     def getAndCheck(problem: String, userId: String, errorCode: ErrorCode): Future[Unit] =
       for {
         error <- ledger.userManagement
@@ -108,6 +112,8 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     "Exercise every rpc once with success and once with a failure",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
+    ledger.mustSupportUserManagement()
+
     for {
       // TODO: actually exercise all RPCs
       createResult <- ledger.userManagement.createUser(CreateUserRequest(Some(User("a", "b")), Nil))

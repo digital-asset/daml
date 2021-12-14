@@ -13,6 +13,7 @@ import com.daml.ledger.api.testtool.infrastructure.{
   Identification,
   LedgerServices,
   PartyAllocationConfiguration,
+  Result,
 }
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.active_contracts_service.{
@@ -141,6 +142,10 @@ private[testtool] final class ParticipantTestContext private[participant] (
   val nextKeyId: () => String = nextId("key")
 
   override def toString: String = s"participant $endpointId"
+
+  /** Skips test if user management feature is not supported */
+  def mustSupportUserManagement(): Unit =
+    if (!features.userManagement) throw Result.Excluded("requires user management feature")
 
   /** Gets the absolute offset of the ledger end at a point in time. Use [[end]] if you need
     * a reference to the moving end of the ledger.

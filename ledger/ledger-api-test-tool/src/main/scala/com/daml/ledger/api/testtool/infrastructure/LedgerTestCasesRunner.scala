@@ -8,7 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants
-import com.daml.ledger.api.testtool.infrastructure.Result.Retired
+import com.daml.ledger.api.testtool.infrastructure.Result
 import com.daml.ledger.api.testtool.infrastructure.participant.{
   ParticipantSession,
   ParticipantTestContext,
@@ -105,8 +105,10 @@ final class LedgerTestCasesRunner(
     startedTest
       .map[Either[Result.Failure, Result.Success]](duration => Right(Result.Succeeded(duration)))
       .recover[Either[Result.Failure, Result.Success]] {
-        case Retired =>
-          Right(Retired)
+        case Result.Retired =>
+          Right(Result.Retired)
+        case Result.Excluded(reason) =>
+          Right(Result.Excluded(reason))
         case _: TimeoutException =>
           Left(Result.TimedOut)
         case failure: AssertionError =>

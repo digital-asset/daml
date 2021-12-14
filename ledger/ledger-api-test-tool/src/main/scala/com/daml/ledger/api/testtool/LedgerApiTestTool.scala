@@ -187,7 +187,7 @@ object LedgerApiTestTool {
               suite = ledgerTestCase.suite.name,
               name = ledgerTestCase.name,
               description = ledgerTestCase.description,
-              result = Right(Excluded),
+              result = Right(Excluded("excluded test")),
             )
           }
         new ColorizedPrintStreamReporter(

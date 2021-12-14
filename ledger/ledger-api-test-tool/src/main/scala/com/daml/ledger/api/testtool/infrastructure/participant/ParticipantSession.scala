@@ -105,11 +105,10 @@ object ParticipantSession {
             .getLedgerApiVersion(new GetLedgerApiVersionRequest(ledgerId))
             .map(Features.fromApiVersionResponse)
             .recover { case failure =>
-              // TODO feature descriptors: Remove once all Ledger API implementations respond successfully on VersionService endpoint
               logger.warn(
-                s"Failure in retrieving the feature descriptors from the version service: $failure"
+                s"Could not retrieve feature descriptors from the version service: $failure"
               )
-              Features(Seq.empty)
+              Features.noFeatures
             }
       } yield new ParticipantSession(
         partyAllocation = partyAllocation,

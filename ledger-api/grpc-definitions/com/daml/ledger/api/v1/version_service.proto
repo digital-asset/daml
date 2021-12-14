@@ -44,9 +44,18 @@ message GetLedgerApiVersionResponse {
 }
 
 message FeaturesDescriptor {
+  // If set, then the Ledger API server supports user management.
+  // It is recommended that clients query this field to gracefully adjust their behavior for
+  // ledgers that do not support user management.
+  UserManagementFeature user_management = 2;
+
   // Features under development or features that are used
   // for ledger implementation testing purposes only.
   //
   // Daml applications SHOULD not depend on these in production.
   ExperimentalFeatures experimental = 1;
 }
+
+// Used to signal the presence of the user management service.
+// Defined as a message to enable future addition of individual per-service features.
+message UserManagementFeature {}
