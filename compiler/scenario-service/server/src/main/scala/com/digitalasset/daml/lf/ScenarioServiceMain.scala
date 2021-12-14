@@ -29,8 +29,8 @@ import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
 private final case class ScenarioServiceConfig(
-  maxInboundMessageSize: Int,
-  enableScenarios: Boolean,
+    maxInboundMessageSize: Int,
+    enableScenarios: Boolean,
 )
 
 private object ScenarioServiceConfig {
@@ -66,49 +66,48 @@ private object ScenarioServiceConfig {
     )
 }
 
-
 object ScenarioServiceMain extends App {
   ScenarioServiceConfig.parse(args) match {
     case None => sys.exit(1)
     case Some(config) =>
+      // Needed for the akka Ledger bindings used by Daml Script.
+      val system = ActorSystem("ScriptService")
+      implicit val sequencer: ExecutionSequencerFactory =
+        new AkkaExecutionSequencerPool("ScriptServicePool")(system)
+      implicit val materializer: Materializer = Materializer(system)
+      implicit val ec: ExecutionContext = system.dispatcher
 
-  // Needed for the akka Ledger bindings used by Daml Script.
-  val system = ActorSystem("ScriptService")
-  implicit val sequencer: ExecutionSequencerFactory =
-    new AkkaExecutionSequencerPool("ScriptServicePool")(system)
-  implicit val materializer: Materializer = Materializer(system)
-  implicit val ec: ExecutionContext = system.dispatcher
+      val server =
+        NettyServerBuilder
+          .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
+          .addService(new ScenarioService(config.enableScenarios))
+          .maxInboundMessageSize(config.maxInboundMessageSize)
+          .build
+      server.start()
+      // Print the allocated port for the client
+      println("PORT=" + server.getPort.toString)
 
-  val server =
-    NettyServerBuilder
-      .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
-      .addService(new ScenarioService(config.enableScenarios))
-      .maxInboundMessageSize(config.maxInboundMessageSize)
-      .build
-  server.start()
-  // Print the allocated port for the client
-  println("PORT=" + server.getPort.toString)
+      // Bump up the log level
+      Logger.getLogger("io.grpc").setLevel(Level.ALL)
 
-  // Bump up the log level
-  Logger.getLogger("io.grpc").setLevel(Level.ALL)
+      // Start a thread to watch stdin and terminate
+      // if it closes. This makes sure we do not leave
+      // this process running if the parent exits.
+      new Thread(new Runnable {
+        def run(): Unit = {
+          while (System.in.read >= 0) {}
+          System.err.println("ScenarioService: stdin closed, terminating server.")
+          server.shutdown()
+          system.terminate()
+          ()
+        }
+      }).start()
 
-  // Start a thread to watch stdin and terminate
-  // if it closes. This makes sure we do not leave
-  // this process running if the parent exits.
-  new Thread(new Runnable {
-    def run(): Unit = {
-      while (System.in.read >= 0) {}
-      System.err.println("ScenarioService: stdin closed, terminating server.")
-      server.shutdown()
-      system.terminate()
-      ()
-    }
-  }).start()
+      println("Server started.")
+      server.awaitTermination()
 
-  println("Server started.")
-  server.awaitTermination()
-
-}}
+  }
+}
 
 object ScenarioService {
   private def notFoundContextError(id: Long): StatusRuntimeException =
