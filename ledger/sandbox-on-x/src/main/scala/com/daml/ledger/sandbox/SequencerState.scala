@@ -4,11 +4,11 @@
 package com.daml
 package ledger.sandbox
 
-import ledger.offset.Offset
-import ledger.sandbox.SequencerState.{LastUpdatedAt, SequencerQueue}
-import lf.transaction.GlobalKey
-import metrics.{Metrics, Timed}
-import platform.store.appendonlydao.events.{ContractId, Key}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.sandbox.SequencerState.{LastUpdatedAt, SequencerQueue}
+import com.daml.lf.transaction.GlobalKey
+import com.daml.metrics.Metrics
+import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 
 import scala.collection.Searching
 import scala.util.chaining._
@@ -36,53 +36,48 @@ case class SequencerState(
         s"Offset to be enqueued ($offset) is smaller than the last enqueued offset (${sequencerQueue.last._1})"
       )
     else
-      Timed.value(
-        metrics.daml.SoX.stateEnqueue,
-        SequencerState(
-          sequencerQueue = (sequencerQueue :+ (offset -> (updatedKeys, consumedContracts)))
-            .tap(q => metrics.daml.SoX.sequencerQueueLengthCounter.update(q.length)),
-          keyState = (keyState ++ updatedKeys.view.mapValues(_ -> offset))
-            .tap(s => metrics.daml.SoX.keyStateSize.update(s.size)),
-          consumedContractsState = (consumedContractsState ++ consumedContracts)
-            .tap(s => metrics.daml.SoX.consumedContractsStateSize.update(s.size)),
-        )(metrics),
-      )
+      SequencerState(
+        sequencerQueue = sequencerQueue :+ (offset -> (updatedKeys, consumedContracts)),
+        keyState = keyState ++ updatedKeys.view.mapValues(_ -> offset),
+        consumedContractsState = consumedContractsState ++ consumedContracts,
+      )(metrics)
+        .tap(newState => {
+          metrics.daml.SoX.SequencerState.sequencerQueueLength
+            .update(newState.sequencerQueue.length)
+          metrics.daml.SoX.SequencerState.keyStateSize.update(newState.keyState.size)
+          metrics.daml.SoX.SequencerState.consumedContractsStateSize
+            .update(newState.consumedContractsState.size)
+        })
 
-  def dequeue(upToOffset: Offset): SequencerState =
-    Timed.value(
-      metrics.daml.SoX.stateDequeue, {
-        val pruneAfter = Timed.value(
-          metrics.daml.SoX.queueSearch,
-          sequencerQueue.view.map(_._1).search(upToOffset) match {
-            case Searching.Found(foundIndex) => foundIndex + 1
-            case Searching.InsertionPoint(insertionPoint) => insertionPoint
-          },
-        )
+  def dequeue(upToOffset: Offset): SequencerState = {
+    val pruneAfter = sequencerQueue.view.map(_._1).search(upToOffset) match {
+      case Searching.Found(foundIndex) => foundIndex + 1
+      case Searching.InsertionPoint(insertionPoint) => insertionPoint
+    }
 
-        val (evictedEntries, prunedQueue) = sequencerQueue.splitAt(pruneAfter)
+    val (evictedEntries, prunedQueue) = sequencerQueue.splitAt(pruneAfter)
 
-        val prunedKeyState =
-          evictedEntries.iterator
-            .flatMap { case (onConflictUpTo, (updatedKeys, _)) =>
-              updatedKeys.iterator.map { case (key, _) => onConflictUpTo -> key }
-            }
-            .foldLeft(keyState) { case (updatedKeyState, (noConflictUpTo, key)) =>
-              updatedKeyState.get(key).fold(throw new RuntimeException("Should not be missing")) {
-                case (_, offset) if noConflictUpTo == offset => updatedKeyState - key
-                case _ => updatedKeyState
-              }
-            }
+    val prunedKeyState =
+      evictedEntries.iterator
+        .flatMap { case (onConflictUpTo, (updatedKeys, _)) =>
+          updatedKeys.iterator.map { case (key, _) => onConflictUpTo -> key }
+        }
+        .foldLeft(keyState) { case (updatedKeyState, (noConflictUpTo, key)) =>
+          updatedKeyState.get(key).fold(throw new RuntimeException("Should not be missing")) {
+            case (_, offset) if noConflictUpTo == offset => updatedKeyState - key
+            case _ => updatedKeyState
+          }
+        }
 
-        val prunedConsumedContractsState =
-          consumedContractsState.diff(evictedEntries.iterator.flatMap(_._2._2).toSet)
+    val prunedConsumedContractsState =
+      consumedContractsState.diff(evictedEntries.iterator.flatMap(_._2._2).toSet)
 
-        SequencerState(
-          sequencerQueue = prunedQueue,
-          keyState = prunedKeyState,
-          consumedContractsState = prunedConsumedContractsState,
-        )(metrics)
-      },
-    )
+    SequencerState(
+      sequencerQueue = prunedQueue,
+      keyState = prunedKeyState,
+      consumedContractsState = prunedConsumedContractsState,
+    )(metrics)
+  }
 }
 
 object SequencerState {

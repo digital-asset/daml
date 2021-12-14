@@ -26,28 +26,34 @@ final class Metrics(val registry: MetricRegistry) {
       val Prefix: MetricName = daml.Prefix :+ "sox"
 
       val threadpool: MetricName = Prefix :+ "threadpool"
+      val conflictCheckingDelay: Timer = registry.timer(Prefix :+ "conflict_checking_delay")
 
-      val sequencerQueueLengthCounter: Histogram =
-        registry.histogram(Prefix :+ "sequencer_queue_length")
+      object Stages {
+        val Prefix: MetricName = SoX.Prefix :+ "stages"
 
-      val precomputeTransactionOutputs: Timer =
-        registry.timer(Prefix :+ "precompute_transaction_outputs")
-      val conflictCheckWithCommitted: Timer =
-        registry.timer(Prefix :+ "conflict_check_with_committed")
+        val precomputeTransactionOutputs: Timer =
+          registry.timer(Prefix :+ "precompute_transaction_outputs")
+        val conflictCheckWithCommitted: Timer =
+          registry.timer(Prefix :+ "conflict_check_with_committed")
+        val conflictCheckWithDelta: Timer = registry.timer(Prefix :+ "conflict_check_with_delta")
+      }
 
-      val keyStateSize: Histogram = registry.histogram(Prefix :+ "key_state_size")
-      val consumedContractsStateSize: Histogram =
-        registry.histogram(Prefix :+ "consumed_contracts_state_size")
-      val stateEnqueue: Timer = registry.timer(Prefix :+ "state_enqueue")
-      val stateDequeue: Timer = registry.timer(Prefix :+ "state_dequeue")
+      object SequencerState {
+        val Prefix: MetricName = SoX.Prefix :+ "sequencer_state"
 
-      val sequenceDuration: Timer = registry.timer(Prefix :+ "sequence_duration")
+        val keyStateSize: Histogram = registry.histogram(Prefix :+ "keys")
+        val consumedContractsStateSize: Histogram =
+          registry.histogram(Prefix :+ "consumed_contracts")
+        val sequencerQueueLength: Histogram =
+          registry.histogram(Prefix :+ "queue")
+      }
 
-      val conflictQueueCapacity: Counter = registry.counter(Prefix :+ "queue_capacity")
-      val conflictQueueLength: Counter = registry.counter(Prefix :+ "queue_length")
-      val conflictQueueDelay: Timer = registry.timer(Prefix :+ "queue_delay")
-
-      val queueSearch: Timer = registry.timer(Prefix :+ "queue_search")
+      object InputQueue {
+        val Prefix: MetricName = SoX.Prefix :+ "input_queue"
+        val conflictQueueCapacity: Counter = registry.counter(Prefix :+ "capacity")
+        val conflictQueueLength: Counter = registry.counter(Prefix :+ "length")
+        val conflictQueueDelay: Timer = registry.timer(Prefix :+ "delay")
+      }
     }
 
     object commands {

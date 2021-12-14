@@ -312,7 +312,7 @@ private final class ReadOnlySqlLedgerWithMutableCache(
           }
       )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.foreach { case newLedgerHead =>
+      .toMat(Sink.foreach { newLedgerHead =>
         dispatcherLagger.startTimer(newLedgerHead.lastOffset)
         contractStateEventsDispatcher.signalNewHead(
           newLedgerHead.lastOffset -> newLedgerHead.lastEventSeqId

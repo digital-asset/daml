@@ -97,14 +97,14 @@ case class ConflictCheckingWriteService(
 
   private val (conflictCheckingQueue, source) =
     InstrumentedSource
-      .queue[Transaction](
+      .queue[TimedConflictChecking[Transaction]](
         bufferSize = 1024,
-        capacityCounter = metrics.daml.SoX.conflictQueueCapacity,
-        lengthCounter = metrics.daml.SoX.conflictQueueLength,
-        delayTimer = metrics.daml.SoX.conflictQueueDelay,
+        capacityCounter = metrics.daml.SoX.InputQueue.conflictQueueCapacity,
+        lengthCounter = metrics.daml.SoX.InputQueue.conflictQueueLength,
+        delayTimer = metrics.daml.SoX.InputQueue.conflictQueueDelay,
       )
-      .mapAsyncUnordered(parallelism) { tx =>
-        precomputeTransactionOutputs(tx).map(_.map((tx, _)))
+      .mapAsyncUnordered(64) { tx =>
+        precomputeTransactionOutputs(tx.payload).map(_.map((tx, _)))
       }
       .mapAsync(1) {
         case Left(rejection) => Future.successful(Left(rejection))
@@ -115,16 +115,16 @@ case class ConflictCheckingWriteService(
               Right((ApiOffset.assertFromString(ledgerEnd.value), tx, transactionEffects))
             )
       }
-      .mapAsync(parallelism) {
+      .mapAsync(64) {
         case Left(rejection) => Future.successful(Left(rejection))
         case Right((noConflictUpTo, tx, transactionEffects @ (keyInputs, inputContracts, _, _))) =>
-          conflictCheckWithCommitted(tx, inputContracts, keyInputs)
+          conflictCheckWithCommitted(tx.payload, inputContracts, keyInputs)
             .map(_.map(_ => (noConflictUpTo, tx, transactionEffects)))
       }
       .statefulMapConcat(conflictCheckWithDelta)
       .preMaterialize()
 
-  override def isApiDeduplicationEnabled: Boolean = true
+  override def isApiDeduplicationEnabled: Boolean = false
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -137,12 +137,14 @@ case class ConflictCheckingWriteService(
   ): CompletionStage[SubmissionResult] =
     toSubmissionResult(
       conflictCheckingQueue.offer(
-        Submission.Transaction(
-          submitterInfo = submitterInfo,
-          transactionMeta = transactionMeta,
-          transaction = transaction,
-          estimatedInterpretationCost = estimatedInterpretationCost,
-          blindingInfo = Blinding.blind(transaction),
+        TimedConflictChecking(
+          Submission.Transaction(
+            submitterInfo = submitterInfo,
+            transactionMeta = transactionMeta,
+            transaction = transaction,
+            estimatedInterpretationCost = estimatedInterpretationCost,
+            blindingInfo = Blinding.blind(transaction),
+          )
         )
       )
     )
@@ -225,45 +227,46 @@ case class ConflictCheckingWriteService(
 
   private def precomputeTransactionOutputs(
       transaction: Transaction
-  ): Future[Either[SoxRejection, TransactionEffects]] = {
-    lazy val contractKeyInputs =
-      transaction.transaction.contractKeyInputs.left.map(invalidInputFromParticipant(transaction))
-    lazy val inputContracts = transaction.transaction.inputContracts
-    lazy val updatedContractKeys = transaction.transaction.updatedContractKeys
-    lazy val consumedContracts = transaction.transaction.consumedContracts
-
+  ): Future[Either[SoxRejection, TransactionEffects]] =
     Timed.future(
-      metrics.daml.SoX.precomputeTransactionOutputs,
-      Future(contractKeyInputs).map(
-        _.map((_, inputContracts, updatedContractKeys, consumedContracts))
+      metrics.daml.SoX.Stages.precomputeTransactionOutputs,
+      Future(
+        transaction.transaction.contractKeyInputs.left.map(invalidInputFromParticipant(transaction))
+      ).map(
+        _.map(
+          (
+            _,
+            transaction.transaction.inputContracts,
+            transaction.transaction.updatedContractKeys,
+            transaction.transaction.consumedContracts,
+          )
+        )
       ),
     )
-  }
 
-  private def conflictCheckWithDelta
-      : () => Either[SoxRejection, (Offset, Transaction, TransactionEffects)] => Iterable[
-        (Offset, Update)
-      ] = () => {
+  private def conflictCheckWithDelta: () => Either[
+    SoxRejection,
+    (Offset, TimedConflictChecking[Transaction], TransactionEffects),
+  ] => Iterable[
+    (Offset, Update)
+  ] = () => {
     @volatile var sequencerQueueState: SequencerState = SequencerState()(metrics)
 
-    {
-      case Left(rejection) =>
-        Timed.value(
-          metrics.daml.SoX.sequenceDuration, {
+    in => {
+      Timed.value(
+        metrics.daml.SoX.Stages.conflictCheckWithDelta,
+        in match {
+          case Left(rejection) =>
             val newIndex = offsetIdx.incrementAndGet()
             val newOffset = toOffset(newIndex)
             Iterable(newOffset -> toRejection(rejection))
-          },
-        )
-      case Right(
-            (
-              noConflictUpTo,
-              transaction,
-              (keyInputs, inputContracts, updatedKeys, consumedContracts),
-            )
-          ) =>
-        Timed.value(
-          metrics.daml.SoX.sequenceDuration, {
+          case Right(
+                (
+                  noConflictUpTo,
+                  TimedConflictChecking(transaction),
+                  (keyInputs, inputContracts, updatedKeys, consumedContracts),
+                )
+              ) =>
             val newIndex = offsetIdx.incrementAndGet()
             val newOffset = toOffset(newIndex)
             conflictCheckWithInTransit(
@@ -280,8 +283,8 @@ case class ConflictCheckingWriteService(
 
                 Iterable(newOffset -> successMapper(acceptedTx, newIndex, participantId))
             }
-          },
-        )
+        },
+      )
     }
   }
 
@@ -344,7 +347,7 @@ case class ConflictCheckingWriteService(
       keyInputs: KeyInputs,
   ): Future[Either[SoxRejection, Unit]] =
     Timed.future(
-      metrics.daml.SoX.conflictCheckWithCommitted,
+      metrics.daml.SoX.Stages.conflictCheckWithCommitted,
       checkTimeModel(transaction) match {
         case Left(value) => Future(Left(value))
         case Right(_) =>
@@ -475,6 +478,16 @@ case class ConflictCheckingWriteService(
 
 object ConflictCheckingWriteService {
   private implicit val errorLoggingContext: ContextualizedErrorLogger = NoLogging
+
+  case class TimedConflictChecking[X](payload: X) {
+    private val startTimer: Long = System.nanoTime()
+
+    def finished(metrics: Metrics): Unit = {
+      val currentTime = System.nanoTime()
+      val deltaNano = currentTime - startTimer
+      metrics.daml.SoX.conflictCheckingDelay.update(java.time.Duration.ofNanos(deltaNano))
+    }
+  }
 
   def owner(
       readServiceWithFeedSubscriber: ReadServiceWithFeedSubscriber,
