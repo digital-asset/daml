@@ -167,7 +167,6 @@ getIntegrationTests registerTODO scenarioService = do
     -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
     bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
     let allTestFiles = damlTestFiles ++ [("bond-trading/Test.daml", bondTradingLocation </> "Test.daml")]
-    let (generatedFiles, nongeneratedFiles) = partition (\(f, _) -> takeFileName f == "ProposalDesugared.daml") allTestFiles
 
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
@@ -190,12 +189,8 @@ getIntegrationTests registerTODO scenarioService = do
           withResource
           (getDamlEnv >>= \damlEnv -> initialise (mainRule opts) (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts) vfs)
           shutdown $ \service ->
-          withResource
-          (getDamlEnv >>= \damlEnv -> initialise (mainRule opts) (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True }) vfs)
-          shutdown $ \serviceGenerated ->
           testGroup ("Tests for DAML-LF " ++ renderPretty version) $
-            map (testCase version service outdir registerTODO) nongeneratedFiles <>
-            map (testCase version serviceGenerated outdir registerTODO) generatedFiles
+            map (testCase version service outdir registerTODO) allTestFiles
 
     pure tree
 
