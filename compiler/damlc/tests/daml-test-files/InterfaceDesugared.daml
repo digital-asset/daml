@@ -19,9 +19,9 @@ data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
   interfaceTypeRep = GHC.Types.primitive @"$TO_TYPE_REP"
 instance DA.Internal.Desugar.HasToInterface Token Token where
-  _toInterface = GHC.Types.primitive @"EToInterface"
+  _toInterface this = this
 instance DA.Internal.Desugar.HasFromInterface Token Token where
-  fromInterface = GHC.Types.primitive @"EFromInterface"
+  fromInterface this = Some this
 instance DA.Internal.Desugar.HasFetch Token where
   fetch = GHC.Types.primitive @"UFetchInterface"
 instance DA.Internal.Desugar.HasMethod Token "noopImpl" (()

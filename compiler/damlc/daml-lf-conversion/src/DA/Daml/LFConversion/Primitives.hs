@@ -384,15 +384,11 @@ convertPrim _ "UTryCatch" ((TUnit :-> TUpdate t1) :-> (TBuiltin BTAnyException :
 
 convertPrim _ "EToInterface" (TCon tpid :-> TCon iface) =
     ETmLam (mkVar "t", TCon tpid) $
-    if tpid == iface
-      then EVar (mkVar "t")
-      else EToInterface iface tpid (EVar $ mkVar "t")
+        EToInterface iface tpid (EVar $ mkVar "t")
 
 convertPrim _ "EFromInterface" (TCon iface :-> TOptional (TCon tpid)) =
     ETmLam (mkVar "i", TCon iface) $
-    if tpid == iface
-      then ESome (TCon tpid) (EVar $ mkVar "i")
-      else EFromInterface iface tpid (EVar $ mkVar "i")
+        EFromInterface iface tpid (EVar $ mkVar "i")
 
 convertPrim _ "EToRequiredInterface" (TCon subIface :-> TCon superIface) =
     ETmLam (mkVar "i", TCon subIface) $
