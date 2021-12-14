@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import akka.http.scaladsl.model.headers.Authorization
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import com.daml.fetchcontracts.domain.TemplateId.OptionalPkg
 import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, getResult}
@@ -15,9 +16,9 @@ import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.domain.UserRight.CanActAs
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
-import com.daml.platform.sandbox.SandboxRequiringAuthorization
+import com.daml.platform.sandbox.{SandboxRequiringAuthorization, SandboxRequiringAuthorizationFuns}
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.Inside
+import org.scalatest.{AsyncTestSuite, Inside}
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
@@ -27,25 +28,12 @@ import spray.json.JsValue
 import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class HttpServiceIntegrationTestUserManagement
-    extends AsyncFreeSpec
-    with Matchers
-    with Inside
-    with StrictLogging
-    with AbstractHttpServiceIntegrationTestFuns
-    with SandboxRequiringAuthorization {
+trait HttpServiceIntegrationTestUserManagementFuns
+    extends AbstractHttpServiceIntegrationTestFuns
+    with SandboxRequiringAuthorizationFuns {
+  this: AsyncTestSuite with Matchers with Inside =>
 
-  override def jdbcConfig: Option[JdbcConfig] = None
-
-  override def staticContentConfig: Option[StaticContentConfig] = None
-
-  override def useTls: UseTls = UseTls.Tls
-
-  override def wsConfig: Option[WebsocketConfig] = None
-
-  import scalaz.syntax.tag._
-
-  def jwtForUser(userId: String, admin: Boolean = false) =
+  def jwtForUser(userId: String, admin: Boolean = false): Jwt =
     Jwt(toHeader(StandardJWTPayload(standardToken(userId).payload.copy(admin = admin))))
 
   val participantAdminJwt: Jwt = Jwt(toHeader(adminTokenStandardJWT))
@@ -61,10 +49,30 @@ class HttpServiceIntegrationTestUserManagement
       Some(participantAdminJwt.value),
     )
 
-  def headersWithUserAuth(userId: String) =
+  def headersWithUserAuth(userId: String): List[Authorization] =
     authorizationHeader(jwtForUser(userId))
 
-  def getUniqueUserName(name: String) = getUniqueParty(name).toString
+  def getUniqueUserName(name: String): String = getUniqueParty(name).toString
+
+}
+
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+class HttpServiceIntegrationTestUserManagementNoAuth
+    extends AsyncFreeSpec
+    with Matchers
+    with Inside
+    with StrictLogging
+    with HttpServiceIntegrationTestUserManagementFuns {
+
+  override def jdbcConfig: Option[JdbcConfig] = None
+
+  override def staticContentConfig: Option[StaticContentConfig] = None
+
+  override def useTls: UseTls = UseTls.Tls
+
+  override def wsConfig: Option[WebsocketConfig] = None
+
+  import scalaz.syntax.tag._
 
   "create IOU should work with correct user rights" in withHttpServiceAndClient(
     participantAdminJwt
@@ -148,3 +156,7 @@ class HttpServiceIntegrationTestUserManagement
     } yield assertion
   }
 }
+
+class HttpServiceIntegrationTestUserManagement
+    extends HttpServiceIntegrationTestUserManagementNoAuth
+    with SandboxRequiringAuthorization

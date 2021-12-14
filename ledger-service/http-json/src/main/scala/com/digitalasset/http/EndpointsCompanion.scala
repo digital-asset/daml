@@ -14,6 +14,7 @@ import util.GrpcHttpErrorCodes._
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.ledger.api.auth.AuthServiceJWTCodec.readStandardTokenPayload
+import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.client.services.admin.UserManagementClient
@@ -26,7 +27,7 @@ import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
 import spray.json.JsValue
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -72,9 +73,9 @@ object EndpointsCompanion {
 
   trait CreateFromUserToken[A] {
     def apply(
-        token: Jwt,
-        userManagementClient: UserManagementClient,
-        identityClient: LedgerIdentityClient,
+        jwt: DecodedJwt[String],
+        listUserRights: UserId => Future[Vector[UserRight]],
+        getLedgerId: () => Future[String],
     ): ET[A]
   }
 
@@ -87,9 +88,9 @@ object EndpointsCompanion {
     }
 
     private def transformUserTokenTo[B](
-        token: Jwt,
-        userManagementClient: UserManagementClient,
-        ledgerIdentityClient: LedgerIdentityClient,
+        jwt: DecodedJwt[String],
+        listUserRights: UserId => Future[Vector[UserRight]],
+        getLedgerId: () => Future[String],
     )(
         fromUser: FromUser[Unauthorized, B]
     )(implicit
@@ -100,9 +101,8 @@ object EndpointsCompanion {
       import spray.json._
       for {
         jsValue <- either(
-          Try(token.value.parseJson).toEither.left
-            .map(it => Unauthorized(it.getMessage))
-            .disjunction
+          Try(jwt.payload.parseJson).toEither.disjunction
+            .leftMap(it => Unauthorized(it.getMessage))
         )
         decodedToken <- either(
           readStandardTokenPayload(
@@ -115,7 +115,7 @@ object EndpointsCompanion {
             "This user token contains no applicationId/userId"
           )).flatMap(UserId.fromString(_).left.map(Unauthorized).disjunction)
         )
-        rights <- EitherT.rightT(userManagementClient.listUserRights(userId))
+        rights <- EitherT.rightT(listUserRights(userId))
 
         actAs = rights.collect { case CanActAs(party) =>
           party
@@ -123,7 +123,7 @@ object EndpointsCompanion {
         readAs = rights.collect { case CanReadAs(party) =>
           party
         }
-        ledgerId <- EitherT.rightT(ledgerIdentityClient.getLedgerId(Some(token.value)))
+        ledgerId <- EitherT.rightT(getLedgerId())
         res <- either(fromUser(userId, actAs.toList, readAs.toList, ledgerId))
       } yield res
     }
@@ -131,48 +131,50 @@ object EndpointsCompanion {
     private[http] implicit def jwtWritePayloadFromUserToken(implicit
         mf: Monad[Future]
     ): CreateFromUserToken[JwtWritePayload] =
-      (token: Jwt, userManagementClient: UserManagementClient, ledgerIdentityClient) =>
-        transformUserTokenTo(token, userManagementClient, ledgerIdentityClient)(
-          (userId, actAs, readAs, ledgerId) =>
-            for {
-              actAsNonEmpty <-
-                if (actAs.isEmpty)
-                  -\/ apply Unauthorized(
-                    "ActAs list of user was empty, this is an invalid state for converting it to a JwtWritePayload"
-                  )
-                else \/-(NonEmptyList(actAs.head: String, actAs.tail: _*))
-            } yield JwtWritePayload(
-              lar.LedgerId(ledgerId),
-              lar.ApplicationId(userId),
-              lar.Party.subst(actAsNonEmpty),
-              lar.Party.subst(readAs),
-            )
+      (
+          jwt,
+          listUserRights,
+          getLedgerId,
+      ) =>
+        transformUserTokenTo(jwt, listUserRights, getLedgerId)((userId, actAs, readAs, ledgerId) =>
+          for {
+            actAsNonEmpty <-
+              if (actAs.isEmpty)
+                -\/ apply Unauthorized(
+                  "ActAs list of user was empty, this is an invalid state for converting it to a JwtWritePayload"
+                )
+              else \/-(NonEmptyList(actAs.head: String, actAs.tail: _*))
+          } yield JwtWritePayload(
+            lar.LedgerId(ledgerId),
+            lar.ApplicationId(userId),
+            lar.Party.subst(actAsNonEmpty),
+            lar.Party.subst(readAs),
+          )
         )
 
     private[http] implicit def jwtPayloadLedgerIdOnlyFromUserToken(implicit
         mf: Monad[Future]
     ): CreateFromUserToken[JwtPayloadLedgerIdOnly] =
-      (jwt: Jwt, _: UserManagementClient, ledgerIdentityClient: LedgerIdentityClient) =>
+      (_, _, getLedgerId: () => Future[String]) =>
         EitherT
-          .rightT(ledgerIdentityClient.getLedgerId(Some(jwt.value)))
+          .rightT(getLedgerId())
           .map(ledgerId => JwtPayloadLedgerIdOnly(lar.LedgerId(ledgerId)))
 
     private[http] implicit def jwtPayloadFromUserToken(implicit
         mf: Monad[Future]
     ): CreateFromUserToken[JwtPayload] =
       (
-          token: Jwt,
-          userManagementClient: UserManagementClient,
-          ledgerIdentityClient: LedgerIdentityClient,
+          jwt,
+          listUserRights,
+          getLedgerId,
       ) =>
-        transformUserTokenTo(token, userManagementClient, ledgerIdentityClient)(
-          (userId, actAs, readAs, ledgerId) =>
-            \/ fromEither JwtPayload(
-              lar.LedgerId(ledgerId),
-              lar.ApplicationId(userId),
-              actAs = lar.Party.subst(actAs),
-              readAs = lar.Party.subst(readAs),
-            ).toRight(Unauthorized("Something went wrong and IDK what I can write here :D"))
+        transformUserTokenTo(jwt, listUserRights, getLedgerId)((userId, actAs, readAs, ledgerId) =>
+          \/ fromEither JwtPayload(
+            lar.LedgerId(ledgerId),
+            lar.ApplicationId(userId),
+            actAs = lar.Party.subst(actAs),
+            readAs = lar.Party.subst(readAs),
+          ).toRight(Unauthorized("Something went wrong and IDK what I can write here :D"))
         )
 
   }
@@ -314,6 +316,7 @@ object EndpointsCompanion {
       legacyParse: ParsePayload[A],
       createFromUserToken: CreateFromUserToken[A],
       fm: Monad[Future],
+      ec: ExecutionContext,
   ): ET[(Jwt, A)] = {
     for {
       a <- EitherT.either(decodeJwt(jwt): Unauthorized \/ DecodedJwt[String])
@@ -322,7 +325,11 @@ object EndpointsCompanion {
         .fold(
           { _ =>
             logger.debug("No legacy token found, trying to process the token as user token.")
-            createFromUserToken(jwt, userManagementClient, ledgerIdentityClient)
+            createFromUserToken(
+              a,
+              userId => userManagementClient.listUserRights(userId, Some(jwt.value)),
+              () => ledgerIdentityClient.getLedgerId(Some(jwt.value)),
+            )
           },
           EitherT.pure(_): ET[A],
         )

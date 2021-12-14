@@ -10,7 +10,7 @@ import akka.stream.scaladsl.Flow
 import com.daml.jwt.domain.Jwt
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
-import scalaz.{EitherT, Monad, \/}
+import scalaz.{EitherT, \/}
 
 import scala.concurrent.{ExecutionContext, Future}
 import EndpointsCompanion._
@@ -47,7 +47,7 @@ object WebsocketEndpoints {
       ledgerIdentityClient: LedgerIdentityClient,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      mf: Monad[Future],
+      ec: ExecutionContext,
   ): EitherT[Future, Err, (Jwt, JwtPayload)] =
     for {
       _ <- EitherT.either(
