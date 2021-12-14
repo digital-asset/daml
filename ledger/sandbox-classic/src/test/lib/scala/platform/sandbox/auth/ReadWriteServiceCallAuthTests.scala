@@ -44,7 +44,7 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
     expectPermissionDenied(serviceCallWithToken(canReadAsAdminStandardJWT))
   }
   it should "deny calls with non-expired 'unknown_user' user token" in {
-    expectUnauthenticated(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
+    expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
   it should "deny calls with explicitly non-expired read-only token" in {
     expectPermissionDenied(serviceCallWithToken(canReadAsMainActorExpiresTomorrow))
