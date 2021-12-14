@@ -44,7 +44,7 @@ message LedgerConfiguration {
   reserved 2; // was max_ttl
 
   // If a command submission specifies a deduplication period of length up to ``max_deduplication_time``,
-  // the submission SHOULD not be rejected with ``NOT_FOUND`` because the deduplication period start is too early.
+  // the submission SHOULD not be rejected with ``FAILED_PRECONDITION`` because the deduplication period starts too early.
   // The deduplication period is measured on a local clock of the participant or Daml ledger,
   // and therefore subject to clock skews and clock drifts.
   // Command submissions with longer periods MAY get accepted though.

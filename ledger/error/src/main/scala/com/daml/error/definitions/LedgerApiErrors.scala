@@ -730,6 +730,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     "Potential consistency errors raised due to race conditions during command submission or returned as submission rejections by the backing ledger."
   )
   object ConsistencyErrors extends ErrorGroup {
+
     @Explanation("A command with the given command id has already been successfully processed.")
     @Resolution(
       """The correct resolution depends on the use case. If the error received pertains to a submission retried due to a timeout,
@@ -755,6 +756,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         override def context: Map[String, String] =
           super.context ++ _existingCommandSubmissionId.map("existing_submission_id" -> _).toList
       }
+
     }
 
     @Explanation("An input contract has been archived by a concurrent transaction submission.")
@@ -767,9 +769,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "INCONSISTENT_CONTRACTS",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
+
       case class Reject(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(cause = cause)
+
     }
 
     @Explanation("At least one input has been altered by a concurrent transaction submission.")
@@ -783,12 +787,14 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "INCONSISTENT",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
+
       case class Reject(
           details: String
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends LoggingTransactionErrorImpl(
             cause = s"Inconsistent: $details"
           )
+
     }
 
     @Explanation(
@@ -825,6 +831,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           (ErrorResource.ContractId, _cid.coid)
         )
       }
+
     }
 
     @Explanation(
@@ -836,9 +843,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "INCONSISTENT_CONTRACT_KEY",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
+
       case class Reject(reason: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(cause = reason)
+
     }
 
     @Explanation(
@@ -850,6 +859,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "DUPLICATE_CONTRACT_KEY",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
         ) {
+
       case class RejectWithContractKeyArg(
           override val cause: String,
           _key: GlobalKey,
@@ -868,6 +878,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(cause = cause)
+
     }
 
     @Explanation(
@@ -879,6 +890,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "INVALID_LEDGER_TIME",
           ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
         ) {
+
       case class RejectEnriched(
           override val cause: String,
           ledger_time: Instant,
@@ -891,7 +903,26 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           override val cause: String
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends LoggingTransactionErrorImpl(cause = cause)
+
     }
+
+    @Explanation(
+      "Another command submission with the same change ID (application ID, command ID, actAs) is already being processed."
+    )
+    @Resolution(
+      """Listen to the command completion stream until a completion for the in-flight command submission is published.
+        |Alternatively, resubmit the command. If the in-flight submission has finished successfully by then, 
+        |this will return more detailed information about the earlier one.
+        |If the in-flight submission has failed by then, the resubmission will attempt to record the new transaction on the ledger.
+        |"""
+    )
+    // This command deduplication error is currently used only by Canton.
+    // It is defined here so that the general command deduplication documentation can refer to it.
+    object SubmissionAlreadyInFlight
+        extends ErrorCode(
+          id = "SUBMISSION_ALREADY_IN_FLIGHT",
+          ErrorCategory.ContentionOnSharedResources,
+        )
   }
 
   @Explanation(

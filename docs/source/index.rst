@@ -49,6 +49,7 @@ Daml Documentation
    upgrade/index
    app-dev/authorization
    app-dev/ledger-api
+   app-dev/command-deduplication
    triggers/index
    tools/trigger-service/index
    tools/auth-middleware/index
