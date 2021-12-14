@@ -176,6 +176,7 @@ object EndlessReadService {
     commandId = commandId(i),
     optDeduplicationPeriod = None,
     submissionId = None,
+    statistics = None, // TODO Ledger Metering
   )
   def transactionMeta(i: Int): TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = recordTime(i),

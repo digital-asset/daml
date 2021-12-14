@@ -217,6 +217,7 @@ object Conversions {
         .map(
           Ref.SubmissionId.assertFromString
         ),
+      statistics = None, // TODO Ledger Metering
     )
   }
 

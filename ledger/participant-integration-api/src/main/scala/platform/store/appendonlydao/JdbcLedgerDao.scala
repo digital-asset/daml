@@ -338,6 +338,7 @@ private class JdbcLedgerDao(
                 commandId,
                 None,
                 Some(submissionId),
+                None, // TODO Ledger Metering
               )
 
               sequentialIndexer.store(
@@ -378,7 +379,14 @@ private class JdbcLedgerDao(
                   state.Update.CommandRejected(
                     recordTime = recordTime,
                     completionInfo = state
-                      .CompletionInfo(actAs, applicationId, commandId, None, submissionId),
+                      .CompletionInfo(
+                        actAs,
+                        applicationId,
+                        commandId,
+                        None,
+                        submissionId,
+                        None, // TODO Ledger Metering
+                      ),
                     reasonTemplate = reason.toParticipantStateRejectionReason(errorFactories)(
                       new DamlContextualizedErrorLogger(logger, loggingContext, submissionId)
                     ),
