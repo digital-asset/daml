@@ -28,9 +28,49 @@ import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
-object ScenarioServiceMain extends App {
+private final case class ScenarioServiceConfig(
+  maxInboundMessageSize: Int,
+  enableScenarios: Boolean,
+)
+
+private object ScenarioServiceConfig {
   // default to 128MB
-  val maxMessageSize = args.headOption.map(_.toInt).getOrElse(128 * 1024 * 1024)
+  val DefaultMaxInboundMessageSize: Int = 128 * 1024 * 1024
+
+  private class OptionParser()
+      extends scopt.OptionParser[ScenarioServiceConfig]("scenario-service") {
+    head("scenario-service")
+
+    opt[Int]("max-inbound-message-size")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .optional()
+      .text(
+        s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}."
+      )
+
+    opt[Boolean]("enable-scenarios")
+      .optional()
+      .action((x, c) => c.copy(enableScenarios = x))
+      .text(
+        "Enable/disable support for running scenarios. Defaults to true."
+      )
+  }
+
+  def parse(args: Array[String]): Option[ScenarioServiceConfig] =
+    new OptionParser().parse(
+      args,
+      ScenarioServiceConfig(
+        maxInboundMessageSize = DefaultMaxInboundMessageSize,
+        enableScenarios = true,
+      ),
+    )
+}
+
+
+object ScenarioServiceMain extends App {
+  ScenarioServiceConfig.parse(args) match {
+    case None => sys.exit(1)
+    case Some(config) =>
 
   // Needed for the akka Ledger bindings used by Daml Script.
   val system = ActorSystem("ScriptService")
@@ -42,8 +82,8 @@ object ScenarioServiceMain extends App {
   val server =
     NettyServerBuilder
       .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
-      .addService(new ScenarioService())
-      .maxInboundMessageSize(maxMessageSize)
+      .addService(new ScenarioService(config.enableScenarios))
+      .maxInboundMessageSize(config.maxInboundMessageSize)
       .build
   server.start()
   // Print the allocated port for the client
@@ -68,14 +108,16 @@ object ScenarioServiceMain extends App {
   println("Server started.")
   server.awaitTermination()
 
-}
+}}
 
 object ScenarioService {
   private def notFoundContextError(id: Long): StatusRuntimeException =
     Status.NOT_FOUND.withDescription(s" context $id not found!").asRuntimeException
 }
 
-class ScenarioService(implicit
+class ScenarioService(
+    enableScenarios: Boolean
+)(implicit
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     mat: Materializer,
@@ -91,14 +133,19 @@ class ScenarioService(implicit
   override def runScenario(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponse],
-  ): Unit =
-    run(
-      req,
-      respObs,
-      { case (ctx, pkgId, name) =>
-        Future.successful(ctx.interpretScenario(pkgId, name))
-      },
-    )
+  ): Unit = {
+    if (enableScenarios) {
+      run(
+        req,
+        respObs,
+        { case (ctx, pkgId, name) =>
+          Future.successful(ctx.interpretScenario(pkgId, name))
+        },
+      )
+    } else {
+      log("Rejected scenario gRPC request.")
+    }
+  }
 
   override def runScript(
       req: RunScenarioRequest,
