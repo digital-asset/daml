@@ -16,6 +16,8 @@ import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import java.time.Instant
 
 import com.daml.error.definitions.LedgerApiErrors
+import io.grpc.StatusRuntimeException
+import scalapb.lenses.Lens
 
 import scala.collection.compat._
 import scala.concurrent.Future
@@ -93,17 +95,30 @@ final class Authorizer(
     */
   def requireReadClaimsForAllPartiesOnStream[Req, Res](
       parties: Iterable[String],
-      applicationId: Option[String],
       call: (Req, StreamObserver[Res]) => Unit,
   ): (Req, StreamObserver[Res]) => Unit =
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
         _ <- requireForAll(parties, party => claims.canReadAs(party))
-        _ <- applicationId.map(claims.validForApplication).getOrElse(Right(()))
       } yield {
         ()
       }
+    }
+
+  def requireReadClaimsForAllPartiesOnStreamWithApplicationId[Req, Res](
+      parties: Iterable[String],
+      applicationIdL: Lens[Req, String],
+      call: (Req, StreamObserver[Res]) => Unit,
+  ): (Req, StreamObserver[Res]) => Unit =
+    authorizeWithReq(call) { (claims, req) =>
+      val reqApplicationId = applicationIdL.get(req)
+      for {
+        _ <- authorizationErrorAsGrpc(valid(claims))
+        _ <- authorizationErrorAsGrpc(requireForAll(parties, party => claims.canReadAs(party)))
+        defaultedApplicationId <- defaultApplicationId(reqApplicationId, claims)
+        _ <- authorizationErrorAsGrpc(claims.validForApplication(defaultedApplicationId))
+      } yield applicationIdL.set(defaultedApplicationId)(req)
     }
 
   /** Wraps a single call to verify whether some Claims authorize to read as all parties
@@ -125,22 +140,26 @@ final class Authorizer(
   def requireActAndReadClaimsForParties[Req, Res](
       actAs: Set[String],
       readAs: Set[String],
-      applicationId: Option[String],
+      applicationIdL: Lens[Req, String],
       call: Req => Future[Res],
   ): Req => Future[Res] =
-    authorize(call) { claims =>
+    authorizeWithReq(call) { (claims, req) =>
+      val reqApplicationId = applicationIdL.get(req)
       for {
-        _ <- valid(claims)
-        _ <- actAs.foldRight[Either[AuthorizationError, Unit]](Right(()))((p, acc) =>
-          acc.flatMap(_ => claims.canActAs(p))
+        _ <- authorizationErrorAsGrpc(valid(claims))
+        _ <- authorizationErrorAsGrpc(
+          actAs.foldRight[Either[AuthorizationError, Unit]](Right(()))((p, acc) =>
+            acc.flatMap(_ => claims.canActAs(p))
+          )
         )
-        _ <- readAs.foldRight[Either[AuthorizationError, Unit]](Right(()))((p, acc) =>
-          acc.flatMap(_ => claims.canReadAs(p))
+        _ <- authorizationErrorAsGrpc(
+          readAs.foldRight[Either[AuthorizationError, Unit]](Right(()))((p, acc) =>
+            acc.flatMap(_ => claims.canReadAs(p))
+          )
         )
-        _ <- applicationId.map(claims.validForApplication).getOrElse(Right(()))
-      } yield {
-        ()
-      }
+        defaultedApplicationId <- defaultApplicationId(reqApplicationId, claims)
+        _ <- authorizationErrorAsGrpc(claims.validForApplication(defaultedApplicationId))
+      } yield applicationIdL.set(defaultedApplicationId)(req)
     }
 
   /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */
@@ -150,7 +169,6 @@ final class Authorizer(
   ): (Req, StreamObserver[Res]) => Unit =
     requireReadClaimsForAllPartiesOnStream(
       filter.map(_.filtersByParty).fold(Set.empty[String])(_.keySet),
-      applicationId = None,
       call,
     )
 
@@ -173,6 +191,30 @@ final class Authorizer(
         else
           Success(None)
       )
+
+  /** Compute the application-id for a request, defaulting to the one in the claims in
+    * case the request does not specify an application-id.
+    */
+  private def defaultApplicationId(
+      reqApplicationId: String,
+      claims: ClaimSet.Claims,
+  ): Either[StatusRuntimeException, String] =
+    if (reqApplicationId.isEmpty)
+      claims.applicationId match {
+        case Some(applicationId) if !applicationId.isEmpty => Right(applicationId)
+        case _ =>
+          Left(
+            errorFactories.invalidArgument(None)(
+              "Cannot default application_id field because claims do not specify an application-id or user-id. Is authentication turned on?"
+            )
+          )
+      }
+    else Right(reqApplicationId)
+
+  private def authorizationErrorAsGrpc[T](
+      errOrV: Either[AuthorizationError, T]
+  ): Either[StatusRuntimeException, T] =
+    errOrV.fold(err => Left(errorFactories.permissionDenied(err.reason)), Right(_))
 
   private def assertServerCall[A](observer: StreamObserver[A]): ServerCallStreamObserver[A] =
     observer match {
@@ -219,8 +261,8 @@ final class Authorizer(
         case claims: ClaimSet.Claims => Success(claims)
       })
 
-  private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
-      authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
+  private def authorizeWithReq[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
+      authorized: (ClaimSet.Claims, Req) => Either[StatusRuntimeException, Req]
   ): (Req, StreamObserver[Res]) => Unit = (request, observer) => {
     val scso = assertServerCall(observer)
     authenticatedClaimsFromContext()
@@ -233,37 +275,48 @@ final class Authorizer(
           observer.onError(ex)
         },
         claims =>
-          authorized(claims) match {
-            case Right(_) =>
+          authorized(claims, request) match {
+            case Right(modifiedRequest) =>
               call(
-                request,
+                modifiedRequest,
                 if (claims.expiration.isDefined)
                   ongoingAuthorization(scso, claims)
                 else
                   scso,
               )
-            case Left(authorizationError) =>
-              observer.onError(
-                errorFactories.permissionDenied(authorizationError.reason)
-              )
+            case Left(ex) =>
+              observer.onError(ex)
           },
       )
   }
 
-  private[auth] def authorize[Req, Res](call: Req => Future[Res])(
+  private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
+  ): (Req, StreamObserver[Res]) => Unit =
+    authorizeWithReq(call)((claims, req) =>
+      authorizationErrorAsGrpc(authorized(claims)).map(_ => req)
+    )
+
+  private[auth] def authorizeWithReq[Req, Res](call: Req => Future[Res])(
+      authorized: (ClaimSet.Claims, Req) => Either[StatusRuntimeException, Req]
   ): Req => Future[Res] = request =>
     authenticatedClaimsFromContext() match {
       case Failure(ex) => Future.failed(ex)
       case Success(claims) =>
-        authorized(claims) match {
-          case Right(_) => call(request)
-          case Left(authorizationError) =>
-            Future.failed(
-              errorFactories.permissionDenied(authorizationError.reason)
-            )
+        authorized(claims, request) match {
+          case Right(modifiedReq) => call(modifiedReq)
+          case Left(ex) =>
+            Future.failed(ex)
         }
     }
+
+  private[auth] def authorize[Req, Res](call: Req => Future[Res])(
+      authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
+  ): Req => Future[Res] =
+    authorizeWithReq(call)((claims, req) =>
+      authorizationErrorAsGrpc(authorized(claims)).map(_ => req)
+    )
+
 }
 
 object Authorizer {
