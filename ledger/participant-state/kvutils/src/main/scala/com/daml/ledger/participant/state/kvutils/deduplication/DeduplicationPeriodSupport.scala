@@ -29,7 +29,7 @@ class DeduplicationPeriodSupport(
       maxDeduplicationDuration: Duration,
       timeModel: LedgerTimeModel,
       applicationId: ApplicationId,
-      actAs: Set[Ref.Party],
+      readers: Set[Ref.Party],
       submittedAt: Instant,
   )(implicit
       mat: Materializer,
@@ -45,7 +45,7 @@ class DeduplicationPeriodSupport(
           .convertOffsetToDuration(
             offset.toHexString,
             applicationId,
-            actAs,
+            readers,
             timeModel.maxRecordTime(Time.Timestamp.assertFromInstant(submittedAt)).toInstant,
           )
           .map(

@@ -77,6 +77,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           CommandExecutionResult(
             submitterInfo = state.SubmitterInfo(
               commands.actAs.toList,
+              commands.readAs.toList,
               commands.applicationId.unwrap,
               commands.commandId.unwrap,
               commands.deduplicationPeriod,

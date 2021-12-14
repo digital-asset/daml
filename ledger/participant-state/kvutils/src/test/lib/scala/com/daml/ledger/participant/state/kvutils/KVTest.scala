@@ -448,6 +448,7 @@ object KVTest {
   ): SubmitterInfo = {
     SubmitterInfo(
       actAs = List(submitter),
+      readAs = List.empty,
       applicationId = Ref.LedgerString.assertFromString("test"),
       commandId = commandId,
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(deduplicationDuration),

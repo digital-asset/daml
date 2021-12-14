@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
-import java.time.Duration
+import java.time.{Duration, Instant}
 
 import akka.stream.Materializer
 import com.daml.error.ContextualizedErrorLogger
@@ -46,33 +46,36 @@ class WriteServiceWithDeduplicationSupportSpec
   private val mockWriteService: WriteService = mock[WriteService]
   private val mockDeduplicationPeriodSupport: DeduplicationPeriodSupport =
     mock[DeduplicationPeriodSupport]
-  val service = new WriteServiceWithDeduplicationSupport(
+  private val service = new WriteServiceWithDeduplicationSupport(
     mockWriteService,
     mockDeduplicationPeriodSupport,
   )
-
+  private val submitterInfo = SubmitterInfo(
+    List.empty,
+    List.empty,
+    Ref.ApplicationId.assertFromString("applicationid"),
+    Ref.CommandId.assertFromString("commandid"),
+    DeduplicationPeriod.DeduplicationDuration(
+      Duration.ofSeconds(1)
+    ),
+    None,
+    Configuration.reasonableInitialConfiguration,
+  )
+  private val transactionMeta = TransactionMeta(
+    Timestamp.now(),
+    None,
+    Timestamp.now(),
+    Hash.hashPrivateKey("key"),
+    None,
+    None,
+    None,
+  )
+  private val submittedTransaction = SubmittedTransaction(
+    VersionedTransaction(TransactionVersion.minVersion, Map.empty, ImmArray.empty)
+  )
   override protected def afterEach(): Unit = reset(mockWriteService, mockDeduplicationPeriodSupport)
 
   "use the returned deduplication period" in {
-    val submitterInfo = SubmitterInfo(
-      List.empty,
-      Ref.ApplicationId.assertFromString("applicationid"),
-      Ref.CommandId.assertFromString("commandid"),
-      DeduplicationPeriod.DeduplicationDuration(
-        Duration.ofSeconds(1)
-      ),
-      None,
-      Configuration.reasonableInitialConfiguration,
-    )
-    val transactionMeta = TransactionMeta(
-      Timestamp.now(),
-      None,
-      Timestamp.now(),
-      Hash.hashPrivateKey("key"),
-      None,
-      None,
-      None,
-    )
     val convertedDeduplicationPeriod =
       DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(4))
     when(
@@ -81,7 +84,7 @@ class WriteServiceWithDeduplicationSupportSpec
         eqTo(Configuration.reasonableMaxDeduplicationTime),
         eqTo(LedgerTimeModel.reasonableDefault),
         eqTo(ApplicationId(submitterInfo.applicationId)),
-        eqTo(submitterInfo.actAs.toSet),
+        any[Set[Ref.Party]],
         eqTo(transactionMeta.submissionTime.toInstant),
       )(
         any[Materializer],
@@ -99,9 +102,6 @@ class WriteServiceWithDeduplicationSupportSpec
       )(any[LoggingContext], any[TelemetryContext])
     ).thenReturn(Future.successful[SubmissionResult](Acknowledged).asJava)
 
-    val submittedTransaction = SubmittedTransaction(
-      VersionedTransaction(TransactionVersion.minVersion, Map.empty, ImmArray.empty)
-    )
     service
       .submitTransaction(
         submitterInfo,
@@ -116,6 +116,60 @@ class WriteServiceWithDeduplicationSupportSpec
           transactionMeta,
           submittedTransaction,
           0,
+        )
+        succeed
+      })
+  }
+
+  "use actAs and readAs as readers for the completion stream" in {
+    val submitterInfoWithParties = submitterInfo.copy(
+      actAs = List(Ref.Party.assertFromString("party1")),
+      readAs = List(Ref.Party.assertFromString("party2")),
+    )
+    when(
+      mockDeduplicationPeriodSupport.supportedDeduplicationPeriod(
+        any[DeduplicationPeriod],
+        any[Duration],
+        any[LedgerTimeModel],
+        any[ApplicationId],
+        any[Set[Ref.Party]],
+        any[Instant],
+      )(
+        any[Materializer],
+        any[ExecutionContext],
+        any[LoggingContext],
+        any[ContextualizedErrorLogger],
+      )
+    ).thenReturn(Future.successful(submitterInfo.deduplicationPeriod))
+    when(
+      mockWriteService.submitTransaction(
+        any[SubmitterInfo],
+        any[TransactionMeta],
+        any[SubmittedTransaction],
+        any[Long],
+      )(any[LoggingContext], any[TelemetryContext])
+    ).thenReturn(Future.successful[SubmissionResult](Acknowledged).asJava)
+    service
+      .submitTransaction(
+        submitterInfo,
+        transactionMeta,
+        submittedTransaction,
+        0,
+      )
+      .asScala
+      .map(_ => {
+        verify(mockDeduplicationPeriodSupport).supportedDeduplicationPeriod(
+          any[DeduplicationPeriod],
+          any[Duration],
+          any[LedgerTimeModel],
+          any[ApplicationId],
+          eqTo((submitterInfoWithParties.readAs ++ submitterInfoWithParties.actAs).toSet),
+          any[Instant],
+        )(
+          any[Materializer],
+          any[ExecutionContext],
+          any[LoggingContext],
+          any[ContextualizedErrorLogger],
         )
         succeed
       })

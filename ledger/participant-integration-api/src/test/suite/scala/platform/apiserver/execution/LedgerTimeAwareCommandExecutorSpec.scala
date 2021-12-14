@@ -71,6 +71,7 @@ class LedgerTimeAwareCommandExecutorSpec
     def commandExecutionResult(let: Time.Timestamp) = CommandExecutionResult(
       SubmitterInfo(
         Nil,
+        Nil,
         Ref.ApplicationId.assertFromString("foobar"),
         Ref.CommandId.assertFromString("foobar"),
         DeduplicationDuration(Duration.ofMinutes(1)),
@@ -130,6 +131,7 @@ class LedgerTimeAwareCommandExecutorSpec
         val expectedResult = finalExecutionResult.map(let =>
           CommandExecutionResult(
             SubmitterInfo(
+              Nil,
               Nil,
               Ref.ApplicationId.assertFromString("foobar"),
               Ref.CommandId.assertFromString("foobar"),

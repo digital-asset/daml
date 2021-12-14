@@ -722,6 +722,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
   private def submitterInfo(party: Ref.Party, commandId: String = "X") =
     SubmitterInfo(
       actAs = List(party),
+      readAs = List.empty,
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(10)),

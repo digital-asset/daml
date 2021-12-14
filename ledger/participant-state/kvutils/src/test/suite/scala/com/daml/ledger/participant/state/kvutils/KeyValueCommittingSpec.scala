@@ -44,6 +44,7 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
     )
     val submitterInfo = SubmitterInfo(
       actAs = List(alice),
+      readAs = List.empty,
       applicationId = applicationId,
       commandId = commandId,
       deduplicationPeriod = ApiDeduplicationPeriod.DeduplicationDuration(Duration.ZERO),

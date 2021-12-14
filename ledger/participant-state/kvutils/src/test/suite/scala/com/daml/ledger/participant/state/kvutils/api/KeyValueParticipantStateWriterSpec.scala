@@ -169,6 +169,7 @@ object KeyValueParticipantStateWriterSpec {
   private def submitterInfo(party: Ref.Party, submissionId: String) =
     SubmitterInfo(
       actAs = List(party),
+      readAs = List.empty,
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString("someCommandId"),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofDays(1)),

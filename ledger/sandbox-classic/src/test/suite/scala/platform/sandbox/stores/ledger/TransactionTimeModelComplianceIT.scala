@@ -99,6 +99,7 @@ class TransactionTimeModelComplianceIT
 
     val submitterInfo = state.SubmitterInfo(
       actAs = List(Ref.Party.assertFromString("submitter")),
+      readAs = List.empty,
       applicationId = Ref.ApplicationId.assertFromString("appId"),
       commandId = Ref.CommandId.assertFromString(commandId + UUID.randomUUID().toString),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(JDuration.ZERO),
