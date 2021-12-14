@@ -42,6 +42,7 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import DA.Daml.LF.Mangling
+import DA.Daml.Options.Types (EnableScenarios (..))
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -76,6 +77,7 @@ data Options = Options
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
   , optDamlLfVersion :: LF.Version
+  , optEnableScenarios :: EnableScenarios
   }
 
 type TimeoutSeconds = Int
@@ -205,7 +207,13 @@ withScenarioService opts@Options{..} f = do
   unless serverJarExists $
       throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
   validateJava
-  cp <- javaProc (optJvmOptions <> ["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
+  cp <- javaProc $ concat
+    [ optJvmOptions
+    , ["-jar" , optServerJar]
+    , ["--max-inbound-message-size:" <> show size | Just size <- [optGrpcMaxMessageSize]]
+    , ["--enable-scenarios:" <> show b | EnableScenarios b <- [optEnableScenarios]]
+    ]
+
   exitExpected <- newIORef False
   let closeStdin hdl = do
           atomicWriteIORef exitExpected True
