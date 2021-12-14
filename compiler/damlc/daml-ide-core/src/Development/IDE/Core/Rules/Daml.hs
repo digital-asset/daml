@@ -263,10 +263,10 @@ generateRawDalfRule =
                     -- Generate the map from package names to package hashes
                     PackageMap pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
-                    DamlEnv{envIsGenerated} <- getDamlServiceEnv
+                    DamlEnv{envIsGenerated, envEnableScenarios} <- getDamlServiceEnv
                     depOrphanModules <- modInfoDepOrphanModules . tmrModInfo <$> use_ TypeCheck file
                     -- GHC Core to Daml-LF
-                    case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core depOrphanModules details of
+                    case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core depOrphanModules details of
                         Left e -> return ([e], Nothing)
                         Right v -> do
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
@@ -415,11 +415,11 @@ generateSerializedDalfRule options =
                             -- lf conversion
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
-                            DamlEnv{envIsGenerated} <- getDamlServiceEnv
+                            DamlEnv{envIsGenerated, envEnableScenarios} <- getDamlServiceEnv
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
                                 depOrphanModules = modInfoDepOrphanModules modInfo
-                            case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core depOrphanModules details of
+                            case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core depOrphanModules details of
                                 Left e -> pure ([e], Nothing)
                                 Right rawDalf -> do
                                     -- LF postprocessing
