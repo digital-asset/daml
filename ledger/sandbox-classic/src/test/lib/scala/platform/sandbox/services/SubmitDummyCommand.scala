@@ -16,14 +16,18 @@ import scala.concurrent.Future
 
 trait SubmitDummyCommand extends TestCommands { self: ServiceCallWithMainActorAuthTests =>
 
-  protected def dummySubmitRequest: SubmitRequest =
+  protected def dummySubmitRequest(applicationId: String): SubmitRequest =
     SubmitRequest(
       dummyCommands(wrappedLedgerId, s"$serviceCallName-${UUID.randomUUID}", mainActor)
-        .update(_.commands.applicationId := serviceCallName, _.commands.party := mainActor)
+        .update(_.commands.applicationId := applicationId, _.commands.party := mainActor)
         .commands
     )
 
-  protected def submit(token: Option[String]): Future[Empty] =
-    stub(CommandSubmissionServiceGrpc.stub(channel), token).submit(dummySubmitRequest)
+  protected def submit(
+      token: Option[String],
+      applicationId: String = serviceCallName,
+  ): Future[Empty] =
+    stub(CommandSubmissionServiceGrpc.stub(channel), token)
+      .submit(dummySubmitRequest(applicationId))
 
 }

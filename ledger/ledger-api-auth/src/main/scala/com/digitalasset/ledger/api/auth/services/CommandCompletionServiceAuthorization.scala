@@ -10,6 +10,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
+import scalapb.lenses.Lens
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -28,9 +29,9 @@ private[daml] final class CommandCompletionServiceAuthorization(
       request: CompletionStreamRequest,
       responseObserver: StreamObserver[CompletionStreamResponse],
   ): Unit =
-    authorizer.requireReadClaimsForAllPartiesOnStream(
+    authorizer.requireReadClaimsForAllPartiesOnStreamWithApplicationId(
       parties = request.parties,
-      applicationId = Some(request.applicationId),
+      applicationIdL = Lens.unit[CompletionStreamRequest].applicationId,
       call = service.completionStream,
     )(request, responseObserver)
 

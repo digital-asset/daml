@@ -3,7 +3,11 @@
 
 package com.daml.platform.sandbox.auth
 
+import scala.concurrent.Future
+
 trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
+
+  def serviceCallWithoutApplicationId(token: Option[String]): Future[Any]
 
   it should "deny calls with an expired read/write token" in {
     expectUnauthenticated(serviceCallWithToken(canActAsMainActorExpired))
@@ -39,5 +43,11 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   }
   it should "deny calls with a random application ID" in {
     expectPermissionDenied(serviceCallWithToken(canActAsMainActorRandomApplicationId))
+  }
+  it should "allow calls with an empty application ID for a token with an application id" in {
+    expectSuccess(serviceCallWithoutApplicationId(canActAsMainActorActualApplicationId))
+  }
+  it should "deny calls with an empty application ID for a token without an application id" in {
+    expectInvalidArgument(serviceCallWithoutApplicationId(canActAsMainActor))
   }
 }

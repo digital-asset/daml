@@ -11,6 +11,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
+import scalapb.lenses.Lens
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -27,7 +28,7 @@ private[daml] final class CommandSubmissionServiceAuthorization(
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
-      applicationId = request.commands.map(_.applicationId),
+      applicationIdL = Lens.unit[SubmitRequest].commands.applicationId,
       call = service.submit,
     )(request)
   }

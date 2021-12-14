@@ -27,10 +27,10 @@ message Commands {
   // Optional
   string workflow_id = 2;
 
-  // Uniquely identifies the application (or its part) that issued the command. This is used in tracing
-  // across different components and to let applications subscribe to their own submissions only.
+  // Uniquely identifies the application or participant user that issued the command.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Required unless authentication is used with a user token or a custom token specifying an application-id.
+  // In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
   string application_id = 3;
 
   // Uniquely identifies the command.

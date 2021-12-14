@@ -13,4 +13,6 @@ final class SubmitAuthIT extends ReadWriteServiceCallAuthTests with SubmitDummyC
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] = submit(token)
 
+  override def serviceCallWithoutApplicationId(token: Option[String]): Future[Any] =
+    submit(token, "")
 }
