@@ -332,6 +332,13 @@ abstract class EventStorageBackendTemplate(
       fetchSizeHint: Option[Int],
       filterParams: FilterParams,
   )(connection: Connection): Vector[T] = {
+    val internedAllParties: Set[Int] =
+      filterParams.wildCardParties.iterator
+        .++(filterParams.partiesAndTemplates.iterator.flatMap(_._1.iterator))
+        .map(stringInterning.party.tryInternalize)
+        .flatMap(_.iterator)
+        .toSet
+
     val internedWildcardParties: Set[Int] = filterParams.wildCardParties.view
       .flatMap(party => stringInterning.party.tryInternalize(party).toList)
       .toSet
@@ -348,10 +355,7 @@ abstract class EventStorageBackendTemplate(
         .filterNot(_._2.isEmpty)
         .toList
 
-    val internedAllParties: Set[Int] =
-      internedWildcardParties.concat(internedPartiesAndTemplates.view.flatMap(_._1))
-
-    if (internedAllParties.isEmpty) {
+    if (internedWildcardParties.isEmpty && internedPartiesAndTemplates.isEmpty) {
       Vector.empty
     } else {
       val wildcardPartiesClause = if (internedWildcardParties.isEmpty) {
