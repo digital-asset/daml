@@ -47,9 +47,6 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
       standardToken(userId = "participant_admin", participantId = Some("other-participant-id"))
     expectPermissionDenied(serviceCallWithPayload(payload))
   }
-  it should "deny calls with 'unknown_user' standard token" in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
-  }
   it should "allow calls with freshly created user" in {
     expectSuccess(
       createUserByAdmin(UUID.randomUUID().toString)
