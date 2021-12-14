@@ -59,7 +59,7 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
     successfulBehavior(serviceCallWithToken(canActAsMainActor))
   }
   it should "allow calls with user token that can-act-as main actor" in {
-    expectSuccess(
+    successfulBehavior(
       serviceCallWithMainActorUser(
         "u3",
         Vector(proto.Right.Kind.CanActAs(proto.Right.CanActAs(mainActor))),
