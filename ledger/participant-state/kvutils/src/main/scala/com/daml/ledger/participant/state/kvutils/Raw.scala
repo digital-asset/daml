@@ -74,5 +74,6 @@ object Raw {
 
   object ContractInstance extends Companion[ContractInstance]
 
+  /** We store node IDs as strings (see [[com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.DisclosureEntry]]). */
   final case class NodeId(value: String) extends AnyVal
 }
