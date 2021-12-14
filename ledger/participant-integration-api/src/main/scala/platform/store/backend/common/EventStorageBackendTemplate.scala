@@ -349,7 +349,7 @@ abstract class EventStorageBackendTemplate(
         .toList
 
     val internedAllParties: Set[Int] =
-      internedWildcardParties.concat(internedPartiesAndTemplates.flatMap(_._1))
+      internedWildcardParties.concat(internedPartiesAndTemplates.view.flatMap(_._1))
 
     if (internedAllParties.isEmpty) {
       Vector.empty
