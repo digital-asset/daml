@@ -69,25 +69,31 @@ final class AuthorizationInterceptor(
 
   private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] =
     claimSet match {
-      case ClaimSet.AuthenticatedUser(userId, participantId, expiration) =>
-        userManagementService
-          .listUserRights(Ref.UserId.assertFromString(userId))
-          .map {
-            case Left(msg) =>
-              logger.warn(
-                s"Authorization error: cannot resolve rights for user '$userId' due to $msg."
-              )
-              ClaimSet.Unauthenticated
-            case Right(userClaims) =>
-              ClaimSet.Claims(
-                claims = userClaims.view.map(userRightToClaim).toList.prepended(ClaimPublic),
-                ledgerId = None,
-                participantId = participantId,
-                applicationId = Some(userId),
-                expiration = expiration,
-                resolvedFromUser = true,
-              )
-          }
+      case ClaimSet.AuthenticatedUser(userIdStr, participantId, expiration) =>
+        Ref.UserId.fromString(userIdStr) match {
+          case Left(err) =>
+            logger.warn(s"Authorization error: invalid token because $err")
+            Future.successful(ClaimSet.Unauthenticated)
+          case Right(userId) =>
+            userManagementService
+              .listUserRights(userId)
+              .map {
+                case Left(msg) =>
+                  logger.warn(
+                    s"Authorization error: could not resolve rights for user '$userId' due to $msg."
+                  )
+                  ClaimSet.Unauthenticated
+                case Right(userClaims) =>
+                  ClaimSet.Claims(
+                    claims = userClaims.view.map(userRightToClaim).toList.prepended(ClaimPublic),
+                    ledgerId = None,
+                    participantId = participantId,
+                    applicationId = Some(userId),
+                    expiration = expiration,
+                    resolvedFromUser = true,
+                  )
+              }
+        }
       case _ => Future.successful(claimSet)
     }
 

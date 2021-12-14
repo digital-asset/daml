@@ -37,7 +37,7 @@ trait SandboxRequiringAuthorization {
     readAs = Nil,
   )
 
-  protected def standardToken(userId: String) = StandardJWTPayload(
+  protected def standardToken(userId: String): SupportedJWTPayload = StandardJWTPayload(
     AuthServiceJWTPayload(
       ledgerId = None,
       participantId = None,
@@ -54,6 +54,7 @@ trait SandboxRequiringAuthorization {
   protected val adminToken: AuthServiceJWTPayload = emptyToken.copy(admin = true)
   protected val adminTokenStandardJWT: SupportedJWTPayload = standardToken("participant_admin")
   protected val unknownUserTokenStandardJWT: SupportedJWTPayload = standardToken("unknown_user")
+  protected val invalidUserTokenStandardJWT: SupportedJWTPayload = standardToken("!!invalid_user!!")
 
   protected lazy val wrappedLedgerId: LedgerId = ledgerId(Some(customTokenToHeader(adminToken)))
   protected lazy val unwrappedLedgerId: String = wrappedLedgerId.unwrap
