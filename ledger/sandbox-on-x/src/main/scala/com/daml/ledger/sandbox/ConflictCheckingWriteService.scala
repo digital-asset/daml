@@ -21,6 +21,7 @@ import com.daml.ledger.sandbox.SoxRejection._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.lf.transaction.Transaction.{
   KeyActive,
   KeyCreate,
@@ -41,7 +42,7 @@ import com.google.rpc.status.Status
 
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
-import java.util.concurrent.{CompletableFuture, CompletionStage}
+import java.util.concurrent.{CompletableFuture, CompletionStage, Executors}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -56,6 +57,7 @@ case class ConflictCheckingWriteService(
     metrics: Metrics,
     // TODO SoX: Wire up in config
     implicitPartyAllocation: Boolean = false,
+    parallelism: Int = 8,
 )(implicit
     mat: Materializer,
     loggingContext: LoggingContext,
@@ -101,7 +103,7 @@ case class ConflictCheckingWriteService(
         lengthCounter = metrics.daml.SoX.conflictQueueLength,
         delayTimer = metrics.daml.SoX.conflictQueueDelay,
       )
-      .mapAsyncUnordered(64) { tx =>
+      .mapAsyncUnordered(parallelism) { tx =>
         precomputeTransactionOutputs(tx).map(_.map((tx, _)))
       }
       .mapAsync(1) {
@@ -113,7 +115,7 @@ case class ConflictCheckingWriteService(
               Right((ApiOffset.assertFromString(ledgerEnd.value), tx, transactionEffects))
             )
       }
-      .mapAsync(64) {
+      .mapAsync(parallelism) {
         case Left(rejection) => Future.successful(Left(rejection))
         case Right((noConflictUpTo, tx, transactionEffects @ (keyInputs, inputContracts, _, _))) =>
           conflictCheckWithCommitted(tx, inputContracts, keyInputs)
@@ -484,22 +486,35 @@ object ConflictCheckingWriteService {
       metrics: Metrics,
       // TODO SoX: Wire up in config
       implicitPartyAllocation: Boolean = false,
+      conflictCheckingPoolSize: Int = 8,
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
-      servicesExecutionContext: ExecutionContext,
-  ): ResourceOwner[ConflictCheckingWriteService] = ResourceOwner.forCloseable(() =>
-    new ConflictCheckingWriteService(
-      readServiceWithFeedSubscriber = readServiceWithFeedSubscriber,
-      participantId = participantId,
-      ledgerId = ledgerId,
-      maxDedupSeconds = maxDedupSeconds,
-      submissionBufferSize = submissionBufferSize,
-      indexService = indexService,
-      metrics = metrics,
-      implicitPartyAllocation = implicitPartyAllocation,
-    )
-  )
+  ): ResourceOwner[ConflictCheckingWriteService] =
+    for {
+      ec <- ResourceOwner
+        .forExecutorService(() =>
+          new InstrumentedExecutorService(
+            Executors.newWorkStealingPool(conflictCheckingPoolSize),
+            metrics.registry,
+            metrics.daml.SoX.threadpool.toString,
+          )
+        )
+        .map(ExecutionContext.fromExecutorService)
+      writeService <- ResourceOwner.forCloseable(() =>
+        new ConflictCheckingWriteService(
+          readServiceWithFeedSubscriber = readServiceWithFeedSubscriber,
+          participantId = participantId,
+          ledgerId = ledgerId,
+          maxDedupSeconds = maxDedupSeconds,
+          submissionBufferSize = submissionBufferSize,
+          indexService = indexService,
+          metrics = metrics,
+          implicitPartyAllocation = implicitPartyAllocation,
+          parallelism = conflictCheckingPoolSize,
+        )(mat, loggingContext, ec)
+      )
+    } yield writeService
 
   trait Submission extends Serializable with Product
   object Submission {
@@ -572,8 +587,8 @@ object ConflictCheckingWriteService {
         )
     }
 
-  def toOffset(index: Long): Offset = Offset.fromByteArray(Longs.toByteArray(index))
-  def fromOffset(offset: Offset): Long = Longs.fromByteArray(paddedTo8(offset.toByteArray))
+  private def toOffset(index: Long): Offset = Offset.fromByteArray(Longs.toByteArray(index))
+  private def fromOffset(offset: Offset): Long = Longs.fromByteArray(paddedTo8(offset.toByteArray))
 
   private def paddedTo8(in: Array[Byte]): Array[Byte] = if (in.length > 8)
     throw new RuntimeException(s"byte array too big: ${in.length}")

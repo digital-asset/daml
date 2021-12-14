@@ -184,7 +184,7 @@ final class SandboxOnXRunner(
                     indexService = indexService,
                     metrics = metrics,
                     implicitPartyAllocation = false, // TODO SoX: Wire up
-                  )(materializer, loggingContext, servicesExecutionContext)
+                  )(materializer, loggingContext)
                   .acquire()
                 timedWriteService = new TimedWriteService(writeService, metrics)
                 healthChecks = new HealthChecks(

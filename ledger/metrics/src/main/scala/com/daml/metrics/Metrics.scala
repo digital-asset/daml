@@ -24,6 +24,9 @@ final class Metrics(val registry: MetricRegistry) {
 
     object SoX {
       val Prefix: MetricName = daml.Prefix :+ "sox"
+
+      val threadpool: MetricName = Prefix :+ "threadpool"
+
       val sequencerQueueLengthCounter: Histogram =
         registry.histogram(Prefix :+ "sequencer_queue_length")
 
