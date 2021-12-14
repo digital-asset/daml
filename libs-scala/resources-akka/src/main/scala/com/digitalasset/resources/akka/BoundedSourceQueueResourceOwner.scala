@@ -9,13 +9,16 @@ import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, Releasabl
 
 import scala.concurrent.Future
 
-class BoundedSourceQueueResourceOwner[T, Context: HasExecutionContext](
-    queueGraph: RunnableGraph[BoundedSourceQueue[T]]
+class BoundedSourceQueueResourceOwner[T, E, Context: HasExecutionContext](
+    queueGraph: RunnableGraph[T],
+    toSourceQueue: T => BoundedSourceQueue[E],
+    toDone: T => Future[Unit],
 )(implicit
     materializer: Materializer
-) extends AbstractResourceOwner[Context, BoundedSourceQueue[T]] {
-  override def acquire()(implicit context: Context): Resource[Context, BoundedSourceQueue[T]] =
-    ReleasableResource(Future(queueGraph.run())) { queue =>
-      Future(queue.complete())
+) extends AbstractResourceOwner[Context, T] {
+  override def acquire()(implicit context: Context): Resource[Context, T] =
+    ReleasableResource(Future(queueGraph.run())) { value =>
+      toSourceQueue(value).complete()
+      toDone(value)
     }
 }

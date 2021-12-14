@@ -3,17 +3,22 @@
 
 package com.daml.resources.akka
 
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.{Actor, ActorSystem, Cancellable, Props}
-import akka.stream.{Materializer, QueueOfferResult}
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.{Materializer, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.daml.resources.{HasExecutionContext, ResourceOwnerFactories, TestContext}
+import com.daml.scalautil.Statement.discard
+import com.daml.timer.Delayed
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, Promise}
+import scala.jdk.CollectionConverters._
 
 final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
   private val Factories = new ResourceOwnerFactories[TestContext]
@@ -102,7 +107,8 @@ final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
 
   "a function returning a BoundedSourceQueue" should {
     "convert to a ResourceOwner" in {
-      val numberPromise = Promise[Int]()
+      val input = 1 to 10
+      val numbers = new CopyOnWriteArrayList[Int]
       val resourceOwner = for {
         actorSystem <- Factories
           .forActorSystem(() => ActorSystem("TestActorSystem"))
@@ -111,14 +117,53 @@ final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
           .forBoundedSourceQueue(
             Source
               .queue[Int](10)
-              .to(Sink.foreach(numberPromise.success))
+              .toMat(Sink.foreach(value => discard(numbers.add(value))))(Keep.both)
           )(materializer)
+          .map(_._1)
       } yield sourceQueue
 
       resourceOwner
         .use { sourceQueue =>
-          sourceQueue.offer(123) should be(QueueOfferResult.Enqueued)
-          numberPromise.future.map(_ should be(123))
+          Future {
+            input.foreach { number =>
+              val result = sourceQueue.offer(number)
+              result should be(QueueOfferResult.Enqueued)
+            }
+          }
+        }
+        .map { _ =>
+          numbers.asScala should be(input)
+        }
+    }
+
+    "wait for the queue to drain" in {
+      val input = 1 to 100
+      val numbers = new CopyOnWriteArrayList[Int]
+      val resourceOwner = for {
+        actorSystem <- Factories
+          .forActorSystem(() => ActorSystem("TestActorSystem"))
+        materializer <- Factories.forMaterializer(() => Materializer(actorSystem))
+        sourceQueue <- Factories
+          .forBoundedSourceQueue(
+            Source
+              .queue[Int](input.size)
+              .mapAsync(1)(Delayed.by(100.millis)(_))
+              .toMat(Sink.foreach(value => discard(numbers.add(value))))(Keep.both)
+          )(materializer)
+          .map(_._1)
+      } yield sourceQueue
+
+      resourceOwner
+        .use { sourceQueue =>
+          Future {
+            input.map { number =>
+              val result = sourceQueue.offer(number)
+              result should be(QueueOfferResult.Enqueued)
+            }
+          }
+        }
+        .map { _ =>
+          numbers.asScala should be(input)
         }
     }
   }
