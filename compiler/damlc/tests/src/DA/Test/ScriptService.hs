@@ -1034,8 +1034,7 @@ expectScriptFailure xs vr pred = case find ((vr ==) . fst) xs of
 options :: Options
 options =
   (defaultOptions (Just lfVersion))
-    { optDlintUsage = DlintDisabled,
-      optEnableScripts = EnableScripts True
+    { optDlintUsage = DlintDisabled
     }
 
 runScripts :: SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]

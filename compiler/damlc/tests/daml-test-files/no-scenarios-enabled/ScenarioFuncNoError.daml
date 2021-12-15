@@ -1,0 +1,9 @@
+-- This tests that defining scenario-returning functions doesn't trigger
+-- an error even when scenarios are disabled.
+module ScenarioFuncNoError where
+
+test () = scenario do
+  pure ()
+
+test2 : a -> Scenario a
+test2 = pure

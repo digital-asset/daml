@@ -154,20 +154,28 @@ uniqueUniques = HUnit.testCase "Uniques" $
         let n = length $ nubOrd $ concat results
         n @?= 10000
 
+getDamlTestFiles :: FilePath -> IO [(String, FilePath)]
+getDamlTestFiles location = do
+    -- test files are declared as data in BUILD.bazel
+    testsLocation <- locateRunfiles $ mainWorkspace </> location
+    map (\f -> (makeRelative testsLocation f, f)) .
+        filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
+
+getBondTradingTestFiles :: IO [(String, FilePath)]
+getBondTradingTestFiles = do
+    -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
+    bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
+    pure [("bond-trading/Test.daml", bondTradingLocation </> "Test.daml")]
+
 getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> IO TestTree
 getIntegrationTests registerTODO scenarioService = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
-    -- test files are declared as data in BUILD.bazel
-    testsLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/daml-test-files"
-    damlTestFiles <-
-        map (\f -> (makeRelative testsLocation f, f)) .
-        filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
-    -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
-    bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
-    let allTestFiles = damlTestFiles ++ [("bond-trading/Test.daml", bondTradingLocation </> "Test.daml")]
-    let (generatedFiles, nongeneratedFiles) = partition (\(f, _) -> takeFileName f == "ProposalDesugared.daml") allTestFiles
+    damlTests <- getDamlTestFiles "compiler/damlc/tests/daml-test-files"
+    bondTradingTests <- getBondTradingTestFiles
+    let plainTests = damlTests <> bondTradingTests
+    noScenariosEnabledTests <- getDamlTestFiles "compiler/damlc/tests/daml-test-files/no-scenarios-enabled"
 
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
@@ -185,17 +193,28 @@ getIntegrationTests registerTODO scenarioService = do
                 , optDlintUsage = DlintEnabled dlintDataDir False
                 , optSkipScenarioValidation = SkipScenarioValidation skipValidation
                 }
+              mkIde options = do
+                damlEnv <- mkDamlEnv options (Just scenarioService)
+                initialise
+                  (mainRule options)
+                  (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ())
+                  IdeLogger.noLogging
+                  noopDebouncer
+                  damlEnv
+                  (toCompileOpts options)
+                  vfs
           in
-          withResource (mkDamlEnv opts (Just scenarioService)) (\_damlEnv -> pure ()) $ \getDamlEnv ->
           withResource
-          (getDamlEnv >>= \damlEnv -> initialise (mainRule opts) (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts) vfs)
-          shutdown $ \service ->
+            (mkIde opts)
+            shutdown
+            $ \service ->
           withResource
-          (getDamlEnv >>= \damlEnv -> initialise (mainRule opts) (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True }) vfs)
-          shutdown $ \serviceGenerated ->
+            (mkIde opts { optEnableScenarios = EnableScenarios False })
+            shutdown
+            $ \serviceNoScenariosEnabled ->
           testGroup ("Tests for DAML-LF " ++ renderPretty version) $
-            map (testCase version service outdir registerTODO) nongeneratedFiles <>
-            map (testCase version serviceGenerated outdir registerTODO) generatedFiles
+            map (testCase version service outdir registerTODO) plainTests <>
+            map (testCase version serviceNoScenariosEnabled outdir registerTODO) noScenariosEnabledTests
 
     pure tree
 

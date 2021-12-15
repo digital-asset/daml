@@ -23,6 +23,7 @@ da_scala_binary(
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_github_scopt_scopt",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",

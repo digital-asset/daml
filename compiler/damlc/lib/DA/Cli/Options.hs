@@ -205,13 +205,22 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
                help "Check if running in Daml project."
             <> long "project-check"
 
-enableScenarioOpt :: Parser EnableScenarioService
-enableScenarioOpt = EnableScenarioService <$>
-    flagYesNoAuto "scenarios" True "Enable/disable support for running scenarios" idm
+enableScenarioServiceOpt :: Parser EnableScenarioService
+enableScenarioServiceOpt = fmap EnableScenarioService $
+    flagYesNoAuto "scenarios" True desc idm <|>
+    flagYesNoAuto "scripts" True desc idm
+    where
+        desc =
+            "Control whether to start the Scenario Service, \
+            \enabling/disabling support for running Daml Scripts and scenarios"
 
-enableScriptsOpt :: Parser EnableScripts
-enableScriptsOpt = EnableScripts <$>
-    flagYesNoAuto "daml-script" True "Enable/disable support for running Daml Scripts" internal
+enableScenariosOpt :: Parser EnableScenarios
+enableScenariosOpt = EnableScenarios <$>
+    flagYesNoAuto "enable-scenarios" True desc internal
+    where
+        desc =
+            "Enable/disable support for scenarios as a language feature. \
+            \If disabled, defining top-level scenarios is a compile-time error"
 
 dlintEnabledOpt :: Parser DlintUsage
 dlintEnabledOpt = DlintEnabled
@@ -292,7 +301,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     let optIgnorePackageMetadata = IgnorePackageMetadata False
     let optEnableOfInterestRule = False
     optCppPath <- optCppPath
-    optEnableScripts <- enableScriptsOpt
+    optEnableScenarios <- enableScenariosOpt
 
     return Options{..}
   where

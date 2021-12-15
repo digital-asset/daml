@@ -55,7 +55,7 @@ data DamlEnv = DamlEnv
   , envDamlLfVersion :: LF.Version
   , envSkipScenarioValidation :: SkipScenarioValidation
   , envIsGenerated :: Bool
-  , envEnableScripts :: EnableScripts
+  , envEnableScenarios :: EnableScenarios
   }
 
 instance IsIdeGlobal DamlEnv
@@ -73,7 +73,7 @@ mkDamlEnv opts scenarioService = do
         , envDamlLfVersion = optDamlLfVersion opts
         , envSkipScenarioValidation = optSkipScenarioValidation opts
         , envIsGenerated = optIsGenerated opts
-        , envEnableScripts = optEnableScripts opts
+        , envEnableScenarios = optEnableScenarios opts
         }
 
 getDamlServiceEnv :: Action DamlEnv

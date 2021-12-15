@@ -97,6 +97,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
+import           DA.Daml.Options.Types (EnableScenarios (..))
 import           Data.Data hiding (TyCon)
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
@@ -182,6 +183,7 @@ data Env = Env
     ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envInterfaces :: MS.Map TypeConName GHC.TyCon
     ,envIsGenerated :: Bool
+    ,envEnableScenarios :: EnableScenarios
     ,envTypeVars :: !(MS.Map Var TypeVarName)
         -- ^ Maps GHC type variables in scope to their LF type variable names
     ,envTypeVarNames :: !(S.Set TypeVarName)
@@ -496,6 +498,7 @@ convertConsuming consumingTy = case consumingTy of
 
 convertModule
     :: LF.Version
+    -> EnableScenarios
     -> MS.Map UnitId DalfPackage
     -> MS.Map (GHC.UnitId, LF.ModuleName) LF.PackageId
     -> Bool
@@ -504,7 +507,7 @@ convertModule
     -> [GHC.Module]
     -> ModDetails
     -> Either FileDiagnostic LF.Module
-convertModule envLfVersion envPkgMap envStablePackages envIsGenerated file x depOrphanModules details = runConvertM (ConversionEnv file Nothing) $ do
+convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsGenerated file x depOrphanModules details = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env bind) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     depOrphanModules <- convertDepOrphanModules env depOrphanModules
@@ -1123,6 +1126,16 @@ convertBind env (name, x)
             Just (DValue (mkMetadataStub overlapModeName' overlapModeType))
 
     pure $ [defValue name name' sanitized_x'] ++ overlapModeDef
+
+    -- Scenario definitions when scenarios are disabled
+    | EnableScenarios False <- envEnableScenarios env
+    , ty@(TypeCon scenarioType [_]) <- varType name -- Scenario : * -> *
+    , NameIn DA_Internal_LF "Scenario" <- scenarioType
+    = withRange (convNameLoc name) $ conversionError $ unlines
+        [ "Scenarios are no longer supported."
+        , "Instead, consider using Daml Script (https://docs.daml.com/daml-script/index.html)."
+        , "When compiling " <> prettyPrint name <> " : " <> prettyPrint ty <> "."
+        ]
 
     -- Regular functions
     | otherwise

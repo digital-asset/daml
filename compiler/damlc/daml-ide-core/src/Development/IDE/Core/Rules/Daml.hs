@@ -263,10 +263,10 @@ generateRawDalfRule =
                     -- Generate the map from package names to package hashes
                     PackageMap pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
-                    DamlEnv{envIsGenerated} <- getDamlServiceEnv
+                    DamlEnv{envIsGenerated, envEnableScenarios} <- getDamlServiceEnv
                     depOrphanModules <- modInfoDepOrphanModules . tmrModInfo <$> use_ TypeCheck file
                     -- GHC Core to Daml-LF
-                    case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core depOrphanModules details of
+                    case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core depOrphanModules details of
                         Left e -> return ([e], Nothing)
                         Right v -> do
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
@@ -415,11 +415,11 @@ generateSerializedDalfRule options =
                             -- lf conversion
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
-                            DamlEnv{envIsGenerated} <- getDamlServiceEnv
+                            DamlEnv{envIsGenerated, envEnableScenarios} <- getDamlServiceEnv
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
                                 depOrphanModules = modInfoDepOrphanModules modInfo
-                            case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core depOrphanModules details of
+                            case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core depOrphanModules details of
                                 Left e -> pure ([e], Nothing)
                                 Right rawDalf -> do
                                     -- LF postprocessing
@@ -837,12 +837,12 @@ runScenariosRule =
       let (diags, results) = unzip scenarioResults
       pure (concat diags, Just results)
 
-runScriptsRule :: Options -> Rules ()
-runScriptsRule opts =
+runScriptsRule :: Rules ()
+runScriptsRule =
     define $ \RunScripts file -> do
       m <- moduleForScenario file
       world <- worldForFile file
-      let scenarios = map fst $ scriptsInModule (optEnableScripts opts) m
+      let scenarios = map fst $ scriptsInModule m
       Just scenarioService <- envScenarioService <$> getDamlServiceEnv
       ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
@@ -906,7 +906,7 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
     scripts =
         map fst $
         concat
-            [ scriptsInModule (EnableScripts True) mod
+            [ scriptsInModule mod
             | mod <- NM.elems $ LF.packageModules pkg
             , LF.moduleName mod /= LF.ModuleName ["Daml", "Script"]
             ]
@@ -1070,10 +1070,7 @@ ofInterestRule opts = do
         let runScenarios file = do
                 world <- worldForFile file
                 mbScenarioVrs <- use RunScenarios file
-                mbScriptVrs <-
-                    if getEnableScripts (optEnableScripts opts)
-                        then use RunScripts file
-                        else pure (Just [])
+                mbScriptVrs <- use RunScripts file
                 let vrs = fromMaybe [] mbScenarioVrs ++ fromMaybe [] mbScriptVrs
                 forM_ vrs $ \(vr, res) -> do
                     let doc = formatScenarioResult world res
@@ -1301,10 +1298,8 @@ scenariosInModule m =
     | val <- NM.toList (LF.moduleValues m), LF.getIsTest (LF.dvalIsTest val)]
 
 
-scriptsInModule :: EnableScripts -> LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
-scriptsInModule (EnableScripts enable) m
-  | not enable = []
-  | otherwise =
+scriptsInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
+scriptsInModule m =
     [ (LF.Qualified LF.PRSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
     | val <- NM.toList (LF.moduleValues m)
     , T.head (LF.unExprValName (LF.dvalName val)) /= '$'
@@ -1369,7 +1364,7 @@ damlRule opts = do
     generateRawPackageRule opts
     generatePackageDepsRule opts
     runScenariosRule
-    runScriptsRule opts
+    runScriptsRule
     getScenarioRootsRule
     getScenarioRootRule
     getDlintDiagnosticsRule
