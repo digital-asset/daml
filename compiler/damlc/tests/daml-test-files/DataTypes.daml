@@ -54,3 +54,5 @@ main = scenario do
   eval (Num1 13) === 13
   eval (Num2 with x = 17) === 17
   eval (Plus with x = 19; y = 23) === 42
+
+-- @ENABLE-SCENARIOS

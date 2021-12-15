@@ -32,3 +32,5 @@ exerciseBadContract = scenario do
         cid <- create (MyTemplate p)
         let cid' : ContractId MyInterface = coerceContractId cid
         exercise cid' MyVirtualChoice
+
+-- @ENABLE-SCENARIOS

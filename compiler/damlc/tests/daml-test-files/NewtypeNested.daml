@@ -17,3 +17,5 @@ unNat' (Nat' n) = n
 
 main = scenario do
   unNat (unNat' (mkNat' (mkNat 1))) === 1
+
+-- @ENABLE-SCENARIOS

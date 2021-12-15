@@ -216,7 +216,7 @@ enableScenarioServiceOpt = fmap EnableScenarioService $
 
 enableScenariosOpt :: Parser EnableScenarios
 enableScenariosOpt = EnableScenarios <$>
-    flagYesNoAuto "enable-scenarios" True desc internal
+    flagYesNoAuto "enable-scenarios" False desc internal
     where
         desc =
             "Enable/disable support for scenarios as a language feature. \

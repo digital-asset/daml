@@ -26,3 +26,5 @@ test1 = scenario do
 
 test2 = scenario do
     roundingModes === DA.List.BuiltinOrder.sort roundingModes
+
+-- @ENABLE-SCENARIOS

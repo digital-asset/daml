@@ -10,3 +10,5 @@ test = scenario do
   partyToText p === "alice"
   partyFromText "alice" === Some p
   partyFromText "bad$character" === None
+
+-- @ENABLE-SCENARIOS

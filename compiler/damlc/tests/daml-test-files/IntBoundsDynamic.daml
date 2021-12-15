@@ -18,3 +18,5 @@ test = scenario do
     negate maxInt - 1 === minInt
     submitMustFail p $ pure $ maxInt+1
     submitMustFail p $ pure $ minInt-1
+
+-- @ENABLE-SCENARIOS

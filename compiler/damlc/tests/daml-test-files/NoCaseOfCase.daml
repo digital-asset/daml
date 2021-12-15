@@ -25,3 +25,5 @@ f x y = case case x of { True -> None; False -> y } of
 
 main = scenario do
   pure (f False (Some 0))
+
+-- @ENABLE-SCENARIOS

@@ -21,3 +21,5 @@ joinFoo ffx =
 
 test = scenario do
     joinFoo (Foo (Foo 1)) === Foo 1
+
+-- @ENABLE-SCENARIOS

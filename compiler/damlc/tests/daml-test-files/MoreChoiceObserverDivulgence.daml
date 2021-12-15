@@ -49,3 +49,5 @@ test = scenario do
     secret <- submit bob do exercise id Reveal with receiver = bob
     secret === "s3cr3t"
     pure ()
+
+-- @ENABLE-SCENARIOS

@@ -20,3 +20,5 @@ main = scenario do
       return (length y)
   v === Left (NonEmpty with hd = "fail"; tl = ["fail"])
   pure ()
+
+-- @ENABLE-SCENARIOS

@@ -92,3 +92,5 @@ blindLookup = scenario do
   submit blind do
     _ <- createAndExercise (Delegation sig blind) LookupKeyed
     pure ()
+
+-- @ENABLE-SCENARIOS

@@ -16,3 +16,5 @@ type Foo = Maybe Int
 main = scenario do
   maybe 0 identity Nothing === 0
   fromJust (Just 1) === 1
+
+-- @ENABLE-SCENARIOS

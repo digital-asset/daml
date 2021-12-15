@@ -17,3 +17,5 @@ c () = error (prettyCallStack callStack)
 
 f = scenario do
   pure $ a ()
+
+-- @ENABLE-SCENARIOS

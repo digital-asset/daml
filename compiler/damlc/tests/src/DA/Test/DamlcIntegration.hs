@@ -154,28 +154,35 @@ uniqueUniques = HUnit.testCase "Uniques" $
         let n = length $ nubOrd $ concat results
         n @?= 10000
 
-getDamlTestFiles :: FilePath -> IO [(String, FilePath)]
+getDamlTestFiles :: FilePath -> IO [(String, FilePath, [Ann])]
 getDamlTestFiles location = do
     -- test files are declared as data in BUILD.bazel
     testsLocation <- locateRunfiles $ mainWorkspace </> location
-    map (\f -> (makeRelative testsLocation f, f)) .
-        filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
+    files <- filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
+    forM files $ \file -> do
+        anns <- readFileAnns file
+        pure (makeRelative testsLocation file, file, anns)
 
-getBondTradingTestFiles :: IO [(String, FilePath)]
+getBondTradingTestFiles :: IO [(String, FilePath, [Ann])]
 getBondTradingTestFiles = do
     -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
     bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
-    pure [("bond-trading/Test.daml", bondTradingLocation </> "Test.daml")]
+    let file = bondTradingLocation </> "Test.daml"
+    anns <- readFileAnns file
+    pure [("bond-trading/Test.daml", file, anns)]
 
 getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> IO TestTree
 getIntegrationTests registerTODO scenarioService = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
-    damlTests <- getDamlTestFiles "compiler/damlc/tests/daml-test-files"
-    bondTradingTests <- getBondTradingTestFiles
-    let plainTests = damlTests <> bondTradingTests
-    noScenariosEnabledTests <- getDamlTestFiles "compiler/damlc/tests/daml-test-files/no-scenarios-enabled"
+    damlTests <-
+        (<>)
+            <$> getDamlTestFiles "compiler/damlc/tests/daml-test-files"
+            <*> getBondTradingTestFiles
+
+    let (scenariosEnabledTests, plainTests) =
+            partition (\(_, _, anns) -> any isEnableScenariosYes anns) damlTests
 
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
@@ -209,12 +216,12 @@ getIntegrationTests registerTODO scenarioService = do
             shutdown
             $ \service ->
           withResource
-            (mkIde opts { optEnableScenarios = EnableScenarios False })
+            (mkIde opts { optEnableScenarios = EnableScenarios True })
             shutdown
-            $ \serviceNoScenariosEnabled ->
+            $ \serviceScenariosEnabled ->
           testGroup ("Tests for DAML-LF " ++ renderPretty version) $
             map (testCase version service outdir registerTODO) plainTests <>
-            map (testCase version serviceNoScenariosEnabled outdir registerTODO) noScenariosEnabledTests
+            map (testCase version serviceScenariosEnabled outdir registerTODO) scenariosEnabledTests
 
     pure tree
 
@@ -232,10 +239,9 @@ instance IsTest TestCase where
     pure $ res { resultDescription = desc }
   testOptions = Tagged []
 
-testCase :: LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath) -> TestTree
-testCase version getService outdir registerTODO (name, file) = singleTest name . TestCase $ \log -> do
+testCase :: LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath, [Ann]) -> TestTree
+testCase version getService outdir registerTODO (name, file, anns) = singleTest name . TestCase $ \log -> do
   service <- getService
-  anns <- readFileAnns file
   if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
     pure (testFailed "Unsupported DAML-LF version in UNTIL-LF annotation")
   else if any (ignoreVersion version) anns
@@ -340,7 +346,12 @@ data Ann
     | DiagnosticFields [DiagnosticField] -- I expect a diagnostic that has the given fields
     | QueryLF String                     -- The jq query against the produced DAML-LF returns "true"
     | Todo String                        -- Just a note that is printed out
+    | EnableScenariosYes                 -- Run this test with --enable-scenarios=yes
 
+isEnableScenariosYes :: Ann -> Bool
+isEnableScenariosYes = \case
+    EnableScenariosYes -> True
+    _ -> False
 
 readFileAnns :: FilePath -> IO [Ann]
 readFileAnns file = do
@@ -350,6 +361,7 @@ readFileAnns file = do
         f :: String -> Maybe Ann
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
             ("IGNORE",_) -> Just Ignore
+            ("ENABLE-SCENARIOS",_) -> Just EnableScenariosYes
             ("SINCE-LF", x) -> Just $ SinceLF $ fromJust $ LF.parseVersion $ trim x
             ("UNTIL-LF", x) -> Just $ UntilLF $ fromJust $ LF.parseVersion $ trim x
             ("SINCE-LF-FEATURE", x) -> Just $ SinceLF $ LF.versionForFeaturePartial $ T.pack $ trim x

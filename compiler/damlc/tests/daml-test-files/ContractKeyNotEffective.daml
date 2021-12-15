@@ -16,3 +16,5 @@ fetchByKeyMustFail = scenario do
   submit p $ create (T p)
   pass (- seconds 1)
   submit p $ fetchByKey @T p
+
+-- @ENABLE-SCENARIOS

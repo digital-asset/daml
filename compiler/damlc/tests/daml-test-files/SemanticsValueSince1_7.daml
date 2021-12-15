@@ -8,3 +8,5 @@ main = scenario do
     let x : forall (n:GHC.Types.Nat). Numeric n
         x = error "ValExpTyAbsNat"
     pure ()
+
+-- @ENABLE-SCENARIOS

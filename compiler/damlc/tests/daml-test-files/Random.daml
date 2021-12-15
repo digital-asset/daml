@@ -19,3 +19,5 @@ main = scenario do
 
     let s = s1 + s2 + s3
     assert $ s >= 3 && s <= 18
+
+-- @ENABLE-SCENARIOS

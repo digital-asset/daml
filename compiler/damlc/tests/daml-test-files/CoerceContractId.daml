@@ -29,3 +29,5 @@ test = scenario do
   fooId' === fooId
   foo' <- submit sign do fetch fooId'
   foo' === foo
+
+-- @ENABLE-SCENARIOS

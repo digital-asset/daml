@@ -115,3 +115,5 @@ main = scenario do
         amount === 25
 
     pure ()
+
+-- @ENABLE-SCENARIOS

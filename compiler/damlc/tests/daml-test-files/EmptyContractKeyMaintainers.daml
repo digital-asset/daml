@@ -28,3 +28,5 @@ fetchNoMaintainer = scenario do
 
   submit alice $ fetchByKey @NoMaintainer alice
   pure ()
+
+-- @ENABLE-SCENARIOS

@@ -36,3 +36,5 @@ test3 = scenario do
         catch
             GeneralError msg ->
                 msg === "bar"
+
+-- @ENABLE-SCENARIOS

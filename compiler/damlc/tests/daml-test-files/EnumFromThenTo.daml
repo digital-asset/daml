@@ -7,3 +7,5 @@ module EnumFromThenTo where
 
 main : Scenario [Int]
 main = pure [1, 1 .. 2]
+
+-- @ENABLE-SCENARIOS

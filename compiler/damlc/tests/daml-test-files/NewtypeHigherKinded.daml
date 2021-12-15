@@ -22,3 +22,5 @@ unwrap (App xs) = fmap (\(Wrap x) -> x) xs
 
 main = scenario do
   unwrap (wrap [1]) === [1]
+
+-- @ENABLE-SCENARIOS

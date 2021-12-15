@@ -101,3 +101,5 @@ main = scenario do
       unless (TemplateTypeRep (interfaceTypeRep token) == templateTypeRep @Asset) $ abort "TypeReps are not equal"
       unless (TemplateTypeRep (interfaceTypeRep token) /= templateTypeRep @NotAsset ) $ abort "TypeReps are equal"
       pure ()
+
+-- @ENABLE-SCENARIOS

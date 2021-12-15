@@ -626,3 +626,5 @@ evUpdLookupByKeyErr = scenario do
   submit p do
     fetchByKey @T_EvUpdLookupByKeyErr ()
     abort "EvUpdLookupByKeyErr failed"
+
+-- @ENABLE-SCENARIOS

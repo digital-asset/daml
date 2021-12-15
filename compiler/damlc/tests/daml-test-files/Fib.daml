@@ -13,3 +13,5 @@ fib n = fib (n-1) + fib (n-2)
 
 main = scenario do
   fib 10 === 55
+
+-- @ENABLE-SCENARIOS

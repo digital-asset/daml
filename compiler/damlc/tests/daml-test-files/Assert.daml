@@ -7,3 +7,5 @@ module Assert where
 
 test = scenario do
   assert (1 == 1)
+
+-- @ENABLE-SCENARIOS

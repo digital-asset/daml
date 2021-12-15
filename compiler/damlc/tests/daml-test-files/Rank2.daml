@@ -14,3 +14,5 @@ applyBoth f (a,b) = (f a, f b)
 
 main = scenario do
   applyBoth reverse ([1,2,3],["a","b"]) === ([3,2,1],["b","a"])
+
+-- @ENABLE-SCENARIOS

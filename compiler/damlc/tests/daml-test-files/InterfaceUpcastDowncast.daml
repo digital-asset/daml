@@ -82,3 +82,5 @@ main = scenario do
         exercise cidt1 ChoiceB
 
         pure ()
+
+-- @ENABLE-SCENARIOS

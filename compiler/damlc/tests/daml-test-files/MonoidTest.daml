@@ -14,3 +14,5 @@ testSum = scenario do
 testProduct = scenario do
   Product (2 : Int) <> Product 3 === Product (2 * 3)
   mempty === Product (munit : Int)
+
+-- @ENABLE-SCENARIOS

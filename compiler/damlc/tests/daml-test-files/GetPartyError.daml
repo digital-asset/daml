@@ -8,3 +8,5 @@ module GetPartyError where
 main = scenario do
     _ <- getParty "#party"
     pure ()
+
+-- @ENABLE-SCENARIOS

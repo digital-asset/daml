@@ -21,3 +21,5 @@ main = scenario do
   let other2 = Other
   btc1 === btc2
   other1 "ETH" === other2 "ETH"
+
+-- @ENABLE-SCENARIOS

@@ -8,3 +8,5 @@ module UnusedLet where
 main = scenario do
   let _ = error "BOOM"
   pure ()
+
+-- @ENABLE-SCENARIOS

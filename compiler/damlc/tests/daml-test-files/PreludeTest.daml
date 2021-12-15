@@ -412,3 +412,5 @@ testDateMaxBoundSucc : Scenario Date = do
 testTypeCheckTrace = scenario do
   debug 1
   debugRaw "abc"
+
+-- @ENABLE-SCENARIOS

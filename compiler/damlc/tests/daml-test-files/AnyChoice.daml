@@ -39,3 +39,5 @@ main = scenario do
   fromAnyChoice @T2 @C2 (toAnyChoice @T2 c2) === Some c2
   fromAnyChoice @T1 @Archive (toAnyChoice @T2 Archive) === None
   fromAnyChoice @T2 @Archive (toAnyChoice @T2 Archive) === Some Archive
+
+-- @ENABLE-SCENARIOS

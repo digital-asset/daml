@@ -67,3 +67,5 @@ trigTest = scenario do
 
   assert (cos (15.0 * pi / 2.0) <= delta)
   assert (abs(0.5 - cos (pi / 3.0)) <= 4.0 * delta)
+
+-- @ENABLE-SCENARIOS

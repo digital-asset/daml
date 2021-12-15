@@ -39,3 +39,5 @@ main = scenario do
   show (True, 1) === "(True,1)"
   show [1,2] === "[1,2]"
   show (Dbl 42 109) === "Dbl {dbl1 = 42, dbl2 = 109}"
+
+-- @ENABLE-SCENARIOS

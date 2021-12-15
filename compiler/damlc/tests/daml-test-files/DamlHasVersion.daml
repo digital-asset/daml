@@ -16,3 +16,5 @@ main : Scenario ()
 main = do
   p <- getParty "p"
   void (submit p $ create T with p)
+
+-- @ENABLE-SCENARIOS

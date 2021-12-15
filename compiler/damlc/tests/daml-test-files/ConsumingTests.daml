@@ -50,3 +50,5 @@ main = scenario do
   submitMustFail p $ fetch postConsumeCid
 
   return ()
+
+-- @ENABLE-SCENARIOS

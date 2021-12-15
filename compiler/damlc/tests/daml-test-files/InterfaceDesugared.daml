@@ -412,3 +412,5 @@ main
                   None -> abort "expected Asset"
                   Some Asset {amount} -> amount === 25
                 pure ()
+
+-- @ENABLE-SCENARIOS

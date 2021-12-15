@@ -19,3 +19,5 @@ main = scenario do
   Setup.main
   Dvp.main
   Helper.main
+
+-- @ENABLE-SCENARIOS

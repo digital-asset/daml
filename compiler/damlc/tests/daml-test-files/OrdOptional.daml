@@ -7,3 +7,5 @@ module OrdOptional where
 -- NOTE(MH): This used to loop indefinitely.
 main = scenario do
   assert (None < Some 1)
+
+-- @ENABLE-SCENARIOS

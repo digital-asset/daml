@@ -9,3 +9,5 @@ main = scenario do
     alice' <- getParty "alice"
     bob <- getParty "bob"
     assert $ alice == alice' && alice /= bob
+
+-- @ENABLE-SCENARIOS

@@ -51,3 +51,5 @@ testRoundToNumeric = scenario do
      roundToNumeric RoundingDown 0.123456789 === (0.12345678 : Numeric 8)
      roundToNumeric RoundingDown 0.123456789 === (0.123456789 : Numeric 9)
      roundToNumeric RoundingDown 0.123456789 === (0.123456789 : Numeric 10)
+
+-- @ENABLE-SCENARIOS

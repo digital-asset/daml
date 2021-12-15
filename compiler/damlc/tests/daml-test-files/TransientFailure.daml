@@ -33,3 +33,5 @@ testBio  = do
   -- between contract ids and node ids.
   submit p do exercise latestCid FailingTransient
   return ()
+
+-- @ENABLE-SCENARIOS

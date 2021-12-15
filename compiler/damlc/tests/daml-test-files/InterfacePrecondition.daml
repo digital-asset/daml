@@ -109,3 +109,5 @@ main = scenario do
       owner = p
       amount = 5 -- works for Token1 & Token2 & Asset
   pure ()
+
+-- @ENABLE-SCENARIOS

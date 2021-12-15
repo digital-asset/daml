@@ -26,3 +26,5 @@ test = scenario do
     sumPoly 0 [1, 2, 3] === 6
     sumPoly 0.0 [1.0, 2.0, 3.0] === (6.0 : Decimal)
     sumMono 0 [1, 2, 3] === 6
+
+-- @ENABLE-SCENARIOS
