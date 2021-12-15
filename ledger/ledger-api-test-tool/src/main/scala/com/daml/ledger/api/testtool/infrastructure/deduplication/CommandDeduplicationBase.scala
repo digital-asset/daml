@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure.deduplication
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.GrpcStatus
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -21,6 +22,7 @@ import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, TextKeyOperations}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.SubmissionId
 import com.daml.timer.Delayed
 import io.grpc.Status.Code
 
@@ -69,14 +71,22 @@ private[testtool] abstract class CommandDeduplicationBase(
             DeduplicationPeriod.DeduplicationTime(deduplicationDuration.asProtobuf)
         )
       runWithDeduplicationDelay(configuredParticipants) { delay =>
+        val acceptedSubmissionId1 = SubmissionIdGenerator.Random.generate()
+        val acceptedSubmissionId2 = SubmissionIdGenerator.Random.generate()
+
         for {
           // Submit command (first deduplication window)
           // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
           // only one submission is therefore sent to the ledger.
-          (offset1, completion1) <- submitRequestAndAssertCompletionAccepted(ledger, request, party)
+          (offset1, completion1) <- submitRequestAndAssertCompletionAccepted(
+            ledger,
+            request.update(_.commands.submissionId := acceptedSubmissionId1),
+            party,
+          )
           _ <- submitRequestAndAssertDeduplication(
             ledger,
             request,
+            acceptedSubmissionId1,
             offset1,
             party,
           )
@@ -88,10 +98,15 @@ private[testtool] abstract class CommandDeduplicationBase(
           // the ledger API server and the ledger itself, since the test waited more than
           // `deduplicationSeconds` after receiving the first command *completion*.
           // The first submit() in this block should therefore lead to an accepted transaction.
-          (offset2, completion2) <- submitRequestAndAssertCompletionAccepted(ledger, request, party)
+          (offset2, completion2) <- submitRequestAndAssertCompletionAccepted(
+            ledger,
+            request.update(_.commands.submissionId := acceptedSubmissionId2),
+            party,
+          )
           _ <- submitRequestAndAssertDeduplication(
             ledger,
             request,
+            acceptedSubmissionId2,
             offset2,
             party,
           )
@@ -196,18 +211,36 @@ private[testtool] abstract class CommandDeduplicationBase(
         .update(
           _.commands.deduplicationTime := deduplicationDuration.asProtobuf
         )
+      val acceptedSubmissionId1 = SubmissionIdGenerator.Random.generate()
+      val acceptedSubmissionId2 = SubmissionIdGenerator.Random.generate()
       runWithDeduplicationDelay(configuredParticipants) { delay =>
         for {
           // Submit command (first deduplication window)
-          completionOffset <- ledger.submitAndWaitForTransaction(request).map(_.completionOffset)
-          _ <- submitAndWaitRequestAndAssertDeduplication(ledger, request, completionOffset)
+          completionOffset <- ledger
+            .submitAndWaitForTransaction(
+              request.update(_.commands.submissionId := acceptedSubmissionId1)
+            )
+            .map(_.completionOffset)
+          _ <- submitAndWaitRequestAndAssertDeduplication(
+            ledger,
+            request,
+            acceptedSubmissionId1,
+            completionOffset,
+          )
 
           // Wait until the end of first deduplication window
           _ <- delay.delayForEntireDeduplicationPeriod()
 
           // Submit command (second deduplication window)
-          _ <- ledger.submitAndWait(request)
-          _ <- submitAndWaitRequestAndAssertDeduplication(ledger, request, completionOffset)
+          _ <- ledger.submitAndWait(
+            request.update(_.commands.submissionId := acceptedSubmissionId2)
+          )
+          _ <- submitAndWaitRequestAndAssertDeduplication(
+            ledger,
+            request,
+            acceptedSubmissionId2,
+            completionOffset,
+          )
 
           // Inspect created contracts
           _ <- assertPartyHasActiveContracts(
@@ -239,6 +272,8 @@ private[testtool] abstract class CommandDeduplicationBase(
         runWithDeduplicationDelay(configuredParticipants) { delay =>
           {
             val numberOfCalls = 4
+            val acceptedSubmissionIds =
+              Vector.fill(numberOfCalls / 2)(SubmissionIdGenerator.Random.generate())
             Future // cover all the different generated variations of submit and submitAndWait
               .traverse(generateVariations(List.fill(numberOfCalls)(List(true, false)))) {
                 case firstCall :: secondCall :: thirdCall :: fourthCall :: Nil =>
@@ -254,44 +289,69 @@ private[testtool] abstract class CommandDeduplicationBase(
                       _.commands.deduplicationTime := deduplicationDuration.asProtobuf,
                     )
 
-                  def submitAndAssertAccepted(submitAndWait: Boolean): Future[String] =
+                  def submitAndAssertAccepted(
+                      submitAndWait: Boolean,
+                      acceptedSubmissionId: SubmissionId,
+                  ): Future[LedgerOffset] = {
                     if (submitAndWait)
                       ledger
-                        .submitAndWaitForTransaction(submitAndWaitRequest)
+                        .submitAndWaitForTransaction(
+                          submitAndWaitRequest.update(
+                            _.commands.submissionId := acceptedSubmissionId
+                          )
+                        )
                         .map(_.completionOffset)
+                        .map(absoluteLedgerOffset)
                     else
-                      submitRequestAndAssertCompletionAccepted(ledger, submitRequest, party)
+                      submitRequestAndAssertCompletionAccepted(
+                        ledger,
+                        submitRequest.update(_.commands.submissionId := acceptedSubmissionId),
+                        party,
+                      )
                         .map(_._1.toString)
+                        .map(absoluteLedgerOffset)
+                  }
 
                   def submitAndAssertDeduplicated(
                       submitAndWait: Boolean,
-                      expectedLedgerOffset: String,
+                      acceptedSubmissionId: SubmissionId,
+                      acceptedLedgerOffset: LedgerOffset,
                   ): Future[Unit] =
                     if (submitAndWait)
                       submitAndWaitRequestAndAssertDeduplication(
                         ledger,
                         submitAndWaitRequest,
-                        expectedLedgerOffset,
+                        acceptedSubmissionId,
+                        acceptedLedgerOffset,
                       )
                     else
                       submitRequestAndAssertDeduplication(
                         ledger,
                         submitRequest,
-                        absoluteLedgerOffset(expectedLedgerOffset),
+                        acceptedSubmissionId,
+                        acceptedLedgerOffset,
                         party,
                       )
 
                   for {
                     // Submit command (first deduplication window)
-                    ledgerOffset1 <- submitAndAssertAccepted(firstCall)
-                    _ <- submitAndAssertDeduplicated(secondCall, ledgerOffset1)
+                    ledgerOffset1 <- submitAndAssertAccepted(firstCall, acceptedSubmissionIds(1))
+                    _ <- submitAndAssertDeduplicated(
+                      secondCall,
+                      acceptedSubmissionIds(1),
+                      ledgerOffset1,
+                    )
 
                     // Wait until the end of first deduplication window
                     _ <- delay.delayForEntireDeduplicationPeriod()
 
                     // Submit command (second deduplication window)
-                    ledgerOffset2 <- submitAndAssertAccepted(thirdCall)
-                    _ <- submitAndAssertDeduplicated(fourthCall, ledgerOffset2)
+                    ledgerOffset2 <- submitAndAssertAccepted(thirdCall, acceptedSubmissionIds(2))
+                    _ <- submitAndAssertDeduplicated(
+                      fourthCall,
+                      acceptedSubmissionIds(2),
+                      ledgerOffset2,
+                    )
                   } yield {}
                 case _ => throw new IllegalArgumentException("Wrong call list constructed")
               }
@@ -317,18 +377,37 @@ private[testtool] abstract class CommandDeduplicationBase(
       .submitRequest(bob, Dummy(bob).create.command)
       .update(_.commands.commandId := aliceRequest.getCommands.commandId)
 
+    val acceptedSubmissionIdAlice = SubmissionIdGenerator.Random.generate()
+    val acceptedSubmissionIdBob = SubmissionIdGenerator.Random.generate()
+
     for {
       // Submit a command as alice
       (aliceCompletionOffset, _) <- submitRequestAndAssertCompletionAccepted(
         ledger,
-        aliceRequest,
+        aliceRequest.update(_.commands.submissionId := acceptedSubmissionIdAlice),
         alice,
       )
-      _ <- submitRequestAndAssertDeduplication(ledger, aliceRequest, aliceCompletionOffset, alice)
+      _ <- submitRequestAndAssertDeduplication(
+        ledger,
+        aliceRequest,
+        acceptedSubmissionIdAlice,
+        aliceCompletionOffset,
+        alice,
+      )
 
       // Submit another command that uses same commandId, but is submitted by Bob
-      (bobCompletionOffset, _) <- submitRequestAndAssertCompletionAccepted(ledger, bobRequest, bob)
-      _ <- submitRequestAndAssertDeduplication(ledger, bobRequest, bobCompletionOffset, bob)
+      (bobCompletionOffset, _) <- submitRequestAndAssertCompletionAccepted(
+        ledger,
+        bobRequest.update(_.commands.submissionId := acceptedSubmissionIdBob),
+        bob,
+      )
+      _ <- submitRequestAndAssertDeduplication(
+        ledger,
+        bobRequest,
+        acceptedSubmissionIdBob,
+        bobCompletionOffset,
+        bob,
+      )
       _ <- assertPartyHasActiveContracts(
         ledger,
         party = alice,
@@ -352,16 +431,34 @@ private[testtool] abstract class CommandDeduplicationBase(
       .submitAndWaitRequest(bob, Dummy(bob).create.command)
       .update(_.commands.commandId := aliceRequest.getCommands.commandId)
 
+    val acceptedSubmissionIdAlice = SubmissionIdGenerator.Random.generate()
+    val acceptedSubmissionIdBob = SubmissionIdGenerator.Random.generate()
     for {
       // Submit a command as alice
       aliceCompletionOffset <- ledger
-        .submitAndWaitForTransaction(aliceRequest)
+        .submitAndWaitForTransaction(
+          aliceRequest.update(_.commands.submissionId := acceptedSubmissionIdAlice)
+        )
         .map(_.completionOffset)
-      _ <- submitAndWaitRequestAndAssertDeduplication(ledger, aliceRequest, aliceCompletionOffset)
+      _ <- submitAndWaitRequestAndAssertDeduplication(
+        ledger,
+        aliceRequest,
+        acceptedSubmissionIdAlice,
+        aliceCompletionOffset,
+      )
 
       // Submit another command that uses same commandId, but is submitted by Bob
-      bobCompletionOffset <- ledger.submitAndWaitForTransaction(bobRequest).map(_.completionOffset)
-      _ <- submitAndWaitRequestAndAssertDeduplication(ledger, bobRequest, bobCompletionOffset)
+      bobCompletionOffset <- ledger
+        .submitAndWaitForTransaction(
+          bobRequest.update(_.commands.submissionId := acceptedSubmissionIdBob)
+        )
+        .map(_.completionOffset)
+      _ <- submitAndWaitRequestAndAssertDeduplication(
+        ledger,
+        bobRequest,
+        acceptedSubmissionIdBob,
+        bobCompletionOffset,
+      )
       // Inspect the ledger state
       _ <- assertPartyHasActiveContracts(
         ledger,
@@ -385,9 +482,14 @@ private[testtool] abstract class CommandDeduplicationBase(
     configuredParticipants => { case Participants(Participant(ledger, party)) =>
       val request = ledger
         .submitRequest(party, DummyWithAnnotation(party, "Duplicate command").create.command)
+      val acceptedSubmissionId = SubmissionIdGenerator.Random.generate()
       runWithDeduplicationDelay(configuredParticipants) { delay =>
         for {
-          (offset1, _) <- submitRequestAndAssertCompletionAccepted(ledger, request, party)
+          (offset1, _) <- submitRequestAndAssertCompletionAccepted(
+            ledger,
+            request.update(_.commands.submissionId := acceptedSubmissionId),
+            party,
+          )
           // Wait for any ledgers that might adjust based on time skews
           // This is done so that we can validate that the third command is accepted
           _ <- delayForOffsetIfRequired(ledger, delay)
@@ -399,6 +501,7 @@ private[testtool] abstract class CommandDeduplicationBase(
                 Ref.HexString.assertFromString(offset1.getAbsolute)
               )
             ),
+            acceptedSubmissionId,
             offset1,
             party,
           )
@@ -474,21 +577,27 @@ private[testtool] abstract class CommandDeduplicationBase(
   protected def submitRequestAndAssertDeduplication(
       ledger: ParticipantTestContext,
       request: SubmitRequest,
+      acceptedSubmissionId: SubmissionId,
       acceptedOffset: LedgerOffset,
       parties: Party*
   )(implicit
       ec: ExecutionContext
   ): Future[Unit] =
     if (deduplicationFeatures.participantDeduplication)
-      submitRequestAndAssertSyncDeduplication(ledger, request, acceptedOffset)
+      submitRequestAndAssertSyncDeduplication(ledger, request, acceptedSubmissionId, acceptedOffset)
     else
-      submitRequestAndAssertAsyncDeduplication(ledger, request, acceptedOffset, parties: _*).map(
-        _ => ()
-      )
+      submitRequestAndAssertAsyncDeduplication(
+        ledger,
+        request,
+        acceptedSubmissionId,
+        acceptedOffset,
+        parties: _*
+      ).map(_ => ())
 
   protected def submitRequestAndAssertSyncDeduplication(
       ledger: ParticipantTestContext,
       request: SubmitRequest,
+      acceptedSubmissionId: SubmissionId,
       acceptedOffset: LedgerOffset,
   )(implicit ec: ExecutionContext): Future[Unit] =
     submitRequestAndAssertSyncFailure(
@@ -498,7 +607,7 @@ private[testtool] abstract class CommandDeduplicationBase(
       LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
     )(
       assertDeduplicatedSubmissionIdAndOffsetOnError(
-        request.commands.map(_.submissionId),
+        acceptedSubmissionId,
         acceptedOffset,
         _,
       )
@@ -530,17 +639,20 @@ private[testtool] abstract class CommandDeduplicationBase(
   protected def submitAndWaitRequestAndAssertDeduplication(
       ledger: ParticipantTestContext,
       request: SubmitAndWaitRequest,
+      acceptedSubmissionId: SubmissionId,
       acceptedOffset: String,
   )(implicit ec: ExecutionContext): Future[Unit] =
     submitAndWaitRequestAndAssertDeduplication(
       ledger,
       request,
+      acceptedSubmissionId,
       absoluteLedgerOffset(acceptedOffset),
     )
 
   protected def submitAndWaitRequestAndAssertDeduplication(
       ledger: ParticipantTestContext,
       request: SubmitAndWaitRequest,
+      acceptedSubmissionId: SubmissionId,
       acceptedOffset: LedgerOffset,
   )(implicit ec: ExecutionContext): Future[Unit] =
     ledger
@@ -555,7 +667,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           exceptionMessageSubstring = None,
           checkDefiniteAnswerMetadata = true,
           assertDeduplicatedSubmissionIdAndOffsetOnError(
-            request.commands.map(_.submissionId),
+            acceptedSubmissionId,
             acceptedOffset,
             _,
           ),
@@ -565,6 +677,7 @@ private[testtool] abstract class CommandDeduplicationBase(
   protected def submitRequestAndAssertAsyncDeduplication(
       ledger: ParticipantTestContext,
       request: SubmitRequest,
+      acceptedSubmissionId: SubmissionId,
       acceptedOffset: LedgerOffset,
       parties: Party*
   )(implicit ec: ExecutionContext): Future[OffsetWithCompletion] =
@@ -576,7 +689,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     ) { completion =>
       assertCompletionStatus(request, completion, Code.ALREADY_EXISTS)
       assertDeduplicatedSubmissionIdAndOffsetOnCompletion(
-        request.commands.map(_.submissionId),
+        acceptedSubmissionId,
         acceptedOffset,
         completion,
       )
@@ -598,50 +711,50 @@ private[testtool] abstract class CommandDeduplicationBase(
     )
 
   private def assertDeduplicatedSubmissionIdAndOffsetOnError(
-      expectedSubmissionId: Option[String],
-      expectedCompletionOffset: LedgerOffset,
+      acceptedSubmissionId: SubmissionId,
+      acceptedCompletionOffset: LedgerOffset,
       t: Throwable,
   ): Unit = t match {
     case exception: Exception =>
       val metadata = extractErrorInfoMetadata(exception)
-      assertExistingCompletionOffsetOnMetadata(metadata, expectedCompletionOffset)
-      assertExistingSubmissionIdOnMetadata(metadata, expectedSubmissionId)
+      assertExistingCompletionOffsetOnMetadata(metadata, acceptedCompletionOffset)
+      assertExistingSubmissionIdOnMetadata(metadata, acceptedSubmissionId)
     case _ => ()
   }
 
   private def assertDeduplicatedSubmissionIdAndOffsetOnCompletion(
-      expectedSubmissionId: Option[String],
-      expectedCompletionOffset: LedgerOffset,
+      acceptedSubmissionId: SubmissionId,
+      acceptedCompletionOffset: LedgerOffset,
       completion: Completion,
   ): Unit = {
     val metadata = extractErrorInfoMetadata(
       GrpcStatus.toJavaProto(completion.getStatus)
     )
-    assertExistingCompletionOffsetOnMetadata(metadata, expectedCompletionOffset)
-    assertExistingSubmissionIdOnMetadata(metadata, expectedSubmissionId)
+    assertExistingSubmissionIdOnMetadata(metadata, acceptedSubmissionId)
+    assertExistingCompletionOffsetOnMetadata(metadata, acceptedCompletionOffset)
   }
 
   private def assertExistingSubmissionIdOnMetadata(
       metadata: util.Map[String, String],
-      expectedSubmissionId: Option[String],
+      acceptedSubmissionId: SubmissionId,
   ): Unit =
     Option(metadata.get("existing_submission_id")).foreach { submissionId =>
       assertEquals(
         "submission ID mismatch",
-        Some(submissionId),
-        expectedSubmissionId,
+        submissionId,
+        acceptedSubmissionId,
       )
     }
 
   private def assertExistingCompletionOffsetOnMetadata(
       metadata: util.Map[String, String],
-      expectedCompletionOffset: LedgerOffset,
+      acceptedCompletionOffset: LedgerOffset,
   ): Unit =
     Option(metadata.get("completion_offset")).foreach { offset =>
       assertEquals(
         "completion offset mismatch",
         absoluteLedgerOffset(offset),
-        expectedCompletionOffset,
+        acceptedCompletionOffset,
       )
     }
 
