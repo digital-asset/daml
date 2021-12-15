@@ -47,7 +47,7 @@ class DeduplicationPeriodSupportSpec
         }
     }
 
-    "valid and return failure" in {
+    "validate and return failure" in {
       val fixture = getFixture
       import fixture._
       when(
