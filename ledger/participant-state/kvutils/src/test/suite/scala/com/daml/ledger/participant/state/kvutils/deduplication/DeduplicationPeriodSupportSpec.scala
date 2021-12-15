@@ -31,15 +31,36 @@ class DeduplicationPeriodSupportSpec
     with ArgumentMatchersSugar {
 
   "using deduplication duration" should {
-    "passthrough without validation" in {
+    "validate and return success" in {
       val fixture = getFixture
       import fixture._
-      val period = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1))
-      callServiceWithDeduplicationPeriod(period)
+      when(
+        periodValidator.validate(any[DeduplicationPeriod], any[Duration])(
+          any[ContextualizedErrorLogger]
+        )
+      ).thenReturn(Right(durationPeriod))
+      callServiceWithDeduplicationPeriod(durationPeriod)
         .map { result =>
           verifyNoMoreInteractions(periodConverter)
-          verifyNoMoreInteractions(periodValidator)
-          result shouldBe period
+          verify(periodValidator).validate(durationPeriod, maxDeduplicationDuration)
+          result shouldBe durationPeriod
+        }
+    }
+
+    "valid and return failure" in {
+      val fixture = getFixture
+      import fixture._
+      when(
+        periodValidator.validate(any[DeduplicationPeriod], any[Duration])(
+          any[ContextualizedErrorLogger]
+        )
+      ).thenReturn(Left(statusRuntimeException))
+      recoverToExceptionIf[StatusRuntimeException](
+        callServiceWithDeduplicationPeriod(durationPeriod)
+      )
+        .map { result =>
+          verify(periodValidator).validate(durationPeriod, maxDeduplicationDuration)
+          result shouldBe statusRuntimeException
         }
     }
   }
@@ -51,7 +72,6 @@ class DeduplicationPeriodSupportSpec
       val offsetPeriod = DeduplicationPeriod.DeduplicationOffset(
         deduplicationPeriodOffset
       )
-      val durationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1))
       when(
         periodConverter.convertOffsetToDuration(
           offset,
@@ -81,7 +101,6 @@ class DeduplicationPeriodSupportSpec
       val offsetPeriod = DeduplicationPeriod.DeduplicationOffset(
         deduplicationPeriodOffset
       )
-      val durationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1))
       when(
         periodConverter.convertOffsetToDuration(
           offset,
@@ -170,6 +189,7 @@ class DeduplicationPeriodSupportSpec
     val deduplicationPeriodOffset =
       Offset.fromHexString(Hash.hashPrivateKey("offset").toHexString)
     val offset = deduplicationPeriodOffset.toHexString
+    val durationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1))
 
     def callServiceWithDeduplicationPeriod(
         offsetPeriod: DeduplicationPeriod
