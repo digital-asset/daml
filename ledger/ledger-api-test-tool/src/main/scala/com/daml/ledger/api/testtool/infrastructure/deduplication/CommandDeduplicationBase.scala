@@ -335,7 +335,7 @@ private[testtool] abstract class CommandDeduplicationBase(
 
                   for {
                     // Submit command (first deduplication window)
-                    ledgerOffset1 <- submitAndAssertAccepted(firstCall, acceptedSubmissionIds(1))
+                    ledgerOffset1 <- submitAndAssertAccepted(firstCall, acceptedSubmissionIds(0))
                     _ <- submitAndAssertDeduplicated(
                       secondCall,
                       acceptedSubmissionIds(1),
@@ -346,7 +346,7 @@ private[testtool] abstract class CommandDeduplicationBase(
                     _ <- delay.delayForEntireDeduplicationPeriod()
 
                     // Submit command (second deduplication window)
-                    ledgerOffset2 <- submitAndAssertAccepted(thirdCall, acceptedSubmissionIds(2))
+                    ledgerOffset2 <- submitAndAssertAccepted(thirdCall, acceptedSubmissionIds(1))
                     _ <- submitAndAssertDeduplicated(
                       fourthCall,
                       acceptedSubmissionIds(2),
@@ -738,10 +738,10 @@ private[testtool] abstract class CommandDeduplicationBase(
       metadata: util.Map[String, String],
       acceptedSubmissionId: SubmissionId,
   ): Unit =
-    Option(metadata.get("existing_submission_id")).foreach { submissionId =>
+    Option(metadata.get("existing_submission_id")).foreach { metadataExistingSubmissionId =>
       assertEquals(
         "submission ID mismatch",
-        submissionId,
+        metadataExistingSubmissionId,
         acceptedSubmissionId,
       )
     }
