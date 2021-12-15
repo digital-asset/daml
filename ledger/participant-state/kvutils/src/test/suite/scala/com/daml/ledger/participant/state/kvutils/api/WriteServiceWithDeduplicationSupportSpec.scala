@@ -110,7 +110,7 @@ class WriteServiceWithDeduplicationSupportSpec
         0,
       )
       .asScala
-      .map(_ => {
+      .map { _ =>
         verify(mockWriteService).submitTransaction(
           submitterInfo.copy(deduplicationPeriod = convertedDeduplicationPeriod),
           transactionMeta,
@@ -118,7 +118,7 @@ class WriteServiceWithDeduplicationSupportSpec
           0,
         )
         succeed
-      })
+      }
   }
 
   "use actAs and readAs as readers for the completion stream" in {
@@ -157,13 +157,14 @@ class WriteServiceWithDeduplicationSupportSpec
         0,
       )
       .asScala
-      .map(_ => {
+      .map { _ =>
+        val expectedReaders = (submitterInfoWithParties.readAs ++ submitterInfoWithParties.actAs).toSet
         verify(mockDeduplicationPeriodSupport).supportedDeduplicationPeriod(
           any[DeduplicationPeriod],
           any[Duration],
           any[LedgerTimeModel],
           any[ApplicationId],
-          eqTo((submitterInfoWithParties.readAs ++ submitterInfoWithParties.actAs).toSet),
+          eqTo(expectedReaders),
           any[Instant],
         )(
           any[Materializer],
@@ -172,7 +173,7 @@ class WriteServiceWithDeduplicationSupportSpec
           any[ContextualizedErrorLogger],
         )
         succeed
-      })
+      }
   }
 
 }
