@@ -269,8 +269,6 @@ private[testtool] abstract class CommandDeduplicationBase(
         runWithDeduplicationDelay(configuredParticipants) { delay =>
           {
             val numberOfCalls = 4
-            val acceptedSubmissionIds =
-              Vector.fill(numberOfCalls / 2)(freshSubmissionId)
             Future // cover all the different generated variations of submit and submitAndWait
               .traverse(generateVariations(List.fill(numberOfCalls)(List(true, false)))) {
                 case firstCall :: secondCall :: thirdCall :: fourthCall :: Nil =>
@@ -328,12 +326,14 @@ private[testtool] abstract class CommandDeduplicationBase(
                         party,
                       )
 
+                  val acceptedSubmissionId1 = freshSubmissionId
+                  val acceptedSubmissionId2 = freshSubmissionId
                   for {
                     // Submit command (first deduplication window)
-                    ledgerOffset1 <- submitAndAssertAccepted(firstCall, acceptedSubmissionIds(0))
+                    ledgerOffset1 <- submitAndAssertAccepted(firstCall, acceptedSubmissionId1)
                     _ <- submitAndAssertDeduplicated(
                       secondCall,
-                      acceptedSubmissionIds(0),
+                      acceptedSubmissionId1,
                       ledgerOffset1,
                     )
 
@@ -341,10 +341,10 @@ private[testtool] abstract class CommandDeduplicationBase(
                     _ <- delay.delayForEntireDeduplicationPeriod()
 
                     // Submit command (second deduplication window)
-                    ledgerOffset2 <- submitAndAssertAccepted(thirdCall, acceptedSubmissionIds(1))
+                    ledgerOffset2 <- submitAndAssertAccepted(thirdCall, acceptedSubmissionId2)
                     _ <- submitAndAssertDeduplicated(
                       fourthCall,
-                      acceptedSubmissionIds(1),
+                      acceptedSubmissionId2,
                       ledgerOffset2,
                     )
                   } yield {}
