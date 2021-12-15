@@ -40,13 +40,4 @@ trait AkkaResourceOwnerFactories[Context] {
       toSourceQueue = _._1,
       toDone = _._2.map(_ => ())(ExecutionContext.parasitic),
     )
-
-  def forBoundedSourceQueue[T, E](
-      queueGraph: RunnableGraph[T],
-      toSourceQueue: T => BoundedSourceQueue[E],
-      toDone: T => Future[Unit],
-  )(implicit
-      materializer: Materializer
-  ): AbstractResourceOwner[Context, T] =
-    new BoundedSourceQueueResourceOwner[T, E, Context](queueGraph, toSourceQueue, toDone)
 }
