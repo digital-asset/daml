@@ -55,7 +55,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
 import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
-import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..))
+import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..), Arg(MaxReceiveMessageLength))
 import qualified Proto3.Suite as Proto
 import System.Directory
 import System.Environment
@@ -245,7 +245,13 @@ withScenarioService opts@Options{..} f = do
             liftIO $ optLogDebug $ "Scenario service backend running on port " <> show port
             -- Using 127.0.0.1 instead of localhost helps when our packaging logic falls over
             -- and DNS lookups break, e.g., on Alpine linux.
-            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing
+            let grpcConfig = ClientConfig
+                  { clientServerHost = Host "127.0.0.1"
+                  , clientServerPort = Port port
+                  , clientArgs = MaxReceiveMessageLength . fromIntegral <$> maybeToList optGrpcMaxMessageSize
+                  , clientSSLConfig = Nothing
+                  , clientAuthority = Nothing
+                  }
             withGRPCClient grpcConfig $ \client -> do
                 ssClient <- SS.scenarioServiceClient client
                 f Handle
