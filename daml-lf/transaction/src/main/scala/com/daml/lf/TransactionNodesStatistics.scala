@@ -16,7 +16,7 @@ package transaction
   * @param lookupsByKey number of lookup by key nodes,
   * @param rollbacks number of rollback nodes.
   */
-final case class TransactionNodesStatistics(
+final case class TransactionNodesStats(
     creates: Int,
     consumingExercisesByCid: Int,
     nonconsumingExercisesByCid: Int,
@@ -28,8 +28,8 @@ final case class TransactionNodesStatistics(
     rollbacks: Int,
 ) {
 
-  def +(that: TransactionNodesStatistics) =
-    TransactionNodesStatistics(
+  def +(that: TransactionNodesStats) =
+    TransactionNodesStats(
       creates = this.creates + that.creates,
       consumingExercisesByCid = this.consumingExercisesByCid + that.consumingExercisesByCid,
       nonconsumingExercisesByCid =
@@ -54,11 +54,17 @@ final case class TransactionNodesStatistics(
   def nodes: Int = actions + rollbacks
 }
 
+final case class TransactionNodesStatistics(
+    committed: TransactionNodesStats,
+    rolledBack: TransactionNodesStats,
+)
+
 object TransactionNodesStatistics {
 
-  val Empty = TransactionNodesStatistics(0, 0, 0, 0, 0, 0, 0, 0, 0)
+  val EmptyStats: TransactionNodesStats = TransactionNodesStats(0, 0, 0, 0, 0, 0, 0, 0, 0)
+  val Empty: TransactionNodesStatistics = TransactionNodesStatistics(EmptyStats, EmptyStats)
 
-  private[this] val numberOfFields = Empty.productArity
+  private[this] val numberOfFields = EmptyStats.productArity
 
   private[this] val Seq(
     createsIdx,
@@ -76,7 +82,7 @@ object TransactionNodesStatistics {
   private[this] def emptyFields = Array.fill(numberOfFields)(0)
 
   private[this] def build(stats: Array[Int]) =
-    TransactionNodesStatistics(
+    TransactionNodesStats(
       creates = stats(createsIdx),
       consumingExercisesByCid = stats(consumingExercisesByCidIdx),
       nonconsumingExercisesByCid = stats(nonconsumingExerciseCidsIdx),
@@ -93,10 +99,10 @@ object TransactionNodesStatistics {
     *  rolled back nodes (those nodes that do appear under a rollback node) on
     *  the other hand within a given transaction `tx`.
     */
-  def stats(tx: VersionedTransaction): (TransactionNodesStatistics, TransactionNodesStatistics) =
+  def stats(tx: VersionedTransaction): TransactionNodesStatistics =
     stats(tx.transaction)
 
-  def stats(tx: Transaction): (TransactionNodesStatistics, TransactionNodesStatistics) = {
+  def stats(tx: Transaction): TransactionNodesStatistics = {
     val committed = emptyFields
     val rolledBack = emptyFields
     var rollbackDepth = 0
@@ -142,7 +148,7 @@ object TransactionNodesStatistics {
       rollbackEnd = (_, _) => rollbackDepth -= 1,
     )
 
-    (build(committed), build(rolledBack))
+    TransactionNodesStatistics(build(committed), build(rolledBack))
   }
 
 }
