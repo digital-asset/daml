@@ -36,6 +36,7 @@ da_scala_library(
         "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
@@ -47,6 +48,7 @@ da_scala_library(
         "//ledger/participant-state-metrics",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
+        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "//libs-scala/resources",
@@ -160,6 +162,31 @@ conformance_test(
         "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
         # Disable tests targeting only append-only schema functionality
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-conflict-checking",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=example,port=6865",
+        "--mutable-contract-state-cache",
+        "--enable-conflict-checking",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--exclude=ClosedWorldIT",
+        "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
+        # Exclude offset command deduplication tests
+        # sandbox classic has support only for participant side deduplication,
+        # which in turn only has support for durations as deduplication periods
+        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 

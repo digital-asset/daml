@@ -168,7 +168,9 @@ object Assertions {
       .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.retryDelayInSeconds }
 
     if (actualErrorId != expectedErrorId)
-      fail(s"Actual error id ($actualErrorId) does not match expected error id ($expectedErrorId}")
+      fail(
+        s"Actual error id ($actualErrorId) does not match expected error id ($expectedErrorId} for error $statusRuntimeException"
+      )
 
     Assertions.assertEquals(
       "gRPC error code mismatch",

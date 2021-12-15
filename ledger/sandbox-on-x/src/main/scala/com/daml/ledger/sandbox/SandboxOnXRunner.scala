@@ -167,7 +167,12 @@ object SandboxOnXRunner {
             servicesExecutionContext,
           )
 
-          writeService <- buildWriteService(stateUpdatesFeedSink, servicesExecutionContext)
+          writeService <- buildWriteService(
+            stateUpdatesFeedSink,
+            indexService,
+            metrics,
+            servicesExecutionContext,
+          )
 
           _ <- buildStandaloneApiServer(
             sharedEngine,
@@ -300,23 +305,24 @@ object SandboxOnXRunner {
   // Builds the write service and uploads the initialization DARs
   private def buildWriteService(
       feedSink: Sink[(Offset, Update), NotUsed],
+      indexService: IndexService,
+      metrics: Metrics,
       servicesExecutionContext: ExecutionContext,
   )(implicit
       materializer: Materializer,
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       loggingContext: LoggingContext,
-  ): ResourceOwner[BridgeWriteService] = {
+  ): ResourceOwner[WriteService] = {
     implicit val ec: ExecutionContext = servicesExecutionContext
     for {
-      writeService <- ResourceOwner
-        .forCloseable(() =>
-          new BridgeWriteService(
-            feedSink = feedSink,
-            participantId = participantConfig.participantId,
-            submissionBufferSize = config.extra.submissionBufferSize,
-          )
-        )
+      writeService <- BridgeWriteService.owner(
+        feedSink,
+        config,
+        participantConfig,
+        indexService,
+        metrics,
+      )
       _ <- ResourceOwner.forFuture(() =>
         Future.sequence(
           config.archiveFiles.map(path =>
