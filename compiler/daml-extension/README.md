@@ -30,6 +30,18 @@ The Daml language server log output is available under the "Output" panel
 (View->Output). Select "Daml Language Server" from the dropdown in the panel
 to see the log.
 
+To see the LSP messages sent from and to the client (the vscode
+extension) change your VSCode workspace settings in
+`.vscode/settings.json` to the following:
+
+```
+{
+   "daml-language-server.trace.server": "verbose"
+}
+```
+
+The logs are then included in the `Daml Language Server` logs.
+
 ## Debugging
 
 Run `make` then open this directory in Visual Studio Code. Then click Debug ->
