@@ -3,15 +3,11 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.participant.state.kvutils.app.Runner
+import com.daml.SandboxOnXRunner
 import com.daml.ledger.resources.ResourceContext
 import com.daml.resources.ProgramResource
 
 object Main {
-  val RunnerName = "sandbox-on-x"
-
   def main(args: Array[String]): Unit =
-    new ProgramResource(
-      owner = new Runner(RunnerName, BridgeLedgerFactory, BridgeConfigProvider).owner(args)
-    ).run(ResourceContext.apply)
+    new ProgramResource(owner = SandboxOnXRunner.owner(args)).run(ResourceContext.apply)
 }
