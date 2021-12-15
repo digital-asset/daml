@@ -30,5 +30,7 @@ da_scala_test_suite(
         ":resources-akka",
         "//libs-scala/resources",
         "//libs-scala/resources:resources-test-lib",
+        "//libs-scala/scala-utils",
+        "//libs-scala/timer-utils",
     ],
 )
