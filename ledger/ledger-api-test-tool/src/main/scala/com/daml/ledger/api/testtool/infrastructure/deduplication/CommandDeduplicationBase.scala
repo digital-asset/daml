@@ -68,8 +68,8 @@ private[testtool] abstract class CommandDeduplicationBase(
             DeduplicationPeriod.DeduplicationTime(deduplicationDuration.asProtobuf)
         )
       runWithDeduplicationDelay(configuredParticipants) { delay =>
-        val acceptedSubmissionId1 = freshSubmissionId
-        val acceptedSubmissionId2 = freshSubmissionId
+        val acceptedSubmissionId1 = newSubmissionId()
+        val acceptedSubmissionId2 = newSubmissionId()
 
         for {
           // Submit command (first deduplication window)
@@ -208,8 +208,8 @@ private[testtool] abstract class CommandDeduplicationBase(
         .update(
           _.commands.deduplicationTime := deduplicationDuration.asProtobuf
         )
-      val acceptedSubmissionId1 = freshSubmissionId
-      val acceptedSubmissionId2 = freshSubmissionId
+      val acceptedSubmissionId1 = newSubmissionId()
+      val acceptedSubmissionId2 = newSubmissionId()
       runWithDeduplicationDelay(configuredParticipants) { delay =>
         for {
           // Submit command (first deduplication window)
@@ -327,8 +327,8 @@ private[testtool] abstract class CommandDeduplicationBase(
                         party,
                       )
 
-                  val acceptedSubmissionId1 = freshSubmissionId
-                  val acceptedSubmissionId2 = freshSubmissionId
+                  val acceptedSubmissionId1 = newSubmissionId()
+                  val acceptedSubmissionId2 = newSubmissionId()
                   for {
                     // Submit command (first deduplication window)
                     ledgerOffset1 <- submitAndAssertAccepted(firstCall, acceptedSubmissionId1)
@@ -373,21 +373,21 @@ private[testtool] abstract class CommandDeduplicationBase(
       .submitRequest(bob, Dummy(bob).create.command)
       .update(_.commands.commandId := aliceRequest.getCommands.commandId)
 
-    val acceptedSubmissionIdAlice = freshSubmissionId
-    val acceptedSubmissionIdBob = freshSubmissionId
+    val aliceAcceptedSubmissionId = newSubmissionId()
+    val bobAcceptedSubmissionId = newSubmissionId()
 
     for {
       // Submit a command as alice
       (aliceCompletionOffset, _) <- submitRequestAndAssertCompletionAccepted(
         ledger,
-        updateSubmissionId(aliceRequest, acceptedSubmissionIdAlice),
+        updateSubmissionId(aliceRequest, aliceAcceptedSubmissionId),
         alice,
       )
       _ = println(s"Alice completion offset: $aliceCompletionOffset")
       _ <- submitRequestAndAssertDeduplication(
         ledger,
         updateWithFreshSubmissionId(aliceRequest),
-        acceptedSubmissionIdAlice,
+        aliceAcceptedSubmissionId,
         aliceCompletionOffset,
         alice,
       )
@@ -395,14 +395,14 @@ private[testtool] abstract class CommandDeduplicationBase(
       // Submit another command that uses same commandId, but is submitted by Bob
       (bobCompletionOffset, _) <- submitRequestAndAssertCompletionAccepted(
         ledger,
-        updateSubmissionId(bobRequest, acceptedSubmissionIdBob),
+        updateSubmissionId(bobRequest, bobAcceptedSubmissionId),
         bob,
       )
       _ = println(s"Bob completion offset: $aliceCompletionOffset")
       _ <- submitRequestAndAssertDeduplication(
         ledger,
         updateWithFreshSubmissionId(bobRequest),
-        acceptedSubmissionIdBob,
+        bobAcceptedSubmissionId,
         bobCompletionOffset,
         bob,
       )
@@ -429,32 +429,32 @@ private[testtool] abstract class CommandDeduplicationBase(
       .submitAndWaitRequest(bob, Dummy(bob).create.command)
       .update(_.commands.commandId := aliceRequest.getCommands.commandId)
 
-    val acceptedSubmissionIdAlice = freshSubmissionId
-    val acceptedSubmissionIdBob = freshSubmissionId
+    val aliceAcceptedSubmissionId = newSubmissionId()
+    val bobAcceptedSubmissionId = newSubmissionId()
     for {
       // Submit a command as alice
       (aliceCompletionOffset, _) <- submitAndWaitRequestAndAssertCompletionAccepted(
         ledger,
-        updateSubmissionId(aliceRequest, acceptedSubmissionIdAlice),
+        updateSubmissionId(aliceRequest, aliceAcceptedSubmissionId),
         alice,
       )
       _ <- submitAndWaitRequestAndAssertDeduplication(
         ledger,
         updateWithFreshSubmissionId(aliceRequest),
-        acceptedSubmissionIdAlice,
+        aliceAcceptedSubmissionId,
         aliceCompletionOffset,
       )
 
       // Submit another command that uses same commandId, but is submitted by Bob
       (bobCompletionOffset, _) <- submitAndWaitRequestAndAssertCompletionAccepted(
         ledger,
-        updateSubmissionId(bobRequest, acceptedSubmissionIdBob),
+        updateSubmissionId(bobRequest, bobAcceptedSubmissionId),
         bob,
       )
       _ <- submitAndWaitRequestAndAssertDeduplication(
         ledger,
         updateWithFreshSubmissionId(bobRequest),
-        acceptedSubmissionIdBob,
+        bobAcceptedSubmissionId,
         bobCompletionOffset,
       )
       // Inspect the ledger state
@@ -480,7 +480,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     configuredParticipants => { case Participants(Participant(ledger, party)) =>
       val request = ledger
         .submitRequest(party, DummyWithAnnotation(party, "Duplicate command").create.command)
-      val acceptedSubmissionId = freshSubmissionId
+      val acceptedSubmissionId = newSubmissionId()
       runWithDeduplicationDelay(configuredParticipants) { delay =>
         for {
           (offset1, _) <- submitRequestAndAssertCompletionAccepted(
@@ -860,12 +860,12 @@ private[testtool] abstract class CommandDeduplicationBase(
     request.update(_.commands.submissionId := acceptedSubmissionId1)
 
   private def updateWithFreshSubmissionId(request: SubmitRequest): SubmitRequest =
-    request.update(_.commands.submissionId := freshSubmissionId)
+    request.update(_.commands.submissionId := newSubmissionId())
 
   private def updateWithFreshSubmissionId(request: SubmitAndWaitRequest): SubmitAndWaitRequest =
-    request.update(_.commands.submissionId := freshSubmissionId)
+    request.update(_.commands.submissionId := newSubmissionId())
 
-  private def freshSubmissionId: SubmissionId = SubmissionIdGenerator.Random.generate()
+  private def newSubmissionId(): SubmissionId = SubmissionIdGenerator.Random.generate()
 }
 
 object CommandDeduplicationBase {
