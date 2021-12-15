@@ -12,6 +12,7 @@ object OracleQueryStrategy extends QueryStrategy {
       columnName: String,
       internedParties: Set[Int],
   ): CompositeSql = {
+    require(internedParties.nonEmpty, "internedParties must be non-empty")
     cSQL"(EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value NUMBER PATH '$$')) WHERE value IN ($internedParties)))"
   }
 

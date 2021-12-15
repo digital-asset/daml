@@ -13,6 +13,7 @@ object PostgresQueryStrategy extends QueryStrategy {
       columnName: String,
       internedParties: Set[Int],
   ): CompositeSql = {
+    require(internedParties.nonEmpty, "internedParties must be non-empty")
     // anorm does not like primitive arrays, so we need to box it
     val partiesArray: Array[java.lang.Integer] = internedParties.map(Int.box).toArray
     cSQL"#$columnName::int[] && $partiesArray::int[]"

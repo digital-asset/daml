@@ -12,6 +12,7 @@ object H2QueryStrategy extends QueryStrategy {
       columnName: String,
       internedParties: Set[Int],
   ): CompositeSql = {
+    require(internedParties.nonEmpty, "internedParties must be non-empty")
     internedParties
       .map(p => cSQL"array_contains(#$columnName, $p)")
       .mkComposite("(", " or ", ")")
