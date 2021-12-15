@@ -194,7 +194,8 @@ You would invoke the OAuth 2.0 auth middleware with the following flags:
 
 The required config would look like
 
-.. code-block:: typeconfig
+.. code-block:: none
+
     {
       // Environment variables:
       // DAML_CLIENT_ID      The OAuth2 client-id - must not be empty
@@ -243,9 +244,9 @@ The required config would look like
       }
     }
 
-.. note:: Configuration file is the recommended way to run oauth2-middleware, running via cli-args is now deprecated
-
 The oauth2-middleware can also be started using cli-args.
+
+.. note:: Configuration file is the recommended way to run oauth2-middleware, running via cli-args is now deprecated
 
 .. code-block:: shell
 
