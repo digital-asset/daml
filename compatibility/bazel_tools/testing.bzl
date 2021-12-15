@@ -569,8 +569,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "1.18.0",
-        "end": "1.18.0",
+        "start": "2.0.0",
         "platform_ranges": [
             {
                 "end": "1.18.0",
@@ -581,6 +580,9 @@ excluded_test_tool_tests = [
                     "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
                     # Unexpected failure (StatusRuntimeException) ALREADY_EXISTS: DUPLICATE_COMMAND(10,KVComman):
                     "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationCommandClient",
+                    # Actual error id (INCONSISTENT) does not match expected error id (DUPLICATE_CONTRACT_KEY}
+                    "ExceptionsIT:ExRollbackDuplicateKeyCreated",
+                    "ExceptionsIT:ExRollbackDuplicateKeyArchived",
                 ],
             },
         ],
@@ -590,7 +592,6 @@ excluded_test_tool_tests = [
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20211123.8463.0.bd2a6852",
-                "end": "2.0.0",
                 "exclusions": [
                     # Actual error id (INCONSISTENT) does not match expected error id (DUPLICATE_CONTRACT_KEY}
                     "ExceptionsIT:ExRollbackDuplicateKeyCreated",
