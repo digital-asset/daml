@@ -31,6 +31,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
@@ -173,7 +174,12 @@ object SandboxOnXRunner {
             servicesExecutionContext,
           )
 
-          writeService <- buildWriteService(stateUpdatesFeedSink, servicesExecutionContext)
+          writeService <- buildWriteService(
+            stateUpdatesFeedSink,
+            indexService,
+            metrics,
+            servicesExecutionContext,
+          )
 
           _ <- buildStandaloneApiServer(
             sharedEngine,
@@ -315,23 +321,26 @@ object SandboxOnXRunner {
   // Builds the write service and uploads the initialization DARs
   private def buildWriteService(
       feedSink: Sink[(Offset, Update), NotUsed],
+      indexService: IndexService,
+      metrics: Metrics,
       servicesExecutionContext: ExecutionContext,
   )(implicit
       materializer: Materializer,
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       loggingContext: LoggingContext,
-  ): ResourceOwner[BridgeWriteService] = {
+  ): ResourceOwner[WriteService] = {
     implicit val ec: ExecutionContext = servicesExecutionContext
     for {
-      writeService <- ResourceOwner
-        .forCloseable(() =>
-          new BridgeWriteService(
-            feedSink = feedSink,
-            participantId = participantConfig.participantId,
-            submissionBufferSize = config.extra.submissionBufferSize,
-          )
+      ledgerBridge <- LedgerBridge.owner(config, participantConfig, indexService, metrics)
+      writeService <- ResourceOwner.forCloseable(() =>
+        new BridgeWriteService(
+          feedSink = feedSink,
+          submissionBufferSize = config.extra.submissionBufferSize,
+          ledgerBridge = ledgerBridge,
+          bridgeMetrics = new BridgeMetrics(metrics),
         )
+      )
       _ <- ResourceOwner.forFuture(() =>
         Future.sequence(
           config.archiveFiles.map(path =>
