@@ -1,5 +1,0 @@
--- @ERROR Scenarios are no longer supported.
-module NoScenariosEnabled where
-
-test = scenario do
-  pure ()
