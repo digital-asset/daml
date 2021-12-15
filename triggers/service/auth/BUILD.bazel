@@ -87,6 +87,7 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger-service/cli-opts",
         "//ledger-service/jwt",
+        "//ledger/cli-opts",
         "//ledger/ledger-api-auth",
         "//libs-scala/ports",
         "@maven//:com_auth0_java_jwt",

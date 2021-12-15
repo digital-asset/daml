@@ -35,7 +35,15 @@ case class Config(
     clientSecret: SecretString,
     // Token verification
     tokenVerifier: JwtVerifierBase,
-)
+) {
+  def validate: Unit = {
+    require(oauthToken != null, "Oauth token value on config cannot be null")
+    require(oauthAuth != null, "Oauth auth value on config cannot be null")
+    require(clientId.nonEmpty, "DAML_CLIENT_ID cannot be empty")
+    require(clientSecret.value.nonEmpty, "DAML_CLIENT_SECRET cannot be empty")
+    require(tokenVerifier != null, "token verifier must be defined")
+  }
+}
 
 case class SecretString(value: String) {
   override def toString: String = "###"

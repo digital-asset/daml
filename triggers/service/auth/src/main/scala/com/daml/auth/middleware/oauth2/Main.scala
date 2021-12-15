@@ -11,14 +11,9 @@ import scala.util.{Failure, Success}
 
 object Main extends StrictLogging {
   def main(args: Array[String]): Unit = {
-    val cli = Cli.parse(args)
-    cli.map(_.loadConfig) match {
-      case Some(Right(cfg)) => main(cfg)
-      case Some(Left(err)) =>
-        logger.error(s"Error starting oauth2-middleware: ${err.msg}")
-        sys.exit(1)
-      case None =>
-        sys.exit(1)
+    Cli.parseConfig(args) match {
+      case Some(config) => main(config)
+      case None => sys.exit(1)
     }
   }
 
