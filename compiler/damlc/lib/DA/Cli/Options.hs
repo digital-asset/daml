@@ -207,12 +207,20 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
 
 enableScenarioServiceOpt :: Parser EnableScenarioService
 enableScenarioServiceOpt = fmap EnableScenarioService $
-    flagYesNoAuto "scenarios" True "Enable/disable support for running Daml Scripts and scenarios" idm <|>
-    flagYesNoAuto "scripts" True "Enable/disable support for running Daml Scripts and scenarios" idm
+    flagYesNoAuto "scenarios" True desc idm <|>
+    flagYesNoAuto "scripts" True desc idm
+    where
+        desc =
+            "Control whether to start the Scenario Service, \
+            \enabling/disabling support for running Daml Scripts and scenarios"
 
 enableScenariosOpt :: Parser EnableScenarios
 enableScenariosOpt = EnableScenarios <$>
-    flagYesNoAuto "enable-scenarios" True "Enable/disable support for running scenarios." internal
+    flagYesNoAuto "enable-scenarios" True desc internal
+    where
+        desc =
+            "Enable/disable support for scenarios as a language feature. \
+            \If disabled, defining top-level scenarios is a compile-time error"
 
 dlintEnabledOpt :: Parser DlintUsage
 dlintEnabledOpt = DlintEnabled
