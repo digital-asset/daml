@@ -158,7 +158,8 @@ class WriteServiceWithDeduplicationSupportSpec
       )
       .asScala
       .map { _ =>
-        val expectedReaders = (submitterInfoWithParties.readAs ++ submitterInfoWithParties.actAs).toSet
+        val expectedReaders =
+          (submitterInfoWithParties.readAs ++ submitterInfoWithParties.actAs).toSet
         verify(mockDeduplicationPeriodSupport).supportedDeduplicationPeriod(
           any[DeduplicationPeriod],
           any[Duration],
