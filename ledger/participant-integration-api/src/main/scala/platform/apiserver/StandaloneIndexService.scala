@@ -15,15 +15,15 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.ServerRole
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 
 import scala.concurrent.ExecutionContextExecutor
 
 object StandaloneIndexService {
   def apply(
+      dbSupport: DbSupport,
       ledgerId: LedgerId,
       config: ApiServerConfig,
       metrics: Metrics,
@@ -74,12 +74,9 @@ object StandaloneIndexService {
       })
       indexService <- JdbcIndex
         .owner(
-          serverRole = ServerRole.ApiServer,
+          dbSupport = dbSupport,
           ledgerId = domain.LedgerId(ledgerId),
           participantId = participantId,
-          jdbcUrl = config.jdbcUrl,
-          databaseConnectionPoolSize = config.databaseConnectionPoolSize,
-          databaseConnectionTimeout = config.databaseConnectionTimeout,
           eventsPageSize = config.eventsPageSize,
           eventsProcessingParallelism = config.eventsProcessingParallelism,
           acsIdPageSize = config.acsIdPageSize,

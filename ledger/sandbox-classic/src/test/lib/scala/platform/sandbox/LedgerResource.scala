@@ -26,10 +26,10 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.testing.postgresql.PostgresResource
-
 import java.util.concurrent.Executors
+
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
@@ -65,7 +65,7 @@ private[sandbox] object LedgerResource {
       testClass: Class[_],
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
-      metrics: MetricRegistry,
+      metricsRegistry: MetricRegistry,
       errorFactories: ErrorFactories,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
   )(implicit
@@ -79,12 +79,17 @@ private[sandbox] object LedgerResource {
           .forExecutorService(() => Executors.newWorkStealingPool())
           .map(ExecutionContext.fromExecutorService)
         database <- PostgresResource.owner[ResourceContext]()
+        metrics = new Metrics(metricsRegistry)
+        dbSupport <- DbSupport.migratedOwner(
+          jdbcUrl = database.url,
+          serverRole = ServerRole.Testing(testClass),
+          connectionPoolSize = 16,
+          connectionTimeout = 250.millis,
+          metrics = metrics,
+        )
         ledger <- new SqlLedger.Owner(
           name = LedgerName(testClass.getSimpleName),
-          serverRole = ServerRole.Testing(testClass),
-          jdbcUrl = database.url,
-          databaseConnectionPoolSize = 16,
-          databaseConnectionTimeout = 250.millis,
+          dbSupport = dbSupport,
           providedLedgerId = LedgerIdMode.Static(ledgerId),
           participantId = TestParticipantId,
           timeProvider = timeProvider,
@@ -100,7 +105,7 @@ private[sandbox] object LedgerResource {
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
           servicesExecutionContext = servicesExecutionContext,
-          metrics = new Metrics(metrics),
+          metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           engine = new Engine(),
           validatePartyAllocation = false,

@@ -20,7 +20,6 @@ import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.ServerRole
 import com.daml.platform.index.LedgerBackedIndexService
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
@@ -30,7 +29,7 @@ import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 import com.daml.platform.sandbox.stores.ledger.{Ledger, MeteredLedger}
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -50,9 +49,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       name: LedgerName,
       providedLedgerId: LedgerIdMode,
       participantId: Ref.ParticipantId,
-      jdbcUrl: String,
-      databaseConnectionPoolSize: Int,
-      databaseConnectionTimeout: FiniteDuration,
+      dbSupport: DbSupport,
       timeProvider: TimeProvider,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       startMode: SqlStartMode,
@@ -78,10 +75,7 @@ private[sandbox] object SandboxIndexAndWriteService {
   ): ResourceOwner[IndexAndWriteService] =
     new SqlLedger.Owner(
       name = name,
-      serverRole = ServerRole.Sandbox,
-      jdbcUrl = jdbcUrl,
-      databaseConnectionPoolSize = databaseConnectionPoolSize,
-      databaseConnectionTimeout = databaseConnectionTimeout,
+      dbSupport = dbSupport,
       providedLedgerId = providedLedgerId,
       participantId = domain.ParticipantId(participantId),
       timeProvider = timeProvider,

@@ -62,7 +62,7 @@ class TransactionTimeModelComplianceIT
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, timeProvider, errorCodesVersionSwitcher)
       case BackendType.Postgres =>
-        LedgerResource.postgres(getClass, ledgerId, timeProvider, metrics, errorFactories)
+        LedgerResource.postgres(getClass, ledgerId, timeProvider, metricRegistry, errorFactories)
     }
   }
 

@@ -21,7 +21,7 @@ import scala.util.{Failure, Success, Try}
   */
 final class AuthorizationInterceptor(
     authService: AuthService,
-    userManagementService: UserManagementStore,
+    userManagementStore: UserManagementStore,
     implicit val ec: ExecutionContext,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit loggingContext: LoggingContext)
@@ -82,7 +82,7 @@ final class AuthorizationInterceptor(
               errorFactories.invalidArgument(None)(s"token $err")(errorLogger)
             )
           case Right(userId) =>
-            userManagementService
+            userManagementStore
               .listUserRights(userId)
               .flatMap {
                 case Left(msg) =>
@@ -132,11 +132,11 @@ object AuthorizationInterceptor {
 
   def apply(
       authService: AuthService,
-      userManagementService: UserManagementStore,
+      userManagementStore: UserManagementStore,
       ec: ExecutionContext,
       errorCodesStatusSwitcher: ErrorCodesVersionSwitcher,
   ): AuthorizationInterceptor =
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
-      new AuthorizationInterceptor(authService, userManagementService, ec, errorCodesStatusSwitcher)
+      new AuthorizationInterceptor(authService, userManagementStore, ec, errorCodesStatusSwitcher)
     }
 }

@@ -15,18 +15,13 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.appendonlydao.{
-  DbDispatcher,
-  JdbcLedgerDao,
-  LedgerDao,
-  SequentialWriteDao,
-}
+import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao, SequentialWriteDao}
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
 import com.daml.platform.store.interning.StringInterningView
-import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import org.scalatest.AsyncTestSuite
 
 import scala.concurrent.{Await, Future}
@@ -66,17 +61,17 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     val metrics = new Metrics(new MetricRegistry)
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType)
-    DbDispatcher
-      .owner(
-        dataSource = storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+    DbSupport
+      .migratedOwner(
+        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.Testing(getClass),
         connectionPoolSize = dbType.maxSupportedWriteConnections(16),
         connectionTimeout = 250.millis,
         metrics = metrics,
       )
-      .map { dbDispatcher =>
+      .map { dbSupport =>
         JdbcLedgerDao.write(
-          dbDispatcher = dbDispatcher,
+          dbSupport = dbSupport,
           sequentialWriteDao = SequentialWriteDao(
             participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
             lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -98,7 +93,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           enricher = Some(new ValueEnricher(new Engine())),
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
-          storageBackendFactory = storageBackendFactory,
           errorFactories = errorFactories,
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
@@ -125,9 +119,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     stringInterningView = new StringInterningView((_, _) => _ => Future.successful(Nil))
     resource = newLoggingContext { implicit loggingContext =>
       for {
-        _ <- Resource.fromFuture(
-          new FlywayMigrations(jdbcUrl).migrate()
-        )
         dao <- daoOwner(
           eventsPageSize = 100,
           eventsProcessingParallelism = 4,

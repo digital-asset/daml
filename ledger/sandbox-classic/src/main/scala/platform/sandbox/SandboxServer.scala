@@ -29,7 +29,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver._
-import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration}
+import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration, ServerRole}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
@@ -42,7 +42,7 @@ import com.daml.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndexAndWriteService}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, DbType, FlywayMigrations, LfValueTranslationCache}
 import com.daml.ports.Port
 import scalaz.syntax.tag._
 import java.io.File
@@ -307,22 +307,36 @@ final class SandboxServer(
       case None => "in-memory"
     }
 
-    val userManagementService = new InMemoryUserManagementStore
-
     for {
       servicesExecutionContext <- ResourceOwner
         .forExecutorService(() => Executors.newWorkStealingPool())
         .map(ExecutionContext.fromExecutorService)
         .acquire()
-      indexAndWriteService <- (config.jdbcUrl match {
+      dbSupportOption <- config.jdbcUrl match {
         case Some(jdbcUrl) =>
+          DbSupport
+            .migratedOwner(
+              jdbcUrl = jdbcUrl,
+              serverRole = ServerRole.Sandbox,
+              connectionPoolSize = DbType
+                .jdbcType(jdbcUrl)
+                .maxSupportedWriteConnections(config.databaseConnectionPoolSize),
+              connectionTimeout = config.databaseConnectionTimeout,
+              metrics = metrics,
+            )
+            .acquire()
+            .map(Some(_))
+
+        case None => Resource.successful(None)
+      }
+      userManagementStore = new InMemoryUserManagementStore // TODO persistence wiring comes here
+      indexAndWriteService <- (dbSupportOption match {
+        case Some(dbSupport: DbSupport) =>
           SandboxIndexAndWriteService.postgres(
             name = name,
             providedLedgerId = config.ledgerIdMode,
             participantId = config.participantId,
-            jdbcUrl = jdbcUrl,
-            databaseConnectionPoolSize = config.databaseConnectionPoolSize,
-            databaseConnectionTimeout = config.databaseConnectionTimeout,
+            dbSupport = dbSupport,
             timeProvider = timeProvider,
             ledgerEntries = ledgerEntries,
             startMode = startMode,
@@ -405,7 +419,7 @@ final class SandboxServer(
         managementServiceTimeout = config.managementServiceTimeout,
         enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         checkOverloaded = _ => None,
-        userManagementService = userManagementService,
+        userManagementStore = userManagementStore,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(
@@ -418,7 +432,7 @@ final class SandboxServer(
         List(
           AuthorizationInterceptor(
             authService,
-            userManagementService,
+            userManagementStore,
             servicesExecutionContext,
             errorCodesVersionSwitcher,
           ),

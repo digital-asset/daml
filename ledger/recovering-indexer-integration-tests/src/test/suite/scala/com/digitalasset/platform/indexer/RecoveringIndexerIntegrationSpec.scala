@@ -33,11 +33,10 @@ import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao, LedgerReadDao}
-import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
-import com.daml.platform.store.{DbType, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
@@ -241,19 +240,18 @@ class RecoveringIndexerIntegrationSpec
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
     val errorFactories: ErrorFactories = mock[ErrorFactories]
-    val storageBackendFactory = StorageBackendFactory.of(DbType.jdbcType(jdbcUrl))
     val metrics = new Metrics(new MetricRegistry)
-    DbDispatcher
+    DbSupport
       .owner(
-        dataSource = storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.Testing(getClass),
         connectionPoolSize = 16,
         connectionTimeout = 250.millis,
         metrics = metrics,
       )
-      .map(dbDispatcher =>
+      .map(dbSupport =>
         JdbcLedgerDao.read(
-          dbDispatcher = dbDispatcher,
+          dbSupport = dbSupport,
           eventsPageSize = 100,
           eventsProcessingParallelism = 8,
           acsIdPageSize = 20000,
@@ -265,7 +263,6 @@ class RecoveringIndexerIntegrationSpec
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           enricher = None,
           participantId = Ref.ParticipantId.assertFromString("RecoveringIndexerIntegrationSpec"),
-          storageBackendFactory = storageBackendFactory,
           ledgerEndCache = mutableLedgerEndCache,
           errorFactories = errorFactories,
           stringInterning = stringInterning,
