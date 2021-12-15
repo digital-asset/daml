@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.validation
 
+import java.time.{Instant, Duration => JDuration}
+
 import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher, NoLogging}
 import com.daml.ledger.api.DomainMocks.{applicationId, commandId, submissionId, workflowId}
@@ -19,14 +21,11 @@ import com.daml.lf.value.{Value => Lf}
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import io.grpc.Status.Code.{FAILED_PRECONDITION, INVALID_ARGUMENT, NOT_FOUND, UNAVAILABLE}
+import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND, UNAVAILABLE}
 import org.mockito.MockitoSugar
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
-import java.time.{Instant, Duration => JDuration}
-
-import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 
 import scala.annotation.nowarn
 
@@ -393,42 +392,37 @@ class SubmitRequestValidatorTest
         }
       }
 
-      "not allow deduplication duration exceeding maximum deduplication duration" in {
+      "allow deduplication duration exceeding maximum deduplication duration" in {
         val durationSecondsExceedingMax =
-          internal.maxDeduplicationDuration.plusSeconds(1).getSeconds
+          internal.maxDeduplicationDuration.plusSeconds(1)
         forAll(
           Table(
             "deduplication period",
-            DeduplicationPeriodProto.DeduplicationTime(Duration.of(durationSecondsExceedingMax, 0)),
+            DeduplicationPeriodProto.DeduplicationTime(
+              Duration.of(durationSecondsExceedingMax.getSeconds, 0)
+            ),
             DeduplicationPeriodProto.DeduplicationDuration(
-              Duration.of(durationSecondsExceedingMax, 0)
+              Duration.of(durationSecondsExceedingMax.getSeconds, 0)
             ),
           )
-        ) { deduplication =>
-          commandValidatorFixture.testRequestFailure(
-            _.validateCommands(
-              api.commands
-                .copy(deduplicationPeriod = deduplication),
-              internal.ledgerTime,
-              internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
-            ),
-            expectedCodeV1 = INVALID_ARGUMENT,
-            expectedDescriptionV1 =
-              s"Invalid field deduplication_period: The given deduplication duration of ${java.time.Duration
-                .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${internal.maxDeduplicationDuration}",
-            expectedCodeV2 = FAILED_PRECONDITION,
-            expectedDescriptionV2 = s"INVALID_DEDUPLICATION_PERIOD(9,0): The submitted command had an invalid deduplication period: The given deduplication duration of ${java.time.Duration
-              .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${internal.maxDeduplicationDuration}",
-            metadataV2 = Map(
-              ValidMaxDeduplicationFieldKey -> internal.maxDeduplicationDuration.toString
-            ),
+        ) { deduplicationPeriod =>
+          val commandsWithDeduplicationDuration = api.commands
+            .copy(deduplicationPeriod = deduplicationPeriod)
+          testedCommandValidator.validateCommands(
+            commandsWithDeduplicationDuration,
+            internal.ledgerTime,
+            internal.submittedAt,
+            Some(internal.maxDeduplicationDuration),
+          ) shouldBe Right(
+            internal.emptyCommands.copy(
+              deduplicationPeriod =
+                DeduplicationPeriod.DeduplicationDuration(durationSecondsExceedingMax)
+            )
           )
         }
       }
 
       "default to maximum deduplication duration if deduplication is missing" in {
-
         testedCommandValidator.validateCommands(
           api.commands.copy(deduplicationPeriod = DeduplicationPeriodProto.Empty),
           internal.ledgerTime,
