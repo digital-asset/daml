@@ -73,9 +73,9 @@ class CliSpec extends AsyncWordSpec with Matchers {
         c.oauthAuth shouldBe Uri("https://oauth2/uri")
         c.oauthToken shouldBe Uri("https://oauth2/token")
 
-        c.oauthAuthTemplate shouldBe Some(Paths.get("file://path/auth/template"))
-        c.oauthTokenTemplate shouldBe Some(Paths.get("file://path/token/template"))
-        c.oauthRefreshTemplate shouldBe Some(Paths.get("file://path/refresh/template"))
+        c.oauthAuthTemplate shouldBe Some(Paths.get("auth_template"))
+        c.oauthTokenTemplate shouldBe Some(Paths.get("token_template"))
+        c.oauthRefreshTemplate shouldBe Some(Paths.get("refresh_template"))
 
         c.clientId shouldBe sys.env.getOrElse("DAML_CLIENT_ID", "foo")
         c.clientSecret shouldBe SecretString(sys.env.getOrElse("DAML_CLIENT_SECRET", "bar"))
@@ -93,9 +93,8 @@ class CliSpec extends AsyncWordSpec with Matchers {
     val cfg = cli.loadConfigFromFile
     cli.configFile.nonEmpty shouldBe true
     cfg match {
-      case Left(err) =>
-        err.msg shouldBe "Unable to read file missingFile.conf (No such file or directory)."
-      case Right(_) => fail()
+      case Left(_: ConfigParseError) => succeed
+      case _ => fail()
     }
   }
 
