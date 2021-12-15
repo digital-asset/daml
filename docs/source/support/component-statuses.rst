@@ -29,22 +29,6 @@ Ledger API
      - Stable, Deprecated
      - 2021-06-16
 
-Integration Components
-**********************
-
-.. list-table::
-   :widths: 80 10 10
-   :header-rows: 1
-
-   * - Component/Feature
-     - Status
-     - Deprecated on
-   * - :doc:`Integration Kit Components </daml-integration-kit/index>`
-     - Labs
-     -
-   * - CLI and test names of :doc:`/tools/ledger-api-test-tool/index`
-     - Beta
-     -
 
 .. _runtime-components:
 

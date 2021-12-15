@@ -33,10 +33,6 @@ Daml Drivers
 
 At the bottom of every Daml Application is a Daml network, a distributed, or possibly centralized persistence infrastructure together with Daml drivers. Daml drivers enable the persistence infrastructure to act as a consensus, messaging, and in some cases persistence layer for Daml Applications. Most Daml drivers will have a public API, but there are no *uniform* public APIs on Daml drivers. This does not harm application portability since applications only interact with Daml networks through the Participant Node. A good example of a public API of a Daml driver is the command line interface of `Daml for Postgres <https://github.com/digital-asset/daml/blob/main/ledger/daml-on-sql/README.rst>`_. It's a public interface, but specific to the Postgres driver.
 
-Integration Components
-======================
-
-Daml drivers and Participant Nodes share a lot of components between underlying DLTs or Databases. These shared components are called the Integration Components, or sometimes the :doc:`/daml-integration-kit/index`.
 
 Participant Nodes
 *****************
