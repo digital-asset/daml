@@ -401,6 +401,34 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     )
   })
 
+  test(
+    "ACFilterWitnesses",
+    "The ActiveContractService should filter witnesses by the transaction filter",
+    allocate(Parties(3)),
+  )(implicit ec => { case Participants(Participant(ledger, alice, bob, charlie)) =>
+    for {
+      _ <- ledger.create(alice, WithObservers(alice, List(bob, charlie)))
+      bobContracts <- ledger.activeContracts(bob)
+      aliceBobContracts <- ledger.activeContracts(alice, bob)
+      bobCharlieContracts <- ledger.activeContracts(bob, charlie)
+    } yield {
+      def assertWitnesses(contracts: Vector[CreatedEvent], requesters: Set[Party]): Unit = {
+        assert(
+          contracts.size == 1,
+          s"Expected to receive 1 active contracts for $requesters, but received ${contracts.size}.",
+        )
+        assert(
+          contracts.head.witnessParties.toSet == requesters.map(_.toString),
+          s"Expected witness parties to equal to $requesters, but received ${contracts.head.witnessParties}",
+        )
+      }
+
+      assertWitnesses(bobContracts, Set(bob))
+      assertWitnesses(aliceBobContracts, Set(alice, bob))
+      assertWitnesses(bobCharlieContracts, Set(bob, charlie))
+    }
+  })
+
   private def createDummyContracts(party: Party, ledger: ParticipantTestContext)(implicit
       ec: ExecutionContext
   ) = {
