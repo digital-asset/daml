@@ -49,7 +49,7 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
   it should "allow access to a non-admin user's own user record" in {
     for {
       // admin creates user
-      (alice, aliceToken) <- createUserAsAdmin(testId + "-alice")
+      (alice, aliceToken) <- createUserByAdmin(testId + "-alice")
       // user accesses its own user record without specifying the id
       aliceRetrieved1 <- getUser(aliceToken, "")
       // user accesses its own user record with specifying the id

@@ -24,7 +24,7 @@ class ListUserRightsWithGivenUserIdAuthIT extends AdminServiceCallAuthTests {
 
     for {
       // create a normal users
-      (alice, _) <- createUserAsAdmin(testId + "-alice")
+      (alice, _) <- createUserByAdmin(testId + "-alice")
 
       // test that only admins can retrieve his own user and the newly created alice user
       _ <- getRights("participant_admin")

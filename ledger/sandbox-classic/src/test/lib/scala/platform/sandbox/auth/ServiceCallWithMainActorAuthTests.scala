@@ -8,7 +8,7 @@ import java.util.UUID
 
 trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
 
-  protected val mainActor: String = UUID.randomUUID.toString
+  final protected val mainActor: String = UUID.randomUUID.toString
 
   private val signedIncorrectly =
     Option(customTokenToHeader(readWriteToken(mainActor), UUID.randomUUID.toString))

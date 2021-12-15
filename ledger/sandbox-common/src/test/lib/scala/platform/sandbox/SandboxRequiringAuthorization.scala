@@ -37,17 +37,22 @@ trait SandboxRequiringAuthorization {
     readAs = Nil,
   )
 
-  protected def standardToken(userId: String): SupportedJWTPayload = StandardJWTPayload(
-    AuthServiceJWTPayload(
-      ledgerId = None,
-      participantId = None,
-      applicationId = Some(userId),
-      exp = None,
-      admin = false,
-      actAs = Nil,
-      readAs = Nil,
+  protected def standardToken(
+      userId: String,
+      expiresIn: Option[Duration] = None,
+      participantId: Option[String] = None,
+  ): SupportedJWTPayload =
+    StandardJWTPayload(
+      AuthServiceJWTPayload(
+        ledgerId = None,
+        participantId = participantId,
+        applicationId = Some(userId),
+        exp = expiresIn.map(delta => Instant.now().plusNanos(delta.toNanos)),
+        admin = false,
+        actAs = Nil,
+        readAs = Nil,
+      )
     )
-  )
 
   protected val randomUserId: String = UUID.randomUUID().toString
 

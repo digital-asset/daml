@@ -5,9 +5,17 @@ package com.daml.platform.sandbox.auth
 
 import java.util.UUID
 
+import com.daml.ledger.api.v1.admin.{user_management_service => proto}
+
+import scala.concurrent.Future
+
 trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
   private val signedIncorrectly = Option(customTokenToHeader(adminToken, UUID.randomUUID.toString))
+
+  protected def serviceCallWithFreshUser(rights: Vector[proto.Right.Kind]): Future[Any] =
+    createUserByAdmin(UUID.randomUUID().toString, rights.map(proto.Right(_)))
+      .flatMap { case (_, token) => serviceCallWithToken(token) }
 
   it should "deny calls with an invalid signature" in {
     expectUnauthenticated(serviceCallWithToken(signedIncorrectly))
@@ -27,13 +35,23 @@ trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
   it should "allow calls with admin token without expiration" in {
     expectSuccess(serviceCallWithToken(canReadAsAdmin))
   }
-  it should "allow calls with standard token for 'participant_admin' without expiration" in {
+  it should "allow calls with user token for 'participant_admin' without expiration" in {
     expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
   }
-  it should "deny calls with standard token for 'unknown_user' without expiration" in {
+  it should "allow calls with freshly created admin user" in {
+    expectSuccess(
+      serviceCallWithFreshUser(
+        Vector(proto.Right.Kind.ParticipantAdmin(proto.Right.ParticipantAdmin()))
+      )
+    )
+  }
+  it should "deny calls with freshly created non-admin user" in {
+    expectPermissionDenied(serviceCallWithFreshUser(Vector.empty))
+  }
+  it should "deny calls with user token for 'unknown_user' without expiration" in {
     expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
-  it should "deny calls with standard token for '!!invalid_user!!' without expiration" in {
+  it should "deny calls with user token for '!!invalid_user!!' without expiration" in {
     expectInvalidArgument(serviceCallWithToken(canReadAsInvalidUserStandardJWT))
   }
   it should "allow calls with the correct ledger ID" in {

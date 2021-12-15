@@ -18,10 +18,11 @@ final class CompletionStreamAuthIT
 
   override def serviceCallName: String = "CommandCompletionService#CompletionStream"
 
+  override val testCanReadAsMainActor: Boolean = false
+
   override protected def stream
-      : Option[String] => StreamObserver[CompletionStreamResponse] => Unit = streamFor(
-    serviceCallName
-  )
+      : Option[String] => StreamObserver[CompletionStreamResponse] => Unit =
+    streamFor(serviceCallName)
 
   private def mkRequest(applicationId: String) =
     new CompletionStreamRequest(
@@ -39,8 +40,9 @@ final class CompletionStreamAuthIT
         stub(CommandCompletionServiceGrpc.stub(channel), token)
           .completionStream(mkRequest(applicationId), observer)
 
-  private def serviceCallWithoutApplicationId(token: Option[String]): Future[Any] =
-    submitAndWait().flatMap(_ =>
+  override protected def serviceCallWithoutApplicationId(token: Option[String]): Future[Any] =
+    // Note: the token must allow actAs mainActor for this call to work.
+    submitAndWait(token, "").flatMap(_ =>
       new StreamConsumer[CompletionStreamResponse](streamFor("")(token)).first()
     )
 
@@ -58,10 +60,11 @@ final class CompletionStreamAuthIT
   }
 
   it should "allow calls with an empty application ID for a token with an application id" in {
-    expectSuccess(serviceCallWithoutApplicationId(canReadAsMainActorActualApplicationId))
+    expectSuccess(serviceCallWithoutApplicationId(canActAsMainActorActualApplicationId))
   }
 
   it should "deny calls with an empty application ID for a token without an application id" in {
-    expectInvalidArgument(serviceCallWithoutApplicationId(canReadAsMainActor))
+    // Note: need canActAsMainActor as the test first submits a change that it then listens for.
+    expectInvalidArgument(serviceCallWithoutApplicationId(canActAsMainActor))
   }
 }

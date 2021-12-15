@@ -3,7 +3,17 @@
 
 package com.daml.platform.sandbox.auth
 
+import java.time.Duration
+import java.util.UUID
+
+import com.daml.ledger.api.auth.SupportedJWTPayload
+
+import scala.concurrent.Future
+
 trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
+
+  protected def serviceCallWithPayload(payload: SupportedJWTPayload): Future[Any] =
+    serviceCallWithToken(Some(toHeader(payload)))
 
   it should "deny calls with an expired read-only token" in {
     expectUnauthenticated(serviceCallWithToken(canReadAsRandomPartyExpired))
@@ -15,10 +25,35 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
     expectSuccess(serviceCallWithToken(canReadAsRandomParty))
   }
 
-  it should "allow calls with non-expired 'participant_admin' standard token" in {
+  it should "allow calls with 'participant_admin' user token" in {
     expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
   }
-  it should "deny calls with non-expired 'unknown_user' standard token" in {
+  it should "allow calls with non-expired 'participant_admin' user token" in {
+    val payload = standardToken("participant_admin", Some(Duration.ofDays(1)))
+    expectSuccess(serviceCallWithPayload(payload))
+  }
+  it should "deny calls with expired 'participant_admin' user token" in {
+    val payload =
+      standardToken("participant_admin", Some(Duration.ofDays(-1)))
+    expectUnauthenticated(serviceCallWithPayload(payload))
+  }
+  it should "allow calls with 'participant_admin' user token for this participant node" in {
+    val payload =
+      standardToken(userId = "participant_admin", participantId = Some("sandbox-participant"))
+    expectSuccess(serviceCallWithPayload(payload))
+  }
+  it should "deny calls with 'participant_admin' user token for another participant node" in {
+    val payload =
+      standardToken(userId = "participant_admin", participantId = Some("other-participant-id"))
+    expectPermissionDenied(serviceCallWithPayload(payload))
+  }
+  it should "allow calls with freshly created user" in {
+    expectSuccess(
+      createUserByAdmin(UUID.randomUUID().toString)
+        .flatMap { case (_, token) => serviceCallWithToken(token) }
+    )
+  }
+  it should "deny calls with non-expired 'unknown_user' user token" in {
     expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
 
