@@ -55,8 +55,7 @@ object Assertions {
       selfServiceErrorCode: ErrorCode,
       exceptionMessageSubstring: Option[String],
       checkDefiniteAnswerMetadata: Boolean = false,
-  )(
-      additionalErrorAssertions: Throwable => Unit = _ => ()
+      additionalErrorAssertions: Throwable => Unit = _ => (),
   ): Unit =
     assertGrpcErrorRegex(
       participant,
@@ -66,8 +65,7 @@ object Assertions {
       exceptionMessageSubstring
         .map(msgSubstring => Pattern.compile(Pattern.quote(msgSubstring))),
       checkDefiniteAnswerMetadata,
-    )(
-      additionalErrorAssertions
+      additionalErrorAssertions,
     )
 
   /** Match the given exception against a status code and a regex for the expected message.
@@ -83,8 +81,7 @@ object Assertions {
       selfServiceErrorCode: ErrorCode,
       optPattern: Option[Pattern],
       checkDefiniteAnswerMetadata: Boolean = false,
-  )(
-      additionalErrorAssertions: Throwable => Unit = _ => ()
+      additionalErrorAssertions: Throwable => Unit = _ => (),
   ): Unit =
     t match {
       case RetryStrategy.FailedRetryException(cause) =>
@@ -95,8 +92,7 @@ object Assertions {
           selfServiceErrorCode,
           optPattern,
           checkDefiniteAnswerMetadata,
-        )(
-          additionalErrorAssertions
+          additionalErrorAssertions,
         )
       case exception @ GrpcException(GrpcStatus(code, maybeMessage), _)
           if !participant.features.selfServiceErrorCodes =>
