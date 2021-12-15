@@ -262,6 +262,7 @@ final class SqlLedgerSpec
         result <- sqlLedger.publishTransaction(
           submitterInfo = SubmitterInfo(
             actAs = List(party1),
+            readAs = List.empty,
             applicationId = applicationId,
             commandId = commandId1,
             deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofHours(1)),
@@ -298,6 +299,7 @@ final class SqlLedgerSpec
         result <- sqlLedger.publishTransaction(
           submitterInfo = SubmitterInfo(
             actAs = List(party1),
+            readAs = List.empty,
             applicationId = applicationId,
             commandId = commandId1,
             deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofHours(1)),
@@ -358,6 +360,7 @@ final class SqlLedgerSpec
         result <- sqlLedger.publishTransaction(
           submitterInfo = SubmitterInfo(
             actAs = List(party1),
+            readAs = List.empty,
             applicationId = applicationId,
             commandId = commandId1,
             deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofHours(1)),

@@ -53,13 +53,14 @@ class WriteServiceWithDeduplicationSupport(
   ): CompletionStage[SubmissionResult] = {
     implicit val contextualizedLogger: DamlContextualizedErrorLogger =
       new DamlContextualizedErrorLogger(logger, loggingContext, submitterInfo.submissionId)
+    val readers = submitterInfo.actAs ++ submitterInfo.readAs
     deduplicationPeriodSupport
       .supportedDeduplicationPeriod(
         submitterInfo.deduplicationPeriod,
         submitterInfo.ledgerConfiguration.maxDeduplicationTime,
         submitterInfo.ledgerConfiguration.timeModel,
         ApplicationId(submitterInfo.applicationId),
-        submitterInfo.actAs.toSet,
+        readers.toSet,
         transactionMeta.submissionTime.toInstant,
       )
       .flatMap { supportedDeduplicationPeriod =>

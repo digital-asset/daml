@@ -22,7 +22,7 @@ class CompletionBasedDeduplicationPeriodConverter(
   override def convertOffsetToDuration(
       offset: Ref.HexString,
       applicationId: ApplicationId,
-      actAs: Set[Ref.Party],
+      readers: Set[Ref.Party],
       maxRecordTime: Instant,
   )(implicit
       mat: Materializer,
@@ -30,7 +30,7 @@ class CompletionBasedDeduplicationPeriodConverter(
       loggingContext: LoggingContext,
   ): Future[Either[DeduplicationConversionFailure, Duration]] = completionAtOffset(
     applicationId,
-    actAs,
+    readers,
     offset,
   ).map {
     case Some(CompletionStreamResponse(Some(checkpoint), _)) =>
@@ -51,7 +51,7 @@ class CompletionBasedDeduplicationPeriodConverter(
 
   private def completionAtOffset(
       applicationId: ApplicationId,
-      actAs: Set[Ref.Party],
+      readers: Set[Ref.Party],
       offset: Ref.HexString,
   )(implicit
       mat: Materializer,
@@ -60,10 +60,11 @@ class CompletionBasedDeduplicationPeriodConverter(
     val previousOffset = HexOffset.previous(offset)
     completionService
       .getCompletions(
-        previousOffset.map(LedgerOffset.Absolute).getOrElse(LedgerOffset.LedgerBegin),
-        LedgerOffset.Absolute(offset),
-        applicationId,
-        actAs,
+        startExclusive =
+          previousOffset.map(LedgerOffset.Absolute).getOrElse(LedgerOffset.LedgerBegin),
+        endInclusive = LedgerOffset.Absolute(offset),
+        applicationId = applicationId,
+        parties = readers,
       )
       .runWith(Sink.headOption)
   }

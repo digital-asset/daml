@@ -14,6 +14,7 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
   * Ledger API.
   *
   * @param actAs                the non-empty set of parties that submitted the change.
+  * @param readAs               the parties on whose behalf (in addition to all parties listed in [[actAs]]) contracts can be retrieved.
   * @param applicationId        an identifier for the Daml application that
   *                             submitted the command. This is used for monitoring, command
   *                             deduplication, and to allow Daml applications subscribe to their own
@@ -29,6 +30,7 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
   */
 final case class SubmitterInfo(
     actAs: List[Ref.Party],
+    readAs: List[Ref.Party],
     applicationId: Ref.ApplicationId,
     commandId: Ref.CommandId,
     deduplicationPeriod: DeduplicationPeriod,
@@ -51,9 +53,18 @@ final case class SubmitterInfo(
 
 object SubmitterInfo {
   implicit val `SubmitterInfo to LoggingValue`: ToLoggingValue[SubmitterInfo] = {
-    case SubmitterInfo(actAs, applicationId, commandId, deduplicationPeriod, submissionId, _) =>
+    case SubmitterInfo(
+          actAs,
+          readAs,
+          applicationId,
+          commandId,
+          deduplicationPeriod,
+          submissionId,
+          _,
+        ) =>
       LoggingValue.Nested.fromEntries(
         "actAs " -> actAs,
+        "readAs" -> readAs,
         "applicationId " -> applicationId,
         "commandId " -> commandId,
         "deduplicationPeriod " -> deduplicationPeriod,
