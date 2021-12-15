@@ -23,11 +23,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
-import com.daml.platform.server.api.validation.{
-  DeduplicationPeriodValidator,
-  ErrorFactories,
-  FieldValidations,
-}
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.{Status, StatusRuntimeException}
 import scalaz.syntax.tag._
 
@@ -42,7 +38,6 @@ final class CommandsValidator(
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
   private val fieldValidations = FieldValidations(errorFactories)
   private val valueValidator = new ValueValidator(errorFactories, fieldValidations)
-  private val deduplicationPeriodValidator = new DeduplicationPeriodValidator(errorFactories)
 
   import errorFactories._
   import fieldValidations._
@@ -241,14 +236,10 @@ final class CommandsValidator(
           Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
         case commands.Commands.DeduplicationPeriod.DeduplicationTime(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
-          deduplicationPeriodValidator
-            .validateDuration(deduplicationDuration, maxDeduplicationDuration)
-            .map(DeduplicationPeriod.DeduplicationDuration)
+          Right(DeduplicationPeriod.DeduplicationDuration(deduplicationDuration))
         case commands.Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
-          deduplicationPeriodValidator
-            .validateDuration(deduplicationDuration, maxDeduplicationDuration)
-            .map(DeduplicationPeriod.DeduplicationDuration)
+          Right(DeduplicationPeriod.DeduplicationDuration(deduplicationDuration))
         case commands.Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
           Ref.HexString
             .fromString(offset)
