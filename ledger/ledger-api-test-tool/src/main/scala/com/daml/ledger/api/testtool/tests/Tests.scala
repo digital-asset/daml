@@ -72,6 +72,7 @@ object Tests {
       new CompletionDeduplicationInfoIT(CommandService),
       new CompletionDeduplicationInfoIT(CommandSubmissionService),
       new CommandDeduplicationParallelIT,
+      new CommandDeduplicationPeriodValidationIT,
       new ContractIdIT,
       new KVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity, staticTime),
       new MultiPartySubmissionIT,
