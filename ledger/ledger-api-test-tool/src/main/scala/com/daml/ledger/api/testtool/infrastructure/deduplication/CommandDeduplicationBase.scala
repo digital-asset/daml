@@ -143,7 +143,7 @@ private[testtool] abstract class CommandDeduplicationBase(
         requestA,
         Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
-      )()
+      )
 
       // Re-submit the invalid command (should again fail with INVALID_ARGUMENT and not with ALREADY_EXISTS)
       _ <- submitRequestAndAssertSyncFailure(
@@ -151,7 +151,7 @@ private[testtool] abstract class CommandDeduplicationBase(
         updateWithFreshSubmissionId(requestA),
         Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
-      )()
+      )
     } yield {}
   })
 
@@ -569,7 +569,7 @@ private[testtool] abstract class CommandDeduplicationBase(
   )(implicit
       ec: ExecutionContext
   ): Future[OffsetWithCompletion] =
-    submitRequestAndAssertCompletion(ledger)(request, parties: _*) { completion =>
+    submitRequestAndAssertCompletion(ledger, request, parties: _*) { completion =>
       assertCompletionStatus(request, completion, Code.OK)
     }
 
@@ -604,12 +604,11 @@ private[testtool] abstract class CommandDeduplicationBase(
       request,
       Code.ALREADY_EXISTS,
       LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
-    )(
       assertDeduplicatedSubmissionIdAndOffsetOnError(
         acceptedSubmissionId,
         acceptedOffset,
         _,
-      )
+      ),
     )
 
   private def submitRequestAndAssertSyncFailure(
@@ -617,8 +616,7 @@ private[testtool] abstract class CommandDeduplicationBase(
       request: SubmitRequest,
       code: Code,
       selfServiceErrorCode: ErrorCode,
-  )(
-      additionalErrorAssertions: Throwable => Unit = _ => ()
+      additionalErrorAssertions: Throwable => Unit = _ => (),
   )(implicit ec: ExecutionContext): Future[Unit] =
     ledger
       .submit(request)
@@ -681,8 +679,7 @@ private[testtool] abstract class CommandDeduplicationBase(
       parties: Party*
   )(implicit ec: ExecutionContext): Future[OffsetWithCompletion] =
     submitRequestAndAssertCompletion(
-      ledger
-    )(
+      ledger,
       request,
       parties: _*
     ) { completion =>
@@ -716,8 +713,8 @@ private[testtool] abstract class CommandDeduplicationBase(
   ): Unit = t match {
     case exception: Exception =>
       val metadata = extractErrorInfoMetadata(exception)
-      assertExistingCompletionOffsetOnMetadata(metadata, acceptedCompletionOffset)
       assertExistingSubmissionIdOnMetadata(metadata, acceptedSubmissionId)
+      assertExistingCompletionOffsetOnMetadata(metadata, acceptedCompletionOffset)
     case _ => ()
   }
 
@@ -758,8 +755,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     }
 
   private def submitRequestAndAssertCompletion(
-      ledger: ParticipantTestContext
-  )(
+      ledger: ParticipantTestContext,
       request: SubmitRequest,
       parties: Party*
   )(
@@ -767,14 +763,13 @@ private[testtool] abstract class CommandDeduplicationBase(
   )(implicit
       ec: ExecutionContext
   ): Future[OffsetWithCompletion] =
-    submitRequestAndFindCompletion(ledger)(request, parties: _*).map { case (offset, completion) =>
+    submitRequestAndFindCompletion(ledger, request, parties: _*).map { case (offset, completion) =>
       additionalCompletionAssertion(completion)
       offset -> completion
     }
 
   protected def submitRequestAndFindCompletion(
-      ledger: ParticipantTestContext
-  )(
+      ledger: ParticipantTestContext,
       request: SubmitRequest,
       parties: Party*
   )(implicit
@@ -818,9 +813,9 @@ private[testtool] abstract class CommandDeduplicationBase(
 
   private def updateSubmissionId(
       request: SubmitRequest,
-      acceptedSubmissionId1: SubmissionId,
+      submissionId: SubmissionId,
   ): SubmitRequest =
-    request.update(_.commands.submissionId := acceptedSubmissionId1)
+    request.update(_.commands.submissionId := submissionId)
 
   private def updateSubmissionId(
       request: SubmitAndWaitRequest,
