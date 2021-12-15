@@ -32,7 +32,13 @@ trait ServiceCallAuthTests
 
   def serviceCallName: String
 
-  def serviceCallWithToken(token: Option[String]): Future[Any]
+  protected def serviceCallWithToken(token: Option[String]): Future[Any]
+
+  /** Override this method in requests that require an application-id. Tests that use a user token
+    * will call this method to avoid application_id checks from failing.
+    */
+  protected def serviceCallWithoutApplicationId(token: Option[String]): Future[Any] =
+    serviceCallWithToken(token)
 
   protected def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
     token.fold(stub)(LedgerCallCredentials.authenticatingStub(stub, _))

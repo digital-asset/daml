@@ -9,8 +9,6 @@ import scala.concurrent.Future
 
 trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
 
-  def serviceCallWithoutApplicationId(token: Option[String]): Future[Any]
-
   protected def serviceCallWithMainActorUser(
       userPrefix: String,
       right: proto.Right.Kind,
