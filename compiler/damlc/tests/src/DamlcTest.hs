@@ -399,6 +399,22 @@ testsForDamlcTest damlc = testGroup "damlc test" $
           exists <- doesFileExist $ tempDir </> "a.xml"
           -- Check that the junit output was created relative to CWD not the project.
           assertBool "JUnit output was not created" exists
+    , testCase "grpc-max-message-size applies to service results" $ withTempDir $ \tempDir -> do
+        writeFileUTF8 (tempDir </> "Main.daml") $ unlines
+          [ "module Main where"
+          , "test = scenario do"
+          , "  pure $ replicate 500000 \"hello world\""
+          ]
+        writeFileUTF8 (tempDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: foobar"
+          , "version: 0.0.1"
+          , "source: ."
+          , "dependencies: [daml-prim, daml-stdlib]"
+          , "scenario-service:"
+          , "  grpc-max-message-size: 10000000"
+          ]
+        callProcessSilent damlc ["test", "--project-root", tempDir]
     ] <>
     [ testCase ("damlc test " <> unwords (args "") <> " in project") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
