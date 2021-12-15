@@ -376,7 +376,7 @@ jobs:
           #code location name uniquely identified to avoid stomping
           BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
 
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
+          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/revert-detect-7.9.0/synopsys-detect) \
           ci-build digital-asset_daml $(Build.SourceBranchName) \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.tools=BAZEL \
@@ -396,7 +396,7 @@ jobs:
           #by qualifying as a maven_install (aka jvm) bazel blackduck scan
           BAZEL_DEPENDENCY_TYPE="maven_install"
 
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
+          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/revert-detect-7.9.0/synopsys-detect) \
           ci-build digital-asset_daml $(Build.SourceBranchName) \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.npm.include.dev.dependencies=false \
