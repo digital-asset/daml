@@ -206,8 +206,9 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
             <> long "project-check"
 
 enableScenarioServiceOpt :: Parser EnableScenarioService
-enableScenarioServiceOpt = EnableScenarioService <$>
-    flagYesNoAuto "scenarios" True "Enable/disable support for running Daml Scripts and scenarios" idm
+enableScenarioServiceOpt = fmap EnableScenarioService $
+    flagYesNoAuto "scenarios" True "Enable/disable support for running Daml Scripts and scenarios" idm <|>
+    flagYesNoAuto "scripts" True "Enable/disable support for running Daml Scripts and scenarios" idm
 
 enableScenariosOpt :: Parser EnableScenarios
 enableScenariosOpt = EnableScenarios <$>
