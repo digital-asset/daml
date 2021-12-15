@@ -121,7 +121,7 @@ class WriteServiceWithDeduplicationSupportSpec
       }
   }
 
-  "use actAs and readAs as readers for the completion stream" in {
+  "use all parties in `actAs` and `readAs` as readers for the completion stream" in {
     val submitterInfoWithParties = submitterInfo.copy(
       actAs = List(Ref.Party.assertFromString("party1")),
       readAs = List(Ref.Party.assertFromString("party2")),
