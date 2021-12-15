@@ -40,7 +40,7 @@ case object MissingConfigError extends ConfigError {
 }
 final case class ConfigParseError(msg: String) extends ConfigError
 
-case class Cli(
+final case class Cli(
     configFile: Option[File] = None,
     // Host and port the middleware listens on
     address: String = cliopts.Http.defaultAddress,
@@ -105,32 +105,33 @@ case class Cli(
 }
 
 object Cli extends StrictLogging {
-  implicit val tokenVerifierReader =
-    ConfigReader.forProduct2[JwtVerifierBase, String, String]("type", "uri") { case (t, p) =>
-      // hs256-unsafe, rs256-crt, es256-crt, es512-crt, rs256-jwks
-      t match {
-        case "hs256-unsafe" =>
-          HMAC256Verifier(p)
-            .valueOr(err => sys.error(s"Failed to create HMAC256 verifier: $err"))
-        case "rs256-crt" =>
-          RSA256Verifier
-            .fromCrtFile(p)
-            .valueOr(err => sys.error(s"Failed to create RSA256 verifier: $err"))
-        case "es256-crt" =>
-          ECDSAVerifier
-            .fromCrtFile(p, Algorithm.ECDSA256(_, null))
-            .valueOr(err => sys.error(s"Failed to create ECDSA256 verifier: $err"))
-        case "es512-crt" =>
-          ECDSAVerifier
-            .fromCrtFile(p, Algorithm.ECDSA512(_, null))
-            .valueOr(err => sys.error(s"Failed to create ECDSA512 verifier: $err"))
-        case "rs256-jwks" =>
-          JwksVerifier(p)
-      }
+  implicit val tokenVerifierReader: ConfigReader[JwtVerifierBase] =
+    ConfigReader.forProduct2[JwtVerifierBase, String, String]("type", "uri") {
+      case (t: String, p: String) =>
+        // hs256-unsafe, rs256-crt, es256-crt, es512-crt, rs256-jwks
+        t match {
+          case "hs256-unsafe" =>
+            HMAC256Verifier(p)
+              .valueOr(err => sys.error(s"Failed to create HMAC256 verifier: $err"))
+          case "rs256-crt" =>
+            RSA256Verifier
+              .fromCrtFile(p)
+              .valueOr(err => sys.error(s"Failed to create RSA256 verifier: $err"))
+          case "es256-crt" =>
+            ECDSAVerifier
+              .fromCrtFile(p, Algorithm.ECDSA256(_, null))
+              .valueOr(err => sys.error(s"Failed to create ECDSA256 verifier: $err"))
+          case "es512-crt" =>
+            ECDSAVerifier
+              .fromCrtFile(p, Algorithm.ECDSA512(_, null))
+              .valueOr(err => sys.error(s"Failed to create ECDSA512 verifier: $err"))
+          case "rs256-jwks" =>
+            JwksVerifier(p)
+        }
     }
-  lazy implicit val uriReader =
+  lazy implicit val uriReader: ConfigReader[Uri] =
     ConfigReader.fromString[Uri](ConvertHelpers.catchReadError(s => Uri(s)))
-  lazy implicit val clientSecretReader =
+  lazy implicit val clientSecretReader: ConfigReader[SecretString] =
     ConfigReader.fromString[SecretString](ConvertHelpers.catchReadError(s => SecretString(s)))
   lazy implicit val cfgReader: ConfigReader[Config] = deriveReader[Config]
 
@@ -247,12 +248,20 @@ object Cli extends StrictLogging {
         Right(())
     }
 
+    checkConfig { cfg =>
+      val cliOptionsAreDefined =
+        cfg.oauthToken != null || cfg.oauthAuth != null || cfg.tokenVerifier != null
+      if (cfg.configFile.isDefined && cliOptionsAreDefined) {
+        Left("Found both config file and cli opts for the app, please provide only one of them")
+      } else Right(())
+    }
+
     override def showUsageOnError: Option[Boolean] = Some(true)
   }
 
   def parse(args: Array[String]): Option[Cli] = parser.parse(args, Empty)
 
-  def parseConfig(args: Array[String]) = {
+  def parseConfig(args: Array[String]): Option[Config] = {
     val cli = parse(args)
     cli.flatMap { c =>
       if (c.configFile.isDefined) {
@@ -262,7 +271,10 @@ object Cli extends StrictLogging {
             logger.error(s"Unable to start oauth2-middleware using config: ${err.msg}")
             None
         }
-      } else Some(c.loadConfigFromCliArgs)
+      } else {
+        logger.warn("Using cli opts for running oauth2-middleware is deprecated")
+        Some(c.loadConfigFromCliArgs)
+      }
     }
   }
 }

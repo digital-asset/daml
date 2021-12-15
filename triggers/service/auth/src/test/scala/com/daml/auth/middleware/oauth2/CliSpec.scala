@@ -11,25 +11,24 @@ import com.daml.jwt.JwksVerifier
 
 import java.nio.file.Paths
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
 
 class CliSpec extends AsyncWordSpec with Matchers {
   val confFile = "triggers/service/auth/src/test/resources/oauth2-middleware.conf"
-  def loadCli(file: String) = {
-    Cli.parse(Array("--config", file)).getOrElse(fail())
+  def loadCli(file: String): Cli = {
+    Cli.parse(Array("--config", file)).getOrElse(fail("Could not load Cli on parse"))
   }
 
   "should pickup the config file provided" in {
     val file = requiredResource(confFile)
     val cli = loadCli(file.getAbsolutePath)
-    cli.configFile.nonEmpty shouldBe true
+    cli.configFile should not be empty
   }
 
   "should take default values on loading minimal config" in {
     val file =
       requiredResource("triggers/service/auth/src/test/resources/oauth2-middleware-minimal.conf")
     val cli = loadCli(file.getAbsolutePath)
-    cli.configFile.nonEmpty shouldBe true
+    cli.configFile should not be empty
     cli.loadConfigFromFile match {
       case Left(ex) => fail(ex.msg)
       case Right(c) =>
@@ -60,7 +59,7 @@ class CliSpec extends AsyncWordSpec with Matchers {
   "should be able to successfully load the config based on the file provided" in {
     val file = requiredResource(confFile)
     val cli = loadCli(file.getAbsolutePath)
-    cli.configFile.nonEmpty shouldBe true
+    cli.configFile should not be empty
     cli.loadConfigFromFile match {
       case Left(ex) => fail(ex.msg)
       case Right(c) =>
@@ -88,37 +87,55 @@ class CliSpec extends AsyncWordSpec with Matchers {
     }
   }
 
-  "parse should raise non-existent config file" in {
+  "parse should raise error on non-existent config file" in {
     val cli = loadCli("missingFile.conf")
+    cli.configFile should not be empty
     val cfg = cli.loadConfigFromFile
-    cli.configFile.nonEmpty shouldBe true
     cfg match {
-      case Left(_: ConfigParseError) => succeed
-      case _ => fail()
+      case Left(err) => err shouldBe a[ConfigParseError]
+      case _ => fail("Expected a `ConfigParseError` on missing conf file")
     }
+
+    //parseConfig for non-existent file should return a None
+    Cli.parseConfig(
+      Array(
+        "--config-file",
+        "missingFile.conf",
+      )
+    ) shouldBe None
   }
 
   "should load config from cli args on missing conf file " in {
-    scala.util.Try(
-      Cli
-        .parseConfig(
-          Array(
-            "--oauth-auth",
-            "file://foo",
-            "--oauth-token",
-            "file://bar",
-            "--id",
-            "foo",
-            "--secret",
-            "bar",
-            "--auth-jwt-hs256-unsafe",
-            "unsafe",
-          )
+    Cli
+      .parseConfig(
+        Array(
+          "--oauth-auth",
+          "file://foo",
+          "--oauth-token",
+          "file://bar",
+          "--id",
+          "foo",
+          "--secret",
+          "bar",
+          "--auth-jwt-hs256-unsafe",
+          "unsafe",
         )
-        .getOrElse(fail())
-    ) match {
-      case Success(_) => succeed
-      case Failure(ex) => fail(ex.getMessage)
-    }
+      ) should not be empty
+  }
+
+  "should fail to load config from cli args on incomplete cli args" in {
+    Cli
+      .parseConfig(
+        Array(
+          "--oauth-auth",
+          "file://foo",
+          "--id",
+          "foo",
+          "--secret",
+          "bar",
+          "--auth-jwt-hs256-unsafe",
+          "unsafe",
+        )
+      ) shouldBe None
   }
 }
