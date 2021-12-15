@@ -213,10 +213,6 @@ enableScenariosOpt :: Parser EnableScenarios
 enableScenariosOpt = EnableScenarios <$>
     flagYesNoAuto "enable-scenarios" True "Enable/disable support for running scenarios." internal
 
-enableScriptsOpt :: Parser EnableScripts
-enableScriptsOpt = EnableScripts <$>
-    flagYesNoAuto "daml-script" True "Enable/disable support for running Daml Scripts" internal
-
 dlintEnabledOpt :: Parser DlintUsage
 dlintEnabledOpt = DlintEnabled
   <$> strOption
@@ -297,7 +293,6 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     let optEnableOfInterestRule = False
     optCppPath <- optCppPath
     optEnableScenarios <- enableScenariosOpt
-    optEnableScripts <- enableScriptsOpt
 
     return Options{..}
   where
