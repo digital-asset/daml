@@ -264,7 +264,7 @@ private[events] object FilterTableACSReader {
   ): () => ((TASK, Iterable[Long])) => Vector[Vector[Long]] = () => {
     val outputQueue = new BatchedDistinctOutputQueue(outputBatchSize)
     val taskQueue = new MergingTaskQueue[TASK](outputQueue.push)
-    // Limit the number of queued contact ids to 1M per filter
+    // Limit the number of queued contract ids to 1M per filter
     val maxTaskQueueSize = 1000000 / inputBatchSize
     val taskTracker = new TaskTracker[TASK](tasks, inputBatchSize, maxTaskQueueSize)
 
