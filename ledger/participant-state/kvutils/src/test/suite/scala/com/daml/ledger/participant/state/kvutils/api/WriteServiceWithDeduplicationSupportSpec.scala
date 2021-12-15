@@ -151,7 +151,7 @@ class WriteServiceWithDeduplicationSupportSpec
     ).thenReturn(Future.successful[SubmissionResult](Acknowledged).asJava)
     service
       .submitTransaction(
-        submitterInfo,
+        submitterInfoWithParties,
         transactionMeta,
         submittedTransaction,
         0,
