@@ -83,7 +83,7 @@ data Options = Options
     -- ^ Controls whether the scenario service is started.
   , optEnableScenarios :: EnableScenarios
     -- ^ Whether old-style scenarios should be run by the scenario service.
-    -- This will be switched to False by default once scenarios have been deprecated.
+    -- This will be switched to False by default once scenarios are no longer supported in 2.0.
   , optEnableScripts :: EnableScripts
     -- ^ Whether scripts should be run by the scenario service.
     -- This will be switched to True by default once it has stabilized.
@@ -199,7 +199,7 @@ defaultOptions mbVersion =
         , optLogLevel = Logger.Info
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
-        , optEnableScenarios = EnableScenarios True -- TODO: set to False once scenarios are deprecated.
+        , optEnableScenarios = EnableScenarios True -- TODO: set to False once scenarios are no longer supported.
         , optEnableScripts = EnableScripts False
         , optSkipScenarioValidation = SkipScenarioValidation False
         , optDlintUsage = DlintDisabled

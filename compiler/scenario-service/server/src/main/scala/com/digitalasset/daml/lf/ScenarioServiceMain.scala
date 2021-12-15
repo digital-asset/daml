@@ -37,8 +37,7 @@ private object ScenarioServiceConfig {
   // default to 128MB
   val DefaultMaxInboundMessageSize: Int = 128 * 1024 * 1024
 
-  private class OptionParser()
-      extends scopt.OptionParser[ScenarioServiceConfig]("scenario-service") {
+  val parser = new scopt.OptionParser[ScenarioServiceConfig]("scenario-service") {
     head("scenario-service")
 
     opt[Int]("max-inbound-message-size")
@@ -57,7 +56,7 @@ private object ScenarioServiceConfig {
   }
 
   def parse(args: Array[String]): Option[ScenarioServiceConfig] =
-    new OptionParser().parse(
+    parser.parse(
       args,
       ScenarioServiceConfig(
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
@@ -143,6 +142,7 @@ class ScenarioService(
       )
     } else {
       log("Rejected scenario gRPC request.")
+      respObs.onError(new UnsupportedOperationException("Scenarios are disabled"))
     }
   }
 

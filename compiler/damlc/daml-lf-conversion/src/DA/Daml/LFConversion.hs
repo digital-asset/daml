@@ -1132,7 +1132,7 @@ convertBind env (name, x)
     , ty@(TypeCon scenarioType [_]) <- varType name -- Scenario : * -> *
     , NameIn DA_Internal_LF "Scenario" <- scenarioType
     = withRange (convNameLoc name) $ conversionError $ unlines
-        [ "Scenarios are deprecated."
+        [ "Scenarios are no longer supported."
         , "Instead, consider using Daml Script (https://docs.daml.com/daml-script/index.html)."
         , "When compiling " <> prettyPrint name <> " : " <> prettyPrint ty <> "."
         ]

@@ -210,8 +210,8 @@ withScenarioService opts@Options{..} f = do
   cp <- javaProc $ concat
     [ optJvmOptions
     , ["-jar" , optServerJar]
-    , ["--max-inbound-message-size:" <> show size | Just size <- [optGrpcMaxMessageSize]]
-    , ["--enable-scenarios:" <> show b | EnableScenarios b <- [optEnableScenarios]]
+    , ["--max-inbound-message-size=" <> show size | Just size <- [optGrpcMaxMessageSize]]
+    , ["--enable-scenarios=" <> show b | EnableScenarios b <- [optEnableScenarios]]
     ]
 
   exitExpected <- newIORef False
