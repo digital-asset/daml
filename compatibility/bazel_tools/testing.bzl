@@ -588,6 +588,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
+        "start": "1.18.0",
         "end": "1.18.0",
         "platform_ranges": [
             {
