@@ -349,7 +349,7 @@ jobs:
 
   - job: blackduck_scan
     timeoutInMinutes: 1200
-    condition: eq(variables['Build.SourceBranchName'], 'not-main')
+    condition: eq(variables['Build.SourceBranchName'], 'main')
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
@@ -438,13 +438,13 @@ jobs:
         displayName: open PR
         name: out
         condition: and(succeeded(),
-                       eq(variables['Build.SourceBranchName'], 'not-main'))
+                       eq(variables['Build.SourceBranchName'], 'main'))
 
   - job: run_notices_pr_build
     timeoutInMinutes: 60
     dependsOn: ["blackduck_scan"]
     condition: and(succeeded(),
-                   eq(variables['Build.SourceBranchName'], 'not-main'))
+                   eq(variables['Build.SourceBranchName'], 'main'))
     pool:
       vmImage: ubuntu-20.04
     variables:
