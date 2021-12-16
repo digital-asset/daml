@@ -18,14 +18,12 @@ import System.Process.Typed
 
 data Lang
   = Java
-  | Scala
   | JavaScript
   deriving (Show, Eq, Ord, Enum, Bounded)
 
 showLang :: Lang -> T.Text
 showLang = \case
   Java -> "java"
-  Scala -> "scala"
   JavaScript -> "js"
 
 runCodegen :: Lang -> [String] -> IO ()
@@ -60,8 +58,3 @@ runCodegen lang args =
         "daml-sdk/daml-sdk.jar"
         (Just "daml-sdk/codegen-logback.xml")
         (["codegen", "java"] ++ args)
-    Scala ->
-      runJar
-        "daml-sdk/daml-sdk.jar"
-        (Just "daml-sdk/codegen-logback.xml")
-        (["codegen", "scala"] ++ args)

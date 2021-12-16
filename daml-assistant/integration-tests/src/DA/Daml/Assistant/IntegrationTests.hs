@@ -114,11 +114,6 @@ damlStart tmpDir = do
             , "    npm-scope: daml.js"
             , "  java:"
             , "    output-directory: ui/java"
-            , "  scala:"
-            , "    output-directory: ui/scala"
-      -- this configuration option shouldn't be mandatory according to docs, but it is.
-      -- See https://github.com/digital-asset/daml/issues/7547.
-            , "    package-prefix: com.digitalasset"
             ]
     writeFileUTF8 (projDir </> "daml/Main.daml") $
         unlines
@@ -388,10 +383,8 @@ damlStartTests getDamlStart =
             DamlStartResource {projDir} <- getDamlStart
             didGenerateJsCode <- doesFileExist (projDir </> "ui" </> "daml.js" </> "assistant-integration-tests-1.0" </> "package.json")
             didGenerateJavaCode <- doesFileExist (projDir </> "ui" </> "java" </> "da" </> "internal" </> "template" </> "Archive.java")
-            didGenerateScalaCode <- doesFileExist (projDir </> "ui" </> "scala" </> "com" </> "digitalasset" </> "PackageIDs.scala")
             didGenerateJsCode @?= True
             didGenerateJavaCode @?= True
-            didGenerateScalaCode @?= True
         subtest "run a daml ledger command" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             callCommandSilentIn projDir $ unwords
@@ -728,7 +721,6 @@ cleanTests :: FilePath -> TestTree
 cleanTests baseDir = testGroup "daml clean"
     [ cleanTestFor "skeleton"
     , cleanTestFor "quickstart-java"
-    , cleanTestFor "quickstart-scala"
     ]
     where
         cleanTestFor :: String -> TestTree
@@ -776,7 +768,6 @@ templateTests = testGroup "templates" $
             , "daml-intro-7"
             , "daml-patterns"
             , "quickstart-java"
-            , "quickstart-scala"
             , "script-example"
             , "skeleton"
             , "create-daml-app"
@@ -786,7 +777,6 @@ templateTests = testGroup "templates" $
 codegenTests :: FilePath -> TestTree
 codegenTests codegenDir = testGroup "daml codegen" (
     [ codegenTestFor "java" Nothing
-    , codegenTestFor "scala" (Just "com.cookiemonster.nomnomnom")
     ] ++
     -- The '@daml/types' NPM package is not available on Windows which
     -- is required by 'daml2js'.
