@@ -30,7 +30,7 @@ final class Struct[+X] private (protected val sortedFields: ArraySeq[(Ref.Name, 
       if (to < from)
         -1
       else {
-        val idx = (from + to + 1) / 2
+        val idx = (from + to) / 2
         val c = name compareTo sortedFields(idx)._1
         if (c < 0) loop(from, idx - 1)
         else if (c > 0) loop(idx + 1, to)
