@@ -5,14 +5,14 @@ package com.daml.lf.data
 
 import com.daml.scalautil.FoldableContravariant
 import com.daml.scalautil.Statement.discard
+
 import ScalazEqual.{equalBy, orderBy, toIterableForScalazInstances}
 import scalaz.syntax.applicative._
 import scalaz.{Applicative, Equal, Foldable, Order, Traverse}
 
 import scala.annotation.tailrec
-import scala.collection.{Factory, StrictOptimizedSeqFactory}
-import scala.collection.immutable.ArraySeq
-import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, StrictOptimizedSeqOps}
+import scala.collection.StrictOptimizedSeqFactory
+import scala.collection.immutable.{AbstractSeq, ArraySeq, IndexedSeqOps, StrictOptimizedSeqOps}
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
