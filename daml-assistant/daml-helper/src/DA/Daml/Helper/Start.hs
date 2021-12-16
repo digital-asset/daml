@@ -8,19 +8,13 @@ module DA.Daml.Helper.Start
     , withSandbox
     , withNavigator
 
+    , StartOptions(..)
     , NavigatorPort(..)
     , SandboxPort(..)
     , SandboxPortSpec(..)
     , toSandboxPortSpec
     , JsonApiPort(..)
     , JsonApiConfig(..)
-    , OpenBrowser(..)
-    , StartNavigator(..)
-    , WaitForSignal(..)
-    , SandboxOptions(..)
-    , NavigatorOptions(..)
-    , JsonApiOptions(..)
-    , ScriptOptions(..)
     , SandboxClassic(..)
     ) where
 
@@ -45,6 +39,8 @@ import System.Info.Extra
 import Web.Browser
 import qualified Web.JWT as JWT
 import Data.Aeson
+
+import Options.Applicative.Extended (YesNoAuto, determineAutoM)
 
 import DA.Daml.Helper.Codegen
 import DA.Daml.Helper.Ledger
@@ -153,23 +149,10 @@ withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) extraArgs a = do
         waitForHttpServer (putStr "." *> threadDelay 500000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
         a ph
 
--- | Whether `daml start` should open a browser automatically.
-newtype OpenBrowser = OpenBrowser Bool
-
--- | Whether `daml start` should start the navigator automatically.
-newtype StartNavigator = StartNavigator Bool
-
 data JsonApiConfig = JsonApiConfig
   { mbJsonApiPort :: Maybe JsonApiPort -- If Nothing, don’t start the JSON API
   }
 
--- | Whether `daml start` should wait for Ctrl+C or interrupt after starting servers.
-newtype WaitForSignal = WaitForSignal Bool
-
-newtype SandboxOptions = SandboxOptions [String]
-newtype NavigatorOptions = NavigatorOptions [String]
-newtype JsonApiOptions = JsonApiOptions [String]
-newtype ScriptOptions = ScriptOptions [String]
 newtype SandboxClassic = SandboxClassic { unSandboxClassic :: Bool }
 
 withOptsFromProjectConfig :: T.Text -> [String] -> ProjectConfig -> IO [String]
@@ -180,35 +163,25 @@ withOptsFromProjectConfig fieldName cliOpts projectConfig = do
         queryProjectConfig [fieldName] projectConfig
     pure (optsYaml ++ cliOpts)
 
+data StartOptions = StartOptions
+    { sandboxPortM :: Maybe SandboxPortSpec
+    , shouldOpenBrowser :: Bool
+    , shouldStartNavigator :: YesNoAuto
+    , navigatorPort :: NavigatorPort
+    , jsonApiConfig :: JsonApiConfig
+    , onStartM :: Maybe String
+    , shouldWaitForSignal :: Bool
+    , sandboxOptions :: [String]
+    , navigatorOptions :: [String]
+    , jsonApiOptions :: [String]
+    , scriptOptions :: [String]
+    , shutdownStdinClose :: Bool
+    , sandboxClassic :: SandboxClassic
+    }
 
-runStart
-    :: Maybe SandboxPortSpec
-    -> Maybe StartNavigator
-    -> NavigatorPort
-    -> JsonApiConfig
-    -> OpenBrowser
-    -> Maybe String
-    -> WaitForSignal
-    -> SandboxOptions
-    -> NavigatorOptions
-    -> JsonApiOptions
-    -> ScriptOptions
-    -> SandboxClassic
-    -> IO ()
-runStart
-  sandboxPortM
-  mbStartNavigator
-  navigatorPort
-  (JsonApiConfig mbJsonApiPort)
-  (OpenBrowser shouldOpenBrowser)
-  onStartM
-  (WaitForSignal shouldWaitForSignal)
-  (SandboxOptions sandboxOpts)
-  (NavigatorOptions navigatorOpts)
-  (JsonApiOptions jsonApiOpts)
-  (ScriptOptions scriptOpts)
-  sandboxClassic
-  = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
+runStart :: StartOptions -> IO ()
+runStart StartOptions{..} =
+  withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     projectConfig <- getProjectConfig Nothing
     darPath <- getDarPath
     mbScenario :: Maybe String <-
@@ -217,17 +190,15 @@ runStart
     mbInitScript :: Maybe String <-
         requiredE "Failed to parse init-script" $
         queryProjectConfig ["init-script"] projectConfig
-    shouldStartNavigator :: Bool <- case mbStartNavigator of
-        -- If an option is passed explicitly, we use it, otherwise we read daml.yaml.
-        Nothing ->
-            fmap (fromMaybe True) $
-            requiredE "Failed to parse start-navigator" $
-            queryProjectConfig ["start-navigator"] projectConfig
-        Just (StartNavigator explicit) -> pure explicit
-    sandboxOpts <- withOptsFromProjectConfig "sandbox-options" sandboxOpts projectConfig
-    navigatorOpts <- withOptsFromProjectConfig "navigator-options" navigatorOpts projectConfig
-    jsonApiOpts <- withOptsFromProjectConfig "json-api-options" jsonApiOpts projectConfig
-    scriptOpts <- withOptsFromProjectConfig "script-options" scriptOpts projectConfig
+    shouldStartNavigator :: Bool <-
+      determineAutoM (fmap (fromMaybe True) $
+        requiredE "Failed to parse start-navigator" $
+        queryProjectConfig ["start-navigator"] projectConfig)
+        shouldStartNavigator
+    sandboxOpts <- withOptsFromProjectConfig "sandbox-options" sandboxOptions projectConfig
+    navigatorOpts <- withOptsFromProjectConfig "navigator-options" navigatorOptions projectConfig
+    jsonApiOpts <- withOptsFromProjectConfig "json-api-options" jsonApiOptions projectConfig
+    scriptOpts <- withOptsFromProjectConfig "script-options" scriptOptions projectConfig
     doBuild
     doCodegen projectConfig
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
@@ -266,7 +237,7 @@ runStart
                 then withNavigator
                 else (\_ _ _ f -> f sandboxPh)
         withJsonApi' sandboxPh sandboxPort args f =
-            case mbJsonApiPort of
+            case mbJsonApiPort jsonApiConfig of
                 Nothing -> f sandboxPh
                 Just jsonApiPort -> withJsonApi sandboxPort jsonApiPort args f
         doCodegen projectConfig =
