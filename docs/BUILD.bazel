@@ -210,15 +210,15 @@ genrule(
 )
 
 [
-genrule(
-  name = "sphinx-{}".format(name),
-  outs = ["sphinx-{}.tar.gz".format(name)],
-  srcs = [":sphinx-source-tree",
-        ":scripts/check-closing-quotes.sh",
-        ":scripts/check-closing-quotes.sh.allow",
-  ]
-  + (["@glibc_locales//:locale-archive"] if is_linux else []),
-  cmd = """
+    genrule(
+        name = "sphinx-{}".format(name),
+        srcs = [
+            ":sphinx-source-tree",
+            ":scripts/check-closing-quotes.sh",
+            ":scripts/check-closing-quotes.sh.allow",
+        ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
+        outs = ["sphinx-{}.tar.gz".format(name)],
+        cmd = """
     set -eou pipefail
     export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
 
@@ -265,13 +265,19 @@ genrule(
     OUT_PATH=$$PWD/$@
     cd $$DIR
     $$MKTGZ $$OUT_PATH target
-  """.format(target = target, name = name),
-  tools = [
-        "@sphinx_nix//:bin/sphinx-build",
-        "//bazel_tools/sh:mktgz",
-        ]
-)
-for (name, target) in [("html", "html"), ("pdf", "latex")]
+  """.format(
+            target = target,
+            name = name,
+        ),
+        tools = [
+            "//bazel_tools/sh:mktgz",
+            "@sphinx_nix//:bin/sphinx-build",
+        ],
+    )
+    for (name, target) in [
+        ("html", "html"),
+        ("pdf", "latex"),
+    ]
 ]
 
 genrule(
@@ -281,7 +287,7 @@ genrule(
         ":pdf-fonts",
     ],
     outs = ["DigitalAssetSDK.pdf"],
-    cmd ="""
+    cmd = """
         set -euo pipefail
         # Set up tools
         export PATH="$$( cd "$$(dirname "$(location @imagemagick_nix//:bin/convert)")" ; pwd -P )":$$PATH
@@ -315,14 +321,14 @@ genrule(
     tags = ["pdfdocs"],
     tools =
         [
-            "@texlive_nix//:bin/lualatex",
             "@imagemagick_nix//:bin/convert",
+            "@texlive_nix//:bin/lualatex",
         ],
 ) if not is_windows else None
 
 filegroup(
-  name = "pdf-fonts",
-  srcs = glob(["configs/pdf/fonts/**"])
+    name = "pdf-fonts",
+    srcs = glob(["configs/pdf/fonts/**"]),
 )
 
 genrule(
