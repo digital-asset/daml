@@ -334,23 +334,23 @@ filegroup(
 )
 
 pkg_tar(
-  name = "pdf-fonts-tar",
-  extension = "tar.gz",
-  srcs = [":pdf-fonts"],
+    name = "pdf-fonts-tar",
+    srcs = [":pdf-fonts"],
+    extension = "tar.gz",
 )
 
 genrule(
-  name = "non-sphinx-html-docs",
-  outs = ["other-html-docs.tar.gz"],
-  srcs = [
-     ":hoogle_db.tar.gz",
-     "//language-support/java:javadoc",
-     "//language-support/ts/daml-react:docs",
-     "//language-support/ts/daml-ledger:docs",
-     "//language-support/ts/daml-types:docs",
-     "@daml-cheat-sheet//:site",
-  ],
-  cmd = """
+    name = "non-sphinx-html-docs",
+    srcs = [
+        ":hoogle_db.tar.gz",
+        "//language-support/java:javadoc",
+        "//language-support/ts/daml-react:docs",
+        "//language-support/ts/daml-ledger:docs",
+        "//language-support/ts/daml-types:docs",
+        "@daml-cheat-sheet//:site",
+    ],
+    outs = ["other-html-docs.tar.gz"],
+    cmd = """
     set -eou pipefail
     DIR=$$(mktemp -d)
     trap "rm -rf DIR" EXIT
