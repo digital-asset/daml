@@ -4,8 +4,7 @@
 package com.daml.navigator.store
 
 import java.time.Instant
-
-import com.daml.ledger.api.domain.PartyDetails
+import com.daml.ledger.api.domain.{PartyDetails, User}
 import com.daml.navigator.model._
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.config.UserConfig
@@ -30,8 +29,11 @@ object Store {
   /** Reinitialize the platform connection and reset all local state `Unit` */
   case object ResetConnection
 
-  case object UpdateParties
+  case object UpdateUsers
+  case class UpdatedUsers(details: Seq[User])
+  case class SubscribeUser(displayName: String, config: UserConfig)
 
+  case object UpdateParties
   case class UpdatedParties(details: List[PartyDetails])
 
   /** Request to subscribe a party to the store (without response to sender). */
@@ -86,6 +88,7 @@ object Store {
       applicationId: String,
       ledgerId: String,
       ledgerTime: TimeProviderWithType,
+      // the keys of this map are passed to the frontend as possible user ids to log in as
       partyActors: Map[String, PartyActorResponse],
   ) extends ApplicationStateInfo
 

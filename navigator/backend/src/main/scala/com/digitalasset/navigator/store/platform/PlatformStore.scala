@@ -37,6 +37,7 @@ import io.grpc.netty.GrpcSslContexts
 import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
+import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -160,6 +161,19 @@ class PlatformStore(
   }
 
   def connected(state: StateConnected): Receive = {
+    case UpdateUsers =>
+      state.ledgerClient.userManagementClient
+        .listUsers() // TODO what token should we pass?
+        .map(UpdatedUsers(_))
+        .pipeTo(self)
+      ()
+    case UpdatedUsers(users) =>
+      val primaryParties = users.flatMap { _.primaryParty }
+      state.ledgerClient.partyManagementClient
+        .getParties(OneAnd(primaryParties.head, primaryParties.tail.toSet))
+        .map(UpdatedParties(_))
+        .pipeTo(self)
+      ()
     case UpdateParties =>
       state.ledgerClient.partyManagementClient
         .listKnownParties()
