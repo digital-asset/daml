@@ -218,9 +218,11 @@ genrule(
             ":scripts/check-closing-quotes.sh.allow",
         ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
         outs = ["sphinx-{}.tar.gz".format(name)],
-        cmd = """
+        cmd = ("""
+export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
+""" if is_linux else "") +
+              """
     set -eou pipefail
-    export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
 
     DIR=$$(mktemp -d)
     mkdir -p $$DIR/source $$DIR/target
@@ -266,9 +268,9 @@ genrule(
     cd $$DIR
     $$MKTGZ $$OUT_PATH target
   """.format(
-            target = target,
-            name = name,
-        ),
+                  target = target,
+                  name = name,
+              ),
         tools = [
             "//bazel_tools/sh:mktgz",
             "@sphinx_nix//:bin/sphinx-build",
