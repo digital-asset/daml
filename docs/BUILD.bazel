@@ -145,37 +145,152 @@ genrule(
 )
 
 genrule(
-    name = "pdf-docs",
-    srcs = glob([
-        "configs/pdf/**",
+    name = "sphinx-source-tree",
+    srcs = [
         "configs/static/pygments_daml_lexer.py",
         "configs/static/typescript.py",
-    ]) + [
+        "configs/html/conf.py",
+        "configs/pdf/conf.py",
+        "configs/pdf/logo.png",
+        "configs/pdf/index.rst",
         ":sources",
+        ":theme",
+        "//templates:templates-tarball",
+        "//templates:create-daml-app-docs",
+        "//templates:create-daml-app-test-resources/index.test.ts",
+    ],
+    outs = ["sphinx-source-tree.tar.gz"],
+    cmd = """
+    set -eou pipefail
+    DIR=$$(mktemp -d)
+    trap "rm -rf $$DIR" EXIT
+    mkdir -p $$DIR/docs
+
+    mkdir -p $$DIR/docs/configs/static $$DIR/docs/configs/html $$DIR/docs/configs/pdf/fonts
+    cp $(location configs/static/pygments_daml_lexer.py) $$DIR/docs/configs/static
+    cp $(location configs/static/typescript.py) $$DIR/docs/configs/static
+
+    tar xf $(location :sources) -C $$DIR/docs
+
+    cp $(location configs/html/conf.py) $$DIR/docs/configs/html
+    cp $(location configs/pdf/conf.py) $$DIR/docs/configs/pdf
+    sed -i "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/html/conf.py
+    sed -i "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/pdf/conf.py
+    mv $$DIR/docs/source/index.rst $$DIR/docs/configs/html
+    cp $(location configs/pdf/index.rst) $$DIR/docs/configs/pdf
+
+    cp $(location configs/pdf/logo.png) $$DIR/docs/configs/pdf
+
+    # Copy in theme
+    mkdir -p $$DIR/docs/theme
+    tar xf $(location :theme) -C $$DIR/docs/theme
+
+    # Copy templates for code snippets in getting started guide
+    CODE_DIR=$$DIR/docs/source/getting-started/code/
+    mkdir -p $$CODE_DIR
+    tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
+    rm -rf $$CODE_DIR/templates-tarball/create-daml-app
+    tar -zxf $(location //templates:create-daml-app-docs) -C $$CODE_DIR/templates-tarball/
+    # Copy create-daml-app tests
+    mkdir $$CODE_DIR/testing
+    cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
+
+    TEMPLATES_DIR=$$DIR/docs/source/_templates
+    mkdir -p $$TEMPLATES_DIR
+    tar xf $(location //templates:templates-tarball) -C $$TEMPLATES_DIR --strip-components=1
+
+    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+    OUT_PATH=$$PWD/$@
+    cd $$DIR
+    $$MKTGZ $$OUT_PATH docs
+  """,
+    tools = [
+        "//bazel_tools/sh:mktgz",
+    ],
+)
+
+[
+genrule(
+  name = "sphinx-{}".format(name),
+  outs = ["sphinx-{}.tar.gz".format(name)],
+  srcs = [":sphinx-source-tree",
+        ":scripts/check-closing-quotes.sh",
+        ":scripts/check-closing-quotes.sh.allow",
+  ]
+  + (["@glibc_locales//:locale-archive"] if is_linux else []),
+  cmd = """
+    set -eou pipefail
+    export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
+
+    DIR=$$(mktemp -d)
+    mkdir -p $$DIR/source $$DIR/target
+
+    tar xf $(location sphinx-source-tree) -C $$DIR/source --strip-components=1
+    mv $$DIR/source/configs/{name}/index.rst $$DIR/source/source/
+
+    if ! docs/scripts/check-closing-quotes.sh $$DIR/source docs/scripts/check-closing-quotes.sh.allow; then
+        exit 1
+    fi
+
+    export LC_ALL=en_US.UTF-8
+    export LANG=en_US.UTF-8
+    # Sphinx 1.8.3 triggers the following warning:
+    #
+    #   /nix/store/1v39mhhyn48s251przk2fwcvgm71vfqi-python3.7-sphinx-1.8.3/lib/python3.7/site-packages/sphinx/writers/html.py:462: FutureWarning:
+    #      The iterable returned by Node.traverse()
+    #      will become an iterator instead of a list in Docutils > 0.16.
+    #     target_node = image_nodes and image_nodes[0] or node.parent
+    #
+    # We are using an older Sphinx (1.8.3) with a more recent nixpkgs revision.
+    # Unfortunately, an update is not so easy because Sphinx 2.3.1 breaks
+    # the PDF documentation due to issues with the FreeSerif font in the
+    # fontspec package. So, for now we ignore `FutureWarning`.
+    SPHINX_BUILD_EXIT_CODE=0
+    SPHINX_BUILD_OUTPUT=$$($(location @sphinx_nix//:bin/sphinx-build) -b {target} -c $$DIR/source/configs/{name} $$DIR/source/source $$DIR/target 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
+
+    if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
+        >&2 echo "## SPHINX-BUILD OUTPUT:"
+        >&2 echo "$$SPHINX_BUILD_OUTPUT"
+        >&2 echo "## SPHINX-BUILD OUTPUT END"
+        exit 1
+    fi
+    # NOTE: appending ' || true' to force exit code of 0 from grep because grep normally exits with 1 if no lines are selected:
+    WARNINGS=$$(echo "$$SPHINX_BUILD_OUTPUT" | grep -Pi "(?<!future)warning:" || true)
+    if [ "$$WARNINGS" != "" ]; then
+        echo "$$WARNINGS"
+        exit 1
+    fi
+
+    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+    OUT_PATH=$$PWD/$@
+    cd $$DIR
+    $$MKTGZ $$OUT_PATH target
+  """.format(target = target, name = name),
+  tools = [
+        "@sphinx_nix//:bin/sphinx-build",
+        "//bazel_tools/sh:mktgz",
+        ]
+)
+for (name, target) in [("html", "html"), ("pdf", "latex")]
+]
+
+genrule(
+    name = "pdf-docs",
+    srcs = [
+        ":sphinx-pdf",
+        ":pdf-fonts",
     ],
     outs = ["DigitalAssetSDK.pdf"],
-    cmd = ("""
-        export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
-    """ if is_linux else "") + """
+    cmd ="""
         set -euo pipefail
         # Set up tools
         export PATH="$$( cd "$$(dirname "$(location @imagemagick_nix//:bin/convert)")" ; pwd -P )":$$PATH
 
-        # Copy files into the right structure and remove symlinks
-        tar -zxf $(location sources) -C .
-        cp -L docs/configs/pdf/index.rst source/
-        cp -L docs/configs/pdf/conf.py source/
-        cp -L docs/configs/pdf/logo.png source/
-        cp -rL docs/configs/static ./
-
-        # Build with Sphinx
-        sed -i "s,__VERSION__,"{sdk}"," source/conf.py
-        export LC_ALL=en_US.UTF-8
-        export LANG=en_US.UTF-8
-        $(location @sphinx_nix//:bin/sphinx-build) -b latex source out
+        mkdir out
+        tar -zxf $(location sphinx-pdf) -C out --strip-components=1
 
         # Copy in fonts and build with lualatex
-        cp -L docs/configs/pdf/fonts/* out/
+        cp -L $(locations :pdf-fonts) out/
         cd out
         # run twice to generate all references properly (this is a latex thing...)
         ../$(location @texlive_nix//:bin/lualatex) -halt-on-error -interaction=batchmode --shell-escape *.tex
@@ -201,95 +316,33 @@ genrule(
     tools =
         [
             "@texlive_nix//:bin/lualatex",
-            "@sphinx_nix//:bin/sphinx-build",
             "@imagemagick_nix//:bin/convert",
-        ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
+        ],
 ) if not is_windows else None
+
+filegroup(
+  name = "pdf-fonts",
+  srcs = glob(["configs/pdf/fonts/**"])
+)
 
 genrule(
     name = "docs-no-pdf",
-    srcs = glob([
-        "configs/html/**",
-        "configs/static/pygments_daml_lexer.py",
-        "configs/static/typescript.py",
-    ]) + [
-        ":sources",
-        ":theme",
+    srcs = [
+        ":sphinx-html",
         ":hoogle_db.tar.gz",
         "//language-support/java:javadoc",
         "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
         "//language-support/ts/daml-types:docs",
-        "//templates:templates-tarball",
-        "//templates:create-daml-app-docs",
-        "//templates:create-daml-app-test-resources/index.test.ts",
         "@daml-cheat-sheet//:site",
-        ":scripts/check-closing-quotes.sh",
-        ":scripts/check-closing-quotes.sh.allow",
     ],
     outs = ["html-only.tar.gz"],
-    cmd = ("""
-        export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
-    """ if is_linux else "") + """
-        # Copy files into the right structure and remove symlinks
-        mkdir build
-        cp -rL docs build
-        tar -zxf $(location sources) -C build/docs
+    cmd = """
+        set -eou pipefail
+        mkdir -p build/html
+        tar xf $(location :sphinx-html) -C build/html --strip-components=1
 
-        # Copy in theme
-        mkdir -p build/docs/theme
-        tar -zxf $(location :theme) -C build/docs/theme
-
-        # Copy templates for code snippets in getting started guide
-        CODE_DIR=$$PWD/build/docs/source/getting-started/code/
-        mkdir -p $$CODE_DIR
-
-        tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
-        rm -rf $$CODE_DIR/templates-tarball/create-daml-app
-        tar -zxf $(location //templates:create-daml-app-docs) -C $$CODE_DIR/templates-tarball/
-        # Copy create-daml-app tests
-        mkdir $$CODE_DIR/testing
-        cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
-
-        # Templates
-        TEMPLATES_DIR=$$PWD/build/docs/source/_templates
-        mkdir -p $$TEMPLATES_DIR
-        tar -zxf $(location //templates:templates-tarball) -C $$TEMPLATES_DIR --strip-components=1
-
-        if ! docs/scripts/check-closing-quotes.sh . docs/scripts/check-closing-quotes.sh.allow; then
-            exit 1
-        fi
-
-        # Build with Sphinx
         cd build
-        sed -i "s,__VERSION__,"{sdk}"," docs/configs/html/conf.py
-        export LC_ALL=en_US.UTF-8
-        export LANG=en_US.UTF-8
-        # Sphinx 1.8.3 triggers the following warning:
-        #
-        #   /nix/store/1v39mhhyn48s251przk2fwcvgm71vfqi-python3.7-sphinx-1.8.3/lib/python3.7/site-packages/sphinx/writers/html.py:462: FutureWarning:
-        #      The iterable returned by Node.traverse()
-        #      will become an iterator instead of a list in Docutils > 0.16.
-        #     target_node = image_nodes and image_nodes[0] or node.parent
-        #
-        # We are using an older Sphinx (1.8.3) with a more recent nixpkgs revision.
-        # Unfortunately, an update is not so easy because Sphinx 2.3.1 breaks
-        # the PDF documentation due to issues with the FreeSerif font in the
-        # fontspec package. So, for now we ignore `FutureWarning`.
-        SPHINX_BUILD_EXIT_CODE=0
-        SPHINX_BUILD_OUTPUT=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
-        if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
-            >&2 echo "## SPHINX-BUILD OUTPUT:"
-            >&2 echo "$$SPHINX_BUILD_OUTPUT"
-            >&2 echo "## SPHINX-BUILD OUTPUT END"
-            exit 1
-        fi
-        # NOTE: appending ' || true' to force exit code of 0 from grep because grep normally exits with 1 if no lines are selected:
-        WARNINGS=$$(echo "$$SPHINX_BUILD_OUTPUT" | grep -Pi "(?<!future)warning:" || true)
-        if [ "$$WARNINGS" != "" ]; then
-            echo "$$WARNINGS"
-            exit 1
-        fi
 
         # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
         unzip -q -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
@@ -319,9 +372,8 @@ genrule(
         ../$(execpath //bazel_tools/sh:mktgz) ../$@ html
         """.format(sdk = sdk_version),
     tools = [
-        "@sphinx_nix//:bin/sphinx-build",
         "//bazel_tools/sh:mktgz",
-    ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
+    ],
 ) if not is_windows else None
 
 genrule(
