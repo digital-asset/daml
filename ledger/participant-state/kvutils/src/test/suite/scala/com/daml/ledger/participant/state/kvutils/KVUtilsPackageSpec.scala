@@ -44,7 +44,7 @@ class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
 
         archiveState.isDefined shouldBe true
         archiveState.get.hasArchive shouldBe true
-        archiveState.get.getArchive shouldEqual simpleArchive
+        archiveState.get.getArchive shouldEqual simpleArchive.toByteString
 
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
         logEntry2.getPackageUploadEntry.getArchivesCount shouldEqual 0
