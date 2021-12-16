@@ -49,6 +49,8 @@
   type: jar-scala
 - target: //language-support/codegen-main:shaded_binary
   type: jar-jarjar
+- target: //language-support/scala/codegen:codegen-main
+  type: jar-deploy
 - target: //language-support/java/bindings:bindings-java
   type: jar-lib
 - target: //language-support/java/bindings-rxjava:bindings-rxjava
