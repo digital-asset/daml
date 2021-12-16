@@ -7,7 +7,7 @@ Daml codegen
 Introduction
 ============
 
-You can use the Daml codegen to generate Java, Scala, and JavaScript/TypeScript classes representing Daml contract templates.
+You can use the Daml codegen to generate Java, and JavaScript/TypeScript classes representing Daml contract templates.
 These classes incorporate all boilerplate code for constructing corresponding ledger ``com.daml.ledger.api.v1.CreateCommand``,
 ``com.daml.ledger.api.v1.ExerciseCommand``, ``com.daml.ledger.api.v1.ExerciseByKeyCommand``, and ``com.daml.ledger.api.v1.CreateAndExerciseCommand``.
 
@@ -16,22 +16,22 @@ Running the Daml codegen
 
 The basic command to run the Daml codegen is::
 
-  $ daml codegen [java|scala|js] [options]
+  $ daml codegen [java|js] [options]
 
 There are two modes:
 
 - Command line configuration, specifying **all** settings in the command line (all codegens supported)
 
-- Project file configuration, specifying **all** settings in the ``daml.yaml`` (currently **Java** and **Scala** only)
+- Project file configuration, specifying **all** settings in the ``daml.yaml`` (currently **Java** only)
 
 Command line configuration
 --------------------------
 
 Help for each specific codegen::
 
-  $ daml codegen [java|scala|js] --help
+  $ daml codegen [java|js] --help
 
-**Java** and **Scala** codegens take the same set of configuration settings::
+**Java** codegens take the same set of configuration settings::
 
       <DAR-file[=package-prefix]>...
                                DAR file to use as input of the codegen with an optional, but recommend, package prefix for the generated sources.
@@ -51,8 +51,8 @@ Help for each specific codegen::
                               defaults to daml.js
       -h,--help                Show this help text
 
-Project file configuration (Java and Scala)
--------------------------------------------
+Project file configuration (Java)
+---------------------------------
 
 The above settings can be configured in the ``codegen`` element of the Daml project file
 ``daml.yaml``.  See `this issue <https://github.com/digital-asset/daml/issues/6355>`_ for status on
@@ -83,29 +83,20 @@ Here is an example::
         package-prefix: com.daml.quickstart.iou
         output-directory: java-codegen/src/main/java
         verbosity: 2
-      scala:
-        package-prefix: com.daml.quickstart.iou
-        output-directory: scala-codegen/src/main/scala
-        verbosity: 2
 
-You can then run the above configuration to generate your **Java** or **Scala** code::
+You can then run the above configuration to generate your **Java** code::
 
-    $ daml codegen [js|java|scala]
+    $ daml codegen java
 
 The equivalent **JavaScript** command line configuration would be::
 
     $ daml codegen js ./.daml/dist/quickstart-0.0.1.dar -o ui/daml.js -s daml.js
 
-and the equivalent **Java** or **Scala** command line configuration::
+and the equivalent **Java** command line configuration::
 
-    $ daml codegen [java|scala| ./.daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.iou --output-directory=java-codegen/src/main/java --verbosity=2
+    $ daml codegen java ./.daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.iou --output-directory=java-codegen/src/main/java --verbosity=2
 
-In order to compile the resulting **Java** or **Scala** classes, you need to
-add the corresponding dependencies to your build tools.
-
-For **Scala**, you can depend on::
-
-    "com.daml" %% "bindings-scala" % YOUR_SDK_VERSION
+In order to compile the resulting **Java** classes, you need to add the corresponding dependencies to your build tools.
 
 For **Java**, add the following **Maven** dependency::
 

@@ -85,15 +85,6 @@ Libraries
    * - Component / Feature
      - Status
      - Deprecated on
-   * - **Scala Ledger API Bindings**
-     -
-     -
-   * - ``daml codegen scala`` :doc:`CLI and generated code </app-dev/bindings-scala/index>`
-     - Stable, Deprecated
-     - 2020-10-14
-   * - ``bindings-scala_2.12`` :doc:`library and its public API </app-dev/bindings-scala/index>`
-     - Stable, Deprecated
-     - 2020-10-14
    * - **Java Ledger API Bindings**
      - 
      -
@@ -103,12 +94,9 @@ Libraries
    * - ``bindings-java`` :doc:`library and its public API </app-dev/bindings-java/index>`.
      - Stable
      -
-   * - ``bindings-rxjava`` :doc:`library and its public API </app-dev/bindings-java/index>` *excluding* the reactive components in package ``com.daml.ledger.rxjava.components``.
+   * - ``bindings-rxjava`` :doc:`library and its public API </app-dev/bindings-java/index>`.
      - Stable
      -
-   * - Java Reactive Components in the ``com.daml.ledger.rxjava.components`` package of ``bindings-rxjava``.
-     - Stable, Deprecated
-     - 2020-10-14
    * - Maven artifact ``daml-lf-1.6-archive-java-proto``
      - Stable
      -
@@ -121,12 +109,6 @@ Libraries
    * - Maven artifact ``daml-lf-dev-archive-java-proto``
      - Alpha
      -
-   * - **Node.js Ledger API Bindings**
-     -
-     -
-   * - ``@digital-asset/bindings-js`` :doc:`Node.js library </app-dev/bindings-js>`
-     - Stable, Deprecated
-     - 2020-10-14
    * - **JavaScript Client Libraries**
      -
      -

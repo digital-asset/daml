@@ -363,11 +363,6 @@ Java bindings
 
 An idiomatic Java library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-java/index`.
 
-Scala bindings
---------------
-
-An idiomatic Scala library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-scala/index`.
-
 Reading from the ledger
 =======================
 

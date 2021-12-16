@@ -128,7 +128,3 @@ or your application may have to request tokens at runtime using an API such as `
 To learn how to generate access tokens for the Sandbox,
 read the :ref:`sandbox <sandbox-authorization>` documentation.
 
-Using access tokens
-*******************
-
-To learn how to use access tokens in the Scala bindings, read the :ref:`Scala bindings authorization<scala-bindings-authorization>` documentation.

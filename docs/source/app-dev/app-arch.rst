@@ -58,8 +58,7 @@ Frontend
 We recommended building your frontend with the `React <https://reactjs.org>`_ framework. However,
 you can choose virtually any language for your frontend and interact with the ledger via
 :ref:`HTTP JSON <json-api>` endpoints. In addition, we provide support libraries for
-:ref:`Java <java-bindings>` and :ref:`Scala <scala-bindings>` and you can also interact with the
-:ref:`gRPC Ledger API <grpc>` directly.
+:ref:`Java <java-bindings>` and you can also interact with the :ref:`gRPC Ledger API <grpc>` directly.
 
 
 We provide two libraries to build your React frontend for a Daml application.
