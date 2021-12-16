@@ -349,7 +349,7 @@ jobs:
 
   - job: blackduck_scan
     timeoutInMinutes: 1200
-    condition: eq(variables['Build.SourceBranchName'], 'main')
+    condition: eq(variables['Build.SourceBranchName'], 'not-main')
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
