@@ -375,10 +375,11 @@ logStatusRetry shouldRetry _ status =
 uploadRetryPolicy :: RetryPolicy
 uploadRetryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (exponentialBackoff (20 * 1000))
 
--- The status of the staging repository can take a number of minutes to change it's
--- status to closed.
+-- The status of the staging repository usually takes a few minutes to change it's
+-- status to closed. However occasionally sonatype gets really slow so we use an absurdly
+-- long retry of 2h.
 checkStatusRetryPolicy :: RetryPolicy
-checkStatusRetryPolicy = limitRetriesByCumulativeDelay (10 * 60 * 1000 * 1000) (constantDelay (15 * 1000 * 1000))
+checkStatusRetryPolicy = limitRetriesByCumulativeDelay (2 * 60 * 60 * 1000 * 1000) (constantDelay (15 * 1000 * 1000))
 
 handleStatusRequest :: (MonadIO m) => Request -> Manager -> m Bool
 handleStatusRequest request manager = do
