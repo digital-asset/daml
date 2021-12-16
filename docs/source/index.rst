@@ -115,7 +115,6 @@ Daml Documentation
 
    tools/extractor
    tools/export/index
-   daml-integration-kit/index
    tools/visual
    concepts/interoperability
    tools/non-repudiation
