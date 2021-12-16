@@ -61,20 +61,9 @@ data Command
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start
-      { sandboxPortM :: Maybe SandboxPortSpec
-      , openBrowser :: OpenBrowser
-      , startNavigator :: Maybe StartNavigator
-      , navigatorPort :: NavigatorPort
-      , jsonApiCfg :: JsonApiConfig
-      , onStartM :: Maybe String
-      , waitForSignal :: WaitForSignal
-      , sandboxOptions :: SandboxOptions
-      , navigatorOptions :: NavigatorOptions
-      , jsonApiOptions :: JsonApiOptions
-      , scriptOptions :: ScriptOptions
-      , shutdownStdinClose :: Bool
-      , sandboxClassic :: SandboxClassic
-      }
+        { startOptions :: StartOptions
+        , shutdownStdinClose :: Bool
+        }
     | Deploy { flags :: LedgerFlags }
     | LedgerListParties { flags :: LedgerFlags, json :: JsonFlag }
     | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
@@ -166,37 +155,21 @@ commandParser = subparser $ fold
     initCmd = Init
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
 
-    startCmd = Start
-        <$> optional (option (maybeReader (toSandboxPortSpec <=< readMaybe)) (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
-        <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
-        <*> optional navigatorFlag
-        <*> navigatorPortOption
-        <*> jsonApiCfg
-        <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
-        <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
-        <*> (SandboxOptions <$> many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox")))
-        <*> (NavigatorOptions <$> many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator")))
-        <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
-        <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter")))
-        <*> stdinCloseOpt
-        <*> (SandboxClassic <$> switch (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic."))
-
-    navigatorFlag =
-        -- We do not use flagYesNoAuto here since that doesn’t allow us to differentiate
-        -- if the flag was passed explicitly or not.
-        StartNavigator <$>
-        option reader (long "start-navigator" <> help helpText <> completeWith ["true", "false"] <> idm)
-        where
-            reader = eitherReader $ \case
-                -- We allow for both yes and true since we want a boolean in daml.yaml
-                "true" -> Right True
-                "yes" -> Right True
-                "false" -> Right False
-                "no" -> Right False
-                "auto" -> Right True
-                s -> Left ("Expected \"yes\", \"true\", \"no\", \"false\" or \"auto\" but got " <> show s)
-            -- To make things less confusing, we do not mention yes, no and auto here.
-            helpText = "Start navigator as part of daml start. Can be set to true or false. Defaults to true."
+    startCmd = do
+        sandboxPortM <- optional (option (maybeReader (toSandboxPortSpec <=< readMaybe)) (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
+        shouldOpenBrowser <- flagYesNoAuto "open-browser" True "Open the browser after navigator" idm
+        shouldStartNavigator <- flagYesNoAuto' "start-navigator" "Start navigator as part of daml start. Can be set to true or false. Defaults to true." idm
+        navigatorPort <- navigatorPortOption
+        jsonApiConfig <- jsonApiCfg
+        onStartM <- optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
+        shouldWaitForSignal <- flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm
+        sandboxOptions <- many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox"))
+        navigatorOptions <- many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator"))
+        jsonApiOptions <- many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API"))
+        scriptOptions <- many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter"))
+        shutdownStdinClose <- stdinCloseOpt
+        sandboxClassic <- SandboxClassic <$> switch (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic.")
+        pure $ Start StartOptions{..} shutdownStdinClose
 
     navigatorPortOption = NavigatorPort <$> option auto
         (long "navigator-port"
@@ -475,19 +448,7 @@ runCommand = \case
     ListTemplates -> runListTemplates
     Start {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
-        runStart
-            sandboxPortM
-            startNavigator
-            navigatorPort
-            jsonApiCfg
-            openBrowser
-            onStartM
-            waitForSignal
-            sandboxOptions
-            navigatorOptions
-            jsonApiOptions
-            scriptOptions
-            sandboxClassic
+        runStart startOptions
     Deploy {..} -> runDeploy flags
     LedgerListParties {..} -> runLedgerListParties flags json
     PackagesList {..} -> runLedgerListPackages0 flags
