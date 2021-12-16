@@ -109,7 +109,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
 
     codegenConf(badConfigStr, Java) shouldBe Left(
       ConfigParseError(
-        "Attempt to decode value on failed cursor: DownField(java),DownField(codegen)"
+        "[A]Option[A]: DownField(java),DownField(codegen)"
       )
     )
   }
