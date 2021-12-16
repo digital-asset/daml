@@ -217,47 +217,33 @@ class PlatformStore(
       // Store the original sender (sender is mutable)
       val snd = sender()
 
-      Future
-        .traverse(state.parties.toList) {
-          case (p, ps) => {
-            val result = for {
-              ref <- context.child(childName(ps.name))
-              pi <- Try(
-                (ref ? GetPartyActorInfo)
-                  .mapTo[PartyActorInfo]
-                  .map(PartyActorRunning(_): PartyActorResponse)
-                  .recover { case _ => PartyActorUnresponsive }
-              ).toOption
-            } yield pi
-            result
-              .getOrElse(Future.successful(PartyActorUnresponsive))
-              .map(actorInfo => (p, actorInfo))
-          }
+      // context.child must be invoked from actor thread
+      val userIdToActorRef = state.parties.view.mapValues(partyState =>
+        context.child(childName(partyState.name))
+      ).toList // TODO can we keep this a map and make traverse work?
+
+      Future.traverse(userIdToActorRef) { case (userId, actorRef) =>
+        // let Future deal with empty option actorRef
+        Future { actorRef.get }
+          .flatMap(_ ? GetPartyActorInfo)
+          .mapTo[PartyActorInfo]
+          .map(info => PartyActorRunning(info): PartyActorResponse)
+          .recover{ case _ => PartyActorUnresponsive }
+          .map((userId, _))
+      }
+        .map(_.toMap)
+        .recover { case error => log.error(error.getMessage); Map.empty[String,PartyActorResponse] }
+        .foreach { userIdToPartyActorResponse =>
+          snd ! ApplicationStateConnected(
+            platformHost,
+            platformPort,
+            tlsConfig.exists(_.enabled),
+            applicationId,
+            state.ledgerClient.ledgerId.unwrap,
+            state.time,
+            userIdToPartyActorResponse,
+          )
         }
-        .andThen {
-          case Success(actorStatus) =>
-            snd ! ApplicationStateConnected(
-              platformHost,
-              platformPort,
-              tlsConfig.exists(_.enabled),
-              applicationId,
-              state.ledgerClient.ledgerId.unwrap,
-              state.time,
-              actorStatus.toMap,
-            )
-          case Failure(error) =>
-            log.error(error.getMessage)
-            snd ! ApplicationStateConnected(
-              platformHost,
-              platformPort,
-              tlsConfig.exists(_.enabled),
-              applicationId,
-              state.ledgerClient.ledgerId.unwrap,
-              state.time,
-              Map.empty,
-            )
-        }
-      ()
   }
 
   // Permanently failed state
