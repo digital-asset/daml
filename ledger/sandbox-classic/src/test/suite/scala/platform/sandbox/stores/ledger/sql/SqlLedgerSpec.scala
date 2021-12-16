@@ -35,7 +35,7 @@ import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, DbType, IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import com.daml.timer.RetryStrategy
@@ -46,9 +46,9 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSp
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.wordspec.AsyncWordSpec
-
 import java.io.File
 import java.time.{Duration, Instant}
+
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
@@ -424,38 +424,48 @@ final class SqlLedgerSpec
       packages: List[DamlLf.Archive],
       timeProvider: TimeProvider = TimeProvider.UTC,
   ): Future[Ledger] = {
-    metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
-    val ledger =
-      new SqlLedger.Owner(
-        name = LedgerName(getClass.getSimpleName),
-        serverRole = ServerRole.Testing(getClass),
-        jdbcUrl = postgresDatabase.url,
-        databaseConnectionPoolSize = 16,
-        databaseConnectionTimeout = 250.millis,
-        providedLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
-        participantId = participantId.getOrElse(DefaultParticipantId),
-        timeProvider = timeProvider,
-        packages = InMemoryPackageStore.empty
-          .withPackages(Timestamp.Epoch, None, packages)
-          .fold(sys.error, identity),
-        initialLedgerEntries = ImmArray.Empty,
-        queueDepth = queueDepth,
-        transactionCommitter = LegacyTransactionCommitter,
-        startMode = SqlStartMode.MigrateAndStart,
-        eventsPageSize = 100,
-        eventsProcessingParallelism = 8,
-        acsIdPageSize = 2000,
-        acsIdFetchingParallelism = 2,
-        acsContractFetchingParallelism = 2,
-        acsGlobalParallelism = 10,
-        servicesExecutionContext = executionContext,
-        metrics = new Metrics(metrics),
-        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-        engine = new Engine(),
-        validatePartyAllocation = false,
-        enableCompression = false,
-        errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(true)),
-      ).acquire()(ResourceContext(system.dispatcher))
+    metricRegistry.getNames.forEach(name => { val _ = metricRegistry.remove(name) })
+    val ledger = {
+      val metrics = new Metrics(metricRegistry)
+      for {
+        dbSupport <- DbSupport.migratedOwner(
+          jdbcUrl = postgresDatabase.url,
+          serverRole = ServerRole.Testing(getClass),
+          connectionPoolSize = DbType
+            .jdbcType(postgresDatabase.url)
+            .maxSupportedWriteConnections(16),
+          connectionTimeout = 250.millis,
+          metrics = metrics,
+        )
+        ledger <- new SqlLedger.Owner(
+          name = LedgerName(getClass.getSimpleName),
+          dbSupport = dbSupport,
+          providedLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
+          participantId = participantId.getOrElse(DefaultParticipantId),
+          timeProvider = timeProvider,
+          packages = InMemoryPackageStore.empty
+            .withPackages(Timestamp.Epoch, None, packages)
+            .fold(sys.error, identity),
+          initialLedgerEntries = ImmArray.Empty,
+          queueDepth = queueDepth,
+          transactionCommitter = LegacyTransactionCommitter,
+          startMode = SqlStartMode.MigrateAndStart,
+          eventsPageSize = 100,
+          eventsProcessingParallelism = 8,
+          acsIdPageSize = 2000,
+          acsIdFetchingParallelism = 2,
+          acsContractFetchingParallelism = 2,
+          acsGlobalParallelism = 10,
+          servicesExecutionContext = executionContext,
+          metrics = metrics,
+          lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+          engine = new Engine(),
+          validatePartyAllocation = false,
+          enableCompression = false,
+          errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(true)),
+        )
+      } yield ledger
+    }.acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
     ledger.asFuture
   }

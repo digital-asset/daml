@@ -37,7 +37,6 @@ import com.daml.platform.store.backend.{
   ParameterStorageBackend,
   ReadStorageBackend,
   ResetStorageBackend,
-  StorageBackendFactory,
 }
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.{
@@ -785,7 +784,7 @@ private[platform] object JdbcLedgerDao {
   }
 
   def read(
-      dbDispatcher: DbDispatcher,
+      dbSupport: DbSupport,
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
       acsIdPageSize: Int,
@@ -798,14 +797,13 @@ private[platform] object JdbcLedgerDao {
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
       errorFactories: ErrorFactories,
-      storageBackendFactory: StorageBackendFactory,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       materializer: Materializer,
   ): LedgerReadDao =
     new MeteredLedgerReadDao(
       new JdbcLedgerDao(
-        dbDispatcher,
+        dbSupport.dbDispatcher,
         servicesExecutionContext,
         eventsPageSize,
         eventsProcessingParallelism,
@@ -820,10 +818,10 @@ private[platform] object JdbcLedgerDao {
         enricher,
         SequentialWriteDao.noop,
         participantId,
-        storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
-        storageBackendFactory.createParameterStorageBackend,
-        storageBackendFactory.createDeduplicationStorageBackend,
-        storageBackendFactory.createResetStorageBackend,
+        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+        dbSupport.storageBackendFactory.createParameterStorageBackend,
+        dbSupport.storageBackendFactory.createDeduplicationStorageBackend,
+        dbSupport.storageBackendFactory.createResetStorageBackend,
         errorFactories,
         materializer = materializer,
       ),
@@ -831,7 +829,7 @@ private[platform] object JdbcLedgerDao {
     )
 
   def write(
-      dbDispatcher: DbDispatcher,
+      dbSupport: DbSupport,
       sequentialWriteDao: SequentialWriteDao,
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
@@ -845,14 +843,13 @@ private[platform] object JdbcLedgerDao {
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
       errorFactories: ErrorFactories,
-      storageBackendFactory: StorageBackendFactory,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       materializer: Materializer,
   ): LedgerDao =
     new MeteredLedgerDao(
       new JdbcLedgerDao(
-        dbDispatcher,
+        dbSupport.dbDispatcher,
         servicesExecutionContext,
         eventsPageSize,
         eventsProcessingParallelism,
@@ -867,10 +864,10 @@ private[platform] object JdbcLedgerDao {
         enricher,
         sequentialWriteDao,
         participantId,
-        storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
-        storageBackendFactory.createParameterStorageBackend,
-        storageBackendFactory.createDeduplicationStorageBackend,
-        storageBackendFactory.createResetStorageBackend,
+        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+        dbSupport.storageBackendFactory.createParameterStorageBackend,
+        dbSupport.storageBackendFactory.createDeduplicationStorageBackend,
+        dbSupport.storageBackendFactory.createResetStorageBackend,
         errorFactories,
         materializer = materializer,
       ),
@@ -878,7 +875,7 @@ private[platform] object JdbcLedgerDao {
     )
 
   def validatingWrite(
-      dbDispatcher: DbDispatcher,
+      dbSupport: DbSupport,
       sequentialWriteDao: SequentialWriteDao,
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
@@ -893,14 +890,13 @@ private[platform] object JdbcLedgerDao {
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
       errorFactories: ErrorFactories,
-      storageBackendFactory: StorageBackendFactory,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       materializer: Materializer,
   ): LedgerDao =
     new MeteredLedgerDao(
       new JdbcLedgerDao(
-        dbDispatcher,
+        dbSupport.dbDispatcher,
         servicesExecutionContext,
         eventsPageSize,
         eventsProcessingParallelism,
@@ -915,10 +911,10 @@ private[platform] object JdbcLedgerDao {
         enricher,
         sequentialWriteDao,
         participantId,
-        storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
-        storageBackendFactory.createParameterStorageBackend,
-        storageBackendFactory.createDeduplicationStorageBackend,
-        storageBackendFactory.createResetStorageBackend,
+        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+        dbSupport.storageBackendFactory.createParameterStorageBackend,
+        dbSupport.storageBackendFactory.createDeduplicationStorageBackend,
+        dbSupport.storageBackendFactory.createResetStorageBackend,
         errorFactories,
         materializer,
       ),

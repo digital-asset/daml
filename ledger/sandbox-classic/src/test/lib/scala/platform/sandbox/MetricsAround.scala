@@ -9,11 +9,11 @@ import org.scalatest.BeforeAndAfterAll
 trait MetricsAround extends BeforeAndAfterAll {
   self: org.scalatest.Suite =>
 
-  @volatile protected var metrics: MetricRegistry = _
+  @volatile protected var metricRegistry: MetricRegistry = _
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    metrics = new MetricRegistry
+    metricRegistry = new MetricRegistry
   }
 
   override protected def afterAll(): Unit = {

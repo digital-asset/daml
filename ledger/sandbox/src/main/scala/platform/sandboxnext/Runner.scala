@@ -20,6 +20,7 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
+import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantStateReader,
   KeyValueParticipantStateWriter,
@@ -39,7 +40,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{PartyConfiguration, SubmissionConfiguration}
+import com.daml.platform.configuration.{PartyConfiguration, ServerRole, SubmissionConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -48,7 +49,7 @@ import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.ports.Port
 import com.daml.resources.ResettableResourceOwner
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
@@ -269,7 +270,17 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 enableInMemoryFanOutForLedgerApi = false,
                 enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
               )
+              dbSupport <- DbSupport.owner(
+                jdbcUrl = apiServerConfig.jdbcUrl,
+                serverRole = ServerRole.ApiServer,
+                connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
+                connectionTimeout = apiServerConfig.databaseConnectionTimeout,
+                metrics = metrics,
+              )
+              userManagementStore =
+                new InMemoryUserManagementStore // TODO persistence wiring comes here
               indexService <- StandaloneIndexService(
+                dbSupport = dbSupport,
                 ledgerId = ledgerId,
                 config = apiServerConfig,
                 metrics = metrics,
@@ -284,6 +295,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
               )
               apiServer <- StandaloneApiServer(
                 indexService = indexService,
+                userManagementStore = userManagementStore,
                 ledgerId = ledgerId,
                 config = apiServerConfig,
                 engine = engine,

@@ -14,14 +14,9 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.{DbType, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
-import com.daml.platform.store.appendonlydao.{
-  DbDispatcher,
-  JdbcLedgerDao,
-  LedgerDao,
-  SequentialWriteDao,
-}
+import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao, SequentialWriteDao}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.interning.StringInterningView
 import org.scalatest.LoneElement
@@ -48,26 +43,26 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType)
     val participantId = Ref.ParticipantId.assertFromString("JdbcLedgerDaoPostCommitValidationSpec")
-    DbDispatcher
-      .owner(
-        dataSource = storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+    DbSupport
+      .migratedOwner(
+        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.Testing(getClass),
         connectionPoolSize = dbType.maxSupportedWriteConnections(16),
         connectionTimeout = 250.millis,
         metrics = metrics,
       )
-      .map { dbDispatcher =>
+      .map { dbSupport =>
         val stringInterningStorageBackend =
           storageBackendFactory.createStringInterningStorageBackend
         val stringInterningView = new StringInterningView(
           loadPrefixedEntries = (fromExclusive, toInclusive) =>
             implicit loggingContext =>
-              dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+              dbSupport.dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
                 stringInterningStorageBackend.loadStringInterningEntries(fromExclusive, toInclusive)
               }
         )
         JdbcLedgerDao.validatingWrite(
-          dbDispatcher = dbDispatcher,
+          dbSupport = dbSupport,
           sequentialWriteDao = SequentialWriteDao(
             participantId = participantId,
             lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -89,7 +84,6 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           enricher = None,
           participantId = participantId,
-          storageBackendFactory = storageBackendFactory,
           errorFactories = errorFactories,
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,

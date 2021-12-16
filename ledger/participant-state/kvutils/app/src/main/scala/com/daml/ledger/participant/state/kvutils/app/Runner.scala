@@ -12,6 +12,7 @@ import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -22,9 +23,10 @@ import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingCo
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
+import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, IndexMetadata, LfValueTranslationCache}
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
@@ -176,7 +178,19 @@ final class Runner[T <: ReadWriteService, Extra](
                 _ <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
                     for {
+                      dbSupport <- DbSupport
+                        .owner(
+                          jdbcUrl = apiServerConfig.jdbcUrl,
+                          serverRole = ServerRole.ApiServer,
+                          connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
+                          connectionTimeout = apiServerConfig.databaseConnectionTimeout,
+                          metrics = metrics,
+                        )
+                        .acquire()
+                      userManagementStore =
+                        new InMemoryUserManagementStore // TODO persistence wiring comes here
                       indexService <- StandaloneIndexService(
+                        dbSupport = dbSupport,
                         ledgerId = config.ledgerId,
                         config = apiServerConfig,
                         metrics = metrics,
@@ -192,6 +206,7 @@ final class Runner[T <: ReadWriteService, Extra](
                       writeService = new TimedWriteService(factory.writeService(), metrics)
                       _ <- StandaloneApiServer(
                         indexService = indexService,
+                        userManagementStore = userManagementStore,
                         ledgerId = config.ledgerId,
                         config = apiServerConfig,
                         commandConfig = config.commandConfig,

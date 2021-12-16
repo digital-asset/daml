@@ -12,21 +12,16 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.FiniteDuration
 
 private[platform] object JdbcIndex {
   def owner(
-      serverRole: ServerRole,
+      dbSupport: DbSupport,
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
-      jdbcUrl: String,
-      databaseConnectionPoolSize: Int,
-      databaseConnectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
       acsIdPageSize: Int,
@@ -45,10 +40,7 @@ private[platform] object JdbcIndex {
       enableSelfServiceErrorCodes: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
     new ReadOnlySqlLedger.Owner(
-      serverRole = serverRole,
-      jdbcUrl = jdbcUrl,
-      databaseConnectionPoolSize = databaseConnectionPoolSize,
-      databaseConnectionTimeout = databaseConnectionTimeout,
+      dbSupport = dbSupport,
       initialLedgerId = ledgerId,
       eventsPageSize = eventsPageSize,
       eventsProcessingParallelism = eventsProcessingParallelism,

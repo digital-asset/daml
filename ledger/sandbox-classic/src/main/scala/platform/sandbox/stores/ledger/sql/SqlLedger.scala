@@ -29,7 +29,6 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.PruneBuffersNoOp
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdMode, MismatchException}
-import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
@@ -38,13 +37,7 @@ import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection, SandboxOffset}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
-import com.daml.platform.store.appendonlydao.{
-  DbDispatcher,
-  LedgerDao,
-  LedgerWriteDao,
-  SequentialWriteDao,
-}
-import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.appendonlydao.{LedgerDao, LedgerWriteDao, SequentialWriteDao}
 import com.daml.platform.store.cache.{MutableLedgerEndCache, TranslationCacheBackedContractStore}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interning.{
@@ -52,12 +45,11 @@ import com.daml.platform.store.interning.{
   StringInterning,
   StringInterningView,
 }
-import com.daml.platform.store.{BaseLedger, DbType, FlywayMigrations, LfValueTranslationCache}
+import com.daml.platform.store.{BaseLedger, DbSupport, LfValueTranslationCache}
 import io.grpc.protobuf
-
 import java.util.concurrent.atomic.AtomicReference
+
 import scala.collection.immutable.Queue
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
@@ -78,11 +70,7 @@ private[sandbox] object SqlLedger {
 
   final class Owner(
       name: LedgerName,
-      serverRole: ServerRole,
-      // jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
-      jdbcUrl: String,
-      databaseConnectionPoolSize: Int,
-      databaseConnectionTimeout: FiniteDuration,
+      dbSupport: DbSupport,
       providedLedgerId: LedgerIdMode,
       participantId: domain.ParticipantId,
       timeProvider: TimeProvider,
@@ -109,40 +97,25 @@ private[sandbox] object SqlLedger {
 
     private val logger = ContextualizedLogger.get(this.getClass)
 
-    override def acquire()(implicit context: ResourceContext): Resource[Ledger] =
+    override def acquire()(implicit context: ResourceContext): Resource[Ledger] = {
+      val ledgerEndCache = MutableLedgerEndCache()
+      val stringInterningStorageBackend =
+        dbSupport.storageBackendFactory.createStringInterningStorageBackend
+      val stringInterningView = new StringInterningView(
+        loadPrefixedEntries = (fromExclusive, toInclusive) =>
+          implicit loggingContext =>
+            dbSupport.dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+              stringInterningStorageBackend.loadStringInterningEntries(fromExclusive, toInclusive)
+            }
+      )
+      val dao = ledgerDao(
+        dbSupport,
+        ledgerEndCache,
+        stringInterningView,
+        servicesExecutionContext,
+        errorFactories,
+      )
       for {
-        _ <- Resource.fromFuture(
-          new FlywayMigrations(jdbcUrl).migrate()
-        )
-        dbType = DbType.jdbcType(jdbcUrl)
-        storageBackendFactory = StorageBackendFactory.of(dbType)
-        ledgerEndCache = MutableLedgerEndCache()
-        dbDispatcher <- DbDispatcher
-          .owner(
-            dataSource =
-              storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
-            serverRole = serverRole,
-            connectionPoolSize = dbType.maxSupportedWriteConnections(databaseConnectionPoolSize),
-            connectionTimeout = databaseConnectionTimeout,
-            metrics = metrics,
-          )
-          .acquire()
-        stringInterningStorageBackend = storageBackendFactory.createStringInterningStorageBackend
-        stringInterningView = new StringInterningView(
-          loadPrefixedEntries = (fromExclusive, toInclusive) =>
-            implicit loggingContext =>
-              dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
-                stringInterningStorageBackend.loadStringInterningEntries(fromExclusive, toInclusive)
-              }
-        )
-        dao = ledgerDao(
-          dbDispatcher,
-          storageBackendFactory,
-          ledgerEndCache,
-          stringInterningView,
-          servicesExecutionContext,
-          errorFactories,
-        )
         _ <- startMode match {
           case SqlStartMode.ResetAndStart =>
             Resource.fromFuture(dao.reset())
@@ -174,6 +147,7 @@ private[sandbox] object SqlLedger {
           errorFactories,
         ).acquire()
       } yield ledger
+    }
 
     // Store only the ledger entries (no headref, etc.). This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
@@ -297,8 +271,7 @@ private[sandbox] object SqlLedger {
     }
 
     private def ledgerDao(
-        dbDispatcher: DbDispatcher,
-        storageBackendFactory: StorageBackendFactory,
+        dbSupport: DbSupport,
         ledgerEndCache: MutableLedgerEndCache,
         stringInterningView: StringInterning with InternizingStringInterningView,
         servicesExecutionContext: ExecutionContext,
@@ -309,7 +282,7 @@ private[sandbox] object SqlLedger {
         else CompressionStrategy.none(metrics)
       val refParticipantId = Ref.ParticipantId.assertFromString(participantId.toString)
       com.daml.platform.store.appendonlydao.JdbcLedgerDao.validatingWrite(
-        dbDispatcher = dbDispatcher,
+        dbSupport = dbSupport,
         sequentialWriteDao = SequentialWriteDao(
           participantId = refParticipantId,
           lfValueTranslationCache = lfValueTranslationCache,
@@ -317,8 +290,8 @@ private[sandbox] object SqlLedger {
           compressionStrategy = compressionStrategy,
           ledgerEndCache = ledgerEndCache,
           stringInterningView = stringInterningView,
-          ingestionStorageBackend = storageBackendFactory.createIngestionStorageBackend,
-          parameterStorageBackend = storageBackendFactory.createParameterStorageBackend,
+          ingestionStorageBackend = dbSupport.storageBackendFactory.createIngestionStorageBackend,
+          parameterStorageBackend = dbSupport.storageBackendFactory.createParameterStorageBackend,
         ),
         eventsPageSize = eventsPageSize,
         eventsProcessingParallelism = eventsProcessingParallelism,
@@ -332,7 +305,6 @@ private[sandbox] object SqlLedger {
         validatePartyAllocation = validatePartyAllocation,
         enricher = Some(new ValueEnricher(engine)),
         participantId = refParticipantId,
-        storageBackendFactory = storageBackendFactory,
         ledgerEndCache = ledgerEndCache,
         errorFactories = errorFactories,
         stringInterning = stringInterningView,
