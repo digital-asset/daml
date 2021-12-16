@@ -247,7 +247,7 @@ object Conversions {
   def archivesToHashesAndBytes(
       archives: List[com.daml.daml_lf_dev.DamlLf.Archive]
   ): Map[String, Raw.Archive] =
-    archives
+    archives.view
       .map(archive => archive.getHash -> Raw.Archive(archive.toByteString))
       .toMap
 

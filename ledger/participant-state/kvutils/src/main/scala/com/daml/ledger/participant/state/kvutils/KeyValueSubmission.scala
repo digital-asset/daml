@@ -102,16 +102,18 @@ class KeyValueSubmission(metrics: Metrics) {
             .build
         )
 
+      val packageUploadEntryBuilder = DamlPackageUploadEntry.newBuilder
+        .setSubmissionId(submissionId)
+        .setSourceDescription(sourceDescription)
+        .setParticipantId(participantId)
+      hashesToArchives.values.foreach(rawArchive =>
+        packageUploadEntryBuilder.addArchives(rawArchive.bytes)
+      )
+
       DamlSubmission.newBuilder
         .addInputDamlState(packageUploadDedupKey(participantId, submissionId))
         .addAllInputDamlState(archivesDamlState.asJava)
-        .setPackageUploadEntry(
-          DamlPackageUploadEntry.newBuilder
-            .setSubmissionId(submissionId)
-            .addAllArchives(hashesToArchives.values.map(_.bytes).asJava)
-            .setSourceDescription(sourceDescription)
-            .setParticipantId(participantId)
-        )
+        .setPackageUploadEntry(packageUploadEntryBuilder)
         .build
     }
 

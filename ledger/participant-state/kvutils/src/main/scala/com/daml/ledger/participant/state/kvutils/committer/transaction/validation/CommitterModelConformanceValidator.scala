@@ -179,8 +179,9 @@ private[transaction] class CommitterModelConformanceValidator(engine: Engine, me
       }
       value.getValueCase match {
         case DamlStateValue.ValueCase.ARCHIVE =>
-          // NOTE(JM): Engine only looks up packages once, compiles and caches,
+          // NOTE: Engine only looks up packages once, compiles and caches,
           // provided that the engine instance is persisted.
+          // Parsing should be cheap compared to decoding.
           val archive = com.daml.lf.archive.ArchiveParser.assertFromByteString(value.getArchive)
           com.daml.lf.archive.Decode.decodeArchive(archive) match {
             case Right((_, pkg)) => Some(pkg)

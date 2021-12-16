@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import java.util.UUID
+
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.{Conversions, Raw}
@@ -122,17 +123,17 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     }
   }
 
-  private[this] def buildSubmission(archives: DamlLf.Archive*) =
+  private[this] def buildSubmission(archives: DamlLf.Archive*) = {
+    val packageUploadEntryBuilder = DamlPackageUploadEntry
+      .newBuilder()
+      .setSubmissionId(UUID.randomUUID().toString)
+      .setParticipantId(participantId)
+    archives.foreach(archive => packageUploadEntryBuilder.addArchives(archive.toByteString))
     DamlSubmission
       .newBuilder()
-      .setPackageUploadEntry(
-        DamlPackageUploadEntry
-          .newBuilder()
-          .setSubmissionId(UUID.randomUUID().toString)
-          .setParticipantId(participantId)
-          .addAllArchives(archives.map(_.toByteString).asJava)
-      )
+      .setPackageUploadEntry(packageUploadEntryBuilder)
       .build()
+  }
 
   private[this] val emptyState = Compat.wrapMap(Map.empty[DamlStateKey, DamlStateValue])
 
