@@ -173,3 +173,36 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
   )
 
 }
+
+object OptionParser {
+  import pureconfig.{ConfigReader, ConfigSource, ConvertHelpers}
+  import pureconfig.error.ConfigReaderException
+  import pureconfig.generic.semiauto._
+  import shapeless.{HNil, ::}, shapeless.record.Record
+
+  private type LedgerAPIHR = Record.`"address" -> String, "port" -> Int`.T
+  // XXX so e.g. LedgerAPIHR would go where serverParse is -sc
+  private type ConfigHR = Record.`"ledger-api" -> LedgerAPIHR`.T
+
+  implicit val `Config CR`: ConfigReader[Config] = implicitly[ConfigReader[ConfigHR]].map {
+    case (address :: port :: HNil) :: HNil => Config(ledgerHost = address, ledgerPort = port)
+  }
+
+  // XXX librify the below, this is special pureconfig/shapeless support
+  import pureconfig.ConfigCursor
+  import shapeless.labelled.FieldType
+
+  implicit def `hrec ConfigReader`[L](implicit sub: HrecConfigReader[L]): ConfigReader[L] = {
+    cur: ConfigCursor => ??? : ConfigReader.Result[L]
+  }
+  final class HrecConfigReader[L](private[OptionParser] val run: Unit) extends AnyVal
+  object HrecConfigReader extends HrecConfigReaderLow {
+    implicit def base[K, V: ConfigReader]: HrecConfigReader[FieldType[K, V] :: HNil] =
+      new HrecConfigReader(())
+  }
+  sealed abstract class HrecConfigReaderLow {
+    implicit def inductive[K, V: ConfigReader, L: HrecConfigReader]
+        : HrecConfigReader[FieldType[K, V] :: L] =
+      new HrecConfigReader(())
+  }
+}
