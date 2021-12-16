@@ -175,7 +175,6 @@ data StartOptions = StartOptions
     , navigatorOptions :: [String]
     , jsonApiOptions :: [String]
     , scriptOptions :: [String]
-    , shutdownStdinClose :: Bool
     , sandboxClassic :: SandboxClassic
     }
 

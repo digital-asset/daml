@@ -60,7 +60,10 @@ data Command
     -- `daml new foobar create-daml-app` we also make `daml create-daml-app foobar` work.
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
-    | Start StartOptions
+    | Start
+        { startOptions :: StartOptions
+        , shutdownStdinClose :: Bool
+        }
     | Deploy { flags :: LedgerFlags }
     | LedgerListParties { flags :: LedgerFlags, json :: JsonFlag }
     | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
@@ -166,7 +169,7 @@ commandParser = subparser $ fold
         scriptOptions <- many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter"))
         shutdownStdinClose <- stdinCloseOpt
         sandboxClassic <- SandboxClassic <$> switch (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic.")
-        pure $ Start StartOptions {..}
+        pure $ Start StartOptions{..} shutdownStdinClose
 
     navigatorPortOption = NavigatorPort <$> option auto
         (long "navigator-port"
@@ -443,9 +446,9 @@ runCommand = \case
     CreateDamlApp{..} -> runNew targetFolder (Just "create-daml-app")
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates
-    Start options@StartOptions{..} ->
+    Start {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
-        runStart options
+        runStart startOptions
     Deploy {..} -> runDeploy flags
     LedgerListParties {..} -> runLedgerListParties flags json
     PackagesList {..} -> runLedgerListPackages0 flags
