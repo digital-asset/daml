@@ -112,7 +112,7 @@ private[daml] object AcsTxStreams {
       val maxOff = b add max(LedgerBegin: Off)
       // format: off
       discard { txnSplit.in <~ txns <~ dupOff }
-      discard {                        dupOff                                       ~> mergeOff ~> maxOff }
+      discard {                        dupOff                                ~> mergeOff ~> maxOff }
       discard { txnSplit.out1.map(off => AbsoluteBookmark(off)) ~> lastTxOff ~> mergeOff }
       // format: on
       new FanOutShape2(dupOff.in, txnSplit.out0, maxOff.out)
