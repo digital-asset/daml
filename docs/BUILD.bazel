@@ -280,7 +280,7 @@ export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
         ("html", "html"),
         ("pdf", "latex"),
     ]
-]
+] if not is_windows else None
 
 genrule(
     name = "pdf-docs",
