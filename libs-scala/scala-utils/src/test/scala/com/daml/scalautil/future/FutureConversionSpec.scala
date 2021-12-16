@@ -3,7 +3,7 @@
 
 package com.daml.scalautil.future
 
-import java.util.concurrent.{CompletableFuture, CompletionStage}
+import java.util.concurrent.{CompletableFuture, CompletionException, CompletionStage}
 
 import com.daml.scalautil.future.FutureConversionSpec.TestException
 import org.scalatest.matchers.should.Matchers
@@ -35,7 +35,9 @@ class FutureConversionSpec extends AsyncWordSpec with Matchers {
       // this is NOT the same as CompletableFuture.failedStage
       val cs: CompletionStage[Unit] =
         CompletableFuture.completedStage(()).thenApply(_ => throw exception)
-      recoverToExceptionIf[TestException](cs.toScalaUnwrapped).map(_ shouldBe exception)
+      recoverToSucceededIf[CompletionException](cs.asScala).flatMap(_ =>
+        recoverToExceptionIf[TestException](cs.toScalaUnwrapped).map(_ shouldBe exception)
+      )
     }
 
     "convert futures and have the same result when wrapped in a CompletionException" in {
@@ -43,10 +45,12 @@ class FutureConversionSpec extends AsyncWordSpec with Matchers {
       val failedFuture = Future.failed(exception)
       // For the CompletionStage to complete with CompletionException
       // we need to call whenComplete even if that does not affect the result of the CompletionStage
-      recoverToExceptionIf[TestException](failedFuture.asJava.whenComplete {
-        (_: Unit, _: Throwable) =>
-          ()
-      }.toScalaUnwrapped).map(_ shouldBe exception)
+      val cs = failedFuture.asJava.whenComplete { (_: Unit, _: Throwable) =>
+        ()
+      }
+      recoverToSucceededIf[CompletionException](cs.asScala).flatMap(_ =>
+        recoverToExceptionIf[TestException](cs.toScalaUnwrapped).map(_ shouldBe exception)
+      )
     }
 
   }
