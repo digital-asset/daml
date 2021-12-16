@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.util
 import java.util.regex.Pattern
 
 import com.daml.error.ErrorCode
@@ -56,6 +55,7 @@ object Assertions {
       selfServiceErrorCode: ErrorCode,
       exceptionMessageSubstring: Option[String],
       checkDefiniteAnswerMetadata: Boolean = false,
+      additionalErrorAssertions: Throwable => Unit = _ => (),
   ): Unit =
     assertGrpcErrorRegex(
       participant,
@@ -65,6 +65,7 @@ object Assertions {
       exceptionMessageSubstring
         .map(msgSubstring => Pattern.compile(Pattern.quote(msgSubstring))),
       checkDefiniteAnswerMetadata,
+      additionalErrorAssertions,
     )
 
   /** Match the given exception against a status code and a regex for the expected message.
@@ -80,6 +81,7 @@ object Assertions {
       selfServiceErrorCode: ErrorCode,
       optPattern: Option[Pattern],
       checkDefiniteAnswerMetadata: Boolean = false,
+      additionalErrorAssertions: Throwable => Unit = _ => (),
   ): Unit =
     t match {
       case RetryStrategy.FailedRetryException(cause) =>
@@ -90,6 +92,7 @@ object Assertions {
           selfServiceErrorCode,
           optPattern,
           checkDefiniteAnswerMetadata,
+          additionalErrorAssertions,
         )
       case exception @ GrpcException(GrpcStatus(code, maybeMessage), _)
           if !participant.features.selfServiceErrorCodes =>
@@ -101,10 +104,12 @@ object Assertions {
           case _ => ()
         }
         if (checkDefiniteAnswerMetadata) assertDefiniteAnswer(exception)
+        additionalErrorAssertions(exception)
       case exception: StatusRuntimeException if participant.features.selfServiceErrorCodes =>
         assertSelfServiceErrorCode(exception, selfServiceErrorCode)
         optPattern.foreach(assertMatches(exception.getMessage, _))
         if (checkDefiniteAnswerMetadata) assertDefiniteAnswer(exception)
+        additionalErrorAssertions(exception)
       case _ =>
         fail("Exception is neither a StatusRuntimeException nor a StatusException", t)
     }
@@ -117,8 +122,7 @@ object Assertions {
     }
 
   private def assertDefiniteAnswer(exception: Exception): Unit = {
-    val status = StatusProto.fromThrowable(exception)
-    val metadata = extractErrorInfoMetadata(status)
+    val metadata: java.util.Map[String, String] = extractErrorInfoMetadata(exception)
     val value = metadata.get("definite_answer")
     if (value == null) {
       fail(s"The error did not contain a definite answer. Metadata was: [$metadata]")
@@ -128,7 +132,10 @@ object Assertions {
     }
   }
 
-  def extractErrorInfoMetadata(status: com.google.rpc.Status): util.Map[String, String] = {
+  def extractErrorInfoMetadata(exception: Exception): java.util.Map[String, String] =
+    extractErrorInfoMetadata(StatusProto.fromThrowable(exception))
+
+  def extractErrorInfoMetadata(status: com.google.rpc.Status): java.util.Map[String, String] = {
     val details = status.getDetailsList.asScala
     details
       .find(_.is(classOf[ErrorInfo]))
