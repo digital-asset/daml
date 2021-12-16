@@ -188,7 +188,12 @@ object OptionParser {
     case (address :: port :: HNil) :: HNil => Config(ledgerHost = address, ledgerPort = port)
   }
 
-  // XXX librify the below, this is special pureconfig/shapeless support
+  // XXX librify the below, this is special pureconfig/shapeless support.
+  // The problem with `forProductN` and friends is that the name is detached
+  // from the field definition, so is easy to mix up.  The problem with case
+  // class derivation is that it doesn't play with structures that don't look
+  // just like your HOCON structures.  The goal of the below is to bridge
+  // the gap as well as reliably label fields -sc
   import pureconfig.ConfigCursor
   import shapeless.labelled.FieldType
 
