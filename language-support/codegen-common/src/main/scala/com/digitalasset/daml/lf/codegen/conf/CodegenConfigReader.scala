@@ -17,7 +17,6 @@ object CodegenConfigReader {
 
   sealed trait CodegenDest
   object Java extends CodegenDest
-  object Scala extends CodegenDest
 
   type Result[A] = Either[ConfigLoadingError, A]
 
@@ -140,7 +139,6 @@ object CodegenConfigReader {
 
   private def dest(a: CodegenDest): String = a match {
     case Java => "java"
-    case Scala => "scala"
   }
 
   private def path(a: String): Result[Path] =

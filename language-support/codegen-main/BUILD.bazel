@@ -30,7 +30,6 @@ da_scala_library(
         "//daml-assistant/scala-daml-project-config",
         "//language-support/codegen-common",
         "//language-support/java/codegen:lib",
-        "//language-support/scala/codegen:codegen-main",
     ],
 )
 
@@ -50,7 +49,6 @@ da_scala_binary(
         "//daml-assistant/scala-daml-project-config",
         "//language-support/codegen-common",
         "//language-support/java/codegen:lib",
-        "//language-support/scala/codegen:codegen-main",
     ],
 )
 

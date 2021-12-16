@@ -2,15 +2,11 @@
 
 This is the API code for the ledger, which contains:
  * gRPC API definitions
- * Generated Scala bindings
+ * Generated Scala bindings and client
  * gRPC-RS bridge
  * gRPC-Akka bridge
  * Server API classes with validation
  * Prototype Server
- * Prototype Clients
-   * Scala
-   * Python
-   * Node.js
  * Integration tests for all of the above
 
 # Documentation
