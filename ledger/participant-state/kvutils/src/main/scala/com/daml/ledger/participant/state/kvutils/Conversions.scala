@@ -241,6 +241,16 @@ object Conversions {
   def parseHash(bytes: com.google.protobuf.ByteString): crypto.Hash =
     crypto.Hash.assertFromBytes(data.Bytes.fromByteString(bytes))
 
+  def extractHashFromArchive(rawArchive: Raw.Archive): String =
+    com.daml.lf.archive.ArchiveParser.assertFromByteString(rawArchive.bytes).getHash
+
+  def archivesToBytesWithPackageId(
+      archives: List[com.daml.daml_lf_dev.DamlLf.Archive]
+  ): Map[Raw.PackageId, Raw.Archive] =
+    archives
+      .map(archive => Raw.PackageId(archive.getHash) -> Raw.Archive(archive.toByteString))
+      .toMap
+
   def buildDuration(dur: Duration): com.google.protobuf.Duration = {
     com.google.protobuf.Duration.newBuilder
       .setSeconds(dur.getSeconds)

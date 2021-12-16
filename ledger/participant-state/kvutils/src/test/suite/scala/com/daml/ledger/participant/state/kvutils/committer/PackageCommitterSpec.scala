@@ -4,9 +4,9 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import java.util.UUID
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.participant.state.kvutils.{Conversions, Raw}
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.{
@@ -130,7 +130,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
           .newBuilder()
           .setSubmissionId(UUID.randomUUID().toString)
           .setParticipantId(participantId)
-          .addAllArchives(archives.asJava)
+          .addAllArchives(archives.map(_.toByteString).asJava)
       )
       .build()
 
@@ -172,7 +172,11 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     shouldSucceed(output)
     val archives = output._1.getPackageUploadEntry.getArchivesList
     archives.size() shouldBe committedPackages.size
-    archives.iterator().asScala.map(_.getHash).toSet shouldBe committedPackages.toSet[String]
+    archives
+      .iterator()
+      .asScala
+      .map(archive => Conversions.extractHashFromArchive(Raw.Archive(archive)))
+      .toSet shouldBe committedPackages.toSet[String]
   }
 
   "PackageCommitter" should {

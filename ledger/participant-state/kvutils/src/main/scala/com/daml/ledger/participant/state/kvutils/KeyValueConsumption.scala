@@ -23,6 +23,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
 }
 import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.v2.{DivulgedContract, TransactionMeta, Update}
+import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
@@ -73,7 +74,7 @@ object KeyValueConsumption {
         val pue = entry.getPackageUploadEntry
         List(
           Update.PublicPackageUpload(
-            pue.getArchivesList.asScala.toList,
+            pue.getArchivesList.asScala.toList.map(ArchiveParser.assertFromByteString),
             if (entry.getPackageUploadEntry.getSourceDescription.nonEmpty)
               Some(entry.getPackageUploadEntry.getSourceDescription)
             else None,
