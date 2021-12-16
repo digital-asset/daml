@@ -81,8 +81,6 @@ object Raw {
 
   object TransactionNode extends Raw.Companion[TransactionNode]
 
-  final case class PackageId(value: String) extends AnyVal
-
   final case class Archive(override val bytes: ByteString) extends Raw.Bytes
 
   object Archive extends Raw.Companion[Archive]

@@ -76,7 +76,7 @@ class KeyValueParticipantStateWriter(
     val submission = keyValueSubmission
       .archivesToSubmission(
         submissionId,
-        Conversions.archivesToBytesWithPackageId(archives),
+        Conversions.archivesToHashesAndBytes(archives),
         sourceDescription.getOrElse(""),
         writer.participantId,
       )

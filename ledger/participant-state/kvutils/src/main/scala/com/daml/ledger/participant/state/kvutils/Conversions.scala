@@ -244,11 +244,11 @@ object Conversions {
   def extractHashFromArchive(rawArchive: Raw.Archive): String =
     com.daml.lf.archive.ArchiveParser.assertFromByteString(rawArchive.bytes).getHash
 
-  def archivesToBytesWithPackageId(
+  def archivesToHashesAndBytes(
       archives: List[com.daml.daml_lf_dev.DamlLf.Archive]
-  ): Map[Raw.PackageId, Raw.Archive] =
+  ): Map[String, Raw.Archive] =
     archives
-      .map(archive => Raw.PackageId(archive.getHash) -> Raw.Archive(archive.toByteString))
+      .map(archive => archive.getHash -> Raw.Archive(archive.toByteString))
       .toMap
 
   def buildDuration(dur: Duration): com.google.protobuf.Duration = {
