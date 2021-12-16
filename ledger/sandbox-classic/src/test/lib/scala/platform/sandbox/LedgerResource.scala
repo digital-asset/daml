@@ -104,6 +104,7 @@ private[sandbox] object LedgerResource {
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
+          acsIdQueueLimit = 1000000,
           servicesExecutionContext = servicesExecutionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,

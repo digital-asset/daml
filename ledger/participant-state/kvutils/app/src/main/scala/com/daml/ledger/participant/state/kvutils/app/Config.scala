@@ -46,6 +46,7 @@ final case class Config[Extra](
     acsIdFetchingParallelism: Int,
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
+    acsIdQueueLimit: Int,
     stateValueCache: caching.WeightedCache.Configuration,
     lfValueTranslationEventCache: caching.SizedCache.Configuration,
     lfValueTranslationContractCache: caching.SizedCache.Configuration,
@@ -84,6 +85,7 @@ object Config {
       acsIdFetchingParallelism = IndexConfiguration.DefaultAcsIdFetchingParallelism,
       acsContractFetchingParallelism = IndexConfiguration.DefaultAcsContractFetchingParallelism,
       acsGlobalParallelism = IndexConfiguration.DefaultAcsGlobalParallelism,
+      acsIdQueueLimit = IndexConfiguration.DefaultAcsIdQueueLimit,
       stateValueCache = caching.WeightedCache.Configuration.none,
       lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
       lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
@@ -519,6 +521,13 @@ object Config {
           .action((acsGlobalParallelism, config) =>
             config.copy(acsGlobalParallelism = acsGlobalParallelism)
           )
+
+        opt[Int]("acs-id-queue-limit")
+          .optional()
+          .text(
+            s"Maximum number of contract ids queued for fetching. Default is ${IndexConfiguration.DefaultAcsIdQueueLimit}."
+          )
+          .action((acsIdQueueLimit, config) => config.copy(acsIdQueueLimit = acsIdQueueLimit))
 
         opt[Long]("max-state-value-cache-size")
           .optional()

@@ -38,6 +38,7 @@ class FilterTableACSReader(
     idPageSize: Int,
     idFetchingParallelism: Int,
     acsFetchingparallelism: Int,
+    acsIdQueueLimit: Int,
     metrics: Metrics,
     materializer: Materializer,
     querylimiter: ConcurrencyLimiter,
@@ -97,6 +98,7 @@ class FilterTableACSReader(
           tasks = tasks.map(_.filter),
           outputBatchSize = pageSize,
           inputBatchSize = idPageSize,
+          idQueueLimit = acsIdQueueLimit,
           metrics = metrics,
         )
       )
@@ -258,14 +260,14 @@ private[events] object FilterTableACSReader {
       tasks: Iterable[TASK],
       outputBatchSize: Int,
       inputBatchSize: Int,
+      idQueueLimit: Int,
       metrics: Metrics,
   )(implicit
       loggingContext: LoggingContext
   ): () => ((TASK, Iterable[Long])) => Vector[Vector[Long]] = () => {
     val outputQueue = new BatchedDistinctOutputQueue(outputBatchSize)
     val taskQueue = new MergingTaskQueue[TASK](outputQueue.push)
-    // Limit the number of queued contract ids to 1M per filter
-    val maxTaskQueueSize = 1000000 / inputBatchSize
+    val maxTaskQueueSize = idQueueLimit / inputBatchSize
     val taskTracker = new TaskTracker[TASK](tasks, inputBatchSize, maxTaskQueueSize)
 
     { case (task, ids) =>

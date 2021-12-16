@@ -73,6 +73,7 @@ trait ConfigProvider[ExtraConfig] {
       acsIdFetchingParallelism = config.acsIdFetchingParallelism,
       acsContractFetchingParallelism = config.acsContractFetchingParallelism,
       acsGlobalParallelism = config.acsGlobalParallelism,
+      acsIdQueueLimit = config.acsIdQueueLimit,
       portFile = participantConfig.portFile,
       seeding = config.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,

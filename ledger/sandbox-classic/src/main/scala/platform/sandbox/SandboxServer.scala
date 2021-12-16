@@ -353,6 +353,7 @@ final class SandboxServer(
             acsIdFetchingParallelism = config.acsIdFetchingParallelism,
             acsContractFetchingParallelism = config.acsContractFetchingParallelism,
             acsGlobalParallelism = config.acsGlobalParallelism,
+            acsIdQueueLimit = config.acsIdQueueLimit,
             servicesExecutionContext = servicesExecutionContext,
             metrics = metrics,
             lfValueTranslationCache = lfValueTranslationCache,
