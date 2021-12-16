@@ -333,50 +333,75 @@ filegroup(
     srcs = glob(["configs/pdf/fonts/**"]),
 )
 
+pkg_tar(
+  name = "pdf-fonts-tar",
+  extension = "tar.gz",
+  srcs = [":pdf-fonts"],
+)
+
+genrule(
+  name = "non-sphinx-html-docs",
+  outs = ["other-html-docs.tar.gz"],
+  srcs = [
+     ":hoogle_db.tar.gz",
+     "//language-support/java:javadoc",
+     "//language-support/ts/daml-react:docs",
+     "//language-support/ts/daml-ledger:docs",
+     "//language-support/ts/daml-types:docs",
+     "@daml-cheat-sheet//:site",
+  ],
+  cmd = """
+    set -eou pipefail
+    DIR=$$(mktemp -d)
+    trap "rm -rf DIR" EXIT
+    mkdir -p $$DIR/html/app-dev/bindings-java/javadocs
+
+    # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
+    unzip -q -o $(locations //language-support/java:javadoc) -d $$DIR/html/app-dev/bindings-java/javadocs
+    # Remove JAR metadata
+    rm -r $$DIR/html/app-dev/bindings-java/javadocs/META-INF
+
+    # Copy generated documentation for typescript libraries
+    mkdir -p $$DIR/html/app-dev/bindings-ts/daml-react
+    mkdir -p $$DIR/html/app-dev/bindings-ts/daml-ledger
+    mkdir -p $$DIR/html/app-dev/bindings-ts/daml-types
+    tar -xzf $(location //language-support/ts/daml-react:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-react/
+    tar -xzf $(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-ledger/
+    tar -xzf $(location //language-support/ts/daml-types:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-types/
+    # The generated docs of the typescript libraries are published at two places: The npm
+    # registry and on docs.daml.com. The docs at the npm registry contain a link pointing
+    # to docs.daml.com. We remove it for the version published at docs.daml.com as it would be
+    # pointing to itself.
+    sed -i -e 's,^.*\\(Comprehensive documentation\\|<h2>Documentation</h2>\\|0.0.0-SDKVERSION\\).*$$,,' $$DIR/html/app-dev/bindings-ts/*/index.html
+
+    # Get the daml cheat sheet
+    mkdir -p $$DIR/html/cheat-sheet
+    tar -xzf $(location @daml-cheat-sheet//:site) --strip-components 1 -C $$DIR/html/cheat-sheet
+
+    # Copy in hoogle DB
+    cp -L $(location :hoogle_db.tar.gz) $$DIR/html/hoogle_db.tar.gz
+
+    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+    OUT_PATH=$$PWD/$@
+    cd $$DIR
+    $$MKTGZ $$OUT_PATH html
+  """,
+    tools = ["//bazel_tools/sh:mktgz"],
+)
+
 genrule(
     name = "docs-no-pdf",
     srcs = [
         ":sphinx-html",
-        ":hoogle_db.tar.gz",
-        "//language-support/java:javadoc",
-        "//language-support/ts/daml-react:docs",
-        "//language-support/ts/daml-ledger:docs",
-        "//language-support/ts/daml-types:docs",
-        "@daml-cheat-sheet//:site",
+        ":non-sphinx-html-docs",
     ],
     outs = ["html-only.tar.gz"],
     cmd = """
         set -eou pipefail
         mkdir -p build/html
         tar xf $(location :sphinx-html) -C build/html --strip-components=1
-
+        tar xf $(location :non-sphinx-html-docs) -C build/html --strip-components=1
         cd build
-
-        # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
-        unzip -q -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
-        # Remove JAR metadata
-        rm -r html/app-dev/bindings-java/javadocs/META-INF
-
-        # Copy generated documentation for typescript libraries
-        mkdir -p html/app-dev/bindings-ts/daml-react
-        mkdir -p html/app-dev/bindings-ts/daml-ledger
-        mkdir -p html/app-dev/bindings-ts/daml-types
-        tar -xzf ../$(location //language-support/ts/daml-react:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-react/
-        tar -xzf ../$(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-ledger/
-        tar -xzf ../$(location //language-support/ts/daml-types:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-types/
-        # The generated docs of the typescript libraries are published at two places: The npm
-        # registry and on docs.daml.com. The docs at the npm registry contain a link pointing
-        # to docs.daml.com. We remove it for the version published at docs.daml.com as it would be
-        # pointing to itself.
-        sed -i -e 's,^.*\\(Comprehensive documentation\\|<h2>Documentation</h2>\\|0.0.0-SDKVERSION\\).*$$,,' html/app-dev/bindings-ts/*/index.html
-
-        # Get the daml cheat sheet
-        mkdir -p html/cheat-sheet
-        tar -xzf ../$(location @daml-cheat-sheet//:site) --strip-components 1 -C html/cheat-sheet
-
-        # Copy in hoogle DB
-        cp -L ../$(location :hoogle_db.tar.gz) html/hoogle_db.tar.gz
-
         ../$(execpath //bazel_tools/sh:mktgz) ../$@ html
         """.format(sdk = sdk_version),
     tools = [
