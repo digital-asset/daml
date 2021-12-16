@@ -3,7 +3,8 @@
 
 package com.daml.ledger.sandbox
 
-import akka.stream.scaladsl.Source
+import akka.NotUsed
+import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
@@ -23,8 +24,8 @@ import com.google.rpc.status.Status
 import java.util.UUID
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
-case class BridgeWriteService(
-    readServiceWithFeedSubscriber: ReadServiceWithFeedSink,
+class BridgeWriteService(
+    feedSink: Sink[(Offset, Update), NotUsed],
     participantId: Ref.ParticipantId,
     submissionBufferSize: Int,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
@@ -123,7 +124,7 @@ case class BridgeWriteService(
         }
         .preMaterialize()
 
-    queueSource.runWith(readServiceWithFeedSubscriber.feedSink)
+    queueSource.runWith(feedSink)
     logger.info(
       s"Write service initialized. Configuration: [submissionBufferSize: $submissionBufferSize]"
     )
@@ -141,7 +142,7 @@ case class BridgeWriteService(
 
 object BridgeWriteService {
   def owner(
-      readServiceWithFeedSubscriber: ReadServiceWithFeedSink,
+      feedSink: Sink[(Offset, Update), NotUsed],
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
   )(implicit
@@ -150,8 +151,8 @@ object BridgeWriteService {
   ): ResourceOwner[WriteService] =
     ResourceOwner
       .forCloseable(() =>
-        BridgeWriteService(
-          readServiceWithFeedSubscriber = readServiceWithFeedSubscriber,
+        new BridgeWriteService(
+          feedSink = feedSink,
           participantId = participantConfig.participantId,
           submissionBufferSize = config.extra.submissionBufferSize,
         )

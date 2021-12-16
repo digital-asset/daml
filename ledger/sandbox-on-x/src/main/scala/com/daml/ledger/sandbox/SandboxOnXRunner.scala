@@ -3,11 +3,14 @@
 
 package com.daml.ledger.sandbox
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.kvutils.app.{
@@ -18,7 +21,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantRunMode,
 }
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
-import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
+import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
@@ -131,11 +134,14 @@ object SandboxOnXRunner {
             metrics = metrics,
           )
 
+          (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
+
           servicesExecutionContext <- buildServicesExecutionContext(metrics)
 
-          readServiceWithSubscriber = ReadServiceWithFeedSink(
+          readServiceWithSubscriber = new BridgeReadService(
             ledgerId = config.ledgerId,
             maxDedupSeconds = config.extra.maxDedupSeconds,
+            stateUpdatesSource,
           )
 
           indexerHealthChecks <- buildIndexerServer(
@@ -154,7 +160,7 @@ object SandboxOnXRunner {
             servicesExecutionContext,
           )
 
-          writeService <- buildWriteService(readServiceWithSubscriber, servicesExecutionContext)
+          writeService <- buildWriteService(stateUpdatesFeedSink, servicesExecutionContext)
 
           _ <- buildStandaloneApiServer(
             sharedEngine,
@@ -283,7 +289,7 @@ object SandboxOnXRunner {
 
   // Builds the write service and uploads the initialization DARs
   private def buildWriteService(
-      readServiceWithFeedSubscriber: ReadServiceWithFeedSink,
+      feedSink: Sink[(Offset, Update), NotUsed],
       servicesExecutionContext: ExecutionContext,
   )(implicit
       materializer: Materializer,
@@ -295,7 +301,7 @@ object SandboxOnXRunner {
     for {
       writeService <- BridgeWriteService
         .owner(
-          readServiceWithFeedSubscriber = readServiceWithFeedSubscriber,
+          feedSink = feedSink,
           config = config,
           participantConfig = participantConfig,
         )
