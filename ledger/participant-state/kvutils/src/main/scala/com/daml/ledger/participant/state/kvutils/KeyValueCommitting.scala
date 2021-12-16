@@ -181,6 +181,7 @@ object KeyValueCommitting {
         val packageEntry = submission.getPackageUploadEntry
         submission.getPackageUploadEntry.getArchivesList.asScala.toSet.map {
           rawArchive: ByteString =>
+            // It is not supposed to throw, as the archives have just been validated.
             val hash = Conversions.extractHashFromArchive(Raw.Archive(rawArchive))
             DamlStateKey.newBuilder.setPackageId(hash).build
         } + packageUploadDedupKey(packageEntry.getParticipantId, packageEntry.getSubmissionId)

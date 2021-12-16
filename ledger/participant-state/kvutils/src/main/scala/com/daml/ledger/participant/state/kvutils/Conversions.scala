@@ -52,7 +52,6 @@ import com.daml.lf.transaction._
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
-
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.Empty
 
@@ -241,6 +240,7 @@ object Conversions {
   def parseHash(bytes: com.google.protobuf.ByteString): crypto.Hash =
     crypto.Hash.assertFromBytes(data.Bytes.fromByteString(bytes))
 
+  @throws[com.daml.lf.archive.Error]
   def extractHashFromArchive(rawArchive: Raw.Archive): String =
     com.daml.lf.archive.ArchiveParser.assertFromByteString(rawArchive.bytes).getHash
 

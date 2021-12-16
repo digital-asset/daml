@@ -41,6 +41,7 @@ import scala.util.control.NonFatal
 private[committer] object PackageCommitter {
   final case class Result(
       uploadEntry: DamlPackageUploadEntry.Builder,
+      hashesAndArchives: Iterable[(String, Raw.Archive)],
       packagesCache: Map[Ref.PackageId, Ast.Package],
   )
 
@@ -62,9 +63,7 @@ final private[kvutils] class PackageCommitter(
 
   override protected def extraLoggingContext(result: Result): LoggingEntries =
     LoggingEntries(
-      "packages" -> result.uploadEntry.getArchivesList.asScala.view.map(archive =>
-        Conversions.extractHashFromArchive(Raw.Archive(archive))
-      )
+      "packages" -> result.hashesAndArchives.map(_._1)
     )
 
   /** The initial internal state passed to first step. */
@@ -72,7 +71,7 @@ final private[kvutils] class PackageCommitter(
       ctx: CommitContext,
       submission: DamlSubmission,
   )(implicit loggingContext: LoggingContext): Result =
-    Result(submission.getPackageUploadEntry.toBuilder, Map.empty)
+    Result(submission.getPackageUploadEntry.toBuilder, Iterable.empty, Map.empty)
 
   private def rejectionTraceLog(message: String)(implicit loggingContext: LoggingContext): Unit =
     logger.trace(s"Package upload rejected: $message.")
@@ -116,6 +115,33 @@ final private[kvutils] class PackageCommitter(
         identity,
       )
     )
+
+  private def readArchiveHashes: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        partialResult: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      try {
+        val hashesAndArchives = partialResult.uploadEntry.getArchivesList.asScala.view.map {
+          archive =>
+            val rawArchive = Raw.Archive(archive)
+            Conversions.extractHashFromArchive(rawArchive) -> rawArchive
+        }
+
+        StepContinue(partialResult.copy(hashesAndArchives = hashesAndArchives))
+      } catch {
+        case NonFatal(e) =>
+          val uploadEntry = partialResult.uploadEntry
+          rejectionTraceLog(e.getMessage)
+          reject(
+            ctx.recordTime,
+            uploadEntry.getSubmissionId,
+            uploadEntry.getParticipantId,
+            _.setInvalidPackage(Invalid.newBuilder.setDetails("Cannot parse archive")),
+          )
+      }
+    }
+  }
 
   private def authorizeSubmission: Step = new Step {
     def apply(
@@ -167,19 +193,17 @@ final private[kvutils] class PackageCommitter(
         ctx: CommitContext,
         partialResult: Result,
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
-      val uploadEntry = partialResult.uploadEntry
-      val (seenOnce, duplicates) = uploadEntry.getArchivesList
-        .iterator()
-        .asScala
-        .foldLeft((Set.empty[String], Set.empty[String])) { case ((seenOnce, duplicates), pkg) =>
-          val hash = Conversions.extractHashFromArchive(Raw.Archive(pkg))
-          if (seenOnce(hash))
-            (seenOnce, duplicates + hash)
-          else
-            (seenOnce + hash, duplicates)
+      val (seenOnce, duplicates) = partialResult.hashesAndArchives.iterator
+        .foldLeft((Set.empty[String], Set.empty[String])) {
+          case ((seenOnce, duplicates), (hash, _)) =>
+            if (seenOnce(hash))
+              (seenOnce, duplicates + hash)
+            else
+              (seenOnce + hash, duplicates)
         }
 
       if (seenOnce.isEmpty || duplicates.nonEmpty) {
+        val uploadEntry = partialResult.uploadEntry
         val message =
           if (seenOnce.isEmpty)
             "No archives in submission"
@@ -201,12 +225,12 @@ final private[kvutils] class PackageCommitter(
   }
 
   private def decodePackages(
-      archives: Iterable[Raw.Archive]
+      hashesAndArchives: Iterable[(String, Raw.Archive)]
   ): Either[String, Map[Ref.PackageId, Ast.Package]] =
     metrics.daml.kvutils.committer.packageUpload.decodeTimer.time { () =>
       type Result = Either[List[String], Map[Ref.PackageId, Ast.Package]]
-      archives
-        .foldLeft[Result](Right(Map.empty)) { (acc, rawArchive) =>
+      hashesAndArchives
+        .foldLeft[Result](Right(Map.empty)) { case (acc, (hash, rawArchive)) =>
           try {
             acc.map { result =>
               val archive = ArchiveParser.assertFromByteString(rawArchive.bytes)
@@ -214,7 +238,6 @@ final private[kvutils] class PackageCommitter(
             }
           } catch {
             case NonFatal(e) =>
-              val hash = Conversions.extractHashFromArchive(rawArchive)
               Left(
                 s"Cannot decode archive $hash: ${e.getMessage}" :: acc.left.getOrElse(Nil)
               )
@@ -226,10 +249,10 @@ final private[kvutils] class PackageCommitter(
 
   private def decodePackagesIfNeeded(
       pkgsCache: Map[Ref.PackageId, Ast.Package],
-      archives: Iterable[Raw.Archive],
+      hashesAndArchives: Iterable[(String, Raw.Archive)],
   ): Either[String, Map[PackageId, Ast.Package]] =
     if (pkgsCache.isEmpty)
-      decodePackages(archives)
+      decodePackages(hashesAndArchives)
     else
       Right(pkgsCache)
 
@@ -246,14 +269,14 @@ final private[kvutils] class PackageCommitter(
         ctx: CommitContext,
         partialResult: Result,
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
-      val Result(uploadEntry, packagesCache) = partialResult
+      val Result(uploadEntry, hashesAndArchives, packagesCache) = partialResult
       val result = for {
         packages <- decodePackagesIfNeeded(
           packagesCache,
-          uploadEntry.getArchivesList.asScala.map(Raw.Archive(_)),
+          hashesAndArchives,
         )
         _ <- validatePackages(packages)
-      } yield StepContinue(Result(uploadEntry, packages))
+      } yield StepContinue(Result(uploadEntry, hashesAndArchives, packages))
 
       result match {
         case Right(result) => result
@@ -327,14 +350,14 @@ final private[kvutils] class PackageCommitter(
         ctx: CommitContext,
         partialResult: Result,
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
-      val Result(uploadEntry, packagesCache) = partialResult
+      val Result(uploadEntry, hashesAndArchives, packagesCache) = partialResult
       val result = for {
         packages <- decodePackagesIfNeeded(
           packagesCache,
-          uploadEntry.getArchivesList.asScala.map(Raw.Archive(_)),
+          hashesAndArchives,
         )
         _ <- uploadPackages(packages)
-      } yield StepContinue(Result(uploadEntry, packages))
+      } yield StepContinue(Result(uploadEntry, hashesAndArchives, packages))
 
       result match {
         case Right(partialResult) =>
@@ -371,13 +394,11 @@ final private[kvutils] class PackageCommitter(
         ctx: CommitContext,
         partialResult: Result,
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
-      val Result(uploadEntry, packagesCache) = partialResult
-      // we need to extract the archives synchronously as other steps may modify uploadEntry
-      val archives = uploadEntry.getArchivesList.iterator().asScala.map(Raw.Archive(_)).toList
+      val Result(uploadEntry, hashesAndArchives, packagesCache) = partialResult
       preloadExecutor.execute { () =>
         logger.trace(s"Uploading ${uploadEntry.getArchivesCount} archive(s).")
         val result = for {
-          packages <- decodePackagesIfNeeded(packagesCache, archives)
+          packages <- decodePackagesIfNeeded(packagesCache, hashesAndArchives)
           _ <- uploadPackages(packages)
         } yield ()
 
@@ -398,15 +419,23 @@ final private[kvutils] class PackageCommitter(
         ctx: CommitContext,
         partialResult: Result,
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
-      val Result(uploadEntry, packagesCache) = partialResult
-      val archives = uploadEntry.getArchivesList.asScala.filter { archive =>
+      val Result(uploadEntry, hashesAndArchives, packagesCache) = partialResult
+      val newHashesAndArchives = hashesAndArchives.filter { case (hash, _) =>
         val stateKey = DamlStateKey.newBuilder
-          .setPackageId(Conversions.extractHashFromArchive(Raw.Archive(archive)))
+          .setPackageId(hash)
           .build
         ctx.get(stateKey).isEmpty
       }
+      val newUploadEntry = uploadEntry.clearArchives()
+      newHashesAndArchives.foreach { case (_, rawArchive) =>
+        newUploadEntry.addArchives(rawArchive.bytes)
+      }
       StepContinue(
-        Result(uploadEntry.clearArchives().addAllArchives(archives.asJava), packagesCache)
+        Result(
+          newUploadEntry,
+          newHashesAndArchives,
+          packagesCache,
+        )
       )
     }
   }
@@ -419,15 +448,15 @@ final private[kvutils] class PackageCommitter(
       metrics.daml.kvutils.committer.packageUpload.accepts.inc()
       logger.trace("Packages committed.")
 
-      val uploadEntry = partialResult.uploadEntry
-      uploadEntry.getArchivesList.forEach { archive =>
+      partialResult.hashesAndArchives.foreach { case (hash, rawArchive) =>
         ctx.set(
           DamlStateKey.newBuilder
-            .setPackageId(Conversions.extractHashFromArchive(Raw.Archive(archive)))
+            .setPackageId(hash)
             .build,
-          DamlStateValue.newBuilder.setArchive(archive).build,
+          DamlStateValue.newBuilder.setArchive(rawArchive.bytes).build,
         )
       }
+      val uploadEntry = partialResult.uploadEntry
       ctx.set(
         packageUploadDedupKey(ctx.participantId, uploadEntry.getSubmissionId),
         DamlStateValue.newBuilder
@@ -444,6 +473,8 @@ final private[kvutils] class PackageCommitter(
   }
   override protected val steps: Steps[Result] = {
     val builder = List.newBuilder[(StepInfo, Step)]
+
+    builder += "read_archive_hashes" -> readArchiveHashes
 
     validationMode match {
       case PackageValidationMode.No =>

@@ -173,11 +173,12 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     shouldSucceed(output)
     val archives = output._1.getPackageUploadEntry.getArchivesList
     archives.size() shouldBe committedPackages.size
-    archives
+    val hashes = archives
       .iterator()
       .asScala
       .map(archive => Conversions.extractHashFromArchive(Raw.Archive(archive)))
-      .toSet shouldBe committedPackages.toSet[String]
+      .toSet
+    hashes shouldBe committedPackages.toSet[String]
   }
 
   "PackageCommitter" should {
@@ -326,7 +327,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       val archive = archive2.toBuilder.setPayload(ByteString.EMPTY).build()
       val submission = buildSubmission(archive1, archive, archive3)
 
-      //when archive2 is unknown
+      // when archive2 is unknown
       shouldFailWith(committer.submit(submission), INVALID_PACKAGE, pkgId2)
 
       // when archive2 is known
@@ -346,7 +347,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       val archiveWithImproperHash = archive3.toBuilder.setHash(pkgId2).build()
       val submission = buildSubmission(archive1, archiveWithImproperHash, archive3)
 
-      //when archive2 is unknown
+      // when archive2 is unknown
       shouldFailWith(
         committer.submit(submission),
         INVALID_PACKAGE,
@@ -514,6 +515,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
 
     val anEmptyResult = PackageCommitter.Result(
       DamlPackageUploadEntry.newBuilder.setSubmissionId("an ID").setParticipantId("a participant"),
+      Iterable.empty,
       Map.empty,
     )
 
