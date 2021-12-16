@@ -11,7 +11,7 @@ import scala.util.{Failure, Success}
 
 object Main extends StrictLogging {
   def main(args: Array[String]): Unit = {
-    Config.parseConfig(args) match {
+    Cli.parseConfig(args) match {
       case Some(config) => main(config)
       case None => sys.exit(1)
     }
