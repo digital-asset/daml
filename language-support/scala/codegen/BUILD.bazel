@@ -65,7 +65,7 @@ da_scala_binary(
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = [
-        "maven_coordinates=com.daml:codegen-scala-main:__VERSION__" +
+        "maven_coordinates=com.daml:codegen-scala-main:__VERSION__",
         "fat_jar",
         "no_scala_version_suffix",
     ],
