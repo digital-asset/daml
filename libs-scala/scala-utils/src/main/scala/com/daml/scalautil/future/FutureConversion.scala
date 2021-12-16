@@ -10,10 +10,10 @@ import scala.jdk.javaapi.FutureConverters
 
 object FutureConversion {
 
-  /** Converts a java [[CompletionStage]] into a scala [[Future]]
-    * Java [[CompletionStage]] wraps any exception that causes failure into a [[CompletionException]]
+  /** Converts a java [[CompletionStage]] into a scala [[Future]].
+    * Java [[CompletionStage]] wraps any exception that causes failure into a [[CompletionException]].
     * Compared to the standard library conversions found in [[scala.jdk.FutureConverters]]
-    * this conversion unwraps any failure and fails the future with the root cause found in the [[CompletionException]]
+    * this conversion unwraps any failure and fails the future with the root cause found in the [[CompletionException]].
     */
   def toScalaUnwrapped[T](cs: CompletionStage[T]): Future[T] = {
     FutureConverters
