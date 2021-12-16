@@ -387,7 +387,7 @@ genrule(
     $$MKTGZ $$OUT_PATH html
   """,
     tools = ["//bazel_tools/sh:mktgz"],
-)
+) if not is_windows else None
 
 genrule(
     name = "docs-no-pdf",
