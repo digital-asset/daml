@@ -5,13 +5,12 @@ package com.daml.lf.data
 
 import com.daml.scalautil.FoldableContravariant
 import com.daml.scalautil.Statement.discard
-
 import ScalazEqual.{equalBy, orderBy, toIterableForScalazInstances}
 import scalaz.syntax.applicative._
 import scalaz.{Applicative, Equal, Foldable, Order, Traverse}
 
 import scala.annotation.tailrec
-import scala.collection.StrictOptimizedSeqFactory
+import scala.collection.{Factory, StrictOptimizedSeqFactory}
 import scala.collection.immutable.ArraySeq
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, StrictOptimizedSeqOps}
 import scala.collection.mutable.Builder
@@ -261,9 +260,7 @@ final class ImmArray[+A] private (
     * return the `array` as is and people would be able to break the original
     * `ImmArray`.
     */
-  def toSeq: ImmArray.ImmArraySeq[A] = new ImmArray.ImmArraySeq(this)
-
-  def toArraySeq: ArraySeq[A] = array
+  def toSeq: ImmArray.ImmArraySeq[A] = toIndexedSeq
 
   /** O(n) */
   def collect[B](f: PartialFunction[A, B]): ImmArray[B] = {
