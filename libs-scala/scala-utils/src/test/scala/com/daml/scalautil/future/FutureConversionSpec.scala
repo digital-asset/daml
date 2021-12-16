@@ -26,7 +26,7 @@ class FutureConversionSpec extends AsyncWordSpec with Matchers {
       // build a completion stage that fails with CompletionException
       // this is NOT the same as CompletableFuture.failedStage
       val cs: CompletionStage[Unit] = CompletableFuture.failedStage(exception)
-      recoverToExceptionIf[TestException](cs.toScalaUnwrapped).map { ex => ex shouldBe exception }
+      recoverToExceptionIf[TestException](cs.toScalaUnwrapped).map(_ shouldBe exception)
     }
 
     "fail the future with the same exception as the CompletionStage when wrapped in a CompletionException" in {
@@ -35,7 +35,7 @@ class FutureConversionSpec extends AsyncWordSpec with Matchers {
       // this is NOT the same as CompletableFuture.failedStage
       val cs: CompletionStage[Unit] =
         CompletableFuture.completedStage(()).thenApply(_ => throw exception)
-      recoverToExceptionIf[TestException](cs.toScalaUnwrapped).map { ex => ex shouldBe exception }
+      recoverToExceptionIf[TestException](cs.toScalaUnwrapped).map(_ shouldBe exception)
     }
 
     "convert futures and have the same result when wrapped in a CompletionException" in {
@@ -46,10 +46,7 @@ class FutureConversionSpec extends AsyncWordSpec with Matchers {
       recoverToExceptionIf[TestException](failedFuture.asJava.whenComplete {
         (_: Unit, _: Throwable) =>
           ()
-      }.toScalaUnwrapped)
-        .map { ex =>
-          ex shouldBe exception
-        }
+      }.toScalaUnwrapped).map(_ shouldBe exception)
     }
 
   }
