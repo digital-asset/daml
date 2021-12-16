@@ -73,6 +73,7 @@ template Asset
             pure (toInterfaceContractId @Token cid)
 
       let noopImpl = \nothing -> do
+            [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism.
             pure ()
 
 main = scenario do
