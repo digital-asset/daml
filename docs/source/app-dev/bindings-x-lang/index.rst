@@ -25,7 +25,7 @@ Note that for different reasons we chose codegen, but that is not the only optio
 Building Ledger Commands
 ========================
 
-No matter what approach you take, either manually building commands or writing a codegen to do this, you need to understand how ledger commands are structured. This section demonstrates how to build create and exercise commands manually and how it can be done using contract classe.
+No matter what approach you take, either manually building commands or writing a codegen to do this, you need to understand how ledger commands are structured. This section demonstrates how to build create and exercise commands manually and how it can be done using contract classes.
 
 Create Command
 --------------
