@@ -122,10 +122,9 @@ final private[kvutils] class PackageCommitter(
         partialResult: Result,
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
       try {
-        val hashesAndArchives = partialResult.uploadEntry.getArchivesList.asScala.view.map {
-          archive =>
-            val rawArchive = Raw.Archive(archive)
-            Conversions.extractHashFromArchive(rawArchive) -> rawArchive
+        val hashesAndArchives = partialResult.uploadEntry.getArchivesList.asScala.map { archive =>
+          val rawArchive = Raw.Archive(archive)
+          Conversions.extractHashFromArchive(rawArchive) -> rawArchive
         }
 
         StepContinue(partialResult.copy(hashesAndArchives = hashesAndArchives))

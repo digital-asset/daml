@@ -4,12 +4,12 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import java.util.UUID
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.{Conversions, Raw}
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
+import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.{
   DamlPackageUploadEntry,
   DamlPackageUploadRejectionEntry,
@@ -183,6 +183,20 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
 
   "PackageCommitter" should {
     def newCommitter = new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.No)
+
+    "reject non-readable archives" in {
+      val packageUploadEntryBuilder = DamlPackageUploadEntry
+        .newBuilder()
+        .setSubmissionId(UUID.randomUUID().toString)
+        .setParticipantId(participantId)
+      packageUploadEntryBuilder.addArchives(ByteString.copyFromUtf8("invalid package"))
+      val submission = DamlSubmission
+        .newBuilder()
+        .setPackageUploadEntry(packageUploadEntryBuilder)
+        .build()
+      val output = newCommitter.packageCommitter.run(None, submission, participantId, emptyState)
+      shouldFailWith(output, INVALID_PACKAGE, "Cannot parse archive")
+    }
 
     // Don't need to run the below test cases for all instances of PackageCommitter.
     "set record time in log entry if record time is available" in {
