@@ -207,7 +207,7 @@ genrule(
     tools = [
         "//bazel_tools/sh:mktgz",
     ],
-)
+) if not is_windows else None
 
 [
     genrule(
