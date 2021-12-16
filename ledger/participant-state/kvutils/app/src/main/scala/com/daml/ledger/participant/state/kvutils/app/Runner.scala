@@ -3,10 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.nio.file.Path
-import java.util.UUID
-import java.util.concurrent.{Executors, TimeUnit}
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
@@ -19,19 +15,21 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.{DbSupport, IndexMetadata, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
+import java.nio.file.Path
+import java.util.UUID
+import java.util.concurrent.{Executors, TimeUnit}
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 final class Runner[T <: ReadWriteService, Extra](
     name: String,
@@ -52,37 +50,12 @@ final class Runner[T <: ReadWriteService, Extra](
 
       config.mode match {
         case Mode.DumpIndexMetadata(jdbcUrls) =>
-          dumpIndexMetadata(jdbcUrls, errorFactories)
+          DumpIndexMetadata(jdbcUrls, errorFactories, name)
           sys.exit(0)
         case Mode.Run =>
           run(config)
       }
     }
-  }
-
-  private def dumpIndexMetadata(
-      jdbcUrls: Seq[String],
-      errorFactories: ErrorFactories,
-  )(implicit resourceContext: ResourceContext): Resource[Unit] = {
-    val logger = ContextualizedLogger.get(this.getClass)
-    import ExecutionContext.Implicits.global
-    implicit val actorSystem: ActorSystem = ActorSystem(
-      "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-")
-    )
-    implicit val materializer: Materializer = Materializer(actorSystem)
-    Resource.sequenceIgnoringValues(for (jdbcUrl <- jdbcUrls) yield {
-      newLoggingContext { implicit loggingContext: LoggingContext =>
-        Resource.fromFuture(IndexMetadata.read(jdbcUrl, errorFactories).andThen {
-          case Failure(exception) =>
-            logger.error("Error while retrieving the index metadata", exception)
-          case Success(metadata) =>
-            logger.warn(s"ledger_id: ${metadata.ledgerId}")
-            logger.warn(s"participant_id: ${metadata.participantId}")
-            logger.warn(s"ledger_end: ${metadata.ledgerEnd}")
-            logger.warn(s"version: ${metadata.participantIntegrationApiVersion}")
-        })
-      }
-    })
   }
 
   private def run(

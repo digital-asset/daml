@@ -3,7 +3,6 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.SandboxOnXRunner
 import com.daml.ledger.resources.ResourceContext
 import com.daml.resources.ProgramResource
 

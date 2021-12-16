@@ -3,24 +3,14 @@
 
 package com.daml.ledger.sandbox
 
-import java.util.UUID
-import java.util.concurrent.{CompletableFuture, CompletionStage}
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
-import com.daml.ReadServiceWithFeedSubscriber
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.app.{Config, ParticipantConfig}
-import com.daml.ledger.participant.state.v2.{
-  PruningResult,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  Update,
-  WriteService,
-}
+import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, SubmittedTransaction}
@@ -30,8 +20,11 @@ import com.google.common.primitives.Longs
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 
+import java.util.UUID
+import java.util.concurrent.{CompletableFuture, CompletionStage}
+
 case class BridgeWriteService(
-    readServiceWithFeedSubscriber: ReadServiceWithFeedSubscriber,
+    readServiceWithFeedSubscriber: ReadServiceWithFeedSink,
     participantId: Ref.ParticipantId,
     submissionBufferSize: Int,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
@@ -120,7 +113,7 @@ case class BridgeWriteService(
       PruningResult.ParticipantPruned
     )
 
-  val queue: BoundedSourceQueue[Submission] = {
+  private val queue: BoundedSourceQueue[Submission] = {
     val (queue, queueSource) =
       Source
         .queue[Submission](submissionBufferSize)
@@ -130,7 +123,7 @@ case class BridgeWriteService(
         }
         .preMaterialize()
 
-    queueSource.runWith(Sink.fromSubscriber(readServiceWithFeedSubscriber.subscriber))
+    queueSource.runWith(readServiceWithFeedSubscriber.feedSink)
     logger.info(
       s"Write service initialized. Configuration: [submissionBufferSize: $submissionBufferSize]"
     )
@@ -148,7 +141,7 @@ case class BridgeWriteService(
 
 object BridgeWriteService {
   def owner(
-      readServiceWithFeedSubscriber: ReadServiceWithFeedSubscriber,
+      readServiceWithFeedSubscriber: ReadServiceWithFeedSink,
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
   )(implicit

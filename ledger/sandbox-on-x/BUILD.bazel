@@ -55,7 +55,6 @@ da_scala_library(
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_reactivestreams_reactive_streams",
     ],
 )
 
@@ -118,8 +117,6 @@ da_scala_library(
     deps = [
         ":sandbox-on-x",
         "//ledger/ledger-resources",
-        "//ledger/participant-state/kvutils",
-        "//ledger/participant-state/kvutils/app",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
     ],

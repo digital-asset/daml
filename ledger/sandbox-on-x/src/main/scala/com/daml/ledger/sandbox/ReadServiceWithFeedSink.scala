@@ -1,49 +1,60 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
+package com.daml.ledger.sandbox
 
-import ledger.api.health.{HealthStatus, Healthy}
-import ledger.configuration.{Configuration, LedgerId, LedgerInitialConditions, LedgerTimeModel}
-import ledger.offset.Offset
-import ledger.participant.state.v2.{ReadService, Update}
-import lf.data.Time.Timestamp
-import logging.{ContextualizedLogger, LoggingContext}
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.configuration.{
+  Configuration,
+  LedgerId,
+  LedgerInitialConditions,
+  LedgerTimeModel,
+}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.{ReadService, Update}
+import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
-import org.reactivestreams.Subscriber
+import akka.stream.scaladsl.{BroadcastHub, Keep, MergeHub, Sink, Source}
+
 import scala.util.chaining._
 
-trait ReadServiceWithFeedSubscriber extends ReadService {
-  def subscriber: Subscriber[(Offset, Update)]
+trait ReadServiceWithFeedSink extends ReadService {
+  def feedSink: Sink[(Offset, Update), NotUsed]
 }
 
-object ReadServiceWithFeedSubscriber {
+object ReadServiceWithFeedSink {
   def apply(
       ledgerId: LedgerId,
       maxDedupSeconds: Int,
   )(implicit
       loggingContext: LoggingContext,
       materializer: Materializer,
-  ) = new ReadServiceWithFeedSubscriberImpl(ledgerId, maxDedupSeconds)
+  ) = new ReadServiceWithFeedSinkImpl(ledgerId, maxDedupSeconds)
 
-  class ReadServiceWithFeedSubscriberImpl private[ReadServiceWithFeedSubscriber] (
+  class ReadServiceWithFeedSinkImpl private[ReadServiceWithFeedSink] (
       ledgerId: LedgerId,
       maxDedupSeconds: Int,
   )(implicit
       loggingContext: LoggingContext,
       materializer: Materializer,
-  ) extends ReadServiceWithFeedSubscriber {
+  ) extends ReadServiceWithFeedSink {
     private val logger = ContextualizedLogger.get(getClass)
     private var stateUpdatesWasCalledAlready = false
 
     logger.info("Starting Sandbox-on-X read service...")
 
-    val (subscriber: Subscriber[(Offset, Update)], stateUpdatesSource) =
-      Source.asSubscriber[(Offset, Update)].preMaterialize().tap { _ =>
-        logger.info("Started Sandbox-on-X read service.")
-      }
+    val (feedSink, stateUpdatesSource) =
+      MergeHub
+        // We can't instrument these buffers, therefore keep these to minimal sizes and
+        // use a configurable instrumented buffer in the producer.
+        .source[(Offset, Update)](perProducerBufferSize = 1)
+        .toMat(BroadcastHub.sink(bufferSize = 1))(Keep.both)
+        .run()
+        .tap { _ =>
+          logger.info("Started Sandbox-on-X read service.")
+        }
 
     override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
       Source.single(
