@@ -14,6 +14,7 @@ import com.daml.ledger.api.v1.experimental_features.{
 }
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import com.daml.ledger.api.v1.version_service.{
+  CommandDeduplicationFeatures,
   FeaturesDescriptor,
   GetLedgerApiVersionRequest,
   GetLedgerApiVersionResponse,
@@ -30,8 +31,10 @@ import scala.io.Source
 import scala.util.Try
 import scala.util.control.NonFatal
 
-private[apiserver] final class ApiVersionService private (enableSelfServiceErrorCodes: Boolean)(
-    implicit
+private[apiserver] final class ApiVersionService private (
+    enableSelfServiceErrorCodes: Boolean,
+    commandDeduplicationFeatures: CommandDeduplicationFeatures,
+)(implicit
     loggingContext: LoggingContext,
     ec: ExecutionContext,
 ) extends VersionService
@@ -47,13 +50,14 @@ private[apiserver] final class ApiVersionService private (enableSelfServiceError
   private lazy val apiVersion: Try[String] = readVersion(versionFile)
 
   private val featuresDescriptor =
-    FeaturesDescriptor(
+    FeaturesDescriptor.of(
       userManagement = Some(UserManagementFeature()),
       experimental = Some(
         ExperimentalFeatures(selfServiceErrorCodes =
           Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes())
         )
       ),
+      commandDeduplication = Some(commandDeduplicationFeatures),
     )
 
   override def getLedgerApiVersion(
@@ -93,7 +97,8 @@ private[apiserver] final class ApiVersionService private (enableSelfServiceError
 
 private[apiserver] object ApiVersionService {
   def create(
-      enableSelfServiceErrorCodes: Boolean
+      enableSelfServiceErrorCodes: Boolean,
+      commandDeduplicationFeatures: CommandDeduplicationFeatures,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
-    new ApiVersionService(enableSelfServiceErrorCodes)
+    new ApiVersionService(enableSelfServiceErrorCodes, commandDeduplicationFeatures)
 }

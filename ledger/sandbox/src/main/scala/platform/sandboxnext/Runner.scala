@@ -17,6 +17,7 @@ import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.api.v1.version_service.CommandDeduplicationFeatures
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
@@ -312,6 +313,16 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 otherServices = List(resetService),
                 otherInterceptors = List(resetService),
                 servicesExecutionContext = servicesExecutionContext,
+                commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+                  Some(
+                    CommandDeduplicationFeatures.DeduplicationPeriodSupport.of(
+                      offsetSupport =
+                        CommandDeduplicationFeatures.DeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
+                      durationSupport =
+                        CommandDeduplicationFeatures.DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+                    )
+                  )
+                ),
               )
               _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
             } yield {

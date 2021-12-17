@@ -50,6 +50,7 @@ import java.nio.file.Files
 import java.time.Instant
 import java.util.concurrent.Executors
 
+import com.daml.ledger.api.v1.version_service.CommandDeduplicationFeatures
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 
 import scala.concurrent.duration.DurationInt
@@ -420,6 +421,16 @@ final class SandboxServer(
         enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         checkOverloaded = _ => None,
         userManagementStore = userManagementStore,
+        commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+          Some(
+            CommandDeduplicationFeatures.DeduplicationPeriodSupport.of(
+              offsetSupport =
+                CommandDeduplicationFeatures.DeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
+              durationSupport =
+                CommandDeduplicationFeatures.DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+            )
+          )
+        ),
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(

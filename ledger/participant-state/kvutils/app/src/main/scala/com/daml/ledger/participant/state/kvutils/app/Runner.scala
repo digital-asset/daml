@@ -8,6 +8,7 @@ import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.api.v1.version_service.CommandDeduplicationFeatures
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
@@ -193,6 +194,16 @@ final class Runner[T <: ReadWriteService, Extra](
                         otherInterceptors = configProvider.interceptors(config),
                         engine = sharedEngine,
                         servicesExecutionContext = servicesExecutionContext,
+                        commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+                          Some(
+                            CommandDeduplicationFeatures.DeduplicationPeriodSupport.of(
+                              offsetSupport =
+                                CommandDeduplicationFeatures.DeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
+                              durationSupport =
+                                CommandDeduplicationFeatures.DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+                            )
+                          )
+                        ),
                       ).acquire()
                     } yield {}
                   case ParticipantRunMode.Indexer =>
