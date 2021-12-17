@@ -111,32 +111,35 @@ object Conversions {
       .addAllName((id.qualifiedName.name.segments.toSeq: Seq[String]).asJava)
       .build()
 
-  @throws[Err.DecodeError]
-  def decodeIdentifier(id: Identifier): Ref.Identifier = {
-    val errorOrRefId: Either[Err.DecodeError, Ref.Identifier] = for {
+  def decodeIdentifier(id: Identifier): Either[Err.DecodeError, Ref.Identifier] =
+    for {
       pkgId <- PackageId
         .fromString(id.getPackageId)
         .left
-        .map(_ => Err.DecodeError("Identifier", s"Invalid package ID: ${id.getPackageId}"))
+        .map(_ => Err.DecodeError("Identifier", s"Invalid package ID: '${id.getPackageId}'"))
 
       moduleSegments = id.getModuleNameList.asScala
       module <- ModuleName
         .fromSegments(id.getModuleNameList.asScala)
         .left
-        .map(_ => Err.DecodeError("Identifier", s"Invalid module segments: $moduleSegments"))
+        .map(_ =>
+          Err.DecodeError(
+            "Identifier",
+            s"Invalid module segments: ${moduleSegments.mkString("'", ", ", "'")}",
+          )
+        )
 
       nameSegments = id.getNameList.asScala
       name <- DottedName
         .fromSegments(nameSegments)
         .left
-        .map(_ => Err.DecodeError("Identifier", s"Invalid name segments: $nameSegments"))
+        .map(_ =>
+          Err.DecodeError(
+            "Identifier",
+            s"Invalid name segments: ${nameSegments.mkString("'", ", ", "'")}",
+          )
+        )
     } yield Ref.Identifier(pkgId, QualifiedName(module, name))
-
-    errorOrRefId match {
-      case Right(refId) => refId
-      case Left(decodeError) => throw decodeError
-    }
-  }
 
   def globalKeyToStateKey(key: GlobalKey): DamlStateKey =
     DamlStateKey.newBuilder.setContractKey(encodeGlobalKey(key)).build

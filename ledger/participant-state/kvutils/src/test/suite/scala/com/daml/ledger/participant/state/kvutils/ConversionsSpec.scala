@@ -8,7 +8,7 @@ import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
-import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, Identifier}
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.{
   DisclosureEntry,
   DivulgenceEntry,
@@ -29,7 +29,7 @@ import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{Party, QualifiedName}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time.{Timestamp => LfTimestamp}
 import com.daml.lf.engine.Error
@@ -555,6 +555,111 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
         )
         completionInfo.optDeduplicationPeriod.value shouldBe DeduplicationPeriod
           .DeduplicationDuration(Duration.ofSeconds(30))
+      }
+    }
+
+    "encode/decode Identifiers" should {
+      "successfully encode various names" in {
+        forAll(
+          Table[Ref.ModuleName, Ref.DottedName, Seq[String], Seq[String]](
+            ("Module Name", "Name", "Expected Modules", "Expected Names"),
+            (
+              Ref.ModuleName.assertFromString("module"),
+              Ref.DottedName.assertFromString("name"),
+              Seq("module"),
+              Seq("name"),
+            ),
+            (
+              Ref.ModuleName.assertFromString("module.name"),
+              Ref.DottedName.assertFromString("dotted.name"),
+              Seq("module", "name"),
+              Seq("dotted", "name"),
+            ),
+          )
+        ) { (moduleName, name, expectedModules, expectedNames) =>
+          val id = Ref.Identifier(
+            Ref.PackageId.assertFromString("packageId"),
+            QualifiedName(moduleName, name),
+          )
+
+          val actual = Conversions.encodeIdentifier(id)
+          actual.getPackageId shouldBe "packageId"
+          actual.getModuleNameList.asScala shouldBe expectedModules
+          actual.getNameList.asScala shouldBe expectedNames
+        }
+      }
+
+      "decode various Identifiers" in {
+        forAll(
+          Table[Identifier, Either[Err.DecodeError, Ref.Identifier]](
+            ("Identifier", "Expected Error or Ref.Identifier"),
+            (
+              Identifier
+                .newBuilder()
+                .setPackageId("packageId")
+                .addModuleName("module")
+                .addName("name")
+                .build(),
+              Right(
+                Ref.Identifier(
+                  Ref.PackageId.assertFromString("packageId"),
+                  QualifiedName(
+                    Ref.ModuleName.assertFromString("module"),
+                    Ref.DottedName.assertFromString("name"),
+                  ),
+                )
+              ),
+            ),
+            (
+              Identifier
+                .newBuilder()
+                .setPackageId("packageId")
+                .addModuleName("module")
+                .addModuleName("name")
+                .addName("dotted")
+                .addName("name")
+                .build(),
+              Right(
+                Ref.Identifier(
+                  Ref.PackageId.assertFromString("packageId"),
+                  QualifiedName(
+                    Ref.ModuleName.assertFromString("module.name"),
+                    Ref.DottedName.assertFromString("dotted.name"),
+                  ),
+                )
+              ),
+            ),
+            (
+              Identifier
+                .newBuilder()
+                .addModuleName("module")
+                .addName("name")
+                .build(),
+              Left(Err.DecodeError("Identifier", "Invalid package ID: ''")),
+            ),
+            (
+              Identifier
+                .newBuilder()
+                .setPackageId("packageId")
+                .addModuleName(">>>")
+                .addName("name")
+                .build(),
+              Left(Err.DecodeError("Identifier", "Invalid module segments: '>>>'")),
+            ),
+            (
+              Identifier
+                .newBuilder()
+                .setPackageId("packageId")
+                .addModuleName("module")
+                .addName("???")
+                .build(),
+              Left(Err.DecodeError("Identifier", "Invalid name segments: '???'")),
+            ),
+          )
+        ) { (identifier, expectedErrorOrRefIdentifier) =>
+          val actual = Conversions.decodeIdentifier(identifier)
+          actual shouldBe expectedErrorOrRefIdentifier
+        }
       }
     }
   }

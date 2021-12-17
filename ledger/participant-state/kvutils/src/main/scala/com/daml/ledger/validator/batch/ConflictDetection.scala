@@ -10,7 +10,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
 import scala.annotation.nowarn
-import scala.util.Try
 
 class ConflictDetection(val damlMetrics: Metrics) {
   private val logger = ContextualizedLogger.get(getClass)
@@ -105,7 +104,8 @@ class ConflictDetection(val damlMetrics: Metrics) {
           // NOTE(JM): We show the template id as the other piece of data we have is the contract key
           // hash, which isn't very useful as it's an implementation detail not exposed over ledger-api.
           val templateId =
-            Try(Conversions.decodeIdentifier(key.getContractKey.getTemplateId))
+            Conversions
+              .decodeIdentifier(key.getContractKey.getTemplateId)
               .map(_.toString)
               .getOrElse("<unknown>")
           s"Contract key conflicts in contract template $templateId"
