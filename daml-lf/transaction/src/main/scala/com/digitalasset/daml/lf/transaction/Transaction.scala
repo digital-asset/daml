@@ -361,6 +361,10 @@ sealed abstract class HasTxNodes {
     globalState
   }
 
+  /** A map that associates to the IDs of all the contracts created by the
+    * transaction their respective create node. This includes transient and
+    * rolled back contracts.
+    */
   final def localContracts[Cid2 >: ContractId]: Map[Cid2, (NodeId, Node.Create)] =
     fold(Map.empty[Cid2, (NodeId, Node.Create)]) {
       case (acc, (nid, create: Node.Create)) =>
@@ -385,7 +389,7 @@ sealed abstract class HasTxNodes {
     )
 
   /** Local and global contracts that are inactive at the end of the transaction.
-    * This includes both contracts that have been arachived and local
+    * This includes both contracts that have been consumed and local
     * contracts whose create has been rolled back.
     */
   final def inactiveContracts[Cid2 >: ContractId]: Set[Cid2] = {
@@ -494,11 +498,15 @@ sealed abstract class HasTxNodes {
     "If a contract key contains a contract id"
   )
   final def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
+
+    lazy val localContracts = this.localContracts
+
     final case class State(
         keys: Map[GlobalKey, Option[Value.ContractId]],
         rollbackStack: List[Map[GlobalKey, Option[Value.ContractId]]],
         keyInputs: Map[GlobalKey, KeyInput],
     ) {
+
       def setKeyMapping(
           key: GlobalKey,
           value: KeyInput,
