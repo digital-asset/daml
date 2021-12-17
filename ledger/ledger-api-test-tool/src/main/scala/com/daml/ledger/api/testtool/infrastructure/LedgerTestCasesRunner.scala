@@ -3,12 +3,14 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import java.util.concurrent.{ExecutionException, TimeoutException}
+import java.util.{Timer, TimerTask}
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants
-import com.daml.ledger.api.testtool.infrastructure.Result
 import com.daml.ledger.api.testtool.infrastructure.participant.{
   ParticipantSession,
   ParticipantTestContext,
@@ -17,8 +19,6 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import io.grpc.ClientInterceptor
 import org.slf4j.LoggerFactory
 
-import java.util.concurrent.{ExecutionException, TimeoutException}
-import java.util.{Timer, TimerTask}
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
@@ -202,9 +202,23 @@ final class LedgerTestCasesRunner(
       materializer: Materializer,
       executionContext: ExecutionContext,
   ): Future[Vector[LedgerTestSummary]] = {
-    val (concurrentTestCases, sequentialTestCases) = testCases.partition(_.runConcurrently)
     ParticipantSession(partyAllocation, participants, maxConnectionAttempts, commandInterceptors)
       .flatMap { sessions: Vector[ParticipantSession] =>
+        // All the participants should support the same features (for testing at least)
+        val ledgerFeatures = sessions.head.features
+        val (enabledTestCases, disabledTestCases) = testCases
+          .partition(_.enabled(ledgerFeatures))
+        val excludedTestResults = disabledTestCases
+          .map(testCase =>
+            LedgerTestSummary(
+              testCase.suite.name,
+              testCase.name,
+              testCase.description,
+              Right(Result.Excluded(testCase.disabledReason)),
+            )
+          )
+        val (concurrentTestCases, sequentialTestCases) =
+          enabledTestCases.partition(_.runConcurrently)
         val ledgerSession = LedgerSession(
           sessions,
           shuffleParticipants,
@@ -223,7 +237,7 @@ final class LedgerTestCasesRunner(
               sequentialTestCases,
               concurrency = 1,
             )(materializer, materializer.executionContext)
-          } yield concurrentTestResults ++ sequentialTestResults
+          } yield concurrentTestResults ++ sequentialTestResults ++ excludedTestResults
 
         testResults.recover {
           case NonFatal(e) if !e.isInstanceOf[Errors.FrameworkException] =>

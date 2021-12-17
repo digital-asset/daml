@@ -41,9 +41,9 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     "UserManagementCreateUserInvalidArguments",
     "Test argument validation for UserManagement#CreateUser",
     allocate(NoParties),
+    enabled = _.userManagement,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
-    ledger.mustSupportUserManagement()
-
     val userId = UUID.randomUUID.toString
 
     def createAndCheck(
@@ -91,9 +91,9 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     "UserManagementGetUserInvalidArguments",
     "Test argument validation for UserManagement#GetUser",
     allocate(NoParties),
+    enabled = _.userManagement,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
-    ledger.mustSupportUserManagement()
-
     def getAndCheck(problem: String, userId: String, errorCode: ErrorCode): Future[Unit] =
       for {
         error <- ledger.userManagement
@@ -111,9 +111,9 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     "TestAllUserManagementRpcs",
     "Exercise every rpc once with success and once with a failure",
     allocate(NoParties),
+    enabled = _.userManagement,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
-    ledger.mustSupportUserManagement()
-
     for {
       // TODO: actually exercise all RPCs
       createResult <- ledger.userManagement.createUser(CreateUserRequest(Some(User("a", "b")), Nil))
