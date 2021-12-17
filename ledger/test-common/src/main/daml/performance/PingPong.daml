@@ -34,9 +34,3 @@ template Pong
       choice Ack : ()
         controller initiator
         do return ()
-
-main = scenario do
-    [alice, bob] <- mapA getParty ["Alice", "Bob"]
-    pingId <- submit alice $ create Ping with id = "1", initiator = alice, responders = [bob]
-    pongId <- submit bob $ exercise pingId Respond with winner = bob
-    submit alice $ exercise pongId Ack
