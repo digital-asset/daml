@@ -49,26 +49,28 @@ jmh command line functionality:
 
     bazel run //ledger/participant-state/kvutils/tools:benchmark-replay -- \
       -p ledgerFile=<ledger export files>                                  \
-      -p darFile=<dar files>                                               \
       -p choiceName=<exercise choice names>                                \
-      [-p adapt=true]
+      [-p indexChoice=<index of the choice>                                \
+      [-p darFile=<dar files>]                                              
+
 
 where:
 
 * `<ledger export files>`: is the full path of the ledger export
   files to be used separated by commas (`,`)
 
-* `<dar files>` : is the full path of the dar files to be used
-  separated by commas (`,`)
-
-* `<exercise choice names`>: is the full qualified choice name of the
-  exercises to be benchmarked separated by commas (`,`).  A full
+* `<exercise choice names>`: is the full qualified choice name of the
+  root exercise to be benchmarked separated by commas (`,`).  A full
   qualified choice name should be of the form
   `ModuleName:TemplateName:ChoiceName`.  Note the package ID is
-  omitted.
+  omitted. By default, the tool benchmarks the first choice with 
+  such a name it finds in the ledger export.
 
-* the optional parameter `adapt=true` can be set to enable dar-export
-  "adaptation". The adaptation process attempts to map the identifiers
+* the optional parameter `<dar files>` specify the full path of 
+  the dar files to be used  separated by commas (`,`). If defined 
+  the program contained in the dar file is used instead of one
+  present in the ledger export, and the export is "adapted" to this 
+  program. The adaptation process attempts to map the identifiers
   from the export file with the ones of dar file when those latter
   differ only in their package ID.  This can be used when the original
   Daml source used to generate the ledger export is only slightly
