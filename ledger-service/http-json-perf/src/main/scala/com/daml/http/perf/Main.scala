@@ -273,7 +273,7 @@ object Main extends StrictLogging {
       jwt: Jwt
   ): EndpointsCompanion.Error \/ LedgerId = {
     EndpointsCompanion
-      .legacyDecodeAndParsePayload[JwtPayload](jwt, HttpService.decodeJwt)
+      .customDecodeAndParsePayload[JwtPayload](jwt, HttpService.decodeJwt)
       .map { case (_, payload) => payload.ledgerId }
   }
 

@@ -298,7 +298,7 @@ object EndpointsCompanion {
 
   private[http] def format(a: JsValue): ByteString = ByteString(a.compactPrint)
 
-  private[http] def legacyDecodeAndParsePayload[A](jwt: Jwt, decodeJwt: ValidateJwt)(implicit
+  private[http] def customDecodeAndParsePayload[A](jwt: Jwt, decodeJwt: ValidateJwt)(implicit
       parse: ParsePayload[A]
   ) =
     for {
@@ -313,18 +313,18 @@ object EndpointsCompanion {
       ledgerIdentityClient: LedgerIdentityClient,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      legacyParse: ParsePayload[A],
+      customParse: ParsePayload[A],
       createFromUserToken: CreateFromUserToken[A],
       fm: Monad[Future],
       ec: ExecutionContext,
   ): ET[(Jwt, A)] = {
     for {
       a <- EitherT.either(decodeJwt(jwt): Unauthorized \/ DecodedJwt[String])
-      p <- legacyParse
+      p <- customParse
         .parsePayload(a)
         .fold(
           { _ =>
-            logger.debug("No legacy token found, trying to process the token as user token.")
+            logger.debug("No custom token found, trying to process the token as user token.")
             createFromUserToken(
               a,
               userId => userManagementClient.listUserRights(userId, Some(jwt.value)),
