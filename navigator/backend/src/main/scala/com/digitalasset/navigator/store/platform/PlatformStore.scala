@@ -37,7 +37,6 @@ import io.grpc.netty.GrpcSslContexts
 import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
-import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
