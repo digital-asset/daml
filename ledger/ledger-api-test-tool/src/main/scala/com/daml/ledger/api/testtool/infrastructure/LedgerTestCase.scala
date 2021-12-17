@@ -4,7 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{ParticipantAllocation, Participants}
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
 import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,6 +24,8 @@ sealed class LedgerTestCase(
     val timeoutScale: Double,
     val runConcurrently: Boolean,
     val repeated: Int = 1,
+    val enabled: Features => Boolean,
+    val disabledReason: String,
     participants: ParticipantAllocation,
     runTestCase: ExecutionContext => Seq[ParticipantTestContext] => Participants => Future[Unit],
 ) {

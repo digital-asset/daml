@@ -3,12 +3,14 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import java.util.concurrent.{ExecutionException, TimeoutException}
+import java.util.{Timer, TimerTask}
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants
-import com.daml.ledger.api.testtool.infrastructure.Result
 import com.daml.ledger.api.testtool.infrastructure.participant.{
   ParticipantSession,
   ParticipantTestContext,
@@ -17,8 +19,6 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import io.grpc.ClientInterceptor
 import org.slf4j.LoggerFactory
 
-import java.util.concurrent.{ExecutionException, TimeoutException}
-import java.util.{Timer, TimerTask}
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
@@ -75,12 +75,17 @@ final class LedgerTestCasesRunner(
       session
         .createTestContext(testName, identifierSuffix)
         .flatMap { context =>
-          val start = System.nanoTime()
-          val result = test(context).map(_ => Duration.fromNanos(System.nanoTime() - start))
-          logger.info(
-            s"Started '${test.description}'${test.repetition.fold("")(r => s" (${r._1}/${r._2})")} with a timeout of $scaledTimeout."
-          )
-          result
+          val features = context.configuredParticipants.head.features
+          if (test.testCase.enabled(features)) {
+            val start = System.nanoTime()
+            val result = test(context).map(_ => Duration.fromNanos(System.nanoTime() - start))
+            logger.info(
+              s"Started '${test.description}'${test.repetition.fold("")(r => s" (${r._1}/${r._2})")} with a timeout of $scaledTimeout."
+            )
+            result
+          } else {
+            throw Result.Excluded(test.testCase.disabledReason)
+          }
         }
 
     val testTimeout = new TimerTask {
