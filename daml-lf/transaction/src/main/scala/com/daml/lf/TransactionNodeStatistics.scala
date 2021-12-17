@@ -16,7 +16,6 @@ object TransactionNodeStatistics {
     * @param fetchesByCid number of fetch by contract ID nodes,
     * @param fetchesByKey number of fetch by key nodes,
     * @param lookupsByKey number of lookup by key nodes,
-    * @param rollbacks number of rollback nodes.
     */
   final case class Actions(
       creates: Int,
@@ -51,7 +50,6 @@ object TransactionNodeStatistics {
     def fetches: Int = fetchesByCid + fetchesByKey
     def byKeys: Int = exercisesByKey + fetchesByKey + lookupsByKey
     def actions: Int = creates + exercises + fetches + lookupsByKey
-    def nodes: Int = actions + rollbacks
   }
 
   val EmptyDetail: Actions = Actions(0, 0, 0, 0, 0, 0, 0, 0)
@@ -69,7 +67,6 @@ object TransactionNodeStatistics {
     fetchesIdx,
     fetchesByKeyIdx,
     lookupsByKeyIdx,
-    rollbacksIdx,
   ) =
     (0 until numberOfFields)
 
@@ -119,7 +116,6 @@ object TransactionNodeStatistics {
         Transaction.ChildrenRecursion.DoRecurse
       },
       rollbackBegin = { (_, _) =>
-        incr(rollbacksIdx)
         rollbackDepth += 1
         Transaction.ChildrenRecursion.DoRecurse
       },

@@ -116,7 +116,6 @@ class TransactionNodeStatisticsSpec
       (fetch(byKey = false), _.fetchesByCid),
       (fetch(byKey = true), _.fetchesByKey),
       (lookup, _.lookupsByKey),
-      (rollback, _.rollbacks),
     )
 
     "count each type of committed nodes properly" in {
@@ -128,7 +127,7 @@ class TransactionNodeStatisticsSpec
           inside(TransactionNodeStatistics(builder.build())) {
             case TransactionNodeStatistics(committed, rolledBack) =>
               getter(committed) shouldBe i
-              committed.nodes shouldBe i
+              committed.actions shouldBe i
               rolledBack shouldBe TransactionNodeStatistics.EmptyDetail
           }
         }
@@ -146,7 +145,7 @@ class TransactionNodeStatisticsSpec
             case TransactionNodeStatistics(committed, rolledBack) =>
               committed shouldBe Actions(0, 0, 0, 0, 0, 0, 0, 0)
               getter(rolledBack) shouldBe i
-              rolledBack.nodes shouldBe i
+              rolledBack.actions shouldBe i
           }
         }
       }
