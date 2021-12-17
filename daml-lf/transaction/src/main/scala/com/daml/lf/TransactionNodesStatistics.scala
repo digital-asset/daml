@@ -4,19 +4,21 @@
 package com.daml.lf
 package transaction
 
-/** Container for transaction statistics.
-  *
-  * @param creates number of creates nodes,
-  * @param consumingExercisesByCid number of consuming exercises by contract ID nodes,
-  * @param nonconsumingExercisesByCid number of non-consuming Exercises by contract ID nodes,
-  * @param consumingExercisesByKey number of consuming exercise by contract key nodes,
-  * @param nonconsumingExercisesByKey number of non-consuming exercise by key nodes,
-  * @param fetchesByCid number of fetch by contract ID nodes,
-  * @param fetchesByKey number of fetch by key nodes,
-  * @param lookupsByKey number of lookup by key nodes,
-  * @param rollbacks number of rollback nodes.
-  */
-final case class TransactionNodesStats(
+object TransactionNodesStatistics {
+
+  /** Container for transaction statistics.
+   *
+   * @param creates number of creates nodes,
+   * @param consumingExercisesByCid number of consuming exercises by contract ID nodes,
+   * @param nonconsumingExercisesByCid number of non-consuming Exercises by contract ID nodes,
+   * @param consumingExercisesByKey number of consuming exercise by contract key nodes,
+   * @param nonconsumingExercisesByKey number of non-consuming exercise by key nodes,
+   * @param fetchesByCid number of fetch by contract ID nodes,
+   * @param fetchesByKey number of fetch by key nodes,
+   * @param lookupsByKey number of lookup by key nodes,
+   * @param rollbacks number of rollback nodes.
+   */
+  final case class Detail(
     creates: Int,
     consumingExercisesByCid: Int,
     nonconsumingExercisesByCid: Int,
@@ -26,45 +28,39 @@ final case class TransactionNodesStats(
     fetchesByKey: Int,
     lookupsByKey: Int,
     rollbacks: Int,
-) {
+  ) {
 
-  def +(that: TransactionNodesStats) =
-    TransactionNodesStats(
-      creates = this.creates + that.creates,
-      consumingExercisesByCid = this.consumingExercisesByCid + that.consumingExercisesByCid,
-      nonconsumingExercisesByCid =
-        this.nonconsumingExercisesByCid + that.nonconsumingExercisesByCid,
-      consumingExercisesByKey = this.consumingExercisesByKey + that.consumingExercisesByKey,
-      nonconsumingExercisesByKey =
-        this.nonconsumingExercisesByKey + that.nonconsumingExercisesByKey,
-      fetchesByCid = this.fetchesByCid + that.fetchesByCid,
-      fetchesByKey = this.fetchesByKey + that.fetchesByKey,
-      lookupsByKey = this.lookupsByKey + that.lookupsByKey,
-      rollbacks = this.rollbacks + that.rollbacks,
-    )
+    def +(that: Detail) =
+      Detail(
+        creates = this.creates + that.creates,
+        consumingExercisesByCid = this.consumingExercisesByCid + that.consumingExercisesByCid,
+        nonconsumingExercisesByCid =
+          this.nonconsumingExercisesByCid + that.nonconsumingExercisesByCid,
+        consumingExercisesByKey = this.consumingExercisesByKey + that.consumingExercisesByKey,
+        nonconsumingExercisesByKey =
+          this.nonconsumingExercisesByKey + that.nonconsumingExercisesByKey,
+        fetchesByCid = this.fetchesByCid + that.fetchesByCid,
+        fetchesByKey = this.fetchesByKey + that.fetchesByKey,
+        lookupsByKey = this.lookupsByKey + that.lookupsByKey,
+        rollbacks = this.rollbacks + that.rollbacks,
+      )
 
-  def exercisesByCid: Int = consumingExercisesByCid + nonconsumingExercisesByCid
-  def exercisesByKey: Int = consumingExercisesByKey + nonconsumingExercisesByKey
-  def exercises: Int = exercisesByCid + exercisesByKey
-  def consumingExercises: Int = consumingExercisesByCid + consumingExercisesByKey
-  def nonconsumingExercises: Int = nonconsumingExercisesByCid + nonconsumingExercisesByKey
-  def fetches: Int = fetchesByCid + fetchesByKey
-  def byKeys: Int = exercisesByKey + fetchesByKey + lookupsByKey
-  def actions: Int = creates + exercises + fetches + lookupsByKey
-  def nodes: Int = actions + rollbacks
-}
+    def exercisesByCid: Int = consumingExercisesByCid + nonconsumingExercisesByCid
+    def exercisesByKey: Int = consumingExercisesByKey + nonconsumingExercisesByKey
+    def exercises: Int = exercisesByCid + exercisesByKey
+    def consumingExercises: Int = consumingExercisesByCid + consumingExercisesByKey
+    def nonconsumingExercises: Int = nonconsumingExercisesByCid + nonconsumingExercisesByKey
+    def fetches: Int = fetchesByCid + fetchesByKey
+    def byKeys: Int = exercisesByKey + fetchesByKey + lookupsByKey
+    def actions: Int = creates + exercises + fetches + lookupsByKey
+    def nodes: Int = actions + rollbacks
+  }
 
-final case class TransactionNodesStatistics(
-    committed: TransactionNodesStats,
-    rolledBack: TransactionNodesStats,
-)
+  val EmptyDetail: Detail = Detail(0, 0, 0, 0, 0, 0, 0, 0, 0)
 
-object TransactionNodesStatistics {
+  val Empty: TransactionNodesStatistics = TransactionNodesStatistics(EmptyDetail, EmptyDetail)
 
-  val EmptyStats: TransactionNodesStats = TransactionNodesStats(0, 0, 0, 0, 0, 0, 0, 0, 0)
-  val Empty: TransactionNodesStatistics = TransactionNodesStatistics(EmptyStats, EmptyStats)
-
-  private[this] val numberOfFields = EmptyStats.productArity
+  private[this] val numberOfFields = EmptyDetail.productArity
 
   private[this] val Seq(
     createsIdx,
@@ -82,7 +78,7 @@ object TransactionNodesStatistics {
   private[this] def emptyFields = Array.fill(numberOfFields)(0)
 
   private[this] def build(stats: Array[Int]) =
-    TransactionNodesStats(
+    Detail(
       creates = stats(createsIdx),
       consumingExercisesByCid = stats(consumingExercisesByCidIdx),
       nonconsumingExercisesByCid = stats(nonconsumingExerciseCidsIdx),
@@ -151,4 +147,13 @@ object TransactionNodesStatistics {
     TransactionNodesStatistics(build(committed), build(rolledBack))
   }
 
+}
+
+final case class TransactionNodesStatistics(
+  committed: TransactionNodesStatistics.Detail,
+  rolledBack: TransactionNodesStatistics.Detail,
+) {
+  def +(that: TransactionNodesStatistics) = {
+    TransactionNodesStatistics(this.committed + that.committed, this.rolledBack + that.rolledBack)
+  }
 }

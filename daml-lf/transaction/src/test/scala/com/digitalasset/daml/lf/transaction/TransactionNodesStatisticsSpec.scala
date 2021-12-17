@@ -10,6 +10,7 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
+import TransactionNodesStatistics.Detail
 
 class TransactionNodesStatisticsSpec
     extends AnyWordSpec
@@ -20,13 +21,13 @@ class TransactionNodesStatisticsSpec
   "TransactionNodeStatistics#+" should {
 
     "add" in {
-      val s1 = TransactionNodesStats(1, 1, 1, 1, 1, 1, 1, 1, 1)
-      val s2 = TransactionNodesStats(2, 3, 5, 7, 11, 13, 17, 19, 23)
-      val s1s2 = TransactionNodesStats(3, 4, 6, 8, 12, 14, 18, 20, 24)
-      val s2s2 = TransactionNodesStats(4, 6, 10, 14, 22, 26, 34, 38, 46)
+      val s1 = Detail(1, 1, 1, 1, 1, 1, 1, 1, 1)
+      val s2 = Detail(2, 3, 5, 7, 11, 13, 17, 19, 23)
+      val s1s2 = Detail(3, 4, 6, 8, 12, 14, 18, 20, 24)
+      val s2s2 = Detail(4, 6, 10, 14, 22, 26, 34, 38, 46)
 
-      s2 + TransactionNodesStatistics.EmptyStats shouldBe s2
-      TransactionNodesStatistics.EmptyStats + s2 shouldBe s2
+      s2 + TransactionNodesStatistics.EmptyDetail shouldBe s2
+      TransactionNodesStatistics.EmptyDetail + s2 shouldBe s2
       s1 + s2 shouldBe s1s2
       s2 + s1 shouldBe s1s2
       s2 + s2 shouldBe s2s2
@@ -88,7 +89,7 @@ class TransactionNodesStatisticsSpec
 
     val testIterations = 3
 
-    type Getter = TransactionNodesStats => Int
+    type Getter = Detail => Int
 
     val testCases = Table[TxBuilder => Node, Getter](
       "makeNode" -> "getter",
@@ -113,7 +114,7 @@ class TransactionNodesStatisticsSpec
             case TransactionNodesStatistics(committed, rolledBack) =>
               getter(committed) shouldBe i
               committed.nodes shouldBe i
-              rolledBack shouldBe TransactionNodesStatistics.EmptyStats
+              rolledBack shouldBe TransactionNodesStatistics.EmptyDetail
           }
         }
       }
@@ -128,7 +129,7 @@ class TransactionNodesStatisticsSpec
           builder.add(makeNode(builder), rollbackId)
           inside(TransactionNodesStatistics.stats(builder.build())) {
             case TransactionNodesStatistics(committed, rolledBack) =>
-              committed shouldBe TransactionNodesStats(0, 0, 0, 0, 0, 0, 0, 0, rollbacks = 1)
+              committed shouldBe Detail(0, 0, 0, 0, 0, 0, 0, 0, rollbacks = 1)
               getter(rolledBack) shouldBe i
               rolledBack.nodes shouldBe i
           }
@@ -146,8 +147,8 @@ class TransactionNodesStatisticsSpec
           case TransactionNodesStatistics(committed, rolledBack) =>
             // There are twice more nonconsumming exercises by cid are double because
             // we use a extra one to nest the other node of the next loop
-            committed shouldBe TransactionNodesStats(i, i, 2 * i, i, i, i, i, i, i)
-            rolledBack shouldBe TransactionNodesStatistics.EmptyStats
+            committed shouldBe Detail(i, i, 2 * i, i, i, i, i, i, i)
+            rolledBack shouldBe TransactionNodesStatistics.EmptyDetail
         }
         exeId = b.add(exe(false, false)(b), exeId) // one nonconsumming exercises
       }
@@ -162,10 +163,10 @@ class TransactionNodesStatisticsSpec
         addAllNodes(b, rbId) // one additional rolled Back nodes of each type
         inside(TransactionNodesStatistics.stats(b.build())) {
           case TransactionNodesStatistics(committed, rolledBack) =>
-            committed shouldBe TransactionNodesStats(0, 0, 0, 0, 0, 0, 0, 0, 1)
+            committed shouldBe Detail(0, 0, 0, 0, 0, 0, 0, 0, 1)
             // There are twice more rollback nodes, since we use an extra one to
             // nest the other nodes in each loop
-            rolledBack shouldBe TransactionNodesStats(i, i, i, i, i, i, i, i, 2 * i)
+            rolledBack shouldBe Detail(i, i, i, i, i, i, i, i, 2 * i)
         }
       }
     }
