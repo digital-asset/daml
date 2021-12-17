@@ -92,7 +92,6 @@ This list should cover the vast majority of needs. If unsure, ask on the relevan
   * Daml on SQL
   * Daml Studio
   * Distribution/Releases
-  * Extractor
   * Java Bindings
   * Java Codegen
   * JavaScript Client Libraries
