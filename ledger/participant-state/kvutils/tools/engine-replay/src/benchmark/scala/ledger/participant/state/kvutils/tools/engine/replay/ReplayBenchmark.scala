@@ -60,10 +60,7 @@ class ReplayBenchmark {
 
     engine = Replay.compile(benchmark.pkgs)
 
-    // before running the bench, we validate the transaction first to be sure everything is fine.
-    val result = benchmark.validate(engine)
-    remy.log(result)
-    assert(result.isRight)
+    assert(benchmark.validate(engine).isRight)
   }
 
 }
