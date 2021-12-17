@@ -9,7 +9,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.participant.state.kvutils.export.ProtobufBasedLedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.lf.archive.Decode
+import com.daml.lf.archive.{ArchiveParser, Decode}
 import com.daml.lf.transaction.TransactionOuterClass
 import org.openjdk.jmh.annotations.{Param, Scope, Setup, State}
 
@@ -42,7 +42,8 @@ abstract class BenchmarkWithLedgerExport {
       Envelope.open(envelope).fold(sys.error, identity) match {
         case Envelope.SubmissionMessage(submission)
             if submission.getPayloadCase == DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-          for (archive <- submission.getPackageUploadEntry.getArchivesList.asScala) {
+          for (rawArchive <- submission.getPackageUploadEntry.getArchivesList.asScala) {
+            val archive = ArchiveParser.assertFromByteString(rawArchive)
             builder += Decode.assertDecodeArchive(archive)
           }
         case Envelope.SubmissionMessage(submission)

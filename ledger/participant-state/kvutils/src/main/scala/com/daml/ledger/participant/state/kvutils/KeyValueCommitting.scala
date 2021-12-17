@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
@@ -30,6 +29,7 @@ import com.daml.lf.transaction.{GlobalKey, TransactionCoder, TransactionOuterCla
 import com.daml.lf.value.ValueCoder
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.google.protobuf.ByteString
 
 import scala.jdk.CollectionConverters._
 
@@ -180,8 +180,10 @@ object KeyValueCommitting {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         val packageEntry = submission.getPackageUploadEntry
         submission.getPackageUploadEntry.getArchivesList.asScala.toSet.map {
-          archive: DamlLf.Archive =>
-            DamlStateKey.newBuilder.setPackageId(archive.getHash).build
+          rawArchive: ByteString =>
+            // It is not supposed to throw, as the archives have just been validated.
+            val hash = Conversions.extractHashFromArchive(Raw.Archive(rawArchive))
+            DamlStateKey.newBuilder.setPackageId(hash).build
         } + packageUploadDedupKey(packageEntry.getParticipantId, packageEntry.getSubmissionId)
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>

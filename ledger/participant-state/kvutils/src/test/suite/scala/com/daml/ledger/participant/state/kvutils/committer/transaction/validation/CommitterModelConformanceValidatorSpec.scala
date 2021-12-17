@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
 import java.time.{Instant, ZoneOffset, ZonedDateTime}
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, lfTuple}
@@ -25,7 +24,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateKey,
   DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err, Raw}
 import com.daml.ledger.validator.TestHelper.{makeContractIdStateKey, makeContractIdStateValue}
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.crypto.Hash
@@ -287,7 +286,7 @@ class CommitterModelConformanceValidatorSpec
       val stateKey = DamlStateKey.newBuilder().setPackageId("aPackage").build()
       val stateValue = DamlStateValue
         .newBuilder()
-        .setArchive(anArchive)
+        .setArchive(anArchive.bytes)
         .build()
       val commitContext = createCommitContext(
         None,
@@ -314,7 +313,7 @@ class CommitterModelConformanceValidatorSpec
       val stateValues = Table(
         "state values",
         DamlStateValue.newBuilder.build(),
-        DamlStateValue.newBuilder.setArchive(DamlLf.Archive.newBuilder()).build(),
+        DamlStateValue.newBuilder.setArchive(DamlLf.Archive.getDefaultInstance.toByteString).build(),
       )
 
       forAll(stateValues) { stateValue =>
@@ -456,7 +455,7 @@ object CommitterModelConformanceValidatorSpec {
       "",
     )
 
-  private val anArchive: DamlLf.Archive = {
+  private val anArchive: Raw.Archive = {
     val pkg = Ast.GenPackage[Expr](
       Map.empty,
       Set.empty,
@@ -468,10 +467,11 @@ object CommitterModelConformanceValidatorSpec {
         )
       ),
     )
-    Encode.encodeArchive(
+    val archive = Encode.encodeArchive(
       defaultParserParameters.defaultPackageId -> pkg,
       defaultParserParameters.languageVersion,
     )
+    Raw.Archive(archive.toByteString)
   }
 
   private def txBuilder = TransactionBuilder()

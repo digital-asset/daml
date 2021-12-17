@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
@@ -91,28 +90,30 @@ class KeyValueSubmission(metrics: Metrics) {
   /** Prepare a package upload submission. */
   def archivesToSubmission(
       submissionId: String,
-      archives: List[Archive],
+      hashesToArchives: Map[String, Raw.Archive],
       sourceDescription: String,
       participantId: Ref.ParticipantId,
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.archivesToSubmission.time { () =>
       val archivesDamlState =
-        archives.map(archive =>
+        hashesToArchives.keys.map(hash =>
           DamlStateKey.newBuilder
-            .setPackageId(archive.getHash)
+            .setPackageId(hash)
             .build
         )
+
+      val packageUploadEntryBuilder = DamlPackageUploadEntry.newBuilder
+        .setSubmissionId(submissionId)
+        .setSourceDescription(sourceDescription)
+        .setParticipantId(participantId)
+      hashesToArchives.values.foreach(rawArchive =>
+        packageUploadEntryBuilder.addArchives(rawArchive.bytes)
+      )
 
       DamlSubmission.newBuilder
         .addInputDamlState(packageUploadDedupKey(participantId, submissionId))
         .addAllInputDamlState(archivesDamlState.asJava)
-        .setPackageUploadEntry(
-          DamlPackageUploadEntry.newBuilder
-            .setSubmissionId(submissionId)
-            .addAllArchives(archives.asJava)
-            .setSourceDescription(sourceDescription)
-            .setParticipantId(participantId)
-        )
+        .setPackageUploadEntry(packageUploadEntryBuilder)
         .build
     }
 

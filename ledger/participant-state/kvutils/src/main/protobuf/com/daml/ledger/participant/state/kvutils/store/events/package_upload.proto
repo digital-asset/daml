@@ -7,7 +7,6 @@ package com.daml.ledger.participant.state.kvutils.store.events;
 option java_package = "com.daml.ledger.participant.state.kvutils.store.events";
 option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils.Store.Events";
 
-import "com/daml/daml_lf_dev/daml_lf.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/rejection_reason.proto";
 
 // A public package upload.
@@ -20,8 +19,8 @@ message DamlPackageUploadEntry {
   // Implementers are free to select adequate mechanism e.g. UUID or similar.
   string submission_id = 1;
 
-  // List of archives to be uploaded.
-  repeated daml_lf_dev.Archive archives = 2;
+  // List of Daml-LF archives to be uploaded as bytes (see daml_lf_dev.Archive).
+  repeated bytes archives = 2;
 
   // Description provided by the backing participant describing where it got
   // the package from, e.g., when, where, or by whom the packages were

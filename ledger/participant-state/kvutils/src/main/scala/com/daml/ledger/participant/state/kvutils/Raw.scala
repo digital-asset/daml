@@ -80,4 +80,8 @@ object Raw {
   final case class TransactionNode(override val bytes: ByteString) extends Raw.Bytes
 
   object TransactionNode extends Raw.Companion[TransactionNode]
+
+  final case class Archive(override val bytes: ByteString) extends Raw.Bytes
+
+  object Archive extends Raw.Companion[Archive]
 }
