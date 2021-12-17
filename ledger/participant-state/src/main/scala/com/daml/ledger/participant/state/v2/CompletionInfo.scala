@@ -38,12 +38,12 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
   *                               Only set for participant.state.v2 created entries
   */
 case class CompletionInfo(
-                           actAs: List[Ref.Party],
-                           applicationId: Ref.ApplicationId,
-                           commandId: Ref.CommandId,
-                           optDeduplicationPeriod: Option[DeduplicationPeriod],
-                           submissionId: Option[Ref.SubmissionId],
-                           statistics: Option[TransactionNodeStatistics],
+    actAs: List[Ref.Party],
+    applicationId: Ref.ApplicationId,
+    commandId: Ref.CommandId,
+    optDeduplicationPeriod: Option[DeduplicationPeriod],
+    submissionId: Option[Ref.SubmissionId],
+    statistics: Option[TransactionNodeStatistics],
 ) {
   def changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 }

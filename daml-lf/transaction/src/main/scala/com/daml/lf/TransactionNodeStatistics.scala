@@ -7,27 +7,27 @@ package transaction
 object TransactionNodeStatistics {
 
   /** Container for transaction statistics.
-   *
-   * @param creates number of creates nodes,
-   * @param consumingExercisesByCid number of consuming exercises by contract ID nodes,
-   * @param nonconsumingExercisesByCid number of non-consuming Exercises by contract ID nodes,
-   * @param consumingExercisesByKey number of consuming exercise by contract key nodes,
-   * @param nonconsumingExercisesByKey number of non-consuming exercise by key nodes,
-   * @param fetchesByCid number of fetch by contract ID nodes,
-   * @param fetchesByKey number of fetch by key nodes,
-   * @param lookupsByKey number of lookup by key nodes,
-   * @param rollbacks number of rollback nodes.
-   */
+    *
+    * @param creates number of creates nodes,
+    * @param consumingExercisesByCid number of consuming exercises by contract ID nodes,
+    * @param nonconsumingExercisesByCid number of non-consuming Exercises by contract ID nodes,
+    * @param consumingExercisesByKey number of consuming exercise by contract key nodes,
+    * @param nonconsumingExercisesByKey number of non-consuming exercise by key nodes,
+    * @param fetchesByCid number of fetch by contract ID nodes,
+    * @param fetchesByKey number of fetch by key nodes,
+    * @param lookupsByKey number of lookup by key nodes,
+    * @param rollbacks number of rollback nodes.
+    */
   final case class Actions(
-    creates: Int,
-    consumingExercisesByCid: Int,
-    nonconsumingExercisesByCid: Int,
-    consumingExercisesByKey: Int,
-    nonconsumingExercisesByKey: Int,
-    fetchesByCid: Int,
-    fetchesByKey: Int,
-    lookupsByKey: Int,
-    rollbacks: Int,
+      creates: Int,
+      consumingExercisesByCid: Int,
+      nonconsumingExercisesByCid: Int,
+      consumingExercisesByKey: Int,
+      nonconsumingExercisesByKey: Int,
+      fetchesByCid: Int,
+      fetchesByKey: Int,
+      lookupsByKey: Int,
+      rollbacks: Int,
   ) {
 
     def +(that: Actions) =
@@ -150,8 +150,8 @@ object TransactionNodeStatistics {
 }
 
 final case class TransactionNodeStatistics(
-                                            committed: TransactionNodeStatistics.Actions,
-                                            rolledBack: TransactionNodeStatistics.Actions,
+    committed: TransactionNodeStatistics.Actions,
+    rolledBack: TransactionNodeStatistics.Actions,
 ) {
   def +(that: TransactionNodeStatistics) = {
     TransactionNodeStatistics(this.committed + that.committed, this.rolledBack + that.rolledBack)
