@@ -7,7 +7,6 @@ import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import com.daml.lf.data._
-import com.daml.lf.engine.Engine
 import org.openjdk.jmh.annotations._
 
 @State(Scope.Benchmark)
@@ -19,7 +18,7 @@ class ReplayBenchmark {
   var choiceName: String = _
 
   @Param(Array("0"))
-  var choiceIndex: Int = _
+  var exerciseIndex: Int = _
 
   @Param(Array(""))
   // path of the darFile
@@ -29,14 +28,11 @@ class ReplayBenchmark {
   // path of the ledger export
   var ledgerFile: String = _
 
-  private var engine: Engine = _
   private var benchmark: BenchmarkState = _
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  def bench(): Unit = {
-    val result = benchmark.replay(engine)
-    assert(result.isRight)
-  }
+  def bench(): Unit =
+    assert(benchmark.replay().isRight)
 
   @Setup(Level.Trial)
   def init(): Unit = {
@@ -51,16 +47,15 @@ class ReplayBenchmark {
     benchmark = Replay.loadBenchmark(
       Paths.get(ledgerFile),
       choice,
-      choiceIndex,
+      exerciseIndex,
+      None,
     )
     if (darFile.nonEmpty) {
       val loadedPackages = Replay.loadDar(Paths.get(darFile))
       benchmark = Replay.adapt(loadedPackages, benchmark)
     }
 
-    engine = Replay.compile(benchmark.pkgs)
-
-    assert(benchmark.validate(engine).isRight)
+    assert(benchmark.validate().isRight)
   }
 
 }

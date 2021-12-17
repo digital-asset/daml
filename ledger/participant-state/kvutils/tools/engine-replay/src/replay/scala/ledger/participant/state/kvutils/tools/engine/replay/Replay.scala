@@ -38,17 +38,20 @@ final case class TxEntry(
 
 final case class PkgEntry(archive: ByteString) extends SubmissionEntry
 
-final case class BenchmarkState(
-    transaction: TxEntry,
-    contracts: Map[ContractId, Value.VersionedContractInstance],
-    contractKeys: Map[GlobalKey, ContractId],
-    pkgs: Map[Ref.PackageId, Ast.Package],
+final class BenchmarkState(
+    val transaction: TxEntry,
+    val contracts: Map[ContractId, Value.VersionedContractInstance],
+    val contractKeys: Map[GlobalKey, ContractId],
+    val pkgs: Map[Ref.PackageId, Ast.Package],
+    val profileDir: Option[Path],
 ) {
 
-  private def getContractKey(globalKeyWithMaintainers: GlobalKeyWithMaintainers) =
+  private[this] def getContractKey(globalKeyWithMaintainers: GlobalKeyWithMaintainers) =
     contractKeys.get(globalKeyWithMaintainers.globalKey)
 
-  def replay(engine: Engine): Either[Error, Unit] =
+  private[this] lazy val engine = Replay.compile(pkgs, profileDir)
+
+  def replay(): Either[Error, Unit] =
     engine
       .replay(
         transaction.submitters.toSet,
@@ -61,7 +64,7 @@ final case class BenchmarkState(
       .consume(contracts.get, pkgs.get, getContractKey)
       .map(_ => ())
 
-  def validate(engine: Engine): Either[Error, Unit] =
+  def validate(): Either[Error, Unit] =
     engine
       .validate(
         transaction.submitters.toSet,
@@ -151,6 +154,7 @@ private[replay] object Replay {
       dumpFile: Path,
       choice: (Ref.QualifiedName, Ref.Name),
       index: Int,
+      profileDir: Option[Path],
   ): BenchmarkState = {
     println(s"%%% load ledger export file  $dumpFile...")
     val importer = ProtobufBasedLedgerDataImporter(dumpFile)
@@ -172,8 +176,18 @@ private[replay] object Replay {
             entry.tx.foreachInExecutionOrder(
               { (nid, exe) =>
                 if (root(nid) && (exe.templateId.qualifiedName, exe.choiceId) == choice) {
-                  if (idx == 0)
-                    result = Some(BenchmarkState(entry, contracts, contractKeys, pkgs))
+                  if (idx == 0) {
+                    val inputContract = entry.tx.inputContracts
+                    result = Some(
+                      new BenchmarkState(
+                        entry,
+                        contracts.filter { case (cid, _) => inputContract(cid) },
+                        contractKeys.filter { case (_, cid) => inputContract(cid) },
+                        pkgs,
+                        profileDir,
+                      )
+                    )
+                  }
                   idx -= 1
                 }
                 if (exe.consuming) {
@@ -213,11 +227,12 @@ private[replay] object Replay {
 
   def adapt(pkgs: Map[Ref.PackageId, Ast.Package], state: BenchmarkState): BenchmarkState = {
     val adapter = new Adapter(pkgs)
-    BenchmarkState(
+    new BenchmarkState(
       transaction = state.transaction.copy(tx = adapter.adapt(state.transaction.tx)),
       contracts = state.contracts.transform((_, v) => adapter.adapt(v)),
       contractKeys = state.contractKeys.iterator.map { case (k, v) => adapter.adapt(k) -> v }.toMap,
       pkgs,
+      state.profileDir,
     )
   }
 

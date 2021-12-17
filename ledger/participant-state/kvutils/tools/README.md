@@ -50,7 +50,7 @@ jmh command line functionality:
     bazel run //ledger/participant-state/kvutils/tools:benchmark-replay -- \
       -p ledgerFile=<ledger export files>                                  \
       -p choiceName=<exercise choice names>                                \
-      [-p indexChoice=<index of the choice>                                \
+      [-p exerciseIndex=<index of the exercise node>]                      \
       [-p darFile=<dar files>]                                              
 
 
@@ -60,11 +60,16 @@ where:
   files to be used separated by commas (`,`)
 
 * `<exercise choice names>`: is the full qualified choice name of the
-  root exercise to be benchmarked separated by commas (`,`).  A full
+  root exercise node to be benchmarked separated by commas (`,`). A full
   qualified choice name should be of the form
   `ModuleName:TemplateName:ChoiceName`.  Note the package ID is
   omitted. By default, the tool benchmarks the first choice with 
   such a name it finds in the ledger export.
+
+* the optional parameter `<position of the exercise node>` is the 
+  index of the exercise among the root exercise nodes that matches
+  choice name specified by the `choiceName` parameter in the order 
+  they appear in the export.
 
 * the optional parameter `<dar files>` specify the full path of 
   the dar files to be used  separated by commas (`,`). If defined 
