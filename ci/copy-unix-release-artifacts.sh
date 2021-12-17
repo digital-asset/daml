@@ -98,4 +98,11 @@ if [[ "$NAME" == "linux" ]]; then
     mkdir -p $OUTPUT_DIR/split-release/daml-libs/daml-trigger
     bazel build //triggers/daml:daml-trigger-dars
     cp bazel-bin/triggers/daml/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-trigger/
+
+    mkdir -p $OUTPUT_DIR/split-release/docs
+
+    bazel build //docs:sphinx-source-tree //docs:pdf-fonts-tar //docs:non-sphinx-html-docs
+    cp bazel-bin/docs/sphinx-source-tree.tar.gz $OUTPUT_DIR/split-release/docs/sphinx-source-tree-$RELEASE_TAG.tar.gz
+    cp bazel-bin/docs/pdf-fonts-tar.tar.gz $OUTPUT_DIR/split-release/docs/pdf-fonts-$RELEASE_TAG.tar.gz
+    cp bazel-bin/docs/non-sphinx-html-docs.tar.gz $OUTPUT_DIR/split-release/docs/non-sphinx-html-docs-$RELEASE_TAG.tar.gz
 fi
