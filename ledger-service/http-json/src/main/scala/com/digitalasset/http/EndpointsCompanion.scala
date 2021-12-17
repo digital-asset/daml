@@ -174,7 +174,7 @@ object EndpointsCompanion {
             lar.ApplicationId(userId),
             actAs = lar.Party.subst(actAs),
             readAs = lar.Party.subst(readAs),
-          ).toRight(Unauthorized("Something went wrong and IDK what I can write here :D"))
+          ).toRight(Unauthorized("Unable to convert user token into a set of claims"))
         )
 
   }
