@@ -3,31 +3,14 @@
 
 package com.daml.ledger.sandbox
 
-import java.util.UUID
-import java.util.concurrent.{CompletableFuture, CompletionStage}
-
 import akka.NotUsed
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
-import com.daml.ledger.configuration.{
-  Configuration,
-  LedgerId,
-  LedgerInitialConditions,
-  LedgerTimeModel,
-}
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.{
-  PruningResult,
-  ReadService,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  Update,
-  WriteService,
-}
-import com.daml.lf.data.Time.Timestamp
+import com.daml.ledger.participant.state.v2._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -36,16 +19,17 @@ import com.google.common.primitives.Longs
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 
-case class ReadWriteServiceBridge(
+import java.util.UUID
+import java.util.concurrent.{CompletableFuture, CompletionStage}
+
+class BridgeWriteService(
+    feedSink: Sink[(Offset, Update), NotUsed],
     participantId: Ref.ParticipantId,
-    ledgerId: LedgerId,
-    maxDedupSeconds: Int,
     submissionBufferSize: Int,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
-    extends ReadService
-    with WriteService
+    extends WriteService
     with AutoCloseable {
-  import ReadWriteServiceBridge._
+  import BridgeWriteService._
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
@@ -128,53 +112,22 @@ case class ReadWriteServiceBridge(
       PruningResult.ParticipantPruned
     )
 
-  override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
-    Source.single(
-      LedgerInitialConditions(
-        ledgerId = ledgerId,
-        config = Configuration(
-          generation = 1L,
-          timeModel = LedgerTimeModel.reasonableDefault,
-          maxDeduplicationTime = java.time.Duration.ofSeconds(maxDedupSeconds.toLong),
-        ),
-        initialRecordTime = Timestamp.now(),
-      )
-    )
+  private val queue: BoundedSourceQueue[Submission] = {
+    val (queue, queueSource) =
+      Source
+        .queue[Submission](submissionBufferSize)
+        .zipWithIndex
+        .map { case (submission, index) =>
+          (toOffset(index), successMapper(submission, index, participantId))
+        }
+        .preMaterialize()
 
-  var stateUpdatesWasCalledAlready = false
-  override def stateUpdates(
-      beginAfter: Option[Offset]
-  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] = {
-    // TODO for PoC purposes:
-    //   This method may only be called once, either with `beginAfter` set or unset.
-    //   A second call will result in an error unless the server is restarted.
-    //   Bootstrapping the bridge from indexer persistence is supported.
-    synchronized {
-      if (stateUpdatesWasCalledAlready)
-        throw new IllegalStateException("not allowed to call this twice")
-      else stateUpdatesWasCalledAlready = true
-    }
-    logger.info("Indexer subscribed to state updates.")
-    beginAfter.foreach(offset =>
-      logger.warn(
-        s"Indexer subscribed from a specific offset $offset. This offset is not taking into consideration, and does not change the behavior of the ReadWriteServiceBridge. Only valid use case supported: service starting from an already ingested database, and indexer subscribes from exactly the ledger-end."
-      )
+    queueSource.runWith(feedSink)
+    logger.info(
+      s"Write service initialized. Configuration: [submissionBufferSize: $submissionBufferSize]"
     )
-    queueSource
+    queue
   }
-
-  val (queue: BoundedSourceQueue[Submission], queueSource: Source[(Offset, Update), NotUsed]) =
-    Source
-      .queue[Submission](submissionBufferSize)
-      .zipWithIndex
-      .map { case (submission, index) =>
-        (toOffset(index), successMapper(submission, index, participantId))
-      }
-      .preMaterialize()
-
-  logger.info(
-    s"BridgeLedgerFactory initialized. Configuration: [maxDedupSeconds: $maxDedupSeconds, submissionBufferSize: $submissionBufferSize]"
-  )
 
   private def submit(submission: Submission): CompletionStage[SubmissionResult] =
     toSubmissionResult(queue.offer(submission))
@@ -185,7 +138,7 @@ case class ReadWriteServiceBridge(
   }
 }
 
-object ReadWriteServiceBridge {
+object BridgeWriteService {
   trait Submission
   object Submission {
     case class Transaction(
