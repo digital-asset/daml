@@ -37,7 +37,6 @@ import io.grpc.netty.GrpcSslContexts
 import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
-import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -75,6 +74,8 @@ object PlatformStore {
 
   case class StateConnected(
       ledgerClient: LedgerClient,
+      // TODO: more structure? parties.keys is a mixed bag, but only used for display purposes, so probably ok as-is
+      // A key could be: a Party's displayName, a party's name, a User's id, or a name specified in our config
       parties: Map[String, PartyState],
       staticTime: Option[StaticTime],
       time: TimeProviderWithType,
@@ -161,34 +162,36 @@ class PlatformStore(
   }
 
   def connected(state: StateConnected): Receive = {
-    case UpdateUsers =>
-      state.ledgerClient.userManagementClient
-        .listUsers() // TODO what token should we pass?
-        .map(UpdatedUsers(_))
-        .pipeTo(self)
-      ()
-    case UpdatedUsers(users) =>
-      val primaryParties = users.flatMap { _.primaryParty }
-      state.ledgerClient.partyManagementClient
-        .getParties(OneAnd(primaryParties.head, primaryParties.tail.toSet))
-        .map(UpdatedParties(_))
-        .pipeTo(self)
-      ()
-    case UpdateParties =>
+    case UpdatePartiesAndUsers =>
       state.ledgerClient.partyManagementClient
         .listKnownParties()
         .map(UpdatedParties(_))
         .pipeTo(self)
+
+      state.ledgerClient.userManagementClient
+        .listUsers() // don't pass token here -- it's already set on startup (LedgerClientConfiguration)
+        .map(UpdatedUsers(_))
+        .pipeTo(self)
       ()
+
+    case UpdatedUsers(users) =>
+      // Note: you cannot log in as a user without a primary party
+      val usersWithPrimaryParties = users.flatMap { user =>
+        user.primaryParty.map(p => (user.id, p))
+      }
+
+      usersWithPrimaryParties.foreach { case (userId, party) =>
+        self ! Subscribe(
+          userId,
+          UserConfig(party = ApiTypes.Party(party), role = None, useDatabase = false),
+        )
+      }
+
     case UpdatedParties(details) =>
       details.foreach { partyDetails =>
         if (partyDetails.isLocal) {
-          val displayName = partyDetails.displayName match {
-            case Some(value) => value
-            case None => partyDetails.party
-          }
           self ! Subscribe(
-            displayName,
+            partyDetails.displayName.getOrElse(partyDetails.party),
             UserConfig(party = ApiTypes.Party(partyDetails.party), role = None, useDatabase = false),
           )
         } else {
@@ -232,21 +235,24 @@ class PlatformStore(
       val snd = sender()
 
       // context.child must be invoked from actor thread
-      val userIdToActorRef = state.parties.view.mapValues(partyState =>
-        context.child(childName(partyState.name))
-      ).toList // TODO can we keep this a map and make traverse work?
+      val userIdToActorRef = state.parties.view
+        .mapValues(partyState => context.child(childName(partyState.name)))
+        .toList // TODO can we keep this a map and make traverse work?
 
-      Future.traverse(userIdToActorRef) { case (userId, actorRef) =>
-        // let Future deal with empty option actorRef
-        Future { actorRef.get }
-          .flatMap(_ ? GetPartyActorInfo)
-          .mapTo[PartyActorInfo]
-          .map(info => PartyActorRunning(info): PartyActorResponse)
-          .recover{ case _ => PartyActorUnresponsive }
-          .map((userId, _))
-      }
+      Future
+        .traverse(userIdToActorRef) { case (userId, actorRef) =>
+          // let Future deal with empty option actorRef
+          Future { actorRef.get }
+            .flatMap(_ ? GetPartyActorInfo)
+            .mapTo[PartyActorInfo]
+            .map(info => PartyActorRunning(info): PartyActorResponse)
+            .recover { case _ => PartyActorUnresponsive }
+            .map((userId, _))
+        }
         .map(_.toMap)
-        .recover { case error => log.error(error.getMessage); Map.empty[String,PartyActorResponse] }
+        .recover { case error =>
+          log.error(error.getMessage); Map.empty[String, PartyActorResponse]
+        }
         .foreach { userIdToPartyActorResponse =>
           snd ! ApplicationStateConnected(
             platformHost,

@@ -253,6 +253,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         arguments.ledgerInboundMessageSizeMax,
       )
     )
+    // TODO: usermgmt switching: for now we just poll both user and party mgmt
     // If no parties are specified, we periodically poll from the party management service.
     // If parties are specified, we only use those. This allows users to use custom display names
     // if they are non-unique or use only a subset of parties for performance reasons.
@@ -261,7 +262,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     val partyRefresh: Option[Cancellable] =
       if (config.users.isEmpty || arguments.ignoreProjectParties) {
         Some(
-          system.scheduler.scheduleWithFixedDelay(Duration.Zero, 1.seconds, store, UpdateParties)
+          system.scheduler
+            .scheduleWithFixedDelay(Duration.Zero, 1.seconds, store, UpdatePartiesAndUsers)
         )
       } else {
         config.users.foreach { case (displayName, config) =>

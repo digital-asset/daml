@@ -29,11 +29,9 @@ object Store {
   /** Reinitialize the platform connection and reset all local state `Unit` */
   case object ResetConnection
 
-  case object UpdateUsers
+  case object UpdatePartiesAndUsers
   case class UpdatedUsers(details: Seq[User])
-  case class SubscribeUser(displayName: String, config: UserConfig)
 
-  case object UpdateParties
   case class UpdatedParties(details: List[PartyDetails])
 
   /** Request to subscribe a party to the store (without response to sender). */
