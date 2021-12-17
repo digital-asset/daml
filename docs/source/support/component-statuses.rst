@@ -66,12 +66,7 @@ Runtime components
    * - :doc:`/tools/trigger-service/index` (``daml trigger-service``)
      - Stable (Since SDK 1.10.0)
      -
-   * - **Extractor**
-     -
-     -
-   * - :doc:`/tools/extractor` (``daml extractor``)
-     - Labs
-     -
+
 
 .. _libraries:
 
@@ -175,7 +170,7 @@ Developer Tools
    * - ``daml deploy`` :doc:`helper command and associated CLI </deploy/generic_ledger>` (``daml deploy --help``)
      - Stable
      -
-   * - Assistant commands to start Runtime Components: ``daml json-api``, ``daml trigger``, ``daml trigger-service``, and ``daml extractor``.
+   * - Assistant commands to start Runtime Components: ``daml json-api``, ``daml trigger``, and ``daml trigger-service``.
      - See :ref:`runtime-components`.
      -
    * - **Daml Projects**

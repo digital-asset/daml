@@ -78,7 +78,6 @@ NOTICES     @garyverhaegen-da @cocreature @dasormeter
 /language-support/ts/        @robin-da @garyverhaegen-da @stefanobaghino-da
 
 # Application Runtime
-/extractor/            @S11001001 @stefanobaghino-da
 /navigator/            @stefanobaghino-da
 /runtime-components/   @stefanobaghino-da
 /navigator/backend/src/main/scala/com/digitalasset/navigator/json/    @S11001001

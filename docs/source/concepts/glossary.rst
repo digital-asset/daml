@@ -288,13 +288,6 @@ This is the version of Navigator that runs as a web app.
 
 See :doc:`/tools/navigator/index`.
 
-Extractor
-=========
-
-**Extractor** is a tool for extracting contract data for a single party into a PostgreSQL database.
-
-See :doc:`/tools/extractor`.
-
 Building applications
 *********************
 

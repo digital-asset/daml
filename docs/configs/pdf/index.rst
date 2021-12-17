@@ -115,7 +115,6 @@ Early Access Features
    :titlesonly:
    :maxdepth: 2
 
-   tools/extractor
    tools/export/index
    tools/visual
    concepts/interoperability
