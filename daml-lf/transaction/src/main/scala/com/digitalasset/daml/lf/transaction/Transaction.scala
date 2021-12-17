@@ -494,6 +494,7 @@ sealed abstract class HasTxNodes {
     "If a contract key contains a contract id"
   )
   final def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
+    val localCids = localContracts.keySet
     final case class State(
         keys: Map[GlobalKey, Option[Value.ContractId]],
         rollbackStack: List[Map[GlobalKey, Option[Value.ContractId]]],
@@ -523,7 +524,7 @@ sealed abstract class HasTxNodes {
             case Some(keyMapping) if Some(cid) != keyMapping => Left(InconsistentKeys(gk))
             case _ =>
               val r = copy(keys = keys.updated(gk, Some(cid)))
-              if (localContracts.contains(cid)) {
+              if (localCids.contains(cid)) {
                 Right(r)
               } else {
                 r.setKeyMapping(gk, KeyActive(cid))
