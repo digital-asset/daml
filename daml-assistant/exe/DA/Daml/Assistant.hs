@@ -366,7 +366,6 @@ argWhitelist = S.fromList
     , "damlc", "ide", "license", "package", "docs", "visual", "visual-web", "inspect-dar", "validate-dar", "doctest", "lint"
     , "sandbox", "INFO", "TRACE", "DEBUG", "WARN", "ERROR"
     , "navigator", "server", "console", "dump-graphql-schema", "create-config", "static", "simulated", "wallclock"
-    , "extractor", "prettyprint", "postgresql"
     , "ledger", "list-parties", "allocate-parties", "upload-dar", "fetch-dar"
     , "codegen", "java", "js"
     , "deploy"
