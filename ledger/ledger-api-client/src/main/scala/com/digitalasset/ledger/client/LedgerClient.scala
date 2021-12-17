@@ -4,6 +4,7 @@
 package com.daml.ledger.client
 
 import java.io.Closeable
+
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.client.LedgerCallCredentials.authenticatingStub
 import com.daml.ledger.api.domain.LedgerId
