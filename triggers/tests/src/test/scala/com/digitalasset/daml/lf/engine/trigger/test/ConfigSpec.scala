@@ -40,9 +40,7 @@ class ConfigSpec
     token = None,
   )
 
-  override protected def config = super.config.copy(
-    damlPackages = List.empty
-  )
+  override protected val packageFiles = List.empty
 
   private implicit def toParty(s: String): Party =
     Party(s)
