@@ -94,17 +94,8 @@ object Assertions {
           checkDefiniteAnswerMetadata,
           additionalErrorAssertions,
         )
-      case exception @ GrpcException(GrpcStatus(code, maybeMessage), _)
-          if !participant.features.selfServiceErrorCodes =>
-        if (code != expectedCode) fail(s"Expected code [$expectedCode], but got [$code].")
-        (optPattern, maybeMessage) match {
-          case (Some(pattern), Some(message)) => assertMatches(message, pattern)
-          case (Some(pattern), None) =>
-            fail(s"Expected message matching pattern [$pattern], but message was empty")
-          case _ => ()
-        }
-        if (checkDefiniteAnswerMetadata) assertDefiniteAnswer(exception)
-        additionalErrorAssertions(exception)
+      case _ @GrpcException(GrpcStatus(_, _), _) if !participant.features.selfServiceErrorCodes =>
+        fail("Using legacy error codes! ala1232")
       case exception: StatusRuntimeException if participant.features.selfServiceErrorCodes =>
         assertSelfServiceErrorCode(exception, selfServiceErrorCode)
         optPattern.foreach(assertMatches(exception.getMessage, _))
