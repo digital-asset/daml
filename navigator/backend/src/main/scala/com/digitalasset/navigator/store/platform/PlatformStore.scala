@@ -168,12 +168,16 @@ class PlatformStore(
         .pipeTo(self)
       ()
     case UpdatedUsers(users) =>
-      val primaryParties = users.flatMap { _.primaryParty }
-      state.ledgerClient.partyManagementClient
-        .getParties(OneAnd(primaryParties.head, primaryParties.tail.toSet))
-        .map(UpdatedParties(_))
-        .pipeTo(self)
-      ()
+      // TODO: should we be able to log in as a user without a primary party?
+      val usersWithPrimaryParties = users.flatMap { user => user.primaryParty.map(p => (user.id, p)) }
+
+      usersWithPrimaryParties.foreach { case (userId, party) =>
+        self ! Subscribe(
+          userId, // TODO: state.parties.keys are a mixed bag: a Party's displayName, a party's name, or a User's id -- is it ok to mix these?
+          UserConfig(party = ApiTypes.Party(party), role = None, useDatabase = false),
+        )
+      }
+
     case UpdateParties =>
       state.ledgerClient.partyManagementClient
         .listKnownParties()
@@ -183,12 +187,8 @@ class PlatformStore(
     case UpdatedParties(details) =>
       details.foreach { partyDetails =>
         if (partyDetails.isLocal) {
-          val displayName = partyDetails.displayName match {
-            case Some(value) => value
-            case None => partyDetails.party
-          }
           self ! Subscribe(
-            displayName,
+            partyDetails.displayName.getOrElse(partyDetails.party),
             UserConfig(party = ApiTypes.Party(partyDetails.party), role = None, useDatabase = false),
           )
         } else {

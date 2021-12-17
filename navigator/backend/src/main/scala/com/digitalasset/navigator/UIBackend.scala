@@ -253,6 +253,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         arguments.ledgerInboundMessageSizeMax,
       )
     )
+    // TODO: usermgmt
     // If no parties are specified, we periodically poll from the party management service.
     // If parties are specified, we only use those. This allows users to use custom display names
     // if they are non-unique or use only a subset of parties for performance reasons.
