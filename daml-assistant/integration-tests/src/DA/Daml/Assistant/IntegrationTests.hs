@@ -30,9 +30,8 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
-import DA.Daml.Assistant.FreePort (getFreePort, socketHints)
 import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer, tokenFor)
+import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer, tokenFor, getFreePort, socketHints)
 -- import DA.PortFile
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent, callCommandSilentIn, callCommandSilentWithEnvIn, subprocessEnv)

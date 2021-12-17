@@ -19,11 +19,14 @@ module DA.Daml.Helper.Util
   , withJar
   , runJar
   , runCantonSandbox
+  , withCantonSandbox
   , getLogbackArg
   , waitForConnectionOnPort
   , waitForHttpServer
   , tokenFor
   , CantonPorts(..)
+  , getFreePort
+  , socketHints
   ) where
 
 import Control.Exception.Safe
@@ -34,7 +37,6 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.Foldable
 import Data.Maybe
 import qualified Data.Text as T
-import qualified Data.Text.Extended as T
 import qualified Network.HTTP.Simple as HTTP
 import qualified Network.HTTP.Types as HTTP
 import Network.Socket
@@ -246,17 +248,15 @@ tokenFor parties ledgerId applicationId =
       }
 
 runCantonSandbox :: CantonPorts -> [String] -> IO ()
-runCantonSandbox ports remainingArgs = do
+runCantonSandbox ports args = withCantonSandbox ports args (const $ pure ())
+
+withCantonSandbox :: CantonPorts -> [String] -> (Process () () () -> IO a) -> IO a
+withCantonSandbox ports remainingArgs k = do
     sdkPath <- getSdkPath
     let cantonJar = sdkPath </> "canton" </> "canton.jar"
-    withTempFile $ \config ->
-      withTempFile $ \bootstrap -> do
+    withTempFile $ \config -> do
         BSL.writeFile config (cantonConfig ports)
-        T.writeFileUtf8 bootstrap $ T.unlines
-          [ "sandbox.domains.connect_local(local)"
-          , "println(\"Canton sandbox started\")"
-          ]
-        runJar cantonJar Nothing ("daemon" : "-c" : config : "--bootstrap" : bootstrap : remainingArgs)
+        withJar cantonJar [] ("daemon" : "-c" : config : "--auto-connect-local" : remainingArgs) k
 
 data CantonPorts = CantonPorts
   { ledgerApi :: Int
@@ -288,3 +288,26 @@ cantonConfig CantonPorts{..} =
   where
     port p = Aeson.object [ "port" Aeson..= p ]
     storage = "storage" Aeson..= Aeson.object [ "type" Aeson..= ("memory" :: T.Text) ]
+
+-- This is slightly hacky: we need to find a free port but pass it to an
+-- external process. Technically this port could be reused between us
+-- getting it from the kernel and the external process listening
+-- on that port but ports are usually not reused aggressively so this should
+-- be fine and is certainly better than hardcoding the port.
+getFreePort :: IO PortNumber
+getFreePort = do
+    addr : _ <- getAddrInfo
+        (Just socketHints)
+        (Just "127.0.0.1")
+        (Just "0")
+    bracket
+        (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
+        close
+        (\s -> do bind s (addrAddress addr)
+                  name <- getSocketName s
+                  case name of
+                      SockAddrInet p _ -> pure p
+                      _ -> fail $ "Expected a SockAddrInet but got " <> show name)
+
+socketHints :: AddrInfo
+socketHints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV], addrSocketType = Stream }

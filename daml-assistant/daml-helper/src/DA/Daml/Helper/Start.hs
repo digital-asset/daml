@@ -15,7 +15,7 @@ module DA.Daml.Helper.Start
     , toSandboxPortSpec
     , JsonApiPort(..)
     , JsonApiConfig(..)
-    , SandboxClassic(..)
+    , SandboxChoice(..)
     ) where
 
 import Control.Concurrent
@@ -78,14 +78,14 @@ data SandboxPortSpec = FreePort | SpecifiedPort SandboxPort
 toSandboxPortSpec :: Int -> Maybe SandboxPortSpec
 toSandboxPortSpec n
   | n < 0 = Nothing
-  | n  == 0 = Just FreePort
+  | n == 0 = Just FreePort
   | otherwise = Just (SpecifiedPort (SandboxPort n))
 
 fromSandboxPortSpec :: SandboxPortSpec -> Int
 fromSandboxPortSpec FreePort = 0
 fromSandboxPortSpec (SpecifiedPort (SandboxPort n)) = n
 
-newtype SandboxPort = SandboxPort Int
+newtype SandboxPort = SandboxPort { unSandboxPort :: Int }
 newtype NavigatorPort = NavigatorPort Int
 newtype JsonApiPort = JsonApiPort Int
 
@@ -95,20 +95,53 @@ navigatorPortNavigatorArgs (NavigatorPort p) = ["--port", show p]
 navigatorURL :: NavigatorPort -> String
 navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
-withSandbox :: SandboxClassic -> Maybe SandboxPortSpec -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
-withSandbox (SandboxClassic classic) mbPortSpec extraArgs a = withTempDir $ \tempDir -> do
-    let portFile = tempDir </> "sandbox-portfile"
-    let sandbox = if classic then "sandbox-classic" else "sandbox"
-    let args = concat
-          [ [ sandbox ]
-          , concat [ [ "--port", show (fromSandboxPortSpec portSpec) ] | Just portSpec <- [mbPortSpec] ]
-          , [ "--port-file", portFile ]
-          , extraArgs
-          ]
-    withPlatformJar args "sandbox-logback.xml" $ \ph -> do
-        putStrLn "Waiting for sandbox to start: "
-        port <- readPortFile maxRetries portFile
-        a ph (SandboxPort port)
+-- | Use SandboxPortSpec to determine a sandbox port number.
+-- This is racy thanks to getFreePort, but there's no good alternative at the moment.
+getPortForSandbox :: Int -> Maybe SandboxPortSpec -> IO Int
+getPortForSandbox defaultPort = \case
+    Nothing -> pure defaultPort
+    Just (SpecifiedPort port) -> pure (unSandboxPort port)
+    Just FreePort -> fromIntegral <$> getFreePort
+
+determineCantonPortsLabouriously :: StartOptions -> IO CantonPorts
+determineCantonPortsLabouriously StartOptions{..} = do
+    ledgerApi <- getPortForSandbox 6865 sandboxPortM
+    adminApi <- getPortForSandbox 6866 cantonAdminApiPort
+    domainPublicApi <- getPortForSandbox 6867 cantonDomainPublicPort
+    domainAdminApi <- getPortForSandbox 6868 cantonDomainAdminPort
+    pure CantonPorts {..}
+
+withSandbox :: StartOptions -> FilePath -> [String] -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
+withSandbox startOptions@StartOptions{..} darPath scenarioArgs sandboxArgs kont =
+    case sandboxChoice of
+      SandboxClassic -> oldSandbox "sandbox-classic"
+      SandboxModern -> oldSandbox "sandbox"
+      SandboxCanton -> cantonSandbox
+
+  where
+    cantonSandbox = do
+      cantonPorts <- determineCantonPortsLabouriously startOptions
+      withCantonSandbox cantonPorts sandboxArgs $ \ph -> do
+        let sandboxPort = ledgerApi cantonPorts
+        putStrLn "Waiting for canton sandbox to start: "
+        waitForConnectionOnPort (putStr "." *> threadDelay 500000) sandboxPort
+        runLedgerUploadDar ((defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}) (Just darPath)
+        kont ph (SandboxPort sandboxPort)
+
+    oldSandbox sandbox = withTempDir $ \tempDir -> do
+      let portFile = tempDir </> "sandbox-portfile"
+      let args = concat
+            [ [ sandbox ]
+            , concat [ [ "--port", show (fromSandboxPortSpec portSpec) ] | Just portSpec <- [sandboxPortM] ]
+            , [ "--port-file", portFile ]
+            , [ darPath ]
+            , scenarioArgs
+            , sandboxArgs
+            ]
+      withPlatformJar args "sandbox-logback.xml" $ \ph -> do
+          putStrLn "Waiting for sandbox to start: "
+          port <- readPortFile maxRetries portFile
+          kont ph (SandboxPort port)
 
 withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (Process () () () -> IO a) -> IO a
 withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
@@ -153,8 +186,6 @@ data JsonApiConfig = JsonApiConfig
   { mbJsonApiPort :: Maybe JsonApiPort -- If Nothing, don’t start the JSON API
   }
 
-newtype SandboxClassic = SandboxClassic { unSandboxClassic :: Bool }
-
 withOptsFromProjectConfig :: T.Text -> [String] -> ProjectConfig -> IO [String]
 withOptsFromProjectConfig fieldName cliOpts projectConfig = do
     optsYaml :: [String] <-
@@ -175,11 +206,19 @@ data StartOptions = StartOptions
     , navigatorOptions :: [String]
     , jsonApiOptions :: [String]
     , scriptOptions :: [String]
-    , sandboxClassic :: SandboxClassic
+    , sandboxChoice :: SandboxChoice
+    , cantonAdminApiPort :: Maybe SandboxPortSpec
+    , cantonDomainPublicPort :: Maybe SandboxPortSpec
+    , cantonDomainAdminPort :: Maybe SandboxPortSpec
     }
 
+data SandboxChoice
+  = SandboxClassic
+  | SandboxModern
+  | SandboxCanton
+
 runStart :: StartOptions -> IO ()
-runStart StartOptions{..} =
+runStart startOptions@StartOptions{..} =
   withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     projectConfig <- getProjectConfig Nothing
     darPath <- getDarPath
@@ -201,7 +240,7 @@ runStart StartOptions{..} =
     doBuild
     doCodegen projectConfig
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
-    withSandbox sandboxClassic sandboxPortM (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh sandboxPort -> do
+    withSandbox startOptions darPath scenarioArgs sandboxOpts $ \sandboxPh sandboxPort -> do
         let doRunInitScript =
               whenJust mbInitScript $ \initScript -> do
                   putStrLn "Running the initialization script."
@@ -217,7 +256,7 @@ runStart StartOptions{..} =
                       , "--ledger-host"
                       , "localhost"
                       , "--ledger-port"
-                      , case sandboxPort of SandboxPort port -> show port
+                      , show (unSandboxPort sandboxPort)
                       ] ++ scriptOpts
                   runProcess_ procScript
         doRunInitScript
