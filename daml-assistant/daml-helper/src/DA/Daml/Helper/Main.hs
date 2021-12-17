@@ -179,9 +179,9 @@ commandParser = subparser $ fold
             (long name <> metavar "PORT_NUM" <> help desc))
 
     sandboxChoiceOpt =
-            const SandboxClassic <$> switch (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic.")
-        <|> const SandboxModern <$> switch (long "sandbox-modern" <> help "Deprecated. Run with pre-2.0 Sandbox.")
-        <|> const SandboxCanton <$> switch (long "sandbox-canton" <> help "Run with Canton Sandbox. The 2.0 default.")
+            SandboxClassic <$ switch (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic.")
+        <|> SandboxModern <$ switch (long "sandbox-modern" <> help "Deprecated. Run with pre-2.0 Sandbox.")
+        <|> SandboxCanton <$ switch (long "sandbox-canton" <> help "Run with Canton Sandbox. The 2.0 default.")
         <|> pure SandboxModern -- pre-2.0 default
 
     navigatorPortOption = NavigatorPort <$> option auto
