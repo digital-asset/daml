@@ -52,11 +52,11 @@ object TransactionNodeStatistics {
     def actions: Int = creates + exercises + fetches + lookupsByKey
   }
 
-  val EmptyDetail: Actions = Actions(0, 0, 0, 0, 0, 0, 0, 0)
+  val EmptyActions: Actions = Actions(0, 0, 0, 0, 0, 0, 0, 0)
 
-  val Empty: TransactionNodeStatistics = TransactionNodeStatistics(EmptyDetail, EmptyDetail)
+  val Empty: TransactionNodeStatistics = TransactionNodeStatistics(EmptyActions, EmptyActions)
 
-  private[this] val numberOfFields = EmptyDetail.productArity
+  private[this] val numberOfFields = EmptyActions.productArity
 
   private[this] val Seq(
     createsIdx,

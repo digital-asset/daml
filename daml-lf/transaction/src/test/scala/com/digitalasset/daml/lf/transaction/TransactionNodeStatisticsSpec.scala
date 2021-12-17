@@ -26,8 +26,8 @@ class TransactionNodeStatisticsSpec
       val s1s2 = Actions(3, 4, 6, 8, 12, 14, 18, 20)
       val s2s2 = Actions(4, 6, 10, 14, 22, 26, 34, 38)
 
-      s2 + TransactionNodeStatistics.EmptyDetail shouldBe s2
-      TransactionNodeStatistics.EmptyDetail + s2 shouldBe s2
+      s2 + TransactionNodeStatistics.EmptyActions shouldBe s2
+      TransactionNodeStatistics.EmptyActions + s2 shouldBe s2
       s1 + s2 shouldBe s1s2
       s2 + s1 shouldBe s1s2
       s2 + s2 shouldBe s2s2
@@ -128,7 +128,7 @@ class TransactionNodeStatisticsSpec
             case TransactionNodeStatistics(committed, rolledBack) =>
               getter(committed) shouldBe i
               committed.actions shouldBe i
-              rolledBack shouldBe TransactionNodeStatistics.EmptyDetail
+              rolledBack shouldBe TransactionNodeStatistics.EmptyActions
           }
         }
       }
@@ -162,7 +162,7 @@ class TransactionNodeStatisticsSpec
             // There are twice more nonconsumming exercises by cid are double because
             // we use a extra one to nest the other node of the next loop
             committed shouldBe Actions(i, i, 2 * i, i, i, i, i, i)
-            rolledBack shouldBe TransactionNodeStatistics.EmptyDetail
+            rolledBack shouldBe TransactionNodeStatistics.EmptyActions
         }
         exeId = b.add(exe(false, false)(b), exeId) // one nonconsumming exercises
       }
