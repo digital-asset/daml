@@ -95,10 +95,10 @@ object TransactionNodesStatistics {
     *  rolled back nodes (those nodes that do appear under a rollback node) on
     *  the other hand within a given transaction `tx`.
     */
-  def stats(tx: VersionedTransaction): TransactionNodesStatistics =
-    stats(tx.transaction)
+  def apply(tx: VersionedTransaction): TransactionNodesStatistics =
+    apply(tx.transaction)
 
-  def stats(tx: Transaction): TransactionNodesStatistics = {
+  def apply(tx: Transaction): TransactionNodesStatistics = {
     val committed = emptyFields
     val rolledBack = emptyFields
     var rollbackDepth = 0
