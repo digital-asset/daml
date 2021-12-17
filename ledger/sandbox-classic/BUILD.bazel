@@ -367,6 +367,8 @@ server_conformance_test(
         # sandbox classic has support only for participant side deduplication,
         # which in turn only has support for durations as deduplication periods
         "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
+        # not enforced
+        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration"
     ],
 )
 
@@ -399,6 +401,8 @@ server_conformance_test(
         # sandbox classic has support only for participant side deduplication,
         # which in turn only has support for durations as deduplication periods
         "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
+        # not enforced
+        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration"
     ],
 )
 
@@ -423,6 +427,8 @@ server_conformance_test(
         # sandbox classic has support only for participant side deduplication,
         # which in turn only has support for durations as deduplication periods
         "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
+        # not enforced
+        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration"
     ],
 )
 
@@ -447,6 +453,8 @@ server_conformance_test(
         # sandbox classic has support only for participant side deduplication,
         # which in turn only has support for durations as deduplication periods
         "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
+        # not enforced
+        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration"
     ],
 )
 

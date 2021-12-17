@@ -9,12 +9,7 @@ import java.util.UUID
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggingApiException
 import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCause,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCause, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
@@ -37,6 +32,7 @@ import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
 import io.grpc.{Status, StatusRuntimeException}
@@ -328,7 +324,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         result.transaction,
         result.interpretationTimeNanos,
       )
-      .toScala
+      .toScalaUnwrapped
   }
 
   /** This method encodes logic related to legacy error codes (V1).
