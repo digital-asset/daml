@@ -27,6 +27,7 @@ TEST_FILES = \
         name = name,
         srcs = ["%s.daml" % name],
         visibility = ["//daml-lf:__subpackages__"],
+        enable_scenarios = True,
     )
     for name in TEST_FILES
 ]
