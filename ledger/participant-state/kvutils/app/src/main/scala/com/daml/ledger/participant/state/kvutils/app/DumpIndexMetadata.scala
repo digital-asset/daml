@@ -1,14 +1,13 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
-package ledger.participant.state.kvutils.app
+package com.daml.ledger.participant.state.kvutils.app
 
-import ledger.resources.{Resource, ResourceContext}
-import logging.{ContextualizedLogger, LoggingContext}
-import logging.LoggingContext.newLoggingContext
-import platform.server.api.validation.ErrorFactories
-import platform.store.IndexMetadata
+import com.daml.ledger.resources.{Resource, ResourceContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.store.IndexMetadata
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer

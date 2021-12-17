@@ -10,9 +10,7 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kvutils.app.{Config, ParticipantConfig}
 import com.daml.ledger.participant.state.v2._
-import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -141,23 +139,6 @@ class BridgeWriteService(
 }
 
 object BridgeWriteService {
-  def owner(
-      feedSink: Sink[(Offset, Update), NotUsed],
-      config: Config[BridgeConfig],
-      participantConfig: ParticipantConfig,
-  )(implicit
-      materializer: Materializer,
-      loggingContext: LoggingContext,
-  ): ResourceOwner[WriteService] =
-    ResourceOwner
-      .forCloseable(() =>
-        new BridgeWriteService(
-          feedSink = feedSink,
-          participantId = participantConfig.participantId,
-          submissionBufferSize = config.extra.submissionBufferSize,
-        )
-      )
-
   trait Submission
   object Submission {
     case class Transaction(

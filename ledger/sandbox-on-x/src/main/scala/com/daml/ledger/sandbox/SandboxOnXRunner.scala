@@ -29,7 +29,12 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.apiserver.{ApiServerConfig, StandaloneApiServer, StandaloneIndexService}
+import com.daml.platform.apiserver.{
+  ApiServer,
+  ApiServerConfig,
+  StandaloneApiServer,
+  StandaloneIndexService,
+}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -101,7 +106,9 @@ object SandboxOnXRunner {
     } yield ()
   }
 
-  private def validateCombinedParticipantMode(config: Config[BridgeConfig]) =
+  private def validateCombinedParticipantMode(
+      config: Config[BridgeConfig]
+  ): Resource[ParticipantConfig] =
     config.participants.toList match {
       case participantConfig :: Nil if participantConfig.mode == ParticipantRunMode.Combined =>
         Resource.successful(participantConfig)
@@ -120,7 +127,7 @@ object SandboxOnXRunner {
       participantConfig: ParticipantConfig,
       materializer: Materializer,
       actorSystem: ActorSystem,
-  ) = {
+  ): ResourceOwner[Unit] = {
     implicit val apiServerConfig: ApiServerConfig =
       BridgeConfigProvider.apiServerConfig(participantConfig, config)
 
@@ -181,7 +188,10 @@ object SandboxOnXRunner {
       metrics: Metrics,
       translationCache: LfValueTranslationCache.Cache,
       servicesExecutionContext: ExecutionContextExecutorService,
-  )(implicit loggingContext: LoggingContext, materializer: Materializer) =
+  )(implicit
+      loggingContext: LoggingContext,
+      materializer: Materializer,
+  ): ResourceOwner[IndexService] =
     for {
       dbSupport <- DbSupport
         .owner(
@@ -214,7 +224,7 @@ object SandboxOnXRunner {
       loggingContext: LoggingContext,
       config: Config[BridgeConfig],
       apiServerConfig: ApiServerConfig,
-  ) =
+  ): ResourceOwner[ApiServer] =
     StandaloneApiServer(
       indexService = indexService,
       ledgerId = config.ledgerId,
@@ -243,7 +253,7 @@ object SandboxOnXRunner {
       materializer: Materializer,
       participantConfig: ParticipantConfig,
       config: Config[BridgeConfig],
-  ) =
+  ): ResourceOwner[HealthChecks] =
     for {
       indexerHealth <- new StandaloneIndexerServer(
         readService = readService,
@@ -259,7 +269,7 @@ object SandboxOnXRunner {
 
   private def buildServicesExecutionContext(
       metrics: Metrics
-  ) =
+  ): ResourceOwner[ExecutionContextExecutorService] =
     ResourceOwner
       .forExecutorService(() =>
         new InstrumentedExecutorService(
@@ -273,7 +283,7 @@ object SandboxOnXRunner {
   private def buildMetrics(implicit
       participantConfig: ParticipantConfig,
       config: Config[BridgeConfig],
-  ) =
+  ): ResourceOwner[Metrics] =
     BridgeConfigProvider
       .createMetrics(participantConfig, config)
       .tap(_.registry.registerAll(new JvmMetricSet))
@@ -296,14 +306,16 @@ object SandboxOnXRunner {
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       loggingContext: LoggingContext,
-  ) = {
+  ): ResourceOwner[BridgeWriteService] = {
     implicit val ec: ExecutionContext = servicesExecutionContext
     for {
-      writeService <- BridgeWriteService
-        .owner(
-          feedSink = feedSink,
-          config = config,
-          participantConfig = participantConfig,
+      writeService <- ResourceOwner
+        .forCloseable(() =>
+          new BridgeWriteService(
+            feedSink = feedSink,
+            participantId = participantConfig.participantId,
+            submissionBufferSize = config.extra.submissionBufferSize,
+          )
         )
       _ <- ResourceOwner.forFuture(() =>
         Future.sequence(
