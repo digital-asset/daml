@@ -67,7 +67,7 @@ steps:
       GPG_KEY: $(gpg-code-signing)
       MAVEN_USERNAME: $(MAVEN_USERNAME)
       MAVEN_PASSWORD: $(MAVEN_PASSWORD)
-      MAVEN_URL: "https://oss.sonatype.org"
+      MAVEN_URL: "https://s01.oss.sonatype.org"
       NPM_TOKEN: $(NPM_TOKEN)
     name: publish_npm_mvn
     condition: and(succeeded(),
