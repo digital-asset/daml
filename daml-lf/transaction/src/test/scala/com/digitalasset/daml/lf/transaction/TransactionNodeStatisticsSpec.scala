@@ -21,10 +21,10 @@ class TransactionNodeStatisticsSpec
   "TransactionNodeStatistics.Actions#+" should {
 
     "add" in {
-      val s1 = Actions(1, 1, 1, 1, 1, 1, 1, 1, 1)
-      val s2 = Actions(2, 3, 5, 7, 11, 13, 17, 19, 23)
-      val s1s2 = Actions(3, 4, 6, 8, 12, 14, 18, 20, 24)
-      val s2s2 = Actions(4, 6, 10, 14, 22, 26, 34, 38, 46)
+      val s1 = Actions(1, 1, 1, 1, 1, 1, 1, 1)
+      val s2 = Actions(2, 3, 5, 7, 11, 13, 17, 19)
+      val s1s2 = Actions(3, 4, 6, 8, 12, 14, 18, 20)
+      val s2s2 = Actions(4, 6, 10, 14, 22, 26, 34, 38)
 
       s2 + TransactionNodeStatistics.EmptyDetail shouldBe s2
       TransactionNodeStatistics.EmptyDetail + s2 shouldBe s2
@@ -37,10 +37,10 @@ class TransactionNodeStatisticsSpec
   "TransactionNodeStatistics#+" should {
 
     "add" in {
-      val d1c = Actions(1, 1, 1, 1, 1, 1, 1, 1, 1)
-      val d1r = Actions(2, 3, 5, 7, 11, 13, 17, 19, 23)
-      val d2c = Actions(3, 5, 7, 11, 13, 17, 19, 23, 29)
-      val d2r = Actions(5, 7, 11, 13, 17, 19, 23, 29, 31)
+      val d1c = Actions(1, 1, 1, 1, 1, 1, 1, 1)
+      val d1r = Actions(2, 3, 5, 7, 11, 13, 17, 19)
+      val d2c = Actions(3, 5, 7, 11, 13, 17, 19, 23)
+      val d2r = Actions(5, 7, 11, 13, 17, 19, 23, 29)
 
       val s1 = TransactionNodeStatistics(d1c, d1r)
       val s2 = TransactionNodeStatistics(d2c, d2r)
@@ -144,7 +144,7 @@ class TransactionNodeStatisticsSpec
           builder.add(makeNode(builder), rollbackId)
           inside(TransactionNodeStatistics.apply(builder.build())) {
             case TransactionNodeStatistics(committed, rolledBack) =>
-              committed shouldBe Actions(0, 0, 0, 0, 0, 0, 0, 0, rollbacks = 1)
+              committed shouldBe Actions(0, 0, 0, 0, 0, 0, 0, 0)
               getter(rolledBack) shouldBe i
               rolledBack.nodes shouldBe i
           }
@@ -162,7 +162,7 @@ class TransactionNodeStatisticsSpec
           case TransactionNodeStatistics(committed, rolledBack) =>
             // There are twice more nonconsumming exercises by cid are double because
             // we use a extra one to nest the other node of the next loop
-            committed shouldBe Actions(i, i, 2 * i, i, i, i, i, i, i)
+            committed shouldBe Actions(i, i, 2 * i, i, i, i, i, i)
             rolledBack shouldBe TransactionNodeStatistics.EmptyDetail
         }
         exeId = b.add(exe(false, false)(b), exeId) // one nonconsumming exercises
@@ -178,10 +178,10 @@ class TransactionNodeStatisticsSpec
         addAllNodes(b, rbId) // one additional rolled Back nodes of each type
         inside(TransactionNodeStatistics.apply(b.build())) {
           case TransactionNodeStatistics(committed, rolledBack) =>
-            committed shouldBe Actions(0, 0, 0, 0, 0, 0, 0, 0, 1)
+            committed shouldBe Actions(0, 0, 0, 0, 0, 0, 0, 0)
             // There are twice more rollback nodes, since we use an extra one to
             // nest the other nodes in each loop
-            rolledBack shouldBe Actions(i, i, i, i, i, i, i, i, 2 * i)
+            rolledBack shouldBe Actions(i, i, i, i, i, i, i, i)
         }
       }
     }

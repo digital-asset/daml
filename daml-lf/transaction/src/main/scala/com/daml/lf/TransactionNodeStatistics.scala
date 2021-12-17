@@ -27,7 +27,6 @@ object TransactionNodeStatistics {
       fetchesByCid: Int,
       fetchesByKey: Int,
       lookupsByKey: Int,
-      rollbacks: Int,
   ) {
 
     def +(that: Actions) =
@@ -42,7 +41,6 @@ object TransactionNodeStatistics {
         fetchesByCid = this.fetchesByCid + that.fetchesByCid,
         fetchesByKey = this.fetchesByKey + that.fetchesByKey,
         lookupsByKey = this.lookupsByKey + that.lookupsByKey,
-        rollbacks = this.rollbacks + that.rollbacks,
       )
 
     def exercisesByCid: Int = consumingExercisesByCid + nonconsumingExercisesByCid
@@ -56,7 +54,7 @@ object TransactionNodeStatistics {
     def nodes: Int = actions + rollbacks
   }
 
-  val EmptyDetail: Actions = Actions(0, 0, 0, 0, 0, 0, 0, 0, 0)
+  val EmptyDetail: Actions = Actions(0, 0, 0, 0, 0, 0, 0, 0)
 
   val Empty: TransactionNodeStatistics = TransactionNodeStatistics(EmptyDetail, EmptyDetail)
 
@@ -87,7 +85,6 @@ object TransactionNodeStatistics {
       fetchesByCid = stats(fetchesIdx),
       fetchesByKey = stats(fetchesByKeyIdx),
       lookupsByKey = stats(lookupsByKeyIdx),
-      rollbacks = stats(rollbacksIdx),
     )
 
   /** This function produces statistics about the committed nodes (those nodes
