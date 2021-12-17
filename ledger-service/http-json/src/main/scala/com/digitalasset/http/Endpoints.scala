@@ -436,7 +436,7 @@ class Endpoints(
       metrics: Metrics,
   ): Future[Error \/ SearchResult[Error \/ JsValue]] = {
     for {
-      it <- inputAndJwtPayload[JwtPayload](req).leftMap(it => it: Error)
+      it <- inputAndJwtPayload[JwtPayload](req).leftMap(identity[Error])
       (jwt, jwtPayload, reqBody) = it
       res <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
         val res = for {
