@@ -55,6 +55,7 @@ daml_compile(
     name = "LargeTransaction",
     srcs = ["src/perf/resources/damls/LargeTransaction.daml"],
     visibility = ["//visibility:public"],
+    enable_scenarios = True,
 )
 
 da_scala_benchmark_jmh(
