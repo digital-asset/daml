@@ -293,9 +293,7 @@ def daml_compile(
         dar = name + ".dar",
         ghc_options =
             ghc_options +
-                (["--enable-scenarios=yes"]
-                    if enable_scenarios and (target == None or versions.gte(target, "1.14"))
-                    else []),
+            (["--enable-scenarios=yes"] if enable_scenarios and (target == None or versions.gte(target, "1.14")) else []),
         damlc = damlc_for_target(target),
         **kwargs
     )
@@ -346,7 +344,7 @@ def daml_build_test(
         dar = name + ".dar",
         ghc_options =
             ghc_options +
-                (["--enable-scenarios=yes"] if enable_scenarios else []),
+            (["--enable-scenarios=yes"] if enable_scenarios else []),
         **kwargs
     )
     _daml_validate_test(

@@ -98,13 +98,13 @@ da_scala_dar_resources_library(
     add_maven_tag = True,
     daml_dir_names = test_names_with_dependencies.keys(),
     daml_root_dir = "src/main/daml",
+    enable_scenarios = True,
     exclusions = {
         "1.8": ["**/*Exception*.daml"],
     },
     lf_versions = lf_version_configuration_versions,
     maven_name_prefix = "test",
     visibility = ["//visibility:public"],
-    enable_scenarios = True,
 )
 
 [

@@ -216,8 +216,8 @@ daml_build_test(
         ":pkg1.dar": "pkg1.dar",
         ":pkg2.dar": "pkg2.dar",
     },
-    project_dir = "src/it/daml/pkg-root",
     enable_scenarios = True,
+    project_dir = "src/it/daml/pkg-root",
 )
 
 # This sidesteps dar_to_java so it can read the config from daml.yaml
@@ -319,8 +319,8 @@ java_test(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
-    target = lf_version_configuration.get("default"),
     enable_scenarios = True,
+    target = lf_version_configuration.get("default"),
 )
 
 dar_to_java(

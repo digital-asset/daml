@@ -28,7 +28,7 @@ def da_scala_dar_resources_library(
                 "project_name": "%s-tests" % daml_dir_name.replace("_", "-"),
                 "srcs": native.glob(["%s/%s/*.daml" % (daml_root_dir, daml_dir_name)], exclude = exclusions.get(lf_version, [])),
                 "target": lf_version,
-                "enable_scenarios": enable_scenarios
+                "enable_scenarios": enable_scenarios,
             }
             daml_compile_kwargs.update(kwargs)
             daml_compile(name = daml_compile_name, **daml_compile_kwargs)
