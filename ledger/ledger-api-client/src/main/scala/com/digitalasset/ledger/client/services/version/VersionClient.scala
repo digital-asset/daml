@@ -16,4 +16,10 @@ final class VersionClient(ledgerId: LedgerId, service: VersionServiceStub) {
   )(implicit executionContext: ExecutionContext): Future[String] =
     it.getApiVersion(ledgerId, token)
 
+  def getApiFeatures(
+      ledgerIdToUse: LedgerId,
+      token: Option[String] = None,
+  )(implicit executionContext: ExecutionContext): Future[Seq[withoutledgerid.VersionClient.Feature]] =
+    it.getApiFeatures(ledgerIdToUse, token)
+
 }
