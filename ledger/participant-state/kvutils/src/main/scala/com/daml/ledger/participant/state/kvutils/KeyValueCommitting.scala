@@ -15,7 +15,6 @@ import com.daml.ledger.participant.state.kvutils.committer.{
 }
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionEntry
 import com.daml.ledger.participant.state.kvutils.store.{
-  DamlContractKey,
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
@@ -25,8 +24,7 @@ import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
-import com.daml.lf.transaction.{GlobalKey, TransactionCoder, TransactionOuterClass}
-import com.daml.lf.value.ValueCoder
+import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
@@ -245,7 +243,7 @@ object KeyValueCommitting {
           val protoCreate = node.getCreate
           TransactionCoder.nodeKey(nodeVersion, protoCreate) match {
             case Right(Some(key)) =>
-              outputs += contractKeyToStateKey(key)
+              outputs += Conversions.globalKeyToStateKey(key)
             case Right(None) =>
             case Left(err) => throw Err.DecodeError("ContractKey", err.errorMessage)
           }
@@ -256,7 +254,7 @@ object KeyValueCommitting {
           val protoExercise = node.getExercise
           TransactionCoder.nodeKey(nodeVersion, protoExercise) match {
             case Right(Some(key)) =>
-              outputs += contractKeyToStateKey(key)
+              outputs += Conversions.globalKeyToStateKey(key)
             case Right(None) =>
             case Left(err) => throw Err.DecodeError("ContractKey", err.errorMessage)
           }
@@ -277,21 +275,5 @@ object KeyValueCommitting {
       }
     }
     outputs.result()
-  }
-
-  private def contractKeyToStateKey(
-      key: GlobalKey
-  ): DamlStateKey = {
-    // NOTE(JM): The deserialization of the values is meant to be temporary. With the removal of relative
-    // contract ids from kvutils submissions we will be able to up-front compute the outputs without having
-    // to allocate a log entry id and we can directly place the output keys into the submission and do not need
-    // to compute outputs from serialized transaction.
-    DamlStateKey.newBuilder
-      .setContractKey(
-        DamlContractKey.newBuilder
-          .setTemplateId(ValueCoder.encodeIdentifier(key.templateId))
-          .setHash(key.hash.bytes.toByteString)
-      )
-      .build
   }
 }

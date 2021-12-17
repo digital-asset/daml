@@ -124,12 +124,19 @@ message DamlContractState {
 
 message DamlContractKey {
   // The Daml template identifier of the contract that created this key.
-  com.daml.lf.value.Identifier template_id = 1;
+  Identifier template_id = 1;
 
   reserved 2; // This was key serialized as a VersionedValue. Replaced by hash.
 
   // Hash of the contract key value, produced by KeyHasher.
   bytes hash = 3;
+}
+
+// A copy of com.daml.lf.value.Identifier.
+message Identifier {
+  string package_id = 1;
+  repeated string module_name = 2;
+  repeated string name = 3;
 }
 
 // Stored information about a given party.
