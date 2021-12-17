@@ -1,5 +1,4 @@
 app-arch/index.html -> /app-dev/app-arch.html
-tools/extractor.html
 integration.html -> /app-dev/app-arch.html
 index.html
 daml.html -> /daml/reference/index.html

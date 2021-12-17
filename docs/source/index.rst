@@ -113,7 +113,6 @@ Daml Documentation
    :hidden:
    :caption: Early Access Features
 
-   tools/extractor
    tools/export/index
    tools/visual
    concepts/interoperability

@@ -24,7 +24,6 @@ Daml Assistant (``daml``)
     ``--sandbox-option=opt``, ``--navigator-option=opt`` and ``--json-api-option=opt``.
   - Launch Sandbox: ``daml sandbox``
   - Launch Navigator: ``daml navigator``
-  - Launch :doc:`Extractor </tools/extractor>`: ``daml extractor``
   - Launch the :doc:`/json-api/index`: ``daml json-api``
   - Run :doc:`Daml codegen </tools/codegen>`: ``daml codegen``
 
