@@ -17,10 +17,10 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateKey,
   DamlStateValue,
   DamlSubmissionDedupKey,
+  Identifier,
 }
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Ref
-import com.daml.lf.value.ValueOuterClass.Identifier
 import com.daml.logging.LoggingContext
 import com.google.protobuf.{ByteString, Empty}
 

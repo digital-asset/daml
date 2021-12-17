@@ -41,10 +41,12 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlContractKey,
   DamlStateKey,
   DamlSubmissionDedupKey,
+  Identifier,
 }
 import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, SubmitterInfo}
+import com.daml.lf.data.Ref.{DottedName, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
@@ -89,7 +91,7 @@ object Conversions {
 
   def encodeGlobalKey(key: GlobalKey): DamlContractKey = {
     DamlContractKey.newBuilder
-      .setTemplateId(ValueCoder.encodeIdentifier(key.templateId))
+      .setTemplateId(encodeIdentifier(key.templateId))
       .setHash(key.hash.bytes.toByteString)
       .build
   }
@@ -101,8 +103,40 @@ object Conversions {
         .fold(msg => throw Err.InvalidSubmission(msg), identity)
     )
 
-  def decodeIdentifier(protoIdent: ValueOuterClass.Identifier): Ref.Identifier =
-    assertDecode("Identifier", ValueCoder.decodeIdentifier(protoIdent))
+  def encodeIdentifier(id: Ref.Identifier): Identifier =
+    Identifier
+      .newBuilder()
+      .setPackageId(id.packageId)
+      .addAllModuleName((id.qualifiedName.module.segments.toSeq: Seq[String]).asJava)
+      .addAllName((id.qualifiedName.name.segments.toSeq: Seq[String]).asJava)
+      .build()
+
+  @throws[Err.DecodeError]
+  def decodeIdentifier(id: Identifier): Ref.Identifier = {
+    val errorOrRefId: Either[Err.DecodeError, Ref.Identifier] = for {
+      pkgId <- PackageId
+        .fromString(id.getPackageId)
+        .left
+        .map(_ => Err.DecodeError("Identifier", s"Invalid package ID: ${id.getPackageId}"))
+
+      moduleSegments = id.getModuleNameList.asScala
+      module <- ModuleName
+        .fromSegments(id.getModuleNameList.asScala)
+        .left
+        .map(_ => Err.DecodeError("Identifier", s"Invalid module segments: $moduleSegments"))
+
+      nameSegments = id.getNameList.asScala
+      name <- DottedName
+        .fromSegments(nameSegments)
+        .left
+        .map(_ => Err.DecodeError("Identifier", s"Invalid name segments: $nameSegments"))
+    } yield Ref.Identifier(pkgId, QualifiedName(module, name))
+
+    errorOrRefId match {
+      case Right(refId) => refId
+      case Left(decodeError) => throw decodeError
+    }
+  }
 
   def globalKeyToStateKey(key: GlobalKey): DamlStateKey =
     DamlStateKey.newBuilder.setContractKey(encodeGlobalKey(key)).build

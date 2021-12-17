@@ -12,8 +12,8 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue,
+  Identifier,
 }
-import com.daml.lf.value.ValueOuterClass
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
@@ -147,7 +147,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
             DamlContractKey.newBuilder
               .setHash(ByteString.copyFromUtf8("somehash"))
               .setTemplateId(
-                ValueOuterClass.Identifier.newBuilder
+                Identifier.newBuilder
                   .addName("Foo")
                   .addModuleName("Bar")
                   .setPackageId("Baz")
