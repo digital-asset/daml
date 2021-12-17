@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.v2
 
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.TransactionNodesStatistics
+import com.daml.lf.transaction.TransactionNodeStatistics
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 
 /** Information about a completion for a submission.
@@ -38,12 +38,12 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
   *                               Only set for participant.state.v2 created entries
   */
 case class CompletionInfo(
-    actAs: List[Ref.Party],
-    applicationId: Ref.ApplicationId,
-    commandId: Ref.CommandId,
-    optDeduplicationPeriod: Option[DeduplicationPeriod],
-    submissionId: Option[Ref.SubmissionId],
-    statistics: Option[TransactionNodesStatistics],
+                           actAs: List[Ref.Party],
+                           applicationId: Ref.ApplicationId,
+                           commandId: Ref.CommandId,
+                           optDeduplicationPeriod: Option[DeduplicationPeriod],
+                           submissionId: Option[Ref.SubmissionId],
+                           statistics: Option[TransactionNodeStatistics],
 ) {
   def changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 }

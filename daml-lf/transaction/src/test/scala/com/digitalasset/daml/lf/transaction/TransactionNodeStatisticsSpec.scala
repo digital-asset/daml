@@ -4,7 +4,7 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.transaction.TransactionNodesStatistics.Detail
+import com.daml.lf.transaction.TransactionNodeStatistics.Actions
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import com.daml.lf.value.Value
 import org.scalatest.Inside
@@ -12,22 +12,22 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class TransactionNodesStatisticsSpec
+class TransactionNodeStatisticsSpec
     extends AnyWordSpec
     with Inside
     with Matchers
     with TableDrivenPropertyChecks {
 
-  "TransactionNodeStatistics.Detail#+" should {
+  "TransactionNodeStatistics.Actions#+" should {
 
     "add" in {
-      val s1 = Detail(1, 1, 1, 1, 1, 1, 1, 1, 1)
-      val s2 = Detail(2, 3, 5, 7, 11, 13, 17, 19, 23)
-      val s1s2 = Detail(3, 4, 6, 8, 12, 14, 18, 20, 24)
-      val s2s2 = Detail(4, 6, 10, 14, 22, 26, 34, 38, 46)
+      val s1 = Actions(1, 1, 1, 1, 1, 1, 1, 1, 1)
+      val s2 = Actions(2, 3, 5, 7, 11, 13, 17, 19, 23)
+      val s1s2 = Actions(3, 4, 6, 8, 12, 14, 18, 20, 24)
+      val s2s2 = Actions(4, 6, 10, 14, 22, 26, 34, 38, 46)
 
-      s2 + TransactionNodesStatistics.EmptyDetail shouldBe s2
-      TransactionNodesStatistics.EmptyDetail + s2 shouldBe s2
+      s2 + TransactionNodeStatistics.EmptyDetail shouldBe s2
+      TransactionNodeStatistics.EmptyDetail + s2 shouldBe s2
       s1 + s2 shouldBe s1s2
       s2 + s1 shouldBe s1s2
       s2 + s2 shouldBe s2s2
@@ -37,14 +37,14 @@ class TransactionNodesStatisticsSpec
   "TransactionNodeStatistics#+" should {
 
     "add" in {
-      val d1c = Detail(1, 1, 1, 1, 1, 1, 1, 1, 1)
-      val d1r = Detail(2, 3, 5, 7, 11, 13, 17, 19, 23)
-      val d2c = Detail(3, 5, 7, 11, 13, 17, 19, 23, 29)
-      val d2r = Detail(5, 7, 11, 13, 17, 19, 23, 29, 31)
+      val d1c = Actions(1, 1, 1, 1, 1, 1, 1, 1, 1)
+      val d1r = Actions(2, 3, 5, 7, 11, 13, 17, 19, 23)
+      val d2c = Actions(3, 5, 7, 11, 13, 17, 19, 23, 29)
+      val d2r = Actions(5, 7, 11, 13, 17, 19, 23, 29, 31)
 
-      val s1 = TransactionNodesStatistics(d1c, d1r)
-      val s2 = TransactionNodesStatistics(d2c, d2r)
-      val expected = TransactionNodesStatistics(d1c + d2c, d1r + d2r)
+      val s1 = TransactionNodeStatistics(d1c, d1r)
+      val s2 = TransactionNodeStatistics(d2c, d2r)
+      val expected = TransactionNodeStatistics(d1c + d2c, d1r + d2r)
       s1 + s2 shouldBe expected
     }
   }
@@ -104,7 +104,7 @@ class TransactionNodesStatisticsSpec
 
     val testIterations = 3
 
-    type Getter = Detail => Int
+    type Getter = Actions => Int
 
     val testCases = Table[TxBuilder => Node, Getter](
       "makeNode" -> "getter",
@@ -125,11 +125,11 @@ class TransactionNodesStatisticsSpec
 
         for (i <- 1 to testIterations) {
           builder.add(makeNode(builder))
-          inside(TransactionNodesStatistics(builder.build())) {
-            case TransactionNodesStatistics(committed, rolledBack) =>
+          inside(TransactionNodeStatistics(builder.build())) {
+            case TransactionNodeStatistics(committed, rolledBack) =>
               getter(committed) shouldBe i
               committed.nodes shouldBe i
-              rolledBack shouldBe TransactionNodesStatistics.EmptyDetail
+              rolledBack shouldBe TransactionNodeStatistics.EmptyDetail
           }
         }
       }
@@ -142,9 +142,9 @@ class TransactionNodesStatisticsSpec
 
         for (i <- 1 to testIterations) {
           builder.add(makeNode(builder), rollbackId)
-          inside(TransactionNodesStatistics.apply(builder.build())) {
-            case TransactionNodesStatistics(committed, rolledBack) =>
-              committed shouldBe Detail(0, 0, 0, 0, 0, 0, 0, 0, rollbacks = 1)
+          inside(TransactionNodeStatistics.apply(builder.build())) {
+            case TransactionNodeStatistics(committed, rolledBack) =>
+              committed shouldBe Actions(0, 0, 0, 0, 0, 0, 0, 0, rollbacks = 1)
               getter(rolledBack) shouldBe i
               rolledBack.nodes shouldBe i
           }
@@ -158,12 +158,12 @@ class TransactionNodesStatisticsSpec
 
       for (i <- 1 to testIterations) {
         addAllNodes(b, exeId) // one additional nodes of each types
-        inside(TransactionNodesStatistics.apply(b.build())) {
-          case TransactionNodesStatistics(committed, rolledBack) =>
+        inside(TransactionNodeStatistics.apply(b.build())) {
+          case TransactionNodeStatistics(committed, rolledBack) =>
             // There are twice more nonconsumming exercises by cid are double because
             // we use a extra one to nest the other node of the next loop
-            committed shouldBe Detail(i, i, 2 * i, i, i, i, i, i, i)
-            rolledBack shouldBe TransactionNodesStatistics.EmptyDetail
+            committed shouldBe Actions(i, i, 2 * i, i, i, i, i, i, i)
+            rolledBack shouldBe TransactionNodeStatistics.EmptyDetail
         }
         exeId = b.add(exe(false, false)(b), exeId) // one nonconsumming exercises
       }
@@ -176,12 +176,12 @@ class TransactionNodesStatisticsSpec
       for (i <- 1 to testIterations) {
         rbId = b.add(rollback(b), rbId) // one additional rolled Back rollback node
         addAllNodes(b, rbId) // one additional rolled Back nodes of each type
-        inside(TransactionNodesStatistics.apply(b.build())) {
-          case TransactionNodesStatistics(committed, rolledBack) =>
-            committed shouldBe Detail(0, 0, 0, 0, 0, 0, 0, 0, 1)
+        inside(TransactionNodeStatistics.apply(b.build())) {
+          case TransactionNodeStatistics(committed, rolledBack) =>
+            committed shouldBe Actions(0, 0, 0, 0, 0, 0, 0, 0, 1)
             // There are twice more rollback nodes, since we use an extra one to
             // nest the other nodes in each loop
-            rolledBack shouldBe Detail(i, i, i, i, i, i, i, i, 2 * i)
+            rolledBack shouldBe Actions(i, i, i, i, i, i, i, i, 2 * i)
         }
       }
     }

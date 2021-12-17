@@ -4,7 +4,7 @@
 package com.daml.lf
 package transaction
 
-object TransactionNodesStatistics {
+object TransactionNodeStatistics {
 
   /** Container for transaction statistics.
    *
@@ -18,7 +18,7 @@ object TransactionNodesStatistics {
    * @param lookupsByKey number of lookup by key nodes,
    * @param rollbacks number of rollback nodes.
    */
-  final case class Detail(
+  final case class Actions(
     creates: Int,
     consumingExercisesByCid: Int,
     nonconsumingExercisesByCid: Int,
@@ -30,8 +30,8 @@ object TransactionNodesStatistics {
     rollbacks: Int,
   ) {
 
-    def +(that: Detail) =
-      Detail(
+    def +(that: Actions) =
+      Actions(
         creates = this.creates + that.creates,
         consumingExercisesByCid = this.consumingExercisesByCid + that.consumingExercisesByCid,
         nonconsumingExercisesByCid =
@@ -56,9 +56,9 @@ object TransactionNodesStatistics {
     def nodes: Int = actions + rollbacks
   }
 
-  val EmptyDetail: Detail = Detail(0, 0, 0, 0, 0, 0, 0, 0, 0)
+  val EmptyDetail: Actions = Actions(0, 0, 0, 0, 0, 0, 0, 0, 0)
 
-  val Empty: TransactionNodesStatistics = TransactionNodesStatistics(EmptyDetail, EmptyDetail)
+  val Empty: TransactionNodeStatistics = TransactionNodeStatistics(EmptyDetail, EmptyDetail)
 
   private[this] val numberOfFields = EmptyDetail.productArity
 
@@ -78,7 +78,7 @@ object TransactionNodesStatistics {
   private[this] def emptyFields = Array.fill(numberOfFields)(0)
 
   private[this] def build(stats: Array[Int]) =
-    Detail(
+    Actions(
       creates = stats(createsIdx),
       consumingExercisesByCid = stats(consumingExercisesByCidIdx),
       nonconsumingExercisesByCid = stats(nonconsumingExerciseCidsIdx),
@@ -95,10 +95,10 @@ object TransactionNodesStatistics {
     *  rolled back nodes (those nodes that do appear under a rollback node) on
     *  the other hand within a given transaction `tx`.
     */
-  def apply(tx: VersionedTransaction): TransactionNodesStatistics =
+  def apply(tx: VersionedTransaction): TransactionNodeStatistics =
     apply(tx.transaction)
 
-  def apply(tx: Transaction): TransactionNodesStatistics = {
+  def apply(tx: Transaction): TransactionNodeStatistics = {
     val committed = emptyFields
     val rolledBack = emptyFields
     var rollbackDepth = 0
@@ -144,16 +144,16 @@ object TransactionNodesStatistics {
       rollbackEnd = (_, _) => rollbackDepth -= 1,
     )
 
-    TransactionNodesStatistics(build(committed), build(rolledBack))
+    TransactionNodeStatistics(build(committed), build(rolledBack))
   }
 
 }
 
-final case class TransactionNodesStatistics(
-  committed: TransactionNodesStatistics.Detail,
-  rolledBack: TransactionNodesStatistics.Detail,
+final case class TransactionNodeStatistics(
+                                            committed: TransactionNodeStatistics.Actions,
+                                            rolledBack: TransactionNodeStatistics.Actions,
 ) {
-  def +(that: TransactionNodesStatistics) = {
-    TransactionNodesStatistics(this.committed + that.committed, this.rolledBack + that.rolledBack)
+  def +(that: TransactionNodeStatistics) = {
+    TransactionNodeStatistics(this.committed + that.committed, this.rolledBack + that.rolledBack)
   }
 }
