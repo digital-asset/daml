@@ -9,7 +9,12 @@ import java.util.UUID
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggingApiException
 import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCause, ErrorCodesVersionSwitcher}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCause,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}

@@ -368,7 +368,7 @@ server_conformance_test(
         # which in turn only has support for durations as deduplication periods
         "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # not enforced
-        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration"
+        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
 )
 
@@ -402,7 +402,7 @@ server_conformance_test(
         # which in turn only has support for durations as deduplication periods
         "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # not enforced
-        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration"
+        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
 )
 
@@ -428,7 +428,7 @@ server_conformance_test(
         # which in turn only has support for durations as deduplication periods
         "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # not enforced
-        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration"
+        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
 )
 
@@ -454,7 +454,7 @@ server_conformance_test(
         # which in turn only has support for durations as deduplication periods
         "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # not enforced
-        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration"
+        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
 )
 
