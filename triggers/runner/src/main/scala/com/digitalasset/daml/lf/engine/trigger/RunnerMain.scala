@@ -89,13 +89,15 @@ object RunnerMain {
             clientConfig,
           )(ec, sequencer)
 
+          parties <- config.ledgerClaims.resolveClaims(client)
+
           _ <- Runner.run(
             dar,
             triggerId,
             client,
             config.timeProviderType.getOrElse(RunnerConfig.DefaultTimeProviderType),
             config.applicationId,
-            config.ledgerParties,
+            parties,
             config.compilerConfig,
           )
         } yield ()

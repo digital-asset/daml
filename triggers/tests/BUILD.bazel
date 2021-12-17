@@ -135,6 +135,7 @@ da_scala_library(
                 "Tls",
                 "RunnerSpec",
                 "UnfoldStateSpec",
+                "ConfigSpec",
             ] + (["DevOnly"] if lf_version else [])
         ],
         data = [
