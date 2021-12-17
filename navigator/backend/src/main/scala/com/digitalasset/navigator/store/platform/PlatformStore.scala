@@ -161,12 +161,18 @@ class PlatformStore(
   }
 
   def connected(state: StateConnected): Receive = {
-    case UpdateUsers =>
+    case UpdatePartiesAndUsers =>
+      state.ledgerClient.partyManagementClient
+        .listKnownParties()
+        .map(UpdatedParties(_))
+        .pipeTo(self)
+
       state.ledgerClient.userManagementClient
         .listUsers() // TODO what token should we pass?
         .map(UpdatedUsers(_))
         .pipeTo(self)
       ()
+
     case UpdatedUsers(users) =>
       // TODO: should we be able to log in as a user without a primary party?
       val usersWithPrimaryParties = users.flatMap { user => user.primaryParty.map(p => (user.id, p)) }
@@ -178,12 +184,6 @@ class PlatformStore(
         )
       }
 
-    case UpdateParties =>
-      state.ledgerClient.partyManagementClient
-        .listKnownParties()
-        .map(UpdatedParties(_))
-        .pipeTo(self)
-      ()
     case UpdatedParties(details) =>
       details.foreach { partyDetails =>
         if (partyDetails.isLocal) {
