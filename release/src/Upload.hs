@@ -135,6 +135,9 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
         -- Now 'finish' the staging and release to Maven Central
         publishStagingRepo baseRequest manager comDamlStagingRepoId comDigitalAssetRepoId
 
+mavenProfileId :: BS.ByteString
+mavenProfileId = "5f937eac6445fb"
+
 prepareStagingRepo :: (MonadCI m) => Request -> Manager -> m (Text, Text)
 prepareStagingRepo baseRequest manager = do
 
@@ -155,14 +158,14 @@ prepareStagingRepo baseRequest manager = do
 
     let startComDamlStagingRepoRequest
          = setRequestMethod "POST"
-         $ setRequestPath  "/service/local/staging/profiles/b6148ff96bfaaa/start" -- Profile key could be requested
+         $ setRequestPath ( "/service/local/staging/profiles/" <> mavenProfileId <> "/start") -- Profile key could be requested
          $ setRequestHeader "content-type" [ "application/json" ]
          $ setRequestHeader "accept" [ "application/json" ]
          $ setRequestBodyLBS (BSL.fromStrict (encodeUtf8 "{\"data\":{\"description\":\"\"}}")) baseRequest
 
     let startComDigitalassetStagingRepoRequest
          = setRequestMethod "POST"
-         $ setRequestPath  "/service/local/staging/profiles/b614bfdbd6b51f/start" -- Profile key could be requested
+         $ setRequestPath  ("/service/local/staging/profiles/" <> mavenProfileId <> "/start") -- Profile key could be requested
          $ setRequestHeader "content-type" [ "application/json" ]
          $ setRequestHeader "accept" [ "application/json" ]
          $ setRequestBodyLBS (BSL.fromStrict (encodeUtf8 "{\"data\":{\"description\":\"\"}}")) baseRequest
@@ -187,13 +190,13 @@ publishStagingRepo baseRequest manager comDamlRepoId comDigitalassetRepoId = do
 
     let finishComDamlStagingRepoRequest
          = setRequestMethod "POST"
-         $ setRequestPath  "/service/local/staging/profiles/b6148ff96bfaaa/finish" -- Profile key could be requested
+         $ setRequestPath  ("/service/local/staging/profiles/" <> mavenProfileId <> "/finish") -- Profile key could be requested
          $ setRequestHeader "content-type" [ "application/json" ]
          $ setRequestBodyLBS (textToLazyByteString $ "{\"data\":{\"stagedRepositoryId\":\"" <> comDamlRepoId <> "\",\"description\":\"\"}}") baseRequest
 
     let finishComDigitalassetStagingRepoRequest
          = setRequestMethod "POST"
-         $ setRequestPath  "/service/local/staging/profiles/b614bfdbd6b51f/finish" -- Profile key could be requested
+         $ setRequestPath  ("/service/local/staging/profiles/" <> mavenProfileId <> "/finish") -- Profile key could be requested
          $ setRequestHeader "content-type" [ "application/json" ]
          $ setRequestBodyLBS (textToLazyByteString $ "{\"data\":{\"stagedRepositoryId\":\"" <> comDigitalassetRepoId <> "\",\"description\":\"\"}}") baseRequest
 
