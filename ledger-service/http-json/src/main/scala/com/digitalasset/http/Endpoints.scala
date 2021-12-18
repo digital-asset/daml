@@ -56,6 +56,8 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.ledger.client.services.admin.UserManagementClient
+import com.daml.ledger.client.services.identity.LedgerIdentityClient
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -68,6 +70,8 @@ class Endpoints(
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     shouldLogHttpBodies: Boolean,
+    userManagementClient: UserManagementClient,
+    ledgerIdentityClient: LedgerIdentityClient,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
 )(implicit ec: ExecutionContext, mat: Materializer) {
 
@@ -410,7 +414,7 @@ class Endpoints(
     parseAndDecodeTimerCtx <- Future(
       metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.time()
     )
-    res <- inputAndJwtPayload[JwtPayload](req).map {
+    res <- inputAndJwtPayload[JwtPayload](req).run.map {
       _.map { case (jwt, jwtPayload, _) =>
         parseAndDecodeTimerCtx.close()
         withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
@@ -432,7 +436,7 @@ class Endpoints(
       metrics: Metrics,
   ): Future[Error \/ SearchResult[Error \/ JsValue]] = {
     for {
-      it <- EitherT.eitherT(inputAndJwtPayload[JwtPayload](req))
+      it <- inputAndJwtPayload[JwtPayload](req).leftMap(identity[Error])
       (jwt, jwtPayload, reqBody) = it
       res <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
         val res = for {
@@ -514,7 +518,7 @@ class Endpoints(
     for {
       parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
       _ <- EitherT.pure(metrics.daml.HttpJsonApi.uploadPackagesThroughput.mark())
-      t2 <- either(inputSource(req)): ET[(Jwt, JwtPayloadLedgerIdOnly, Source[ByteString, Any])]
+      t2 <- inputSource(req)
       (jwt, payload, source) = t2
       _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
@@ -639,36 +643,43 @@ class Endpoints(
     } yield (t2._1, jsVal)
 
   private[http] def withJwtPayload[A, P](fa: (Jwt, A))(implicit
-      parse: ParsePayload[P]
-  ): Unauthorized \/ (Jwt, P, A) =
-    decodeAndParsePayload[P](fa._1, decodeJwt).map(t2 => (t2._1, t2._2, fa._2))
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      legacyParse: ParsePayload[P],
+      createFromUserToken: CreateFromUserToken[P],
+  ): EitherT[Future, Unauthorized, (Jwt, P, A)] =
+    decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient, ledgerIdentityClient).map(t2 =>
+      (t2._1, t2._2, fa._2)
+    )
 
   private[http] def inputAndJwtPayload[P](
       req: HttpRequest
   )(implicit
-      parse: ParsePayload[P],
+      legacyParse: ParsePayload[P],
+      createFromUserToken: CreateFromUserToken[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
-  ): Future[Error \/ (Jwt, P, String)] =
-    input(req).map(_.flatMap(withJwtPayload[String, P]))
+  ): EitherT[Future, Unauthorized, (Jwt, P, String)] =
+    eitherT(input(req)).flatMap(it => withJwtPayload[String, P](it))
 
   private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
-      parse: ParsePayload[P],
+      legacyParse: ParsePayload[P],
+      createFromUserToken: CreateFromUserToken[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
-  ): ET[(Jwt, P, JsValue)] =
-    inputJsVal(req).flatMap(x => either(withJwtPayload[JsValue, P](x)))
+  ): EitherT[Future, Error, (Jwt, P, JsValue)] =
+    inputJsVal(req).flatMap(x => withJwtPayload[JsValue, P](x).leftMap(it => it: Error))
 
   private[http] def inputSource(
       req: HttpRequest
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Error \/ (Jwt, JwtPayloadLedgerIdOnly, Source[ByteString, Any]) =
-    findJwt(req)
+  ): ET[(Jwt, JwtPayloadLedgerIdOnly, Source[ByteString, Any])] =
+    either(findJwt(req))
       .leftMap { e =>
         discard { req.entity.discardBytes(mat) }
-        e
+        e: Error
       }
       .flatMap(j =>
         withJwtPayload[Source[ByteString, Any], JwtPayloadLedgerIdOnly]((j, req.entity.dataBytes))
+          .leftMap(it => it: Error)
       )
 
   private[this] def findJwt(req: HttpRequest)(implicit
@@ -734,9 +745,7 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[A] =
     for {
-      t3 <- eitherT(inputAndJwtPayload[JwtPayloadLedgerIdOnly](req)): ET[
-        (Jwt, JwtPayloadLedgerIdOnly, _)
-      ]
+      t3 <- inputAndJwtPayload[JwtPayloadLedgerIdOnly](req).leftMap(it => it: Error)
       a <- eitherT(handleFutureFailure(fn(t3._1, toLedgerId(t3._2.ledgerId)))): ET[A]
     } yield a
 

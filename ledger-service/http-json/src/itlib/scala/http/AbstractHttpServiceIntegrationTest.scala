@@ -166,6 +166,20 @@ trait AbstractHttpServiceIntegrationTestFuns
     )(testFn(_, _, _, _, ledgerId))
   }
 
+  protected def withHttpServiceAndClient[A](token: Jwt)(
+      testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
+  ): Future[A] = usingLedger[A](testId, Some(token.value)) { case (ledgerPort, _, ledgerId) =>
+    HttpServiceTestFixture.withHttpService[A](
+      testId,
+      ledgerPort,
+      jdbcConfig,
+      staticContentConfig,
+      useTls = useTls,
+      wsConfig = wsConfig,
+      token = Some(token),
+    )(testFn(_, _, _, _, ledgerId))
+  }
+
   protected def withHttpService[A](
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerId) => Future[A]
   ): Future[A] =
@@ -306,6 +320,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       partyName: String,
       amount: String = "999.9900000000",
       currency: String = "USD",
+      meta: Option[domain.CommandMeta] = None,
   ): domain.CreateCommand[v.Record, OptionalPkg] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
     val party = Ref.Party assertFromString partyName
@@ -319,7 +334,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       )
     )
 
-    domain.CreateCommand(templateId, arg, None)
+    domain.CreateCommand(templateId, arg, meta)
   }
 
   protected def iouExerciseTransferCommand(
@@ -1239,7 +1254,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "should be able to serialize and deserialize domain commands" in withLedger {
     (client, ledgerId) =>
       instanceUUIDLogCtx(implicit lc =>
-        jsonCodecs(client, ledgerId).flatMap { case (encoder, decoder) =>
+        jsonCodecs(client, ledgerId, None).flatMap { case (encoder, decoder) =>
           testCreateCommandEncodingDecoding(encoder, decoder, ledgerId) *>
             testExerciseCommandEncodingDecoding(
               encoder,

@@ -21,11 +21,10 @@ import com.daml.ledger.api.domain.LedgerId
 import org.scalatest.Suite
 import scalaz.syntax.tag.ToTagOps
 
-trait SandboxRequiringAuthorization {
-  self: Suite with AbstractSandboxFixture =>
+trait SandboxRequiringAuthorizationFuns {
 
   private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
-  private val jwtSecret = UUID.randomUUID.toString
+  protected val jwtSecret = UUID.randomUUID.toString
 
   protected val emptyToken: AuthServiceJWTPayload = AuthServiceJWTPayload(
     ledgerId = None,
@@ -41,7 +40,7 @@ trait SandboxRequiringAuthorization {
       userId: String,
       expiresIn: Option[Duration] = None,
       participantId: Option[String] = None,
-  ): SupportedJWTPayload =
+  ): StandardJWTPayload =
     StandardJWTPayload(
       AuthServiceJWTPayload(
         ledgerId = None,
@@ -60,15 +59,6 @@ trait SandboxRequiringAuthorization {
   protected val adminTokenStandardJWT: SupportedJWTPayload = standardToken("participant_admin")
   protected val unknownUserTokenStandardJWT: SupportedJWTPayload = standardToken("unknown_user")
   protected val invalidUserTokenStandardJWT: SupportedJWTPayload = standardToken("!!invalid_user!!")
-
-  protected lazy val wrappedLedgerId: LedgerId = ledgerId(Some(customTokenToHeader(adminToken)))
-  protected lazy val unwrappedLedgerId: String = wrappedLedgerId.unwrap
-
-  override protected def authService: Option[AuthService] = {
-    val jwtVerifier =
-      HMAC256Verifier(jwtSecret).getOrElse(sys.error("Failed to create HMAC256 verifier"))
-    Some(AuthServiceJWT(jwtVerifier))
-  }
 
   protected def readOnlyToken(party: String): AuthServiceJWTPayload =
     emptyToken.copy(readAs = List(party))
@@ -105,4 +95,18 @@ trait SandboxRequiringAuthorization {
       .sign(DecodedJwt(jwtHeader, SupportedJWTCodec.compactPrint(payload)), secret)
       .getOrElse(sys.error("Failed to generate token"))
       .value
+}
+
+trait SandboxRequiringAuthorization extends SandboxRequiringAuthorizationFuns {
+  self: Suite with AbstractSandboxFixture =>
+
+  override protected def authService: Option[AuthService] = {
+    val jwtVerifier =
+      HMAC256Verifier(self.jwtSecret).getOrElse(sys.error("Failed to create HMAC256 verifier"))
+    Some(AuthServiceJWT(jwtVerifier))
+  }
+
+  protected lazy val wrappedLedgerId: LedgerId = ledgerId(Some(customTokenToHeader(adminToken)))
+  protected lazy val unwrappedLedgerId: String = wrappedLedgerId.unwrap
+
 }

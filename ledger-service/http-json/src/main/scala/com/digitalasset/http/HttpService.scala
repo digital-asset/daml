@@ -6,6 +6,7 @@ package com.daml.http
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -170,6 +171,8 @@ object HttpService {
         encoder,
         decoder,
         logLevel.exists(!_.isGreaterOrEqual(LogLevel.INFO)), // Everything below DEBUG enables this
+        client.userManagementClient,
+        client.identityClient,
       )
 
       websocketService = new WebSocketService(
@@ -183,11 +186,13 @@ object HttpService {
       websocketEndpoints = new WebsocketEndpoints(
         validateJwt,
         websocketService,
+        client.userManagementClient,
+        client.identityClient,
       )
 
       defaultEndpoints =
         concat(
-          jsonEndpoints.all,
+          jsonEndpoints.all: Route,
           websocketEndpoints.transactionWebSocket,
         )
 

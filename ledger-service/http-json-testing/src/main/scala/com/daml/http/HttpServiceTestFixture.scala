@@ -76,6 +76,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       wsConfig: Option[WebsocketConfig] = None,
       nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
       ledgerIdOverwrite: Option[LedgerId] = None,
+      token: Option[Jwt] = None,
   )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient) => Future[A])(implicit
       asys: ActorSystem,
       mat: Materializer,
@@ -120,7 +121,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     )
 
     val codecsF: Future[(DomainJsonEncoder, DomainJsonDecoder)] = for {
-      codecs <- jsonCodecs(client, ledgerId)
+      codecs <- jsonCodecs(client, ledgerId, token)
     } yield codecs
 
     val fa: Future[A] = for {
@@ -238,13 +239,17 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   def jsonCodecs(
       client: DamlLedgerClient,
       ledgerId: LedgerId,
+      token: Option[Jwt],
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
     val packageService = new PackageService(doLoad(client.packageClient))
     packageService
-      .reload(Jwt("we use a dummy because there is no token in these tests."), ledgerId)
+      .reload(
+        token.getOrElse(Jwt("we use a dummy because there is no token in these tests.")),
+        ledgerId,
+      )
       .flatMap(x => FutureUtil.toFuture(x))
       .map(_ => HttpService.buildJsonCodecs(packageService))
   }
