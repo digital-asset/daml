@@ -40,7 +40,7 @@ trait SandboxRequiringAuthorizationFuns {
       userId: String,
       expiresIn: Option[Duration] = None,
       participantId: Option[String] = None,
-  ): SupportedJWTPayload =
+  ): StandardJWTPayload =
     StandardJWTPayload(
       AuthServiceJWTPayload(
         ledgerId = None,
