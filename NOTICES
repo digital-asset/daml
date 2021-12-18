@@ -638,7 +638,7 @@ lodash.flattendeep 4.4.0 : MIT License
 lodash.isequal 4.5.0 : MIT License
 lodash.isfinite 3.3.2 : MIT License
 lodash.memoize 3.0.4 : MIT License
-Logback 1.2.8 : (GNU Lesser General Public License v3.0 or later AND Eclipse Public License 1.0)
+Logback 1.2.8 : Eclipse Public License 1.0
 logstash-logback-encoder logstash-logback-encoder-6.6 : Apache License 2.0
 loose-envify 1.4.0 : MIT License
 lsp 1.2.0.0 : MIT License
@@ -4521,7 +4521,7 @@ That's all there is to it!
 ---
 
 GNU Lesser General Public License v3.0 or later
-(cpphs 1.20.9.1, hscolour 1.24.4, Logback 1.2.8, polyparse 1.13)
+(cpphs 1.20.9.1, hscolour 1.24.4, polyparse 1.13)
 
 GNU LESSER GENERAL PUBLIC LICENSE
 =================================
