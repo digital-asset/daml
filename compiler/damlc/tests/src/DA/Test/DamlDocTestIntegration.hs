@@ -55,4 +55,11 @@ tests damlcPath = testGroup "doctest integration tests"
               stderr @?= ""
               assertEqual "exit code" ExitSuccess exit
     ]
-  where docTestProc dir f = (proc damlcPath ["doctest", f]) { cwd = Just dir }
+  where
+    docTestProc dir f =
+        let p = proc damlcPath
+                [ "doctest"
+                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                , f
+                ]
+        in p { cwd = Just dir }
