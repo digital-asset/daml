@@ -40,9 +40,11 @@ import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
-
 import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit}
+
+import com.daml.ledger.api.v1.version_service.CommandDeduplicationFeatures
+
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.util.chaining._
@@ -241,6 +243,14 @@ object SandboxOnXRunner {
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
       userManagementStore = new InMemoryUserManagementStore, // TODO persistence wiring comes here
+      commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+        Some(
+          CommandDeduplicationFeatures.DeduplicationPeriodSupport.of(
+            CommandDeduplicationFeatures.DeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
+            CommandDeduplicationFeatures.DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+          )
+        )
+      ),
     )
 
   private def buildIndexerServer(
