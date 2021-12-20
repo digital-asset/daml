@@ -15,6 +15,7 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.version_service.{
   CommandDeduplicationFeatures,
   DeduplicationPeriodSupport,
+  ParticipantDeduplicationSupport,
 }
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.WritePackagesService
@@ -206,7 +207,8 @@ final class Runner[T <: ReadWriteService, Extra](
                               durationSupport =
                                 DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
                             )
-                          )
+                          ),
+                          ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED,
                         ),
                       ).acquire()
                     } yield {}
