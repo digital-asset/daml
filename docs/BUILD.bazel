@@ -349,7 +349,7 @@ genrule(
         "//language-support/ts/daml-types:docs",
         "@daml-cheat-sheet//:site",
     ],
-    outs = ["other-html-docs.tar.gz"],
+    outs = ["non-sphinx-html-docs.tar.gz"],
     cmd = """
     set -eou pipefail
     DIR=$$(mktemp -d)
