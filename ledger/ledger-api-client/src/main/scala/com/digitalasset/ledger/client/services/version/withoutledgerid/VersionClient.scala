@@ -64,6 +64,7 @@ private[daml] object VersionClient {
             maybeStaticTime,
             maybeCommandDeduplicationFeatures,
             optionalLedgerId,
+            _, // TODO
           ) =>
         (selfServiceErrorCodes.toSeq map (_ => Feature.SelfServiceErrorCodes)) ++
           (maybeStaticTime collect { case ExperimentalStaticTime(true) => Feature.StaticTime }) ++
