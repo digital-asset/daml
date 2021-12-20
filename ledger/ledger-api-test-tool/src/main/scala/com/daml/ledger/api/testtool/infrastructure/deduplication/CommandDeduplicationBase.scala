@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.infrastructure.deduplication
 
+import java.util
+
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.GrpcStatus
@@ -12,12 +14,13 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase._
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.version_service.DeduplicationPeriodSupport.OffsetSupport
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, TextKeyOperations}
@@ -26,7 +29,6 @@ import com.daml.lf.data.Ref.SubmissionId
 import com.daml.timer.Delayed
 import io.grpc.Status.Code
 
-import java.util
 import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -254,114 +256,115 @@ private[testtool] abstract class CommandDeduplicationBase(
 
   // staticTime - we run calls in parallel and with static time we would need to advance the time,
   //              therefore this cannot be run in static time
-  if (!staticTime)
-    testGivenAllParticipants(
-      s"${testNamingPrefix}SimpleDeduplicationMixedClients",
-      "Deduplicate commands within the deduplication time window using the command client and the command submission client",
-      allocate(SingleParty),
-    )(implicit ec =>
-      configuredParticipants => { case Participants(Participant(ledger, party)) =>
-        def generateVariations(elements: List[List[Boolean]]): List[List[Boolean]] =
-          elements match {
-            case Nil => List(Nil)
-            case currentElement :: tail =>
-              currentElement.flatMap(value => generateVariations(tail).map(value :: _))
-          }
+  testGivenAllParticipants(
+    s"${testNamingPrefix}SimpleDeduplicationMixedClients",
+    "Deduplicate commands within the deduplication time window using the command client and the command submission client",
+    allocate(SingleParty),
+    enabled = _ => !staticTime,
+    disabledReason = "Cannot work in static time as we run multiple test cases in parallel",
+  )(implicit ec =>
+    configuredParticipants => { case Participants(Participant(ledger, party)) =>
+      def generateVariations(elements: List[List[Boolean]]): List[List[Boolean]] =
+        elements match {
+          case Nil => List(Nil)
+          case currentElement :: tail =>
+            currentElement.flatMap(value => generateVariations(tail).map(value :: _))
+        }
 
-        runWithDeduplicationDelay(configuredParticipants) { delay =>
-          {
-            val numberOfCalls = 4
-            Future // cover all the different generated variations of submit and submitAndWait
-              .traverse(generateVariations(List.fill(numberOfCalls)(List(true, false)))) {
-                case firstCall :: secondCall :: thirdCall :: fourthCall :: Nil =>
-                  val submitAndWaitRequest = ledger
-                    .submitAndWaitRequest(party, Dummy(party).create.command)
-                    .update(
-                      _.commands.deduplicationTime := deduplicationDuration.asProtobuf
+      runWithDeduplicationDelay(configuredParticipants) { delay =>
+        {
+          val numberOfCalls = 4
+          Future // cover all the different generated variations of submit and submitAndWait
+            .traverse(generateVariations(List.fill(numberOfCalls)(List(true, false)))) {
+              case firstCall :: secondCall :: thirdCall :: fourthCall :: Nil =>
+                val submitAndWaitRequest = ledger
+                  .submitAndWaitRequest(party, Dummy(party).create.command)
+                  .update(
+                    _.commands.deduplicationTime := deduplicationDuration.asProtobuf
+                  )
+                val submitRequest = ledger
+                  .submitRequest(party, Dummy(party).create.command)
+                  .update(
+                    _.commands.commandId := submitAndWaitRequest.getCommands.commandId,
+                    _.commands.deduplicationTime := deduplicationDuration.asProtobuf,
+                  )
+
+                def submitAndAssertAccepted(
+                    submitAndWait: Boolean,
+                    acceptedSubmissionId: SubmissionId,
+                ): Future[LedgerOffset] = {
+                  if (submitAndWait)
+                    submitAndWaitRequestAndAssertCompletionAccepted(
+                      ledger,
+                      updateSubmissionId(submitAndWaitRequest, acceptedSubmissionId),
+                      party,
                     )
-                  val submitRequest = ledger
-                    .submitRequest(party, Dummy(party).create.command)
-                    .update(
-                      _.commands.commandId := submitAndWaitRequest.getCommands.commandId,
-                      _.commands.deduplicationTime := deduplicationDuration.asProtobuf,
+                      .map(_._1)
+                  else
+                    submitRequestAndAssertCompletionAccepted(
+                      ledger,
+                      updateSubmissionId(submitRequest, acceptedSubmissionId),
+                      party,
                     )
+                      .map(_._1)
+                }
 
-                  def submitAndAssertAccepted(
-                      submitAndWait: Boolean,
-                      acceptedSubmissionId: SubmissionId,
-                  ): Future[LedgerOffset] = {
-                    if (submitAndWait)
-                      submitAndWaitRequestAndAssertCompletionAccepted(
-                        ledger,
-                        updateSubmissionId(submitAndWaitRequest, acceptedSubmissionId),
-                        party,
-                      )
-                        .map(_._1)
-                    else
-                      submitRequestAndAssertCompletionAccepted(
-                        ledger,
-                        updateSubmissionId(submitRequest, acceptedSubmissionId),
-                        party,
-                      )
-                        .map(_._1)
-                  }
-
-                  def submitAndAssertDeduplicated(
-                      submitAndWait: Boolean,
-                      acceptedSubmissionId: SubmissionId,
-                      acceptedLedgerOffset: LedgerOffset,
-                  ): Future[Unit] =
-                    if (submitAndWait)
-                      submitAndWaitRequestAndAssertDeduplication(
-                        ledger,
-                        updateWithFreshSubmissionId(submitAndWaitRequest),
-                        acceptedSubmissionId,
-                        acceptedLedgerOffset,
-                      )
-                    else
-                      submitRequestAndAssertDeduplication(
-                        ledger,
-                        updateWithFreshSubmissionId(submitRequest),
-                        acceptedSubmissionId,
-                        acceptedLedgerOffset,
-                        party,
-                      )
-
-                  val acceptedSubmissionId1 = newSubmissionId()
-                  val acceptedSubmissionId2 = newSubmissionId()
-                  for {
-                    // Submit command (first deduplication window)
-                    ledgerOffset1 <- submitAndAssertAccepted(firstCall, acceptedSubmissionId1)
-                    _ <- submitAndAssertDeduplicated(
-                      secondCall,
-                      acceptedSubmissionId1,
-                      ledgerOffset1,
+                def submitAndAssertDeduplicated(
+                    submitAndWait: Boolean,
+                    acceptedSubmissionId: SubmissionId,
+                    acceptedLedgerOffset: LedgerOffset,
+                ): Future[Unit] =
+                  if (submitAndWait)
+                    submitAndWaitRequestAndAssertDeduplication(
+                      ledger,
+                      updateWithFreshSubmissionId(submitAndWaitRequest),
+                      acceptedSubmissionId,
+                      acceptedLedgerOffset,
+                    )
+                  else
+                    submitRequestAndAssertDeduplication(
+                      ledger,
+                      updateWithFreshSubmissionId(submitRequest),
+                      acceptedSubmissionId,
+                      acceptedLedgerOffset,
+                      party,
                     )
 
-                    // Wait until the end of first deduplication window
-                    _ <- delay.delayForEntireDeduplicationPeriod()
+                val acceptedSubmissionId1 = newSubmissionId()
+                val acceptedSubmissionId2 = newSubmissionId()
+                for {
+                  // Submit command (first deduplication window)
+                  ledgerOffset1 <- submitAndAssertAccepted(firstCall, acceptedSubmissionId1)
+                  _ <- submitAndAssertDeduplicated(
+                    secondCall,
+                    acceptedSubmissionId1,
+                    ledgerOffset1,
+                  )
 
-                    // Submit command (second deduplication window)
-                    ledgerOffset2 <- submitAndAssertAccepted(thirdCall, acceptedSubmissionId2)
-                    _ <- submitAndAssertDeduplicated(
-                      fourthCall,
-                      acceptedSubmissionId2,
-                      ledgerOffset2,
-                    )
-                  } yield {}
-                case _ => throw new IllegalArgumentException("Wrong call list constructed")
-              }
-              .flatMap { _ =>
-                assertPartyHasActiveContracts(
-                  ledger,
-                  party = party,
-                  noOfActiveContracts = 32, // 16 test cases, with 2 contracts per test case
-                )
-              }
-          }
+                  // Wait until the end of first deduplication window
+                  _ <- delay.delayForEntireDeduplicationPeriod()
+
+                  // Submit command (second deduplication window)
+                  ledgerOffset2 <- submitAndAssertAccepted(thirdCall, acceptedSubmissionId2)
+                  _ <- submitAndAssertDeduplicated(
+                    fourthCall,
+                    acceptedSubmissionId2,
+                    ledgerOffset2,
+                  )
+                } yield {}
+              case _ => throw new IllegalArgumentException("Wrong call list constructed")
+            }
+            .flatMap { _ =>
+              assertPartyHasActiveContracts(
+                ledger,
+                party = party,
+                noOfActiveContracts = 32, // 16 test cases, with 2 contracts per test case
+              )
+            }
         }
       }
-    )
+    }
+  )
 
   test(
     s"${testNamingPrefix}DeduplicateSubmitterBasic",
@@ -490,7 +493,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           )
           // Wait for any ledgers that might adjust based on time skews
           // This is done so that we can validate that the third command is accepted
-          _ <- delayForOffsetIfRequired(ledger, delay)
+          _ <- delayForOffsetIfRequired(ledger, delay, ledger.features)
           // Submit command again using the first offset as the deduplication offset
           (_, _) <- submitRequestAndAssertAsyncDeduplication(
             ledger,
@@ -530,11 +533,12 @@ private[testtool] abstract class CommandDeduplicationBase(
   private def delayForOffsetIfRequired(
       participantTestContext: ParticipantTestContext,
       delayMechanism: DelayMechanism,
+      features: Features,
   )(implicit ec: ExecutionContext): Future[Unit] =
-    deduplicationFeatures.deduplicationOffsetSupport match {
-      case DeduplicationOffsetSupport.PassThroughOffsetSupport =>
+    features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport match {
+      case OffsetSupport.OFFSET_NATIVE_SUPPORT =>
         Future.unit
-      case DeduplicationOffsetSupport.OffsetConversionToDurationSupport =>
+      case OffsetSupport.OFFSET_CONVERT_TO_DURATION =>
         // the converted duration is calculated as the interval between submission time
         // and offset record time + minSkew (used to determine maxRecordTime)
         //
@@ -548,6 +552,8 @@ private[testtool] abstract class CommandDeduplicationBase(
                 2 * response.getTimeModel.getMinSkew.asScala
             )
           })
+      case OffsetSupport.Unrecognized(_) | OffsetSupport.OFFSET_NOT_SUPPORTED =>
+        Future.unit
     }
 
   protected def assertPartyHasActiveContracts(
@@ -904,17 +910,10 @@ object CommandDeduplicationBase {
           ledger.setTime(currentTime, currentTime.plusMillis(duration.toMillis))
         }
   }
-  sealed trait DeduplicationOffsetSupport
-
-  object DeduplicationOffsetSupport {
-    case object PassThroughOffsetSupport extends DeduplicationOffsetSupport
-    case object OffsetConversionToDurationSupport extends DeduplicationOffsetSupport
-  }
 
   /** @param participantDeduplication If participant deduplication is enabled then we will receive synchronous rejections
     */
   case class DeduplicationFeatures(
-      participantDeduplication: Boolean,
-      deduplicationOffsetSupport: DeduplicationOffsetSupport,
+      participantDeduplication: Boolean
   )
 }

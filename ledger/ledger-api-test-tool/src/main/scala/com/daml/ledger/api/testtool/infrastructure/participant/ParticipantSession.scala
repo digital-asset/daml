@@ -108,7 +108,7 @@ object ParticipantSession {
               logger.warn(
                 s"Could not retrieve feature descriptors from the version service: $failure"
               )
-              Features.noFeatures
+              Features.defaultFeatures
             }
       } yield new ParticipantSession(
         partyAllocation = partyAllocation,

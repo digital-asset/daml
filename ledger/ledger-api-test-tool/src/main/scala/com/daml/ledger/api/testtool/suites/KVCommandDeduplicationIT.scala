@@ -5,7 +5,6 @@ package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase
-import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.DeduplicationOffsetSupport.OffsetConversionToDurationSupport
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.{
   DeduplicationFeatures,
   DelayMechanism,
@@ -29,7 +28,11 @@ class KVCommandDeduplicationIT(
     timeoutScaleFactor: Double,
     ledgerTimeInterval: FiniteDuration,
     staticTime: Boolean,
-) extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval, staticTime) {
+) extends CommandDeduplicationBase(
+      timeoutScaleFactor,
+      ledgerTimeInterval,
+      staticTime,
+    ) {
 
   private[this] val logger = LoggerFactory.getLogger(getClass.getName)
 
@@ -37,8 +40,7 @@ class KVCommandDeduplicationIT(
 
   override def deduplicationFeatures: CommandDeduplicationBase.DeduplicationFeatures =
     DeduplicationFeatures(
-      participantDeduplication = false,
-      deduplicationOffsetSupport = OffsetConversionToDurationSupport,
+      participantDeduplication = false
     )
 
   protected override def runWithDeduplicationDelay(
