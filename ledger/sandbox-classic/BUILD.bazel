@@ -355,6 +355,7 @@ server_conformance_test(
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
         "--additional=CommandDeduplicationParallelIT",
+        "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ContractIdIT:Accept",
@@ -366,6 +367,8 @@ server_conformance_test(
         # sandbox classic has support only for participant side deduplication,
         # which in turn only has support for durations as deduplication periods
         "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
+        # not enforced
+        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
 )
 
@@ -386,6 +389,7 @@ server_conformance_test(
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
         "--additional=CommandDeduplicationParallelIT",
+        "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ContractIdIT:Accept",
@@ -397,6 +401,8 @@ server_conformance_test(
         # sandbox classic has support only for participant side deduplication,
         # which in turn only has support for durations as deduplication periods
         "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
+        # not enforced
+        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
 )
 
@@ -413,6 +419,7 @@ server_conformance_test(
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
         "--additional=CommandDeduplicationParallelIT",
+        "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
@@ -420,6 +427,8 @@ server_conformance_test(
         # sandbox classic has support only for participant side deduplication,
         # which in turn only has support for durations as deduplication periods
         "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
+        # not enforced
+        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
 )
 
@@ -436,6 +445,7 @@ server_conformance_test(
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
         "--additional=CommandDeduplicationParallelIT",
+        "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
@@ -443,6 +453,8 @@ server_conformance_test(
         # sandbox classic has support only for participant side deduplication,
         # which in turn only has support for durations as deduplication periods
         "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
+        # not enforced
+        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
 )
 

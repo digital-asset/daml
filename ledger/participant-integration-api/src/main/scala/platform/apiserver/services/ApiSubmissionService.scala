@@ -37,6 +37,7 @@ import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
 import io.grpc.{Status, StatusRuntimeException}
@@ -328,7 +329,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         result.transaction,
         result.interpretationTimeNanos,
       )
-      .toScala
+      .toScalaUnwrapped
   }
 
   /** This method encodes logic related to legacy error codes (V1).

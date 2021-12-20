@@ -42,7 +42,7 @@ final class CommandsValidator(
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
   private val fieldValidations = FieldValidations(errorFactories)
   private val valueValidator = new ValueValidator(errorFactories, fieldValidations)
-  private val deduplicationPeriodValidator = new DeduplicationPeriodValidator(errorFactories)
+  private val deduplicationValidator = new DeduplicationPeriodValidator(errorFactories)
 
   import errorFactories._
   import fieldValidations._
@@ -241,13 +241,13 @@ final class CommandsValidator(
           Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
         case commands.Commands.DeduplicationPeriod.DeduplicationTime(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
-          deduplicationPeriodValidator
-            .validateDuration(deduplicationDuration, maxDeduplicationDuration)
+          deduplicationValidator
+            .validateNonNegativeDuration(deduplicationDuration)
             .map(DeduplicationPeriod.DeduplicationDuration)
         case commands.Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
-          deduplicationPeriodValidator
-            .validateDuration(deduplicationDuration, maxDeduplicationDuration)
+          deduplicationValidator
+            .validateNonNegativeDuration(deduplicationDuration)
             .map(DeduplicationPeriod.DeduplicationDuration)
         case commands.Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
           Ref.HexString

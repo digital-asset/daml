@@ -39,7 +39,7 @@ class DeduplicationPeriodSupport(
   ): Future[DeduplicationPeriod] = {
     val validatedDeduplicationPeriod = deduplicationPeriod match {
       case period: DeduplicationPeriod.DeduplicationDuration =>
-        Future.successful(Right(period))
+        Future { validation.validate(period, maxDeduplicationDuration) }
       case DeduplicationPeriod.DeduplicationOffset(offset) =>
         converter
           .convertOffsetToDuration(
