@@ -17,12 +17,20 @@ import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.version_service.{CommandDeduplicationFeatures, DeduplicationPeriodSupport}
+import com.daml.ledger.api.v1.version_service.{
+  CommandDeduplicationFeatures,
+  DeduplicationPeriodSupport,
+}
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
-import com.daml.ledger.participant.state.kvutils.api.{KeyValueParticipantStateReader, KeyValueParticipantStateWriter, TimedLedgerWriter, WriteServiceWithDeduplicationSupport}
+import com.daml.ledger.participant.state.kvutils.api.{
+  KeyValueParticipantStateReader,
+  KeyValueParticipantStateWriter,
+  TimedLedgerWriter,
+  WriteServiceWithDeduplicationSupport,
+}
 import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
