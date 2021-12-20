@@ -64,19 +64,19 @@ message FeaturesDescriptor {
 message UserManagementFeature {}
 
 message CommandDeduplicationFeatures {
-  message DeduplicationPeriodSupport {
-    enum OffsetSupport {
-      OFFSET_NATIVE_SUPPORT = 0;
-      OFFSET_CONVERT_TO_DURATION = 1;
-      OFFSET_NOT_SUPPORTED = 2;
-    }
-    enum DurationSupport {
-      DURATION_NATIVE_SUPPORT = 0;
-      DURATION_CONVERT_TO_OFFSET = 1;
-    }
-    OffsetSupport offset_support = 1;
-    DurationSupport duration_support = 2;
-  }
   DeduplicationPeriodSupport deduplication_period_support = 1;
+}
 
+message DeduplicationPeriodSupport {
+  enum OffsetSupport {
+    OFFSET_NATIVE_SUPPORT = 0;
+    OFFSET_CONVERT_TO_DURATION = 1;
+    OFFSET_NOT_SUPPORTED = 2;
+  }
+  enum DurationSupport {
+    DURATION_NATIVE_SUPPORT = 0;
+    DURATION_CONVERT_TO_OFFSET = 1;
+  }
+  OffsetSupport offset_support = 1;
+  DurationSupport duration_support = 2;
 }

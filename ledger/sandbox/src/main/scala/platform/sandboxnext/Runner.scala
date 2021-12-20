@@ -17,17 +17,12 @@ import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.version_service.CommandDeduplicationFeatures
+import com.daml.ledger.api.v1.version_service.{CommandDeduplicationFeatures, DeduplicationPeriodSupport}
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
-import com.daml.ledger.participant.state.kvutils.api.{
-  KeyValueParticipantStateReader,
-  KeyValueParticipantStateWriter,
-  TimedLedgerWriter,
-  WriteServiceWithDeduplicationSupport,
-}
+import com.daml.ledger.participant.state.kvutils.api.{KeyValueParticipantStateReader, KeyValueParticipantStateWriter, TimedLedgerWriter, WriteServiceWithDeduplicationSupport}
 import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
@@ -36,8 +31,8 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.LanguageVersion
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
@@ -315,11 +310,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 servicesExecutionContext = servicesExecutionContext,
                 commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
                   Some(
-                    CommandDeduplicationFeatures.DeduplicationPeriodSupport.of(
+                    DeduplicationPeriodSupport.of(
                       offsetSupport =
-                        CommandDeduplicationFeatures.DeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
+                        DeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
                       durationSupport =
-                        CommandDeduplicationFeatures.DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+                        DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
                     )
                   )
                 ),

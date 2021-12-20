@@ -3,6 +3,11 @@
 
 package com.daml.platform.sandbox
 
+import java.io.File
+import java.nio.file.Files
+import java.time.Instant
+import java.util.concurrent.Executors
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
@@ -13,17 +18,15 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.api.v1.version_service.{CommandDeduplicationFeatures, DeduplicationPeriodSupport}
+import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.metrics.TimedWriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.{
-  LegacyTransactionCommitter,
-  StandardTransactionCommitter,
-  TransactionCommitter,
-}
+import com.daml.lf.transaction.{LegacyTransactionCommitter, StandardTransactionCommitter, TransactionCommitter}
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
@@ -45,13 +48,6 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{DbSupport, DbType, FlywayMigrations, LfValueTranslationCache}
 import com.daml.ports.Port
 import scalaz.syntax.tag._
-import java.io.File
-import java.nio.file.Files
-import java.time.Instant
-import java.util.concurrent.Executors
-
-import com.daml.ledger.api.v1.version_service.CommandDeduplicationFeatures
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -423,11 +419,9 @@ final class SandboxServer(
         userManagementStore = userManagementStore,
         commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
           Some(
-            CommandDeduplicationFeatures.DeduplicationPeriodSupport.of(
-              offsetSupport =
-                CommandDeduplicationFeatures.DeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
-              durationSupport =
-                CommandDeduplicationFeatures.DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+            DeduplicationPeriodSupport.of(
+              offsetSupport = DeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
+              durationSupport = DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
             )
           )
         ),
