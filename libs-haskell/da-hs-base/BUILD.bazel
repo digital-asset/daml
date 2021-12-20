@@ -31,6 +31,7 @@ da_haskell_library(
         "lens",
         "monad-loops",
         "mtl",
+        "network",
         "optparse-applicative",
         "pretty-show",
         "pretty",

@@ -107,7 +107,6 @@ da_haskell_test(
     name = "integration-tests",
     timeout = "long",
     srcs = [
-        "src/DA/Daml/Assistant/FreePort.hs",
         "src/DA/Daml/Assistant/IntegrationTests.hs",
     ],
     args = [

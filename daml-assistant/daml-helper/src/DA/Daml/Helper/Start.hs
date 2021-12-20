@@ -30,6 +30,7 @@ import DA.PortFile
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Network.HTTP.Simple as HTTP
+import Network.Socket.Extended (getFreePort)
 import System.Console.ANSI
 import System.Environment (getEnvironment, getEnv, lookupEnv)
 import System.FilePath
