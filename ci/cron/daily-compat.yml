@@ -404,6 +404,8 @@ jobs:
           --detect.npm.include.dev.dependencies=false \
           --detect.excluded.detector.types=NUGET \
           --detect.excluded.detector.types=GO_MOD \
+          --detect.blackduck.signature.scanner.exclusion.name.patterns=bazel-out,node_modules \
+          --detect.detector.search.exclusion.paths=bazel-out \ 
           --detect.yarn.prod.only=true \
           --detect.tools=DETECTOR,BAZEL,DOCKER \
           --detect.bazel.target=//... \
