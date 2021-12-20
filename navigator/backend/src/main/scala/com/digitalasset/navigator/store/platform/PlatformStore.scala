@@ -235,21 +235,24 @@ class PlatformStore(
       val snd = sender()
 
       // context.child must be invoked from actor thread
-      val userIdToActorRef = state.parties.view.mapValues(partyState =>
-        context.child(childName(partyState.name))
-      ).toList // TODO can we keep this a map and make traverse work?
+      val userIdToActorRef = state.parties.view
+        .mapValues(partyState => context.child(childName(partyState.name)))
+        .toList // TODO can we keep this a map and make traverse work?
 
-      Future.traverse(userIdToActorRef) { case (userId, actorRef) =>
-        // let Future deal with empty option actorRef
-        Future { actorRef.get }
-          .flatMap(_ ? GetPartyActorInfo)
-          .mapTo[PartyActorInfo]
-          .map(info => PartyActorRunning(info): PartyActorResponse)
-          .recover{ case _ => PartyActorUnresponsive }
-          .map((userId, _))
-      }
+      Future
+        .traverse(userIdToActorRef) { case (userId, actorRef) =>
+          // let Future deal with empty option actorRef
+          Future { actorRef.get }
+            .flatMap(_ ? GetPartyActorInfo)
+            .mapTo[PartyActorInfo]
+            .map(info => PartyActorRunning(info): PartyActorResponse)
+            .recover { case _ => PartyActorUnresponsive }
+            .map((userId, _))
+        }
         .map(_.toMap)
-        .recover { case error => log.error(error.getMessage); Map.empty[String,PartyActorResponse] }
+        .recover { case error =>
+          log.error(error.getMessage); Map.empty[String, PartyActorResponse]
+        }
         .foreach { userIdToPartyActorResponse =>
           snd ! ApplicationStateConnected(
             platformHost,

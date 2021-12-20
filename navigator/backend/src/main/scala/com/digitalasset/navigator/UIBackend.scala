@@ -262,7 +262,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     val partyRefresh: Option[Cancellable] =
       if (config.users.isEmpty || arguments.ignoreProjectParties) {
         Some(
-          system.scheduler.scheduleWithFixedDelay(Duration.Zero, 1.seconds, store, UpdatePartiesAndUsers)
+          system.scheduler
+            .scheduleWithFixedDelay(Duration.Zero, 1.seconds, store, UpdatePartiesAndUsers)
         )
       } else {
         config.users.foreach { case (displayName, config) =>
