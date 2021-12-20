@@ -47,7 +47,7 @@ import Util
 -- where the repository contents is verified to conform to the Maven Central standards before being released to
 -- the public repository.
 --
--- Digitalasset has been assigned the 'com.daml' and 'com.digitalasset' namespaces (group IDs for Maven repos and artifacts
+-- Digitalasset has been assigned the 'com.daml' namespace (group IDs for Maven repos and artifacts
 -- need to be uploaded to the staging repository corresponding with their group ID. The staging repository for each group ID
 -- is handled separately, hence there are several 'duplicated' REST calls.
 --
@@ -80,9 +80,9 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
         loggedProcess_ "gpg" [ "--homedir", T.pack gnupgTempDir, "--no-tty", "--quiet", "--import", T.pack secretKeyImportFile ]
 
         --
-        -- Prepare the remote staging repositories
+        -- Prepare the remote staging repository
         --
-        (comDamlStagingRepoId, comDigitalAssetRepoId) <- prepareStagingRepo baseRequest manager
+        comDamlStagingRepoId <- prepareStagingRepo baseRequest manager
 
         --
         -- Upload the artifacts; each with:
@@ -97,7 +97,7 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
             -- The "--batch" and "--yes" flags are used to prevent gpg waiting on stdin.
             loggedProcess_ "gpg" [ "--homedir", T.pack gnupgTempDir, "-ab", "-o", T.pack sigTempFile, "--batch", "--yes", T.pack (fromAbsFile absFile) ]
 
-            let artUploadPath = uploadPath coords comDamlStagingRepoId comDigitalAssetRepoId
+            let artUploadPath = uploadPath coords comDamlStagingRepoId
             (md5Hash, sha1Hash) <- chksumFileContents absFile
 
             $logInfo ("(Uploading " <> artUploadPath <> " from " <> tshow absFile <> ")")
@@ -133,18 +133,18 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
         $logInfo "Finished uploading artifacts"
 
         -- Now 'finish' the staging and release to Maven Central
-        publishStagingRepo baseRequest manager comDamlStagingRepoId comDigitalAssetRepoId
+        publishStagingRepo baseRequest manager comDamlStagingRepoId
 
-mavenProfileId :: BS.ByteString
-mavenProfileId = "5f937eac6445fb"
+comDamlMavenProfileId :: BS.ByteString
+comDamlMavenProfileId = "5f937eac6445fb"
 
-prepareStagingRepo :: (MonadCI m) => Request -> Manager -> m (Text, Text)
+prepareStagingRepo :: (MonadCI m) => Request -> Manager -> m Text
 prepareStagingRepo baseRequest manager = do
 
     --
     -- Note in Profile IDs
     --
-    -- Currently the profile IDs are hardcoded. The IDs are fixed to the "namespaces" ('com.daml' and 'com.digitialasset')
+    -- Currently the profile ID is hardcoded. The ID is fixed to the "namespaces" 'com.daml'
     -- attached to the Digitalasset accounts on the Sonatype OSSRH.
     --
 
@@ -158,28 +158,19 @@ prepareStagingRepo baseRequest manager = do
 
     let startComDamlStagingRepoRequest
          = setRequestMethod "POST"
-         $ setRequestPath ( "/service/local/staging/profiles/" <> mavenProfileId <> "/start") -- Profile key could be requested
+         $ setRequestPath ( "/service/local/staging/profiles/" <> comDamlMavenProfileId <> "/start") -- Profile key could be requested
          $ setRequestHeader "content-type" [ "application/json" ]
          $ setRequestHeader "accept" [ "application/json" ]
          $ setRequestBodyLBS (BSL.fromStrict (encodeUtf8 "{\"data\":{\"description\":\"\"}}")) baseRequest
 
-    let startComDigitalassetStagingRepoRequest
-         = setRequestMethod "POST"
-         $ setRequestPath  ("/service/local/staging/profiles/" <> mavenProfileId <> "/start") -- Profile key could be requested
-         $ setRequestHeader "content-type" [ "application/json" ]
-         $ setRequestHeader "accept" [ "application/json" ]
-         $ setRequestBodyLBS (BSL.fromStrict (encodeUtf8 "{\"data\":{\"description\":\"\"}}")) baseRequest
+    startComDamlStagingReposResponse <-
+        recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpLbs startComDamlStagingRepoRequest manager)
+    comDamlStagingRepoInfo <- decodeStagingPromoteResponse startComDamlStagingReposResponse
 
-    (startComDamlStagingReosResponse, startComDigitalassetStagingRepoResponse) <- Async.runConcurrently $ (,)
-         <$> Async.Concurrently (recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpLbs startComDamlStagingRepoRequest manager))
-         <*> Async.Concurrently (recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpLbs startComDigitalassetStagingRepoRequest manager))
-    comDamlStagingRepoInfo <- decodeStagingPromoteResponse startComDamlStagingReosResponse
-    comDigitalassetStagingRepoInfo <- decodeStagingPromoteResponse startComDigitalassetStagingRepoResponse
+    return (stagedRepositoryId $ _data comDamlStagingRepoInfo)
 
-    return (stagedRepositoryId $ _data comDamlStagingRepoInfo, stagedRepositoryId $ _data comDigitalassetStagingRepoInfo)
-
-publishStagingRepo :: (MonadCI m) => Request -> Manager -> Text -> Text -> m ()
-publishStagingRepo baseRequest manager comDamlRepoId comDigitalassetRepoId = do
+publishStagingRepo :: (MonadCI m) => Request -> Manager -> Text -> m ()
+publishStagingRepo baseRequest manager comDamlRepoId = do
 
     --
     -- "Close" the staging profiles which initiates the running of the rules that check the uploaded artifacts
@@ -190,45 +181,30 @@ publishStagingRepo baseRequest manager comDamlRepoId comDigitalassetRepoId = do
 
     let finishComDamlStagingRepoRequest
          = setRequestMethod "POST"
-         $ setRequestPath  ("/service/local/staging/profiles/" <> mavenProfileId <> "/finish") -- Profile key could be requested
+         $ setRequestPath  ("/service/local/staging/profiles/" <> comDamlMavenProfileId <> "/finish") -- Profile key could be requested
          $ setRequestHeader "content-type" [ "application/json" ]
          $ setRequestBodyLBS (textToLazyByteString $ "{\"data\":{\"stagedRepositoryId\":\"" <> comDamlRepoId <> "\",\"description\":\"\"}}") baseRequest
 
-    let finishComDigitalassetStagingRepoRequest
-         = setRequestMethod "POST"
-         $ setRequestPath  ("/service/local/staging/profiles/" <> mavenProfileId <> "/finish") -- Profile key could be requested
-         $ setRequestHeader "content-type" [ "application/json" ]
-         $ setRequestBodyLBS (textToLazyByteString $ "{\"data\":{\"stagedRepositoryId\":\"" <> comDigitalassetRepoId <> "\",\"description\":\"\"}}") baseRequest
-
-    (_, _) <- Async.runConcurrently $ (,)
-         <$> Async.Concurrently (recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpNoBody finishComDamlStagingRepoRequest manager))
-         <*> Async.Concurrently (recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpNoBody finishComDigitalassetStagingRepoRequest manager))
+    _ <- recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpNoBody finishComDamlStagingRepoRequest manager)
 
     let comDamlStatusReposRequest
          = setRequestMethod "GET"
          $ setRequestPath (encodeUtf8 ("/service/local/staging/repository/" <> comDamlRepoId))
          $ setRequestHeader "accept" [ "application/json" ] baseRequest
 
-    let comDigitalassetStatusReposRequest
-         = setRequestMethod "GET"
-         $ setRequestPath (encodeUtf8 ("/service/local/staging/repository/" <> comDigitalassetRepoId))
-         $ setRequestHeader "accept" [ "application/json" ] baseRequest
-
     --
     -- Poll until the staging repositories are closed or the staging repositories cease to be "transitioning" to a new state
     --
-    (comDamlNotClosed, comDigitalassetNotClosed) <- Async.runConcurrently $ (,)
-        <$> Async.Concurrently (recovering checkStatusRetryPolicy [ httpResponseHandler, checkRepoStatusHandler ] (\_ -> handleStatusRequest comDamlStatusReposRequest manager))
-        <*> Async.Concurrently (recovering checkStatusRetryPolicy [ httpResponseHandler, checkRepoStatusHandler ] (\_ -> handleStatusRequest comDigitalassetStatusReposRequest manager))
+    comDamlNotClosed <-
+        recovering checkStatusRetryPolicy [ httpResponseHandler, checkRepoStatusHandler ] (\_ -> handleStatusRequest comDamlStatusReposRequest manager)
 
     --
     -- Drop" (delete) both staging repositories if one or more fails the checks (and are not in the "closed" state)
     --
-    when (comDamlNotClosed || comDigitalassetNotClosed) $ do
-        when comDamlNotClosed $ do logStagingRepositoryActivity baseRequest manager comDamlRepoId
-        when comDigitalassetNotClosed $ do logStagingRepositoryActivity baseRequest manager comDigitalassetRepoId
-        dropStagingRepositories baseRequest manager [ comDamlRepoId, comDigitalassetRepoId ]
-        throwIO $ RepoFailedToClose $ [ comDamlRepoId | comDamlNotClosed ] <> [ comDigitalassetRepoId | comDigitalassetNotClosed ]
+    when comDamlNotClosed $ do
+        logStagingRepositoryActivity baseRequest manager comDamlRepoId
+        dropStagingRepositories baseRequest manager [ comDamlRepoId ]
+        throwIO $ RepoFailedToClose [ comDamlRepoId ]
 
     --
     -- Now the final step of releasing the staged artifacts into the wild...
@@ -238,7 +214,7 @@ publishStagingRepo baseRequest manager comDamlRepoId comDigitalassetRepoId = do
          $ setRequestPath  "/service/local/staging/bulk/promote"
          $ setRequestHeader "content-type" [ "application/json" ]
          $ setRequestHeader "accept" [ "application/json" ]
-         $ setRequestBodyLBS (textToLazyByteString $ "{\"data\":{\"stagedRepositoryIds\":[\"" <> comDamlRepoId <> "\",\"" <> comDigitalassetRepoId <> "\"],\"description\":\"\",\"autoDropAfterRelease\":true}}") baseRequest
+         $ setRequestBodyLBS (textToLazyByteString $ "{\"data\":{\"stagedRepositoryIds\":[\"" <> comDamlRepoId <> "\"],\"description\":\"\",\"autoDropAfterRelease\":true}}") baseRequest
 
     _ <- recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpNoBody releaseStagingReposRequest manager)
 
@@ -286,9 +262,10 @@ decodeSigningKey signingKey =  case Base64.decode $ C8.pack signingKey of
     Right decodedData -> return decodedData
 
 -- Note: Upload path is NOT documented in the REST API Guide.
-uploadPath :: MavenCoords -> Text -> Text -> Text
-uploadPath MavenCoords{..} comDamlStagingRepoId comDigitalassetRepoId = do
-    let stagingRepoId = if ["com", "daml"] `List.isPrefixOf` groupId then comDamlStagingRepoId else comDigitalassetRepoId
+uploadPath :: MavenCoords -> Text -> Text
+uploadPath MavenCoords{..} comDamlStagingRepoId = do
+    let stagingRepoId = if ["com", "daml"] `List.isPrefixOf` groupId then comDamlStagingRepoId else
+          error ("Unsupported group id: " <> show groupId)
     let v = SemVer.toText version
     T.intercalate "/" ("/service/local/staging/deployByRepositoryId" : [stagingRepoId] <> groupId <> [artifactId, v, artifactId]) <> "-" <> v <> maybe "" ("-" <>) classifier <> "." <> artifactType
 
