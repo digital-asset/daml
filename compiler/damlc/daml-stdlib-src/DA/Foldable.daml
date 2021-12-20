@@ -99,6 +99,10 @@ mapA_ f = foldr ((*>) . f) (pure ())
 forA_ : (Foldable t, Applicative f) => t a -> (a -> f b) -> f ()
 forA_ = flip mapA_
 
+{-# DEPRECATED forM_ "Daml compatibility helper, use 'forA_' instead of 'forM_'" #-}
+forM_ : (Foldable t, Applicative f) => t a -> (a -> f b) -> f ()
+forM_ = forA_
+
 -- | Evaluate each action in the structure from left to right,
 -- and ignore the results. For a version that doesn't ignore the
 -- results see 'DA.Traversable.sequence'.
