@@ -3,11 +3,19 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.nio.file.Path
+import java.util.UUID
+import java.util.concurrent.{Executors, TimeUnit}
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.api.v1.version_service.{
+  CommandDeduplicationFeatures,
+  DeduplicationPeriodSupport,
+}
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
@@ -25,9 +33,6 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
-import java.nio.file.Path
-import java.util.UUID
-import java.util.concurrent.{Executors, TimeUnit}
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -193,6 +198,16 @@ final class Runner[T <: ReadWriteService, Extra](
                         otherInterceptors = configProvider.interceptors(config),
                         engine = sharedEngine,
                         servicesExecutionContext = servicesExecutionContext,
+                        commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+                          Some(
+                            DeduplicationPeriodSupport.of(
+                              offsetSupport =
+                                DeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
+                              durationSupport =
+                                DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+                            )
+                          )
+                        ),
                       ).acquire()
                     } yield {}
                   case ParticipantRunMode.Indexer =>

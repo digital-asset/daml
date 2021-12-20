@@ -3,6 +3,9 @@
 
 package com.daml.ledger.sandbox
 
+import java.util.UUID
+import java.util.concurrent.{Executors, TimeUnit}
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -10,6 +13,10 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.api.v1.version_service.{
+  CommandDeduplicationFeatures,
+  DeduplicationPeriodSupport,
+}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -41,8 +48,6 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
-import java.util.UUID
-import java.util.concurrent.{Executors, TimeUnit}
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.util.chaining._
@@ -241,6 +246,14 @@ object SandboxOnXRunner {
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
       userManagementStore = new InMemoryUserManagementStore, // TODO persistence wiring comes here
+      commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+        Some(
+          DeduplicationPeriodSupport.of(
+            DeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
+            DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+          )
+        )
+      ),
     )
 
   private def buildIndexerServer(

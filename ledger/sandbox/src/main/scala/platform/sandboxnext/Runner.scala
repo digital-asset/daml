@@ -17,6 +17,10 @@ import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.api.v1.version_service.{
+  CommandDeduplicationFeatures,
+  DeduplicationPeriodSupport,
+}
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
@@ -35,8 +39,8 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.LanguageVersion
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
@@ -312,6 +316,16 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 otherServices = List(resetService),
                 otherInterceptors = List(resetService),
                 servicesExecutionContext = servicesExecutionContext,
+                commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+                  Some(
+                    DeduplicationPeriodSupport.of(
+                      offsetSupport =
+                        DeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
+                      durationSupport =
+                        DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+                    )
+                  )
+                ),
               )
               _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
             } yield {
