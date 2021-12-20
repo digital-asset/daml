@@ -21,10 +21,6 @@ private[http] object JdbcConfig
     extends dbutils.ConfigCompanion[JdbcConfig, DBConfig.JdbcConfigDefaults]("JdbcConfig")
     with StrictLogging {
 
-  final val MinIdle = 8
-  final val IdleTimeout = 10000L // ms, minimum according to log, defaults to 600s
-  final val ConnectionTimeout = 5000L
-
   implicit val showInstance: Show[JdbcConfig] = Show.shows { a =>
     import a._, baseConfig._
     s"JdbcConfig(driver=$driver, url=$url, user=$user, start-mode=$dbStartupMode)"

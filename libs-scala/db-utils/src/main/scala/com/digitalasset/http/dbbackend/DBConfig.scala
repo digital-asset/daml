@@ -12,6 +12,8 @@ import scalaz.syntax.traverse._
 import scalaz.{Show, StateT, \/}
 
 import java.io.File
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 object DBConfig {
@@ -28,8 +30,8 @@ final case class JdbcConfig(
     password: String,
     poolSize: Int,
     minIdle: Int = JdbcConfig.MinIdle,
-    connectionTimeout: Long = JdbcConfig.ConnectionTimeout,
-    idleTimeout: Long = JdbcConfig.IdleTimeout,
+    connectionTimeout: FiniteDuration = JdbcConfig.ConnectionTimeout,
+    idleTimeout: FiniteDuration = JdbcConfig.IdleTimeout,
     tablePrefix: String = "",
 )
 
@@ -105,8 +107,9 @@ object JdbcConfig
     with StrictLogging {
 
   final val MinIdle = 8
-  final val IdleTimeout = 10000L // ms, minimum according to log, defaults to 600s
-  final val ConnectionTimeout = 5000L
+  final val IdleTimeout =
+    FiniteDuration(10000, TimeUnit.MILLISECONDS) // ms, minimum according to log, defaults to 600s
+  final val ConnectionTimeout = FiniteDuration(5000, TimeUnit.MILLISECONDS)
 
   @scala.deprecated("do I need this?", since = "SC")
   implicit val showInstance: Show[JdbcConfig] =
@@ -163,8 +166,10 @@ object JdbcConfig
     tablePrefix <- optionalStringField("tablePrefix").map(_ getOrElse "")
     maxPoolSize <- optionalIntField("poolSize").map(_ getOrElse PoolSize.Production)
     minIdle <- optionalIntField("minIdle").map(_ getOrElse MinIdle)
-    connTimeout <- optionalLongField("connectionTimeout").map(_ getOrElse ConnectionTimeout)
-    idleTimeout <- optionalLongField("idleTimeout").map(_ getOrElse IdleTimeout)
+    connTimeout <- optionalLongField("connectionTimeout")
+      .map(x => x.map(FiniteDuration(_, TimeUnit.MILLISECONDS)) getOrElse ConnectionTimeout)
+    idleTimeout <- optionalLongField("idleTimeout")
+      .map(x => x.map(FiniteDuration(_, TimeUnit.MILLISECONDS)) getOrElse IdleTimeout)
   } yield JdbcConfig(
     driver = driver,
     url = url,

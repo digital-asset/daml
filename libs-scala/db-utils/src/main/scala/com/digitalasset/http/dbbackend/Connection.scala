@@ -63,9 +63,9 @@ object ConnectionPool {
     c.setUsername(user)
     c.setPassword(password)
     c.setMinimumIdle(jc.minIdle)
-    c.setConnectionTimeout(jc.connectionTimeout)
+    c.setConnectionTimeout(jc.connectionTimeout.toMillis)
     c.setMaximumPoolSize(poolSize)
-    c.setIdleTimeout(jc.idleTimeout)
+    c.setIdleTimeout(jc.idleTimeout.toMillis)
     new HikariDataSource(c)
   }
 }

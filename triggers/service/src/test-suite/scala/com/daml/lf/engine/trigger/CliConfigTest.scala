@@ -8,9 +8,9 @@ import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class ServiceConfigTest extends AnyWordSpec with Matchers with OptionValues {
+class CliConfigTest extends AnyWordSpec with Matchers with OptionValues {
   "parse" should {
-    import ServiceConfig.parse
+    import Cli.parse
     import com.daml.cliopts.Http.defaultAddress
     val baseOpts = Array("--ledger-host", "localhost", "--ledger-port", "9999")
 
