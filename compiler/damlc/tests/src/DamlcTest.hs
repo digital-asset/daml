@@ -186,7 +186,14 @@ testsForDamlcTest damlc = testGroup "damlc test" $
               , "      c <- submit alice $ create T with p = alice"
               , "      submit alice $ exercise c X with"
               ]
-            (exitCode, stdout, _stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
+            (exitCode, stdout, _stderr) <-
+              readProcessWithExitCode
+                damlc
+                [ "test"
+                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                , "--files"
+                , file ]
+                ""
             exitCode @?= ExitSuccess
             assertBool ("test coverage is reported correctly: " <> stdout)
                        ("test coverage: templates 50%, choices 33%\n" `isSuffixOf` stdout)
@@ -207,7 +214,14 @@ testsForDamlcTest damlc = testGroup "damlc test" $
               , "      submit alice $ exercise c X with"
               ]
             (exitCode, stdout, _stderr) <-
-              readProcessWithExitCode damlc ["test", "--show-coverage", "--files", file] ""
+              readProcessWithExitCode
+                damlc
+                  [ "test"
+                  , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                  , "--show-coverage"
+                  , "--files"
+                  , file ]
+                  ""
             exitCode @?= ExitSuccess
             assertBool
                 ("test coverage is reported correctly: " <> stdout)
@@ -239,7 +253,13 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "  c <- submit alice $ create U with p = alice"
             , "  submit alice $ exercise c Y with"
             ]
-          callProcessSilent damlc ["build", "--project-root", projDir </> "a"]
+          callProcessSilent
+            damlc
+            [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , "--project-root"
+            , projDir </> "a"
+            ]
           createDirectoryIfMissing True (projDir </> "b")
           writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -264,9 +284,18 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "      c <- submit alice $ create T with p = alice"
             , "      submit alice $ exercise c X with"
             ]
-          (exitCode, stdout, stderr) <- readProcessWithExitCode damlc
-            ["test" , "--show-coverage" , "--all" , "--project-root" , projDir </> "b", "--files", bFilePath]
-            ""
+          (exitCode, stdout, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                , "--show-coverage"
+                , "--all"
+                , "--project-root"
+                , projDir </> "b"
+                , "--files"
+                , bFilePath ]
+                ""
           stderr @?= ""
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
@@ -302,7 +331,12 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "  c <- submit alice $ create U with p = alice"
             , "  submit alice $ exercise c Y with"
             ]
-          callProcessSilent damlc ["build", "--project-root", projDir </> "a"]
+          callProcessSilent
+            damlc
+            [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , "--project-root"
+            , projDir </> "a" ]
           createDirectoryIfMissing True (projDir </> "b")
           writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -327,9 +361,17 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "      c <- submit alice $ create T with p = alice"
             , "      submit alice $ exercise c X with"
             ]
-          (exitCode, stdout, stderr) <- readProcessWithExitCode damlc
-            ["test" , "--show-coverage" , "--project-root" , projDir </> "b", "--files", bFilePath]
-            ""
+          (exitCode, stdout, stderr) <-
+            readProcessWithExitCode
+              damlc
+              ["test"
+              , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+              , "--show-coverage"
+              , "--project-root"
+              , projDir </> "b"
+              , "--files"
+              , bFilePath]
+              ""
           stderr @?= ""
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
@@ -350,7 +392,14 @@ testsForDamlcTest damlc = testGroup "damlc test" $
               [ "module Foo where"
               , "x = scenario $ assert False"
               ]
-            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
+            (exitCode, stdout, stderr) <-
+              readProcessWithExitCode
+                damlc
+                ["test"
+                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                , "--files"
+                , file ]
+                ""
             stdout @?= ""
             assertInfixOf "Scenario execution failed" stderr
             exitCode @?= ExitFailure 1
@@ -360,7 +409,14 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "test = scenario do"
             , "  assert True"
             ]
-          (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", projDir </> "Main.daml"] ""
+          (exitCode, stdout, stderr) <-
+            readProcessWithExitCode
+              damlc
+                [ "test"
+                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                , "--files"
+                , projDir </> "Main.daml" ]
+                ""
           exitCode @?= ExitSuccess
           assertBool ("Succeeding scenario in " <> stdout) ("Main.daml:test: ok" `isInfixOf` stdout)
           stderr @?= ""
@@ -379,7 +435,11 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
           withCurrentDirectory projDir $
-              callProcessSilent damlc ["test", "--project-root=relative"]
+            callProcessSilent
+              damlc
+              [ "test"
+              , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+              , "--project-root=relative" ]
     , testCase "damlc test --project-root proj --junit a.xml" $ withTempDir $ \tempDir -> do
           createDirectoryIfMissing True (tempDir </> "proj")
           writeFileUTF8 (tempDir </> "proj" </> "Main.daml") $ unlines
@@ -395,7 +455,13 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
           withCurrentDirectory tempDir $
-              callProcessSilent damlc ["test", "--project-root=proj", "--junit=a.xml"]
+            callProcessSilent
+              damlc
+                [ "test"
+                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                , "--project-root=proj"
+                , "--junit=a.xml"
+                ]
           exists <- doesFileExist $ tempDir </> "a.xml"
           -- Check that the junit output was created relative to CWD not the project.
           assertBool "JUnit output was not created" exists
@@ -414,7 +480,12 @@ testsForDamlcTest damlc = testGroup "damlc test" $
           , "scenario-service:"
           , "  grpc-max-message-size: 10000000"
           ]
-        callProcessSilent damlc ["test", "--project-root", tempDir]
+        callProcessSilent
+          damlc
+            [ "test"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , "--project-root"
+            , tempDir ]
     ] <>
     [ testCase ("damlc test " <> unwords (args "") <> " in project") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
@@ -445,7 +516,15 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "test = scenario do"
             , "  assert True"
             ]
-          (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ("test" : "--project-root" : (projDir </> "b") : args projDir) ""
+          (exitCode, stdout, stderr) <-
+            readProcessWithExitCode
+              damlc
+              ( "test"
+              : "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+              : "--project-root"
+              : (projDir </> "b")
+              : args projDir )
+              ""
           stderr @?= ""
           assertBool ("Succeeding scenario in " <> stdout) ("B.daml:test: ok" `isInfixOf` stdout)
           exitCode @?= ExitSuccess
