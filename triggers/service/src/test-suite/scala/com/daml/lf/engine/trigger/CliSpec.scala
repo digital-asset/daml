@@ -44,7 +44,7 @@ class CliSpec extends AsyncWordSpec with Matchers {
 
         //authorization config
         c.authorization.authCallbackTimeout shouldBe Cli.DefaultAuthCallbackTimeout
-        c.authorization.authCommonUri shouldBe Some(Uri("https://oauth2/common-uri"))
+        c.authorization.authCommonUri shouldBe None
         c.authorization.authCallbackUri shouldBe Some(Uri("https://oauth2/callback-uri"))
         c.authorization.authInternalUri shouldBe Some(Uri("https://oauth2/internal-uri"))
         c.authorization.authExternalUri shouldBe Some(Uri("https://oauth2/external-uri"))
@@ -146,6 +146,14 @@ class CliSpec extends AsyncWordSpec with Matchers {
     Cli
       .parseConfig(
         Array("--ledger-host", "localhost"),
+        Set(),
+      ) shouldBe None
+  }
+
+  "should fail to load config on supplying both cli args and config file" in {
+    Cli
+      .parseConfig(
+        Array("--config", confFile, "--ledger-host", "localhost", "--ledger-port", "9999"),
         Set(),
       ) shouldBe None
   }

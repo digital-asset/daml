@@ -16,17 +16,25 @@ import scala.concurrent.duration.FiniteDuration
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.{DBConfig, JdbcConfig}
 import com.typesafe.scalalogging.StrictLogging
+import pureconfig.error.FailureReason
 import pureconfig.generic.semiauto.deriveReader
 import pureconfig.{ConfigReader, ConfigSource, ConvertHelpers}
 
 import scala.concurrent.duration
 import scala.util.{Failure, Success}
 
-private[trigger] final case class LedgerApiConfig(
-    address: String,
-    port: Int,
-)
+private[trigger] final case class LedgerApiConfig(address: String, port: Int)
 
+private[trigger] object AuthorizationConfig {
+  final case object AuthConfigFailure extends FailureReason {
+    val description =
+      "You must specify either just auth-common-uri or both auth-internal-uri and auth-external-uri"
+  }
+  def isValid(ac: AuthorizationConfig): Boolean = {
+    (ac.authCommonUri.isDefined && ac.authExternalUri.isEmpty && ac.authInternalUri.isEmpty) ||
+    (ac.authCommonUri.isEmpty && ac.authExternalUri.nonEmpty && ac.authInternalUri.nonEmpty)
+  }
+}
 private[trigger] final case class AuthorizationConfig(
     authInternalUri: Option[Uri] = None,
     authExternalUri: Option[Uri] = None,
@@ -166,6 +174,7 @@ private[trigger] final case class Cli(
 }
 
 private[trigger] object Cli {
+  import AuthorizationConfig._
 
   val DefaultHttpPort: Int = 8088
   val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
@@ -220,7 +229,9 @@ private[trigger] object Cli {
   lazy implicit val ledgerHostPortReader: ConfigReader[LedgerApiConfig] =
     deriveReader[LedgerApiConfig]
   lazy implicit val authCfgReader: ConfigReader[AuthorizationConfig] =
-    deriveReader[AuthorizationConfig]
+    deriveReader[AuthorizationConfig].emap { ac =>
+      Either.cond(isValid(ac), ac, AuthConfigFailure)
+    }
   lazy implicit val serviceCfgReader: ConfigReader[TriggerServiceTypeConf] =
     deriveReader[TriggerServiceTypeConf]
 
@@ -442,6 +453,12 @@ private[trigger] object Cli {
         )
       else
         success
+    }
+
+    checkConfig { cfg =>
+      if (cfg.configFile.isDefined && (cfg.ledgerHost != null || cfg.ledgerPort != 0))
+        Left("Found both config file and cli opts for the app, please provide only one of them")
+      else Right(())
     }
 
     cmd("init-db")
