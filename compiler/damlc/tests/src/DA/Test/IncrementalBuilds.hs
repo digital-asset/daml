@@ -139,7 +139,14 @@ tests damlc repl = testGroup "Incremental builds"
               createDirectoryIfMissing True (takeDirectory $ dir </> file)
               writeFileUTF8 (dir </> file) content
           let dar = dir </> "out.dar"
-          callProcessSilent damlc ["build", "--project-root", dir, "-o", dar, "--incremental=yes"]
+          callProcessSilent damlc
+            [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , "--project-root"
+            , dir
+            , "-o"
+            , dar
+            , "--incremental=yes" ]
           callProcessSilent repl ["testAll", dar]
           dalfFiles <- getDalfFiles $ dir </> ".daml/build"
           dalfModTimes <- for dalfFiles $ \f -> do
@@ -148,7 +155,14 @@ tests damlc repl = testGroup "Incremental builds"
           for_ modification $ \(file, content) -> do
               createDirectoryIfMissing True (takeDirectory $ dir </> file)
               writeFileUTF8 (dir </> file) content
-          callProcessSilent damlc ["build", "--project-root", dir, "-o", dar, "--incremental=yes"]
+          callProcessSilent damlc
+            ["build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , "--project-root"
+            , dir
+            , "-o"
+            , dar
+            , "--incremental=yes" ]
           rebuilds <- forMaybeM dalfModTimes $ \(f, oldModTime) -> do
               newModTime <- getModificationTime f
               pure $ if newModTime == oldModTime
