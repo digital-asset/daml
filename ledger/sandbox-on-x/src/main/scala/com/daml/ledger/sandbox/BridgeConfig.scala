@@ -10,6 +10,7 @@ case class BridgeConfig(
     conflictCheckingEnabled: Boolean,
     maxDedupSeconds: Int,
     submissionBufferSize: Int,
+    bridgeThreadPoolSize: Int,
 )
 
 object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
@@ -29,6 +30,11 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
       .text("Enables the ledger-side submission conflict checking.")
       .action((_, c) => c.copy(extra = c.extra.copy(conflictCheckingEnabled = true)))
 
+    parser
+      .opt[Int]("bridge-threadpool-size")
+      .text("The thread-pool size used for the ledger-side conflict checking")
+      .action((p, c) => c.copy(extra = c.extra.copy(bridgeThreadPoolSize = p)))
+
     ()
   }
 
@@ -37,5 +43,6 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     conflictCheckingEnabled = false,
     maxDedupSeconds = 30,
     submissionBufferSize = 500,
+    bridgeThreadPoolSize = 8,
   )
 }

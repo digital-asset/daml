@@ -40,11 +40,8 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     errorFactories: ErrorFactories,
 )(implicit
     loggingContext: LoggingContext,
-    servicesExecutionContext: ExecutionContext,
+    executionContext: ExecutionContext,
 ) extends LedgerBridge {
-  // The ledger bridge should exhaust the services execution context together with the Ledger API.
-  // For this reason, the async stages parallelism should not be the bottleneck
-  // so we set a high value here.
   private val AsyncStagesParallelism = 64
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 

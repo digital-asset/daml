@@ -6,6 +6,7 @@ package ledger.sandbox.bridge
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -22,6 +23,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.common.primitives.Longs
 
 import java.util.UUID
+import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
 trait LedgerBridge {
@@ -35,9 +37,19 @@ object LedgerBridge {
       indexService: IndexService,
       metrics: Metrics,
   )(implicit
-      executionContext: ExecutionContext,
-      loggingContext: LoggingContext,
-  ): ResourceOwner[LedgerBridge] =
+      loggingContext: LoggingContext
+  ): ResourceOwner[LedgerBridge] = {
+    val bridgeMetrics = new BridgeMetrics(metrics)
+
+    implicit val ec: ExecutionContext =
+      ExecutionContext.fromExecutorService(
+        new InstrumentedExecutorService(
+          Executors.newWorkStealingPool(config.extra.bridgeThreadPoolSize),
+          metrics.registry,
+          bridgeMetrics.threadpool.toString,
+        )
+      )
+
     if (config.extra.conflictCheckingEnabled)
       for {
         initialLedgerEnd <- ResourceOwner.forFuture(() => indexService.currentLedgerEnd())
@@ -46,7 +58,7 @@ object LedgerBridge {
           indexService = indexService,
           initialLedgerEnd =
             Offset.fromHexString(Ref.HexString.assertFromString(initialLedgerEnd.value)),
-          bridgeMetrics = new BridgeMetrics(metrics),
+          bridgeMetrics = bridgeMetrics,
           errorFactories = ErrorFactories(
             new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
           ),
@@ -56,6 +68,7 @@ object LedgerBridge {
       ResourceOwner.forValue(() =>
         new PassThroughLedgerBridge(participantId = participantConfig.participantId)
       )
+  }
 
   private[bridge] def fromOffset(offset: Offset): Long = {
     val offsetBytes = offset.toByteArray
