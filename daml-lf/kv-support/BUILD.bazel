@@ -10,10 +10,10 @@ load(
 )
 
 da_scala_library(
-    name = "kv-transaction-support",
+    name = "kv-support",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts_stricter,
-    tags = ["maven_coordinates=com.daml:daml-lf-kv-transaction-support:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-kv-support:__VERSION__"],
     visibility = ["//ledger/participant-state/kvutils:__subpackages__"],
     deps = [
         "//daml-lf/data",
@@ -35,7 +35,7 @@ da_scala_test_suite(
     ],
     scalacopts = lf_scalacopts,
     deps = [
-        ":kv-transaction-support",
+        ":kv-support",
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
