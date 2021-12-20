@@ -135,10 +135,10 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               ]
           callProcessSilent damlc
             [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", projb
             , "--target", LF.renderVersion targetLfVer
-            , "-o", projb </> "projb.dar"
-            ]
+            , "-o", projb </> "projb.dar" ]
           step "Validating DAR"
           validate $ projb </> "projb.dar"
           projbPkgIds <- darPackageIds (projb </> "projb.dar")
@@ -492,12 +492,19 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             [projDir </> "simple-dalf-1.0.0.dalf"]
         callProcess damlc
             [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", projDir
             , "--target=1.dev"
-            , "--generated-src"]
+            , "--generated-src" ]
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertFileExists dar
-        callProcessSilent damlc ["test", "--target=1.dev", "--project-root", projDir, "--generated-src"]
+        callProcessSilent damlc
+            [ "test"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , "--target=1.dev"
+            , "--project-root"
+            , projDir
+            , "--generated-src" ]
     | withArchiveChoice <- [False, True]
     ] <>
     [ testCaseSteps ("Typeclasses and instances from DAML-LF " <> LF.renderVersion depLfVer <> " to " <> LF.renderVersion targetLfVer) $ \step -> withTempDir $ \tmpDir -> do
@@ -688,10 +695,10 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               ]
           callProcessSilent damlc
               [ "build"
+              , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
               , "--project-root", projb
               , "--target=" <> LF.renderVersion targetLfVer
-              , "-o", projb </> "projb.dar"
-              ]
+              , "-o", projb </> "projb.dar" ]
           validate $ projb </> "projb.dar"
 
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
@@ -1152,6 +1159,7 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             ]
         callProcessSilent damlc
             [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", tmpDir </> "dep"
             , "-o", tmpDir </> "dep" </> "dep.dar" ]
         Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (tmpDir </> "dep" </> "dep.dar")
@@ -1189,7 +1197,11 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             , "import Foo"
             , "g = f"
             ]
-        callProcessSilent damlc [ "build", "--project-root", tmpDir </> "proj" ]
+        callProcessSilent damlc
+            [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , "--project-root"
+            , tmpDir </> "proj" ]
 
     , dataDependenciesTest "Using orphan instances transitively"
         -- This test checks that orphan instances are imported
@@ -1555,11 +1567,13 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
            ]
         callProcessSilent damlc
             [ "build"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", tmpDir </> "main"
             , "--target", LF.renderVersion LF.versionDev ]
         step "running damlc test"
         callProcessSilent damlc
             [ "test"
+            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", tmpDir </> "main"
             , "--target", LF.renderVersion LF.versionDev ]
     ]
@@ -1584,8 +1598,9 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
                 writeFileUTF8 (tmpDir </> "lib" </> path) $ unlines contents
             callProcessSilent damlc
                 [ "build"
+                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
                 , "--project-root", tmpDir </> "lib"
-                , "-o", tmpDir </> "lib" </> "lib.dar"]
+                , "-o", tmpDir </> "lib" </> "lib.dar" ]
 
             step "building project that imports it via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "main")
@@ -1600,4 +1615,8 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
                 ]
             forM_ mainModules $ \(path, contents) ->
                 writeFileUTF8 (tmpDir </> "main" </> path) $ unlines contents
-            callProcessSilent damlc ["build", "--project-root", tmpDir </> "main"]
+            callProcessSilent damlc
+                [ "build"
+                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                , "--project-root"
+                , tmpDir </> "main" ]
