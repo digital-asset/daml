@@ -748,8 +748,8 @@ templateTests = testGroup "templates" $
         withTempDir $ \tmpDir -> do
             let dir = tmpDir </> "foobar"
             callCommandSilentIn tmpDir $ unwords ["daml", "new", dir, "--template", name]
-            callCommandSilentIn dir "daml build"
-    | name <- templateNames
+            callCommandSilentIn dir $ "daml build " <> unwords flags
+    | (name, flags) <- templateNamesAndFlags
     ] <>
     [ testCase "quickstart-java, positional template" $ do
         withTempDir $ \tmpDir -> do
@@ -761,16 +761,16 @@ templateTests = testGroup "templates" $
     ]
   -- NOTE (MK) We might want to autogenerate this list at some point but for now
   -- this should be good enough.
-  where templateNames =
-            [ "copy-trigger"
-            , "gsg-trigger"
+  where templateNamesAndFlags =
+            [ ("copy-trigger", [])
+            , ("gsg-trigger", [])
             -- daml-intro-1 - daml-intro-6 are not full projects.
-            , "daml-intro-7"
-            , "daml-patterns"
-            , "quickstart-java"
-            , "script-example"
-            , "skeleton"
-            , "create-daml-app"
+            , ("daml-intro-7", [])
+            , ("daml-patterns", ["--enable-scenarios=yes"]) -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , ("quickstart-java", [])
+            , ("script-example", [])
+            , ("skeleton", [])
+            , ("create-daml-app", [])
             ]
 
 -- | Check we can generate language bindings.

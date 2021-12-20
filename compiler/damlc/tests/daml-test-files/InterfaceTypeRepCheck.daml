@@ -36,3 +36,5 @@ main = scenario do
         cidT1 <- create (T1 p)
         let cidT2 = coerceContractId @T1 @T2 cidT1
         exercise cidT2 MyArchive
+
+-- @ENABLE-SCENARIOS

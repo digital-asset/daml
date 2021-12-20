@@ -46,3 +46,5 @@ testOptionalToEither = scenario do
 testEitherToOptional = scenario do
   Some 1 === eitherToOptional (Right 1)
   None === eitherToOptional (Left "a" : Either Text Int)
+
+-- @ENABLE-SCENARIOS

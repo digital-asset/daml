@@ -54,3 +54,5 @@ testDeleteBy = scenario do
   where
     -- Get dlint to stop complaining.
     eq = (==)
+
+-- @ENABLE-SCENARIOS

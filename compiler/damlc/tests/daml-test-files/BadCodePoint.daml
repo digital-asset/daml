@@ -12,3 +12,5 @@ import DA.Text qualified as T
 test = scenario do
     let t = T.fromCodePoints [0x110000]
     pure ()
+
+-- @ENABLE-SCENARIOS

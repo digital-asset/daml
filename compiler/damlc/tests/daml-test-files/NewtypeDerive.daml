@@ -13,3 +13,5 @@ main = scenario do
   assert $ New 1 < New 2
   show (New 1) === "New 1"
   fmap (+1) (New 1) === New 2
+
+-- @ENABLE-SCENARIOS

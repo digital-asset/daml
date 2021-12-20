@@ -41,3 +41,5 @@ main = scenario do
 
   fromAnyContractKey @T2 (toAnyContractKey @T1 p) === None
   fromAnyContractKey @T1 (toAnyContractKey @T2 (p, "foobar")) === None
+
+-- @ENABLE-SCENARIOS

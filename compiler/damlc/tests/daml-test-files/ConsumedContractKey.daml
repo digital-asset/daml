@@ -36,3 +36,5 @@ testFetchFromConsumingChoice = do
   alice <- getParty "Alice"
   fooId <- alice `submit` create Foo with signer = alice
   alice `submit` exercise fooId Fetch
+
+-- @ENABLE-SCENARIOS

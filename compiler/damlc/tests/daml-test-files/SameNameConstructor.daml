@@ -12,3 +12,5 @@ test = scenario do
   assert $ case X of
     X -> True
     Y -> False
+
+-- @ENABLE-SCENARIOS

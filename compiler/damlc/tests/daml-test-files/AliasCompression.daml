@@ -13,3 +13,5 @@ f x0 =
   x2
 
 main = scenario do f (pure ())
+
+-- @ENABLE-SCENARIOS

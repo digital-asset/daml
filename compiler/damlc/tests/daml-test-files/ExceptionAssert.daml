@@ -34,3 +34,5 @@ testAssertEq = scenario do
         catch
             AssertionFailed m ->
                 m === "Failure, expected 10 == 20"
+
+-- @ENABLE-SCENARIOS

@@ -16,3 +16,5 @@ showOptional f x = optional "None" f x
 main = scenario do
   phantom === Phantom {}
   showOptional show (None : Optional Int) === "None"
+
+-- @ENABLE-SCENARIOS

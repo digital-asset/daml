@@ -48,3 +48,5 @@ test = scenario do
     account' === account
 
     maintainer @Account accountKey === [bank]
+
+-- @ENABLE-SCENARIOS

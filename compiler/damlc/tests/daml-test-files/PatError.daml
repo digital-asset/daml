@@ -13,3 +13,5 @@ f x = case x of
 
 main = scenario do
   f 1
+
+-- @ENABLE-SCENARIOS

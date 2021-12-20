@@ -320,3 +320,5 @@ testAsciiToUpper = scenario do
   T.asciiToUpper "\0daml" === "\0DAML"
   T.asciiToUpper "da\0⛄ml" === "DA\0⛄ML"
   T.asciiToUpper "áèïõǔ" === "áèïõǔ" -- non-ASCII characters are unchanged
+
+-- @ENABLE-SCENARIOS

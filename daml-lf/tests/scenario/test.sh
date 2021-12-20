@@ -48,7 +48,7 @@ TESTDAR="$TESTDIR/Main.dar"
 
 REGEX_HIDE_HASHES="s,@[a-z0-9]{8},@XXXXXXXX,g"
 
-$DAMLC package $TARGETFLAG --debug $TESTMAIN 'main' -o $TESTDAR
+$DAMLC package --enable-scenarios=yes $TARGETFLAG --debug $TESTMAIN 'main' -o $TESTDAR
 
 $REPL $DEVFLAG test Test:run $TESTDAR | sed -E "$REGEX_HIDE_HASHES" > ${TESTDIR}/ACTUAL.ledger
 

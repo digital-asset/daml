@@ -26,3 +26,5 @@ testFact = scenario do
   mysucc 12 === 13
   fact 5 === 120
   mymap show [1, 2] === ["1", "2"]
+
+-- @ENABLE-SCENARIOS

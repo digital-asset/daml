@@ -22,3 +22,5 @@ main = scenario do
     assert $ sum1 < Sum2
     assert $ sum3 < sum4
     sum1.field1 === sum3.field1
+
+-- @ENABLE-SCENARIOS

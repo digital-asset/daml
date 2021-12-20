@@ -19,3 +19,5 @@ data Foo = Foo with
 main = scenario do
   let x = Foo 1 2 3 4 5 6
   (x with foo4 = 42).foo4 === 42
+
+-- @ENABLE-SCENARIOS

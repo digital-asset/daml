@@ -40,3 +40,5 @@ test = scenario do
               && to (M1 (R1 (M1 (M1 (K1 (Node0 {l = Leaf 1, r = Leaf 2})))))) == Node (Node0 {l = Leaf 1, r = Leaf 2})
   assert $ (from $ Node0 {l = Leaf 1, r = Leaf 2}) == M1 (M1 (P1 (M1 (K1 (Leaf 1))) (M1 (K1 (Leaf 2)))))
               && to (M1 (M1 (P1 (M1 (K1 (Leaf 1))) (M1 (K1 (Leaf 2)))))) == Node0 {l = Leaf 1, r = Leaf 2}
+
+-- @ENABLE-SCENARIOS

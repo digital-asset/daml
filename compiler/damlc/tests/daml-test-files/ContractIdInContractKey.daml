@@ -48,3 +48,5 @@ exerciseCrashes = scenario do
     cid <- submit alice $ do
           create Contract with party = alice
     submit alice $ do exerciseByKey @ContractKeyWithCid (alice, cid) Noop
+
+-- @ENABLE-SCENARIOS

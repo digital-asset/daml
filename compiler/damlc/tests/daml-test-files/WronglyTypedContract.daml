@@ -29,3 +29,5 @@ test = scenario do
   cid <- submit p $ create (T1 p)
   fetcher <- submit p $ createAndExercise (Fetcher p) (Fetch2 (coerceContractId cid))
   pure ()
+
+-- @ENABLE-SCENARIOS

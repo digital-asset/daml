@@ -10,3 +10,5 @@ import DA.Numeric
 testShift = scenario do
   shift @1 @2 1.0 === 10.0
   shift @2 @1 1.0 === 0.1
+
+-- @ENABLE-SCENARIOS

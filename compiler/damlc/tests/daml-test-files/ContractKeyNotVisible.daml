@@ -124,3 +124,5 @@ localLookupFetchMustFail = scenario do
   cid <- submit p1 $ create (LocalKeyVisibility p1 p2)
   submitMustFail p2 $ exercise cid LocalLookup
   submitMustFail p2 $ exercise cid LocalFetch
+
+-- @ENABLE-SCENARIOS

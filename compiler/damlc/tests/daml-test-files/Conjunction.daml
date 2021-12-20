@@ -68,3 +68,5 @@ main = scenario do
   43 <- submit q $ exercise barCid DelegatedCall3 with cid = fooCid
 
   return ()
+
+-- @ENABLE-SCENARIOS

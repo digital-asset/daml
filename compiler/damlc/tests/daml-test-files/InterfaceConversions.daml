@@ -52,3 +52,5 @@ main = scenario do
         x2 === None
         x3 === None
         x4 === Some templateCid2
+
+-- @ENABLE-SCENARIOS

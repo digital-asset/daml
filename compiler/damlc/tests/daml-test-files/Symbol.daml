@@ -14,3 +14,5 @@ test = scenario do
   alice <- getParty "Alice"
   submit alice do
     create Symbol with p = alice
+
+-- @ENABLE-SCENARIOS

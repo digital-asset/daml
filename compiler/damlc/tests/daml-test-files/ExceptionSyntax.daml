@@ -26,3 +26,5 @@ tryCatchExample = scenario do
         catch
             MyException m -> pure m
     x === "ok"
+
+-- @ENABLE-SCENARIOS

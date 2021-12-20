@@ -16,3 +16,5 @@ unT (T x) = x
 
 main = scenario do
   unT (mkT 1) === 1
+
+-- @ENABLE-SCENARIOS

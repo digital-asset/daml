@@ -216,6 +216,7 @@ daml_build_test(
         ":pkg1.dar": "pkg1.dar",
         ":pkg2.dar": "pkg2.dar",
     },
+    enable_scenarios = True,
     project_dir = "src/it/daml/pkg-root",
 )
 
@@ -318,6 +319,7 @@ java_test(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
+    enable_scenarios = True,
     target = lf_version_configuration.get("default"),
 )
 

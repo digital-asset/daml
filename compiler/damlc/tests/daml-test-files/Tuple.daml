@@ -47,3 +47,5 @@ testCurry3 = scenario do
 
 testUncurry3 = scenario do
     123 === uncurry3 (\x y z -> x + y + z) (20, 3, 100)
+
+-- @ENABLE-SCENARIOS

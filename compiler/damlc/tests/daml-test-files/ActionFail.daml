@@ -18,3 +18,5 @@ catOptionalsMonad l = do
 main = scenario do
   catOptionalsComp [None,Some 1,Some 2] === [1,2]
   catOptionalsMonad [None,Some 1,Some 2] === [1,2]
+
+-- @ENABLE-SCENARIOS

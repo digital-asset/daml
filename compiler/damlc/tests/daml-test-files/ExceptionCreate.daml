@@ -26,3 +26,5 @@ test = scenario do
             PreconditionFailed msg ->
                 pure msg
     m === "Template precondition violated: MyTemplate {p = 'Alice'}"
+
+-- @ENABLE-SCENARIOS

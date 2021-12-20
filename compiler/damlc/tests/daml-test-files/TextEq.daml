@@ -14,3 +14,5 @@ main = scenario do
     stringEdit "USD" === "JPY"
     stringEdit "JPY" === "USD"
     stringEdit "DAML" === "DAML"
+
+-- @ENABLE-SCENARIOS

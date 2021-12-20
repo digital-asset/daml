@@ -38,3 +38,5 @@ main = scenario do
   alice <- getParty "alice"
   submitMustFail alice do
     succ Sun === Mon
+
+-- @ENABLE-SCENARIOS

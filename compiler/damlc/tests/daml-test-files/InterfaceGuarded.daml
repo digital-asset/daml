@@ -89,3 +89,5 @@ main = scenario do
         pure $ toInterfaceContractId @Token asset
 
   pure ()
+
+-- @ENABLE-SCENARIOS

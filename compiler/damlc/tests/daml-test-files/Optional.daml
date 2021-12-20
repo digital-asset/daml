@@ -85,3 +85,5 @@ testFindOptional = scenario do
 toLeft : Either a b -> Optional a
 toLeft (Left a) = Some a
 toLeft (Right _) = None
+
+-- @ENABLE-SCENARIOS

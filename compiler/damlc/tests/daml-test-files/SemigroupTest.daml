@@ -10,3 +10,5 @@ import DA.Semigroup
 test = scenario do
   Min (23 : Int) <> Min 42 === Min 23
   Max (23 : Int) <> Max 42 === Max 42
+
+-- @ENABLE-SCENARIOS

@@ -10,3 +10,5 @@ main = scenario do
   [1] === [1]
   [1.0] =/= ([2.0] : [Decimal])
   [""] =/= []
+
+-- @ENABLE-SCENARIOS

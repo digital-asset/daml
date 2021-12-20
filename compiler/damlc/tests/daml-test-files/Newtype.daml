@@ -36,3 +36,5 @@ main = scenario do
   unNat1 one1 === 1
   unNat2 (mkNat 2) === 2
   unNat3 (unsafeMkNat 3) === 3
+
+-- @ENABLE-SCENARIOS

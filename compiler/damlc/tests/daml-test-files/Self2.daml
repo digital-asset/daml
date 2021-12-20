@@ -35,3 +35,5 @@ main = scenario do
     cid <- create $ Self2 alice
     exercise cid Foo
   r === "ok"
+
+-- @ENABLE-SCENARIOS

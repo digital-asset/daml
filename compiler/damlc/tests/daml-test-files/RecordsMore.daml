@@ -35,3 +35,5 @@ main = scenario do
   f [A 1, A 2, A 3] === [1, 2, 3]
   f <- return $ \ l -> map (.y.x) l
   f [B (A 1) (A 2), B (A 2) (A 3), B (A 3) (A 4)] === [1, 2, 3]
+
+-- @ENABLE-SCENARIOS

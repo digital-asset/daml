@@ -21,3 +21,5 @@ main = scenario do
   submit alice do
     cid1 <- create Self with p = alice
     exercise cid1 Same with other = cid1
+
+-- @ENABLE-SCENARIOS

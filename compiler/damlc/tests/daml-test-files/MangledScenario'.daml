@@ -15,3 +15,5 @@ mangled' = scenario do
   t' <- submit alice (create T' with p = alice)
   submit alice (exercise t' Archive)
   pure (T1 0)
+
+-- @ENABLE-SCENARIOS

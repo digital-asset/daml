@@ -65,3 +65,5 @@ main = scenario do
 
   assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1 p <= toAnyContractKey @T1' p)
   assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1' p > toAnyContractKey @T1 p)
+
+-- @ENABLE-SCENARIOS
