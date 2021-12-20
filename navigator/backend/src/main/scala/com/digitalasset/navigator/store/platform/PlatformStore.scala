@@ -74,6 +74,8 @@ object PlatformStore {
 
   case class StateConnected(
       ledgerClient: LedgerClient,
+      // TODO: more structure? parties.keys is a mixed bag, but only used for display purposes, so probably ok as-is
+      // A key could be: a Party's displayName, a party's name, a User's id, or a name specified in our config
       parties: Map[String, PartyState],
       staticTime: Option[StaticTime],
       time: TimeProviderWithType,
@@ -167,18 +169,20 @@ class PlatformStore(
         .pipeTo(self)
 
       state.ledgerClient.userManagementClient
-        .listUsers() // TODO what token should we pass?
+        .listUsers() // don't pass token here -- it's already set on startup (LedgerClientConfiguration)
         .map(UpdatedUsers(_))
         .pipeTo(self)
       ()
 
     case UpdatedUsers(users) =>
-      // TODO: should we be able to log in as a user without a primary party?
-      val usersWithPrimaryParties = users.flatMap { user => user.primaryParty.map(p => (user.id, p)) }
+      // Note: you cannot log in as a user without a primary party
+      val usersWithPrimaryParties = users.flatMap { user =>
+        user.primaryParty.map(p => (user.id, p))
+      }
 
       usersWithPrimaryParties.foreach { case (userId, party) =>
         self ! Subscribe(
-          userId, // TODO: state.parties.keys are a mixed bag: a Party's displayName, a party's name, or a User's id -- is it ok to mix these?
+          userId,
           UserConfig(party = ApiTypes.Party(party), role = None, useDatabase = false),
         )
       }
