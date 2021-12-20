@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.wire.{DamlConfigurationSubmissi
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.kv.archives.RawArchive
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
@@ -77,7 +78,7 @@ class KeyValueSubmission(metrics: Metrics) {
         .addAllInputDamlState(contractKeyStates.asJava)
         .setTransactionEntry(
           DamlTransactionEntry.newBuilder
-            .setRawTransaction(Conversions.encodeTransaction(tx).bytes)
+            .setRawTransaction(Conversions.assertEncodeTransaction(tx).byteString)
             .setSubmitterInfo(encodedSubInfo)
             .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
             .setWorkflowId(meta.workflowId.getOrElse(""))
@@ -90,7 +91,7 @@ class KeyValueSubmission(metrics: Metrics) {
   /** Prepare a package upload submission. */
   def archivesToSubmission(
       submissionId: String,
-      hashesToArchives: Map[String, Raw.Archive],
+      hashesToArchives: Map[String, RawArchive],
       sourceDescription: String,
       participantId: Ref.ParticipantId,
   ): DamlSubmission =
@@ -107,7 +108,7 @@ class KeyValueSubmission(metrics: Metrics) {
         .setSourceDescription(sourceDescription)
         .setParticipantId(participantId)
       hashesToArchives.values.foreach(rawArchive =>
-        packageUploadEntryBuilder.addArchives(rawArchive.bytes)
+        packageUploadEntryBuilder.addArchives(rawArchive.byteString)
       )
 
       DamlSubmission.newBuilder

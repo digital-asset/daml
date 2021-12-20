@@ -11,8 +11,8 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.{
-  LedgerTimeValidator,
   CommitterModelConformanceValidator,
+  LedgerTimeValidator,
   TransactionConsistencyValidator,
 }
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
@@ -24,9 +24,10 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, Raw}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Blinding, Engine}
+import com.daml.lf.kv.contracts.{ContractConversions, RawContractInstance}
 import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.entries.LoggingEntries
@@ -263,27 +264,32 @@ private[kvutils] class TransactionCommitter(
       commitContext: CommitContext,
   )(implicit
       loggingContext: LoggingContext
-  ): Map[ContractId, Raw.ContractInstance] = {
+  ): Map[ContractId, RawContractInstance] = {
     val localContracts = transactionEntry.transaction.localContracts
     val consumedContracts = transactionEntry.transaction.consumedContracts
     val contractKeys = transactionEntry.transaction.updatedContractKeys
     // Add contract state entries to mark contract activeness (checked by 'validateModelConformance').
     for ((cid, (nid, createNode)) <- localContracts) {
-      val cs = DamlContractState.newBuilder
-      cs.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
+      val contractStateBuilder = DamlContractState.newBuilder
       val localDisclosure = blindingInfo.disclosure(nid)
-      cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
-      cs.setRawContractInstance(
-        Conversions.encodeContractInstance(createNode.versionedCoinst).bytes
+      val rawContractInstance = ContractConversions
+        .encodeContractInstance(createNode.versionedCoinst)
+        .fold(err => throw Err.EncodeError("ContractInstance", err.errorMessage), identity)
+
+      contractStateBuilder.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
+      contractStateBuilder.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
+      contractStateBuilder.setRawContractInstance(
+        rawContractInstance.byteString
       )
       createNode.key.foreach { keyWithMaintainers =>
-        cs.setContractKey(
+        contractStateBuilder.setContractKey(
           Conversions.encodeContractKey(createNode.templateId, keyWithMaintainers.key)
         )
       }
+
       commitContext.set(
         Conversions.contractIdToStateKey(cid),
-        DamlStateValue.newBuilder.setContractState(cs).build,
+        DamlStateValue.newBuilder.setContractState(contractStateBuilder).build,
       )
     }
     // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance').
@@ -302,21 +308,23 @@ private[kvutils] class TransactionCommitter(
     }
     // Update contract state of divulged contracts.
     val divulgedContractsBuilder = {
-      val builder = Map.newBuilder[ContractId, Raw.ContractInstance]
+      val builder = Map.newBuilder[ContractId, RawContractInstance]
       builder.sizeHint(blindingInfo.divulgence.size)
       builder
     }
 
     for ((coid, parties) <- blindingInfo.divulgence) {
       val key = contractIdToStateKey(coid)
-      val cs = getContractState(commitContext, key)
-      divulgedContractsBuilder += (coid -> Raw.ContractInstance(cs.getRawContractInstance))
-      val divulged: Set[String] = cs.getDivulgedToList.asScala.toSet
+      val contractState = getContractState(commitContext, key)
+      divulgedContractsBuilder += (coid -> RawContractInstance(
+        contractState.getRawContractInstance
+      ))
+      val divulged: Set[String] = contractState.getDivulgedToList.asScala.toSet
       val newDivulgences: Set[String] = parties.toSet[String] -- divulged
       if (newDivulgences.nonEmpty) {
-        val cs2 = cs.toBuilder
+        val newContractState = contractState.toBuilder
           .addAllDivulgedTo(newDivulgences.asJava)
-        commitContext.set(key, DamlStateValue.newBuilder.setContractState(cs2).build)
+        commitContext.set(key, DamlStateValue.newBuilder.setContractState(newContractState).build)
       }
     }
     // Update contract keys.

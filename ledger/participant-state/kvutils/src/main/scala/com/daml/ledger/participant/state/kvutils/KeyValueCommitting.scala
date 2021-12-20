@@ -24,6 +24,7 @@ import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
+import com.daml.lf.kv.archives.{ArchiveConversions, RawArchive}
 import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -180,7 +181,7 @@ object KeyValueCommitting {
         submission.getPackageUploadEntry.getArchivesList.asScala.toSet.map {
           rawArchive: ByteString =>
             // It is not supposed to throw, as the archives have just been validated.
-            val hash = Conversions.extractHashFromArchive(Raw.Archive(rawArchive))
+            val hash = ArchiveConversions.extractHash(RawArchive(rawArchive))
             DamlStateKey.newBuilder.setPackageId(hash).build
         } + packageUploadDedupKey(packageEntry.getParticipantId, packageEntry.getSubmissionId)
 

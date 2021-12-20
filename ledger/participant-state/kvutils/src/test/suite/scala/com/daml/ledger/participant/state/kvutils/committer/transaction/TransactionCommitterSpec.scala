@@ -18,10 +18,11 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateKey,
   DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.{Conversions, committer}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err, committer}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
+import com.daml.lf.kv.contracts.ContractConversions
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractId, ValueRecord, ValueText}
@@ -395,7 +396,7 @@ object TransactionCommitterSpec {
     builder.add(createNode)
     builder.add(exerciseNode)
 
-    val expectedRawContractInstance = Conversions
+    val expectedRawContractInstance = ContractConversions
       .encodeContractInstance(
         Value.VersionedContractInstance(
           version = TransactionVersion.StableVersions.max,
@@ -404,7 +405,7 @@ object TransactionCommitterSpec {
           agreementText = "",
         )
       )
-      .bytes
+      .getOrElse(throw Err.EncodeError("ContractInstance", "Should not happen"))
 
     expectedRawContractInstance -> createTransactionEntry(
       List("aSubmitter"),

@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.kv.TransactionNormalizer
+import com.daml.lf.kv.transactions.TransactionNormalizer
 import com.daml.lf.transaction.CommittedTransaction
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status

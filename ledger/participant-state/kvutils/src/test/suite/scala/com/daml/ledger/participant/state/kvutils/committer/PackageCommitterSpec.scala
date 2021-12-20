@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils.committer
 import java.util.UUID
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.participant.state.kvutils.{Conversions, Raw}
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE
@@ -20,6 +19,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.kv.archives.{ArchiveConversions, RawArchive}
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.logging.LoggingContext
@@ -176,7 +176,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     val hashes = archives
       .iterator()
       .asScala
-      .map(archive => Conversions.extractHashFromArchive(Raw.Archive(archive)))
+      .map(archive => ArchiveConversions.extractHash(RawArchive(archive)))
       .toSet
     hashes shouldBe committedPackages.toSet[String]
   }

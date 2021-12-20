@@ -33,6 +33,7 @@ import com.daml.lf.data.Ref.{Party, QualifiedName}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time.{Timestamp => LfTimestamp}
 import com.daml.lf.engine.Error
+import com.daml.lf.kv.contracts.RawContractInstance
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueOuterClass
@@ -697,12 +698,12 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
   private def newDivulgenceEntry(
       contractId: String,
       parties: List[String],
-      rawContractInstance: Raw.ContractInstance,
+      rawContractInstance: RawContractInstance,
   ) =
     DivulgenceEntry.newBuilder
       .setContractId(contractId)
       .addAllDivulgedToLocalParties(parties.asJava)
-      .setRawContractInstance(rawContractInstance.bytes)
+      .setRawContractInstance(rawContractInstance.byteString)
       .build
 
   private lazy val party0: Party = Party.assertFromString("party0")
@@ -788,7 +789,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           )
       )
       .build()
-    Raw.ContractInstance(contractInstance.toByteString)
+    RawContractInstance(contractInstance.toByteString)
   }
 
   private def finalReasonDetails(

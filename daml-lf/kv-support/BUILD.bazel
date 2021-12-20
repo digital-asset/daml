@@ -13,11 +13,18 @@ da_scala_library(
     name = "kv-support",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts_stricter,
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     tags = ["maven_coordinates=com.daml:daml-lf-kv-support:__VERSION__"],
     visibility = ["//ledger/participant-state/kvutils:__subpackages__"],
     deps = [
+        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/transaction",
+        "//daml-lf/transaction:transaction_proto_java",
+        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 
@@ -39,6 +46,8 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
+        "//daml-lf/transaction:transaction_proto_java",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

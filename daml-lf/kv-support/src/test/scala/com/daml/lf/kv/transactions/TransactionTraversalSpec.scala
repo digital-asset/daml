@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils
+package com.daml.lf.kv.transactions
 
 import com.daml.lf.transaction.TransactionOuterClass.{Node, Transaction}
 import com.daml.lf.transaction.TransactionVersion
@@ -58,23 +58,23 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
         exeNid,
       )
     )
-    val rawTx = Raw.Transaction(builder.build.toByteString)
+    val rawTx = RawTransaction(builder.build.toByteString)
 
-    TransactionUtils.traverseTransactionWithWitnesses(rawTx) {
-      case (Raw.NodeId(`createNid`), _, witnesses) =>
+    TransactionTraversal.traverseTransactionWithWitnesses(rawTx) {
+      case (RawTransaction.NodeId(`createNid`), _, witnesses) =>
         witnesses should contain.only("Alice", "Bob", "Charlie")
         ()
-      case (Raw.NodeId(`exeNid`), _, witnesses) =>
+      case (RawTransaction.NodeId(`exeNid`), _, witnesses) =>
         witnesses should contain.only("Alice", "Charlie")
         ()
-      case (Raw.NodeId(`nonConsumingExeNid`), _, witnesses) =>
+      case (RawTransaction.NodeId(`nonConsumingExeNid`), _, witnesses) =>
         // Non-consuming exercises are only witnessed by signatories.
         witnesses should contain only "Alice"
         ()
-      case (Raw.NodeId(`rootNid`), _, witnesses) =>
+      case (RawTransaction.NodeId(`rootNid`), _, witnesses) =>
         witnesses should contain only "Alice"
         ()
-      case (Raw.NodeId(`fetchNid`), _, witnesses) =>
+      case (RawTransaction.NodeId(`fetchNid`), _, witnesses) =>
         // This is of course ill-authorized, but we check that parent witnesses are included.
         witnesses should contain.only("Alice", "Bob")
         ()
