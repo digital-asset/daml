@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase
-import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.DeduplicationOffsetSupport.PassThroughOffsetSupport
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.{
   DeduplicationFeatures,
   DelayMechanism,
@@ -22,7 +21,11 @@ final class CommandDeduplicationIT(
     timeoutScaleFactor: Double,
     ledgerTimeInterval: FiniteDuration,
     staticTime: Boolean,
-) extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval, staticTime) {
+) extends CommandDeduplicationBase(
+      timeoutScaleFactor,
+      ledgerTimeInterval,
+      staticTime,
+    ) {
 
   override def runWithDeduplicationDelay(
       participants: Seq[ParticipantTestContext]
@@ -35,7 +38,6 @@ final class CommandDeduplicationIT(
 
   override def deduplicationFeatures: CommandDeduplicationBase.DeduplicationFeatures =
     DeduplicationFeatures(
-      participantDeduplication = true,
-      deduplicationOffsetSupport = PassThroughOffsetSupport,
+      participantDeduplication = true
     )
 }
