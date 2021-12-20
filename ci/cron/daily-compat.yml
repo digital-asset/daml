@@ -391,6 +391,8 @@ jobs:
       - bash: |
           set -euo pipefail
           eval "$(dev-env/bin/dade-assist)"
+          
+          export SCAN_CLI_OPTS="-Xms1g -Xmx10g"
 
           #avoid stomping any previous bazel haskell scans for this repository
           #by qualifying as a maven_install (aka jvm) bazel blackduck scan
