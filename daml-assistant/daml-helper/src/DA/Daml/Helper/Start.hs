@@ -16,6 +16,7 @@ module DA.Daml.Helper.Start
     , JsonApiPort(..)
     , JsonApiConfig(..)
     , SandboxChoice(..)
+    , SandboxCantonPortSpec(..)
     ) where
 
 import Control.Concurrent
@@ -104,24 +105,24 @@ getPortForSandbox defaultPort = \case
     Just (SpecifiedPort port) -> pure (unSandboxPort port)
     Just FreePort -> fromIntegral <$> getFreePort
 
-determineCantonPortsLabouriously :: StartOptions -> IO CantonPorts
-determineCantonPortsLabouriously StartOptions{..} = do
-    ledgerApi <- getPortForSandbox 6865 sandboxPortM
-    adminApi <- getPortForSandbox 6866 cantonAdminApiPort
-    domainPublicApi <- getPortForSandbox 6867 cantonDomainPublicPort
-    domainAdminApi <- getPortForSandbox 6868 cantonDomainAdminPort
+determineCantonPorts :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> IO CantonPorts
+determineCantonPorts ledgerApiSpec SandboxCantonPortSpec{..} = do
+    ledgerApi <- getPortForSandbox 6865 ledgerApiSpec
+    adminApi <- getPortForSandbox 6866 adminApiSpec
+    domainPublicApi <- getPortForSandbox 6867 domainPublicApiSpec
+    domainAdminApi <- getPortForSandbox 6868 domainAdminApiSpec
     pure CantonPorts {..}
 
 withSandbox :: StartOptions -> FilePath -> [String] -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
-withSandbox startOptions@StartOptions{..} darPath scenarioArgs sandboxArgs kont =
+withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
     case sandboxChoice of
       SandboxClassic -> oldSandbox "sandbox-classic"
-      SandboxModern -> oldSandbox "sandbox"
-      SandboxCanton -> cantonSandbox
+      SandboxKV -> oldSandbox "sandbox"
+      SandboxCanton cantonPortSpec -> cantonSandbox cantonPortSpec
 
   where
-    cantonSandbox = do
-      cantonPorts <- determineCantonPortsLabouriously startOptions
+    cantonSandbox cantonPortSpec = do
+      cantonPorts <- determineCantonPorts sandboxPortM cantonPortSpec
       withCantonSandbox cantonPorts sandboxArgs $ \ph -> do
         let sandboxPort = ledgerApi cantonPorts
         putStrLn "Waiting for canton sandbox to start: "
@@ -207,16 +208,19 @@ data StartOptions = StartOptions
     , navigatorOptions :: [String]
     , jsonApiOptions :: [String]
     , scriptOptions :: [String]
-    , sandboxChoice :: SandboxChoice
-    , cantonAdminApiPort :: Maybe SandboxPortSpec
-    , cantonDomainPublicPort :: Maybe SandboxPortSpec
-    , cantonDomainAdminPort :: Maybe SandboxPortSpec
+    , sandboxChoice :: !SandboxChoice
     }
 
 data SandboxChoice
   = SandboxClassic
-  | SandboxModern
-  | SandboxCanton
+  | SandboxKV
+  | SandboxCanton !SandboxCantonPortSpec
+
+data SandboxCantonPortSpec = SandboxCantonPortSpec
+  { adminApiSpec :: !(Maybe SandboxPortSpec)
+  , domainPublicApiSpec :: !(Maybe SandboxPortSpec)
+  , domainAdminApiSpec :: !(Maybe SandboxPortSpec)
+  }
 
 runStart :: StartOptions -> IO ()
 runStart startOptions@StartOptions{..} =
