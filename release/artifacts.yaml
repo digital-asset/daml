@@ -23,7 +23,7 @@
   type: jar-scala
 - target: //daml-lf/interpreter:interpreter
   type: jar-scala
-- target: //daml-lf/kv-transaction-support:kv-transaction-support
+- target: //daml-lf/kv-support:kv-support
   type: jar-scala
 - target: //daml-lf/language:language
   type: jar-scala
