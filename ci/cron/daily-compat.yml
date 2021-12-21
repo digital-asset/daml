@@ -461,6 +461,7 @@ jobs:
           --detect.tools=DETECTOR \
           --detect.included.detector.types=GIT,GO_MOD,GO_DEP,GO_VNDR,GO_VENDOR,GO_GRADLE \
           --detect.follow.symbolic.links=false \
+          --detect.go.path=$(bazel info execution_root)/external/go_sdk/bin/go \
           --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
           --detect.blackduck.signature.scanner.exclusion.name.patterns=.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
           --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
