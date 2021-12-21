@@ -15,11 +15,11 @@ object ArchiveConversions {
         .fromByteString(rawArchive.byteString)
         .left
         .map(error => ConversionError.ParseError(error.msg))
-      hash <- Ref.PackageId
+      packageId <- Ref.PackageId
         .fromString(archive.getHash)
         .left
         .map(ConversionError.ParseError)
-    } yield hash
+    } yield packageId
 
   def parsePackageIdsAndRawArchives(
       archives: List[com.daml.daml_lf_dev.DamlLf.Archive]
