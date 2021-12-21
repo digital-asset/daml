@@ -413,7 +413,7 @@ jobs:
           set -euo pipefail
           eval "$(dev-env/bin/dade-assist)"
 
-          cd language-support/ts && yarn install && cd ../../
+          (cd language-support/ts && yarn install)
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
           ci-build digital-asset_daml $(Build.SourceBranchName) \
