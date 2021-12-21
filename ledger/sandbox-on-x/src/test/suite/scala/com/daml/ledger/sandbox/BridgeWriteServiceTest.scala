@@ -1,0 +1,73 @@
+package com.daml.ledger.sandbox
+
+import com.daml.ledger.api.DeduplicationPeriod
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta, Update}
+import com.daml.ledger.sandbox.BridgeWriteService.Submission
+import com.daml.lf.crypto
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.daml.lf.transaction._
+import com.daml.lf.value.Value.{ContractId, ValueNone}
+import org.mockito.MockitoSugar
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
+class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers {
+
+  behavior of "BridgeWriteService"
+
+  "Success Mapper" should "add transaction statistics" in {
+
+    val nodeId = NodeId(0)
+    val contractId = ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("c0"), Bytes.assertFromString("00"))
+
+    val node = Node.Create(
+      contractId,
+      templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
+      arg = ValueNone,
+      agreementText = "dummyAgreement",
+      signatories = Set.empty,
+      stakeholders = Set.empty,
+      key = None,
+      byInterface = None,
+      version = TransactionVersion.minVersion,
+    )
+
+    val tx = SubmittedTransaction(VersionedTransaction(TransactionVersion.VDev, Map(nodeId -> node), ImmArray(nodeId)))
+
+    val submitterInfo = SubmitterInfo(
+      actAs = List.empty,
+      readAs = List.empty,
+      applicationId = Ref.ApplicationId.assertFromString("a0"),
+      commandId = Ref.CommandId.assertFromString("c0"),
+      deduplicationPeriod = DeduplicationPeriod.DeduplicationOffset(Offset.beforeBegin),
+      submissionId = None,
+      ledgerConfiguration = Configuration.reasonableInitialConfiguration,
+    )
+
+    val transactionMeta = TransactionMeta(
+      ledgerEffectiveTime = Time.Timestamp.now(),
+      workflowId = None,
+      submissionTime = Time.Timestamp.now(),
+      submissionSeed = crypto.Hash.hashPrivateKey("k0"),
+      optUsedPackages = None,
+      optNodeSeeds = None,
+      optByKeyNodes = None,
+    )
+
+    val submission: Submission = Submission.Transaction(
+      submitterInfo,
+      transactionMeta,
+      transaction = tx,
+      estimatedInterpretationCost = 0
+    )
+
+    val expected = TransactionNodeStatistics(tx)
+
+    val update = BridgeWriteService.successMapper(submission, 0, Ref.ParticipantId.assertFromString("p0"))
+
+    update.asInstanceOf[Update.TransactionAccepted].optCompletionInfo.flatMap(_.statistics) shouldBe Some(expected)
+  }
+
+}

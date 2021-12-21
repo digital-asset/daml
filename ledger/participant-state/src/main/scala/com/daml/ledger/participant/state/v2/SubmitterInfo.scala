@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v2
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.data.Ref
+import com.daml.lf.transaction.TransactionNodeStatistics
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 
 /** Collects context information for a submission.
@@ -41,13 +42,13 @@ final case class SubmitterInfo(
   /** The ID for the ledger change */
   val changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 
-  def toCompletionInfo: CompletionInfo = CompletionInfo(
+  def toCompletionInfo(statistics: Option[TransactionNodeStatistics] = None): CompletionInfo = CompletionInfo(
     actAs,
     applicationId,
     commandId,
     Some(deduplicationPeriod),
     submissionId,
-    None, // TODO Ledger Metering
+    statistics
   )
 }
 
