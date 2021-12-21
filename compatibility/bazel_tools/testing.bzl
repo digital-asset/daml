@@ -580,6 +580,8 @@ excluded_test_tool_tests = [
                     "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
                     # Unexpected failure (StatusRuntimeException) ALREADY_EXISTS: DUPLICATE_COMMAND(10,KVComman):
                     "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationCommandClient",
+                    # Offsets are not supported for versions < 2.0.0
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateUsingOffsets",
                     # Actual error id (INCONSISTENT) does not match expected error id (DUPLICATE_CONTRACT_KEY}
                     "ExceptionsIT:ExRollbackDuplicateKeyCreated",
                     "ExceptionsIT:ExRollbackDuplicateKeyArchived",
@@ -615,25 +617,6 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "2.0.0",
-        "platform_ranges": [
-            {
-                "end": "1.18.0",
-                "exclusions": [
-                    # Unexpected failure (StatusRuntimeException) ALREADY_EXISTS: DUPLICATE_COMMAND(10,KVComman):
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationMixedClients",
-                    # Assertion failed: Expecting completion with status code OK but completion has status Some(Status(6,DUPLICATE_COMMAND(10,972fae4b)
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
-                    # Unexpected failure (StatusRuntimeException) ALREADY_EXISTS: DUPLICATE_COMMAND(10,KVComman):
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationCommandClient",
-                    # Actual error id (INCONSISTENT) does not match expected error id (DUPLICATE_CONTRACT_KEY}
-                    "ExceptionsIT:ExRollbackDuplicateKeyCreated",
-                    "ExceptionsIT:ExRollbackDuplicateKeyArchived",
-                ],
-            },
-        ],
-    },
-    {
         # max deduplication duration is no longer enforced in the ledger API
         "end": last_nongranular_test_tool,
         "platform_ranges": [
@@ -641,20 +624,6 @@ excluded_test_tool_tests = [
                 "start": "2.0.0-snapshot.20211210.8653.0.35beb44c",
                 "exclusions": [
                     "LedgerConfigurationServiceIT",
-                ],
-            },
-        ],
-    },
-    {
-        "start": "1.18.0",
-        "end": "1.18.0",
-        "platform_ranges": [
-            {
-                "start": "2.0.0-snapshot.20211123.8463.0.bd2a6852",
-                "exclusions": [
-                    # Actual error id (INCONSISTENT) does not match expected error id (DUPLICATE_CONTRACT_KEY}
-                    "ExceptionsIT:ExRollbackDuplicateKeyCreated",
-                    "ExceptionsIT:ExRollbackDuplicateKeyArchived",
                 ],
             },
         ],
