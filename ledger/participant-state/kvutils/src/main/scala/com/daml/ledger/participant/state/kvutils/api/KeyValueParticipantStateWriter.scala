@@ -7,9 +7,11 @@ import java.util.UUID
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.kvutils.errors.KVErrors
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v2._
@@ -28,7 +30,7 @@ class KeyValueParticipantStateWriter(
     metrics: Metrics,
 ) extends WriteService {
 
-  private val logger = ContextualizedLogger.get(getClass)
+  private val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   override def isApiDeduplicationEnabled: Boolean = false
 
   private val keyValueSubmission = new KeyValueSubmission(metrics)
@@ -74,14 +76,27 @@ class KeyValueParticipantStateWriter(
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult] = {
-    val submission = keyValueSubmission
-      .archivesToSubmission(
-        submissionId,
-        ArchiveConversions.toHashesAndRawArchives(archives),
-        sourceDescription.getOrElse(""),
-        writer.participantId,
-      )
-    commit(submissionId, submission)
+    ArchiveConversions.parsePackageIdsAndRawArchives(archives) match {
+      case Left(_) =>
+        CompletableFuture.completedFuture(
+          SubmissionResult.SynchronousError(
+            KVErrors.Internal.SubmissionFailed
+              .Reject("Could not parse a package ID")(
+                new DamlContextualizedErrorLogger(logger, loggingContext, None)
+              )
+              .asStatus
+          )
+        )
+      case Right(packageIdsToRawArchives) =>
+        val submission = keyValueSubmission
+          .archivesToSubmission(
+            submissionId,
+            packageIdsToRawArchives,
+            sourceDescription.getOrElse(""),
+            writer.participantId,
+          )
+        commit(submissionId, submission)
+    }
   }
 
   override def submitConfiguration(

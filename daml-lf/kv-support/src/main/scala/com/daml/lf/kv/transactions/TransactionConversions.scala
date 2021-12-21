@@ -3,6 +3,7 @@
 
 package com.daml.lf.kv.transactions
 
+import com.daml.lf.kv.ConversionError
 import com.daml.lf.transaction.{
   NodeId,
   TransactionCoder,
@@ -13,6 +14,7 @@ import com.daml.lf.value.ValueCoder
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success, Try}
 
 object TransactionConversions {
 
@@ -25,15 +27,19 @@ object TransactionConversions {
 
   def decodeTransaction(
       rawTx: RawTransaction
-  ): Either[ValueCoder.DecodeError, VersionedTransaction] = {
-    val transaction = TransactionOuterClass.Transaction.parseFrom(rawTx.byteString)
-    TransactionCoder
-      .decodeTransaction(
-        TransactionCoder.NidDecoder,
-        ValueCoder.CidDecoder,
-        transaction,
-      )
-  }
+  ): Either[ConversionError, VersionedTransaction] =
+    Try(TransactionOuterClass.Transaction.parseFrom(rawTx.byteString)) match {
+      case Success(transaction) =>
+        TransactionCoder
+          .decodeTransaction(
+            TransactionCoder.NidDecoder,
+            ValueCoder.CidDecoder,
+            transaction,
+          )
+          .left
+          .map(ConversionError.DecodeError)
+      case Failure(throwable) => Left(ConversionError.ParseError(throwable.getMessage))
+    }
 
   def encodeTransactionNodeId(nodeId: NodeId): RawTransaction.NodeId =
     RawTransaction.NodeId(nodeId.index.toString)

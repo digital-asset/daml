@@ -494,7 +494,9 @@ object KVTest {
   ): DamlSubmission =
     testState.keyValueSubmission.archivesToSubmission(
       submissionId = submissionId,
-      hashesToArchives = ArchiveConversions.toHashesAndRawArchives(archives.toList),
+      packageIdsToRawArchives = ArchiveConversions
+        .parsePackageIdsAndRawArchives(archives.toList)
+        .fold(error => throw error, identity),
       sourceDescription = "description",
       participantId = testState.participantId,
     )

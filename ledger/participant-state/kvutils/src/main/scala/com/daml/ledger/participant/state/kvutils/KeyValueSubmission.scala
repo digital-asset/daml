@@ -91,15 +91,15 @@ class KeyValueSubmission(metrics: Metrics) {
   /** Prepare a package upload submission. */
   def archivesToSubmission(
       submissionId: String,
-      hashesToArchives: Map[String, RawArchive],
+      packageIdsToRawArchives: Map[Ref.PackageId, RawArchive],
       sourceDescription: String,
       participantId: Ref.ParticipantId,
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.archivesToSubmission.time { () =>
       val archivesDamlState =
-        hashesToArchives.keys.map(hash =>
+        packageIdsToRawArchives.keys.map(packageId =>
           DamlStateKey.newBuilder
-            .setPackageId(hash)
+            .setPackageId(packageId)
             .build
         )
 
@@ -107,7 +107,7 @@ class KeyValueSubmission(metrics: Metrics) {
         .setSubmissionId(submissionId)
         .setSourceDescription(sourceDescription)
         .setParticipantId(participantId)
-      hashesToArchives.values.foreach(rawArchive =>
+      packageIdsToRawArchives.values.foreach(rawArchive =>
         packageUploadEntryBuilder.addArchives(rawArchive.byteString)
       )
 

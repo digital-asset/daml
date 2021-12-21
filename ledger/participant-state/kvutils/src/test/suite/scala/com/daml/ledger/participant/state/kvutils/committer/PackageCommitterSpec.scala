@@ -176,7 +176,9 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     val hashes = archives
       .iterator()
       .asScala
-      .map(archive => ArchiveConversions.extractHash(RawArchive(archive)))
+      .map { archive =>
+        ArchiveConversions.parsePackageId(RawArchive(archive)).fold(error => throw error, identity)
+      }
       .toSet
     hashes shouldBe committedPackages.toSet[String]
   }
@@ -195,7 +197,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         .setPackageUploadEntry(packageUploadEntryBuilder)
         .build()
       val output = newCommitter.packageCommitter.run(None, submission, participantId, emptyState)
-      shouldFailWith(output, INVALID_PACKAGE, "Cannot parse archive")
+      shouldFailWith(output, INVALID_PACKAGE, "Cannot parse package ID")
     }
 
     // Don't need to run the below test cases for all instances of PackageCommitter.
@@ -327,7 +329,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       shouldFailWith(
         newCommitter.submit(submission),
         INVALID_PACKAGE,
-        "Invalid hash: non expected character",
+        "Cannot parse package ID",
       )
 
       // when archive2 is known

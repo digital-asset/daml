@@ -50,10 +50,11 @@ import com.daml.lf.data.Ref.{DottedName, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.kv.ConversionError
 import com.daml.lf.kv.contracts.{ContractConversions, RawContractInstance}
 import com.daml.lf.kv.transactions.{RawTransaction, TransactionConversions}
 import com.daml.lf.transaction._
-import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -302,7 +303,7 @@ object Conversions {
 
   def assertDecodeContractInstance(
       rawContractInstance: RawContractInstance
-  ): VersionedContractInstance =
+  ): Value.VersionedContractInstance =
     assertDecode(
       "ContractInstance",
       ContractConversions.decodeContractInstance(rawContractInstance),
@@ -314,13 +315,16 @@ object Conversions {
     contractIdToStateKey(
       assertDecode(
         "ContractId",
-        ValueCoder.CidDecoder.decode(
-          structForm = coidStruct
-        ),
+        ValueCoder.CidDecoder
+          .decode(
+            structForm = coidStruct
+          )
+          .left
+          .map(ConversionError.DecodeError),
       )
     )
 
-  private def assertDecode[X](context: => String, x: Either[ValueCoder.DecodeError, X]): X =
+  private def assertDecode[X](context: => String, x: Either[ConversionError, X]): X =
     x.fold(err => throw Err.DecodeError(context, err.errorMessage), identity)
 
   /** Encodes a [[BlindingInfo]] into protobuf (i.e., [[DamlTransactionBlindingInfo]]).

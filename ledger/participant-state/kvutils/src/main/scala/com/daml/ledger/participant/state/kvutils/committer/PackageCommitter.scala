@@ -35,13 +35,14 @@ import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
 private[committer] object PackageCommitter {
   final case class Result(
       uploadEntry: DamlPackageUploadEntry.Builder,
-      hashesAndArchives: Iterable[(String, RawArchive)],
+      rawArchiveCache: Iterable[(Ref.PackageId, RawArchive)],
       packagesCache: Map[Ref.PackageId, Ast.Package],
   )
 
@@ -63,7 +64,7 @@ final private[kvutils] class PackageCommitter(
 
   override protected def extraLoggingContext(result: Result): LoggingEntries =
     LoggingEntries(
-      "packages" -> result.hashesAndArchives.map(_._1)
+      "packages" -> result.rawArchiveCache.map(_._1)
     )
 
   /** The initial internal state passed to first step. */
@@ -121,22 +122,20 @@ final private[kvutils] class PackageCommitter(
         ctx: CommitContext,
         partialResult: Result,
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
-      try {
-        val hashesAndArchives = partialResult.uploadEntry.getArchivesList.asScala.map { archive =>
-          val rawArchive = RawArchive(archive)
-          ArchiveConversions.extractHash(rawArchive) -> rawArchive
-        }
-
-        StepContinue(partialResult.copy(hashesAndArchives = hashesAndArchives))
-      } catch {
-        case NonFatal(e) =>
+      partialResult.uploadEntry.getArchivesList.asScala.partitionMap { archive =>
+        val rawArchive = RawArchive(archive)
+        ArchiveConversions.parsePackageId(rawArchive).map(_ -> rawArchive)
+      } match {
+        case (mutable.Buffer(), packageIdsAndRawArchives) =>
+          StepContinue(partialResult.copy(rawArchiveCache = packageIdsAndRawArchives))
+        case (errors, _) =>
           val uploadEntry = partialResult.uploadEntry
-          rejectionTraceLog(e.getMessage)
+          rejectionTraceLog(errors.map(_.errorMessage).mkString("[", ",", "]"))
           reject(
             ctx.recordTime,
             uploadEntry.getSubmissionId,
             uploadEntry.getParticipantId,
-            _.setInvalidPackage(Invalid.newBuilder.setDetails("Cannot parse archive")),
+            _.setInvalidPackage(Invalid.newBuilder.setDetails("Cannot parse package ID")),
           )
       }
     }
@@ -192,7 +191,7 @@ final private[kvutils] class PackageCommitter(
         ctx: CommitContext,
         partialResult: Result,
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
-      val (seenOnce, duplicates) = partialResult.hashesAndArchives.iterator
+      val (seenOnce, duplicates) = partialResult.rawArchiveCache.iterator
         .foldLeft((Set.empty[String], Set.empty[String])) {
           case ((seenOnce, duplicates), (hash, _)) =>
             if (seenOnce(hash))
@@ -447,7 +446,7 @@ final private[kvutils] class PackageCommitter(
       metrics.daml.kvutils.committer.packageUpload.accepts.inc()
       logger.trace("Packages committed.")
 
-      partialResult.hashesAndArchives.foreach { case (hash, rawArchive) =>
+      partialResult.rawArchiveCache.foreach { case (hash, rawArchive) =>
         ctx.set(
           DamlStateKey.newBuilder
             .setPackageId(hash)

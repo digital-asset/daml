@@ -3,8 +3,11 @@
 
 package com.daml.lf.kv.contracts
 
+import com.daml.lf.kv.ConversionError
 import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
 import com.daml.lf.value.{Value, ValueCoder}
+
+import scala.util.{Failure, Success, Try}
 
 object ContractConversions {
 
@@ -17,9 +20,13 @@ object ContractConversions {
 
   def decodeContractInstance(
       rawContractInstance: RawContractInstance
-  ): Either[ValueCoder.DecodeError, Value.VersionedContractInstance] = {
-    val contractInstance =
-      TransactionOuterClass.ContractInstance.parseFrom(rawContractInstance.byteString)
-    TransactionCoder.decodeVersionedContractInstance(ValueCoder.CidDecoder, contractInstance)
-  }
+  ): Either[ConversionError, Value.VersionedContractInstance] =
+    Try(TransactionOuterClass.ContractInstance.parseFrom(rawContractInstance.byteString)) match {
+      case Success(contractInstance) =>
+        TransactionCoder
+          .decodeVersionedContractInstance(ValueCoder.CidDecoder, contractInstance)
+          .left
+          .map(ConversionError.DecodeError)
+      case Failure(throwable) => Left(ConversionError.ParseError(throwable.getMessage))
+    }
 }
