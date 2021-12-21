@@ -73,16 +73,16 @@ da_scala_test_suite(
     ],
     deps = [
         ":sandbox-on-x",
-        "//ledger/participant-state",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//libs-scala/logging-entries",
-        "//ledger/ledger-api-health",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
-        "@maven//:org_mockito_mockito_core",
+        "//ledger/participant-state",
+        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_mockito_mockito_core",
     ],
 )
 

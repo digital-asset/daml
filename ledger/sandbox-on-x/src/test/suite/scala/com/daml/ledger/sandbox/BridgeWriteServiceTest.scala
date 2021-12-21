@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.sandbox
 
 import com.daml.ledger.api.DeduplicationPeriod
@@ -20,7 +23,8 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
   "Success Mapper" should "add transaction statistics" in {
 
     val nodeId = NodeId(0)
-    val contractId = ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("c0"), Bytes.assertFromString("00"))
+    val contractId =
+      ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("c0"), Bytes.assertFromString("00"))
 
     val node = Node.Create(
       contractId,
@@ -34,7 +38,9 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
       version = TransactionVersion.minVersion,
     )
 
-    val tx = SubmittedTransaction(VersionedTransaction(TransactionVersion.VDev, Map(nodeId -> node), ImmArray(nodeId)))
+    val tx = SubmittedTransaction(
+      VersionedTransaction(TransactionVersion.VDev, Map(nodeId -> node), ImmArray(nodeId))
+    )
 
     val submitterInfo = SubmitterInfo(
       actAs = List.empty,
@@ -60,14 +66,18 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
       submitterInfo,
       transactionMeta,
       transaction = tx,
-      estimatedInterpretationCost = 0
+      estimatedInterpretationCost = 0,
     )
 
     val expected = TransactionNodeStatistics(tx)
 
-    val update = BridgeWriteService.successMapper(submission, 0, Ref.ParticipantId.assertFromString("p0"))
+    val update =
+      BridgeWriteService.successMapper(submission, 0, Ref.ParticipantId.assertFromString("p0"))
 
-    update.asInstanceOf[Update.TransactionAccepted].optCompletionInfo.flatMap(_.statistics) shouldBe Some(expected)
+    update
+      .asInstanceOf[Update.TransactionAccepted]
+      .optCompletionInfo
+      .flatMap(_.statistics) shouldBe Some(expected)
   }
 
 }
