@@ -58,23 +58,31 @@ object TransactionConversions {
   def reconstructTransaction(
       transactionVersion: String,
       nodesWithIds: Seq[TransactionNodeIdWithNode],
-  ): RawTransaction = {
+  ): Either[ConversionError.ParseError, RawTransaction] = {
     // Reconstruct roots by considering the transaction nodes in order and
     // marking all child nodes as non-roots and skipping over them.
     val nonRoots = mutable.HashSet.empty[RawTransaction.NodeId]
-    val txBuilder = TransactionOuterClass.Transaction.newBuilder.setVersion(transactionVersion)
-    for (TransactionNodeIdWithNode(nodeId, rawNode) <- nodesWithIds) {
-      val node = TransactionOuterClass.Node.parseFrom(rawNode.byteString)
-      val _ = txBuilder.addNodes(node)
-      if (!nonRoots.contains(nodeId)) {
-        val _ = txBuilder.addRoots(nodeId.value)
+    Try(TransactionOuterClass.Transaction.newBuilder.setVersion(transactionVersion)).toEither
+      .flatMap { transactionBuilder =>
+        nodesWithIds.partitionMap { case TransactionNodeIdWithNode(rawNodeId, rawNode) =>
+          Try(TransactionOuterClass.Node.parseFrom(rawNode.byteString)).map { node =>
+            val _ = transactionBuilder.addNodes(node)
+            if (!nonRoots.contains(rawNodeId)) {
+              val _ = transactionBuilder.addRoots(rawNodeId.value)
+            }
+            if (node.hasExercise) {
+              val children =
+                node.getExercise.getChildrenList.asScala.map(RawTransaction.NodeId).toSet
+              nonRoots ++= children
+            }
+          }.toEither
+        } match {
+          case (Nil, _) => Right(RawTransaction(transactionBuilder.build.toByteString))
+          case (errors, _) => Left(errors.head)
+        }
       }
-      if (node.hasExercise) {
-        val children = node.getExercise.getChildrenList.asScala.map(RawTransaction.NodeId).toSet
-        nonRoots ++= children
-      }
-    }
-    RawTransaction(txBuilder.build.toByteString)
+      .left
+      .map(throwable => ConversionError.ParseError(throwable.getMessage))
   }
 }
 

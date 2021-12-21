@@ -3,12 +3,14 @@
 
 package com.daml.lf.kv.transactions
 
+import com.daml.lf.kv.ConversionError
 import com.daml.lf.kv.transactions.TransactionConversions.{
   extractNodeId,
   extractTransactionVersion,
   reconstructTransaction,
 }
 import com.daml.lf.transaction.{TransactionOuterClass, TransactionVersion}
+import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -27,7 +29,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
       actualNodeId shouldBe RawTransaction.NodeId("rootId")
     }
 
-    "reconstructTransaction" in {
+    "successfully reconstruct transaction" in {
       val reconstructedTransaction = reconstructTransaction(
         TransactionVersion.VDev.protoValue,
         Seq(
@@ -35,7 +37,22 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
           TransactionNodeIdWithNode(aRawChildNodeId, aRawChildNode),
         ),
       )
-      reconstructedTransaction shouldBe aRawTransaction
+      reconstructedTransaction shouldBe Right(aRawTransaction)
+    }
+
+    "fail to reconstruct a non-parsable transaction" in {
+      val reconstructedTransaction = reconstructTransaction(
+        TransactionVersion.VDev.protoValue,
+        Seq(
+          TransactionNodeIdWithNode(
+            aRawRootNodeId,
+            RawTransaction.Node(ByteString.copyFromUtf8("wrong")),
+          )
+        ),
+      )
+      reconstructedTransaction shouldBe Left(
+        ConversionError.ParseError("Protocol message tag had invalid wire type.")
+      )
     }
   }
 }
