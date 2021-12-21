@@ -426,8 +426,9 @@ jobs:
           --detect.npm.include.dev.dependencies=false \
           --detect.yarn.prod.only=true \
           --detect.follow.symbolic.links=false \
-          --detect.excluded.directories=language-support/ts/codegen/tests/ts,language-support/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,node_modules,dev-env,result-* \
-          --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,node_modules,dev-env,result-* \
+          --detect.excluded.directories=language-support/ts/codegen/tests/ts,language-support/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,node_modules,dev-env,result-*,*_bazel_vsts* \
+          --detect.blackduck.signature.scanner.exclusion.name.patterns=.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,node_modules,dev-env,result-*,*_bazel_vsts* \
+          --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,node_modules,dev-env,result-*,*_bazel_vsts* \
           --detect.notices.report=true \
           --detect.code.location.name=digital-asset_daml_npm \
           --detect.timeout=1500
