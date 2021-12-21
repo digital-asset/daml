@@ -413,10 +413,7 @@ jobs:
           set -euo pipefail
           eval "$(dev-env/bin/dade-assist)"
 
-          #needs to be specified since blackduck can not scan all bazel
-          #dependency types in one go, java has to be scanned separatey and
-          #code location name uniquely identified to avoid stomping
-          BAZEL_DEPENDENCY_TYPE="maven_install"
+          cd language-support/ts && yarn install && cd ../../
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
           ci-build digital-asset_daml $(Build.SourceBranchName) \
