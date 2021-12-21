@@ -35,6 +35,7 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.Foldable
 import Data.Maybe
 import qualified Data.Text as T
+import qualified Data.Text.Extended as T
 import qualified Network.HTTP.Simple as HTTP
 import qualified Network.HTTP.Types as HTTP
 import Network.Socket
@@ -253,8 +254,13 @@ withCantonSandbox ports remainingArgs k = do
     sdkPath <- getSdkPath
     let cantonJar = sdkPath </> "canton" </> "canton.jar"
     withTempFile $ \config -> do
+      withTempFile $ \bootstrap -> do
         BSL.writeFile config (cantonConfig ports)
-        withJar cantonJar [] ("daemon" : "-c" : config : "--auto-connect-local" : remainingArgs) k
+        T.writeFileUtf8 bootstrap $ T.unlines
+           [ "sandbox.domains.connect_local(local)"
+           , "println(\"Canton sandbox started\")"
+           ]
+        withJar cantonJar [] ("daemon" : "-c" : config :  "--bootstrap" : bootstrap : remainingArgs) k
 
 data CantonPorts = CantonPorts
   { ledgerApi :: Int
