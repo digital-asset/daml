@@ -831,4 +831,37 @@ cantonTests = testGroup "daml canton-sandbox"
           , "--script-name Main:setup"
           , "--ledger-host=localhost", "--ledger-port=" <> show ledgerApiPort
           ]
+  , testCaseSteps "daml start --sandbox-canton" $ \step -> withTempDir $ \dir -> do
+      step "Creating project"
+      callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
+      step "Writing custom daml.yaml" -- need to drop the sandbox-options
+      writeFileUTF8 (dir </> "skeleton" </> "daml.yaml") $ unlines
+        [ "sdk-version: " <> sdkVersion
+        , "name: skeleton"
+        , "version: 0.0.1"
+        , "source: daml"
+        , "dependencies:"
+        , "  - daml-prim"
+        , "  - daml-stdlib"
+        , "  - daml-script"
+        , "init-script: Main:setup"
+        ]
+      step "Get a free port"
+      navigatorPort <- getFreePort
+      step "Run daml start"
+      withDamlServiceIn (dir </> "skeleton") "start"
+        [ "--sandbox-canton"
+        , "--sandbox-port=0"
+        , "--canton-admin-api-port=0"
+        , "--canton-domain-public-port=0"
+        , "--canton-domain-admin-port=0"
+        , "--open-browser=no"
+        , "--start-navigator=yes"
+        , "--navigator-port", show navigatorPort
+        ] $ do
+          waitForHttpServer
+              (threadDelay 1000000)
+              ("http://localhost:" <> show navigatorPort)
+              []
+
   ]
