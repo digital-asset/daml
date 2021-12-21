@@ -423,8 +423,8 @@ jobs:
           --detect.npm.include.dev.dependencies=false \
           --detect.yarn.prod.only=true \
           --detect.follow.symbolic.links=false \
-          --detect.excluded.directories=language-support/ts/codegen/tests/ts,language-support/ts/daml-*,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
-          --detect.blackduck.signature.scanner.exclusion.name.patterns=.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
+          --detect.excluded.directories=language-support/ts/daml-*,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
+          --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-*.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
           --detect.detector.search.exclusion.paths=language-support/ts/daml-*,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
           --detect.notices.report=true \
           --detect.code.location.name=digital-asset_daml_npm \
