@@ -55,6 +55,7 @@ object TransactionConversions {
       TransactionOuterClass.Node.parseFrom(rawTransactionNode.byteString).getNodeId
     )
 
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def reconstructTransaction(
       transactionVersion: String,
       nodesWithIds: Seq[TransactionNodeIdWithNode],
@@ -70,11 +71,11 @@ object TransactionConversions {
         nodesWithIds
           .map { case TransactionNodeIdWithNode(rawNodeId, rawNode) =>
             Try(TransactionOuterClass.Node.parseFrom(rawNode.byteString)).map { node =>
-              val _ = transactionBuilder.addNodes(node)
+              transactionBuilder.addNodes(node)
               if (!nonRoots.contains(rawNodeId)) {
-                val _ = transactionBuilder.addRoots(rawNodeId.value)
+                transactionBuilder.addRoots(rawNodeId.value)
               }
-              val _ = if (node.hasExercise) {
+              if (node.hasExercise) {
                 val children =
                   node.getExercise.getChildrenList.asScala.map(RawTransaction.NodeId).toSet
                 nonRoots ++= children
