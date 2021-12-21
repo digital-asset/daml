@@ -577,9 +577,9 @@ excluded_test_tool_tests = [
                 "start": "2.0.0-snapshot.20211210.8653.0.35beb44c",
                 "exclusions": [
                     "LedgerConfigurationServiceIT:CSLSuccessIfMaxDeduplicationTimeExceeded",
-                 ]
-            }
-        ]
+                ],
+            },
+        ],
     },
     {
         "start": "2.0.0",
@@ -609,8 +609,8 @@ excluded_test_tool_tests = [
                 "exclusions": [
                     "LedgerConfigurationServiceIT",
                 ],
-            }
-        ]
+            },
+        ],
     },
     {
         "start": "1.18.0",
