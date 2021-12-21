@@ -5,4 +5,5 @@ package com.daml.lf.kv.contracts
 
 import com.google.protobuf.ByteString
 
+/** Stores [[com.daml.lf.transaction.TransactionOuterClass.ContractInstance]] as a [[ByteString]]. */
 case class RawContractInstance(byteString: ByteString) extends AnyVal
