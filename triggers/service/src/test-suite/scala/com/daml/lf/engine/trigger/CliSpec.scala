@@ -10,6 +10,7 @@ import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import pureconfig.error.{CannotReadFile, ConfigReaderFailures}
 
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
@@ -32,8 +33,8 @@ class CliSpec extends AsyncWordSpec with Matchers {
     val cli = loadCli(file.getAbsolutePath)
     cli.configFile should not be empty
     cli.loadFromConfigFile match {
-      case None => fail("Failed to load config from config file")
-      case Some(c) =>
+      case Left(ex) => fail(s"Failed to load config from config file: ${ex.head.description}")
+      case Right(c) =>
         c.address shouldBe "127.0.0.1"
         c.port shouldBe Cli.DefaultHttpPort
         c.portFile shouldBe Some(Paths.get("port-file"))
@@ -48,7 +49,7 @@ class CliSpec extends AsyncWordSpec with Matchers {
         c.authorization.authCallbackUri shouldBe Some(Uri("https://oauth2/callback-uri"))
         c.authorization.authInternalUri shouldBe Some(Uri("https://oauth2/internal-uri"))
         c.authorization.authExternalUri shouldBe Some(Uri("https://oauth2/external-uri"))
-        c.authorization.authRedirectToLogin shouldBe AuthClient.RedirectToLogin.No
+        c.authorization.authRedirect shouldBe AuthClient.RedirectToLogin.Yes
         c.authorization.maxPendingAuthorizations shouldBe Cli.DefaultMaxAuthCallbacks
 
         //jdbc config
@@ -84,8 +85,8 @@ class CliSpec extends AsyncWordSpec with Matchers {
     val cli = loadCli(file.getAbsolutePath)
     cli.configFile should not be empty
     cli.loadFromConfigFile match {
-      case None => fail("Failed to load config from config file")
-      case Some(c) =>
+      case Left(ex) => fail(s"Failed to load config from config file: ${ex.head.description}")
+      case Right(c) =>
         c.address shouldBe "127.0.0.1"
         c.port shouldBe Cli.DefaultHttpPort
         c.portFile shouldBe None
@@ -100,7 +101,7 @@ class CliSpec extends AsyncWordSpec with Matchers {
         c.authorization.authCallbackUri shouldBe None
         c.authorization.authInternalUri shouldBe None
         c.authorization.authExternalUri shouldBe None
-        c.authorization.authRedirectToLogin shouldBe AuthClient.RedirectToLogin.No
+        c.authorization.authRedirect shouldBe AuthClient.RedirectToLogin.No
         c.authorization.maxPendingAuthorizations shouldBe Cli.DefaultMaxAuthCallbacks
 
         //remaining
@@ -122,7 +123,12 @@ class CliSpec extends AsyncWordSpec with Matchers {
     val cli = loadCli("missingFile.conf")
     cli.configFile should not be empty
     val cfg = cli.loadFromConfigFile
-    cfg shouldBe None
+    cfg match {
+      case Right(_) => fail("Unexpected success trying to load missing config file")
+      case Left(ex) =>
+        ex shouldBe a[ConfigReaderFailures]
+        ex.head shouldBe a[CannotReadFile]
+    }
 
     //parseConfig for non-existent file should return a None
     Cli.parseConfig(
@@ -134,15 +140,16 @@ class CliSpec extends AsyncWordSpec with Matchers {
     ) shouldBe None
   }
 
-  "should load config from cli args on missing conf file " in {
+  "should load config from cli args when no conf file is specified" in {
     Cli
       .parseConfig(
         Array("--ledger-host", "localhost", "--ledger-port", "9999"),
         Set(),
-      ) should not be empty
+      ) shouldBe Some(Cli.Empty.copy(ledgerHost = "localhost", ledgerPort = 9999))
+      .map(_.loadFromCliArgs)
   }
 
-  "should fail to load config from cli args on incomplete cli args" in {
+  "should fail to load config from cli args on missing required params" in {
     Cli
       .parseConfig(
         Array("--ledger-host", "localhost"),

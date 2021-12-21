@@ -7,13 +7,19 @@ import org.scalatest.Succeeded
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import pureconfig.ConfigSource
-import pureconfig.error.ConfigReaderException
-
-import scala.util.{Failure, Success}
+import pureconfig.error.{ConfigReaderFailures, ConvertFailure}
+import org.scalatest.Assertion
 
 class AuthorizationConfigTest extends AsyncWordSpec with Matchers {
 
-  import Cli._
+  private def validateFailure(ex: ConfigReaderFailures): Assertion = {
+    ex.head match {
+      case ConvertFailure(reason, _, _) =>
+        reason shouldBe a[AuthorizationConfig.AuthConfigFailure.type]
+        reason.description shouldBe AuthorizationConfig.AuthConfigFailure.description
+      case _ => fail("Unexpected failure type expected `AuthConfigFailure`")
+    }
+  }
 
   "should error on specifying both authCommonUri and authInternalUri/authExternalUri" in {
     val invalidConfigs = List(
@@ -32,27 +38,27 @@ class AuthorizationConfigTest extends AsyncWordSpec with Matchers {
     )
 
     invalidConfigs.foreach { c =>
-      scala.util.Try(ConfigSource.string(c).loadOrThrow[AuthorizationConfig]) match {
-        case Success(_) =>
+      ConfigSource.string(c).load[AuthorizationConfig] match {
+        case Right(_) =>
           fail("Should fail on supplying both auth-common and auth-internal/auth-external uris")
-        case Failure(ex) => ex shouldBe a[ConfigReaderException[_]]
+        case Left(ex) =>
+          validateFailure(ex)
       }
     }
     Succeeded
   }
 
   "should error on specifying only authInternalUri and no authExternalUri" in {
-    scala.util.Try {
-      ConfigSource
-        .string("""
+    ConfigSource
+      .string("""
           |{
           |  auth-internal-uri = "https://oauth2/internal-uri"
           |}
           |""".stripMargin)
-        .loadOrThrow[AuthorizationConfig]
-    } match {
-      case Success(_) => fail("Should fail on only auth-internal uris")
-      case Failure(ex) => ex shouldBe a[ConfigReaderException[_]]
+      .load[AuthorizationConfig] match {
+      case Right(_) => fail("Should fail on only auth-internal uris")
+      case Left(ex) =>
+        validateFailure(ex)
     }
   }
 

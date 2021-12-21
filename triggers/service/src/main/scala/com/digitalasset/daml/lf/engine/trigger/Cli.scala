@@ -16,83 +16,10 @@ import scala.concurrent.duration.FiniteDuration
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.{DBConfig, JdbcConfig}
 import com.typesafe.scalalogging.StrictLogging
-import pureconfig.error.FailureReason
-import pureconfig.generic.semiauto.deriveReader
-import pureconfig.{ConfigReader, ConfigSource, ConvertHelpers}
+import pureconfig.ConfigSource
+import pureconfig.error.ConfigReaderFailures
 
 import scala.concurrent.duration
-import scala.util.{Failure, Success}
-
-private[trigger] final case class LedgerApiConfig(address: String, port: Int)
-
-private[trigger] object AuthorizationConfig {
-  final case object AuthConfigFailure extends FailureReason {
-    val description =
-      "You must specify either just auth-common-uri or both auth-internal-uri and auth-external-uri"
-  }
-  def isValid(ac: AuthorizationConfig): Boolean = {
-    (ac.authCommonUri.isDefined && ac.authExternalUri.isEmpty && ac.authInternalUri.isEmpty) ||
-    (ac.authCommonUri.isEmpty && ac.authExternalUri.nonEmpty && ac.authInternalUri.nonEmpty)
-  }
-}
-private[trigger] final case class AuthorizationConfig(
-    authInternalUri: Option[Uri] = None,
-    authExternalUri: Option[Uri] = None,
-    authCommonUri: Option[Uri] = None,
-    authRedirectToLogin: AuthClient.RedirectToLogin = AuthClient.RedirectToLogin.No,
-    authCallbackUri: Option[Uri] = None,
-    maxPendingAuthorizations: Int = Cli.DefaultMaxAuthCallbacks,
-    authCallbackTimeout: FiniteDuration = Cli.DefaultAuthCallbackTimeout,
-)
-
-private[trigger] final case class TriggerServiceTypeConf(
-    darPaths: List[Path],
-    address: String,
-    port: Int,
-    portFile: Option[Path] = None,
-    ledgerApi: LedgerApiConfig,
-    authorization: AuthorizationConfig = AuthorizationConfig(),
-    maxInboundMessageSize: Int = Cli.DefaultMaxInboundMessageSize,
-    minRestartInterval: FiniteDuration = Cli.DefaultMinRestartInterval,
-    maxRestartInterval: FiniteDuration = Cli.DefaultMaxRestartInterval,
-    maxHttpEntityUploadSize: Long = Cli.DefaultMaxHttpEntityUploadSize,
-    httpEntityUploadTimeout: FiniteDuration = Cli.DefaultHttpEntityUploadTimeout,
-    timeProviderType: TimeProviderType = TimeProviderType.WallClock,
-    ttl: FiniteDuration = Cli.DefaultCommandTtl,
-    initDb: Boolean = false,
-    triggerStore: Option[JdbcConfig] = None,
-    allowExistingSchema: Boolean = false,
-    compilerConfig: Compiler.Config = Compiler.Config.Default,
-) {
-  def toServiceConfig: ServiceConfig = {
-    ServiceConfig(
-      darPaths,
-      address,
-      port,
-      ledgerApi.address,
-      ledgerApi.port,
-      authorization.authInternalUri,
-      authorization.authExternalUri,
-      authorization.authCommonUri,
-      authorization.authRedirectToLogin,
-      authorization.authCallbackUri,
-      maxInboundMessageSize,
-      minRestartInterval,
-      maxRestartInterval,
-      authorization.maxPendingAuthorizations,
-      authorization.authCallbackTimeout,
-      maxHttpEntityUploadSize,
-      httpEntityUploadTimeout,
-      timeProviderType,
-      Duration.ofSeconds(ttl.toSeconds),
-      initDb,
-      triggerStore,
-      portFile,
-      allowExistingSchema,
-      compilerConfig,
-    )
-  }
-}
 
 private[trigger] final case class Cli(
     configFile: Option[File],
@@ -123,22 +50,12 @@ private[trigger] final case class Cli(
     allowExistingSchema: Boolean,
     compilerConfig: Compiler.Config,
 ) extends StrictLogging {
-  import Cli._
 
-  def loadFromConfigFile: Option[TriggerServiceTypeConf] = {
+  def loadFromConfigFile: Either[ConfigReaderFailures, TriggerServiceAppConf] = {
     require(configFile.nonEmpty, "Config file should be defined to load trigger service config")
-    configFile
-      .flatMap(f =>
-        scala.util.Try {
-          ConfigSource.file(f).loadOrThrow[TriggerServiceTypeConf]
-        } match {
-          case Success(cfg) => Some(cfg)
-          case Failure(err) =>
-            logger.error("Error loading config from config-file", err)
-            None
-        }
-      )
+    ConfigSource.file(configFile.get).load[TriggerServiceAppConf]
   }
+
   def loadFromCliArgs: ServiceConfig = {
     ServiceConfig(
       darPaths,
@@ -169,12 +86,21 @@ private[trigger] final case class Cli(
   }
 
   def loadConfig: Option[ServiceConfig] = {
-    if (configFile.isDefined) loadFromConfigFile.map(_.toServiceConfig) else Some(loadFromCliArgs)
+    if (configFile.isDefined) {
+      loadFromConfigFile match {
+        case Right(cfg) => Some(cfg.toServiceConfig)
+        case Left(ex) =>
+          logger.error(
+            s"Error loading trigger service config from file ${configFile}",
+            ex.head.description,
+          )
+          None
+      }
+    } else Some(loadFromCliArgs)
   }
 }
 
 private[trigger] object Cli {
-  import AuthorizationConfig._
 
   val DefaultHttpPort: Int = 8088
   val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
@@ -188,57 +114,20 @@ private[trigger] object Cli {
   val DefaultCompilerConfig: Compiler.Config = Compiler.Config.Default
   val DefaultCommandTtl: FiniteDuration = FiniteDuration(30, duration.SECONDS)
 
-  private def redirectToLogin(value: String): AuthClient.RedirectToLogin = {
+  private[trigger] def redirectToLogin(value: String): AuthClient.RedirectToLogin = {
     value.toLowerCase match {
       case "yes" => AuthClient.RedirectToLogin.Yes
       case "no" => AuthClient.RedirectToLogin.No
       case "auto" => AuthClient.RedirectToLogin.Auto
-      case s => throw new IllegalArgumentException(s"'$s' is not one of 'yes', 'no', or 'auto'.")
+      case s =>
+        throw new IllegalArgumentException(s"value '$s' is not one of 'yes', 'no', or 'auto'.")
     }
   }
-
-  lazy implicit val uriCfgReader: ConfigReader[Uri] =
-    ConfigReader.fromString[Uri](ConvertHelpers.catchReadError(s => Uri(s)))
-  lazy implicit val redirectToLoginCfgReader: ConfigReader[AuthClient.RedirectToLogin] =
-    ConfigReader.fromString[AuthClient.RedirectToLogin](
-      ConvertHelpers.catchReadError(s => redirectToLogin(s))
-    )
-  lazy implicit val compilerCfgReader: ConfigReader[Compiler.Config] =
-    ConfigReader.fromString[Compiler.Config](ConvertHelpers.catchReadError { s =>
-      s.toLowerCase() match {
-        case "default" => Compiler.Config.Default
-        case "dev" => Compiler.Config.Dev
-        case s =>
-          throw new IllegalArgumentException(
-            s"Value '$s' for compiler-config is not one of 'default' or 'dev'"
-          )
-      }
-    })
-  lazy implicit val timeProviderTypeCfgReader: ConfigReader[TimeProviderType] =
-    ConfigReader.fromString[TimeProviderType](ConvertHelpers.catchReadError { s =>
-      s.toLowerCase() match {
-        case "static" => TimeProviderType.Static
-        case "wall-clock" => TimeProviderType.WallClock
-        case s =>
-          throw new IllegalArgumentException(
-            s"Value '$s' for time-provider-type is not one of 'static' or 'wallclock'"
-          )
-      }
-    })
-  lazy implicit val jdbcCfgReader: ConfigReader[JdbcConfig] = deriveReader[JdbcConfig]
-  lazy implicit val ledgerHostPortReader: ConfigReader[LedgerApiConfig] =
-    deriveReader[LedgerApiConfig]
-  lazy implicit val authCfgReader: ConfigReader[AuthorizationConfig] =
-    deriveReader[AuthorizationConfig].emap { ac =>
-      Either.cond(isValid(ac), ac, AuthConfigFailure)
-    }
-  lazy implicit val serviceCfgReader: ConfigReader[TriggerServiceTypeConf] =
-    deriveReader[TriggerServiceTypeConf]
 
   implicit val redirectToLoginRead: scopt.Read[AuthClient.RedirectToLogin] =
     scopt.Read.reads(redirectToLogin)
 
-  private val Empty = Cli(
+  private[trigger] val Empty = Cli(
     configFile = None,
     darPaths = Nil,
     address = cliopts.Http.defaultAddress,
