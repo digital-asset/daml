@@ -238,6 +238,20 @@ private[backend] object StorageBackendTestValues {
       deduplication_start = deduplicationStart.map(_.micros),
     )
 
+  def dtoCreateFilter(
+      event_sequential_id: Long,
+      template_id: Ref.Identifier,
+      party_id: String,
+  ): DbDto.CreateFilter = DbDto.CreateFilter(event_sequential_id, template_id.toString, party_id)
+
+  def dtoInterning(
+      internal: Int,
+      external: String,
+  ): DbDto.StringInterningDto = DbDto.StringInterningDto(
+    internalId = internal,
+    externalString = external,
+  )
+
   def dtoTransactionId(dto: DbDto): Ref.TransactionId = {
     dto match {
       case e: DbDto.EventCreate => Ref.TransactionId.assertFromString(e.transaction_id.get)

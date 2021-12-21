@@ -7,7 +7,7 @@ import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.platform.participant.util.LfEngineToApi
@@ -241,6 +241,93 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       val create1 = activeContracts(1)
       create1.witnessParties.loneElement shouldBe party2
       create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+    }
+  }
+
+  it should "filter correctly with unknown parties and templates" in {
+    val party1 = Party.assertFromString(UUID.randomUUID.toString)
+    val party2 = Party.assertFromString(UUID.randomUUID.toString)
+
+    // Adding an unknown party and/or template to the filter should not
+    // affect the results
+    val unknownParty = Party.assertFromString(UUID.randomUUID.toString)
+    val unknownTemplate = Identifier.assertFromString("pkg:Mod:Template")
+
+    for {
+      _ <- store(
+        multipleCreates(
+          operator = "operator",
+          signatoriesAndTemplates = Seq(
+            (party1, someTemplateId, someContractArgument),
+            (party2, otherTemplateId, otherContractArgument),
+            (party1, otherTemplateId, otherContractArgument),
+          ),
+        )
+      )
+      ledgerEnd <- ledgerDao.lookupLedgerEnd()
+      result <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = ledgerEnd.lastOffset,
+            filter = Map(
+              party1 -> Set(someTemplateId),
+              party2 -> Set.empty,
+            ),
+            verbose = true,
+          )
+      )
+      resultUnknownParty <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = ledgerEnd.lastOffset,
+            filter = Map(
+              party1 -> Set(someTemplateId),
+              party2 -> Set.empty,
+              unknownParty -> Set.empty,
+            ),
+            verbose = true,
+          )
+      )
+      resultUnknownTemplate <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = ledgerEnd.lastOffset,
+            filter = Map(
+              party1 -> Set(someTemplateId, unknownTemplate),
+              party2 -> Set.empty,
+            ),
+            verbose = true,
+          )
+      )
+      resultUnknownPartyAndTemplate <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = ledgerEnd.lastOffset,
+            filter = Map(
+              party1 -> Set(someTemplateId, unknownTemplate),
+              party2 -> Set.empty,
+              unknownParty -> Set.empty,
+            ),
+            verbose = true,
+          )
+      )
+      resultUnknownsOnly <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = ledgerEnd.lastOffset,
+            filter = Map(
+              unknownParty -> Set(unknownTemplate)
+            ),
+            verbose = true,
+          )
+      )
+    } yield {
+      result should have length 2
+      resultUnknownParty should contain theSameElementsAs result
+      resultUnknownTemplate should contain theSameElementsAs result
+      resultUnknownPartyAndTemplate should contain theSameElementsAs result
+
+      resultUnknownsOnly shouldBe empty
     }
   }
 

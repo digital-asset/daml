@@ -64,4 +64,10 @@ class MockStringInterning extends StringInterning {
       override def tryExternalize(id: Int): Option[Party] =
         rawStringInterning.tryExternalize(id).map(Party.assertFromString)
     }
+
+  private[store] def reset(): Unit = synchronized {
+    idToString = Map.empty
+    stringToId = Map.empty
+    lastId = 0
+  }
 }

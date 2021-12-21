@@ -85,6 +85,12 @@ private[backend] trait StorageBackendSpec
       executeSql { c =>
         backend.reset.resetAll(c)
         updateLedgerEndCache(c)
+        // Note: here we reset the MockStringInterning object to make sure each test starts with empty interning state.
+        // This is not strictly necessary, as tryInternalize() always succeeds in MockStringInterning - we don't have
+        // a problem where the interning would be affected by data left over by previous tests.
+        // To write tests that are sensitive to interning unknown data, we would have to use a custom storage backend
+        // implementation.
+        backend.stringInterningSupport.reset()
       },
       60.seconds,
     )

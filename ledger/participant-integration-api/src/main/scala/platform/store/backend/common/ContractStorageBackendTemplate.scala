@@ -317,25 +317,35 @@ class ContractStorageBackendTemplate(
   }
 
   private def activeContract[T](
-      resultSetParser: ResultSetParser[T],
+      resultSetParser: ResultSetParser[Option[T]],
       resultColumns: List[String],
   )(
       readers: Set[Ref.Party],
       contractId: ContractId,
-  )(connection: Connection): T = {
-    val treeEventWitnessesClause: CompositeSql =
-      queryStrategy.arrayIntersectionNonEmptyClause(
-        columnName = "tree_event_witnesses",
-        parties = readers,
-        stringInterning = stringInterning,
+  )(connection: Connection): Option[T] = {
+    val internedReaders =
+      readers.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
+    if (internedReaders.isEmpty) {
+      None
+    } else {
+      val treeEventWitnessesClause: CompositeSql =
+        queryStrategy.arrayIntersectionNonEmptyClause(
+          columnName = "tree_event_witnesses",
+          internedParties = internedReaders,
+        )
+      val coalescedColumns: String = resultColumns
+        .map(columnName =>
+          s"COALESCE(divulgence_events.$columnName, create_event_unrestricted.$columnName)"
+        )
+        .mkString(", ")
+      activeContractSqlLiteral(
+        contractId,
+        treeEventWitnessesClause,
+        resultColumns,
+        coalescedColumns,
       )
-    val coalescedColumns: String = resultColumns
-      .map(columnName =>
-        s"COALESCE(divulgence_events.$columnName, create_event_unrestricted.$columnName)"
-      )
-      .mkString(", ")
-    activeContractSqlLiteral(contractId, treeEventWitnessesClause, resultColumns, coalescedColumns)
-      .as(resultSetParser)(connection)
+        .as(resultSetParser)(connection)
+    }
   }
 
   private val contractWithoutValueRowParser: RowParser[Int] =
@@ -388,57 +398,63 @@ class ContractStorageBackendTemplate(
   )(
       connection: Connection
   ): Option[T] = {
-    def withAndIfNonEmptyReaders(
-        queryF: Set[Ref.Party] => CompositeSql
-    ): CompositeSql =
-      readers match {
-        case Some(readers) =>
-          cSQL"${queryF(readers)} AND"
+    val internedReaders =
+      readers.map(_.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet)
 
-        case None =>
-          cSQL""
+    if (internedReaders.exists(_.isEmpty)) {
+      None
+    } else {
+      def withAndIfNonEmptyReaders(
+          queryF: Set[Int] => CompositeSql
+      ): CompositeSql = {
+        internedReaders match {
+          case Some(readers) =>
+            cSQL"${queryF(readers)} AND"
+
+          case None =>
+            cSQL""
+        }
       }
 
-    val lastContractKeyFlatEventWitnessesClause =
-      withAndIfNonEmptyReaders(
-        queryStrategy.arrayIntersectionNonEmptyClause(
-          columnName = "last_contract_key_create.flat_event_witnesses",
-          _,
-          stringInterning,
+      val lastContractKeyFlatEventWitnessesClause =
+        withAndIfNonEmptyReaders(
+          queryStrategy.arrayIntersectionNonEmptyClause(
+            columnName = "last_contract_key_create.flat_event_witnesses",
+            _,
+          )
         )
-      )
-    val participantEventsFlatEventWitnessesClause =
-      withAndIfNonEmptyReaders(
-        queryStrategy.arrayIntersectionNonEmptyClause(
-          columnName = "participant_events.flat_event_witnesses",
-          _,
-          stringInterning,
+      val participantEventsFlatEventWitnessesClause =
+        withAndIfNonEmptyReaders(
+          queryStrategy.arrayIntersectionNonEmptyClause(
+            columnName = "participant_events.flat_event_witnesses",
+            _,
+          )
         )
-      )
 
-    import com.daml.platform.store.Conversions.HashToStatement
-    SQL"""
-         WITH last_contract_key_create AS (
-                SELECT participant_events.*
-                  FROM participant_events
-                 WHERE event_kind = 10 -- create
-                   AND create_key_hash = ${key.hash}
-                       -- do NOT check visibility here, as otherwise we do not abort the scan early
-                   AND event_sequential_id <= $validAt
-                 ORDER BY event_sequential_id DESC
-                 FETCH NEXT 1 ROW ONLY
-              )
-         SELECT #${resultColumns.mkString(", ")}
-           FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
-         WHERE $lastContractKeyFlatEventWitnessesClause -- check visibility only here
-           NOT EXISTS       -- check no archival visible
-                (SELECT 1
-                   FROM participant_events
-                  WHERE event_kind = 20 AND -- consuming exercise
-                    $participantEventsFlatEventWitnessesClause
-                    contract_id = last_contract_key_create.contract_id
-                    AND event_sequential_id <= $validAt
-                )"""
-      .as(resultParser.singleOpt)(connection)
+      import com.daml.platform.store.Conversions.HashToStatement
+      SQL"""
+           WITH last_contract_key_create AS (
+                  SELECT participant_events.*
+                    FROM participant_events
+                   WHERE event_kind = 10 -- create
+                     AND create_key_hash = ${key.hash}
+                         -- do NOT check visibility here, as otherwise we do not abort the scan early
+                     AND event_sequential_id <= $validAt
+                   ORDER BY event_sequential_id DESC
+                   FETCH NEXT 1 ROW ONLY
+                )
+           SELECT #${resultColumns.mkString(", ")}
+             FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
+           WHERE $lastContractKeyFlatEventWitnessesClause -- check visibility only here
+             NOT EXISTS       -- check no archival visible
+                  (SELECT 1
+                     FROM participant_events
+                    WHERE event_kind = 20 AND -- consuming exercise
+                      $participantEventsFlatEventWitnessesClause
+                      contract_id = last_contract_key_create.contract_id
+                      AND event_sequential_id <= $validAt
+                  )"""
+        .as(resultParser.singleOpt)(connection)
+    }
   }
 }

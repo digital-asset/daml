@@ -38,7 +38,12 @@ class CompletionStorageBackendTemplate(
     import com.daml.platform.store.Conversions.OffsetToStatement
     import com.daml.platform.store.Conversions.ledgerStringToStatement
     import ComposableQuery._
-    SQL"""
+    val internedParties =
+      parties.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
+    if (internedParties.isEmpty) {
+      List.empty
+    } else {
+      SQL"""
         SELECT
           completion_offset,
           record_time,
@@ -59,9 +64,10 @@ class CompletionStorageBackendTemplate(
           ($startExclusive is null or completion_offset > $startExclusive) AND
           completion_offset <= $endInclusive AND
           application_id = $applicationId AND
-          ${queryStrategy.arrayIntersectionNonEmptyClause("submitters", parties, stringInterning)}
+          ${queryStrategy.arrayIntersectionNonEmptyClause("submitters", internedParties)}
         ORDER BY completion_offset ASC"""
-      .as(completionParser.*)(connection)
+        .as(completionParser.*)(connection)
+    }
   }
 
   private val sharedColumns: RowParser[Offset ~ Timestamp ~ String ~ String ~ Option[String]] =
