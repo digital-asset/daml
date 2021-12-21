@@ -19,7 +19,7 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Vector as Vector
 import Network.HTTP.Client
 import Network.HTTP.Types
-import Network.Socket
+import Network.Socket.Extended
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
@@ -30,7 +30,6 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
-import DA.Daml.Assistant.FreePort (getFreePort, socketHints)
 import DA.Daml.Assistant.IntegrationTestUtils
 import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer, tokenFor)
 -- import DA.PortFile

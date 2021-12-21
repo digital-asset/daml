@@ -1,7 +1,11 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module DA.Daml.Assistant.FreePort (getFreePort,socketHints) where
+module Network.Socket.Extended
+    ( module Network.Socket
+    , getFreePort
+    , socketHints
+    ) where
 
 import Control.Exception (bracket)
 import Network.Socket

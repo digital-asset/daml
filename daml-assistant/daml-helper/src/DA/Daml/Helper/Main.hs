@@ -156,7 +156,7 @@ commandParser = subparser $ fold
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
 
     startCmd = do
-        sandboxPortM <- optional (option (maybeReader (toSandboxPortSpec <=< readMaybe)) (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
+        sandboxPortM <- sandboxPortOpt "sandbox-port" "Port number for the sandbox"
         shouldOpenBrowser <- flagYesNoAuto "open-browser" True "Open the browser after navigator" idm
         shouldStartNavigator <- flagYesNoAuto' "start-navigator" "Start navigator as part of daml start. Can be set to true or false. Defaults to true." idm
         navigatorPort <- navigatorPortOption
@@ -168,8 +168,27 @@ commandParser = subparser $ fold
         jsonApiOptions <- many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API"))
         scriptOptions <- many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter"))
         shutdownStdinClose <- stdinCloseOpt
-        sandboxClassic <- SandboxClassic <$> switch (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic.")
+        sandboxChoice <- sandboxChoiceOpt
         pure $ Start StartOptions{..} shutdownStdinClose
+
+    sandboxPortOpt name desc =
+        optional (option (maybeReader (toSandboxPortSpec <=< readMaybe))
+            (long name <> metavar "PORT_NUM" <> help desc))
+
+    sandboxChoiceOpt =
+            flag' SandboxClassic (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic.")
+        <|> flag' SandboxKV (long "sandbox-kv" <> help "Deprecated. Run with Sandbox KV.")
+        <|> flag' SandboxCanton (long "sandbox-canton" <> help "Run with Canton Sandbox. The 2.0 default.")
+                <*> sandboxCantonPortSpecOpt
+        <|> pure SandboxKV -- pre-2.0 default
+            -- TODO https://github.com/digital-asset/daml/issues/11831
+            --   Change default to --sandbox-canton
+
+    sandboxCantonPortSpecOpt = do
+        adminApiSpec <- sandboxPortOpt "canton-admin-api-port" "Port number for the canton admin API (--sandbox-canton only)"
+        domainPublicApiSpec <- sandboxPortOpt "canton-domain-public-port" "Port number for the canton domain public API (--sandbox-canton only)"
+        domainAdminApiSpec <- sandboxPortOpt "canton-domain-admin-port" "Port number for the canton domain admin API (--sandbox-canton only)"
+        pure SandboxCantonPortSpec {..}
 
     navigatorPortOption = NavigatorPort <$> option auto
         (long "navigator-port"

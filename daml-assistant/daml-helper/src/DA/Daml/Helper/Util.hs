@@ -19,6 +19,7 @@ module DA.Daml.Helper.Util
   , withJar
   , runJar
   , runCantonSandbox
+  , withCantonSandbox
   , getLogbackArg
   , waitForConnectionOnPort
   , waitForHttpServer
@@ -246,17 +247,20 @@ tokenFor parties ledgerId applicationId =
       }
 
 runCantonSandbox :: CantonPorts -> [String] -> IO ()
-runCantonSandbox ports remainingArgs = do
+runCantonSandbox ports args = withCantonSandbox ports args (const $ pure ())
+
+withCantonSandbox :: CantonPorts -> [String] -> (Process () () () -> IO a) -> IO a
+withCantonSandbox ports remainingArgs k = do
     sdkPath <- getSdkPath
     let cantonJar = sdkPath </> "canton" </> "canton.jar"
-    withTempFile $ \config ->
+    withTempFile $ \config -> do
       withTempFile $ \bootstrap -> do
         BSL.writeFile config (cantonConfig ports)
         T.writeFileUtf8 bootstrap $ T.unlines
-          [ "sandbox.domains.connect_local(local)"
-          , "println(\"Canton sandbox started\")"
-          ]
-        runJar cantonJar Nothing ("daemon" : "-c" : config : "--bootstrap" : bootstrap : remainingArgs)
+           [ "sandbox.domains.connect_local(local)"
+           , "println(\"Canton sandbox started\")"
+           ]
+        withJar cantonJar [] ("daemon" : "-c" : config :  "--bootstrap" : bootstrap : remainingArgs) k
 
 data CantonPorts = CantonPorts
   { ledgerApi :: Int
