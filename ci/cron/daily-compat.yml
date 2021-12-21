@@ -425,7 +425,7 @@ jobs:
           --detect.included.detector.types=YARN,NPM,CLANG \
           --detect.npm.include.dev.dependencies=false \
           --detect.yarn.prod.only=true \
-          --detect.excluded.directories.search.depth=8 \
+          --detect.follow.symbolic.links=false \
           --detect.excluded.directories=language-support/ts/codegen/tests/ts,language-support/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,node_modules,dev-env,result-* \
           --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,node_modules,dev-env,result-* \
           --detect.notices.report=true \
