@@ -582,6 +582,7 @@ excluded_test_tool_tests = [
                     "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationCommandClient",
                     # Offsets are not supported for versions < 2.0.0
                     "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateUsingOffsets",
+                    "CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
                     # Actual error id (INCONSISTENT) does not match expected error id (DUPLICATE_CONTRACT_KEY}
                     "ExceptionsIT:ExRollbackDuplicateKeyCreated",
                     "ExceptionsIT:ExRollbackDuplicateKeyArchived",
