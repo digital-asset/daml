@@ -456,7 +456,7 @@ private final class SqlLedger(
         .fold(
           reason =>
             ledgerDao.storeRejection(
-              completionInfo = Some(submitterInfo.toCompletionInfo),
+              completionInfo = Some(submitterInfo.toCompletionInfo()),
               recordTime = recordTime,
               offset = offset,
               reason = reason.toStateRejectionReason(errorFactories)(errorLogger),
@@ -468,7 +468,7 @@ private final class SqlLedger(
             val blindingInfo = None
 
             ledgerDao.storeTransaction(
-              completionInfo = Some(submitterInfo.toCompletionInfo),
+              completionInfo = Some(submitterInfo.toCompletionInfo()),
               workflowId = transactionMeta.workflowId,
               transactionId = transactionId,
               ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime,

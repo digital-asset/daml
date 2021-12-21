@@ -12,7 +12,11 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2._
 import com.daml.lf.data.{Ref, Time}
-import com.daml.lf.transaction.{CommittedTransaction, SubmittedTransaction}
+import com.daml.lf.transaction.{
+  CommittedTransaction,
+  SubmittedTransaction,
+  TransactionNodeStatistics,
+}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.telemetry.TelemetryContext
 import com.google.common.primitives.Longs
@@ -197,7 +201,8 @@ object BridgeWriteService {
 
       case s: Submission.Transaction =>
         Update.TransactionAccepted(
-          optCompletionInfo = Some(s.submitterInfo.toCompletionInfo),
+          optCompletionInfo =
+            Some(s.submitterInfo.toCompletionInfo(Some(TransactionNodeStatistics(s.transaction)))),
           transactionMeta = s.transactionMeta,
           transaction = s.transaction.asInstanceOf[CommittedTransaction],
           transactionId = Ref.TransactionId.assertFromString(index.toString),
