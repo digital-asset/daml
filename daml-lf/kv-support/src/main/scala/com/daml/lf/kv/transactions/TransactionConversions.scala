@@ -59,27 +59,31 @@ object TransactionConversions {
       transactionVersion: String,
       nodesWithIds: Seq[TransactionNodeIdWithNode],
   ): Either[ConversionError.ParseError, RawTransaction] = {
+    import scalaz.std.either._
+    import scalaz.std.list._
+    import scalaz.syntax.traverse._
     // Reconstruct roots by considering the transaction nodes in order and
     // marking all child nodes as non-roots and skipping over them.
     val nonRoots = mutable.HashSet.empty[RawTransaction.NodeId]
     Try(TransactionOuterClass.Transaction.newBuilder.setVersion(transactionVersion)).toEither
       .flatMap { transactionBuilder =>
-        nodesWithIds.partitionMap { case TransactionNodeIdWithNode(rawNodeId, rawNode) =>
-          Try(TransactionOuterClass.Node.parseFrom(rawNode.byteString)).map { node =>
-            val _ = transactionBuilder.addNodes(node)
-            if (!nonRoots.contains(rawNodeId)) {
-              val _ = transactionBuilder.addRoots(rawNodeId.value)
-            }
-            if (node.hasExercise) {
-              val children =
-                node.getExercise.getChildrenList.asScala.map(RawTransaction.NodeId).toSet
-              nonRoots ++= children
-            }
-          }.toEither
-        } match {
-          case (Nil, _) => Right(RawTransaction(transactionBuilder.build.toByteString))
-          case (errors, _) => Left(errors.head)
-        }
+        nodesWithIds
+          .map { case TransactionNodeIdWithNode(rawNodeId, rawNode) =>
+            Try(TransactionOuterClass.Node.parseFrom(rawNode.byteString)).map { node =>
+              val _ = transactionBuilder.addNodes(node)
+              if (!nonRoots.contains(rawNodeId)) {
+                val _ = transactionBuilder.addRoots(rawNodeId.value)
+              }
+              val _ = if (node.hasExercise) {
+                val children =
+                  node.getExercise.getChildrenList.asScala.map(RawTransaction.NodeId).toSet
+                nonRoots ++= children
+              }
+            }.toEither
+          }
+          .toList
+          .sequence_
+          .map(_ => RawTransaction(transactionBuilder.build.toByteString))
       }
       .left
       .map(throwable => ConversionError.ParseError(throwable.getMessage))
