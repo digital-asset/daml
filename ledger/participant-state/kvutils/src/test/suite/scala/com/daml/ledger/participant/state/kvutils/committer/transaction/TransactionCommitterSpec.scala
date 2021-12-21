@@ -250,7 +250,7 @@ class TransactionCommitterSpec
               )
 
           actualDivulgencesList should contain theSameElementsAs {
-            Vector((cid.coid, Set("ChoiceObserver"), expectedRawContractInstance))
+            Vector((cid.coid, Set("ChoiceObserver"), expectedRawContractInstance.byteString))
           }
 
           val actualDisclosureList =
