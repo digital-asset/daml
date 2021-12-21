@@ -78,7 +78,7 @@ robustly_download_nix_packages :: IO ()
 robustly_download_nix_packages = do
     h (10 :: Integer)
     where
-        cmd = "nix-build nix -A tools -A ci-cached"
+        cmd = "nix-build nix -A tools -A ci-cached --no-out-link"
         h n = do
             (exit, out, err) <- System.readCreateProcessWithExitCode (System.shell cmd) ""
             case (exit, n) of
