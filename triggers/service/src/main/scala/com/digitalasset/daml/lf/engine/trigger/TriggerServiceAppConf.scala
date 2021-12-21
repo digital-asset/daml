@@ -9,18 +9,14 @@ import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
 import pureconfig.{ConfigReader, ConvertHelpers}
 import com.daml.auth.middleware.api.{Client => AuthClient}
+import com.daml.pureconfigutils.LedgerApiConfig
+import com.daml.pureconfigutils.SharedConfigReaders._
 import pureconfig.error.FailureReason
 import pureconfig.generic.semiauto.deriveReader
 
 import java.nio.file.Path
 import java.time.Duration
 import scala.concurrent.duration.FiniteDuration
-
-private[trigger] object LedgerApiConfig {
-  implicit val ledgerApiCfgReader: ConfigReader[LedgerApiConfig] =
-    deriveReader[LedgerApiConfig]
-}
-private[trigger] final case class LedgerApiConfig(address: String, port: Int)
 
 private[trigger] object AuthorizationConfig {
   final case object AuthConfigFailure extends FailureReason {
@@ -32,9 +28,6 @@ private[trigger] object AuthorizationConfig {
     (ac.authCommonUri.isDefined && ac.authExternalUri.isEmpty && ac.authInternalUri.isEmpty) ||
     (ac.authCommonUri.isEmpty && ac.authExternalUri.nonEmpty && ac.authInternalUri.nonEmpty)
   }
-
-  implicit val uriCfgReader: ConfigReader[Uri] =
-    ConfigReader.fromString[Uri](ConvertHelpers.catchReadError(s => Uri(s)))
 
   implicit val redirectToLoginCfgReader: ConfigReader[AuthClient.RedirectToLogin] =
     ConfigReader.fromString[AuthClient.RedirectToLogin](
@@ -68,18 +61,7 @@ private[trigger] object TriggerServiceAppConf {
           )
       }
     })
-  implicit val timeProviderTypeCfgReader: ConfigReader[TimeProviderType] =
-    ConfigReader.fromString[TimeProviderType](ConvertHelpers.catchReadError { s =>
-      s.toLowerCase() match {
-        case "static" => TimeProviderType.Static
-        case "wall-clock" => TimeProviderType.WallClock
-        case s =>
-          throw new IllegalArgumentException(
-            s"Value '$s' for time-provider-type is not one of 'static' or 'wall-clock'"
-          )
-      }
-    })
-  implicit val jdbcCfgReader: ConfigReader[JdbcConfig] = deriveReader[JdbcConfig]
+
   implicit val serviceCfgReader: ConfigReader[TriggerServiceAppConf] =
     deriveReader[TriggerServiceAppConf]
 }
