@@ -12,7 +12,7 @@ CANTON_COMMAND=(
   "$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton_deploy.jar)"
   daemon
   "--config=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton.conf)"
-  "--bootstrap=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/bootstrap.canton)"
+  --auto-connect-local
 )
 
 PARTICIPANT_1_HOST=localhost
