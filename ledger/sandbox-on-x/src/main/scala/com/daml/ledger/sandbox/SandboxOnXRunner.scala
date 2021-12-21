@@ -16,6 +16,7 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.version_service.{
   CommandDeduplicationFeatures,
   DeduplicationPeriodSupport,
+  ParticipantDeduplicationSupport,
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
@@ -252,7 +253,8 @@ object SandboxOnXRunner {
             DeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
             DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
           )
-        )
+        ),
+        ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED,
       ),
     )
 

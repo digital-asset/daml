@@ -65,6 +65,7 @@ message UserManagementFeature {}
 
 message CommandDeduplicationFeatures {
   DeduplicationPeriodSupport deduplication_period_support = 1;
+  ParticipantDeduplicationSupport participant_deduplication_support = 2;
 }
 
 message DeduplicationPeriodSupport {
@@ -79,4 +80,9 @@ message DeduplicationPeriodSupport {
   }
   OffsetSupport offset_support = 1;
   DurationSupport duration_support = 2;
+}
+enum ParticipantDeduplicationSupport {
+  PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED = 0;
+  PARTICIPANT_DEDUPLICATION_PARALLEL_ONLY = 1;
+  PARTICIPANT_DEDUPLICATION_SUPPORTED = 2;
 }

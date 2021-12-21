@@ -20,6 +20,7 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.version_service.{
   CommandDeduplicationFeatures,
   DeduplicationPeriodSupport,
+  ParticipantDeduplicationSupport,
 }
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
@@ -324,7 +325,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                       durationSupport =
                         DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
                     )
-                  )
+                  ),
+                  ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_SUPPORTED,
                 ),
               )
               _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
