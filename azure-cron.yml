@@ -60,7 +60,7 @@ jobs:
 
           eval "$(dev-env/bin/dade-assist)"
           HEAD=$(git rev-parse HEAD)
-          while ! nix-build -A tools.sed -A tools.jq -A tools.curl -A tools.base64 nix; do :; done
+          while ! nix-build --no-out-link -A tools.sed -A tools.jq -A tools.curl -A tools.base64 nix; do :; done
 
           trap 'rm -rf ~/.docker' EXIT
           echo $DOCKER_PASSWORD | docker login --username $DOCKER_LOGIN --password-stdin

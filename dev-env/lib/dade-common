@@ -57,7 +57,7 @@ dadeBaseHash() {
 
 # List tools defined in dade
 dadeListTools() {
-    cat $(nix-build $DADE_BASE_ROOT/nix -A dade.tools-list)
+    cat $(nix-build --no-out-link $DADE_BASE_ROOT/nix -A dade.tools-list)
 }
 
 # dadeGetOutput get output of a target
