@@ -55,7 +55,7 @@ import com.daml.lf.kv.contracts.{ContractConversions, RawContractInstance}
 import com.daml.lf.kv.transactions.{RawTransaction, TransactionConversions}
 import com.daml.lf.transaction._
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
+import com.daml.lf.value.{Value, ValueCoder}
 import com.daml.lf.{crypto, data}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.Empty
@@ -307,19 +307,6 @@ object Conversions {
     assertDecode(
       "ContractInstance",
       ContractConversions.decodeContractInstance(rawContractInstance),
-    )
-
-  def contractIdStructOrStringToStateKey[A](
-      coidStruct: ValueOuterClass.ContractId
-  ): DamlStateKey =
-    contractIdToStateKey(
-      assertDecode(
-        "ContractId",
-        ValueCoder.CidDecoder
-          .decode(coidStruct)
-          .left
-          .map(ConversionError.DecodeError),
-      )
     )
 
   private def assertDecode[X](context: => String, x: Either[ConversionError, X]): X =
