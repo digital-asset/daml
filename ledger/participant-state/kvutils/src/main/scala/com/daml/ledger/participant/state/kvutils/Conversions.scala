@@ -316,9 +316,7 @@ object Conversions {
       assertDecode(
         "ContractId",
         ValueCoder.CidDecoder
-          .decode(
-            structForm = coidStruct
-          )
+          .decode(coidStruct)
           .left
           .map(ConversionError.DecodeError),
       )

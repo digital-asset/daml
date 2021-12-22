@@ -29,7 +29,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
       actualNodeId shouldBe RawTransaction.NodeId("rootId")
     }
 
-    "successfully reconstruct transaction" in {
+    "successfully reconstruct a transaction" in {
       val reconstructedTransaction = reconstructTransaction(
         TransactionVersion.VDev.protoValue,
         Seq(

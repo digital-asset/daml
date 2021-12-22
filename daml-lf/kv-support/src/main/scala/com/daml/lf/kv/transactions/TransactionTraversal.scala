@@ -8,7 +8,6 @@ import com.daml.lf.kv.ConversionError
 import com.daml.lf.transaction.TransactionOuterClass.Node
 import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass, TransactionVersion}
 import com.daml.lf.value.ValueCoder
-import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
@@ -25,45 +24,44 @@ object TransactionTraversal {
       tx <- Try(TransactionOuterClass.Transaction.parseFrom(rawTx.byteString)).toEither.left.map(
         throwable => ConversionError.ParseError(throwable.getMessage)
       )
-      nodes = tx.getNodesList.iterator.asScala.map(n => n.getNodeId -> n).toMap
       txVersion <- TransactionVersion.fromString(tx.getVersion).left.map(ConversionError.ParseError)
-    } yield {
-      discard(
-        go(
-          tx.getRootsList.asScala.view
-            .map(RawTransaction.NodeId(_) -> Set.empty[Ref.Party])
-            .to(FrontStack)
-        )
-      )
+      nodes = tx.getNodesList.iterator.asScala.map(node => node.getNodeId -> node).toMap
+      initialToVisit = tx.getRootsList.asScala.view
+        .map(RawTransaction.NodeId(_) -> Set.empty[Ref.Party])
+        .to(FrontStack)
+      _ <- go(f, txVersion, nodes, initialToVisit)
+    } yield ()
 
-      @tailrec
-      def go(
-          toVisit: FrontStack[(RawTransaction.NodeId, Set[Ref.Party])]
-      ): Either[ConversionError, Unit] = {
-        toVisit match {
-          case FrontStack() => Right(())
-          case FrontStackCons((nodeId, parentWitnesses), toVisit) =>
-            val node = nodes(nodeId.value)
-            informeesOfNode(txVersion, node) match {
-              case Left(error) => Left(ConversionError.DecodeError(error))
-              case Right(nodeWitnesses) =>
-                val witnesses = parentWitnesses union nodeWitnesses
-                f(nodeId, RawTransaction.Node(node.toByteString), witnesses)
-                // Recurse into children (if any).
-                node.getNodeTypeCase match {
-                  case Node.NodeTypeCase.EXERCISE =>
-                    val next = node.getExercise.getChildrenList.asScala.view
-                      .map(RawTransaction.NodeId(_) -> witnesses)
-                      .to(ImmArray)
-                    go(next ++: toVisit)
+  @tailrec
+  private def go(
+      f: (RawTransaction.NodeId, RawTransaction.Node, Set[Ref.Party]) => Unit,
+      txVersion: TransactionVersion,
+      nodes: Map[String, Node],
+      toVisit: FrontStack[(RawTransaction.NodeId, Set[Ref.Party])],
+  ): Either[ConversionError, Unit] = {
+    toVisit match {
+      case FrontStack() => Right(())
+      case FrontStackCons((nodeId, parentWitnesses), toVisit) =>
+        val node = nodes(nodeId.value)
+        informeesOfNode(txVersion, node) match {
+          case Left(error) => Left(ConversionError.DecodeError(error))
+          case Right(nodeWitnesses) =>
+            val witnesses = parentWitnesses union nodeWitnesses
+            f(nodeId, RawTransaction.Node(node.toByteString), witnesses)
+            // Recurse into children (if any).
+            node.getNodeTypeCase match {
+              case Node.NodeTypeCase.EXERCISE =>
+                val next = node.getExercise.getChildrenList.asScala.view
+                  .map(RawTransaction.NodeId(_) -> witnesses)
+                  .to(ImmArray)
+                go(f, txVersion, nodes, next ++: toVisit)
 
-                  case _ =>
-                    go(toVisit)
-                }
+              case _ =>
+                go(f, txVersion, nodes, toVisit)
             }
         }
-      }
     }
+  }
 
   private def informeesOfNode(
       txVersion: TransactionVersion,
