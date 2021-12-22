@@ -65,23 +65,4 @@ object Raw {
   type LogEntry = (LogEntryId, Envelope)
 
   type StateEntry = (StateKey, Envelope)
-
-  final case class Transaction(override val bytes: ByteString) extends Bytes
-
-  object Transaction extends Companion[Transaction]
-
-  final case class ContractInstance(override val bytes: ByteString) extends Bytes
-
-  object ContractInstance extends Companion[ContractInstance]
-
-  /** We store node IDs as strings (see [[com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.DisclosureEntry]]). */
-  final case class NodeId(value: String) extends AnyVal
-
-  final case class TransactionNode(override val bytes: ByteString) extends Raw.Bytes
-
-  object TransactionNode extends Raw.Companion[TransactionNode]
-
-  final case class Archive(override val bytes: ByteString) extends Raw.Bytes
-
-  object Archive extends Raw.Companion[Archive]
 }

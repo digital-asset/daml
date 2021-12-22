@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils.committer
 import java.util.UUID
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.participant.state.kvutils.{Conversions, Raw}
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE
@@ -20,6 +19,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.kv.archives.{ArchiveConversions, RawArchive}
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.logging.LoggingContext
@@ -176,7 +176,9 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     val hashes = archives
       .iterator()
       .asScala
-      .map(archive => Conversions.extractHashFromArchive(Raw.Archive(archive)))
+      .map { archive =>
+        ArchiveConversions.parsePackageId(RawArchive(archive)).fold(error => throw error, identity)
+      }
       .toSet
     hashes shouldBe committedPackages.toSet[String]
   }
@@ -195,7 +197,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         .setPackageUploadEntry(packageUploadEntryBuilder)
         .build()
       val output = newCommitter.packageCommitter.run(None, submission, participantId, emptyState)
-      shouldFailWith(output, INVALID_PACKAGE, "Cannot parse archive")
+      shouldFailWith(output, INVALID_PACKAGE, "Cannot parse package ID")
     }
 
     // Don't need to run the below test cases for all instances of PackageCommitter.
@@ -327,7 +329,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       shouldFailWith(
         newCommitter.submit(submission),
         INVALID_PACKAGE,
-        "Invalid hash: non expected character",
+        "Cannot parse package ID",
       )
 
       // when archive2 is known

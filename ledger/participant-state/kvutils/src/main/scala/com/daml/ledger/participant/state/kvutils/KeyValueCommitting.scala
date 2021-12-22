@@ -24,6 +24,8 @@ import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
+import com.daml.lf.kv.ConversionError
+import com.daml.lf.kv.archives.{ArchiveConversions, RawArchive}
 import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -179,9 +181,13 @@ object KeyValueCommitting {
         val packageEntry = submission.getPackageUploadEntry
         submission.getPackageUploadEntry.getArchivesList.asScala.toSet.map {
           rawArchive: ByteString =>
-            // It is not supposed to throw, as the archives have just been validated.
-            val hash = Conversions.extractHashFromArchive(Raw.Archive(rawArchive))
-            DamlStateKey.newBuilder.setPackageId(hash).build
+            ArchiveConversions.parsePackageId(RawArchive(rawArchive)) match {
+              case Right(packageId) => DamlStateKey.newBuilder.setPackageId(packageId).build
+              case Left(ConversionError.ParseError(errorMessage)) =>
+                throw Err.InternalError(
+                  s"$errorMessage: This should not happen, as the archives have just been validated."
+                )
+            }
         } + packageUploadDedupKey(packageEntry.getParticipantId, packageEntry.getSubmissionId)
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>

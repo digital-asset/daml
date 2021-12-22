@@ -1,14 +1,14 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.kv
+package com.daml.lf.kv.transactions
 
+import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction._
-import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.value.test.ValueGenerators._
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import com.daml.lf.data.ImmArray
 
 class TransactionNormalizerSpec
     extends AnyWordSpec

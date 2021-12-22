@@ -17,6 +17,7 @@ import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.engine.{Engine, EngineConfig, Error}
+import com.daml.lf.kv.transactions.RawTransaction
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, SubmittedTransaction}
 import com.daml.lf.value.Value.ContractId
@@ -121,8 +122,8 @@ private[replay] object Replay {
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val entry = submission.getTransactionEntry
-        val rawTransaction = Raw.Transaction(submission.getTransactionEntry.getRawTransaction)
-        val tx = SubmittedTransaction(Conversions.decodeTransaction(rawTransaction))
+        val rawTransaction = RawTransaction(submission.getTransactionEntry.getRawTransaction)
+        val tx = SubmittedTransaction(Conversions.assertDecodeTransaction(rawTransaction))
         LazyList(
           TxEntry(
             tx = tx,

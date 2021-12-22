@@ -16,10 +16,11 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.kvutils.store.{DamlContractState, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, Raw}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, Result}
+import com.daml.lf.kv.contracts.{ContractConversions, RawContractInstance}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Transaction.{
   DuplicateKeys,
@@ -155,8 +156,10 @@ private[transaction] class CommitterModelConformanceValidator(engine: Engine, me
       .read(contractIdToStateKey(contractId))
       .map { stateValue =>
         val rawContractInstance =
-          Raw.ContractInstance(stateValue.getContractState.getRawContractInstance)
-        Conversions.decodeContractInstance(rawContractInstance)
+          RawContractInstance(stateValue.getContractState.getRawContractInstance)
+        ContractConversions
+          .decodeContractInstance(rawContractInstance)
+          .fold(err => throw Err.DecodeError("ContractInstance", err.errorMessage), identity)
       }
 
   /** Helper to lookup package from the state. The package contents are stored

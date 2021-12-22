@@ -24,6 +24,8 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
+import com.daml.lf.kv.archives.ArchiveConversions
+import com.daml.lf.kv.contracts.RawContractInstance
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
@@ -210,8 +212,8 @@ object KVTest {
             state.damlState
               .get(Conversions.contractIdToStateKey(contractId))
               .map { v =>
-                Conversions.decodeContractInstance(
-                  Raw.ContractInstance(v.getContractState.getRawContractInstance)
+                Conversions.assertDecodeContractInstance(
+                  RawContractInstance(v.getContractState.getRawContractInstance)
                 )
               },
           packages = state.uploadedPackages.get,
@@ -492,7 +494,9 @@ object KVTest {
   ): DamlSubmission =
     testState.keyValueSubmission.archivesToSubmission(
       submissionId = submissionId,
-      hashesToArchives = Conversions.archivesToHashesAndBytes(archives.toList),
+      packageIdsToRawArchives = ArchiveConversions
+        .parsePackageIdsAndRawArchives(archives.toList)
+        .fold(error => throw error, identity),
       sourceDescription = "description",
       participantId = testState.participantId,
     )

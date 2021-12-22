@@ -50,8 +50,11 @@ import com.daml.lf.data.Ref.{DottedName, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.kv.ConversionError
+import com.daml.lf.kv.contracts.{ContractConversions, RawContractInstance}
+import com.daml.lf.kv.transactions.{RawTransaction, TransactionConversions}
 import com.daml.lf.transaction._
-import com.daml.lf.value.Value.{ContractId, VersionedValue}
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -277,17 +280,6 @@ object Conversions {
   def parseHash(bytes: com.google.protobuf.ByteString): crypto.Hash =
     crypto.Hash.assertFromBytes(data.Bytes.fromByteString(bytes))
 
-  @throws[com.daml.lf.archive.Error]
-  def extractHashFromArchive(rawArchive: Raw.Archive): String =
-    com.daml.lf.archive.ArchiveParser.assertFromByteString(rawArchive.bytes).getHash
-
-  def archivesToHashesAndBytes(
-      archives: List[com.daml.daml_lf_dev.DamlLf.Archive]
-  ): Map[String, Raw.Archive] =
-    archives.view
-      .map(archive => archive.getHash -> Raw.Archive(archive.toByteString))
-      .toMap
-
   def buildDuration(dur: Duration): com.google.protobuf.Duration = {
     com.google.protobuf.Duration.newBuilder
       .setSeconds(dur.getSeconds)
@@ -299,60 +291,23 @@ object Conversions {
     Duration.ofSeconds(dur.getSeconds, dur.getNanos.toLong)
   }
 
-  private def assertDecode[X](context: => String, x: Either[ValueCoder.DecodeError, X]): X =
-    x.fold(err => throw Err.DecodeError(context, err.errorMessage), identity)
-
-  private def assertEncode[X](context: => String, x: Either[ValueCoder.EncodeError, X]): X =
-    x.fold(err => throw Err.EncodeError(context, err.errorMessage), identity)
-
-  def encodeTransaction(tx: VersionedTransaction): Raw.Transaction = {
-    val transaction = assertEncode(
-      "Transaction",
-      TransactionCoder.encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx),
-    )
-    Raw.Transaction(transaction.toByteString)
+  def assertEncodeTransaction(versionedTransaction: VersionedTransaction): RawTransaction = {
+    val transaction = TransactionCoder
+      .encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, versionedTransaction)
+      .fold(err => throw Err.EncodeError("Transaction", err.errorMessage), identity)
+    RawTransaction(transaction.toByteString)
   }
 
-  def decodeTransaction(rawTx: Raw.Transaction): VersionedTransaction = {
-    val tx = TransactionOuterClass.Transaction.parseFrom(rawTx.bytes)
-    assertDecode(
-      "Transaction",
-      TransactionCoder
-        .decodeTransaction(
-          TransactionCoder.NidDecoder,
-          ValueCoder.CidDecoder,
-          tx,
-        ),
-    )
-  }
+  def assertDecodeTransaction(rawTransaction: RawTransaction): VersionedTransaction =
+    assertDecode("Transaction", TransactionConversions.decodeTransaction(rawTransaction))
 
-  def decodeVersionedValue(protoValue: ValueOuterClass.VersionedValue): VersionedValue =
+  def assertDecodeContractInstance(
+      rawContractInstance: RawContractInstance
+  ): Value.VersionedContractInstance =
     assertDecode(
       "ContractInstance",
-      ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, protoValue),
+      ContractConversions.decodeContractInstance(rawContractInstance),
     )
-
-  def decodeContractInstance(
-      rawContractInstance: Raw.ContractInstance
-  ): Value.VersionedContractInstance = {
-    val contractInstance =
-      TransactionOuterClass.ContractInstance.parseFrom(rawContractInstance.bytes)
-    assertDecode(
-      "ContractInstance",
-      TransactionCoder
-        .decodeVersionedContractInstance(ValueCoder.CidDecoder, contractInstance),
-    )
-  }
-
-  def encodeContractInstance(
-      coinst: Value.VersionedContractInstance
-  ): Raw.ContractInstance = {
-    val contractInstance = assertEncode(
-      "ContractInstance",
-      TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst),
-    )
-    Raw.ContractInstance(contractInstance.toByteString)
-  }
 
   def contractIdStructOrStringToStateKey[A](
       coidStruct: ValueOuterClass.ContractId
@@ -360,24 +315,22 @@ object Conversions {
     contractIdToStateKey(
       assertDecode(
         "ContractId",
-        ValueCoder.CidDecoder.decode(
-          structForm = coidStruct
-        ),
+        ValueCoder.CidDecoder
+          .decode(coidStruct)
+          .left
+          .map(ConversionError.DecodeError),
       )
     )
 
-  def encodeTransactionNodeId(nodeId: NodeId): Raw.NodeId =
-    Raw.NodeId(nodeId.index.toString)
-
-  def decodeTransactionNodeId(transactionNodeId: Raw.NodeId): NodeId =
-    NodeId(transactionNodeId.value.toInt)
+  private def assertDecode[X](context: => String, x: Either[ConversionError, X]): X =
+    x.fold(err => throw Err.DecodeError(context, err.errorMessage), identity)
 
   /** Encodes a [[BlindingInfo]] into protobuf (i.e., [[DamlTransactionBlindingInfo]]).
     * It is consensus-safe because it does so deterministically.
     */
   def encodeBlindingInfo(
       blindingInfo: BlindingInfo,
-      divulgedContracts: Map[ContractId, Raw.ContractInstance],
+      divulgedContracts: Map[ContractId, RawContractInstance],
   ): DamlTransactionBlindingInfo =
     DamlTransactionBlindingInfo.newBuilder
       .addAllDisclosures(encodeDisclosure(blindingInfo.disclosure).asJava)
@@ -397,8 +350,8 @@ object Conversions {
 
     val blindingInfoDisclosure = damlTransactionBlindingInfo.getDisclosuresList.asScala.map {
       disclosureEntry =>
-        decodeTransactionNodeId(
-          Raw.NodeId(disclosureEntry.getNodeId)
+        TransactionConversions.decodeTransactionNodeId(
+          RawTransaction.NodeId(disclosureEntry.getNodeId)
         ) -> disclosureEntry.getDisclosedToLocalPartiesList.asScala.toSet
           .map(Ref.Party.assertFromString)
     }.toMap
@@ -411,14 +364,14 @@ object Conversions {
 
   def extractDivulgedContracts(
       damlTransactionBlindingInfo: DamlTransactionBlindingInfo
-  ): Either[Seq[String], Map[ContractId, Raw.ContractInstance]] = {
+  ): Either[Seq[String], Map[ContractId, RawContractInstance]] = {
     val divulgences = damlTransactionBlindingInfo.getDivulgencesList.asScala.toVector
     if (divulgences.isEmpty) {
       Right(Map.empty)
     } else {
       val resultAccumulator: Either[Seq[String], mutable.Builder[
-        (ContractId, Raw.ContractInstance),
-        Map[ContractId, Raw.ContractInstance],
+        (ContractId, RawContractInstance),
+        Map[ContractId, RawContractInstance],
       ]] = Right(Map.newBuilder)
       divulgences
         .foldLeft(resultAccumulator) {
@@ -427,7 +380,7 @@ object Conversions {
               Left(Vector(divulgenceEntry.getContractId))
             } else {
               val contractId = decodeContractId(divulgenceEntry.getContractId)
-              val rawContractInstance = Raw.ContractInstance(divulgenceEntry.getRawContractInstance)
+              val rawContractInstance = RawContractInstance(divulgenceEntry.getRawContractInstance)
               Right(contractInstanceIndex += (contractId -> rawContractInstance))
             }
           case (Left(missingContracts), divulgenceEntry) =>
@@ -597,7 +550,7 @@ object Conversions {
 
   private def encodeDisclosureEntry(disclosureEntry: (NodeId, Set[Ref.Party])): DisclosureEntry =
     DisclosureEntry.newBuilder
-      .setNodeId(encodeTransactionNodeId(disclosureEntry._1).value)
+      .setNodeId(TransactionConversions.encodeTransactionNodeId(disclosureEntry._1).value)
       .addAllDisclosedToLocalParties(encodeParties(disclosureEntry._2).asJava)
       .build
 
@@ -611,17 +564,17 @@ object Conversions {
   private def encodeDivulgenceEntry(
       contractId: ContractId,
       divulgedTo: Set[Ref.Party],
-      rawContractInstance: Raw.ContractInstance,
+      rawContractInstance: RawContractInstance,
   ): DivulgenceEntry =
     DivulgenceEntry.newBuilder
       .setContractId(contractIdToString(contractId))
       .addAllDivulgedToLocalParties(encodeParties(divulgedTo).asJava)
-      .setRawContractInstance(rawContractInstance.bytes)
+      .setRawContractInstance(rawContractInstance.byteString)
       .build
 
   private def encodeDivulgence(
       divulgence: Relation[ContractId, Ref.Party],
-      divulgedContractsIndex: Map[ContractId, Raw.ContractInstance],
+      divulgedContractsIndex: Map[ContractId, RawContractInstance],
   ): List[DivulgenceEntry] =
     divulgence.toList
       .sortBy(_._1.coid)

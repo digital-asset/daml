@@ -1,10 +1,13 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils
+package com.daml.lf.kv.transactions
 
-import com.daml.lf.transaction.TransactionOuterClass.{Node, Transaction}
+import com.daml.lf.kv.ConversionError
+import com.daml.lf.transaction.TransactionOuterClass.{Node, NodeRollback, Transaction}
 import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.value.ValueCoder
+import com.google.protobuf.ByteString
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -58,29 +61,64 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
         exeNid,
       )
     )
-    val rawTx = Raw.Transaction(builder.build.toByteString)
+    val rawTx = RawTransaction(builder.build.toByteString)
 
-    TransactionUtils.traverseTransactionWithWitnesses(rawTx) {
-      case (Raw.NodeId(`createNid`), _, witnesses) =>
+    TransactionTraversal.traverseTransactionWithWitnesses(rawTx) {
+      case (RawTransaction.NodeId(`createNid`), _, witnesses) =>
         witnesses should contain.only("Alice", "Bob", "Charlie")
         ()
-      case (Raw.NodeId(`exeNid`), _, witnesses) =>
+      case (RawTransaction.NodeId(`exeNid`), _, witnesses) =>
         witnesses should contain.only("Alice", "Charlie")
         ()
-      case (Raw.NodeId(`nonConsumingExeNid`), _, witnesses) =>
+      case (RawTransaction.NodeId(`nonConsumingExeNid`), _, witnesses) =>
         // Non-consuming exercises are only witnessed by signatories.
         witnesses should contain only "Alice"
         ()
-      case (Raw.NodeId(`rootNid`), _, witnesses) =>
+      case (RawTransaction.NodeId(`rootNid`), _, witnesses) =>
         witnesses should contain only "Alice"
         ()
-      case (Raw.NodeId(`fetchNid`), _, witnesses) =>
+      case (RawTransaction.NodeId(`fetchNid`), _, witnesses) =>
         // This is of course ill-authorized, but we check that parent witnesses are included.
         witnesses should contain.only("Alice", "Bob")
         ()
       case what =>
         fail(s"Traversed to unknown node: $what")
-    }
+    } shouldBe Right(())
+  }
+
+  test("traverseTransactionWithWitnesses - transaction parsing error") {
+    val rawTx = RawTransaction(ByteString.copyFromUtf8("wrong"))
+    val actual = TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ())
+    actual shouldBe Left(ConversionError.ParseError("Protocol message tag had invalid wire type."))
+  }
+
+  test("traverseTransactionWithWitnesses - transaction version parsing error") {
+    val rawTx = RawTransaction(Transaction.newBuilder().setVersion("wrong").build.toByteString)
+    val actual = TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ())
+    actual shouldBe Left(ConversionError.ParseError("Unsupported transaction version 'wrong'"))
+  }
+
+  test("traverseTransactionWithWitnesses - node decoding error") {
+    val rootNodeId = "1"
+    val rawTx = RawTransaction(
+      Transaction
+        .newBuilder()
+        .setVersion(TransactionVersion.VDev.protoValue)
+        .addNodes(
+          Node.newBuilder().setNodeId(rootNodeId).setRollback(NodeRollback.getDefaultInstance)
+        )
+        .addRoots(rootNodeId)
+        .build
+        .toByteString
+    )
+    val actual = TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ())
+    actual shouldBe Left(
+      ConversionError.DecodeError(
+        ValueCoder.DecodeError(
+          "protoActionNodeInfo only supports action nodes but was applied to a rollback node"
+        )
+      )
+    )
   }
 
   // --------------------------------------------------------

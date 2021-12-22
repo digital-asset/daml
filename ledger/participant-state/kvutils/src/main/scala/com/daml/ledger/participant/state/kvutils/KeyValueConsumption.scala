@@ -27,6 +27,7 @@ import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.kv.transactions.RawTransaction
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.common.io.BaseEncoding
@@ -266,8 +267,8 @@ object KeyValueConsumption {
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp,
   )(implicit loggingContext: LoggingContext): Update.TransactionAccepted = {
-    val rawTransaction = Raw.Transaction(txEntry.getRawTransaction)
-    val transaction = Conversions.decodeTransaction(rawTransaction)
+    val rawTransaction = RawTransaction(txEntry.getRawTransaction)
+    val transaction = Conversions.assertDecodeTransaction(rawTransaction)
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
     )
@@ -322,7 +323,7 @@ object KeyValueConsumption {
       Conversions.extractDivulgedContracts(damlTransactionBlindingInfo) match {
         case Right(divulgedContractsIndex) =>
           divulgedContractsIndex.view.map { case (contractId, rawContractInstance) =>
-            val contractInstance = Conversions.decodeContractInstance(rawContractInstance)
+            val contractInstance = Conversions.assertDecodeContractInstance(rawContractInstance)
             DivulgedContract(contractId, contractInstance)
           }.toList
         case Left(missingContractIds) =>
