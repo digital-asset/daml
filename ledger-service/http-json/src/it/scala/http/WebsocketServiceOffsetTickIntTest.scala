@@ -31,7 +31,7 @@ class WebsocketServiceOffsetTickIntTest
 
   // make sure websocket heartbeats non-stop, DO NOT CHANGE `0.second`
   override def wsConfig: Option[WebsocketConfig] =
-    Some(Config.DefaultWsConfig.copy(heartBeatPer = 0.second))
+    Some(Config.DefaultWsConfig.copy(heartbeatPeriod = 0.second))
 
   import WebsocketTestFixture._
 

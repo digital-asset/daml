@@ -884,7 +884,7 @@ class WebSocketService(
 
     Flow[StepAndErrors[Pos, JsValue]]
       .map(a => Step(a))
-      .keepAlive(config.heartBeatPer, () => TickTrigger)
+      .keepAlive(config.heartbeatPeriod, () => TickTrigger)
       .scan(zero) {
         case ((None, _), TickTrigger) =>
           // skip all ticks we don't have the offset yet

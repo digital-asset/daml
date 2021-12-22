@@ -56,7 +56,7 @@ private[http] object Config {
       throttlePer = 1 second,
       maxBurst = 20,
       ThrottleMode.Shaping,
-      heartBeatPer = 5 second,
+      heartbeatPeriod = 5 second,
     )
 }
 
@@ -67,14 +67,14 @@ final case class WebsocketConfig(
     throttlePer: FiniteDuration,
     maxBurst: Int,
     mode: ThrottleMode,
-    heartBeatPer: FiniteDuration,
+    heartbeatPeriod: FiniteDuration,
 )
 
 private[http] object WebsocketConfig
     extends ConfigCompanion[WebsocketConfig, DummyImplicit]("WebsocketConfig") {
 
   implicit val showInstance: Show[WebsocketConfig] = Show.shows(c =>
-    s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartBeatPer})"
+    s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartbeatPeriod})"
   )
 
   lazy val help: String =
@@ -97,9 +97,9 @@ private[http] object WebsocketConfig
         maxDuration = md
           .map(t => FiniteDuration(t, TimeUnit.MINUTES))
           .getOrElse(Config.DefaultWsConfig.maxDuration),
-        heartBeatPer = hbp
+        heartbeatPeriod = hbp
           .map(t => FiniteDuration(t, TimeUnit.SECONDS))
-          .getOrElse(Config.DefaultWsConfig.heartBeatPer),
+          .getOrElse(Config.DefaultWsConfig.heartbeatPeriod),
       )
 
   private def helpString(maxDuration: String, heartBeatPer: String): String =
