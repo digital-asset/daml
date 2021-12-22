@@ -3,8 +3,11 @@
 
 package com.daml.lf.kv.transactions
 
-import com.daml.lf.transaction.TransactionOuterClass.{Node, Transaction}
+import com.daml.lf.kv.ConversionError
+import com.daml.lf.transaction.TransactionOuterClass.{Node, NodeRollback, Transaction}
 import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.value.ValueCoder
+import com.google.protobuf.ByteString
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -80,7 +83,42 @@ class TransactionTraversalSpec extends AnyFunSuite with Matchers {
         ()
       case what =>
         fail(s"Traversed to unknown node: $what")
-    }
+    } shouldBe Right(())
+  }
+
+  test("traverseTransactionWithWitnesses - transaction parsing error") {
+    val rawTx = RawTransaction(ByteString.copyFromUtf8("wrong"))
+    val actual = TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ())
+    actual shouldBe Left(ConversionError.ParseError("Protocol message tag had invalid wire type."))
+  }
+
+  test("traverseTransactionWithWitnesses - transaction version parsing error") {
+    val rawTx = RawTransaction(Transaction.newBuilder().setVersion("wrong").build.toByteString)
+    val actual = TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ())
+    actual shouldBe Left(ConversionError.ParseError("Unsupported transaction version 'wrong'"))
+  }
+
+  test("traverseTransactionWithWitnesses - node decoding error") {
+    val rootNodeId = "1"
+    val rawTx = RawTransaction(
+      Transaction
+        .newBuilder()
+        .setVersion(TransactionVersion.VDev.protoValue)
+        .addNodes(
+          Node.newBuilder().setNodeId(rootNodeId).setRollback(NodeRollback.getDefaultInstance)
+        )
+        .addRoots(rootNodeId)
+        .build
+        .toByteString
+    )
+    val actual = TransactionTraversal.traverseTransactionWithWitnesses(rawTx)((_, _, _) => ())
+    actual shouldBe Left(
+      ConversionError.DecodeError(
+        ValueCoder.DecodeError(
+          "protoActionNodeInfo only supports action nodes but was applied to a rollback node"
+        )
+      )
+    )
   }
 
   // --------------------------------------------------------

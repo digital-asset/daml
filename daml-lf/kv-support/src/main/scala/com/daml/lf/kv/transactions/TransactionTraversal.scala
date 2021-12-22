@@ -55,7 +55,6 @@ object TransactionTraversal {
                   .map(RawTransaction.NodeId(_) -> witnesses)
                   .to(ImmArray)
                 go(f, txVersion, nodes, next ++: toVisit)
-
               case _ =>
                 go(f, txVersion, nodes, toVisit)
             }
