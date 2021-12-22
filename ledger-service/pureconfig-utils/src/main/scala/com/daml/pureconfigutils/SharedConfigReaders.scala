@@ -7,15 +7,30 @@ import akka.http.scaladsl.model.Uri
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.dbutils.JdbcConfig
 import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, JwtVerifierBase, RSA256Verifier}
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.platform.services.time.TimeProviderType
 import pureconfig.{ConfigReader, ConvertHelpers}
 import pureconfig.generic.semiauto.deriveReader
 
 import java.nio.file.Path
+import java.io.File
 import scala.concurrent.duration.FiniteDuration
 
 final case class HttpServerConfig(address: String, port: Int, portFile: Option[Path] = None)
-final case class LedgerApiConfig(address: String, port: Int)
+final case class LedgerTlsConfig(
+    enabled: Boolean = false,
+    certChainFile: Option[File] = None,
+    privateKeyFile: Option[File] = None,
+    trustCollectionFile: Option[File] = None,
+) {
+  def tlsConfiguration: TlsConfiguration =
+    TlsConfiguration(enabled, certChainFile, privateKeyFile, trustCollectionFile)
+}
+final case class LedgerApiConfig(
+    address: String,
+    port: Int,
+    tls: LedgerTlsConfig = LedgerTlsConfig(),
+)
 final case class MetricsConfig(reporter: String, reportingInterval: FiniteDuration)
 
 object SharedConfigReaders {
@@ -63,6 +78,9 @@ object SharedConfigReaders {
 
   implicit val httpServerCfgReader: ConfigReader[HttpServerConfig] =
     deriveReader[HttpServerConfig]
+
+  implicit val ledgerTlsCfgReader: ConfigReader[LedgerTlsConfig] =
+    deriveReader[LedgerTlsConfig]
   implicit val ledgerApiConfReader: ConfigReader[LedgerApiConfig] =
     deriveReader[LedgerApiConfig]
   implicit val metricsConfigReader: ConfigReader[MetricsConfig] = deriveReader[MetricsConfig]

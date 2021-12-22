@@ -39,6 +39,7 @@ da_scala_library(
         "//libs-scala/db-utils",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_config",
+        "@maven//:io_netty_netty_handler",
     ],
 )
 

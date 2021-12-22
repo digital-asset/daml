@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import com.daml.bazeltools.BazelRunfiles.requiredResource
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.dbutils
@@ -212,6 +213,40 @@ final class CliSpec extends AnyFreeSpec with Matchers {
 
       "but fails on bad input" in {
         Oracle.parseConf(Map(DisableContractPayloadIndexing -> "haha")).isLeft should ===(true)
+      }
+    }
+  }
+
+  "TypeConfig app Conf" - {
+    val confFile = "ledger-service/http-json/src/test/resources/http-json-api-minimal.conf"
+
+    "should fail on missing ledgerHost and ledgerPort if no config file supplied" in {
+      configParser(sharedOptions.drop(4)) match {
+        case Some(_) =>
+          fail("Expected failure on missing required values --ledger-host and --ledger-port")
+        case None => succeed
+      }
+    }
+    "should fail on missing httpPort and no config file is supplied" in {
+      configParser(sharedOptions.take(4)) match {
+        case Some(_) => fail("Expected failure on missing required value --http-port")
+        case None => succeed
+      }
+    }
+
+    "should not fail when config file supplied" in {
+      val cfg = configParser(Seq("--config", requiredResource(confFile).getAbsolutePath)).getOrElse(
+        fail(s"Unexpected failure parsing $confFile")
+      )
+      cfg.httpPort shouldBe 7500
+    }
+
+    "should fail when config file and cli args both are supplied" in {
+      configParser(
+        Seq("--config", requiredResource(confFile).getAbsolutePath) ++ sharedOptions
+      ) match {
+        case Some(_) => fail("Expected failure on supplying both config file and cli args ")
+        case None => succeed
       }
     }
   }
