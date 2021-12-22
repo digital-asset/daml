@@ -17,7 +17,7 @@ mkdir -p $TARGET_DIR
 
 # This version needs to be adapted in all cabal files, too
 # The script below will fail on the `cp` command otherwise.
-LIB_VERSION="0.1.15.0"
+LIB_VERSION="0.1.18.0"
 
 package_from_dir() {
     local dir=$1
@@ -170,7 +170,7 @@ fi
 
 if [ ! -f "$TARGET_DIR/stack.yaml" ]; then
     cat <<EOF > "$TARGET_DIR/stack.yaml"
-resolver: lts-17.11
+resolver: lts-18.0
 
 packages:
 - .
