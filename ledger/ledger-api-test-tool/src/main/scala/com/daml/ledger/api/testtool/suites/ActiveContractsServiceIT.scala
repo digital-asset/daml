@@ -34,6 +34,7 @@ import scalaz.syntax.tag._
 
 import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Random
 
 class ActiveContractsServiceIT extends LedgerTestSuite {
   test(
@@ -448,220 +449,51 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     // Let us have all combinations for the 3 parties
     val partyCombinations =
       Vector(Set(0), Set(1), Set(2), Set(0, 1), Set(1, 2), Set(0, 2), Set(0, 1, 2))
-    case class FilterCoord(templateId: Int, stakeholders: Set[Int])
     // Let us populate 3 contracts for each template/partyCombination pair (see createContracts below)
     // Then we require the following Filter - Expectations to be upheld
+
+    // Key is the index of a test party (see parties)
+    // Value is
+    //   either empty, meaning a wildcard party filter
+    //   or the Set of indices of a test template (see templateIds)
     val * = Set.empty[Int]
-    val allFilterCoords = Set(
-      FilterCoord(0, Set(0)),
-      FilterCoord(0, Set(1)),
-      FilterCoord(0, Set(2)),
-      FilterCoord(0, Set(0, 1)),
-      FilterCoord(0, Set(0, 2)),
-      FilterCoord(0, Set(1, 2)),
-      FilterCoord(0, Set(0, 1, 2)),
-      FilterCoord(1, Set(0)),
-      FilterCoord(1, Set(1)),
-      FilterCoord(1, Set(2)),
-      FilterCoord(1, Set(0, 1)),
-      FilterCoord(1, Set(0, 2)),
-      FilterCoord(1, Set(1, 2)),
-      FilterCoord(1, Set(0, 1, 2)),
-      FilterCoord(2, Set(0)),
-      FilterCoord(2, Set(1)),
-      FilterCoord(2, Set(2)),
-      FilterCoord(2, Set(0, 1)),
-      FilterCoord(2, Set(0, 2)),
-      FilterCoord(2, Set(1, 2)),
-      FilterCoord(2, Set(0, 1, 2)),
-    )
-    val fixtures: Vector[(Map[Int, Set[Int]], Set[FilterCoord])] = Vector(
-      // single filter
-      Map(0 -> *) -> Set(
-        FilterCoord(0, Set(0)),
-        FilterCoord(0, Set(0, 1)),
-        FilterCoord(0, Set(0, 2)),
-        FilterCoord(0, Set(0, 1, 2)),
-        FilterCoord(1, Set(0)),
-        FilterCoord(1, Set(0, 1)),
-        FilterCoord(1, Set(0, 2)),
-        FilterCoord(1, Set(0, 1, 2)),
-        FilterCoord(2, Set(0)),
-        FilterCoord(2, Set(0, 1)),
-        FilterCoord(2, Set(0, 2)),
-        FilterCoord(2, Set(0, 1, 2)),
-      ),
-      Map(0 -> Set(0)) -> Set(
-        FilterCoord(0, Set(0)),
-        FilterCoord(0, Set(0, 1)),
-        FilterCoord(0, Set(0, 2)),
-        FilterCoord(0, Set(0, 1, 2)),
-      ),
-      Map(0 -> Set(1)) -> Set(
-        FilterCoord(1, Set(0)),
-        FilterCoord(1, Set(0, 1)),
-        FilterCoord(1, Set(0, 2)),
-        FilterCoord(1, Set(0, 1, 2)),
-      ),
-      Map(0 -> Set(2)) -> Set(
-        FilterCoord(2, Set(0)),
-        FilterCoord(2, Set(0, 1)),
-        FilterCoord(2, Set(0, 2)),
-        FilterCoord(2, Set(0, 1, 2)),
-      ),
-      Map(0 -> Set(0, 1)) -> Set(
-        FilterCoord(0, Set(0)),
-        FilterCoord(0, Set(0, 1)),
-        FilterCoord(0, Set(0, 2)),
-        FilterCoord(0, Set(0, 1, 2)),
-        FilterCoord(1, Set(0)),
-        FilterCoord(1, Set(0, 1)),
-        FilterCoord(1, Set(0, 2)),
-        FilterCoord(1, Set(0, 1, 2)),
-      ),
-      Map(0 -> Set(0, 2)) -> Set(
-        FilterCoord(0, Set(0)),
-        FilterCoord(0, Set(0, 1)),
-        FilterCoord(0, Set(0, 2)),
-        FilterCoord(0, Set(0, 1, 2)),
-        FilterCoord(2, Set(0)),
-        FilterCoord(2, Set(0, 1)),
-        FilterCoord(2, Set(0, 2)),
-        FilterCoord(2, Set(0, 1, 2)),
-      ),
-      Map(0 -> Set(1, 2)) -> Set(
-        FilterCoord(1, Set(0)),
-        FilterCoord(1, Set(0, 1)),
-        FilterCoord(1, Set(0, 2)),
-        FilterCoord(1, Set(0, 1, 2)),
-        FilterCoord(2, Set(0)),
-        FilterCoord(2, Set(0, 1)),
-        FilterCoord(2, Set(0, 2)),
-        FilterCoord(2, Set(0, 1, 2)),
-      ),
-      Map(0 -> Set(0, 1, 2)) -> Set(
-        FilterCoord(0, Set(0)),
-        FilterCoord(0, Set(0, 1)),
-        FilterCoord(0, Set(0, 2)),
-        FilterCoord(0, Set(0, 1, 2)),
-        FilterCoord(1, Set(0)),
-        FilterCoord(1, Set(0, 1)),
-        FilterCoord(1, Set(0, 2)),
-        FilterCoord(1, Set(0, 1, 2)),
-        FilterCoord(2, Set(0)),
-        FilterCoord(2, Set(0, 1)),
-        FilterCoord(2, Set(0, 2)),
-        FilterCoord(2, Set(0, 1, 2)),
-      ),
+    type ACSFilter = Map[Int, Set[Int]]
+
+    /** A templateId / stakeholders combination, which for 3 contracts are generated each
+      *
+      * @param templateId index of the template ID (see templateIds)
+      * @param stakeholders index of the party (see parties)
+      */
+    case class FilterCoord(templateId: Int, stakeholders: Set[Int])
+
+    def filterCoordsForFilter(filter: ACSFilter): Set[FilterCoord] = {
+      (for {
+        (party, templates) <- filter
+        templateId <- if (templates.isEmpty) templateIds.indices.toSet else templates
+        allowedPartyCombination <- partyCombinations.filter(_(party))
+      } yield FilterCoord(templateId, allowedPartyCombination)).toSet
+    }
+
+    val fixtures: Vector[(ACSFilter, Set[FilterCoord])] = Vector(
+      Map(0 -> *),
+      Map(0 -> Set(0)),
+      Map(0 -> Set(1)),
+      Map(0 -> Set(2)),
+      Map(0 -> Set(0, 1)),
+      Map(0 -> Set(0, 2)),
+      Map(0 -> Set(1, 2)),
+      Map(0 -> Set(0, 1, 2)),
       // multi filter
-      Map(0 -> *, 1 -> *) -> (allFilterCoords -- Set(
-        FilterCoord(0, Set(2)),
-        FilterCoord(1, Set(2)),
-        FilterCoord(2, Set(2)),
-      )),
-      Map(0 -> *, 2 -> *) -> (allFilterCoords -- Set(
-        FilterCoord(0, Set(1)),
-        FilterCoord(1, Set(1)),
-        FilterCoord(2, Set(1)),
-      )),
-      Map(0 -> *, 1 -> *, 2 -> *) -> allFilterCoords,
-      Map(0 -> Set(0), 1 -> Set(1)) -> Set(
-        FilterCoord(0, Set(0)),
-        FilterCoord(0, Set(0, 1)),
-        FilterCoord(0, Set(0, 2)),
-        FilterCoord(0, Set(0, 1, 2)),
-        FilterCoord(1, Set(1)),
-        FilterCoord(1, Set(0, 1)),
-        FilterCoord(1, Set(1, 2)),
-        FilterCoord(1, Set(0, 1, 2)),
-      ),
-      Map(0 -> Set(0), 1 -> Set(1), 2 -> Set(2)) -> Set(
-        FilterCoord(0, Set(0)),
-        FilterCoord(0, Set(0, 1)),
-        FilterCoord(0, Set(0, 2)),
-        FilterCoord(0, Set(0, 1, 2)),
-        FilterCoord(1, Set(1)),
-        FilterCoord(1, Set(0, 1)),
-        FilterCoord(1, Set(1, 2)),
-        FilterCoord(1, Set(0, 1, 2)),
-        FilterCoord(2, Set(2)),
-        FilterCoord(2, Set(0, 2)),
-        FilterCoord(2, Set(1, 2)),
-        FilterCoord(2, Set(0, 1, 2)),
-      ),
-      Map(0 -> Set(0, 1), 1 -> Set(0, 2)) -> Set(
-        FilterCoord(0, Set(0)),
-        FilterCoord(0, Set(1)),
-        FilterCoord(0, Set(0, 1)),
-        FilterCoord(0, Set(0, 2)),
-        FilterCoord(0, Set(1, 2)),
-        FilterCoord(0, Set(0, 1, 2)),
-        FilterCoord(1, Set(0)),
-        FilterCoord(1, Set(0, 1)),
-        FilterCoord(1, Set(0, 2)),
-        FilterCoord(1, Set(0, 1, 2)),
-        FilterCoord(2, Set(1)),
-        FilterCoord(2, Set(0, 1)),
-        FilterCoord(2, Set(1, 2)),
-        FilterCoord(2, Set(0, 1, 2)),
-      ),
-      Map(0 -> Set(0, 1), 1 -> Set(0, 2), 2 -> Set(1, 2)) -> Set(
-        FilterCoord(0, Set(0)),
-        FilterCoord(0, Set(1)),
-        FilterCoord(0, Set(0, 1)),
-        FilterCoord(0, Set(0, 2)),
-        FilterCoord(0, Set(1, 2)),
-        FilterCoord(0, Set(0, 1, 2)),
-        FilterCoord(1, Set(0)),
-        FilterCoord(1, Set(2)),
-        FilterCoord(1, Set(0, 1)),
-        FilterCoord(1, Set(0, 2)),
-        FilterCoord(1, Set(1, 2)),
-        FilterCoord(1, Set(0, 1, 2)),
-        FilterCoord(2, Set(1)),
-        FilterCoord(2, Set(2)),
-        FilterCoord(2, Set(0, 1)),
-        FilterCoord(2, Set(0, 2)),
-        FilterCoord(2, Set(1, 2)),
-        FilterCoord(2, Set(0, 1, 2)),
-      ),
-      Map(0 -> *, 1 -> Set(0)) -> Set(
-        FilterCoord(0, Set(0)),
-        FilterCoord(0, Set(1)),
-        FilterCoord(0, Set(0, 1)),
-        FilterCoord(0, Set(0, 2)),
-        FilterCoord(0, Set(1, 2)),
-        FilterCoord(0, Set(0, 1, 2)),
-        FilterCoord(1, Set(0)),
-        FilterCoord(1, Set(0, 1)),
-        FilterCoord(1, Set(0, 2)),
-        FilterCoord(1, Set(0, 1, 2)),
-        FilterCoord(2, Set(0)),
-        FilterCoord(2, Set(0, 1)),
-        FilterCoord(2, Set(0, 2)),
-        FilterCoord(2, Set(0, 1, 2)),
-      ),
-      Map(0 -> *, 1 -> Set(0), 2 -> Set(1, 2)) -> Set(
-        FilterCoord(0, Set(0)),
-        FilterCoord(0, Set(1)),
-        FilterCoord(0, Set(0, 1)),
-        FilterCoord(0, Set(0, 2)),
-        FilterCoord(0, Set(1, 2)),
-        FilterCoord(0, Set(0, 1, 2)),
-        FilterCoord(1, Set(0)),
-        FilterCoord(1, Set(2)),
-        FilterCoord(1, Set(0, 1)),
-        FilterCoord(1, Set(0, 2)),
-        FilterCoord(1, Set(1, 2)),
-        FilterCoord(1, Set(0, 1, 2)),
-        FilterCoord(2, Set(0)),
-        FilterCoord(2, Set(2)),
-        FilterCoord(2, Set(0, 1)),
-        FilterCoord(2, Set(0, 2)),
-        FilterCoord(2, Set(1, 2)),
-        FilterCoord(2, Set(0, 1, 2)),
-      ),
-    )
+      Map(0 -> *, 1 -> *),
+      Map(0 -> *, 2 -> *),
+      Map(0 -> *, 1 -> *, 2 -> *),
+      Map(0 -> Set(0), 1 -> Set(1)),
+      Map(0 -> Set(0), 1 -> Set(1), 2 -> Set(2)),
+      Map(0 -> Set(0, 1), 1 -> Set(0, 2)),
+      Map(0 -> Set(0, 1), 1 -> Set(0, 2), 2 -> Set(1, 2)),
+      Map(0 -> *, 1 -> Set(0)),
+      Map(0 -> *, 1 -> Set(0), 2 -> Set(1, 2)),
+    ).map(filter => filter -> filterCoordsForFilter(filter))
 
     def createContracts: Future[Map[FilterCoord, Set[String]]] = {
       def withThreeParties[T](f: (Party, Party, Party) => T)(partySet: Set[Party]): T =
@@ -701,24 +533,29 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         })
     }
 
+    val random = new Random(System.nanoTime())
     def testForFixtures(
-        fixtures: Vector[(Map[Int, Set[Int]], Set[FilterCoord])],
+        fixtures: Vector[(ACSFilter, Set[FilterCoord])],
         allContracts: Map[FilterCoord, Set[String]],
     ) = {
-      def activeContractIdsFor(filters: Map[Int, Set[Int]]): Future[Vector[String]] =
+      def activeContractIdsFor(filter: ACSFilter): Future[Vector[String]] =
         ledger
           .activeContracts(
             new GetActiveContractsRequest(
               ledgerId = ledger.ledgerId,
               filter = Some(
                 new TransactionFilter(
-                  filters.map {
+                  filter.map {
                     case (party, templates) if templates.isEmpty =>
                       (parties(party).toString, new Filters(None))
                     case (party, templates) =>
                       (
                         parties(party).toString,
-                        new Filters(Some(new InclusiveFilters(templates.toSeq.map(templateIds)))),
+                        new Filters(
+                          Some(
+                            new InclusiveFilters(random.shuffle(templates.toSeq.map(templateIds)))
+                          )
+                        ),
                       )
                   }
                 )
