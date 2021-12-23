@@ -792,7 +792,114 @@ load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_depen
 
 buildifier_dependencies()
 
-# TODO[AH] Import these for Windows as well
+load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_binary_bundle")
+
+dadew_binary_bundle(
+    name = "dadew_ghc_lib_deps",
+    paths = [
+        # msys2
+        "msys2",
+        "usr/bin/bash",
+        # autoconf
+        "usr/bin/autoconf",
+        "usr/bin/autoheader",
+        "usr/bin/autom4te",
+        "usr/bin/autoreconf",
+        "usr/bin/autoscan",
+        "usr/bin/autoupdate",
+        "usr/bin/ifnames",
+        # automake
+        "usr/bin/aclocal",
+        "usr/bin/aclocal-1.16",
+        "usr/bin/automake",
+        "usr/bin/automake-1.16",
+        # diffutils
+        "usr/bin/cmp",
+        "usr/bin/diff",
+        "usr/bin/diff3",
+        "usr/bin/sdiff",
+        # git
+        "usr/lib/git-core/git",
+        # gnumake
+        "usr/bin/make",
+        # m4
+        "usr/bin/m4",
+        # ncurses
+        "usr/bin/captoinfo",
+        "usr/bin/clear",
+        "usr/bin/infocmp",
+        "usr/bin/infotocap",
+        "usr/bin/reset",
+        "usr/bin/tabs",
+        "usr/bin/tic",
+        "usr/bin/tput",
+        "usr/bin/tset",
+        # perl
+        "usr/bin/perl",
+        # xz
+        "usr/bin/lzcat",
+        "usr/bin/lzcmp",
+        "usr/bin/lzdiff",
+        "usr/bin/lzegrep",
+        "usr/bin/lzfgrep",
+        "usr/bin/lzgrep",
+        "usr/bin/lzless",
+        "usr/bin/lzma",
+        "usr/bin/lzmadec",
+        "usr/bin/lzmainfo",
+        "usr/bin/lzmore",
+        "usr/bin/unlzma",
+        "usr/bin/unxz",
+        "usr/bin/xz",
+        "usr/bin/xzcat",
+        "usr/bin/xzcmp",
+        "usr/bin/xzdec",
+        "usr/bin/xzdiff",
+        "usr/bin/xzegrep",
+        "usr/bin/xzfgrep",
+        "usr/bin/xzgrep",
+        "usr/bin/xzless",
+        "usr/bin/xzmore",
+    ],
+    tool = "msys2",
+)
+
+dadew_binary_bundle(
+    name = "dadew_ghc_lib_deps_python",
+    paths = [
+        "python:python3",
+    ],
+    tool = "python-3.8.2",
+)
+
+http_archive(
+    name = "ghc_865_win",
+    build_file_content = """\
+load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "binary_bundle")
+binary_bundle(
+    name = "tools",
+    tools = glob(["ghc-8.6.5/bin/*"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "457024c6ea43bdce340af428d86319931f267089398b859b00efdfe2fd4ce93f",
+    urls = ["https://downloads.haskell.org/~ghc/8.6.5/ghc-8.6.5-x86_64-unknown-mingw32.tar.xz"],
+)
+
+http_archive(
+    name = "cabal_win",
+    build_file_content = """\
+load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "binary_bundle")
+binary_bundle(
+    name = "tools",
+    tools = glob(["cabal.exe"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "8222b49b6eac3d06aaa390bc688f467e8f949a38943567f46246f8320fd72ded",
+    urls = ["https://downloads.haskell.org/~cabal/cabal-install-3.6.0.0/cabal-install-3.6.0.0-x86_64-windows.zip"],
+)
+
 nixpkgs_package(
     name = "nix_ghc_lib_deps",
     attribute_path = "ghc_lib_deps",
