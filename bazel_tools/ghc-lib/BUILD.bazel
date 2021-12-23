@@ -1,2 +1,35 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:bundle.bzl", "binary_bundle", "cc_toolchain_binary_bundle", "library_bundle")
+
+sh_library(
+    name = "sh-lib",
+    srcs = ["lib.sh"],
+    visibility = ["@da-ghc//:__pkg__"],
+)
+
+cc_toolchain_binary_bundle(
+    name = "cc-tools",
+)
+
+binary_bundle(
+    name = "tools",
+    tools = [
+        "@stackage-exe//alex",
+        "@stackage-exe//happy",
+    ],
+    visibility = ["@da-ghc//:__pkg__"],
+    deps = [
+        ":cc-tools",
+        "@nix_ghc_lib_deps//:tools",  # TODO[AH] Handle Windows
+    ],
+)
+
+library_bundle(
+    name = "libs",
+    visibility = ["@da-ghc//:__pkg__"],
+    deps = [
+        "@nix_ghc_lib_deps//:libs",  # TODO[AH] Handle Windows
+    ],
+)

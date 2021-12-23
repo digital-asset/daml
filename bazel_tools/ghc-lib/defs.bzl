@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary", "haskell_cabal_library")
+load(":version.bzl", "GHC_FLAVOR", "GHC_LIB_VERSION")
 
 def ghc_lib_gen():
     native.filegroup(
@@ -47,4 +48,57 @@ def ghc_lib_gen():
     )
 
 def ghc():
-    pass
+    native.filegroup(
+        name = "srcs",
+        srcs = native.glob(["**"]),
+        visibility = ["//visibility:public"],
+    )
+    native.genrule(
+        name = "ghc-lib-parser",
+        srcs = [
+            ":srcs",
+            ":README.md",
+        ],
+        tools = [
+            "@ghc-lib-gen",
+            "@//bazel_tools/ghc-lib:sh-lib",
+        ],
+        toolchains = [
+            "@//bazel_tools/ghc-lib:libs",
+            "@//bazel_tools/ghc-lib:tools",
+        ],
+        outs = [
+            "ghc-lib-parser.cabal",
+            "ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION),
+        ],
+        cmd = """\
+set -euo pipefail
+EXECROOT=$$PWD
+. $(execpath @//bazel_tools/ghc-lib:sh-lib)
+
+export LIBRARY_PATH="$$(make_all_absolute $(LIBS_LIBRARY_PATH))"
+export PATH="$$(make_all_absolute $(TOOLS_PATH)):$$PATH"
+export LANG=C.UTF-8
+
+GHC="$$(abs_dirname $(execpath :README.md))"
+TMP=$$(mktemp -d)
+trap "rm -rf $$TMP" EXIT
+cp -rLt $$TMP $$GHC/.
+
+export HOME="$$TMP"
+export STACK_ROOT="$$TMP/.stack"
+mkdir -p $$STACK_ROOT
+echo -e "system-ghc: true\\ninstall-ghc: false" > $$STACK_ROOT/config.yaml
+
+$(execpath @ghc-lib-gen) $$TMP --ghc-lib-parser --ghc-flavor={ghc_flavor}
+sed -i.bak \\
+  -e 's#version: 0.1.0#version: {ghc_lib_version}#' \\
+  $$TMP/ghc-lib-parser.cabal
+cp $$TMP/ghc-lib-parser.cabal $(execpath ghc-lib-parser.cabal)
+(cd $$TMP; cabal sdist -o $$EXECROOT/$(RULEDIR))
+""".format(
+            ghc_flavor = GHC_FLAVOR,
+            ghc_lib_version = GHC_LIB_VERSION,
+        ),
+        visibility = ["//visibility:public"],
+    )
