@@ -26,6 +26,8 @@ import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.jdk.CollectionConverters._
+
 class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
   import TransactionConversionsSpec._
@@ -262,12 +264,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
             .newBuilder()
             .setVersion(TransactionVersion.VDev.protoValue)
             .addRoots(aRawRootNodeId.value)
-            .addNodes(
-              TransactionOuterClass.Node
-                .newBuilder()
-                .setNodeId(aRawRootNodeId.value)
-                .setVersion("???")
-            )
+            .addNodes(buildProtoNode(aRawRootNodeId.value)(_.setVersion("???")))
             .build()
             .toByteString
         )
@@ -285,17 +282,15 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
             .setVersion(TransactionVersion.VDev.protoValue)
             .addRoots(aRawRootNodeId.value)
             .addNodes(
-              TransactionOuterClass.Node
-                .newBuilder()
-                .setNodeId(aRawRootNodeId.value)
-                .setVersion(TransactionVersion.VDev.protoValue)
-                .setExercise(
-                  TransactionOuterClass.NodeExercise
-                    .newBuilder()
+              buildProtoNode(aRawRootNodeId.value) { builder =>
+                builder.setVersion(TransactionVersion.VDev.protoValue)
+                builder.setExercise(
+                  exerciseBuilder()
                     .setContractIdStruct(
                       ValueOuterClass.ContractId.newBuilder().setContractId("???")
                     )
                 )
+              }
             )
             .build()
             .toByteString
@@ -303,6 +298,61 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
       )
       result shouldBe Left(
         ConversionError.DecodeError(ValueCoder.DecodeError("cannot parse contractId \"???\""))
+      )
+    }
+  }
+
+  "filterCreateAndExerciseNodes" should {
+    "remove `Fetch`, `LookupByKey`, and `Rollback` nodes from the transaction tree" in {
+      val actual = TransactionConversions.filterCreateAndExerciseNodes(
+        RawTransaction(aRichNodeTreeTransaction.toByteString)
+      )
+
+      actual match {
+        case Right(rawTransaction) =>
+          val transaction = TransactionOuterClass.Transaction.parseFrom(rawTransaction.byteString)
+          transaction.getRootsList.asScala should contain theSameElementsInOrderAs Seq(
+            "Exercise-1",
+            "Create-1",
+          )
+          val nodes = transaction.getNodesList.asScala
+          nodes.map(_.getNodeId) should contain theSameElementsInOrderAs Seq(
+            "Create-1",
+            "Create-2",
+            "Create-3",
+            "Exercise-2",
+            "Exercise-1",
+          )
+          nodes(3).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq(
+            "Create-3"
+          )
+          nodes(4).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq(
+            "Create-2",
+            "Exercise-2",
+          )
+        case Left(_) => fail("should be Right")
+      }
+    }
+
+    "fail on a non-parsable transaction" in {
+      val result = TransactionConversions.filterCreateAndExerciseNodes(
+        RawTransaction(ByteString.copyFromUtf8("wrong"))
+      )
+
+      result shouldBe Left(
+        ConversionError.ParseError("Protocol message tag had invalid wire type.")
+      )
+    }
+
+    "fail on a transaction with invalid roots" in {
+      val result = TransactionConversions.filterCreateAndExerciseNodes(
+        RawTransaction(
+          aRichNodeTreeTransaction.toBuilder.addRoots("non-existent").build().toByteString
+        )
+      )
+
+      result shouldBe Left(
+        ConversionError.InternalError("Invalid transaction node id non-existent")
       )
     }
   }
@@ -334,13 +384,10 @@ object TransactionConversionsSpec {
     ValueOuterClass.Value.newBuilder().setUnit(protobuf.Empty.newBuilder()).build().toByteString
   private val aUnitValue = Value.ValueUnit
 
-  private val aChildNode = TransactionOuterClass.Node
-    .newBuilder()
-    .setNodeId(aRawChildNodeId.value)
-    .setVersion(TransactionVersion.VDev.protoValue)
-    .setExercise(
-      TransactionOuterClass.NodeExercise
-        .newBuilder()
+  private val aChildNode = buildProtoNode(aRawChildNodeId.value) { builder =>
+    builder.setVersion(TransactionVersion.VDev.protoValue)
+    builder.setExercise(
+      exerciseBuilder()
         .addObservers(aChildObserver)
         .setArgUnversioned(aUnitArg)
         .setChoice(aChoiceId)
@@ -350,17 +397,15 @@ object TransactionConversionsSpec {
         )
         .setTemplateId(aProtoTemplateId)
     )
+  }
   private val aChildExerciseNode = exercise(Set(aChildObserver), ImmArray.empty)
   private val aGlobalKey = GlobalKey(aTemplateId, aUnitValue)
-  private val aRawChildNode = RawTransaction.Node(aChildNode.build().toByteString)
+  private val aRawChildNode = RawTransaction.Node(aChildNode.toByteString)
   private val aRootExerciseNode = exercise(Set(aRootObserver), ImmArray(aChildNodeId))
-  private val aRootNode = TransactionOuterClass.Node
-    .newBuilder()
-    .setNodeId(aRawRootNodeId.value)
-    .setVersion(TransactionVersion.VDev.protoValue)
-    .setExercise(
-      TransactionOuterClass.NodeExercise
-        .newBuilder()
+  private val aRootNode = buildProtoNode(aRawRootNodeId.value) { builder =>
+    builder.setVersion(TransactionVersion.VDev.protoValue)
+    builder.setExercise(
+      exerciseBuilder()
         .addObservers(aRootObserver)
         .setArgUnversioned(aUnitArg)
         .addChildren(aRawChildNodeId.value)
@@ -371,7 +416,8 @@ object TransactionConversionsSpec {
         )
         .setTemplateId(aProtoTemplateId)
     )
-  private val aRawRootNode = RawTransaction.Node(aRootNode.build().toByteString)
+  }
+  private val aRawRootNode = RawTransaction.Node(aRootNode.toByteString)
   private val aRawTransaction = RawTransaction(
     TransactionOuterClass.Transaction
       .newBuilder()
@@ -382,6 +428,47 @@ object TransactionConversionsSpec {
       .build()
       .toByteString
   )
+  private val aRichNodeTreeTransaction = {
+    val roots = Seq("Exercise-1", "Fetch-1", "LookupByKey-1", "Create-1")
+    val nodes: Seq[TransactionOuterClass.Node] = Seq(
+      buildProtoNode("Fetch-1")(_.setFetch(fetchBuilder())),
+      buildProtoNode("LookupByKey-1")(_.setLookupByKey(lookupByKeyBuilder())),
+      buildProtoNode("Create-1")(_.setCreate(createBuilder())),
+      buildProtoNode("LookupByKey-2")(_.setLookupByKey(lookupByKeyBuilder())),
+      buildProtoNode("Fetch-2")(_.setFetch(fetchBuilder())),
+      buildProtoNode("Create-2")(_.setCreate(createBuilder())),
+      buildProtoNode("Fetch-3")(_.setFetch(fetchBuilder())),
+      buildProtoNode("Create-3")(_.setCreate(createBuilder())),
+      buildProtoNode("LookupByKey-3")(_.setLookupByKey(lookupByKeyBuilder())),
+      buildProtoNode("Exercise-2")(
+        _.setExercise(
+          exerciseBuilder().addAllChildren(
+            Seq("Fetch-3", "Create-3", "LookupByKey-3").asJava
+          )
+        )
+      ),
+      buildProtoNode("Exercise-1")(
+        _.setExercise(
+          exerciseBuilder().addAllChildren(
+            Seq("LookupByKey-2", "Fetch-2", "Create-2", "Exercise-2").asJava
+          )
+        )
+      ),
+      buildProtoNode("Rollback-1")(
+        _.setRollback(
+          rollbackBuilder().addAllChildren(Seq("RollbackChild-1", "RollbackChild-2").asJava)
+        )
+      ),
+      buildProtoNode("RollbackChild-1")(_.setCreate(createBuilder())),
+      buildProtoNode("RollbackChild-2")(_.setFetch(fetchBuilder())),
+    )
+
+    TransactionOuterClass.Transaction
+      .newBuilder()
+      .addAllRoots(roots.asJava)
+      .addAllNodes(nodes.asJava)
+      .build()
+  }
   private val aVersionedTransaction = VersionedTransaction(
     TransactionVersion.VDev,
     Map(aRootNodeId -> aRootExerciseNode, aChildNodeId -> aChildExerciseNode),
@@ -437,4 +524,19 @@ object TransactionConversionsSpec {
 
   private def lookup(builder: TransactionBuilder, id: Value.ContractId, found: Boolean) =
     builder.lookupByKey(contract = create(builder, id, hasKey = true), found = found)
+
+  private def buildProtoNode(nodeId: String)(
+      nodeImpl: TransactionOuterClass.Node.Builder => TransactionOuterClass.Node.Builder
+  ) =
+    nodeImpl(TransactionOuterClass.Node.newBuilder().setNodeId(nodeId)).build()
+
+  private def fetchBuilder() = TransactionOuterClass.NodeFetch.newBuilder()
+
+  private def exerciseBuilder() = TransactionOuterClass.NodeExercise.newBuilder()
+
+  private def rollbackBuilder() = TransactionOuterClass.NodeRollback.newBuilder()
+
+  private def createBuilder() = TransactionOuterClass.NodeCreate.newBuilder()
+
+  private def lookupByKeyBuilder() = TransactionOuterClass.NodeLookupByKey.newBuilder()
 }

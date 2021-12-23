@@ -49,7 +49,6 @@ da_scala_library(
         "//daml-lf/kv-support",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_proto_java",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/caching",
         "//ledger/error",

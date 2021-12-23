@@ -4,6 +4,7 @@
 package com.daml.lf.kv.transactions
 
 import com.daml.lf.kv.ConversionError
+import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.daml.lf.transaction.{
   GlobalKey,
   NodeId,
@@ -13,6 +14,7 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.value.{Value, ValueCoder}
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
@@ -109,7 +111,7 @@ object TransactionConversions {
                 case (Right(contractIdsOrKeys), node) =>
                   TransactionCoder.decodeNodeVersion(txVersion, node).flatMap { nodeVersion =>
                     node.getNodeTypeCase match {
-                      case TransactionOuterClass.Node.NodeTypeCase.ROLLBACK =>
+                      case NodeTypeCase.ROLLBACK =>
                         // Nodes under rollback will potentially produce outputs such as divulgence.
                         // Actual outputs must be a subset of, or the same as, computed outputs and
                         // we currently relax this check by widening the latter set, treating a node the
@@ -119,7 +121,7 @@ object TransactionConversions {
                         // rollback.
                         Right(contractIdsOrKeys)
 
-                      case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
+                      case NodeTypeCase.CREATE =>
                         val protoCreate = node.getCreate
                         for {
                           newContractIdsOrKeys <- TransactionCoder
@@ -132,7 +134,7 @@ object TransactionConversions {
                             .decode(protoCreate.getContractIdStruct)
                         } yield newContractIdsOrKeys + ContractIdOrKey.Id(contractId)
 
-                      case TransactionOuterClass.Node.NodeTypeCase.EXERCISE =>
+                      case NodeTypeCase.EXERCISE =>
                         val protoExercise = node.getExercise
                         for {
                           newContractIdsOrKeys <- TransactionCoder
@@ -145,18 +147,18 @@ object TransactionConversions {
                             .decode(protoExercise.getContractIdStruct)
                         } yield newContractIdsOrKeys + ContractIdOrKey.Id(contractId)
 
-                      case TransactionOuterClass.Node.NodeTypeCase.FETCH =>
+                      case NodeTypeCase.FETCH =>
                         // A fetch may cause a divulgence, which is why the target contract is a potential output.
                         ValueCoder.CidDecoder.decode(node.getFetch.getContractIdStruct).map {
                           contractId => contractIdsOrKeys + ContractIdOrKey.Id(contractId)
                         }
 
-                      case TransactionOuterClass.Node.NodeTypeCase.LOOKUP_BY_KEY =>
+                      case NodeTypeCase.LOOKUP_BY_KEY =>
                         // Contract state only modified on divulgence, in which case we'll have a fetch node,
                         // so no outputs from lookup node.
                         Right(contractIdsOrKeys)
 
-                      case TransactionOuterClass.Node.NodeTypeCase.NODETYPE_NOT_SET =>
+                      case NodeTypeCase.NODETYPE_NOT_SET =>
                         Left(ValueCoder.DecodeError("NODETYPE_NOT_SET not supported"))
                     }
                   }
@@ -165,6 +167,75 @@ object TransactionConversions {
           }
           .left
           .map(ConversionError.DecodeError)
+    }
+
+  def filterCreateAndExerciseNodes(
+      rawTransaction: RawTransaction
+  ): Either[ConversionError, RawTransaction] =
+    Try(TransactionOuterClass.Transaction.parseFrom(rawTransaction.byteString)) match {
+      case Failure(throwable) => Left(ConversionError.ParseError(throwable.getMessage))
+      case Success(transaction) =>
+        val nodes = transaction.getNodesList.asScala
+        val nodeMap: Map[String, TransactionOuterClass.Node] =
+          nodes.view.map(n => n.getNodeId -> n).toMap
+
+        @tailrec
+        def goNodesToKeep(
+            todo: List[String],
+            result: Set[String],
+        ): Either[ConversionError, Set[String]] = todo match {
+          case Nil => Right(result)
+          case head :: tail =>
+            nodeMap.get(head) match {
+              case Some(node) =>
+                node.getNodeTypeCase match {
+                  case NodeTypeCase.CREATE =>
+                    goNodesToKeep(tail, result + head)
+                  case NodeTypeCase.EXERCISE =>
+                    goNodesToKeep(
+                      node.getExercise.getChildrenList.asScala.toList ++ tail,
+                      result + head,
+                    )
+                  case NodeTypeCase.ROLLBACK | NodeTypeCase.FETCH | NodeTypeCase.LOOKUP_BY_KEY |
+                      NodeTypeCase.NODETYPE_NOT_SET =>
+                    goNodesToKeep(tail, result)
+                }
+              case None => Left(ConversionError.InternalError(s"Invalid transaction node id $head"))
+            }
+        }
+
+        goNodesToKeep(transaction.getRootsList.asScala.toList, Set.empty).map { nodesToKeep =>
+          val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
+
+          def stripUnnecessaryNodes(node: TransactionOuterClass.Node): TransactionOuterClass.Node =
+            if (node.hasExercise) {
+              val exerciseNode = node.getExercise
+              val keptChildren =
+                exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
+              val newExerciseNode = exerciseNode.toBuilder
+                .clearChildren()
+                .addAllChildren(keptChildren.asJavaCollection)
+                .build()
+
+              node.toBuilder
+                .setExercise(newExerciseNode)
+                .build()
+            } else {
+              node
+            }
+
+          val filteredNodes = nodes.collect {
+            case node if nodesToKeep(node.getNodeId) => stripUnnecessaryNodes(node)
+          }
+
+          val newTransaction = transaction
+            .newBuilderForType()
+            .addAllRoots(filteredRoots.asJavaCollection)
+            .addAllNodes(filteredNodes.asJavaCollection)
+            .setVersion(transaction.getVersion)
+            .build()
+          RawTransaction(newTransaction.toByteString)
+        }
     }
 }
 
