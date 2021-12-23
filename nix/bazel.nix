@@ -11,24 +11,42 @@ let shared = rec {
     curl
     docker
     gawk
+    gnupatch
     gnutar
     grpcurl
     gzip
     imagemagick
-    jdk8
     jdk11
+    jdk8
     jekyll
     jq
     netcat-gnu
     nodejs
     openssl
-    gnupatch
     patchelf
     protobuf3_8
     python3
     toxiproxy
     zip
   ;
+
+    ghc_lib_deps = pkgs.buildEnv {
+      name = "ghc-lib-deps";
+      paths = with pkgs; [
+        autoconf
+        automake
+        cabal-install
+        diffutils
+        git
+        gnumake
+        ncurses
+        perl
+        pkgs.haskell.compiler.ghc865Binary
+        stack
+        stdenv.cc  # ghc-lib needs `gcc` or `clang`, but Bazel provides `cc`.
+        xz
+      ];
+    };
 
     postgresql_10 = if pkgs.buildPlatform.libc == "glibc"
       then pkgs.runCommand "postgresql_10_wrapper" { buildInputs = [ pkgs.makeWrapper ]; } ''
