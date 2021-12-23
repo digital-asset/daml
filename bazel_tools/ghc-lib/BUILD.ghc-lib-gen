@@ -1,0 +1,3 @@
+load("@com_github_digital_asset_daml//bazel_tools/ghc-lib:defs.bzl", "ghc_lib_gen")
+
+ghc_lib_gen()
