@@ -38,6 +38,7 @@ class FilterTableACSReader(
     idPageSize: Int,
     idFetchingParallelism: Int,
     acsFetchingparallelism: Int,
+    acsIdQueueLimit: Int,
     metrics: Metrics,
     materializer: Materializer,
     querylimiter: ConcurrencyLimiter,
@@ -97,6 +98,7 @@ class FilterTableACSReader(
           tasks = tasks.map(_.filter),
           outputBatchSize = pageSize,
           inputBatchSize = idPageSize,
+          idQueueLimit = acsIdQueueLimit,
           metrics = metrics,
         )
       )
@@ -258,13 +260,15 @@ private[events] object FilterTableACSReader {
       tasks: Iterable[TASK],
       outputBatchSize: Int,
       inputBatchSize: Int,
+      idQueueLimit: Int,
       metrics: Metrics,
   )(implicit
       loggingContext: LoggingContext
   ): () => ((TASK, Iterable[Long])) => Vector[Vector[Long]] = () => {
     val outputQueue = new BatchedDistinctOutputQueue(outputBatchSize)
     val taskQueue = new MergingTaskQueue[TASK](outputQueue.push)
-    val taskTracker = new TaskTracker[TASK](tasks, inputBatchSize)
+    val maxTaskQueueSize = idQueueLimit / inputBatchSize
+    val taskTracker = new TaskTracker[TASK](tasks, inputBatchSize, maxTaskQueueSize)
 
     { case (task, ids) =>
       @tailrec def go(next: (Option[(Iterable[Long], TASK)], Boolean)): Unit = {
@@ -375,7 +379,7 @@ private[events] object FilterTableACSReader {
 
   /** Helper class to encapsulate stateful tracking of task streams.
     */
-  class TaskTracker[TASK](allTasks: Iterable[TASK], inputBatchSize: Int) {
+  class TaskTracker[TASK](allTasks: Iterable[TASK], inputBatchSize: Int, maxQueueSize: Int) {
     assert(inputBatchSize > 0)
 
     private val idle: mutable.Set[TASK] = mutable.Set.empty
@@ -392,7 +396,11 @@ private[events] object FilterTableACSReader {
       val toEnqueue =
         if (idle(task)) queueEntry(task, ids)
         else {
-          queuedRanges += (task -> queuedRanges.getOrElse(task, Vector.empty).:+(ids))
+          val previousRanges = queuedRanges.getOrElse(task, Vector.empty)
+          if (previousRanges.length >= maxQueueSize) {
+            throw new RuntimeException(s"More than $maxQueueSize id pages queued up")
+          }
+          queuedRanges += (task -> previousRanges.:+(ids))
           None
         }
       if (

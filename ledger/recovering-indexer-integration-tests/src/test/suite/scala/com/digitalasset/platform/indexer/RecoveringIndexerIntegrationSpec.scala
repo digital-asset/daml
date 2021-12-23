@@ -258,6 +258,7 @@ class RecoveringIndexerIntegrationSpec
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
+          acsIdQueueLimit = 1000000,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,

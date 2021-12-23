@@ -11,4 +11,5 @@ object IndexConfiguration {
   val DefaultAcsIdFetchingParallelism: Int = 2
   val DefaultAcsContractFetchingParallelism: Int = 2
   val DefaultAcsGlobalParallelism: Int = 10
+  val DefaultAcsIdQueueLimit: Int = 10000000
 }

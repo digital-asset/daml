@@ -32,6 +32,7 @@ case class ApiServerConfig(
     acsIdFetchingParallelism: Int = IndexConfiguration.DefaultAcsIdFetchingParallelism,
     acsContractFetchingParallelism: Int = IndexConfiguration.DefaultAcsContractFetchingParallelism,
     acsGlobalParallelism: Int = IndexConfiguration.DefaultAcsGlobalParallelism,
+    acsIdQueueLimit: Int = IndexConfiguration.DefaultAcsIdQueueLimit,
     portFile: Option[Path],
     seeding: Seeding,
     managementServiceTimeout: Duration,
