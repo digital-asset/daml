@@ -53,25 +53,26 @@ def ghc():
         srcs = native.glob(["**"]),
         visibility = ["//visibility:public"],
     )
-    native.genrule(
-        name = "ghc-lib-parser",
-        srcs = [
-            ":srcs",
-            ":README.md",
-        ],
-        tools = [
-            "@ghc-lib-gen",
-            "@//bazel_tools/ghc-lib:sh-lib",
-        ],
-        toolchains = [
-            "@//bazel_tools/ghc-lib:libs",
-            "@//bazel_tools/ghc-lib:tools",
-        ],
-        outs = [
-            "ghc-lib-parser.cabal",
-            "ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION),
-        ],
-        cmd = """\
+    for component in ["", "-parser"]:
+        native.genrule(
+            name = "ghc-lib{}".format(component),
+            srcs = [
+                ":srcs",
+                ":README.md",
+            ],
+            tools = [
+                "@ghc-lib-gen",
+                "@//bazel_tools/ghc-lib:sh-lib",
+            ],
+            toolchains = [
+                "@//bazel_tools/ghc-lib:libs",
+                "@//bazel_tools/ghc-lib:tools",
+            ],
+            outs = [
+                "ghc-lib{}.cabal".format(component),
+                "ghc-lib{}-{}.tar.gz".format(component, GHC_LIB_VERSION),
+            ],
+            cmd = """\
 set -euo pipefail
 EXECROOT=$$PWD
 . $(execpath @//bazel_tools/ghc-lib:sh-lib)
@@ -90,65 +91,16 @@ export STACK_ROOT="$$TMP/.stack"
 mkdir -p $$STACK_ROOT
 echo -e "system-ghc: true\\ninstall-ghc: false" > $$STACK_ROOT/config.yaml
 
-$(execpath @ghc-lib-gen) $$TMP --ghc-lib-parser --ghc-flavor={ghc_flavor}
+$(execpath @ghc-lib-gen) $$TMP --ghc-lib{component} --ghc-flavor={ghc_flavor}
 sed -i.bak \\
   -e 's#version: 0.1.0#version: {ghc_lib_version}#' \\
-  $$TMP/ghc-lib-parser.cabal
-cp $$TMP/ghc-lib-parser.cabal $(execpath ghc-lib-parser.cabal)
+  $$TMP/ghc-lib{component}.cabal
+cp $$TMP/ghc-lib{component}.cabal $(execpath ghc-lib{component}.cabal)
 (cd $$TMP; cabal sdist -o $$EXECROOT/$(RULEDIR))
 """.format(
-            ghc_flavor = GHC_FLAVOR,
-            ghc_lib_version = GHC_LIB_VERSION,
-        ),
-        visibility = ["//visibility:public"],
-    )
-    native.genrule(
-        name = "ghc-lib",
-        srcs = [
-            ":srcs",
-            ":README.md",
-        ],
-        tools = [
-            "@ghc-lib-gen",
-            "@//bazel_tools/ghc-lib:sh-lib",
-        ],
-        toolchains = [
-            "@//bazel_tools/ghc-lib:libs",
-            "@//bazel_tools/ghc-lib:tools",
-        ],
-        outs = [
-            "ghc-lib.cabal",
-            "ghc-lib-{}.tar.gz".format(GHC_LIB_VERSION),
-        ],
-        cmd = """\
-set -euo pipefail
-EXECROOT=$$PWD
-. $(execpath @//bazel_tools/ghc-lib:sh-lib)
-
-SEP="$$(path_list_separtor)"
-export LIBRARY_PATH="$$(make_all_absolute "$(LIBS_LIBRARY_PATH)")"
-export PATH="$$(make_all_absolute "$(TOOLS_PATH)")$$SEP$$PATH"
-export LANG=C.UTF-8
-
-GHC="$$(abs_dirname $(execpath :README.md))"
-TMP=$$(mktemp -d)
-trap "rm -rf $$TMP" EXIT
-cp -rLt $$TMP $$GHC/.
-
-export HOME="$$TMP"
-export STACK_ROOT="$$TMP/.stack"
-mkdir -p $$STACK_ROOT
-echo -e "system-ghc: true\\ninstall-ghc: false" > $$STACK_ROOT/config.yaml
-
-$(execpath @ghc-lib-gen) $$TMP --ghc-lib --ghc-flavor={ghc_flavor}
-sed -i.bak \\
-  -e 's#version: 0.1.0#version: {ghc_lib_version}#' \\
-  $$TMP/ghc-lib.cabal
-cp $$TMP/ghc-lib.cabal $(execpath ghc-lib.cabal)
-(cd $$TMP; cabal sdist -o $$EXECROOT/$(RULEDIR))
-""".format(
-            ghc_flavor = GHC_FLAVOR,
-            ghc_lib_version = GHC_LIB_VERSION,
-        ),
-        visibility = ["//visibility:public"],
-    )
+                component = component,
+                ghc_flavor = GHC_FLAVOR,
+                ghc_lib_version = GHC_LIB_VERSION,
+            ),
+            visibility = ["//visibility:public"],
+        )
