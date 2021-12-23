@@ -1,0 +1,48 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+load("//bazel_tools/ghc-lib:version.bzl", "GHC_LIB_VERSION")
+
+# TODO[AH] Avoid warning "dependency checking of directories is unsound"
+genrule(
+    name = "unpack",
+    srcs = [
+        "@da-ghc//:ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION),
+    ],
+    outs = [
+        "srcs/compiler",
+        "srcs/ghc-lib",
+        "srcs/includes",
+        "srcs/libraries",
+        "srcs/LICENSE",
+    ],
+    cmd = "tar xf $(SRCS) --strip 1 -C $(RULEDIR)/srcs",
+)
+
+copy_file(
+    name = "cabal-file",
+    src = "@da-ghc//:ghc-lib-parser.cabal",
+    out = "srcs/ghc-lib-parser.cabal",
+)
+
+filegroup(
+    name = "srcs",
+    srcs = [
+        ":cabal-file",
+        ":unpack",
+    ],
+)
+
+haskell_cabal_library(
+    name = "ghc-lib-parser",
+    srcs = [":srcs"],
+    flags = packages["ghc-lib-parser"].flags,
+    haddock = False,
+    tools = packages["ghc-lib-parser"].tools,
+    version = packages["ghc-lib-parser"].version,
+    visibility = ["//visibility:public"],
+    deps = packages["ghc-lib-parser"].deps,
+)
