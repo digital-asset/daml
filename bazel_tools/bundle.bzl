@@ -11,6 +11,13 @@ LibraryBundleInfo = provider(fields = ["library_dirs"])
 def _to_var_name(label_name):
     return label_name.upper().replace("-", "_")
 
+def _path_separator(ctx):
+    # Use ':' even on Windows because msys2 will automatically convert such
+    # path lists to the Windows format, using ';' as separator and 'C:\'
+    # syntax. Be sure that absolute paths use the format '/c/...' instead of
+    # 'C:\...'. See https://www.msys2.org/docs/filesystem-paths/.
+    return ":"
+
 def _cc_toolchain_binary_bundle_impl(ctx):
     cc_toolchain_info = find_cc_toolchain(ctx)
 
@@ -50,7 +57,7 @@ def _cc_toolchain_binary_bundle_impl(ctx):
     ])
     binary_bundle_info = BinaryBundleInfo(tool_dirs = tool_dirs)
 
-    path_separator = ":"  # TODO[AH] Handle Windows
+    path_separator = _path_separator(ctx)
     path = path_separator.join(tool_dirs.to_list())
     template_variable_info = platform_common.TemplateVariableInfo({
         "{}_PATH".format(_to_var_name(ctx.label.name)): path,
@@ -99,7 +106,7 @@ def _binary_bundle_impl(ctx):
     ])
     binary_bundle_info = BinaryBundleInfo(tool_dirs = tool_dirs)
 
-    path_separator = ":"  # TODO[AH] Handle Windows
+    path_separator = _path_separator(ctx)
     path = path_separator.join(tool_dirs.to_list())
     template_variable_info = platform_common.TemplateVariableInfo({
         "{}_PATH".format(_to_var_name(ctx.label.name)): path,
@@ -171,7 +178,7 @@ def _library_bundle_impl(ctx):
     ])
     library_bundle_info = LibraryBundleInfo(library_dirs = library_dirs)
 
-    path_separator = ":"  # TODO[AH] Handle Windows
+    path_separator = _path_separator(ctx)
     library_path = path_separator.join(library_dirs.to_list())
     template_variable_info = platform_common.TemplateVariableInfo({
         "{}_LIBRARY_PATH".format(_to_var_name(ctx.label.name)): library_path,

@@ -2,6 +2,27 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+is_windows() {
+  case "$OSTYPE" in
+    win*) return 0;;
+    msys*) return 0;;
+    cygwin*) return 0;;
+    *) return 1;;
+  esac
+}
+
+path_list_separtor() {
+  # Use ':' even on Windows because msys2 will automatically convert such
+  # path lists to the Windows format, using ';' as separator and 'C:\'
+  # syntax. Be sure that absolute paths use the format '/c/...' instead of
+  # 'C:\...'. See https://www.msys2.org/docs/filesystem-paths/.
+  if is_windows; then
+    echo ":"
+  else
+    echo ":"
+  fi
+}
+
 make_absolue() {
   local P="$1"
   case "$P" in
@@ -12,12 +33,12 @@ make_absolue() {
 
 make_all_absolute() {
   local IN="$1" ARR P OUT=""
-  # TODO[AH] Handle Windows separator
-  IFS=':' read -ra ARR <<<"$IN"
+  local SEP="$(path_list_separtor)"
+  IFS="$SEP" read -ra ARR <<<"$IN"
   for P in "${ARR[@]}"; do
-    OUT="$OUT$(make_absolue "$P"):"
+    OUT="$OUT$(make_absolue "$P")$SEP"
   done
-  echo "${OUT%:}"
+  echo "${OUT%$SEP}"
 }
 
 abs_dirname() {

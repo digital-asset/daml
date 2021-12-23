@@ -77,8 +77,9 @@ set -euo pipefail
 EXECROOT=$$PWD
 . $(execpath @//bazel_tools/ghc-lib:sh-lib)
 
-export LIBRARY_PATH="$$(make_all_absolute $(LIBS_LIBRARY_PATH))"
-export PATH="$$(make_all_absolute $(TOOLS_PATH)):$$PATH"
+SEP="$$(path_list_separtor)"
+export LIBRARY_PATH="$$(make_all_absolute "$(LIBS_LIBRARY_PATH)")"
+export PATH="$$(make_all_absolute "$(TOOLS_PATH)")$$SEP$$PATH"
 export LANG=C.UTF-8
 
 GHC="$$(abs_dirname $(execpath :README.md))"
