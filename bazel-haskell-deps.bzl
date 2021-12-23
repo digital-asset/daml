@@ -654,7 +654,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         stack = "@stack_windows//:stack.exe" if is_windows else None,
         vendored_packages = {
             "ghcide": "@ghcide_ghc_lib//:ghcide",
-            "ghc-lib": "@ghc_lib//:ghc-lib",
+            "ghc-lib": "@com_github_digital_asset_daml//bazel_tools/ghc-lib/ghc-lib",
             "ghc-lib-parser": "@com_github_digital_asset_daml//bazel_tools/ghc-lib/ghc-lib-parser",
             "grpc-haskell-core": "@grpc_haskell_core//:grpc-haskell-core",
             "grpc-haskell": "@grpc_haskell//:grpc-haskell",
