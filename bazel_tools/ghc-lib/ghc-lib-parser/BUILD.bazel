@@ -5,6 +5,7 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 load("//bazel_tools/ghc-lib:version.bzl", "GHC_LIB_VERSION")
+load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 
 # TODO[AH] Avoid warning "dependency checking of directories is unsound"
 genrule(
@@ -26,6 +27,23 @@ copy_file(
     name = "cabal-file",
     src = "@da-ghc//:ghc-lib-parser.cabal",
     out = "srcs/ghc-lib-parser.cabal",
+)
+
+sh_inline_test(
+    name = "cabal-file-diff",
+    cmd = """\
+EXPECTED=$$(canonicalize_rlocation $(rootpath @da-ghc//:ghc-lib-parser.cabal))
+ACTUAL=$$(canonicalize_rlocation $(rootpath ghc-lib-parser.cabal))
+$(POSIX_DIFF) -Naur $$EXPECTED $$ACTUAL || {
+  echo "The checked in ghc-lib-parser.cabal file is out of sync" >&2
+  exit 1
+}
+""",
+    data = [
+        "ghc-lib-parser.cabal",
+        "@da-ghc//:ghc-lib-parser.cabal",
+    ],
+    toolchains = ["@rules_sh//sh/posix:make_variables"],
 )
 
 filegroup(
