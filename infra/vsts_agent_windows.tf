@@ -17,7 +17,7 @@ locals {
     },
     {
       name       = "ci-w2"
-      size       = 6,
+      size       = 1,
       assignment = "default",
       disk_size  = 400
     },
