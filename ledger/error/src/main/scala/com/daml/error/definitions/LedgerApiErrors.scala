@@ -719,7 +719,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
                     |There was an attempt to create a user with too many rights or grant too many rights to a user."""
     )
     @Resolution(
-      """|Retry with a smaller number or rights or delete some of the already existing rights.
+      """|Retry with a smaller number of rights or delete some of the already existing rights of this user.
                    |Contact the participant operator if the limit is too low."""
     )
     object TooManyUserRights
@@ -731,7 +731,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause = s"cannot ${_operation}, as user \"${userId}\" would have too many rights."
-            // TODO (i12053): also output participantId
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId

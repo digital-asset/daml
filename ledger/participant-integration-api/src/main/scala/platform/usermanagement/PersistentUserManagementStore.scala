@@ -27,18 +27,19 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object UserManagementConfig {
 
-  val DefaultMaximumCacheSize = 100
+  val DefaultMaxCacheSize = 100
   val DefaultCacheExpiryAfterWriteInSeconds = 5
+  val MaxRightsPerUser = 1000
 
   def default(enabled: Boolean): UserManagementConfig = UserManagementConfig(
     enabled = enabled,
-    maximumCacheSize = DefaultMaximumCacheSize,
+    maxCacheSize = DefaultMaxCacheSize,
     cacheExpiryAfterWriteInSeconds = DefaultCacheExpiryAfterWriteInSeconds,
   )
 }
 final case class UserManagementConfig(
     enabled: Boolean,
-    maximumCacheSize: Int,
+    maxCacheSize: Int,
     cacheExpiryAfterWriteInSeconds: Int,
 )
 
@@ -53,15 +54,17 @@ object PersistentUserManagementStore {
       dbSupport: DbSupport,
       metrics: Metrics,
       cacheExpiryAfterWriteInSeconds: Int,
-      maximumCacheSize: Int,
+      maxCacheSize: Int,
+      maxRightsPerUser: Int,
   )(implicit executionContext: ExecutionContext): UserManagementStore = {
     new CachedUserManagementStore(
       delegate = new PersistentUserManagementStore(
         dbSupport = dbSupport,
         metrics = metrics,
+        maxRightsPerUser = maxRightsPerUser,
       ),
       expiryAfterWriteInSeconds = cacheExpiryAfterWriteInSeconds,
-      maximumCacheSize = maximumCacheSize,
+      maximumCacheSize = maxCacheSize,
       metrics = metrics,
     )
   }
@@ -70,7 +73,7 @@ object PersistentUserManagementStore {
 class PersistentUserManagementStore(
     dbSupport: DbSupport,
     metrics: Metrics,
-    maxNumberOfUserRightsPerUser: Int = 1000,
+    maxRightsPerUser: Int,
 ) extends UserManagementStore {
 
   private val backend = dbSupport.storageBackendFactory.createUserManagementStorageBackend
@@ -101,7 +104,7 @@ class PersistentUserManagementStore(
             connection
           )
         )
-        if (backend.countUserRights(internalId)(connection) > maxNumberOfUserRightsPerUser) {
+        if (backend.countUserRights(internalId)(connection) > maxRightsPerUser) {
           throw TooManyUserRightsRuntimeException(user.id)
         } else {
           ()
@@ -143,7 +146,7 @@ class PersistentUserManagementStore(
             false
           }
         }
-        if (backend.countUserRights(user.internalId)(connection) > maxNumberOfUserRightsPerUser) {
+        if (backend.countUserRights(user.internalId)(connection) > maxRightsPerUser) {
           throw TooManyUserRightsRuntimeException(user.domainUser.id)
         } else {
           addedRights

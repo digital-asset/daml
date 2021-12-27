@@ -51,7 +51,7 @@ import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
-import com.daml.platform.usermanagement.PersistentUserManagementStore
+import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import com.daml.ports.Port
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 import scalaz.syntax.tag._
@@ -239,7 +239,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           metrics = metrics,
           cacheExpiryAfterWriteInSeconds =
             config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-          maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+          maxCacheSize = config.userManagementConfig.maxCacheSize,
+          maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
         )(servicesExecutionContext)
         indexService <- StandaloneIndexService(
           dbSupport = dbSupport,

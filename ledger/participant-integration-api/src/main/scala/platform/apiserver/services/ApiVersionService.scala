@@ -26,6 +26,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.LedgerFeatures
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.usermanagement.UserManagementConfig
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -54,7 +55,12 @@ private[apiserver] final class ApiVersionService private (
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
-      userManagement = Some(UserManagementFeature(supported = enableUserManagement)),
+      userManagement = Some(
+        UserManagementFeature(
+          supported = enableUserManagement,
+          maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+        )
+      ),
       experimental = Some(
         ExperimentalFeatures.of(
           selfServiceErrorCodes =

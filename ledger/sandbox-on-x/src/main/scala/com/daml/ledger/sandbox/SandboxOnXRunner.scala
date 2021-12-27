@@ -40,9 +40,9 @@ import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
-import com.daml.platform.usermanagement.PersistentUserManagementStore
-
+import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import java.util.concurrent.{Executors, TimeUnit}
+
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 
@@ -243,7 +243,8 @@ object SandboxOnXRunner {
         dbSupport = dbSupport,
         metrics = metrics,
         cacheExpiryAfterWriteInSeconds = config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-        maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+        maxCacheSize = config.userManagementConfig.maxCacheSize,
+        maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
       )(servicesExecutionContext),
       ledgerFeatures = LedgerFeatures(
         staticTime = timeServiceBackend.isDefined,
