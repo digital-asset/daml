@@ -23,7 +23,6 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlSubmissionDedupValue,
 }
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
-import com.daml.lf
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
@@ -37,7 +36,6 @@ import com.daml.metrics.Metrics
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
-import scala.util.control.NonFatal
 
 private[committer] object PackageCommitter {
   final case class Result(
@@ -130,7 +128,7 @@ final private[kvutils] class PackageCommitter(
           StepContinue(partialResult.copy(rawArchiveCache = packageIdsAndRawArchives))
         case (errors, _) =>
           val uploadEntry = partialResult.uploadEntry
-          rejectionTraceLog(errors.map(_.errorMessage).mkString("[", ",", "]"))
+          rejectionTraceLog(errors.map(_.msg).mkString("[", ",", "]"))
           reject(
             ctx.recordTime,
             uploadEntry.getSubmissionId,
@@ -223,26 +221,13 @@ final private[kvutils] class PackageCommitter(
   }
 
   private def decodePackages(
-      hashesAndArchives: Iterable[(String, RawArchive)]
+      rawArchives: Iterable[RawArchive]
   ): Either[String, Map[Ref.PackageId, Ast.Package]] =
     metrics.daml.kvutils.committer.packageUpload.decodeTimer.time { () =>
-      type Result = Either[List[String], Map[Ref.PackageId, Ast.Package]]
-      hashesAndArchives
-        .foldLeft[Result](Right(Map.empty)) { case (acc, (hash, rawArchive)) =>
-          try {
-            acc.map { result =>
-              val archive = ArchiveParser.assertFromByteString(rawArchive.byteString)
-              result + lf.archive.Decode.assertDecodeArchive(archive)
-            }
-          } catch {
-            case NonFatal(e) =>
-              Left(
-                s"Cannot decode archive $hash: ${e.getMessage}" :: acc.left.getOrElse(Nil)
-              )
-          }
-        }
+      ArchiveConversions
+        .decodePackages(rawArchives)
         .left
-        .map(_.mkString(", "))
+        .map(error => s"Cannot decode archive: ${error.msg}")
     }
 
   private def decodePackagesIfNeeded(
@@ -250,7 +235,7 @@ final private[kvutils] class PackageCommitter(
       hashesAndArchives: Iterable[(String, RawArchive)],
   ): Either[String, Map[PackageId, Ast.Package]] =
     if (pkgsCache.isEmpty)
-      decodePackages(hashesAndArchives)
+      decodePackages(hashesAndArchives.map(_._2))
     else
       Right(pkgsCache)
 

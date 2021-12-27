@@ -20,6 +20,7 @@ import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, Result}
+import com.daml.lf.kv.archives.{ArchiveConversions, RawArchive}
 import com.daml.lf.kv.contracts.{ContractConversions, RawContractInstance}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Transaction.{
@@ -184,8 +185,7 @@ private[transaction] class CommitterModelConformanceValidator(engine: Engine, me
         case DamlStateValue.ValueCase.ARCHIVE =>
           // NOTE: Engine only calls `lookupPackage` once per archive, compiles and caches,
           // provided that the engine instance is persisted.
-          val archive = com.daml.lf.archive.ArchiveParser.assertFromByteString(value.getArchive)
-          com.daml.lf.archive.Decode.decodeArchive(archive) match {
+          ArchiveConversions.decodePackage(RawArchive(value.getArchive)) match {
             case Right((_, pkg)) => Some(pkg)
             case Left(err) =>
               logger.warn("Decoding the archive failed.")
