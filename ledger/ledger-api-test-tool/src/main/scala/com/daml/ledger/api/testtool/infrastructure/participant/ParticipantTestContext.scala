@@ -76,6 +76,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.api.v1.value.{Identifier, Value}
+import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionRequest
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.client.binding.{Primitive, Template}
 import com.daml.platform.testing.StreamConsumer
@@ -794,6 +795,19 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def userManagement: UserManagementService =
     services.userManagement // TODO (i12059) perhaps remove and create granular accessors
+
+  def maxNumberOfUserRightsPerUser: Future[Option[Int]] = {
+    for {
+      res <- services.version.getLedgerApiVersion(new GetLedgerApiVersionRequest(ledgerId))
+    } yield {
+      for {
+        f <- res.features
+        um <- f.userManagement
+      } yield {
+        um.maxNumberOfUserRightsPerUser
+      }
+    }
+  }
 
   private def reservePartyNames(n: Int): Future[Vector[Party]] =
     Future.successful(Vector.fill(n)(Party(nextPartyHintId())))

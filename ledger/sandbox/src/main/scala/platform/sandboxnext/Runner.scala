@@ -43,6 +43,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver._
+import com.daml.platform.apiserver.services.ApiVersionService
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole, SubmissionConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
@@ -286,6 +287,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
               userManagementStore = new PersistentUserManagementStore(
                 dbDispatcher = dbSupport.dbDispatcher,
                 metrics = metrics,
+                maxNumberOfUserRightsPerUser = ApiVersionService.MaxNumberOfUserRightsPerUser,
               )
               indexService <- StandaloneIndexService(
                 dbSupport = dbSupport,

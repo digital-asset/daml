@@ -37,14 +37,17 @@ class PersistentUserManagementStoreSpec
   private implicit def toUserId(s: String): UserId =
     UserId.assertFromString(s)
 
+  private val MaxNumberOfUserRightsPerUser = 10
+
   "enforce user rights limit" in {
     testIt { tested: PersistentUserManagementStore =>
-      // TODO participant user management: Hardcoded limit of 1000 rights
       val user1 = User(Ref.UserId.assertFromString("user_id_1"), None)
       val user2 = User(Ref.UserId.assertFromString("user_id_2"), None)
 
       val rights: Set[UserRight] =
-        (1 to 1001).map(i => CanActAs(Ref.Party.assertFromString(s"party_act_as_$i"))).toSet
+        (1 to (MaxNumberOfUserRightsPerUser + 1))
+          .map(i => CanActAs(Ref.Party.assertFromString(s"party_act_as_$i")))
+          .toSet
 
       for {
 
@@ -323,6 +326,7 @@ class PersistentUserManagementStoreSpec
       dbDispatcher = getDbDispatcher,
       metrics = metrics,
       createAdminUser = false,
+      maxNumberOfUserRightsPerUser = MaxNumberOfUserRightsPerUser,
     )
     f(tested)
 

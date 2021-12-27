@@ -40,6 +40,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver._
+import com.daml.platform.apiserver.services.ApiVersionService
 import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration, ServerRole}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
@@ -340,6 +341,7 @@ final class SandboxServer(
           new PersistentUserManagementStore(
             dbDispatcher = dbSupport.dbDispatcher,
             metrics = metrics,
+            maxNumberOfUserRightsPerUser = ApiVersionService.MaxNumberOfUserRightsPerUser,
           )
         case None => new InMemoryUserManagementStore
       }

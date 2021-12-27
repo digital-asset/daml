@@ -57,6 +57,7 @@ object Tests {
       new TransactionServiceValidationIT,
       new TransactionServiceVisibilityIT,
       new UserManagementServiceIT,
+      new UserManagementLimitsIT,
       new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,

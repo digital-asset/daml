@@ -29,7 +29,6 @@ import io.grpc.Status
 
 import scala.collection.immutable.Iterable
 import scala.concurrent.Future
-import scala.util.Random
 
 // TODO participant user management: Test what error message is served when an operation are done on an non-existent user.
 final class UserManagementServiceIT extends LedgerTestSuite {
@@ -44,74 +43,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   def assertEquals(actual: Any, expected: Any): Unit = {
     assert(actual == expected, s"Actual |${actual}| should be equal (expected): |${expected}|")
   }
-
-  test(
-    "UserManagementUserRightsLimit",
-    "Test 1000 user rights per user limit",
-    allocate(NoParties),
-    enabled = _.userManagement,
-    disabledReason = "requires user management feature",
-  )(implicit ec => { case Participants(Participant(ledger)) =>
-    def assertTooManyUserRightsError(t: Throwable): Unit = {
-      assertGrpcError(
-        participant = ledger,
-        t = t,
-        expectedCode = Status.Code.FAILED_PRECONDITION,
-        selfServiceErrorCode = LedgerApiErrors.AdminServices.TooManyUserRights,
-        exceptionMessageSubstring = None,
-      )
-    }
-
-    val adminPermission =
-      Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))
-
-    def createCanActAs(id: Int) =
-      Permission(Permission.Kind.CanActAs(Permission.CanActAs(s"acting-party-$id")))
-
-    def createReadActAs(id: Int) =
-      Permission(Permission.Kind.CanReadAs(Permission.CanReadAs(s"reading-party-$id")))
-
-    val permissions1001: Seq[Permission] = Random.shuffle(
-      (1 to 500).map(createCanActAs) ++ (1 to 500).map(createReadActAs) ++ Seq(adminPermission)
-    )
-    // TODO participant user management: Hardcoded: max number of user rights: 1000
-    assertEquals(permissions1001.length, 1001)
-    val permission1 = permissions1001.head
-    val permissions1000 = permissions1001.tail
-
-    val user1 = User(UUID.randomUUID.toString, "")
-    val user2 = User(UUID.randomUUID.toString, "")
-
-    for {
-      // cannot create user with 1001 rights
-      create1 <- ledger.userManagement
-        .createUser(CreateUserRequest(Some(user1), permissions1001))
-        .mustFail(
-          "creating user with too many rights"
-        )
-      // can create user with 1000 rights
-      create2 <- ledger.userManagement.createUser(CreateUserRequest(Some(user1), permissions1000))
-      // fails adding one more right
-      grant1 <- ledger.userManagement
-        .grantUserRights(GrantUserRightsRequest(user1.id, rights = Seq(permission1)))
-        .mustFail(
-          "granting more rights exceeds max number of user rights per user"
-        )
-      // rights already added are intact
-      rights1 <- ledger.userManagement.listUserRights(ListUserRightsRequest(user1.id))
-      // can create other users with 1000 rights
-      create3 <- ledger.userManagement.createUser(CreateUserRequest(Some(user2), permissions1000))
-
-    } yield {
-      assertTooManyUserRightsError(create1)
-      assertEquals(create2, user1)
-      assertTooManyUserRightsError(grant1)
-      assertEquals(rights1.rights.size, permissions1001.tail.size)
-      assertSameElements(rights1.rights, permissions1001.tail)
-      assertEquals(create3, user2)
-    }
-
-  })
 
   test(
     "UserManagementCreateUserInvalidArguments",

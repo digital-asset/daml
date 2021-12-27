@@ -52,7 +52,14 @@ private[apiserver] final class ApiVersionService private (
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
-      userManagement = if (enableUserManagement) Some(UserManagementFeature()) else None,
+      userManagement =
+        if (enableUserManagement)
+          Some(
+            UserManagementFeature(maxNumberOfUserRightsPerUser =
+              ApiVersionService.MaxNumberOfUserRightsPerUser
+            )
+          )
+        else None,
       experimental = Some(
         ExperimentalFeatures(selfServiceErrorCodes =
           Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes())
@@ -96,7 +103,7 @@ private[apiserver] final class ApiVersionService private (
 
 }
 
-private[apiserver] object ApiVersionService {
+object ApiVersionService {
   def create(
       enableSelfServiceErrorCodes: Boolean,
       commandDeduplicationFeatures: CommandDeduplicationFeatures,
@@ -107,4 +114,6 @@ private[apiserver] object ApiVersionService {
       commandDeduplicationFeatures = commandDeduplicationFeatures,
       enableUserManagement = enableUserManagement,
     )
+
+  val MaxNumberOfUserRightsPerUser: Int = 1000
 }

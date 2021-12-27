@@ -61,7 +61,9 @@ message FeaturesDescriptor {
 
 // Used to signal the presence of the user management service.
 // Defined as a message to enable future addition of individual per-service features.
-message UserManagementFeature {}
+message UserManagementFeature {
+    int32 max_number_of_user_rights_per_user = 1;
+}
 
 message CommandDeduplicationFeatures {
   DeduplicationPeriodSupport deduplication_period_support = 1;

@@ -40,7 +40,7 @@ class PersistentUserManagementStore(
     dbDispatcher: DbDispatcher,
     metrics: Metrics,
     createAdminUser: Boolean = true,
-    maxNumberOfUserRightsPerUser: Int = 1000,
+    maxNumberOfUserRightsPerUser: Int,
 ) extends UserManagementStore {
 
   private val backend: UserManagementStorageBackend = UserManagementStorageBackendTemplate

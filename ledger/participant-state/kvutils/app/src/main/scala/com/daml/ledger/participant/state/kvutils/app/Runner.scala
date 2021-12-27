@@ -26,6 +26,7 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.JvmMetricSet
+import com.daml.platform.apiserver.services.ApiVersionService
 import com.daml.platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
@@ -170,6 +171,8 @@ final class Runner[T <: ReadWriteService, Extra](
                         new PersistentUserManagementStore(
                           dbDispatcher = dbSupport.dbDispatcher,
                           metrics = metrics,
+                          maxNumberOfUserRightsPerUser =
+                            ApiVersionService.MaxNumberOfUserRightsPerUser,
                         )
                       indexService <- StandaloneIndexService(
                         dbSupport = dbSupport,

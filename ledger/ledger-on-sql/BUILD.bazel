@@ -344,17 +344,7 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--include=UserManagementServiceIT",
-        #        "--additional=CommandDeduplicationParallelIT",
-        #        "--additional=CommandDeduplicationPeriodValidationIT",
-        #        "--additional=CompletionDeduplicationInfoITCommandService",
-        #        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        #        "--additional=KVCommandDeduplicationIT",
-        #        "--additional=ParticipantPruningIT",
-        #        "--additional=MultiPartySubmissionIT",
-        #        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        # Disable tests targeting only multi-participant setups
-        #        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+        "--include=UserManagement",
     ],
 )
 
