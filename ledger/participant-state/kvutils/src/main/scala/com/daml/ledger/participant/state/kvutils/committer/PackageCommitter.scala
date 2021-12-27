@@ -115,7 +115,7 @@ final private[kvutils] class PackageCommitter(
       )
     )
 
-  private def readArchiveHashes: Step = new Step {
+  private def buildArchiveCache: Step = new Step {
     def apply(
         ctx: CommitContext,
         partialResult: Result,
@@ -191,11 +191,11 @@ final private[kvutils] class PackageCommitter(
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
       val (seenOnce, duplicates) = partialResult.rawArchiveCache.iterator
         .foldLeft((Set.empty[String], Set.empty[String])) {
-          case ((seenOnce, duplicates), (hash, _)) =>
-            if (seenOnce(hash))
-              (seenOnce, duplicates + hash)
+          case ((seenOnce, duplicates), (packageId, _)) =>
+            if (seenOnce(packageId))
+              (seenOnce, duplicates + packageId)
             else
-              (seenOnce + hash, duplicates)
+              (seenOnce + packageId, duplicates)
         }
 
       if (seenOnce.isEmpty || duplicates.nonEmpty) {
@@ -232,10 +232,10 @@ final private[kvutils] class PackageCommitter(
 
   private def decodePackagesIfNeeded(
       pkgsCache: Map[Ref.PackageId, Ast.Package],
-      hashesAndArchives: Iterable[(String, RawArchive)],
+      archiveCache: Iterable[(Ref.PackageId, RawArchive)],
   ): Either[String, Map[PackageId, Ast.Package]] =
     if (pkgsCache.isEmpty)
-      decodePackages(hashesAndArchives.map(_._2))
+      decodePackages(archiveCache.map(_._2))
     else
       Right(pkgsCache)
 
@@ -252,14 +252,14 @@ final private[kvutils] class PackageCommitter(
         ctx: CommitContext,
         partialResult: Result,
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
-      val Result(uploadEntry, hashesAndArchives, packagesCache) = partialResult
+      val Result(uploadEntry, archiveCache, packagesCache) = partialResult
       val result = for {
         packages <- decodePackagesIfNeeded(
           packagesCache,
-          hashesAndArchives,
+          archiveCache,
         )
         _ <- validatePackages(packages)
-      } yield StepContinue(Result(uploadEntry, hashesAndArchives, packages))
+      } yield StepContinue(Result(uploadEntry, archiveCache, packages))
 
       result match {
         case Right(result) => result
@@ -333,14 +333,14 @@ final private[kvutils] class PackageCommitter(
         ctx: CommitContext,
         partialResult: Result,
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
-      val Result(uploadEntry, hashesAndArchives, packagesCache) = partialResult
+      val Result(uploadEntry, archiveCache, packagesCache) = partialResult
       val result = for {
         packages <- decodePackagesIfNeeded(
           packagesCache,
-          hashesAndArchives,
+          archiveCache,
         )
         _ <- uploadPackages(packages)
-      } yield StepContinue(Result(uploadEntry, hashesAndArchives, packages))
+      } yield StepContinue(Result(uploadEntry, archiveCache, packages))
 
       result match {
         case Right(partialResult) =>
@@ -377,11 +377,11 @@ final private[kvutils] class PackageCommitter(
         ctx: CommitContext,
         partialResult: Result,
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
-      val Result(uploadEntry, hashesAndArchives, packagesCache) = partialResult
+      val Result(uploadEntry, archiveCache, packagesCache) = partialResult
       preloadExecutor.execute { () =>
         logger.trace(s"Uploading ${uploadEntry.getArchivesCount} archive(s).")
         val result = for {
-          packages <- decodePackagesIfNeeded(packagesCache, hashesAndArchives)
+          packages <- decodePackagesIfNeeded(packagesCache, archiveCache)
           _ <- uploadPackages(packages)
         } yield ()
 
@@ -402,21 +402,21 @@ final private[kvutils] class PackageCommitter(
         ctx: CommitContext,
         partialResult: Result,
     )(implicit loggingContext: LoggingContext): StepResult[Result] = {
-      val Result(uploadEntry, hashesAndArchives, packagesCache) = partialResult
-      val newHashesAndArchives = hashesAndArchives.filter { case (hash, _) =>
+      val Result(uploadEntry, archiveCache, packagesCache) = partialResult
+      val newArchiveCache = archiveCache.filter { case (packageId, _) =>
         val stateKey = DamlStateKey.newBuilder
-          .setPackageId(hash)
+          .setPackageId(packageId)
           .build
         ctx.get(stateKey).isEmpty
       }
       val newUploadEntry = uploadEntry.clearArchives()
-      newHashesAndArchives.foreach { case (_, rawArchive) =>
+      newArchiveCache.foreach { case (_, rawArchive) =>
         newUploadEntry.addArchives(rawArchive.byteString)
       }
       StepContinue(
         Result(
           newUploadEntry,
-          newHashesAndArchives,
+          newArchiveCache,
           packagesCache,
         )
       )
@@ -431,10 +431,10 @@ final private[kvutils] class PackageCommitter(
       metrics.daml.kvutils.committer.packageUpload.accepts.inc()
       logger.trace("Packages committed.")
 
-      partialResult.rawArchiveCache.foreach { case (hash, rawArchive) =>
+      partialResult.rawArchiveCache.foreach { case (packageId, rawArchive) =>
         ctx.set(
           DamlStateKey.newBuilder
-            .setPackageId(hash)
+            .setPackageId(packageId)
             .build,
           DamlStateValue.newBuilder.setArchive(rawArchive.byteString).build,
         )
@@ -457,7 +457,7 @@ final private[kvutils] class PackageCommitter(
   override protected val steps: Steps[Result] = {
     val builder = List.newBuilder[(StepInfo, Step)]
 
-    builder += "read_archive_hashes" -> readArchiveHashes
+    builder += "build_archive_cache" -> buildArchiveCache
 
     validationMode match {
       case PackageValidationMode.No =>
