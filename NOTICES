@@ -816,7 +816,6 @@ parse-passwd 1.0.0 : MIT License
 parse5 6.0.1 : MIT License
 parser 1.0.0 : MIT License
 parser-combinators 1.2.1 : BSD 3-clause "New" or "Revised" License
-parseurl 1.3.3 : MIT License
 path 0.8.0 : BSD 3-clause "New" or "Revised" License
 path-browserify 1.0.1 : MIT License
 path-exists 4.0.0 : MIT License
@@ -835,6 +834,7 @@ performance-now 2.1.0 : MIT License
 phadej/cabal-doctest 1.0.8 : BSD 3-clause "New" or "Revised" License
 picomatch 2.2.3 : MIT License
 picomatch 2.3.0 : MIT License
+pillarjs/parseurl 1.3.3 : MIT License
 pip 21.2.4 : MIT License
 polyparse 1.13 : GNU Lesser General Public License v3.0 or later
 portscanner 2.2.0 : MIT License
@@ -6431,7 +6431,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(parseurl 1.3.3)
+(pillarjs/parseurl 1.3.3)
 
 (The MIT License)
 
