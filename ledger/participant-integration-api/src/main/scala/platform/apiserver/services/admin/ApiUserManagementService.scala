@@ -154,6 +154,11 @@ private[apiserver] final class ApiUserManagementService(
           LedgerApiErrors.AdminServices.UserAlreadyExists.Reject(operation, id.toString).asGrpcError
         )
 
+      case Left(UserManagementStore.TooManyUserRights(id)) =>
+        Future.failed(
+          LedgerApiErrors.AdminServices.TooManyUserRights.Reject(operation, id: String).asGrpcError
+        )
+
       case scala.util.Right(t) =>
         Future.successful(t)
     }

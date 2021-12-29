@@ -162,6 +162,11 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     updatedRowCount == 1
   }
 
+  override def countUserRights(internalId: Int)(connection: Connection): Int = {
+    SQL"SELECT count(*) AS user_rights_count from participant_user_rights WHERE user_internal_id = ${internalId}"
+      .as(SqlParser.int("user_rights_count").single)(connection)
+  }
+
   private def makeUserRight(value: Int, partyRaw: Option[String]): UserRight = {
     val partyO = dbStringToPartyString(partyRaw)
     (value, partyO) match {
