@@ -53,9 +53,8 @@ private[backend] trait StorageBackendProvider {
   }
 }
 
-private[backend] trait StorageBackendProviderPostgres
-    extends StorageBackendProvider
-    with PostgresAroundAll { this: Suite =>
+trait StorageBackendProviderPostgres extends StorageBackendProvider with PostgresAroundAll {
+  this: Suite =>
   override protected def jdbcUrl: String = postgresDatabase.url
   override protected val backend: TestBackend = TestBackend(PostgresStorageBackendFactory)
 }
@@ -90,6 +89,7 @@ case class TestBackend(
     stringInterning: StringInterningStorageBackend,
     ledgerEndCache: MutableLedgerEndCache,
     stringInterningSupport: MockStringInterning,
+    userManagement: UserManagementStorageBackend,
 )
 
 object TestBackend {
@@ -114,6 +114,7 @@ object TestBackend {
       stringInterning = storageBackendFactory.createStringInterningStorageBackend,
       ledgerEndCache = ledgerEndCache,
       stringInterningSupport = stringInterning,
+      userManagement = storageBackendFactory.createUserManagementStorageBackend,
     )
   }
 }
