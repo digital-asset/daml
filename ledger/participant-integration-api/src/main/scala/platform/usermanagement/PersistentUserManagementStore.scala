@@ -7,6 +7,7 @@ import java.sql.Connection
 import java.time.Instant
 
 import com.daml.ledger.api.domain
+import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   Result,
@@ -27,12 +28,20 @@ import scala.concurrent.Future
 class PersistentUserManagementStore(
     dbDispatcher: DbDispatcher,
     metrics: Metrics,
+    createAdminUser: Boolean = true,
 ) extends UserManagementStore {
 
   private val backend: UserManagementStorageBackend = UserManagementStorageBackendTemplate
   private val logger = ContextualizedLogger.get(this.getClass)
 
   implicit private val loggingContext: LoggingContext = LoggingContext.newLoggingContext(identity)
+
+  // TODO participant user management: This is probably not the best place/time to create admin user
+  if (createAdminUser)
+    createUser(
+      InMemoryUserManagementStore.AdminUser.user,
+      InMemoryUserManagementStore.AdminUser.rights,
+    )
 
   override def createUser(
       user: domain.User,

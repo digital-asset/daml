@@ -296,6 +296,7 @@ class PersistentUserManagementStoreSpec
     val tested = new PersistentUserManagementStore(
       dbDispatcher = getDbDispatcher,
       metrics = metrics,
+      createAdminUser = false,
     )
     f(tested)
 
