@@ -79,12 +79,7 @@ class CachedUserManagementStore(
   }
 
   override def createUser(user: domain.User, rights: Set[domain.UserRight]): Future[Result[Unit]] =
-    delegate
-      .createUser(user, rights)
-      .map(tapSuccess { _ =>
-        usersCache.put(user.id, user)
-        userRightsCache.put(user.id, rights)
-      })
+    delegate.createUser(user, rights)
 
   override def getUser(id: UserId): Future[Result[domain.User]] = {
     usersCache
