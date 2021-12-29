@@ -34,6 +34,7 @@ import scala.util.control.NonFatal
 private[apiserver] final class ApiVersionService private (
     enableSelfServiceErrorCodes: Boolean,
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
+    enableUserManagement: Boolean,
 )(implicit
     loggingContext: LoggingContext,
     ec: ExecutionContext,
@@ -51,7 +52,7 @@ private[apiserver] final class ApiVersionService private (
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
-      userManagement = Some(UserManagementFeature()),
+      userManagement = if (enableUserManagement) Some(UserManagementFeature()) else None,
       experimental = Some(
         ExperimentalFeatures(selfServiceErrorCodes =
           Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes())
@@ -99,6 +100,11 @@ private[apiserver] object ApiVersionService {
   def create(
       enableSelfServiceErrorCodes: Boolean,
       commandDeduplicationFeatures: CommandDeduplicationFeatures,
+      enableUserManagement: Boolean,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
-    new ApiVersionService(enableSelfServiceErrorCodes, commandDeduplicationFeatures)
+    new ApiVersionService(
+      enableSelfServiceErrorCodes = enableSelfServiceErrorCodes,
+      commandDeduplicationFeatures = commandDeduplicationFeatures,
+      enableUserManagement = enableUserManagement,
+    )
 }

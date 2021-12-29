@@ -391,6 +391,13 @@ class CommonCliBase(name: LedgerName) {
         )
         .action((_, config: SandboxConfig) => config.copy(enableSelfServiceErrorCodes = false))
 
+      opt[Boolean]("feature-user-management")
+        .optional()
+        .text(
+          "Whether to enable participant user management."
+        )
+        .action((enabled, config: SandboxConfig) => config.copy(enableUserManagement = enabled))
+
       com.daml.cliopts.Metrics.metricsReporterParse(this)(
         (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),
         (setter, config) =>
