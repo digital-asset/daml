@@ -176,7 +176,7 @@ object SandboxConfig {
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableCompression = false,
       enableSelfServiceErrorCodes = true,
-      userManagementConfig = UserManagementConfig.default,
+      userManagementConfig = UserManagementConfig.default(true),
     )
 
   sealed abstract class EngineMode extends Product with Serializable

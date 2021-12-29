@@ -393,10 +393,19 @@ class CommonCliBase(name: LedgerName) {
         )
         .action((_, config: SandboxConfig) => config.copy(enableSelfServiceErrorCodes = false))
 
+      opt[Boolean]("feature-user-management")
+        .optional()
+        .text(
+          "Whether to enable participant user management."
+        )
+        .action((enabled, config: SandboxConfig) =>
+          config.withUserManagementConfig(_.copy(enabled = enabled))
+        )
+
       opt[Int]("user-management-cache-expiry")
         .optional()
         .text(
-          s"Defaults to ${UserManagementConfig.default.cacheExpiryAfterWriteInSeconds} seconds. " +
+          s"Defaults to ${UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds} seconds. " +
             // TODO participant user management: Update max delay to 2x the configured value when made use of in throttled stream authorization.
             "Determines the maximum delay for propagating user management state changes."
         )
@@ -407,7 +416,7 @@ class CommonCliBase(name: LedgerName) {
       opt[Int]("user-management-max-cache-size")
         .optional()
         .text(
-          s"Defaults to ${UserManagementConfig.default.maximumCacheSize} entries. " +
+          s"Defaults to ${UserManagementConfig.DefaultMaximumCacheSize} entries. " +
             "Determines the maximum in-memory cache size for user management state."
         )
         .action((value, config: SandboxConfig) =>

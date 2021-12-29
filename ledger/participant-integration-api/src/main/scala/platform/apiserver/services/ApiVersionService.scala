@@ -37,6 +37,7 @@ private[apiserver] final class ApiVersionService private (
     enableSelfServiceErrorCodes: Boolean,
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
     enableStaticTime: Boolean,
+    enableUserManagement: Boolean,
 )(implicit
     loggingContext: LoggingContext,
     ec: ExecutionContext,
@@ -54,7 +55,8 @@ private[apiserver] final class ApiVersionService private (
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
-      userManagement = Some(UserManagementFeature(supported = true)),
+//      userManagement = if (enableUserManagement) Some(UserManagementFeature()) else None,
+      userManagement = Some(UserManagementFeature(supported = enableUserManagement)),
       experimental = Some(
         ExperimentalFeatures(
           selfServiceErrorCodes =
@@ -106,10 +108,12 @@ private[apiserver] object ApiVersionService {
       enableSelfServiceErrorCodes: Boolean,
       commandDeduplicationFeatures: CommandDeduplicationFeatures,
       enableStaticTime: Boolean,
+      enableUserManagement: Boolean,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
     new ApiVersionService(
       enableSelfServiceErrorCodes,
       commandDeduplicationFeatures,
       enableStaticTime,
+      enableUserManagement = enableUserManagement,
     )
 }

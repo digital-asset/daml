@@ -395,6 +395,7 @@ final class SandboxServer(
           CommandDeduplicationType.SYNC_ONLY,
           maxDeduplicationDurationEnforced = false,
         ),
+        enableUserManagement = config.userManagementConfig.enabled,
       )(materializer, executionSequencerFactory, loggingContext)
       apiServer <- new LedgerApiServer(
         apiServicesOwner,
