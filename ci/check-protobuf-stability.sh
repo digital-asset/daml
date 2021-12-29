@@ -70,6 +70,10 @@ check_protos() {
   check_non_lf_protos
 }
 
+version_lte() {
+  [ "$1" = "$(echo -e "$1\n$2" | sort -V | head -n 1)" ]
+}
+
 case "${1:---stable}" in
 -h | --help)
   cat <<USAGE
@@ -89,26 +93,30 @@ USAGE
   exit
   ;;
 --stable)
-  if [[ $TARGET == "main" ]]; then
-    # Check against the most recent stable tag.
-    # This check runs only on main or PRs targeting main.
-    #
-    # This check does not need to run on release branch commits because
-    # they are built sequentially, so no conflicts are possible and the per-PR
-    # check is enough.
-    readonly LATEST_STABLE_TAG="$(git tag | grep -v "snapshot" | sort -V | tail -1)"
-    # The v1.17 stable release includes the buf config file with the default name `buf.yml`.
-    # Starting with v1.18 we have multiple buf config files.
-    if [[ $LATEST_STABLE_TAG =~ "v1.17."* ]]; then
-      BUF_CONFIG_UPDATED=false
-    else
-      BUF_CONFIG_UPDATED=true
-    fi
-    BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
-    check_protos
+  # Check against the most recent stable tag.
+  #
+  # This check does not need to run on release branch commits because
+  # they are built sequentially, so no conflicts are possible and the per-PR
+  # check is enough.
+  readonly RELEASE_BRANCH_REGEX="^release/.*"
+  LATEST_STABLE_TAG=""
+  if [[ "${TARGET}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
+    readonly VERSION="${TARGET#release/}"
+    readonly VERSION_PREFIX="${VERSION%x}"
+    readonly STABLE_TAGS=($(git tag | grep "v.*" | grep -v "snapshot" | sort -V))
+    LATEST_STABLE_TAG="$(for TAG in ${STABLE_TAGS[@]}; do version_lte "${TAG#v}" "${VERSION_PREFIX}999" && echo "$TAG"; done | tail -1)"
   else
-    echo "Skipping check for protobuf compatibility because the target is '${TARGET}' and not 'main'"
+    LATEST_STABLE_TAG="$(git tag | grep "v.*" | grep -v "snapshot" | sort -V | tail -1)"
   fi
+  # The v1.17 stable release includes the buf config file with the default name `buf.yml`.
+  # Starting with v1.18 we have multiple buf config files.
+  if [[ $LATEST_STABLE_TAG =~ "v1.17."* ]]; then
+    BUF_CONFIG_UPDATED=false
+  else
+    BUF_CONFIG_UPDATED=true
+  fi
+  BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
+  check_protos
   ;;
 --target)
   # Check against the tip of the target branch.
