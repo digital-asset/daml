@@ -40,7 +40,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver._
-import com.daml.platform.apiserver.services.ApiVersionService
 import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration, ServerRole}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
@@ -338,13 +337,15 @@ final class SandboxServer(
       }
       userManagementStore = dbSupportOption match {
         case Some(dbSupport) =>
-          new PersistentUserManagementStore(
+          PersistentUserManagementStore.cached(
             dbDispatcher = dbSupport.dbDispatcher,
             metrics = metrics,
-            maxNumberOfUserRightsPerUser = ApiVersionService.MaxNumberOfUserRightsPerUser,
           )
         case None => new InMemoryUserManagementStore
       }
+      userManagementBasedAuthorizer = PersistentUserManagementStore.cachedAuthorizer(
+        userManagementStore = userManagementStore
+      )
       indexAndWriteService <- (dbSupportOption match {
         case Some(dbSupport: DbSupport) =>
           SandboxIndexAndWriteService.postgres(
@@ -397,6 +398,7 @@ final class SandboxServer(
         LedgerId.unwrap(ledgerId),
         config.participantId,
         errorCodesVersionSwitcher,
+        userManagementBasedAuthorizer,
       )
       healthChecks = new HealthChecks(
         "index" -> indexAndWriteService.indexService,

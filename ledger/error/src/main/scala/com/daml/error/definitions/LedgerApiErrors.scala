@@ -297,6 +297,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
   @Explanation("Authentication errors.")
   object AuthorizationChecks extends ErrorGroup() {
+
+    // TODO participant user management: Does the explanation and resolution need rewording in taking into consideration user management (user deletion, user rights revocation)
     @Explanation(
       """This rejection is given if the submitted command does not contain a JWT token on a participant enforcing JWT authentication."""
     )
@@ -328,8 +330,15 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             cause = message,
             throwableO = Some(throwable),
           )
+
+      // TODO participant user management: Review usage
+      case class Reject2(_message: String)(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(
+            cause = _message
+          )
     }
 
+    // TODO participant user management: Does the explanation and resolution need rewording in taking into consideration user management (user deletion, user rights revocation)
     @Explanation(
       """This rejection is given if the supplied authorization token is not sufficient for the intended command.
         |The exact reason is logged on the participant, but not given to the user for security reasons."""

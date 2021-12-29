@@ -20,7 +20,7 @@ import com.daml.ledger.api.v1.version_service.{
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
-import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.ledger.participant.state.index.v2.{IndexService, UserManagementStore}
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
   DumpIndexMetadata,
@@ -47,6 +47,7 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.usermanagement.PersistentUserManagementStore
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
@@ -175,6 +176,8 @@ object SandboxOnXRunner {
 
           writeService <- buildWriteService(stateUpdatesFeedSink, servicesExecutionContext)
 
+          // TODO participant user management: Instantiate PersistentUserManagement if  DbDispatcher can be obtained
+          userManagementStore = new InMemoryUserManagementStore
           _ <- buildStandaloneApiServer(
             sharedEngine,
             indexService,
@@ -182,6 +185,7 @@ object SandboxOnXRunner {
             servicesExecutionContext,
             new TimedWriteService(writeService, metrics),
             indexerHealthChecks,
+            userManagementStore = userManagementStore,
           )
         } yield ()
     }
@@ -225,12 +229,13 @@ object SandboxOnXRunner {
       servicesExecutionContext: ExecutionContextExecutorService,
       writeService: WriteService,
       healthChecksWithIndexer: HealthChecks,
+      userManagementStore: UserManagementStore,
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
       config: Config[BridgeConfig],
       apiServerConfig: ApiServerConfig,
-  ): ResourceOwner[ApiServer] =
+  ): ResourceOwner[ApiServer] = {
     StandaloneApiServer(
       indexService = indexService,
       ledgerId = config.ledgerId,
@@ -246,7 +251,7 @@ object SandboxOnXRunner {
       otherInterceptors = BridgeConfigProvider.interceptors(config),
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
-      userManagementStore = new InMemoryUserManagementStore, // TODO persistence wiring comes here
+      userManagementStore = userManagementStore,
       commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
         Some(
           DeduplicationPeriodSupport.of(
@@ -256,7 +261,11 @@ object SandboxOnXRunner {
         ),
         ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED,
       ),
+      userManagementBasedAuthorizer = PersistentUserManagementStore.cachedAuthorizer(
+        userManagementStore = userManagementStore
+      )(servicesExecutionContext, loggingContext),
     )
+  }
 
   private def buildIndexerServer(
       metrics: Metrics,

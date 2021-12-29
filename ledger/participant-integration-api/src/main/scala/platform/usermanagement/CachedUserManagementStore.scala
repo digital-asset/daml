@@ -29,11 +29,12 @@ object CachedUserManagementStore {
     def toStateEntry: (Ref.UserId, UserInfo) = user.id -> this
   }
 
+  val ExpiryAfterWriteInSeconds: Int = 10
 }
 
 class CachedUserManagementStore(
     private val delegate: UserManagementStore,
-    expiryAfterWriteInSeconds: Int = 10,
+    expiryAfterWriteInSeconds: Int,
 )(implicit val executionContext: ExecutionContext)
     extends UserManagementStore {
 

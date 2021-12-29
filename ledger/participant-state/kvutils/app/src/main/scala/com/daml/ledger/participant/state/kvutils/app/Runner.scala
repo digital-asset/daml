@@ -26,7 +26,6 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.JvmMetricSet
-import com.daml.platform.apiserver.services.ApiVersionService
 import com.daml.platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
@@ -167,13 +166,14 @@ final class Runner[T <: ReadWriteService, Extra](
                           metrics = metrics,
                         )
                         .acquire()
-                      userManagementStore =
-                        new PersistentUserManagementStore(
-                          dbDispatcher = dbSupport.dbDispatcher,
-                          metrics = metrics,
-                          maxNumberOfUserRightsPerUser =
-                            ApiVersionService.MaxNumberOfUserRightsPerUser,
-                        )
+                      userManagementStore = PersistentUserManagementStore.cached(
+                        dbDispatcher = dbSupport.dbDispatcher,
+                        metrics = metrics,
+                      )(servicesExecutionContext)
+                      userManagementBasedAuthorizer = PersistentUserManagementStore
+                        .cachedAuthorizer(
+                          userManagementStore = userManagementStore
+                        )(servicesExecutionContext, loggingContext)
                       indexService <- StandaloneIndexService(
                         dbSupport = dbSupport,
                         ledgerId = config.ledgerId,
@@ -216,6 +216,7 @@ final class Runner[T <: ReadWriteService, Extra](
                           ),
                           ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED,
                         ),
+                        userManagementBasedAuthorizer = userManagementBasedAuthorizer,
                       ).acquire()
                     } yield {}
                   case ParticipantRunMode.Indexer =>

@@ -17,6 +17,14 @@ object AuthorizationError {
       s"Claims were valid until $authorizedUntil, current time is $currentTime."
   }
 
+  final case class UserNotFoundOnStream(userId: String) extends AuthorizationError {
+    override val reason = s"Could not find user with id: ${userId}."
+  }
+
+  final case class UserIsMissingUserRightForClaim(claim: Claim) extends AuthorizationError {
+    override val reason = s"User is missing user rights for claim: ${claim}."
+  }
+
   case object ExpiredOnStream extends AuthorizationError {
     override val reason = "Claims have expired after the result stream has started."
   }

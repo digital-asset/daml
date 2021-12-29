@@ -11,7 +11,7 @@ import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.ledger.api.auth.{AuthService, Authorizer}
+import com.daml.ledger.api.auth.{AuthService, Authorizer, UserManagementBasedAuthorizer}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.version_service.CommandDeduplicationFeatures
 import com.daml.ledger.configuration.LedgerId
@@ -60,6 +60,7 @@ object StandaloneApiServer {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
       commandDeduplicationFeatures: CommandDeduplicationFeatures,
+      userManagementBasedAuthorizer: UserManagementBasedAuthorizer,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -87,6 +88,7 @@ object StandaloneApiServer {
       ledgerId,
       participantId,
       errorCodesVersionSwitcher,
+      userManagementBasedAuthorizer,
     )
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
 

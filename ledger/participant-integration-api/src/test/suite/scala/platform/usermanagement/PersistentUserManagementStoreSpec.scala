@@ -326,7 +326,7 @@ class PersistentUserManagementStoreSpec
       dbDispatcher = getDbDispatcher,
       metrics = metrics,
       createAdminUser = false,
-      maxNumberOfUserRightsPerUser = MaxNumberOfUserRightsPerUser,
+      maxNumberOfUserRightsPerUserLimit = MaxNumberOfUserRightsPerUser,
     )
     f(tested)
 

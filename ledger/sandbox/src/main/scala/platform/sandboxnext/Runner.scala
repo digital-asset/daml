@@ -43,7 +43,6 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver._
-import com.daml.platform.apiserver.services.ApiVersionService
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole, SubmissionConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
@@ -227,30 +226,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
               )
               // Required to tie the loop between the API server and the reset service.
               apiServerServicesClosed = Promise[Unit]()
-              resetService = {
-                val clock = Clock.systemUTC()
-                val authorizer =
-                  new Authorizer(
-                    () => clock.instant(),
-                    ledgerId,
-                    config.participantId,
-                    new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes),
-                  )
-                new SandboxResetService(
-                  domain.LedgerId(ledgerId),
-                  () => {
-                    // Don't block the reset request; just wait until the services are closed.
-                    // Otherwise we end up in deadlock, because the server won't shut down until
-                    // all requests are completed.
-                    reset()
-                    apiServerServicesClosed.future
-                  },
-                  authorizer,
-                  errorFactories = ErrorFactories(
-                    new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
-                  ),
-                )
-              }
               apiServerConfig = ApiServerConfig(
                 participantId = config.participantId,
                 archiveFiles = if (isReset) List.empty else config.damlPackages,
@@ -284,11 +259,39 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 connectionTimeout = apiServerConfig.databaseConnectionTimeout,
                 metrics = metrics,
               )
-              userManagementStore = new PersistentUserManagementStore(
+              userManagementStore = PersistentUserManagementStore.cached(
                 dbDispatcher = dbSupport.dbDispatcher,
                 metrics = metrics,
-                maxNumberOfUserRightsPerUser = ApiVersionService.MaxNumberOfUserRightsPerUser,
               )
+              userManagementBasedAuthorizer = PersistentUserManagementStore.cachedAuthorizer(
+                userManagementStore = userManagementStore
+              )
+              resetService = {
+                val clock = Clock.systemUTC()
+                val authorizer =
+                  new Authorizer(
+                    () => clock.instant(),
+                    ledgerId,
+                    config.participantId,
+                    new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes),
+                    userManagementBasedAuthorizer,
+                  )
+                new SandboxResetService(
+                  domain.LedgerId(ledgerId),
+                  () => {
+                    // Don't block the reset request; just wait until the services are closed.
+                    // Otherwise we end up in deadlock, because the server won't shut down until
+                    // all requests are completed.
+                    reset()
+                    apiServerServicesClosed.future
+                  },
+                  authorizer,
+                  errorFactories = ErrorFactories(
+                    new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
+                  ),
+                )
+              }
+
               indexService <- StandaloneIndexService(
                 dbSupport = dbSupport,
                 ledgerId = ledgerId,
@@ -333,6 +336,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   ),
                   ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_SUPPORTED,
                 ),
+                userManagementBasedAuthorizer = userManagementBasedAuthorizer,
               )
               _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
             } yield {

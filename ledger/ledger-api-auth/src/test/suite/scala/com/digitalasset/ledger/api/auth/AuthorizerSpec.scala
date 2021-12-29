@@ -9,12 +9,14 @@ import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import java.time.Instant
+
+import org.mockito.MockitoSugar
+
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-class AuthorizerSpec extends AsyncFlatSpec with Matchers {
+class AuthorizerSpec extends AsyncFlatSpec with Matchers with MockitoSugar {
   private val className = classOf[Authorizer].getSimpleName
   private val dummyRequest = 1337L
   private val expectedSuccessfulResponse = "expectedSuccessfulResponse"
@@ -77,5 +79,6 @@ class AuthorizerSpec extends AsyncFlatSpec with Matchers {
     "some-ledger-id",
     "participant-id",
     new ErrorCodesVersionSwitcher(selfServiceErrorCodes),
+    mock[UserManagementBasedAuthorizer],
   )
 }

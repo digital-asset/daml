@@ -4,9 +4,9 @@
 package com.daml.ledger
 
 import com.daml.error.ErrorCodesVersionSwitcher
-
 import java.time.Clock
 import java.util.UUID
+
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.auth.{
   AuthServiceStatic,
@@ -17,6 +17,7 @@ import com.daml.ledger.api.auth.{
   ClaimPublic,
   ClaimReadAsParty,
   ClaimSet,
+  NoOpUserManagementBasedAuthorizer,
 }
 
 package object rxjava {
@@ -30,6 +31,7 @@ package object rxjava {
       "testLedgerId",
       "testParticipantId",
       new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
+      userManagementBasedAuthorizer = NoOpUserManagementBasedAuthorizer,
     )
 
   private[rxjava] val emptyToken = "empty"
