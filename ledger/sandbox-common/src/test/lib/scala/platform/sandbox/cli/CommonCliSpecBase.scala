@@ -364,6 +364,24 @@ abstract class CommonCliSpecBase(
       )
     }
 
+    "handle '--feature-user-management' flag correctly" in {
+      checkOptionFail(
+        Array("--feature-user-management")
+      )
+      checkOption(
+        Array("--feature-user-management", "false"),
+        _.copy(enableUserManagement = false),
+      )
+      checkOption(
+        Array("--feature-user-management", "true"),
+        _.copy(enableUserManagement = true),
+      )
+      checkOption(
+        Array(),
+        _.copy(enableUserManagement = true),
+      )
+    }
+
   }
 
   protected def checkOption(

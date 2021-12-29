@@ -71,6 +71,7 @@ final case class SandboxConfig(
     sqlStartMode: Option[PostgresStartupMode],
     enableCompression: Boolean,
     enableSelfServiceErrorCodes: Boolean,
+    enableUserManagement: Boolean,
 ) {
 
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): SandboxConfig =
@@ -168,6 +169,7 @@ object SandboxConfig {
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableCompression = false,
       enableSelfServiceErrorCodes = true,
+      enableUserManagement = true,
     )
 
   sealed abstract class EngineMode extends Product with Serializable
