@@ -17,7 +17,6 @@ import com.daml.ledger.api.v1.version_service.{
   DeduplicationPeriodSupport,
   ParticipantDeduplicationSupport,
 }
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -31,6 +30,7 @@ import com.daml.platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.usermanagement.PersistentUserManagementStore
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
@@ -167,7 +167,10 @@ final class Runner[T <: ReadWriteService, Extra](
                         )
                         .acquire()
                       userManagementStore =
-                        new InMemoryUserManagementStore // TODO persistence wiring comes here
+                        new PersistentUserManagementStore(
+                          dbDispatcher = dbSupport.dbDispatcher,
+                          metrics = metrics,
+                        )
                       indexService <- StandaloneIndexService(
                         dbSupport = dbSupport,
                         ledgerId = config.ledgerId,

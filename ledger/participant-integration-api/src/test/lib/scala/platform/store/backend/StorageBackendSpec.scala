@@ -19,7 +19,7 @@ import org.scalatest.{AsyncTestSuite, BeforeAndAfterEach}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
 
-private[backend] trait StorageBackendSpec
+trait StorageBackendSpec
     extends AkkaBeforeAndAfterAll
     with BeforeAndAfterEach
     with StorageBackendProvider { this: AsyncTestSuite =>
@@ -33,6 +33,11 @@ private[backend] trait StorageBackendSpec
   // Initialized in beforeAll()
   private var dbDispatcherResource: Resource[DbDispatcher] = _
   private var dbDispatcher: DbDispatcher = _
+
+  // TODO participant user management: Remove after removal of PersistentUserManagementStoreSpec
+  def getDbDispatcher: DbDispatcher = {
+    dbDispatcher
+  }
 
   protected def executeSql[T](sql: Connection => T): Future[T] = {
     dbDispatcher.executeSql(metrics.test.db)(sql)

@@ -336,6 +336,12 @@ final class Metrics(val registry: MetricRegistry) {
       }
     }
 
+    object userManagement {
+      private val Prefix = daml.Prefix :+ "userManagement"
+
+      // TODO participant user management: add metric per storage backend access method
+      val allUserManagement = new DatabaseMetrics(registry, Prefix, "all_user_management")
+    }
     object index {
       private val Prefix = daml.Prefix :+ "index"
 
