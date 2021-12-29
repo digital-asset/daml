@@ -33,4 +33,5 @@ object UserManagementStore {
   sealed trait Error
   final case class UserNotFound(userId: Ref.UserId) extends Error
   final case class UserExists(userId: Ref.UserId) extends Error
+  final case class TooManyUserRights(userId: Ref.UserId) extends Error
 }

@@ -163,6 +163,11 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     updatedRowCount == 1
   }
 
+  override def countUserRights(internalId: Int)(connection: Connection): Int = {
+    SQL"SELECT count(*) AS user_rights_count from participant_user_rights WHERE user_internal_id = ${internalId}"
+      .as(SqlParser.int("user_rights_count").single)(connection)
+  }
+
   private def isForPartyPredicate(forParty: Option[Party]): ComposableQuery.CompositeSql = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     forParty.fold(cSQL"IS NULL") { party: Party =>

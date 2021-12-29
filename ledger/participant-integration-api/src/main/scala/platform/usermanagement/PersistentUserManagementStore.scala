@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagem
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   Result,
+  TooManyUserRights,
   UserExists,
   UserNotFound,
   Users,
@@ -20,15 +21,26 @@ import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.appendonlydao.DbDispatcher
-import com.daml.platform.store.backend.common.UserManagementStorageBackendTemplate
 import com.daml.platform.store.backend.UserManagementStorageBackend
+import com.daml.platform.store.backend.common.UserManagementStorageBackendTemplate
+import com.daml.platform.usermanagement.PersistentUserManagementStore.TooManyUserRightsRuntimeException
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
+
+object PersistentUserManagementStore {
+
+  /** Intended to be thrown within a DB transaction to abort it.
+    * The resulting failed future will get mapped to a successful future containing scala.util.Left
+    */
+  final case class TooManyUserRightsRuntimeException(userId: Ref.UserId) extends RuntimeException
+
+}
 
 class PersistentUserManagementStore(
     dbDispatcher: DbDispatcher,
     metrics: Metrics,
     createAdminUser: Boolean = true,
+    maxNumberOfUserRightsPerUser: Int = 1000,
 ) extends UserManagementStore {
 
   private val backend: UserManagementStorageBackend = UserManagementStorageBackendTemplate
@@ -49,14 +61,22 @@ class PersistentUserManagementStore(
   ): Future[Result[Unit]] = {
     inTransaction { implicit connection: Connection =>
       withoutUser(user.id) {
-        val nowMicros = epochMicroSeconds()
-        val internalId = backend.createUser(user, createdAt = nowMicros)(connection)
-        rights.foreach(right =>
-          backend.addUserRight(internalId = internalId, right = right, grantedAt = nowMicros)(
-            connection
+        if (rights.size > maxNumberOfUserRightsPerUser) {
+          throw TooManyUserRightsRuntimeException(user.id)
+        } else {
+          val nowMicros = epochMicroSeconds()
+          val internalId = backend.createUser(user, createdAt = nowMicros)(connection)
+          rights.foreach(right =>
+            backend.addUserRight(internalId = internalId, right = right, grantedAt = nowMicros)(
+              connection
+            )
           )
-        )
-        ()
+          if (backend.countUserRights(internalId)(connection) > maxNumberOfUserRightsPerUser) {
+            throw TooManyUserRightsRuntimeException(user.id)
+          } else {
+            ()
+          }
+        }
       }
     }.map(tapSuccess { _ =>
       // // TODO participant user management: Unit test logged messages
@@ -93,18 +113,26 @@ class PersistentUserManagementStore(
   ): Future[Result[Set[domain.UserRight]]] = {
     inTransaction { implicit connection =>
       withUser(id = id) { user =>
-        val addedRights = rights.filter { right =>
-          if (!backend.userRightExists(internalId = user.internalId, right = right)(connection)) {
-            backend.addUserRight(
-              internalId = user.internalId,
-              right = right,
-              grantedAt = epochMicroSeconds(),
-            )(connection)
+        if (rights.size > maxNumberOfUserRightsPerUser) {
+          throw TooManyUserRightsRuntimeException(user.domainUser.id)
+        } else {
+          val addedRights = rights.filter { right =>
+            if (!backend.userRightExists(user.internalId, right)(connection)) {
+              backend.addUserRight(
+                internalId = user.internalId,
+                right = right,
+                grantedAt = epochMicroSeconds(),
+              )(connection)
+            } else {
+              false
+            }
+          }
+          if (backend.countUserRights(user.internalId)(connection) > maxNumberOfUserRightsPerUser) {
+            throw TooManyUserRightsRuntimeException(user.domainUser.id)
           } else {
-            false
+            addedRights
           }
         }
-        addedRights
       }
     }.map(tapSuccess { grantedRights =>
       foreachEachUserRight(grantedRights) { suffix =>
@@ -150,9 +178,13 @@ class PersistentUserManagementStore(
     }
   }
 
-  private def inTransaction[T](thunk: Connection => T): Future[T] = {
+  private def inTransaction[T](thunk: Connection => Result[T]): Future[Result[T]] = {
     // TODO participant user management: use finer-grained metrics
-    dbDispatcher.executeSql(metrics.daml.userManagement.allUserManagement)(thunk)
+    dbDispatcher
+      .executeSql(metrics.daml.userManagement.allUserManagement)(thunk)
+      .recover { case TooManyUserRightsRuntimeException(userId) =>
+        Left(TooManyUserRights(userId))
+      }(ExecutionContext.parasitic)
   }
 
   private def withUser[T](

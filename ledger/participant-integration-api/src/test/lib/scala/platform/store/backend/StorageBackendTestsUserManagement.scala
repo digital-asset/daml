@@ -19,6 +19,77 @@ private[backend] trait StorageBackendTestsUserManagement
 
   behavior of "StorageBackend (user management)"
 
+  it should "count number of user rights per user" in {
+    val tested = backend.userManagement
+    val user = User(
+      id = Ref.UserId.assertFromString("user_id_123"),
+      primaryParty = Some(Ref.Party.assertFromString("primary_party_123")),
+    )
+
+    for {
+      user1InternalId <- executeSql(tested.createUser(user, createdAt = 123))
+      res2 <- executeSql(tested.countUserRights(user1InternalId))
+      res3 <- executeSql(
+        tested.addUserRight(user1InternalId, UserRight.ParticipantAdmin, grantedAt = 123)
+      )
+      res4 <- executeSql(tested.countUserRights(user1InternalId))
+      _ <- executeSql(
+        tested.addUserRight(
+          user1InternalId,
+          UserRight.CanActAs(Ref.Party.assertFromString("act1")),
+          grantedAt = 123,
+        )
+      )
+      _ <- executeSql(
+        tested.addUserRight(
+          user1InternalId,
+          UserRight.CanActAs(Ref.Party.assertFromString("act2")),
+          grantedAt = 123,
+        )
+      )
+      _ <- executeSql(
+        tested.addUserRight(
+          user1InternalId,
+          UserRight.CanActAs(Ref.Party.assertFromString("act3")),
+          grantedAt = 123,
+        )
+      )
+      _ <- executeSql(
+        tested.addUserRight(
+          user1InternalId,
+          UserRight.CanReadAs(Ref.Party.assertFromString("read1")),
+          grantedAt = 123,
+        )
+      )
+      _ <- executeSql(
+        tested.addUserRight(
+          user1InternalId,
+          UserRight.CanReadAs(Ref.Party.assertFromString("read2")),
+          grantedAt = 123,
+        )
+      )
+      _ <- executeSql(
+        tested.addUserRight(
+          user1InternalId,
+          UserRight.CanReadAs(Ref.Party.assertFromString("read3")),
+          grantedAt = 123,
+        )
+      )
+      res5 <- executeSql(tested.countUserRights(user1InternalId))
+    } yield {
+      res2 shouldBe 0
+      res3 shouldBe true
+      res4 shouldBe 1
+      res5 shouldBe 7
+    }
+
+  }
+
+  it should "enforce unique user rights constraint" in {
+    // TODO participant user management: add tests
+    assert(true)
+  }
+
   it should "check if rights exist" in {
     val tested = backend.userManagement
     val user = User(
@@ -64,7 +135,6 @@ private[backend] trait StorageBackendTestsUserManagement
         )
       )
     } yield {
-      user_id shouldBe 1
       rightExists1 shouldBe false
       rightExists2 shouldBe false
       rightExists3 shouldBe false
@@ -123,14 +193,12 @@ private[backend] trait StorageBackendTestsUserManagement
       deletedUser <- executeSql(tested.getUser(id = user.id))
       deletedRights <- executeSql(tested.getUserRights(internalId = user_id))
     } yield {
-      user_id shouldBe 2
       right1 shouldBe true
       right2 shouldBe true
       right3 shouldBe true
       right4 shouldBe true
 
       addedUser shouldBe defined
-      addedUser.get.internalId shouldBe 2
       addedUser.get.domainUser shouldBe user
 
       addedUserRights shouldBe rights.toSet

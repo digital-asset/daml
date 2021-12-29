@@ -37,6 +37,32 @@ class PersistentUserManagementStoreSpec
   private implicit def toUserId(s: String): UserId =
     UserId.assertFromString(s)
 
+  "enforce user rights limit" in {
+    testIt { tested: PersistentUserManagementStore =>
+      // TODO participant user management: Hardcoded limit of 1000 rights
+      val user1 = User(Ref.UserId.assertFromString("user_id_1"), None)
+      val user2 = User(Ref.UserId.assertFromString("user_id_2"), None)
+
+      val rights: Set[UserRight] =
+        (1 to 1001).map(i => CanActAs(Ref.Party.assertFromString(s"party_act_as_$i"))).toSet
+
+      for {
+
+        create1 <- tested.createUser(user1, rights)
+        create2 <- tested.createUser(user2, rights.tail)
+        grant1 <- tested.grantRights(user2.id, Set(rights.head))
+      } yield {
+        create1 shouldBe Left(
+          UserManagementStore.TooManyUserRights(user1.id)
+        )
+        create2 shouldBe Right(())
+        grant1 shouldBe Left(
+          UserManagementStore.TooManyUserRights(user2.id)
+        )
+      }
+
+    }
+  }
   "do it" in {
 
     testIt { tested: PersistentUserManagementStore =>

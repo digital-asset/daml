@@ -11,6 +11,7 @@ import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   Result,
+  TooManyUserRights,
   UserExists,
   UserNotFound,
   Users,
@@ -70,6 +71,7 @@ class CachedUserManagementStore(
             usersCache.invalidate(userId)
             userRightsCache.invalidate(userId)
           case _: UserExists =>
+          case _: TooManyUserRights =>
         }
     }
     r

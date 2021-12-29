@@ -724,6 +724,31 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         )
       }
     }
+
+    @Explanation(
+      """|A user can have only a limited number of user rights.
+                    |There was an attempt to create a user with too many rights or grant too many rights to a user."""
+    )
+    @Resolution(
+      """|Retry with a smaller number or rights or delete some of the already existing rights.
+                   |Contact the participant operator if the limit is too low."""
+    )
+    object TooManyUserRights
+        extends ErrorCode(
+          id = "TOO_MANY_USER_RIGHTS",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(_operation: String, userId: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = s"cannot ${_operation}, as user \"${userId}\" would have too many rights."
+            // TODO (i12053): also output participantId
+          ) {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          ErrorResource.User -> userId
+        )
+      }
+    }
   }
 
   @Explanation(
