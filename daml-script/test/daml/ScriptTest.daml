@@ -458,10 +458,10 @@ testUserManagement = do
   u <- getUser "nonexistent"
   u === None
   users <- listUsers
-  users === [User "u1" None, User "u2" None, participantAdmin]
+  users === [participantAdmin, User "u1" None, User "u2" None]
   deleteUser "u1"
   users <- listUsers
-  users === [User "u2" None, participantAdmin]
+  users === [participantAdmin, User "u2" None]
   deleteUser "u2"
   users <- listUsers
   users === [participantAdmin]

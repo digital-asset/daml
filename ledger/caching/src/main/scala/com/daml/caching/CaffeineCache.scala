@@ -31,6 +31,8 @@ object CaffeineCache {
 
     override def getOrAcquire(key: Key, acquire: Key => Value): Value =
       cache.get(key, key => acquire(key))
+
+    override def invalidate(key: Key): Unit = cache.invalidate(key)
   }
 
   private final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef](
@@ -52,6 +54,9 @@ object CaffeineCache {
 
     override def getOrAcquire(key: Key, acquire: Key => Value): Value =
       delegate.getOrAcquire(key, acquire)
+
+    override def invalidate(key: Key): Unit =
+      delegate.invalidate(key)
   }
 
 }

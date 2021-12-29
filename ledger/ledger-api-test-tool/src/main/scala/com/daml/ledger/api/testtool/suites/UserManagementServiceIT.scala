@@ -203,6 +203,8 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       }
     }
 
+    val adminUser = User("participant_admin", "")
+
     def testListUsers(): Future[Unit] = {
       for {
         res1 <- ledger.userManagement.listUsers(ListUsersRequest())
@@ -213,11 +215,14 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         res4 <- ledger.userManagement.deleteUser(DeleteUserRequest("user4"))
         res5 <- ledger.userManagement.listUsers(ListUsersRequest())
       } yield {
-        assertEquals(res1, ListUsersResponse(Seq(User("user1", "party1"))))
+        assertEquals(res1, ListUsersResponse(Seq(User("user1", "party1"), adminUser)))
         assertEquals(res2, User("user4", "party4"))
-        assertSameElements(res3.users.toSet, Set(User("user1", "party1"), User("user4", "party4")))
+        assertSameElements(
+          res3.users.toSet,
+          Set(User("user1", "party1"), User("user4", "party4"), adminUser),
+        )
         assertEquals(res4, DeleteUserResponse())
-        assertSameElements(res5.users, Seq(User("user1", "party1")))
+        assertSameElements(res5.users, Seq(User("user1", "party1"), adminUser))
       }
     }
 

@@ -15,4 +15,7 @@ private[caching] final class MappedCache[Key, Value, NewValue](
 
   override def getIfPresent(key: Key): Option[NewValue] =
     delegate.getIfPresent(key).map(mapAfterReading)
+
+  override def invalidate(key: Key): Unit =
+    delegate.invalidate(key)
 }

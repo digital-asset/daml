@@ -105,7 +105,8 @@ object InMemoryUserManagementStore {
   case class UserInfo(user: User, rights: Set[UserRight]) {
     def toStateEntry: (Ref.UserId, UserInfo) = user.id -> this
   }
-  private val AdminUser = UserInfo(
+  // TODO participant user management: Review usage in PersistentUserManagementStore
+  val AdminUser = UserInfo(
     user = User(Ref.UserId.assertFromString("participant_admin"), None),
     rights = Set(UserRight.ParticipantAdmin),
   )
