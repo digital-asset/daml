@@ -54,7 +54,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Daml SDK'
-copyright = u'Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited. "Digital Asset" and "Daml" are Registered in the U.S. Patent and Trademark Office.'
+copyright = u'Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited. "Digital Asset" and "Daml" are Registered in the U.S. Patent and Trademark Office.'
 author = u'Digital Asset'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -189,10 +189,10 @@ latex_elements = {
         %\fancyhead[LE]{\small \nouppercase{\leftmark}}
 
         %% for oneside: change footer at right side. If you want to use Left and right then use same as header defined above.
-        \fancyfoot[R]{\ifthenelse{\isodd{\value{page}}}{{\tiny Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates.} }{{\tiny Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates.}}}
+        \fancyfoot[R]{\ifthenelse{\isodd{\value{page}}}{{\tiny Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates.} }{{\tiny Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates.}}}
 
         %%% Alternating Footer for two side
-        %\fancyfoot[RO, RE]{\scriptsize Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates.}
+        %\fancyfoot[RO, RE]{\scriptsize Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates.}
 
         %%% page number
         \fancyfoot[CO, CE]{\thepage}
@@ -271,7 +271,7 @@ latex_elements = {
 
             %% \vfill adds at the bottom
             \vfill
-            \small \textit{Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.}
+            \small \textit{Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.}
         \end{titlepage}
 
         \clearpage
