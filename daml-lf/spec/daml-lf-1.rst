@@ -1,7 +1,7 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Copyright © 2021, `Digital Asset (Switzerland) GmbH
+Copyright © 2022, `Digital Asset (Switzerland) GmbH
 <https://www.digitalasset.com/>`_ and/or its affiliates.  All rights
 reserved.
 
@@ -3491,7 +3491,7 @@ comparable* if (i) both of them are V1 contract identifiers, (ii) one
 of them is ``non-suffixed``, and (iii) is a strict prefixed of the
 other one.
 
- 
+
 * ``LESS_EQ : ∀ (α:*). α → α → 'Bool'``
 
   The builtin function ``LESS_EQ`` returns ``'True'`` if the first
