@@ -102,9 +102,9 @@ USAGE
   LATEST_STABLE_TAG=""
   if [[ "${TARGET}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
     readonly VERSION="${TARGET#release/}"
-    readonly VERSION_PREFIX="${VERSION%x}"
+    readonly VERSION_PREFIX="${VERSION%.x}"
     readonly STABLE_TAGS=($(git tag | grep "v.*" | grep -v "snapshot" | sort -V))
-    LATEST_STABLE_TAG="$(for TAG in ${STABLE_TAGS[@]}; do version_lte "${TAG#v}" "${VERSION_PREFIX}999" && echo "$TAG"; done | tail -1)"
+    LATEST_STABLE_TAG="$(for TAG in ${STABLE_TAGS[@]}; do version_lte "${TAG#v}" "${VERSION_PREFIX}.999" && echo "$TAG"; done | tail -1)"
   else
     LATEST_STABLE_TAG="$(git tag | grep "v.*" | grep -v "snapshot" | sort -V | tail -1)"
   fi
