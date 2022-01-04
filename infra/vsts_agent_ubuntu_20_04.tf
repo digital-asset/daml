@@ -23,6 +23,7 @@ data "template_file" "vsts-agent-ubuntu_20_04-startup" {
     vsts_token   = secret_resource.vsts-token.value
     vsts_account = "digitalasset"
     vsts_pool    = "ubuntu_20_04"
+    year         = 2021
   }
 }
 
