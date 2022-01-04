@@ -129,7 +129,7 @@ object TreeUtils {
     parties
   }
 
-  private def valueParties(v: Value.Sum): Set[Party] = v match {
+  private[export] def valueParties(v: Value.Sum): Set[Party] = v match {
     case Sum.Empty => Set()
     case Sum.Record(value) =>
       value.fields.map(v => valueParties(v.getValue.sum)).foldLeft(Set[Party]()) { case (x, xs) =>
@@ -156,9 +156,11 @@ object TreeUtils {
       }
     case Sum.Enum(_) => Set[Party]()
     case Sum.GenMap(value) =>
-      value.entries.map(e => valueParties(e.getValue.sum)).foldLeft(Set[Party]()) { case (x, xs) =>
-        x.union(xs)
-      }
+      value.entries
+        .map(e => valueParties(e.getKey.sum) union valueParties(e.getValue.sum))
+        .foldLeft(Set[Party]()) { case (x, xs) =>
+          x.union(xs)
+        }
   }
 
   case class CreatedContract(cid: ContractId, tplId: Identifier, path: List[Selector])
