@@ -69,13 +69,13 @@ class ArchiveConversionsSpec extends AnyWordSpec with Matchers with Inside {
   "decodePackages" should {
     "successfully decode packages" in {
       val List(archive1, archive2) = for {
-        i <- List(1, 2)
+        differentiator <- List(1, 2)
         archive = encodePackage(
           p"""
-            metadata ( 'Package$i' : '0.0.1' )
+            metadata ( 'Package$differentiator' : '0.0.1' )
     
-            module Mod$i {
-              record Record$i = {};
+            module Mod$differentiator {
+              record Record$differentiator = {};
             }
           """
         )
