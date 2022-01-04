@@ -21,10 +21,10 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
+import com.daml.lf.archive
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
-import com.daml.lf.kv.ConversionError
 import com.daml.lf.kv.archives.{ArchiveConversions, RawArchive}
 import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -183,9 +183,9 @@ object KeyValueCommitting {
           rawArchive: ByteString =>
             ArchiveConversions.parsePackageId(RawArchive(rawArchive)) match {
               case Right(packageId) => DamlStateKey.newBuilder.setPackageId(packageId).build
-              case Left(ConversionError.ParseError(errorMessage)) =>
+              case Left(err: archive.Error) =>
                 throw Err.InternalError(
-                  s"$errorMessage: This should not happen, as the archives have just been validated."
+                  s"${err.msg}: This should not happen, as the archives have just been validated."
                 )
             }
         } + packageUploadDedupKey(packageEntry.getParticipantId, packageEntry.getSubmissionId)

@@ -173,14 +173,14 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     shouldSucceed(output)
     val archives = output._1.getPackageUploadEntry.getArchivesList
     archives.size() shouldBe committedPackages.size
-    val hashes = archives
+    val packageIds = archives
       .iterator()
       .asScala
       .map { archive =>
         ArchiveConversions.parsePackageId(RawArchive(archive)).fold(error => throw error, identity)
       }
       .toSet
-    hashes shouldBe committedPackages.toSet[String]
+    packageIds shouldBe committedPackages.toSet[String]
   }
 
   "PackageCommitter" should {
