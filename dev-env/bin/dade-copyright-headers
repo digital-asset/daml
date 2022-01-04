@@ -147,7 +147,7 @@ def process_file(filename, check_only):
         state='notice'
 
         if line != notice_lines[0]+"\n":
-            print("{0}: notice text mismatch:\n  actual: {1}\n  expected: {2}" \
+            print("{0}: notice text mismatch:\n  actual  : {1}\n  expected: {2}" \
                   .format(filename, line.strip(), notice_lines[index].strip()))
             state='find_end_and_fail'
         else:
@@ -179,7 +179,7 @@ def process_file(filename, check_only):
           state='ok'
 
       elif line != notice_lines[index]+"\n":
-        print("{0}: notice text mismatch:\n  actual: {1}\n  expected: {2}" \
+        print("{0}: notice text mismatch:\n  actual  : {1}\n  expected: {2}" \
           .format(filename, line.strip(), notice_lines[index].strip()))
         state='find_end_and_fail'
 
