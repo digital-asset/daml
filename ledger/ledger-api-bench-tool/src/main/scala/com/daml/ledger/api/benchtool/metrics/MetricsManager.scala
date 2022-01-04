@@ -36,7 +36,8 @@ case class MetricsManager[T](
             finalReport = response,
           )
         )
-        if (response.metricsData.exists(_.violatedObjective.isDefined))
+        val atLeastOneObjectiveViolated = response.metricsData.exists(_.violatedObjectives.nonEmpty)
+        if (atLeastOneObjectiveViolated)
           StreamResult.ObjectivesViolated
         else
           StreamResult.Ok

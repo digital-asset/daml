@@ -4,8 +4,7 @@
 package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.metrics.CountRateMetric
-import com.daml.ledger.api.benchtool.metrics.CountRateMetric.Value
-import com.daml.ledger.api.benchtool.metrics.objectives.MinRate
+import com.daml.ledger.api.benchtool.metrics.CountRateMetric._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -13,7 +12,7 @@ import java.time.Duration
 import scala.language.existentials
 
 class CountRateMetricSpec extends AnyWordSpec with Matchers {
-  CountRateMetric.getClass.getSimpleName should {
+  "CountRateMetric" should {
     "correctly handle initial state" in {
       val periodDuration: Duration = Duration.ofMillis(100)
       val totalDuration: Duration = Duration.ofSeconds(1)
@@ -98,11 +97,11 @@ class CountRateMetricSpec extends AnyWordSpec with Matchers {
       )
     }
 
-    "compute violated minimum rate SLO and the corresponing violating value" in {
+    "compute violated minimum rate periodic SLO and the corresponing violating value" in {
       val periodDuration: Duration = Duration.ofSeconds(2)
       val minAllowedRatePerSecond = 2.0
-      val objective = MinRate(minAllowedRatePerSecond)
-      val metric = anEmptyStringMetric(Some(objective))
+      val objective = RateObjective.MinRate(minAllowedRatePerSecond)
+      val metric = anEmptyStringMetric(periodicObjectives = List(objective))
 
       val violatedObjective =
         metric
@@ -116,18 +115,18 @@ class CountRateMetricSpec extends AnyWordSpec with Matchers {
           .periodicValue(periodDuration)
           ._1
           .onNext("ijklmn")
-          .violatedObjective
+          .violatedPeriodicObjectives
 
-      violatedObjective shouldBe Some(
-        objective -> CountRateMetric.Value(1.5)
+      violatedObjective shouldBe List(
+        objective -> Value(1.5)
       )
     }
 
-    "not report not violated objectives" in {
+    "not report not violated periodic min rate objectives" in {
       val periodDuration: Duration = Duration.ofSeconds(2)
       val minAllowedRatePerSecond = 2.0
-      val objective = MinRate(minAllowedRatePerSecond)
-      val metric = anEmptyStringMetric(Some(objective))
+      val objective = RateObjective.MinRate(minAllowedRatePerSecond)
+      val metric = anEmptyStringMetric(periodicObjectives = List(objective))
 
       val violatedObjective =
         metric
@@ -141,13 +140,148 @@ class CountRateMetricSpec extends AnyWordSpec with Matchers {
           .periodicValue(periodDuration)
           ._1
           .onNext("lmnoprst")
-          .violatedObjective
+          .violatedPeriodicObjectives
 
-      violatedObjective shouldBe None
+      violatedObjective shouldBe Nil
+    }
+
+    "report violated min rate final objective" in {
+      val periodDuration: Duration = Duration.ofSeconds(2)
+      val totalDuration: Duration = Duration.ofSeconds(6)
+      val minAllowedRatePerSecond = 2.0
+      val objective = RateObjective.MinRate(minAllowedRatePerSecond)
+      val metric = anEmptyStringMetric(finalObjectives = List(objective))
+
+      val violatedObjective =
+        metric
+          .onNext("abc")
+          .periodicValue(periodDuration)
+          ._1
+          .onNext("def")
+          .onNext("ghi")
+          // total rate is (3 + 3 + 3) / 6.0
+          .violatedFinalObjectives(totalDuration)
+
+      violatedObjective shouldBe List(
+        objective -> Value(1.5)
+      )
+    }
+
+    "not report non-violated min rate final objective" in {
+      val periodDuration: Duration = Duration.ofSeconds(2)
+      val totalDuration: Duration = Duration.ofSeconds(6)
+      val minAllowedRatePerSecond = 2.0
+      val objective = RateObjective.MinRate(minAllowedRatePerSecond)
+      val metric = anEmptyStringMetric(finalObjectives = List(objective))
+
+      val violatedObjective =
+        metric
+          .onNext("abc")
+          .periodicValue(periodDuration)
+          ._1
+          .onNext("def")
+          .onNext("ghi")
+          .onNext("jklmno")
+          // total rate is (3 + 3 + 3 + 6) / 6.0
+          .violatedFinalObjectives(totalDuration)
+
+      violatedObjective shouldBe Nil
+    }
+
+    "not report non-violated min rate final objective if the objective is violated only in a period" in {
+      val periodDuration: Duration = Duration.ofSeconds(2)
+      val totalDuration: Duration = Duration.ofSeconds(3)
+      val minAllowedRatePerSecond = 2.0
+      val objective = RateObjective.MinRate(minAllowedRatePerSecond)
+      val metric = anEmptyStringMetric(finalObjectives = List(objective))
+
+      val violatedObjective =
+        metric
+          .onNext("abc")
+          // periodic rate is 3 / 2.0 = 1.5
+          .periodicValue(periodDuration)
+          ._1
+          .onNext("def")
+          .onNext("ghi")
+          // total rate is (3 + 3 + 3) / 3.0 = 3.0
+          .violatedFinalObjectives(totalDuration)
+
+      violatedObjective shouldBe Nil
+    }
+
+    "report violated max rate final objective" in {
+      val periodDuration: Duration = Duration.ofSeconds(2)
+      val totalDuration: Duration = Duration.ofSeconds(3)
+      val objective = RateObjective.MaxRate(3.0)
+      val metric = CountRateMetric.empty[String](
+        countingFunction = stringLength,
+        periodicObjectives = Nil,
+        finalObjectives = List(objective),
+      )
+
+      val violatedObjective =
+        metric
+          .onNext("abc")
+          .periodicValue(periodDuration)
+          ._1
+          .onNext("def")
+          .onNext("ghijkl")
+          // total rate is (3 + 3 + 6) / 3.0 = 4.0
+          .violatedFinalObjectives(totalDuration)
+
+      violatedObjective shouldBe List(
+        objective -> Value(4.0)
+      )
+    }
+
+    "not report non-violated max rate final objective" in {
+      val periodDuration: Duration = Duration.ofSeconds(2)
+      val totalDuration: Duration = Duration.ofSeconds(3)
+      val objective = RateObjective.MaxRate(3.0)
+      val metric = anEmptyStringMetric(finalObjectives = List(objective))
+
+      val violatedObjective =
+        metric
+          .onNext("abc")
+          .periodicValue(periodDuration)
+          ._1
+          .onNext("def")
+          .onNext("ghi")
+          // total rate is (3 + 3 + 3) / 3.0 = 3.0
+          .violatedFinalObjectives(totalDuration)
+
+      violatedObjective shouldBe Nil
+    }
+
+    "not report non-violated max rate final objective if the objective is violated only in a period" in {
+      val periodDuration: Duration = Duration.ofSeconds(2)
+      val totalDuration: Duration = Duration.ofSeconds(4)
+      val objective = RateObjective.MaxRate(2.0)
+      val metric = anEmptyStringMetric(finalObjectives = List(objective))
+
+      val violatedObjective =
+        metric
+          .onNext("abcde")
+          // periodic rate is 5 / 2.0 = 2.5
+          .periodicValue(periodDuration)
+          ._1
+          .onNext("f")
+          .onNext("gh")
+          // total rate is (5 + 1 + 2) / 4.0 = 2.0
+          .violatedFinalObjectives(totalDuration)
+
+      violatedObjective shouldBe Nil
     }
   }
 
   private def stringLength(value: String): Int = value.length
-  private def anEmptyStringMetric(objective: Option[MinRate] = None): CountRateMetric[String] =
-    CountRateMetric.empty[String](countingFunction = stringLength, objective = objective)
+  private def anEmptyStringMetric(
+      periodicObjectives: List[CountRateMetric.RateObjective] = Nil,
+      finalObjectives: List[CountRateMetric.RateObjective] = Nil,
+  ): CountRateMetric[String] =
+    CountRateMetric.empty[String](
+      countingFunction = stringLength,
+      periodicObjectives = periodicObjectives,
+      finalObjectives = finalObjectives,
+    )
 }

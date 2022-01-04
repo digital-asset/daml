@@ -81,7 +81,7 @@ object Benchmark {
               .observer(
                 streamName = streamConfig.name,
                 logInterval = reportingPeriod,
-                metrics = MetricsSet.activeContractsMetrics,
+                metrics = MetricsSet.activeContractsMetrics(streamConfig.objectives),
                 logger = logger,
                 exposedMetrics = Some(
                   MetricsSet.activeContractsExposedMetrics(
@@ -99,7 +99,7 @@ object Benchmark {
               .observer(
                 streamName = streamConfig.name,
                 logInterval = reportingPeriod,
-                metrics = MetricsSet.completionsMetrics,
+                metrics = MetricsSet.completionsMetrics(streamConfig.objectives),
                 logger = logger,
                 exposedMetrics = Some(
                   MetricsSet

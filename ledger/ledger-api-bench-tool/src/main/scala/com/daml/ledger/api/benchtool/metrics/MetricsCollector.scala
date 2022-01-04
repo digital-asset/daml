@@ -5,7 +5,6 @@ package com.daml.ledger.api.benchtool.metrics
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
-import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.daml.ledger.api.benchtool.util.TimeUtil
 
 import java.time.{Clock, Duration, Instant}
@@ -26,7 +25,7 @@ object MetricsCollector {
     final case class MetricFinalReportData(
         name: String,
         value: MetricValue,
-        violatedObjective: Option[(ServiceLevelObjective[_], MetricValue)],
+        violatedObjectives: List[(ServiceLevelObjective[_], MetricValue)],
     )
     final case class FinalReport(totalDuration: Duration, metricsData: List[MetricFinalReportData])
         extends Response
@@ -73,7 +72,8 @@ class MetricsCollector[T](exposedMetrics: Option[ExposedMetrics[T]], clock: Cloc
               MetricFinalReportData(
                 name = metric.name,
                 value = metric.finalValue(duration),
-                violatedObjective = metric.violatedObjective,
+                violatedObjectives =
+                  metric.violatedPeriodicObjectives ::: metric.violatedFinalObjectives(duration),
               )
             }
           request.replyTo ! FinalReport(duration, data)

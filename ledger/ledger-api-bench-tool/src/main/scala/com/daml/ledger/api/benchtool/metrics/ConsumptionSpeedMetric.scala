@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.daml.ledger.api.benchtool.util.TimeUtil
 import com.google.protobuf.timestamp.Timestamp
 
@@ -12,7 +11,7 @@ import java.time.{Duration, Instant}
 final case class ConsumptionSpeedMetric[T](
     recordTimeFunction: T => Seq[Timestamp],
     objective: Option[
-      (ServiceLevelObjective[ConsumptionSpeedMetric.Value], Option[ConsumptionSpeedMetric.Value])
+      (ConsumptionSpeedMetric.MinConsumptionSpeed, Option[ConsumptionSpeedMetric.Value])
     ],
     previousLatest: Option[Instant] = None,
     currentPeriodLatest: Option[Instant] = None,
@@ -20,7 +19,7 @@ final case class ConsumptionSpeedMetric[T](
   import ConsumptionSpeedMetric._
 
   override type V = Value
-  override type Objective = ServiceLevelObjective[Value]
+  override type Objective = MinConsumptionSpeed
 
   override def onNext(value: T): ConsumptionSpeedMetric[T] = {
     val recordTimes = recordTimeFunction(value)
@@ -50,10 +49,14 @@ final case class ConsumptionSpeedMetric[T](
   override def finalValue(totalDuration: Duration): Value =
     Value(None)
 
-  override def violatedObjective: Option[(ServiceLevelObjective[Value], Value)] =
+  override def violatedPeriodicObjectives: List[(MinConsumptionSpeed, Value)] =
     objective.collect {
       case (objective, value) if value.isDefined => objective -> value.get
-    }
+    }.toList
+
+  override def violatedFinalObjectives(
+      totalDuration: Duration
+  ): List[(MinConsumptionSpeed, Value)] = Nil
 
   private def periodicSpeed(periodDuration: Duration): Double =
     (previousLatest, currentPeriodLatest) match {
@@ -64,7 +67,7 @@ final case class ConsumptionSpeedMetric[T](
     }
 
   private def updatedObjectives(newValue: Value): Option[
-    (ServiceLevelObjective[ConsumptionSpeedMetric.Value], Option[ConsumptionSpeedMetric.Value])
+    (MinConsumptionSpeed, Option[Value])
   ] =
     objective.map { case (objective, currentMaxValue) =>
       if (objective.isViolatedBy(newValue)) {
@@ -84,7 +87,7 @@ object ConsumptionSpeedMetric {
 
   def empty[T](
       recordTimeFunction: T => Seq[Timestamp],
-      objective: Option[ServiceLevelObjective[Value]] = None,
+      objective: Option[MinConsumptionSpeed] = None,
   ): ConsumptionSpeedMetric[T] =
     ConsumptionSpeedMetric(
       recordTimeFunction,
@@ -106,5 +109,12 @@ object ConsumptionSpeedMetric {
         case (None, None) => 0
       }
     }
+  }
+
+  final case class MinConsumptionSpeed(minSpeed: Double) extends ServiceLevelObjective[Value] {
+    override def isViolatedBy(metricValue: Value): Boolean =
+      Ordering[Value].lt(metricValue, v)
+
+    private val v = Value(Some(minSpeed))
   }
 }

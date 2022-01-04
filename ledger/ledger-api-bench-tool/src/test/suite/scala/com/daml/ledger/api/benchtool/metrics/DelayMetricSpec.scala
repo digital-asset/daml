@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.metrics.DelayMetric
-import com.daml.ledger.api.benchtool.metrics.objectives.MaxDelay
+import com.daml.ledger.api.benchtool.metrics.DelayMetric._
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -22,8 +22,8 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val totalDuration: Duration = Duration.ofSeconds(1)
       val finalValue = metric.finalValue(totalDuration)
 
-      periodicValue shouldBe DelayMetric.Value(None)
-      finalValue shouldBe DelayMetric.Value(None)
+      periodicValue shouldBe Value(None)
+      finalValue shouldBe Value(None)
     }
 
     "compute values after processing elements" in {
@@ -58,8 +58,8 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val finalValue = newMetric.finalValue(totalDuration)
 
       val expectedMean = (delay1 + delay2 + delay3) / 3
-      periodicValue shouldBe DelayMetric.Value(Some(expectedMean))
-      finalValue shouldBe DelayMetric.Value(None)
+      periodicValue shouldBe Value(Some(expectedMean))
+      finalValue shouldBe Value(None)
     }
 
     "correctly handle periods with no elements" in {
@@ -92,8 +92,8 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
         .periodicValue(periodDuration)
       val finalValue = newMetric.finalValue(totalDuration)
 
-      periodicValue shouldBe DelayMetric.Value(None)
-      finalValue shouldBe DelayMetric.Value(None)
+      periodicValue shouldBe Value(None)
+      finalValue shouldBe Value(None)
     }
 
     "correctly handle multiple periods with elements" in {
@@ -136,8 +136,8 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val finalValue = newMetric.finalValue(totalDuration)
 
       val expectedMean = (delay4 + delay5) / 2
-      periodicValue shouldBe DelayMetric.Value(Some(expectedMean))
-      finalValue shouldBe DelayMetric.Value(None)
+      periodicValue shouldBe Value(Some(expectedMean))
+      finalValue shouldBe Value(None)
     }
 
     "compute violated max delay SLO with the most extreme value" in {
@@ -213,10 +213,10 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
           .onNext(elem4)
           .periodicValue(periodDuration)
           ._1
-          .violatedObjective
+          .violatedPeriodicObjectives
 
-      violatedObjectives shouldBe Some(
-        expectedViolatedObjective -> DelayMetric.Value(Some(maxDelay))
+      violatedObjectives shouldBe List(
+        expectedViolatedObjective -> Value(Some(maxDelay))
       )
     }
   }

@@ -32,7 +32,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |         - Foo1
           |         - Foo3
           |    objectives:
-          |      min_item_rate: 123""".stripMargin
+          |      min_item_rate: 123
+          |      max_item_rate: 456""".stripMargin
 
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
@@ -60,10 +61,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   templates = List("Foo1", "Foo3"),
                 )
               ),
-              objectives = WorkflowConfig.StreamConfig.Objectives(
-                maxDelaySeconds = None,
-                minConsumptionSpeed = None,
+              objectives = WorkflowConfig.StreamConfig.RateObjectives(
                 minItemRate = Some(123),
+                maxItemRate = Some(456),
               ),
             )
           ),
@@ -139,7 +139,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |    end_offset: bar
         |    objectives:
         |      max_delay_seconds: 123
-        |      min_consumption_speed: 2.34""".stripMargin
+        |      min_consumption_speed: 2.34
+        |      min_item_rate: 12
+        |      max_item_rate: 34""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = None,
@@ -154,10 +156,11 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               ),
               beginOffset = Some(offset("foo")),
               endOffset = Some(offset("bar")),
-              objectives = WorkflowConfig.StreamConfig.Objectives(
+              objectives = WorkflowConfig.StreamConfig.TransactionObjectives(
                 maxDelaySeconds = Some(123),
                 minConsumptionSpeed = Some(2.34),
-                minItemRate = None,
+                minItemRate = Some(12),
+                maxItemRate = Some(34),
               ),
             )
           ),
@@ -179,7 +182,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |    end_offset: bar
           |    objectives:
           |      max_delay_seconds: 123
-          |      min_consumption_speed: 2.34""".stripMargin
+          |      min_consumption_speed: 2.34
+          |      min_item_rate: 12
+          |      max_item_rate: 34""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = None,
@@ -194,10 +199,11 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               ),
               beginOffset = Some(offset("foo")),
               endOffset = Some(offset("bar")),
-              objectives = WorkflowConfig.StreamConfig.Objectives(
+              objectives = WorkflowConfig.StreamConfig.TransactionObjectives(
                 maxDelaySeconds = Some(123),
                 minConsumptionSpeed = Some(2.34),
-                minItemRate = None,
+                minItemRate = Some(12),
+                maxItemRate = Some(34),
               ),
             )
           ),
@@ -216,7 +222,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |         - Foo1
           |         - Foo3
           |    objectives:
-          |      min_item_rate: 123""".stripMargin
+          |      min_item_rate: 123
+          |      max_item_rate: 4567""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = None,
@@ -229,10 +236,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   templates = List("Foo1", "Foo3"),
                 )
               ),
-              objectives = WorkflowConfig.StreamConfig.Objectives(
-                minConsumptionSpeed = None,
-                maxDelaySeconds = None,
+              objectives = WorkflowConfig.StreamConfig.RateObjectives(
                 minItemRate = Some(123),
+                maxItemRate = Some(4567),
               ),
             )
           ),
@@ -247,7 +253,10 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |    name: stream-1
           |    party: Obs-2
           |    begin_offset: foo
-          |    application_id: foobar""".stripMargin
+          |    application_id: foobar
+          |    objectives:
+          |      min_item_rate: 12
+          |      max_item_rate: 345""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = None,
@@ -257,6 +266,10 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               party = "Obs-2",
               beginOffset = Some(offset("foo")),
               applicationId = "foobar",
+              objectives = WorkflowConfig.StreamConfig.RateObjectives(
+                minItemRate = Some(12),
+                maxItemRate = Some(345),
+              ),
             )
           ),
         )

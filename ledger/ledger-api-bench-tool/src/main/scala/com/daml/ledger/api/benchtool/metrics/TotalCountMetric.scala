@@ -21,6 +21,8 @@ final case class TotalCountMetric[T](
 
   override def finalValue(totalDuration: Duration): Value =
     Value(totalCount = counter)
+
+  override def violatedFinalObjectives(totalDuration: Duration): List[(Objective, Value)] = Nil
 }
 
 object TotalCountMetric {

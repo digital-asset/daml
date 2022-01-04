@@ -5,12 +5,6 @@ package com.daml.ledger.api.benchtool.util
 
 import com.daml.ledger.api.benchtool.metrics.MetricsCollector.Response.{FinalReport, PeriodicReport}
 import com.daml.ledger.api.benchtool.metrics._
-import com.daml.ledger.api.benchtool.metrics.objectives.{
-  MaxDelay,
-  MinConsumptionSpeed,
-  MinRate,
-  ServiceLevelObjective,
-}
 
 object ReportFormatter {
   def formatPeriodicReport(streamName: String, periodicReport: PeriodicReport): String = {
@@ -30,14 +24,14 @@ object ReportFormatter {
         else
           None
 
-      val violatedObjective: Option[String] = metricData.violatedObjective
-        .map { case (objective, value) =>
+      val violatedObjectives: List[String] =
+        metricData.violatedObjectives.map { case (objective, value) =>
           val info =
             s"${objectiveName(objective)}: required: ${formattedObjectiveValue(objective)}, metered: ${formattedValue(value)}"
           failureFormat(info)
         }
 
-      valueLog.toList ::: violatedObjective.toList
+      valueLog.toList ::: violatedObjectives
     }
 
     val durationLog =
@@ -93,21 +87,25 @@ object ReportFormatter {
 
   private def objectiveName(objective: ServiceLevelObjective[_]): String =
     objective match {
-      case _: MaxDelay =>
+      case _: DelayMetric.MaxDelay =>
         s"Maximum record time delay [s]"
-      case _: MinConsumptionSpeed =>
+      case _: ConsumptionSpeedMetric.MinConsumptionSpeed =>
         s"Minimum consumption speed [-]"
-      case _: MinRate =>
+      case _: CountRateMetric.RateObjective.MinRate =>
         s"Minimum item rate [item/s]"
+      case _: CountRateMetric.RateObjective.MaxRate =>
+        s"Maximum item rate [item/s]"
     }
 
   private def formattedObjectiveValue(objective: ServiceLevelObjective[_]): String =
     objective match {
-      case obj: MaxDelay =>
+      case obj: DelayMetric.MaxDelay =>
         obj.maxDelaySeconds.toString
-      case obj: MinConsumptionSpeed =>
+      case obj: ConsumptionSpeedMetric.MinConsumptionSpeed =>
         obj.minSpeed.toString
-      case obj: MinRate =>
+      case obj: CountRateMetric.RateObjective.MinRate =>
+        obj.minAllowedRatePerSecond.toString
+      case obj: CountRateMetric.RateObjective.MaxRate =>
         obj.minAllowedRatePerSecond.toString
     }
 

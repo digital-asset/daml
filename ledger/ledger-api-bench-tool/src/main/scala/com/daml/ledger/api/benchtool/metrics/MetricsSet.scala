@@ -4,8 +4,7 @@
 package com.daml.ledger.api.benchtool.metrics
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.Objectives
-import com.daml.ledger.api.benchtool.metrics.objectives.{MaxDelay, MinConsumptionSpeed, MinRate}
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig._
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.transaction_service.{
@@ -18,8 +17,8 @@ import java.time.{Clock, Duration}
 import scala.concurrent.duration.FiniteDuration
 
 object MetricsSet {
-  def transactionMetrics(objectives: Objectives): List[Metric[GetTransactionsResponse]] =
-    all[GetTransactionsResponse](
+  def transactionMetrics(objectives: TransactionObjectives): List[Metric[GetTransactionsResponse]] =
+    transactionMetrics[GetTransactionsResponse](
       countingFunction = _.transactions.length,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
@@ -45,9 +44,9 @@ object MetricsSet {
     )
 
   def transactionTreesMetrics(
-      objectives: Objectives
+      objectives: TransactionObjectives
   ): List[Metric[GetTransactionTreesResponse]] =
-    all[GetTransactionTreesResponse](
+    transactionMetrics[GetTransactionTreesResponse](
       countingFunction = _.transactions.length,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
@@ -72,10 +71,15 @@ object MetricsSet {
       }),
     )
 
-  def activeContractsMetrics: List[Metric[GetActiveContractsResponse]] =
+  def activeContractsMetrics(objectives: RateObjectives): List[Metric[GetActiveContractsResponse]] =
     List[Metric[GetActiveContractsResponse]](
       CountRateMetric.empty[GetActiveContractsResponse](
-        countingFunction = _.activeContracts.length
+        countingFunction = _.activeContracts.length,
+        periodicObjectives = Nil,
+        finalObjectives = List(
+          objectives.minItemRate.map(CountRateMetric.RateObjective.MinRate),
+          objectives.maxItemRate.map(CountRateMetric.RateObjective.MaxRate),
+        ).flatten,
       ),
       TotalCountMetric.empty[GetActiveContractsResponse](
         countingFunction = _.activeContracts.length
@@ -99,10 +103,15 @@ object MetricsSet {
       recordTimeFunction = None,
     )
 
-  def completionsMetrics: List[Metric[CompletionStreamResponse]] =
+  def completionsMetrics(objectives: RateObjectives): List[Metric[CompletionStreamResponse]] =
     List[Metric[CompletionStreamResponse]](
       CountRateMetric.empty(
-        countingFunction = _.completions.length
+        countingFunction = _.completions.length,
+        periodicObjectives = Nil,
+        finalObjectives = List(
+          objectives.minItemRate.map(CountRateMetric.RateObjective.MinRate),
+          objectives.maxItemRate.map(CountRateMetric.RateObjective.MaxRate),
+        ).flatten,
       ),
       TotalCountMetric.empty(
         countingFunction = _.completions.length
@@ -126,28 +135,32 @@ object MetricsSet {
       recordTimeFunction = None,
     )
 
-  private def all[T](
+  private def transactionMetrics[T](
       countingFunction: T => Int,
       sizingFunction: T => Long,
       recordTimeFunction: T => Seq[Timestamp],
-      objectives: Objectives,
+      objectives: TransactionObjectives,
   ): List[Metric[T]] = {
     List[Metric[T]](
       CountRateMetric.empty[T](
         countingFunction = countingFunction,
-        objective = objectives.minItemRate.map(MinRate),
+        periodicObjectives = Nil,
+        finalObjectives = List(
+          objectives.minItemRate.map(CountRateMetric.RateObjective.MinRate),
+          objectives.maxItemRate.map(CountRateMetric.RateObjective.MaxRate),
+        ).flatten,
       ),
       TotalCountMetric.empty[T](
         countingFunction = countingFunction
       ),
       ConsumptionSpeedMetric.empty[T](
         recordTimeFunction = recordTimeFunction,
-        objective = objectives.minConsumptionSpeed.map(MinConsumptionSpeed),
+        objective = objectives.minConsumptionSpeed.map(ConsumptionSpeedMetric.MinConsumptionSpeed),
       ),
       DelayMetric.empty[T](
         recordTimeFunction = recordTimeFunction,
         clock = Clock.systemUTC(),
-        objective = objectives.maxDelaySeconds.map(MaxDelay),
+        objective = objectives.maxDelaySeconds.map(DelayMetric.MaxDelay),
       ),
       SizeMetric.empty[T](
         sizingFunction = sizingFunction
