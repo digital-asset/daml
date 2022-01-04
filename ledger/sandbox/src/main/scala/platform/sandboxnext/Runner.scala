@@ -326,7 +326,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                         DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
                     )
                   ),
-                  ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_SUPPORTED,
+                  ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED,
                 ),
               )
               _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())

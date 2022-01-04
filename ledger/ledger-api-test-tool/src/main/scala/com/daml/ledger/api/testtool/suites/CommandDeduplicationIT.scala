@@ -5,7 +5,6 @@ package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.{
-  DeduplicationFeatures,
   DelayMechanism,
   TimeDelayMechanism,
 }
@@ -35,9 +34,4 @@ final class CommandDeduplicationIT(
     testWithDelayMechanism(new TimeDelayMechanism(deduplicationDuration, ledgerWaitInterval))
 
   override def testNamingPrefix: String = "ParticipantCommandDeduplication"
-
-  override def deduplicationFeatures: CommandDeduplicationBase.DeduplicationFeatures =
-    DeduplicationFeatures(
-      participantDeduplication = true
-    )
 }

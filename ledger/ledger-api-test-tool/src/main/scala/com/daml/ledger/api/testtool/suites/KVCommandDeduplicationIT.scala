@@ -6,7 +6,6 @@ package com.daml.ledger.api.testtool.suites
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.{
-  DeduplicationFeatures,
   DelayMechanism,
   StaticTimeDelayMechanism,
   TimeDelayMechanism,
@@ -37,11 +36,6 @@ class KVCommandDeduplicationIT(
   private[this] val logger = LoggerFactory.getLogger(getClass.getName)
 
   override def testNamingPrefix: String = "KVCommandDeduplication"
-
-  override def deduplicationFeatures: CommandDeduplicationBase.DeduplicationFeatures =
-    DeduplicationFeatures(
-      participantDeduplication = false
-    )
 
   protected override def runWithDeduplicationDelay(
       participants: Seq[ParticipantTestContext]

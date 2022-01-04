@@ -46,8 +46,6 @@ private[testtool] abstract class CommandDeduplicationBase(
   val ledgerWaitInterval: FiniteDuration = ledgerTimeInterval * 2
   val defaultDeduplicationWindowWait: FiniteDuration = deduplicationDuration + ledgerWaitInterval
 
-  def deduplicationFeatures: DeduplicationFeatures
-
   protected def runWithDeduplicationDelay(
       participants: Seq[ParticipantTestContext]
   )(
@@ -602,7 +600,9 @@ private[testtool] abstract class CommandDeduplicationBase(
   )(implicit
       ec: ExecutionContext
   ): Future[Unit] =
-    if (deduplicationFeatures.participantDeduplication)
+    if (
+      ledger.features.commandDeduplicationFeatures.participantDeduplicationSupport.isParticipantDeduplicationSupported
+    )
       submitRequestAndAssertSyncDeduplication(ledger, request, acceptedSubmissionId, acceptedOffset)
     else
       submitRequestAndAssertAsyncDeduplication(
@@ -911,9 +911,4 @@ object CommandDeduplicationBase {
         }
   }
 
-  /** @param participantDeduplication If participant deduplication is enabled then we will receive synchronous rejections
-    */
-  case class DeduplicationFeatures(
-      participantDeduplication: Boolean
-  )
 }
