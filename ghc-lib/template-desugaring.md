@@ -1,6 +1,6 @@
 # Daml template syntax desugaring
 
-Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
+Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: (Apache-2.0 OR BSD-3-Clause)
 
 ## Introduction
