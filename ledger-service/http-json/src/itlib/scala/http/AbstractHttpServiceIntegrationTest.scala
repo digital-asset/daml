@@ -724,7 +724,7 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "multi-party query GET" in withHttpService { (uri, encoder, _, _) =>
     val (alice, aliceHeaders) = getUniquePartyAndAuthHeaders("Alice")
-    val (bob, bobHeaders) = getUniquePartyAndAuthHeaders("Alice")
+    val (bob, bobHeaders) = getUniquePartyAndAuthHeaders("Bob")
     for {
       _ <- postCreateCommand(
         accountCreateCommand(owner = alice, number = "42"),
