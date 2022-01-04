@@ -16,15 +16,20 @@ trait OracleAround {
   private var systemPwd: String = _
   @volatile
   private var port: Port = _
+  @volatile
+  private var host: String = _
 
   def oraclePort: Port = port
 
-  def oracleJdbcUrl: String = s"jdbc:oracle:thin:@localhost:$oraclePort/ORCLPDB1"
+  def oracleHost: String = host
+
+  def oracleJdbcUrl: String = s"jdbc:oracle:thin:@$oracleHost:$oraclePort/ORCLPDB1"
 
   protected def connectToOracle(): Unit = {
     systemUser = sys.env("ORACLE_USERNAME")
     systemPwd = sys.env("ORACLE_PWD")
-    port = Port(sys.env("ORACLE_PORT").toInt)
+    port = Port(sys.env.get("ORACLE_PORT").map(_.toInt).getOrElse(1521))
+    host = sys.env.getOrElse("ORACLE_HOST", "localhost")
   }
 
   protected def createNewRandomUser(): User = {
@@ -50,7 +55,7 @@ trait OracleAround {
     Using.Manager { use =>
       val con = use(
         DriverManager.getConnection(
-          s"jdbc:oracle:thin:@localhost:$port/ORCLPDB1",
+          s"jdbc:oracle:thin:@$oracleHost:$oraclePort/ORCLPDB1",
           "sys as sysdba", // TODO this is needed for being able to grant the execute access for the sys.dbms_lock below. Consider making this configurable
           systemPwd,
         )
@@ -77,7 +82,7 @@ trait OracleAround {
     Using.Manager { use =>
       val con = use(
         DriverManager.getConnection(
-          s"jdbc:oracle:thin:@localhost:$port/ORCLPDB1",
+          s"jdbc:oracle:thin:@$oracleHost:$oraclePort/ORCLPDB1",
           systemUser,
           systemPwd,
         )

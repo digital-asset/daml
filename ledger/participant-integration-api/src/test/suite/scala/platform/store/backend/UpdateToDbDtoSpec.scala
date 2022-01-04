@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.backend
 
-import java.time.Duration
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.api.domain
@@ -19,17 +18,9 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.platform.index.index.StatusDetails
-import com.daml.platform.store.appendonlydao.{DeduplicationKeyMaker, JdbcLedgerDao}
 import com.daml.platform.store.appendonlydao.events.Raw.TreeEvent
-import com.daml.platform.store.appendonlydao.events.{
-  CompressionStrategy,
-  ContractId,
-  Create,
-  Exercise,
-  FieldCompressionStrategy,
-  LfValueSerialization,
-  Raw,
-}
+import com.daml.platform.store.appendonlydao.events._
+import com.daml.platform.store.appendonlydao.{DeduplicationKeyMaker, JdbcLedgerDao}
 import com.google.protobuf.ByteString
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
@@ -38,12 +29,13 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
-  import UpdateToDbDtoSpec._
   import TransactionBuilder.Implicits._
+  import UpdateToDbDtoSpec._
 
   "UpdateToDbDto" should {
 
@@ -1463,7 +1455,7 @@ object UpdateToDbDtoSpec {
     commandId = someCommandId,
     optDeduplicationPeriod = None,
     submissionId = Some(someSubmissionId),
-    statistics = None, // TODO Ledger Metering
+    statistics = None,
   )
   private val someTransactionMeta = state.TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),

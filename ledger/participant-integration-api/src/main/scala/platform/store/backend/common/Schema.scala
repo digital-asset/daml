@@ -305,6 +305,16 @@ private[backend] object AppendOnlySchema {
         ),
       )
 
+    val transactionMetering: Table[DbDto.TransactionMetering] =
+      fieldStrategy.insert("transaction_metering")(
+        fields = "application_id" -> fieldStrategy.string(_ => _.application_id),
+        "action_count" -> fieldStrategy.int(_ => _.action_count),
+        "from_timestamp" -> fieldStrategy.bigint(_ => _.from_timestamp),
+        "to_timestamp" -> fieldStrategy.bigint(_ => _.to_timestamp),
+        "from_ledger_offset" -> fieldStrategy.string(_ => _.from_ledger_offset),
+        "to_ledger_offset" -> fieldStrategy.string(_ => _.to_ledger_offset),
+      )
+
     val executes: Seq[Array[Array[_]] => Connection => Unit] = List(
       eventsDivulgence.executeUpdate,
       eventsCreate.executeUpdate,
@@ -318,6 +328,7 @@ private[backend] object AppendOnlySchema {
       commandSubmissionDeletes.executeUpdate,
       stringInterningTable.executeUpdate,
       createFilter.executeUpdate,
+      transactionMetering.executeUpdate,
     )
 
     new Schema[DbDto] {
@@ -344,6 +355,7 @@ private[backend] object AppendOnlySchema {
           commandSubmissionDeletes.prepareData(collect[CommandDeduplication], stringInterning),
           stringInterningTable.prepareData(collect[StringInterningDto], stringInterning),
           createFilter.prepareData(collect[CreateFilter], stringInterning),
+          transactionMetering.prepareData(collect[TransactionMetering], stringInterning),
         )
       }
 

@@ -32,6 +32,7 @@ trait StorageBackendFactory {
   def createResetStorageBackend: ResetStorageBackend
   def createStringInterningStorageBackend: StringInterningStorageBackend
   def createUserManagementStorageBackend: UserManagementStorageBackend
+  def createMeteringStorageBackend(ledgerEndCache: LedgerEndCache): MeteringStorageBackend
 
   final def readStorageBackend(
       ledgerEndCache: LedgerEndCache,

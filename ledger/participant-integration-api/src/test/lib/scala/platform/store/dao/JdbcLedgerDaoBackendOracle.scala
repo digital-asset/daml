@@ -13,5 +13,5 @@ private[dao] trait JdbcLedgerDaoBackendOracle extends JdbcLedgerDaoBackend with 
   override protected val dbType: DbType = DbType.Oracle
 
   override protected def jdbcUrl: String =
-    s"jdbc:oracle:thin:$oracleUser/$oraclePwd@localhost:$oraclePort/ORCLPDB1"
+    s"jdbc:oracle:thin:$oracleUser/$oraclePwd@$oracleHost:$oraclePort/ORCLPDB1"
 }

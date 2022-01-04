@@ -3,13 +3,19 @@
 
 package com.daml.platform.indexer.parallel
 
-import java.time.Instant
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.lf.data.Ref
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.transaction.TransactionNodeStatistics.EmptyActions
+import com.daml.lf.transaction.{
+  CommittedTransaction,
+  TransactionNodeStatistics,
+  TransactionVersion,
+  VersionedTransaction,
+}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.parallel.ParallelIndexerSubscription.Batch
@@ -17,9 +23,29 @@ import com.daml.platform.store.backend.{DbDto, ParameterStorageBackend}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.time.Instant
+
 class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
   private implicit val lc: LoggingContext = LoggingContext.ForTesting
+
+  private val DbDtoEq: org.scalactic.Equality[DbDto] = {
+    case (a: DbDto, b: DbDto) =>
+      (a.productPrefix === b.productPrefix) &&
+        (a.productArity == b.productArity) &&
+        (a.productIterator zip b.productIterator).forall {
+          case (x: Array[_], y: Array[_]) => x sameElements y
+          case (Some(x: Array[_]), Some(y: Array[_])) => x sameElements y
+          case (x, y) => x === y
+        }
+    case (_, _) => false
+  }
+
+  private val DbDtoSeqEq: org.scalactic.Equality[Seq[DbDto]] = {
+    case (a: Seq[_], b: Seq[_]) =>
+      a.size == b.size && a.zip(b).forall({ case (x, y) => DbDtoEq.areEqual(x, y) })
+    case (_, _) => false
+  }
 
   private val someParty = DbDto.PartyEntry(
     ledger_offset = "",
@@ -110,6 +136,29 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
     event_sequential_id = 0,
   )
 
+  behavior of "DbDtoEq"
+
+  it should "compare DbDto when used with `decided` keyword" in {
+
+    val dto0 = DbDto.ConfigurationEntry(
+      ledger_offset = "",
+      recorded_at = 0,
+      submission_id = "",
+      typ = "",
+      configuration = Array[Byte](),
+      rejection_reason = None,
+    )
+
+    val dto1 = dto0.copy()
+    val dto2 = dto0.copy()
+
+    dto0 should equal(dto0) // Works due to object equality shortcut
+    dto1 shouldNot equal(dto2) // As equality is overridden to be false with DbDto
+    dto1 should equal(dto2)(decided by DbDtoEq)
+    List(dto1) should equal(List(dto2))(decided by DbDtoSeqEq)
+
+  }
+
   behavior of "inputMapper"
 
   it should "provide required Batch in happy path case" in {
@@ -160,6 +209,128 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       offsets = Vector("00", "01", "02").map(offset),
     )
     actual shouldBe expected
+  }
+
+  behavior of "inputMapper transaction metering"
+
+  {
+
+    val applicationId = Ref.ApplicationId.assertFromString("a0")
+
+    val timestamp: Long = 12345
+    val offset = Ref.HexString.assertFromString("02")
+    val statistics = TransactionNodeStatistics(
+      EmptyActions.copy(creates = 2),
+      EmptyActions.copy(consumingExercisesByCid = 1),
+    )
+
+    val someHash = Hash.hashPrivateKey("p0")
+
+    val someRecordTime = Time.Timestamp.assertFromString("2000-01-01T00:00:00.000000Z")
+
+    val someCompletionInfo = state.CompletionInfo(
+      actAs = Nil,
+      applicationId = applicationId,
+      commandId = Ref.CommandId.assertFromString("c0"),
+      optDeduplicationPeriod = None,
+      submissionId = None,
+      statistics = Some(statistics),
+    )
+    val someTransactionMeta = state.TransactionMeta(
+      ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
+      workflowId = None,
+      submissionTime = Time.Timestamp.assertFromLong(3),
+      submissionSeed = someHash,
+      optUsedPackages = None,
+      optNodeSeeds = None,
+      optByKeyNodes = None,
+    )
+
+    val someTransactionAccepted = state.Update.TransactionAccepted(
+      optCompletionInfo = Some(someCompletionInfo),
+      transactionMeta = someTransactionMeta,
+      transaction = CommittedTransaction(
+        VersionedTransaction(TransactionVersion.VDev, Map.empty, ImmArray.empty)
+      ),
+      transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+      recordTime = someRecordTime,
+      divulgedContracts = List.empty,
+      blindingInfo = None,
+    )
+
+    it should "extract transaction metering" in {
+      val actual: Vector[DbDto.TransactionMetering] = ParallelIndexerSubscription
+        .inputMapper(
+          metrics = metrics,
+          toDbDto = _ => _ => Iterator.empty,
+        )(lc)(
+          List(
+            (
+              (Offset.fromHexString(offset), someTransactionAccepted),
+              timestamp,
+            )
+          )
+        )
+        .batch
+        .asInstanceOf[Vector[DbDto.TransactionMetering]]
+
+      val expected: Vector[DbDto.TransactionMetering] = Vector(
+        DbDto.TransactionMetering(
+          application_id = applicationId,
+          action_count = statistics.committed.actions + statistics.rolledBack.actions,
+          from_timestamp = timestamp,
+          to_timestamp = timestamp,
+          from_ledger_offset = offset,
+          to_ledger_offset = offset,
+        )
+      )
+
+      actual should equal(expected)(decided by DbDtoSeqEq)
+
+    }
+
+    it should "aggregate transaction metering across batch" in {
+
+      val metering = DbDto.TransactionMetering(
+        application_id = applicationId,
+        action_count = 2 * (statistics.committed.actions + statistics.rolledBack.actions),
+        from_timestamp = timestamp - 1,
+        to_timestamp = timestamp + 1,
+        from_ledger_offset = Ref.HexString.assertFromString("01"),
+        to_ledger_offset = Ref.HexString.assertFromString("03"),
+      )
+
+      val expected: Vector[DbDto.TransactionMetering] = Vector(metering)
+
+      val actual: Vector[DbDto.TransactionMetering] = ParallelIndexerSubscription
+        .inputMapper(
+          metrics = metrics,
+          toDbDto = _ => _ => Iterator.empty,
+        )(lc)(
+          List(
+            (
+              (
+                Offset.fromHexString(Ref.HexString.assertFromString(metering.from_ledger_offset)),
+                someTransactionAccepted,
+              ),
+              metering.from_timestamp,
+            ),
+            (
+              (
+                Offset.fromHexString(Ref.HexString.assertFromString(metering.to_ledger_offset)),
+                someTransactionAccepted,
+              ),
+              metering.to_timestamp,
+            ),
+          )
+        )
+        .batch
+        .asInstanceOf[Vector[DbDto.TransactionMetering]]
+
+      actual should equal(expected)(decided by DbDtoSeqEq)
+
+    }
+
   }
 
   behavior of "seqMapperZero"
@@ -335,4 +506,5 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       lastStringInterningId = 300,
     )
   }
+
 }

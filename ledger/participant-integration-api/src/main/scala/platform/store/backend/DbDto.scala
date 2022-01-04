@@ -150,4 +150,13 @@ object DbDto {
       template_id: String,
       party_id: String,
   ) extends DbDto
+
+  final case class TransactionMetering(
+      application_id: String,
+      action_count: Int,
+      from_timestamp: Long,
+      to_timestamp: Long,
+      from_ledger_offset: String,
+      to_ledger_offset: String,
+  ) extends DbDto
 }
