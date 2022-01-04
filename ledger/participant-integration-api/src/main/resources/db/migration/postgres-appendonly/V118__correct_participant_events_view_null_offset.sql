@@ -1,5 +1,8 @@
+SELECT 'Dropping and recreating participant_events view...';
+
 DROP VIEW participant_events;
 
+-- re-add the participant_events view
 CREATE VIEW participant_events
 AS
 SELECT
@@ -16,18 +19,18 @@ SELECT
     NULL::text as event_id,
     contract_id,
     template_id,
-    NULL::text[] as flat_event_witnesses,
+    NULL::INTEGER[] as flat_event_witnesses,
     tree_event_witnesses,
     create_argument,
-    NULL::text[] as create_signatories,
-    NULL::text[] as create_observers,
+    NULL::INTEGER[] as create_signatories,
+    NULL::INTEGER[] as create_observers,
     NULL::text as create_agreement_text,
     NULL::bytea as create_key_value,
     NULL::text as create_key_hash,
     NULL::text as exercise_choice,
     NULL::bytea as exercise_argument,
     NULL::bytea as exercise_result,
-    NULL::text[] as exercise_actors,
+    NULL::INTEGER[] as exercise_actors,
     NULL::text[] as exercise_child_event_ids,
     create_argument_compression,
     NULL::smallint as create_key_value_compression,
@@ -60,7 +63,7 @@ SELECT
     NULL::text as exercise_choice,
     NULL::bytea as exercise_argument,
     NULL::bytea as exercise_result,
-    NULL::text[] as exercise_actors,
+    NULL::INTEGER[] as exercise_actors,
     NULL::text[] as exercise_child_event_ids,
     create_argument_compression,
     create_key_value_compression,
@@ -85,8 +88,8 @@ SELECT
     flat_event_witnesses,
     tree_event_witnesses,
     NULL::bytea as create_argument,
-    NULL::text[] as create_signatories,
-    NULL::text[] as create_observers,
+    NULL::INTEGER[] as create_signatories,
+    NULL::INTEGER[] as create_observers,
     NULL::text as create_agreement_text,
     create_key_value,
     NULL::text as create_key_hash,
@@ -118,8 +121,8 @@ SELECT
     flat_event_witnesses,
     tree_event_witnesses,
     NULL::bytea as create_argument,
-    NULL::text[] as create_signatories,
-    NULL::text[] as create_observers,
+    NULL::INTEGER[] as create_signatories,
+    NULL::INTEGER[] as create_observers,
     NULL::text as create_agreement_text,
     create_key_value,
     NULL::text as create_key_hash,
@@ -134,3 +137,5 @@ SELECT
     exercise_result_compression
 FROM participant_events_non_consuming_exercise
 ;
+
+SELECT 'Recreating participant_events view: Done.';
