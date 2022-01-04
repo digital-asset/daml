@@ -17,7 +17,7 @@ use null to reset
 */
 
 locals {
-  es_ssh  = 1
+  es_ssh  = 0
   es_feed = 0
   es_clusters = [
     {
