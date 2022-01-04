@@ -7,13 +7,11 @@ locals {
       name      = "ci-u1",
       disk_size = 200,
       size      = 30,
-      year      = 2022,
     },
     {
       name      = "ci-u2",
       disk_size = 400,
       size      = 0,
-      year      = 2022,
     },
   ]
 }
@@ -26,7 +24,6 @@ data "template_file" "vsts-agent-ubuntu_20_04-startup" {
     vsts_token   = secret_resource.vsts-token.value
     vsts_account = "digitalasset"
     vsts_pool    = "ubuntu_20_04"
-    year         = local.ubuntu[count.index].year
   }
 }
 
