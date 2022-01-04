@@ -76,7 +76,7 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status =
       errorFactories.CommandRejections.invalidLedgerTime(
-        s"Ledger effective time for one of the contracts [$contractLedgerEffectiveTime] greater than the ledger effective time of the transaction [$transactionLedgerEffectiveTime]"
+        s"Ledger effective time for one of the contracts ($contractLedgerEffectiveTime) is greater than the ledger effective time of the transaction ($transactionLedgerEffectiveTime)"
       )
   }
 

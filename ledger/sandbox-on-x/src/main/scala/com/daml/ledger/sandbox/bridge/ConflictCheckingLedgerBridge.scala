@@ -1,8 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
-package ledger.sandbox.bridge
+package com.daml.ledger.sandbox.bridge
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
@@ -38,18 +37,18 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     initialLedgerEnd: Offset,
     bridgeMetrics: BridgeMetrics,
     errorFactories: ErrorFactories,
+    asyncStagesParallelism: Int,
 )(implicit
     loggingContext: LoggingContext,
     executionContext: ExecutionContext,
 ) extends LedgerBridge {
-  private val AsyncStagesParallelism = 64
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
-      .mapAsyncUnordered(AsyncStagesParallelism)(prepareSubmission)
+      .mapAsyncUnordered(asyncStagesParallelism)(prepareSubmission)
       .mapAsync(parallelism = 1)(tagWithLedgerEnd)
-      .mapAsync(AsyncStagesParallelism)(conflictCheckWithCommitted)
+      .mapAsync(asyncStagesParallelism)(conflictCheckWithCommitted)
       .statefulMapConcat(sequence)
 
   // This stage precomputes the transaction effects for transaction submissions.
