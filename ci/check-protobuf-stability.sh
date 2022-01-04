@@ -101,8 +101,11 @@ USAGE
     readonly VERSION_PREFIX="${VERSION%.x}"
     readonly STABLE_TAGS=($(git tag | grep "v.*" | grep -v "snapshot" | sort -V))
     LATEST_STABLE_TAG="$(for TAG in "${STABLE_TAGS[@]}"; do if [[ $(semver compare "${TAG#v}" "${VERSION_PREFIX}.999") == "-1" ]]; then echo "$TAG"; fi; done | tail -1)"
-  else
+  elif [[ "${TARGET}" == "main" ]]; then
     LATEST_STABLE_TAG="$(git tag | grep "v.*" | grep -v "snapshot" | sort -V | tail -1)"
+  else
+    echo "unsupported target branch $TARGET" >&2
+    exit 1
   fi
   # The v1.17 stable release includes the buf config file with the default name `buf.yml`.
   # Starting with v1.18 we have multiple buf config files.
