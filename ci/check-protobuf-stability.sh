@@ -89,7 +89,7 @@ USAGE
   exit
   ;;
 --stable)
-  # Check against the most recent stable tag.
+  # Check against the highest stable tag.
   #
   # This check does not need to run on release branch commits because
   # they are built sequentially, so no conflicts are possible and the per-PR
