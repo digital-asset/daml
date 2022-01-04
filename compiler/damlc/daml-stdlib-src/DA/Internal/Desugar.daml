@@ -89,14 +89,16 @@ Meanwhile, given
 
 `RdrHsSyn` generates the following binding
 
+> _method_Tplt_Iface_myMethod : Method Tplt Iface "myMethod"
 > _method_Tplt_Iface_myMethod = mkMethod @Tplt @Iface @"myMethod" (\this -> myMethodImpl this)
 
-Note that `RdrHsSyn` cannot give a type signature to `_method_Tplt_Iface_myMethod`, since
-the type of the method is not available in the `implements` block.
+Note that the signature given to `_method_Tplt_Iface_myMethod` doesn't mention the
+type of the method itself. This is because the the type of the method is not
+available in the `implements` block.
 
 Then how can we ensure that all implementations of that method have the right type?
-By wrapping the method implementation in the `Method t i m r` type using the
-`mkMethod` function with the necessary type applications, we bind the first three
+By wrapping the method implementation in the `Method t i m` type using the
+`mkMethod` function with the necessary type applications, we bind the three
 type variables `t i m` to the template, interface and method name types, respectively.
 Then, the functional dependency `i m -> r` in the `HasMethod` class guarantees
 that for the given interface type and method name, the return type `r` is fixed.
@@ -107,8 +109,14 @@ Finally, the compiler has to unify the argument to `mkMethod` with the type
 -- Read: Interface `i` has a method named `m` with return type `r`
 class HasMethod i (m : Symbol) r | i m -> r
 
+-- | This is only a marker for the container, it doesn't contain the
+-- actual implementation of the method.
 newtype Method t i (m : Symbol) = Method ()
 
+-- | This is used to check that the argument has the correct
+-- return type `r` for the given `t i m` type arguments.
+-- At runtime, the argument is ignored, but at compile time,
+-- it's extracted unmodified.
 mkMethod : (Implements t i, HasMethod i m r) => (t -> r) -> Method t i m
 mkMethod _ = Method ()
 
