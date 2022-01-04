@@ -77,6 +77,7 @@ private[platform] class FlywayMigrations(
       RetryStrategy.constant(retries, retryBackoff) { (attempt, _) =>
         val pendingMigrations = flyway.info().pending().length
         if (pendingMigrations == 0) {
+          logger.info("No pending migrations.")
           Future.unit
         } else {
           logger.debug(
