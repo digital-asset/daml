@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   PartyAllocationCommitter,
   SubmissionExecutor,
 }
+import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionEntry
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
   DamlLogEntryId,
@@ -200,15 +201,7 @@ object KeyValueCommitting {
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val transactionEntry = submission.getTransactionEntry
-        TransactionConversions
-          .decodeContractIdsAndKeys(RawTransaction(transactionEntry.getRawTransaction))
-          .fold(
-            err => throw Err.DecodeError("Transaction", err.errorMessage),
-            _.map {
-              case ContractIdOrKey.Id(id) => Conversions.contractIdToStateKey(id)
-              case ContractIdOrKey.Key(key) => Conversions.globalKeyToStateKey(key)
-            },
-          ) + commandDedupKey(transactionEntry.getSubmitterInfo)
+        transactionOutputs(transactionEntry) + commandDedupKey(transactionEntry.getSubmitterInfo)
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
         val configEntry = submission.getConfigurationSubmission
@@ -221,4 +214,15 @@ object KeyValueCommitting {
         throw Err.InvalidSubmission("DamlSubmission payload not set")
     }
   }
+
+  private def transactionOutputs(transactionEntry: DamlTransactionEntry): Set[DamlStateKey] =
+    TransactionConversions
+      .extractTransactionOutputs(RawTransaction(transactionEntry.getRawTransaction))
+      .fold(
+        err => throw Err.DecodeError("Transaction", err.errorMessage),
+        _.map {
+          case ContractIdOrKey.Id(id) => Conversions.contractIdToStateKey(id)
+          case ContractIdOrKey.Key(key) => Conversions.globalKeyToStateKey(key)
+        },
+      )
 }

@@ -95,12 +95,12 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  "decodeContractIdsAndKeys" should {
+  "extractTransactionOutputs" should {
     "return a single output for a create without a key" in {
       val builder = TransactionBuilder()
-      val createNode = create(builder, "#1")
+      val createNode = create(builder, "#id")
       builder.add(createNode)
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
           .encodeTransaction(builder.build())
           .fold(error => fail(error.errorMessage), identity)
@@ -110,9 +110,9 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return two outputs for a create with a key" in {
       val builder = TransactionBuilder()
-      val createNode = create(builder, "#2", hasKey = true)
+      val createNode = create(builder, "#id", hasKey = true)
       builder.add(createNode)
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
           .encodeTransaction(builder.build())
           .fold(error => fail(error.errorMessage), identity)
@@ -127,10 +127,10 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return a single output for a transient contract" in {
       val builder = TransactionBuilder()
-      val createNode = create(builder, "#3", hasKey = true)
+      val createNode = create(builder, "#id", hasKey = true)
       builder.add(createNode)
-      builder.add(exercise(builder, "#3"))
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      builder.add(exercise(builder, "#id"))
+      val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
           .encodeTransaction(builder.build())
           .fold(error => fail(error.errorMessage), identity)
@@ -145,9 +145,9 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return a single output for an exercise without a key" in {
       val builder = TransactionBuilder()
-      val exerciseNode = exercise(builder, "#4")
+      val exerciseNode = exercise(builder, "#id")
       builder.add(exerciseNode)
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
           .encodeTransaction(builder.build())
           .fold(error => fail(error.errorMessage), identity)
@@ -155,11 +155,28 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
       result shouldBe Right(Set(ContractIdOrKey.Id(exerciseNode.targetCoid)))
     }
 
-    "return two outputs for an exercise with a key" in {
+    "return two outputs for a consuming exercise with a key" in {
       val builder = TransactionBuilder()
-      val exerciseNode = exercise(builder, "#5", hasKey = true)
+      val exerciseNode = exercise(builder, "#id", hasKey = true)
       builder.add(exerciseNode)
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      val result = TransactionConversions.extractTransactionOutputs(
+        TransactionConversions
+          .encodeTransaction(builder.build())
+          .fold(error => fail(error.errorMessage), identity)
+      )
+      result shouldBe Right(
+        Set(
+          ContractIdOrKey.Id(exerciseNode.targetCoid),
+          ContractIdOrKey.Key(aGlobalKey),
+        )
+      )
+    }
+
+    "return two outputs for a non-consuming exercise with a key" in {
+      val builder = TransactionBuilder()
+      val exerciseNode = exercise(builder, "#id", hasKey = true, consuming = false)
+      builder.add(exerciseNode)
+      val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
           .encodeTransaction(builder.build())
           .fold(error => fail(error.errorMessage), identity)
@@ -174,11 +191,11 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return one output per fetch and fetch-by-key" in {
       val builder = TransactionBuilder()
-      val fetchNode1 = fetch(builder, "#6", byKey = true)
-      val fetchNode2 = fetch(builder, "#7", byKey = false)
+      val fetchNode1 = fetch(builder, "#id1", byKey = true)
+      val fetchNode2 = fetch(builder, "#id2", byKey = false)
       builder.add(fetchNode1)
       builder.add(fetchNode2)
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
           .encodeTransaction(builder.build())
           .fold(error => fail(error.errorMessage), identity)
@@ -193,8 +210,8 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return no output for a failing lookup-by-key" in {
       val builder = TransactionBuilder()
-      builder.add(lookup(builder, "#8", found = false))
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      builder.add(lookup(builder, "#id", found = false))
+      val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
           .encodeTransaction(builder.build())
           .fold(error => fail(error.errorMessage), identity)
@@ -204,8 +221,8 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return no output for a successful lookup-by-key" in {
       val builder = TransactionBuilder()
-      builder.add(lookup(builder, "#9", found = true))
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      builder.add(lookup(builder, "#id", found = true))
+      val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
           .encodeTransaction(builder.build())
           .fold(error => fail(error.errorMessage), identity)
@@ -216,13 +233,13 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     "return outputs for nodes under a rollback node" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
-      val createNode = create(builder, "#10", hasKey = true)
+      val createNode = create(builder, "#id1", hasKey = true)
       builder.add(createNode, rollback)
-      val exerciseNode = exercise(builder, "#11", hasKey = true)
+      val exerciseNode = exercise(builder, "#id2", hasKey = true)
       builder.add(exerciseNode, rollback)
-      val fetchNode = fetch(builder, "#12", byKey = true)
+      val fetchNode = fetch(builder, "#id3", byKey = true)
       builder.add(fetchNode, rollback)
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
           .encodeTransaction(builder.build())
           .fold(error => fail(error.errorMessage), identity)
@@ -238,7 +255,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
 
     "fail on a non-parsable transaction" in {
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      val result = TransactionConversions.extractTransactionOutputs(
         RawTransaction(ByteString.copyFromUtf8("wrong"))
       )
       result shouldBe Left(
@@ -247,7 +264,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
 
     "fail on a broken transaction version" in {
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      val result = TransactionConversions.extractTransactionOutputs(
         RawTransaction(
           TransactionOuterClass.Transaction.newBuilder().setVersion("???").build().toByteString
         )
@@ -258,7 +275,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
 
     "fail on a broken transaction node version" in {
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      val result = TransactionConversions.extractTransactionOutputs(
         RawTransaction(
           TransactionOuterClass.Transaction
             .newBuilder()
@@ -275,7 +292,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
 
     "fail on a broken contract ID" in {
-      val result = TransactionConversions.decodeContractIdsAndKeys(
+      val result = TransactionConversions.extractTransactionOutputs(
         RawTransaction(
           TransactionOuterClass.Transaction
             .newBuilder()
@@ -302,9 +319,9 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  "filterCreateAndExerciseNodes" should {
+  "keepCreateAndExerciseNodes" should {
     "remove `Fetch`, `LookupByKey`, and `Rollback` nodes from the transaction tree" in {
-      val actual = TransactionConversions.filterCreateAndExerciseNodes(
+      val actual = TransactionConversions.keepCreateAndExerciseNodes(
         RawTransaction(aRichNodeTreeTransaction.toByteString)
       )
 
@@ -335,7 +352,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
 
     "fail on a non-parsable transaction" in {
-      val result = TransactionConversions.filterCreateAndExerciseNodes(
+      val result = TransactionConversions.keepCreateAndExerciseNodes(
         RawTransaction(ByteString.copyFromUtf8("wrong"))
       )
 
@@ -345,7 +362,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
 
     "fail on a transaction with invalid roots" in {
-      val result = TransactionConversions.filterCreateAndExerciseNodes(
+      val result = TransactionConversions.keepCreateAndExerciseNodes(
         RawTransaction(
           aRichNodeTreeTransaction.toBuilder.addRoots("non-existent").build().toByteString
         )

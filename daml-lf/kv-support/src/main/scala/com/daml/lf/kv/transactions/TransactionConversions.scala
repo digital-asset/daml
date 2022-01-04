@@ -3,6 +3,7 @@
 
 package com.daml.lf.kv.transactions
 
+import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
 import com.daml.lf.kv.ConversionError
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.daml.lf.transaction.{
@@ -96,7 +97,10 @@ object TransactionConversions {
       .map(_ => RawTransaction(transactionBuilder.build.toByteString))
   }
 
-  def decodeContractIdsAndKeys(
+  /** Decodes and extracts outputs of a submitted transaction, that is the IDs and keys of contracts created or updated
+    * by processing a submission.
+    */
+  def extractTransactionOutputs(
       rawTransaction: RawTransaction
   ): Either[ConversionError, Set[ContractIdOrKey]] =
     Try(TransactionOuterClass.Transaction.parseFrom(rawTransaction.byteString)) match {
@@ -169,7 +173,8 @@ object TransactionConversions {
           .map(ConversionError.DecodeError)
     }
 
-  def filterCreateAndExerciseNodes(
+  /** Removes `Fetch`, `LookupByKey` and `Rollback` nodes from a transaction tree. */
+  def keepCreateAndExerciseNodes(
       rawTransaction: RawTransaction
   ): Either[ConversionError, RawTransaction] =
     Try(TransactionOuterClass.Transaction.parseFrom(rawTransaction.byteString)) match {
@@ -181,60 +186,60 @@ object TransactionConversions {
 
         @tailrec
         def goNodesToKeep(
-            todo: List[String],
+            toVisit: FrontStack[String],
             result: Set[String],
-        ): Either[ConversionError, Set[String]] = todo match {
-          case Nil => Right(result)
-          case head :: tail =>
-            nodeMap.get(head) match {
+        ): Either[ConversionError, Set[String]] = toVisit match {
+          case FrontStack() => Right(result)
+          case FrontStackCons(nodeId, previousToVisit) =>
+            nodeMap.get(nodeId) match {
               case Some(node) =>
                 node.getNodeTypeCase match {
                   case NodeTypeCase.CREATE =>
-                    goNodesToKeep(tail, result + head)
+                    goNodesToKeep(previousToVisit, result + nodeId)
                   case NodeTypeCase.EXERCISE =>
                     goNodesToKeep(
-                      node.getExercise.getChildrenList.asScala.toList ++ tail,
-                      result + head,
+                      node.getExercise.getChildrenList.asScala.to(ImmArray) ++: previousToVisit,
+                      result + nodeId,
                     )
                   case NodeTypeCase.ROLLBACK | NodeTypeCase.FETCH | NodeTypeCase.LOOKUP_BY_KEY |
                       NodeTypeCase.NODETYPE_NOT_SET =>
-                    goNodesToKeep(tail, result)
+                    goNodesToKeep(previousToVisit, result)
                 }
-              case None => Left(ConversionError.InternalError(s"Invalid transaction node id $head"))
+              case None =>
+                Left(ConversionError.InternalError(s"Invalid transaction node id $nodeId"))
             }
         }
 
-        goNodesToKeep(transaction.getRootsList.asScala.toList, Set.empty).map { nodesToKeep =>
-          val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
+        goNodesToKeep(transaction.getRootsList.asScala.to(FrontStack), Set.empty).map {
+          nodesToKeep =>
+            val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
 
-          def stripUnnecessaryNodes(node: TransactionOuterClass.Node): TransactionOuterClass.Node =
-            if (node.hasExercise) {
-              val exerciseNode = node.getExercise
-              val keptChildren =
-                exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
-              val newExerciseNode = exerciseNode.toBuilder
-                .clearChildren()
-                .addAllChildren(keptChildren.asJavaCollection)
-                .build()
+            val filteredNodes = nodes.collect {
+              case node if nodesToKeep(node.getNodeId) =>
+                if (node.hasExercise) {
+                  val exerciseNode = node.getExercise
+                  val keptChildren =
+                    exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
+                  val newExerciseNode = exerciseNode.toBuilder
+                    .clearChildren()
+                    .addAllChildren(keptChildren.asJavaCollection)
+                    .build()
 
-              node.toBuilder
-                .setExercise(newExerciseNode)
-                .build()
-            } else {
-              node
+                  node.toBuilder
+                    .setExercise(newExerciseNode)
+                    .build()
+                } else {
+                  node
+                }
             }
 
-          val filteredNodes = nodes.collect {
-            case node if nodesToKeep(node.getNodeId) => stripUnnecessaryNodes(node)
-          }
-
-          val newTransaction = transaction
-            .newBuilderForType()
-            .addAllRoots(filteredRoots.asJavaCollection)
-            .addAllNodes(filteredNodes.asJavaCollection)
-            .setVersion(transaction.getVersion)
-            .build()
-          RawTransaction(newTransaction.toByteString)
+            val newTransaction = transaction
+              .newBuilderForType()
+              .addAllRoots(filteredRoots.asJavaCollection)
+              .addAllNodes(filteredNodes.asJavaCollection)
+              .setVersion(transaction.getVersion)
+              .build()
+            RawTransaction(newTransaction.toByteString)
         }
     }
 }
@@ -244,7 +249,7 @@ final case class TransactionNodeIdWithNode(
     node: RawTransaction.Node,
 )
 
-sealed trait ContractIdOrKey extends Product with Serializable
+sealed abstract class ContractIdOrKey extends Product with Serializable
 object ContractIdOrKey {
   final case class Id(id: Value.ContractId) extends ContractIdOrKey
   final case class Key(key: GlobalKey) extends ContractIdOrKey

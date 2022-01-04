@@ -166,7 +166,7 @@ private[kvutils] class TransactionCommitter(
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
       val rawTransaction = RawTransaction(transactionEntry.submission.getRawTransaction)
       val newRawTransaction = TransactionConversions
-        .filterCreateAndExerciseNodes(rawTransaction)
+        .keepCreateAndExerciseNodes(rawTransaction)
         .fold(
           {
             case ConversionError.InternalError(errorMessage) =>
