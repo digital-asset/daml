@@ -6,17 +6,18 @@ locals {
     {
       name      = "ci-u1",
       disk_size = 200,
-      size      = 0,
+      size      = 30,
     },
     {
       name      = "ci-u2",
       disk_size = 400,
-      size      = 30,
+      size      = 0,
     },
   ]
 }
 
 data "template_file" "vsts-agent-ubuntu_20_04-startup" {
+  count    = length(local.ubuntu)
   template = file("${path.module}/vsts_agent_ubuntu_20_04_startup.sh")
 
   vars = {
@@ -69,7 +70,7 @@ resource "google_compute_instance_template" "vsts-agent-ubuntu_20_04" {
   }
 
   metadata = {
-    startup-script = data.template_file.vsts-agent-ubuntu_20_04-startup.rendered
+    startup-script = data.template_file.vsts-agent-ubuntu_20_04-startup[count.index].rendered
 
     shutdown-script = "#!/usr/bin/env bash\nset -euo pipefail\ncd /home/vsts/agent\nsu vsts <<SHUTDOWN_AGENT\nexport VSTS_AGENT_INPUT_TOKEN='${secret_resource.vsts-token.value}'\n./config.sh remove --unattended --auth PAT\nSHUTDOWN_AGENT\n    "
   }
