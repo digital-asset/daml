@@ -12,7 +12,7 @@ locals {
     {
       name      = "ci-u2",
       disk_size = 400,
-      size      = 30,
+      size      = 0,
       year      = 2021,
     },
   ]
