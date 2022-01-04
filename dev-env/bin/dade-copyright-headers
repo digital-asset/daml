@@ -47,6 +47,7 @@ filetypes = \
     'html'   : { 'start' : '<!--'   , 'line' : ''     , 'end' : '-->' , 'skip' : '<!' } ,
     'java'   : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
     'js'     : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
+    'lf'     : { 'start' : ''       , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
     'lhs'    : { 'start' : '-' * 80 , 'line' : '--'   , 'end' : ''    , 'empty_line' : '' } ,
     'proto'  : { 'start' : '/*'     , 'line' : '//'   , 'end' : ''    , 'empty_line' : '' } ,
     'py'     : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '', 'skip' : '#!' } ,
