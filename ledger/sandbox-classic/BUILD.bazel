@@ -363,10 +363,6 @@ server_conformance_test(
         # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
         "--exclude=ClosedWorldIT",
-        # Exclude offset command deduplication tests
-        # sandbox classic has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # not enforced
         "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
@@ -397,10 +393,6 @@ server_conformance_test(
         # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
         "--exclude=ClosedWorldIT",
-        # Exclude offset command deduplication tests
-        # sandbox classic has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # not enforced
         "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
@@ -423,10 +415,6 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
-        # Exclude offset command deduplication tests
-        # sandbox classic has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # not enforced
         "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
@@ -449,10 +437,6 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
-        # Exclude offset command deduplication tests
-        # sandbox classic has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # not enforced
         "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
@@ -471,10 +455,6 @@ server_conformance_test(
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
         "--exclude=ClosedWorldIT",
-        # Exclude offset command deduplication tests
-        # sandbox classic has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
     ],
 )
 
@@ -501,10 +481,6 @@ server_conformance_test(
         "--exclude=ContractKeysIT:CKMaintainerScoped",
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
-        # Exclude offset command deduplication tests
-        # sandbox classic has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # Below test suites are duplicates of the above ExceptionsIT and ContractKeysIT
         # but with more generic assertions for the in-memory ledger
         # TODO sandbox-classic removal: Delete these tests
@@ -529,10 +505,6 @@ server_conformance_test(
         "--exclude=ContractKeysIT:CKMaintainerScoped",
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
-        # Exclude offset command deduplication tests
-        # sandbox classic has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # Below test suites are duplicates of the above ExceptionsIT and ContractKeysIT
         # but with more generic assertions for the in-memory ledger
         # TODO sandbox-classic removal: Delete these tests
