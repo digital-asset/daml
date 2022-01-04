@@ -26,7 +26,7 @@ import io.grpc.Status.{Code => GrpcCode}
 import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
 import spray.json.JsValue
-
+import scalaz.syntax.std.either._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -87,25 +87,33 @@ object EndpointsCompanion {
       def apply(userId: String, actAs: List[String], readAs: List[String], ledgerId: String): A \/ B
     }
 
+    private def parseAndDecodeUserToken(jwt: DecodedJwt[String]) = {
+      import spray.json._
+      for {
+        jsValue <- Try(jwt.payload.parseJson).toEither.disjunction
+          .leftMap(it => Unauthorized(it.getMessage))
+        decodedToken <-
+          readStandardTokenPayload(
+            jsValue
+          ) \/> Unauthorized("Invalid token supplied")
+      } yield decodedToken
+    }
+
     private[http] def parseUserIdFromToken(
         jwt: DecodedJwt[String]
-    ): Unauthorized \/ UserId = {
-      import scalaz.syntax.std.either._
-      import spray.json._
-      val res =
-        for {
-          jsValue <-
-            Try(jwt.payload.parseJson).toEither.left.map(it => it.getMessage)
-          parsedToken <-
-            readStandardTokenPayload(
-              jsValue
-            ).toRight("Invalid token supplied")
-          userId <- parsedToken.applicationId.map(UserId.fromString) getOrElse Left(
-            "This user token contains no applicationId/userId"
+    ): Unauthorized \/ UserId =
+      for {
+        parsedToken <- parseAndDecodeUserToken(jwt)
+        userId <- parsedToken.applicationId
+          .map(UserId.fromString)
+          .getOrElse(
+            Left(
+              "This user token contains no applicationId/userId"
+            )
           )
-        } yield userId
-      res.disjunction.leftMap(Unauthorized)
-    }
+          .disjunction
+          .leftMap(Unauthorized)
+      } yield userId
 
     private def transformUserTokenTo[B](
         jwt: DecodedJwt[String],
@@ -115,7 +123,7 @@ object EndpointsCompanion {
         fromUser: FromUser[Unauthorized, B]
     )(implicit
         mf: Monad[Future]
-    ): EitherT[Future, Unauthorized, B] = {
+    ): EitherT[Future, Unauthorized, B] =
       for {
         userId <- either(parseUserIdFromToken(jwt))
         rights <- EitherT.rightT(listUserRights(userId))
@@ -129,7 +137,6 @@ object EndpointsCompanion {
         ledgerId <- EitherT.rightT(getLedgerId())
         res <- either(fromUser(userId, actAs.toList, readAs.toList, ledgerId))
       } yield res
-    }
 
     private[http] implicit def jwtWritePayloadFromUserToken(implicit
         mf: Monad[Future]
@@ -158,10 +165,16 @@ object EndpointsCompanion {
     private[http] implicit def jwtPayloadLedgerIdOnlyFromUserToken(implicit
         mf: Monad[Future]
     ): CreateFromUserToken[JwtPayloadLedgerIdOnly] =
-      (_, _, getLedgerId: () => Future[String]) =>
-        EitherT
-          .rightT(getLedgerId())
-          .map(ledgerId => JwtPayloadLedgerIdOnly(lar.LedgerId(ledgerId)))
+      (jwt, _, getLedgerId: () => Future[String]) =>
+        for {
+          // Just testing whether this is a valid user token,
+          // to make sure that we don't see the incoming token
+          // as an user token which actually isn't
+          _ <- either(parseAndDecodeUserToken(jwt))
+          res <- EitherT
+            .rightT(getLedgerId())
+            .map(ledgerId => JwtPayloadLedgerIdOnly(lar.LedgerId(ledgerId)))
+        } yield res
 
     private[http] implicit def jwtPayloadFromUserToken(implicit
         mf: Monad[Future]
@@ -229,10 +242,10 @@ object EndpointsCompanion {
         val ast = jwt.payload.parseJson
         for {
           obj <- asJsObject(ast).toRightDisjunction(Unauthorized("invalid access token"))
-          namespace <- obj
+          namespace = obj
             .get(AuthServiceJWTCodec.oidcNamespace)
             .flatMap(asJsObject)
-            .toRightDisjunction(Unauthorized("namespace missing in access token"))
+            .getOrElse(obj)
           ledgerId <- namespace
             .get("ledgerId")
             .flatMap(asString)
