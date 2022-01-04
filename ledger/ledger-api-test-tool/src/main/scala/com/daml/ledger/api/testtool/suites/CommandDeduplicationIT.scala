@@ -247,7 +247,13 @@ final class CommandDeduplicationIT(
                 )
               case _ => throw new IllegalArgumentException("Wrong call list constructed")
             }
-            .map(_ => ())
+            .flatMap(_ =>
+              assertPartyHasActiveContracts(
+                ledger,
+                party = party,
+                noOfActiveContracts = 32, // 16 test cases, with 2 contracts per test case
+              )
+            )
         }
       }
     }
@@ -316,7 +322,7 @@ final class CommandDeduplicationIT(
     val acceptedSubmissionId1 = newSubmissionId()
     val acceptedSubmissionId2 = newSubmissionId()
 
-    (for {
+    for {
       // Submit command (first deduplication window)
       ledgerOffset1 <- submitAndAssertAccepted(firstCall, acceptedSubmissionId1)
       completion <- submitAndAssertDeduplicated(
@@ -335,7 +341,7 @@ final class CommandDeduplicationIT(
             value.asScala
         }
         .getOrElse(deduplicationDuration + delay.skews)
-      _ <- optional(
+      _ <- optionalAssertion(
         staticTime || deduplicationDurationFromPeriod <= scaledDuration(15.seconds),
         "The effective deduplication duration is too high to run the optional assertions",
       ) {
@@ -351,14 +357,7 @@ final class CommandDeduplicationIT(
           )
         } yield {}
       }(logger)
-    } yield {})
-      .flatMap { _ =>
-        assertPartyHasActiveContracts(
-          ledger,
-          party = party,
-          noOfActiveContracts = 32, // 16 test cases, with 2 contracts per test case
-        )
-      }
+    } yield {}
   }
 
   test(
