@@ -21,6 +21,7 @@ module DA.Internal.Desugar (
     HasIsInterfaceType(..),
     RequiresT(..),
     HasMethod,
+    Method,
     mkMethod,
     _exerciseDefault,
     _exerciseInterfaceGuard,
@@ -106,10 +107,10 @@ Finally, the compiler has to unify the argument to `mkMethod` with the type
 -- Read: Interface `i` has a method named `m` with return type `r`
 class HasMethod i (m : Symbol) r | i m -> r
 
-newtype Method t i (m : Symbol) r = Method { unMethod : t -> r }
+newtype Method t i (m : Symbol) = Method ()
 
-mkMethod : (Implements t i, HasMethod i m r) => (t -> r) -> Method t i m r
-mkMethod = Method
+mkMethod : (Implements t i, HasMethod i m r) => (t -> r) -> Method t i m
+mkMethod _ = Method ()
 
 -- | Gives a valid implementation of `HasExercise.exercise`
 -- for types that implement `HasExerciseGuarded`.

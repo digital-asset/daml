@@ -565,7 +565,6 @@ convertModule envLfVersion envEnableScenarios envPkgMap envStablePackages envIsG
             [ TypeCon tpl []
             , TypeCon iface []
             , StrLitTy methodName
-            , _methodType
             ] <- [varType name]
           , NameIn DA_Internal_Desugar "Method" <- [methodNewtype]
           , Just mod <- [nameModule_maybe (getName iface)]
@@ -1172,7 +1171,6 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         ])
     , ("DA.Internal.Desugar",
         [ "mkMethod"
-        , "$sel:unMethod:Method"
         ])
     ]
 
