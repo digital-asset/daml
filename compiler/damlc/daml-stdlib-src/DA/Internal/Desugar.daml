@@ -118,7 +118,7 @@ newtype Method t i (m : Symbol) = Method ()
 -- At runtime, the argument is ignored, but at compile time,
 -- it's extracted unmodified.
 mkMethod : (Implements t i, HasMethod i m r) => (t -> r) -> Method t i m
-mkMethod _ = Method ()
+mkMethod = magic @"mkMethod"
 
 -- | Gives a valid implementation of `HasExercise.exercise`
 -- for types that implement `HasExerciseGuarded`.
