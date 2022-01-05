@@ -62,7 +62,6 @@ object LedgerBridge {
           errorFactories = ErrorFactories(
             new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
           ),
-          asyncStagesParallelism = config.extra.bridgeThreadPoolSize,
         )
       } yield conflictCheckingLedgerBridge
     else

@@ -20,6 +20,7 @@ class BridgeMetrics(metrics: Metrics) {
 
     val precomputeTransactionOutputs: Timer =
       registry.timer(Prefix :+ "precompute_transaction_outputs")
+    val tagWithLedgerEnd: Timer = registry.timer(Prefix :+ "tag_with_ledger_end")
     val conflictCheckWithCommitted: Timer =
       registry.timer(Prefix :+ "conflict_check_with_committed")
     val sequence: Timer = registry.timer(Prefix :+ "sequence")
