@@ -980,9 +980,23 @@ main =
                   , "  revoked === [CanActAs p1, CanReadAs p2]"
                   , "  rights <- listUserRights \"u1\""
                   , "  rights === []"
+                  , "testUserAlreadyExists = do"
+                  , "  u1 <- createUser (User \"u1\" None) []"
+                  , "  u2 <- createUser (User \"u1\" None) []"
+                  , "  pure ()"
+                  , "testUserNotFound = do"
+                  , "  u1 <- createUser (User \"u1\" None) []"
+                  , "  deleteUser \"u2\""
+                  , "  pure ()"
                   ]
                 expectScriptSuccess rs (vr "testUserManagement") $ \r ->
                     matchRegex r "Active contracts: \n"
+                expectScriptSuccess rs (vr "testUserRightManagement") $ \r ->
+                    matchRegex r "Active contracts: \n"
+                expectScriptFailure rs (vr "testUserAlreadyExists") $ \r ->
+                    matchRegex r "User already exists:  u1\n"
+                expectScriptFailure rs (vr "testUserNotFound") $ \r ->
+                    matchRegex r "User not found:  u2\n"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
