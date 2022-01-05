@@ -17,7 +17,7 @@ import java.time.Duration
 import scala.concurrent.duration.FiniteDuration
 
 private[trigger] object LedgerApiConfig {
-  lazy implicit val ledgerApiCfgReader: ConfigReader[LedgerApiConfig] =
+  implicit val ledgerApiCfgReader: ConfigReader[LedgerApiConfig] =
     deriveReader[LedgerApiConfig]
 }
 private[trigger] final case class LedgerApiConfig(address: String, port: Int)
@@ -33,15 +33,15 @@ private[trigger] object AuthorizationConfig {
     (ac.authCommonUri.isEmpty && ac.authExternalUri.nonEmpty && ac.authInternalUri.nonEmpty)
   }
 
-  lazy implicit val uriCfgReader: ConfigReader[Uri] =
+  implicit val uriCfgReader: ConfigReader[Uri] =
     ConfigReader.fromString[Uri](ConvertHelpers.catchReadError(s => Uri(s)))
 
-  lazy implicit val redirectToLoginCfgReader: ConfigReader[AuthClient.RedirectToLogin] =
+  implicit val redirectToLoginCfgReader: ConfigReader[AuthClient.RedirectToLogin] =
     ConfigReader.fromString[AuthClient.RedirectToLogin](
       ConvertHelpers.catchReadError(s => Cli.redirectToLogin(s))
     )
 
-  lazy implicit val authCfgReader: ConfigReader[AuthorizationConfig] =
+  implicit val authCfgReader: ConfigReader[AuthorizationConfig] =
     deriveReader[AuthorizationConfig].emap { ac =>
       Either.cond(isValid(ac), ac, AuthConfigFailure)
     }
@@ -57,7 +57,7 @@ private[trigger] final case class AuthorizationConfig(
 )
 
 private[trigger] object TriggerServiceAppConf {
-  lazy implicit val compilerCfgReader: ConfigReader[Compiler.Config] =
+  implicit val compilerCfgReader: ConfigReader[Compiler.Config] =
     ConfigReader.fromString[Compiler.Config](ConvertHelpers.catchReadError { s =>
       s.toLowerCase() match {
         case "default" => Compiler.Config.Default
@@ -68,7 +68,7 @@ private[trigger] object TriggerServiceAppConf {
           )
       }
     })
-  lazy implicit val timeProviderTypeCfgReader: ConfigReader[TimeProviderType] =
+  implicit val timeProviderTypeCfgReader: ConfigReader[TimeProviderType] =
     ConfigReader.fromString[TimeProviderType](ConvertHelpers.catchReadError { s =>
       s.toLowerCase() match {
         case "static" => TimeProviderType.Static
@@ -79,8 +79,8 @@ private[trigger] object TriggerServiceAppConf {
           )
       }
     })
-  lazy implicit val jdbcCfgReader: ConfigReader[JdbcConfig] = deriveReader[JdbcConfig]
-  lazy implicit val serviceCfgReader: ConfigReader[TriggerServiceAppConf] =
+  implicit val jdbcCfgReader: ConfigReader[JdbcConfig] = deriveReader[JdbcConfig]
+  implicit val serviceCfgReader: ConfigReader[TriggerServiceAppConf] =
     deriveReader[TriggerServiceAppConf]
 }
 

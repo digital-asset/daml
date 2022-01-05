@@ -126,7 +126,7 @@ private[trigger] object Cli {
   implicit val redirectToLoginRead: scopt.Read[AuthClient.RedirectToLogin] =
     scopt.Read.reads(redirectToLogin)
 
-  private[trigger] val Empty = Cli(
+  private[trigger] val Default = Cli(
     configFile = None,
     darPaths = Nil,
     address = cliopts.Http.defaultAddress,
@@ -358,7 +358,7 @@ private[trigger] object Cli {
   }
 
   def parse(args: Array[String], supportedJdbcDriverNames: Set[String]): Option[Cli] = {
-    new OptionParser(supportedJdbcDriverNames).parse(args, Empty)
+    new OptionParser(supportedJdbcDriverNames).parse(args, Default)
   }
 
   def parseConfig(

@@ -112,7 +112,7 @@ class CliSpec extends AsyncWordSpec with Matchers {
       .parseConfig(
         Array("--ledger-host", "localhost", "--ledger-port", "9999"),
         Set(),
-      ) shouldBe Some(Cli.Empty.copy(ledgerHost = "localhost", ledgerPort = 9999))
+      ) shouldBe Some(Cli.Default.copy(ledgerHost = "localhost", ledgerPort = 9999))
       .map(_.loadFromCliArgs)
   }
 

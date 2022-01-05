@@ -12,7 +12,6 @@ import scalaz.syntax.traverse._
 import scalaz.{Show, StateT, \/}
 
 import java.io.File
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
 import scala.util.Try
 
@@ -107,9 +106,8 @@ object JdbcConfig
     with StrictLogging {
 
   final val MinIdle = 8
-  final val IdleTimeout =
-    FiniteDuration(10000, TimeUnit.MILLISECONDS) // ms, minimum according to log, defaults to 600s
-  final val ConnectionTimeout = FiniteDuration(5000, TimeUnit.MILLISECONDS)
+  final val IdleTimeout = 10000.millis // minimum according to log, defaults to 600s
+  final val ConnectionTimeout = 5000.millis
 
   @scala.deprecated("do I need this?", since = "SC")
   implicit val showInstance: Show[JdbcConfig] =
