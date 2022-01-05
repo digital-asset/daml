@@ -279,6 +279,8 @@ message ScenarioError {
     Empty ComparableValueError = 29;
     ContractIdInContractKey contract_id_in_contract_key = 30;
     Empty ValueExceedsMaxNesting = 31;
+    string scenario_user_not_found = 33;
+    string scenario_user_already_exists = 34;
   }
 }
 
