@@ -476,7 +476,7 @@ class Endpoints(
   ): ET[domain.SyncResponse[domain.UserRights]] =
     for {
       jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
-      userId <- decodeAndParseUserIdFromToken(jwt, decodeJwt).leftMap(it => it: Error)
+      userId <- decodeAndParseUserIdFromToken(jwt, decodeJwt).leftMap(identity[Error])
       rights <- EitherT.rightT(
         userManagementClient.listUserRights(userId, Some(jwt.value))
       )
@@ -486,8 +486,8 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[domain.UserDetails]] =
     for {
-      jwt <- eitherT(input(req)).bimap(it => it: Error, _._1)
-      userId <- decodeAndParseUserIdFromToken(jwt, decodeJwt).leftMap(it => it: Error)
+      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
+      userId <- decodeAndParseUserIdFromToken(jwt, decodeJwt).leftMap(identity[Error])
       user <- EitherT.rightT(userManagementClient.getUser(userId, Some(jwt.value)))
     } yield domain.OkResponse(domain.UserDetails(user.id, user.primaryParty))
 

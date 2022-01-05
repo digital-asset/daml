@@ -137,11 +137,11 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   object UserRights {
     def fromListUserRights(input: Vector[UserRight]): UserRights = {
-      val (canActAs: Vector[String], remaining1) = input.partitionMap {
+      val (canActAs, remaining1) = input.partitionMap {
         case CanActAs(party) => Left(party)
         case other => Right(other)
       }
-      val (canReadAs: Vector[String], remaining2) = remaining1.partitionMap {
+      val (canReadAs, remaining2) = remaining1.partitionMap {
         case CanReadAs(party) => Left(party)
         case other => Right(other)
       }
