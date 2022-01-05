@@ -5,45 +5,45 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 
-import anorm.{SQL, SqlQuery}
+import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
 import com.daml.platform.store.interning.StringInterning
 
 private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
     extends IngestionStorageBackend[AppendOnlySchema.Batch] {
 
-  private val SQL_DELETE_OVERSPILL_ENTRIES: List[SqlQuery] =
-    List(
-      SQL("DELETE FROM configuration_entries WHERE ledger_offset > {ledger_offset}"),
-      SQL("DELETE FROM package_entries WHERE ledger_offset > {ledger_offset}"),
-      SQL("DELETE FROM packages WHERE ledger_offset > {ledger_offset}"),
-      SQL("DELETE FROM participant_command_completions WHERE completion_offset > {ledger_offset}"),
-      SQL("DELETE FROM participant_events_divulgence WHERE event_offset > {ledger_offset}"),
-      SQL("DELETE FROM participant_events_create WHERE event_offset > {ledger_offset}"),
-      SQL("DELETE FROM participant_events_consuming_exercise WHERE event_offset > {ledger_offset}"),
-      SQL(
-        "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > {ledger_offset}"
-      ),
-      SQL("DELETE FROM party_entries WHERE ledger_offset > {ledger_offset}"),
-      SQL("DELETE FROM string_interning WHERE internal_id > {last_string_interning_id}"),
-      SQL(
-        "DELETE FROM participant_events_create_filter WHERE event_sequential_id > {last_event_sequential_id}"
-      ),
-    )
-
   override def deletePartiallyIngestedData(
       ledgerEnd: Option[ParameterStorageBackend.LedgerEnd]
   )(connection: Connection): Unit = {
     ledgerEnd.foreach { existingLedgerEnd =>
-      SQL_DELETE_OVERSPILL_ENTRIES.foreach { query =>
-        import com.daml.platform.store.Conversions.OffsetToStatement
-        query
-          .on("ledger_offset" -> existingLedgerEnd.lastOffset)
-          .on("last_string_interning_id" -> existingLedgerEnd.lastStringInterningId)
-          .on("last_event_sequential_id" -> existingLedgerEnd.lastEventSeqId)
-          .execute()(connection)
-        ()
-      }
+      val ledgerOffset = existingLedgerEnd.lastOffset.toHexString.toString
+      val lastStringInterningId = existingLedgerEnd.lastStringInterningId
+      val lastEventSequentialId = existingLedgerEnd.lastEventSeqId
+
+      SQL"DELETE FROM configuration_entries WHERE ledger_offset > ${ledgerOffset}"
+        .execute()(connection)
+      SQL"DELETE FROM package_entries WHERE ledger_offset > ${ledgerOffset}"
+        .execute()(connection)
+      SQL"DELETE FROM packages WHERE ledger_offset > ${ledgerOffset}"
+        .execute()(connection)
+      SQL"DELETE FROM participant_command_completions WHERE completion_offset > ${ledgerOffset}"
+        .execute()(connection)
+      SQL"DELETE FROM participant_events_divulgence WHERE event_offset > ${ledgerOffset}"
+        .execute()(connection)
+      SQL"DELETE FROM participant_events_create WHERE event_offset > ${ledgerOffset}"
+        .execute()(connection)
+      SQL"DELETE FROM participant_events_consuming_exercise WHERE event_offset > ${ledgerOffset}"
+        .execute()(connection)
+      SQL"DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > ${ledgerOffset}"
+        .execute()(connection)
+      SQL"DELETE FROM party_entries WHERE ledger_offset > ${ledgerOffset}"
+        .execute()(connection)
+      SQL"DELETE FROM string_interning WHERE internal_id > ${lastStringInterningId}"
+        .execute()(connection)
+      SQL"DELETE FROM participant_events_create_filter WHERE event_sequential_id > ${lastEventSequentialId}"
+        .execute()(connection)
+
+      ()
     }
   }
 

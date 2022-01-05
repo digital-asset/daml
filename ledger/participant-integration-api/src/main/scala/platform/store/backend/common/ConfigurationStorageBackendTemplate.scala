@@ -6,54 +6,19 @@ package com.daml.platform.store.backend.common
 import java.sql.Connection
 
 import anorm.SqlParser.{byteArray, flatten, str}
-import anorm.{RowParser, SQL}
+import anorm.RowParser
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.platform.store.Conversions.offset
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
+import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.ConfigurationStorageBackend
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.ConfigurationEntry
 
 private[backend] class ConfigurationStorageBackendTemplate(ledgerEndCache: LedgerEndCache)
     extends ConfigurationStorageBackend {
-
-  private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
-    """select
-      |    configuration_entries.ledger_offset,
-      |    configuration_entries.recorded_at,
-      |    configuration_entries.submission_id,
-      |    configuration_entries.typ,
-      |    configuration_entries.configuration,
-      |    configuration_entries.rejection_reason
-      |  from
-      |    configuration_entries
-      |  where
-      |    ({startExclusive} is null or ledger_offset>{startExclusive}) and
-      |    ledger_offset <= {endInclusive}
-      |  order by ledger_offset asc
-      |  offset {queryOffset} rows
-      |  fetch next {pageSize} rows only
-      |  """.stripMargin
-  )
-
-  private val SQL_GET_LATEST_CONFIGURATION_ENTRY = SQL(
-    s"""select
-       |    configuration_entries.ledger_offset,
-       |    configuration_entries.recorded_at,
-       |    configuration_entries.submission_id,
-       |    configuration_entries.typ,
-       |    configuration_entries.configuration,
-       |    configuration_entries.rejection_reason
-       |  from
-       |    configuration_entries
-       |  where
-       |    configuration_entries.typ = '$acceptType' and
-       |    {ledger_end_offset} >= ledger_offset
-       |  order by ledger_offset desc
-       |  fetch next 1 row only""".stripMargin
-  )
 
   private val configurationEntryParser: RowParser[(Offset, ConfigurationEntry)] =
     (offset("ledger_offset") ~
@@ -85,13 +50,29 @@ private[backend] class ConfigurationStorageBackendTemplate(ledgerEndCache: Ledge
           })
       }
 
-  def ledgerConfiguration(connection: Connection): Option[(Offset, Configuration)] =
-    SQL_GET_LATEST_CONFIGURATION_ENTRY
-      .on("ledger_end_offset" -> ledgerEndCache()._1.toHexString.toString)
+  def ledgerConfiguration(connection: Connection): Option[(Offset, Configuration)] = {
+    val ledgerEndOffset = ledgerEndCache()._1.toHexString.toString
+    SQL"""
+      select
+        configuration_entries.ledger_offset,
+        configuration_entries.recorded_at,
+        configuration_entries.submission_id,
+        configuration_entries.typ,
+        configuration_entries.configuration,
+        configuration_entries.rejection_reason
+      from
+        configuration_entries
+      where
+        configuration_entries.typ = '#$acceptType' and
+        ${ledgerEndOffset} >= ledger_offset
+      order by ledger_offset desc
+      fetch next 1 row only
+  """
       .asVectorOf(configurationEntryParser)(connection)
       .collectFirst { case (offset, ConfigurationEntry.Accepted(_, configuration)) =>
         offset -> configuration
       }
+  }
 
   def configurationEntries(
       startExclusive: Offset,
@@ -100,13 +81,23 @@ private[backend] class ConfigurationStorageBackendTemplate(ledgerEndCache: Ledge
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, ConfigurationEntry)] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL_GET_CONFIGURATION_ENTRIES
-      .on(
-        "startExclusive" -> startExclusive,
-        "endInclusive" -> endInclusive,
-        "pageSize" -> pageSize,
-        "queryOffset" -> queryOffset,
-      )
+    SQL"""
+      select
+        configuration_entries.ledger_offset,
+        configuration_entries.recorded_at,
+        configuration_entries.submission_id,
+        configuration_entries.typ,
+        configuration_entries.configuration,
+        configuration_entries.rejection_reason
+      from
+        configuration_entries
+      where
+        (${startExclusive} is null or ledger_offset>${startExclusive}) and
+        ledger_offset <= ${endInclusive}
+      order by ledger_offset asc
+      offset ${queryOffset} rows
+      fetch next ${pageSize} rows only
+  """
       .asVectorOf(configurationEntryParser)(connection)
   }
 }

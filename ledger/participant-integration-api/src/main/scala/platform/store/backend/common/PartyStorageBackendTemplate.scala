@@ -5,7 +5,7 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 
-import anorm.{RowParser, SQL, ~}
+import anorm.{RowParser, ~}
 import anorm.SqlParser.{bool, flatten, str}
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
@@ -20,14 +20,6 @@ import com.daml.platform.store.entries.PartyLedgerEntry
 
 class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: LedgerEndCache)
     extends PartyStorageBackend {
-
-  private val SQL_GET_PARTY_ENTRIES = SQL(
-    """select * from party_entries
-      |where ({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
-      |order by ledger_offset asc
-      |offset {queryOffset} rows
-      |fetch next {pageSize} rows only""".stripMargin
-  )
 
   private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
     import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
@@ -84,13 +76,12 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL_GET_PARTY_ENTRIES
-      .on(
-        "startExclusive" -> startExclusive,
-        "endInclusive" -> endInclusive,
-        "pageSize" -> pageSize,
-        "queryOffset" -> queryOffset,
-      )
+    SQL"""select * from party_entries
+      where (${startExclusive} is null or ledger_offset>${startExclusive}) and ledger_offset<=${endInclusive}
+      order by ledger_offset asc
+      offset ${queryOffset} rows
+      fetch next ${pageSize} rows only
+      """
       .asVectorOf(partyEntryParser)(connection)
   }
 

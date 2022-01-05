@@ -5,24 +5,15 @@ package com.daml.platform.store.backend.h2
 
 import java.sql.Connection
 
-import anorm.SQL
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.common.DeduplicationStorageBackendTemplate
 
 import scala.util.control.NonFatal
 
 object H2DeduplicationStorageBackend extends DeduplicationStorageBackendTemplate {
   private val logger = ContextualizedLogger.get(this.getClass)
-
-  val SQL_INSERT_COMMAND: String =
-    """merge into participant_command_submissions pcs
-      |using dual on deduplication_key = {deduplicationKey}
-      |when not matched then
-      |  insert (deduplication_key, deduplicate_until)
-      |  values ({deduplicationKey}, {deduplicateUntil})
-      |when matched and pcs.deduplicate_until < {submittedAt} then
-      |  update set deduplicate_until={deduplicateUntil}""".stripMargin
 
   override def upsertDeduplicationEntry(
       key: String,
@@ -43,12 +34,15 @@ object H2DeduplicationStorageBackend extends DeduplicationStorageBackendTemplate
           op
       }
     retry(
-      SQL(SQL_INSERT_COMMAND)
-        .on(
-          "deduplicationKey" -> key,
-          "submittedAt" -> submittedAt.micros,
-          "deduplicateUntil" -> deduplicateUntil.micros,
-        )
+      SQL"""
+        merge into participant_command_submissions pcs
+        using dual on deduplication_key = ${key}
+        when not matched then
+          insert (deduplication_key, deduplicate_until)
+          values (${key}, ${deduplicateUntil.micros})
+        when matched and pcs.deduplicate_until < ${submittedAt.micros} then
+          update set deduplicate_until=${deduplicateUntil.micros}
+      """
         .executeUpdate()(connection)
     )
   }

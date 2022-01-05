@@ -3,11 +3,12 @@
 
 package com.daml.platform.store.backend.common
 
-import anorm.{RowParser, SQL}
+import anorm.RowParser
 
 import java.sql.Connection
 import anorm.SqlParser.{long, str}
 import anorm.~
+import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.IntegrityStorageBackend
 
 private[backend] object IntegrityStorageBackendTemplate extends IntegrityStorageBackend {
@@ -23,25 +24,25 @@ private[backend] object IntegrityStorageBackendTemplate extends IntegrityStorage
       |SELECT event_sequential_id FROM participant_events_non_consuming_exercise
       |""".stripMargin
 
-  private val SQL_EVENT_SEQUENTIAL_IDS_SUMMARY = SQL(s"""
-      |WITH sequential_ids AS ($allSequentialIds)
-      |SELECT min(event_sequential_id) as min, max(event_sequential_id) as max, count(event_sequential_id) as count
-      |FROM sequential_ids, parameters
-      |WHERE event_sequential_id <= parameters.ledger_end_sequential_id
-      |""".stripMargin)
+  private val SqlEventSequentialIdsSummary = SQL"""
+      WITH sequential_ids AS (#$allSequentialIds)
+      SELECT min(event_sequential_id) as min, max(event_sequential_id) as max, count(event_sequential_id) as count
+      FROM sequential_ids, parameters
+      WHERE event_sequential_id <= parameters.ledger_end_sequential_id
+      """
 
   // Don't fetch an unbounded number of rows
   private val maxReportedDuplicates = 100
 
-  private val SQL_DUPLICATE_EVENT_SEQUENTIAL_IDS = SQL(s"""
-       |WITH sequential_ids AS ($allSequentialIds)
-       |SELECT event_sequential_id as id, count(*) as count
-       |FROM sequential_ids, parameters
-       |WHERE event_sequential_id <= parameters.ledger_end_sequential_id
-       |GROUP BY event_sequential_id
-       |HAVING count(*) > 1
-       |FETCH NEXT $maxReportedDuplicates ROWS ONLY
-       |""".stripMargin)
+  private val SqlDuplicateEventSequentialIds = SQL"""
+       WITH sequential_ids AS (#$allSequentialIds)
+       SELECT event_sequential_id as id, count(*) as count
+       FROM sequential_ids, parameters
+       WHERE event_sequential_id <= parameters.ledger_end_sequential_id
+       GROUP BY event_sequential_id
+       HAVING count(*) > 1
+       FETCH NEXT #$maxReportedDuplicates ROWS ONLY
+       """
 
   private val allEventIds: String =
     s"""
@@ -52,15 +53,15 @@ private[backend] object IntegrityStorageBackendTemplate extends IntegrityStorage
        |SELECT event_offset, node_index FROM participant_events_non_consuming_exercise
        |""".stripMargin
 
-  private val SQL_DUPLICATE_OFFSETS = SQL(s"""
-       |WITH event_ids AS ($allEventIds)
-       |SELECT event_offset, node_index, count(*) as count
-       |FROM event_ids, parameters
-       |WHERE event_offset <= parameters.ledger_end
-       |GROUP BY event_offset, node_index
-       |HAVING count(*) > 1
-       |FETCH NEXT $maxReportedDuplicates ROWS ONLY
-       |""".stripMargin)
+  private val SqlDuplicateOffsets = SQL"""
+       WITH event_ids AS (#$allEventIds)
+       SELECT event_offset, node_index, count(*) as count
+       FROM event_ids, parameters
+       WHERE event_offset <= parameters.ledger_end
+       GROUP BY event_offset, node_index
+       HAVING count(*) > 1
+       FETCH NEXT #$maxReportedDuplicates ROWS ONLY
+       """
 
   case class EventSequentialIdsRow(min: Long, max: Long, count: Long)
 
@@ -72,11 +73,11 @@ private[backend] object IntegrityStorageBackendTemplate extends IntegrityStorage
       }
 
   override def verifyIntegrity()(connection: Connection): Unit = {
-    val duplicateSeqIds = SQL_DUPLICATE_EVENT_SEQUENTIAL_IDS
+    val duplicateSeqIds = SqlDuplicateEventSequentialIds
       .as(long("id").*)(connection)
-    val duplicateOffsets = SQL_DUPLICATE_OFFSETS
+    val duplicateOffsets = SqlDuplicateOffsets
       .as(str("event_offset").*)(connection)
-    val summary = SQL_EVENT_SEQUENTIAL_IDS_SUMMARY
+    val summary = SqlEventSequentialIdsSummary
       .as(eventSequantialIdsParser.single)(connection)
 
     // Verify that there are no duplicate offsets (events with the same offset and node index).
