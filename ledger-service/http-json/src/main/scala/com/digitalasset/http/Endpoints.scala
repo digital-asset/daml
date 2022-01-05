@@ -475,7 +475,7 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[domain.UserRights]] =
     for {
-      jwt <- eitherT(input(req)).bimap(it => it: Error, _._1)
+      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
       userId <- decodeAndParseUserIdFromToken(jwt, decodeJwt).leftMap(it => it: Error)
       rights <- EitherT.rightT(
         userManagementClient.listUserRights(userId, Some(jwt.value))
