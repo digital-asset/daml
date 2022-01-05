@@ -148,7 +148,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       val isAdmin = remaining2.exists {
         case ParticipantAdmin =>
           true
-  
+        case _ => false
       }
       UserRights(Party.subst(canActAs.toList), Party.subst(canReadAs.toList), isAdmin)
     }
