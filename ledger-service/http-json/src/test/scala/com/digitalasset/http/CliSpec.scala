@@ -8,14 +8,13 @@ import org.scalatest.matchers.should.Matchers
 import com.daml.dbutils
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 object CliSpec {
   private val poolSize = 10
   private val minIdle = 4
-  private val connectionTimeout = FiniteDuration(5000, TimeUnit.MILLISECONDS)
-  private val idleTimeout = FiniteDuration(10000, TimeUnit.MILLISECONDS)
+  private val connectionTimeout = 5000.millis
+  private val idleTimeout = 10000.millis
   private val tablePrefix = "foo"
 }
 final class CliSpec extends AnyFreeSpec with Matchers {

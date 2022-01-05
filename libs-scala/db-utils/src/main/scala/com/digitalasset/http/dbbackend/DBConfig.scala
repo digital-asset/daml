@@ -13,7 +13,7 @@ import scalaz.{Show, StateT, \/}
 
 import java.io.File
 import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.util.Try
 
 object DBConfig {
@@ -167,9 +167,9 @@ object JdbcConfig
     maxPoolSize <- optionalIntField("poolSize").map(_ getOrElse PoolSize.Production)
     minIdle <- optionalIntField("minIdle").map(_ getOrElse MinIdle)
     connTimeout <- optionalLongField("connectionTimeout")
-      .map(x => x.map(FiniteDuration(_, TimeUnit.MILLISECONDS)) getOrElse ConnectionTimeout)
+      .map(x => x.map(_.millis) getOrElse ConnectionTimeout)
     idleTimeout <- optionalLongField("idleTimeout")
-      .map(x => x.map(FiniteDuration(_, TimeUnit.MILLISECONDS)) getOrElse IdleTimeout)
+      .map(x => x.map(_.millis) getOrElse IdleTimeout)
   } yield JdbcConfig(
     driver = driver,
     url = url,

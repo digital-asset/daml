@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -6,17 +6,25 @@ package com.daml.lf.engine.trigger
 import akka.http.scaladsl.model.Uri
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.dbutils.JdbcConfig
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
+import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import pureconfig.error.{CannotReadFile, ConfigReaderFailures}
 
 import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 class CliSpec extends AsyncWordSpec with Matchers {
+
+  val minimalConf = TriggerServiceAppConf(
+    List(Paths.get("./my-app.dar")),
+    "127.0.0.1",
+    Cli.DefaultHttpPort,
+    ledgerApi = LedgerApiConfig("127.0.0.1", 5041),
+  )
   val confFile = "triggers/service/src/test-suite/resources/trigger-service.conf"
   def loadCli(file: String): Cli = {
     Cli.parse(Array("--config", file), Set()).getOrElse(fail("Could not load Cli on parse"))
@@ -29,53 +37,42 @@ class CliSpec extends AsyncWordSpec with Matchers {
   }
 
   "should be able to successfully load the config based on the file provided" in {
+    val expectedAuthCfg = AuthorizationConfig(
+      authInternalUri = Some(Uri("https://oauth2/internal-uri")),
+      authExternalUri = Some(Uri("https://oauth2/external-uri")),
+      authCallbackUri = Some(Uri("https://oauth2/callback-uri")),
+      authRedirect = AuthClient.RedirectToLogin.Yes,
+    )
+    val expectedJdbcConfig = JdbcConfig(
+      url = "jdbc:postgresql://localhost:5432/test?&ssl=true",
+      driver = "org.postgresql.Driver",
+      user = "postgres",
+      password = "password",
+      poolSize = 12,
+      idleTimeout = 12.seconds,
+      connectionTimeout = 90.seconds,
+      tablePrefix = "foo",
+      minIdle = 4,
+    )
     val file = requiredResource(confFile)
     val cli = loadCli(file.getAbsolutePath)
     cli.configFile should not be empty
-    cli.loadFromConfigFile match {
+    val cfg = cli.loadFromConfigFile
+    cfg should not be empty
+    cfg.get match {
       case Left(ex) => fail(s"Failed to load config from config file: ${ex.head.description}")
       case Right(c) =>
-        c.address shouldBe "127.0.0.1"
-        c.port shouldBe Cli.DefaultHttpPort
-        c.portFile shouldBe Some(Paths.get("port-file"))
-
-        //ledger-api
-        c.ledgerApi.address shouldBe "127.0.0.1"
-        c.ledgerApi.port shouldBe 5041
-
-        //authorization config
-        c.authorization.authCallbackTimeout shouldBe Cli.DefaultAuthCallbackTimeout
-        c.authorization.authCommonUri shouldBe None
-        c.authorization.authCallbackUri shouldBe Some(Uri("https://oauth2/callback-uri"))
-        c.authorization.authInternalUri shouldBe Some(Uri("https://oauth2/internal-uri"))
-        c.authorization.authExternalUri shouldBe Some(Uri("https://oauth2/external-uri"))
-        c.authorization.authRedirect shouldBe AuthClient.RedirectToLogin.Yes
-        c.authorization.maxPendingAuthorizations shouldBe Cli.DefaultMaxAuthCallbacks
-
-        //jdbc config
-        c.triggerStore should not be empty
-        val jdbcConfig = c.triggerStore.get
-        jdbcConfig.url shouldBe "jdbc:postgresql://localhost:5432/test?&ssl=true"
-        jdbcConfig.driver shouldBe "org.postgresql.Driver"
-        jdbcConfig.user shouldBe "postgres"
-        jdbcConfig.password shouldBe "password"
-        jdbcConfig.poolSize shouldBe 12
-        jdbcConfig.idleTimeout shouldBe FiniteDuration(12, TimeUnit.SECONDS)
-        jdbcConfig.connectionTimeout shouldBe FiniteDuration(90, TimeUnit.SECONDS)
-        jdbcConfig.tablePrefix shouldBe "foo"
-        jdbcConfig.minIdle shouldBe 4
-
-        //remaining
-        c.maxInboundMessageSize shouldBe Cli.DefaultMaxInboundMessageSize
-        c.maxHttpEntityUploadSize shouldBe Cli.DefaultMaxHttpEntityUploadSize
-        c.maxRestartInterval shouldBe Cli.DefaultMaxRestartInterval
-        c.minRestartInterval shouldBe Cli.DefaultMinRestartInterval
-        c.httpEntityUploadTimeout shouldBe Cli.DefaultHttpEntityUploadTimeout
-        c.timeProviderType shouldBe TimeProviderType.Static
-        c.compilerConfig shouldBe Compiler.Config.Dev
-        c.initDb shouldBe true
-        c.ttl shouldBe FiniteDuration(60, TimeUnit.SECONDS)
-        c.allowExistingSchema shouldBe true
+        c shouldBe minimalConf.copy(
+          darPaths = List(Paths.get("./my-app.dar")),
+          portFile = Some(Paths.get("port-file")),
+          authorization = expectedAuthCfg,
+          triggerStore = Some(expectedJdbcConfig),
+          timeProviderType = TimeProviderType.Static,
+          compilerConfig = Compiler.Config.Dev,
+          initDb = true,
+          ttl = 60.seconds,
+          allowExistingSchema = true,
+        )
     }
   }
 
@@ -84,38 +81,11 @@ class CliSpec extends AsyncWordSpec with Matchers {
       requiredResource("triggers/service/src/test-suite/resources/trigger-service-minimal.conf")
     val cli = loadCli(file.getAbsolutePath)
     cli.configFile should not be empty
-    cli.loadFromConfigFile match {
+    val cfg = cli.loadFromConfigFile
+    cfg should not be empty
+    cfg.get match {
       case Left(ex) => fail(s"Failed to load config from config file: ${ex.head.description}")
-      case Right(c) =>
-        c.address shouldBe "127.0.0.1"
-        c.port shouldBe Cli.DefaultHttpPort
-        c.portFile shouldBe None
-
-        //ledger-api
-        c.ledgerApi.address shouldBe "127.0.0.1"
-        c.ledgerApi.port shouldBe 5041
-
-        //authorization config
-        c.authorization.authCallbackTimeout shouldBe Cli.DefaultAuthCallbackTimeout
-        c.authorization.authCommonUri shouldBe None
-        c.authorization.authCallbackUri shouldBe None
-        c.authorization.authInternalUri shouldBe None
-        c.authorization.authExternalUri shouldBe None
-        c.authorization.authRedirect shouldBe AuthClient.RedirectToLogin.No
-        c.authorization.maxPendingAuthorizations shouldBe Cli.DefaultMaxAuthCallbacks
-
-        //remaining
-        c.triggerStore shouldBe None
-        c.maxInboundMessageSize shouldBe Cli.DefaultMaxInboundMessageSize
-        c.maxHttpEntityUploadSize shouldBe Cli.DefaultMaxHttpEntityUploadSize
-        c.maxRestartInterval shouldBe Cli.DefaultMaxRestartInterval
-        c.minRestartInterval shouldBe Cli.DefaultMinRestartInterval
-        c.httpEntityUploadTimeout shouldBe Cli.DefaultHttpEntityUploadTimeout
-        c.timeProviderType shouldBe TimeProviderType.WallClock
-        c.compilerConfig shouldBe Compiler.Config.Default
-        c.initDb shouldBe false
-        c.ttl shouldBe FiniteDuration(30, TimeUnit.SECONDS)
-        c.allowExistingSchema shouldBe false
+      case Right(c) => c shouldBe minimalConf
     }
   }
 
@@ -123,11 +93,13 @@ class CliSpec extends AsyncWordSpec with Matchers {
     val cli = loadCli("missingFile.conf")
     cli.configFile should not be empty
     val cfg = cli.loadFromConfigFile
-    cfg match {
+    cfg should not be empty
+    cfg.get match {
       case Right(_) => fail("Unexpected success trying to load missing config file")
       case Left(ex) =>
-        ex shouldBe a[ConfigReaderFailures]
-        ex.head shouldBe a[CannotReadFile]
+        inside(ex) { case ConfigReaderFailures(head) =>
+          head shouldBe a[CannotReadFile]
+        }
     }
 
     //parseConfig for non-existent file should return a None

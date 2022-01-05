@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -108,30 +108,31 @@ private[trigger] final case class TriggerServiceAppConf(
 ) {
   def toServiceConfig: ServiceConfig = {
     ServiceConfig(
-      darPaths,
-      address,
-      port,
-      ledgerApi.address,
-      ledgerApi.port,
-      authorization.authInternalUri,
-      authorization.authExternalUri,
-      authorization.authCommonUri,
-      authorization.authRedirect,
-      authorization.authCallbackUri,
-      maxInboundMessageSize,
-      minRestartInterval,
-      maxRestartInterval,
-      authorization.maxPendingAuthorizations,
-      authorization.authCallbackTimeout,
-      maxHttpEntityUploadSize,
-      httpEntityUploadTimeout,
-      timeProviderType,
-      Duration.ofSeconds(ttl.toSeconds),
-      initDb,
-      triggerStore,
-      portFile,
-      allowExistingSchema,
-      compilerConfig,
+      darPaths = darPaths,
+      address = address,
+      httpPort = port,
+      ledgerHost = ledgerApi.address,
+      ledgerPort = ledgerApi.port,
+      authInternalUri = authorization.authInternalUri,
+      authExternalUri = authorization.authExternalUri,
+      authBothUri = authorization.authCommonUri,
+      authRedirectToLogin = authorization.authRedirect,
+      authCallbackUri = authorization.authCallbackUri,
+      maxInboundMessageSize = maxInboundMessageSize,
+      minRestartInterval = minRestartInterval,
+      maxRestartInterval = maxRestartInterval,
+      maxAuthCallbacks = authorization.maxPendingAuthorizations,
+      authCallbackTimeout = authorization.authCallbackTimeout,
+      maxHttpEntityUploadSize = maxHttpEntityUploadSize,
+      httpEntityUploadTimeout = httpEntityUploadTimeout,
+      timeProviderType = timeProviderType,
+      commandTtl =
+        Duration.ofSeconds(ttl.toSeconds), // mapping from FiniteDuration to java.time.Duration
+      init = initDb,
+      jdbcConfig = triggerStore,
+      portFile = portFile,
+      allowExistingSchema = allowExistingSchema,
+      compilerConfig = compilerConfig,
     )
   }
 }

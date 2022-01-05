@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -20,6 +20,7 @@ import pureconfig.ConfigSource
 import pureconfig.error.ConfigReaderFailures
 
 import scala.concurrent.duration
+import scalaz.syntax.std.option._
 
 private[trigger] final case class Cli(
     configFile: Option[File],
@@ -51,53 +52,51 @@ private[trigger] final case class Cli(
     compilerConfig: Compiler.Config,
 ) extends StrictLogging {
 
-  def loadFromConfigFile: Either[ConfigReaderFailures, TriggerServiceAppConf] = {
-    require(configFile.nonEmpty, "Config file should be defined to load trigger service config")
-    ConfigSource.file(configFile.get).load[TriggerServiceAppConf]
-  }
+  def loadFromConfigFile: Option[Either[ConfigReaderFailures, TriggerServiceAppConf]] =
+    configFile.map(cf => ConfigSource.file(cf).load[TriggerServiceAppConf])
 
   def loadFromCliArgs: ServiceConfig = {
     ServiceConfig(
-      darPaths,
-      address,
-      httpPort,
-      ledgerHost,
-      ledgerPort,
-      authInternalUri,
-      authExternalUri,
-      authBothUri,
-      authRedirectToLogin,
-      authCallbackUri,
-      maxInboundMessageSize,
-      minRestartInterval,
-      maxRestartInterval,
-      maxAuthCallbacks,
-      authCallbackTimeout,
-      maxHttpEntityUploadSize,
-      httpEntityUploadTimeout,
-      timeProviderType,
-      commandTtl,
-      init,
-      jdbcConfig,
-      portFile,
-      allowExistingSchema,
-      compilerConfig,
+      darPaths = darPaths,
+      address = address,
+      httpPort = httpPort,
+      ledgerHost = ledgerHost,
+      ledgerPort = ledgerPort,
+      authInternalUri = authInternalUri,
+      authExternalUri = authExternalUri,
+      authBothUri = authBothUri,
+      authRedirectToLogin = authRedirectToLogin,
+      authCallbackUri = authCallbackUri,
+      maxInboundMessageSize = maxInboundMessageSize,
+      minRestartInterval = minRestartInterval,
+      maxRestartInterval = maxRestartInterval,
+      maxAuthCallbacks = maxAuthCallbacks,
+      authCallbackTimeout = authCallbackTimeout,
+      maxHttpEntityUploadSize = maxHttpEntityUploadSize,
+      httpEntityUploadTimeout = httpEntityUploadTimeout,
+      timeProviderType = timeProviderType,
+      commandTtl = commandTtl,
+      init = init,
+      jdbcConfig = jdbcConfig,
+      portFile = portFile,
+      allowExistingSchema = allowExistingSchema,
+      compilerConfig = compilerConfig,
     )
   }
 
-  def loadConfig: Option[ServiceConfig] = {
-    if (configFile.isDefined) {
-      loadFromConfigFile match {
+  def loadConfig: Option[ServiceConfig] =
+    loadFromConfigFile.cata(
+      {
         case Right(cfg) => Some(cfg.toServiceConfig)
         case Left(ex) =>
           logger.error(
             s"Error loading trigger service config from file ${configFile}",
-            ex.head.description,
+            ex.prettyPrint(),
           )
           None
-      }
-    } else Some(loadFromCliArgs)
-  }
+      },
+      Some(loadFromCliArgs),
+    )
 }
 
 private[trigger] object Cli {
