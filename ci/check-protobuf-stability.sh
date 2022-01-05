@@ -89,7 +89,7 @@ USAGE
   exit
   ;;
 --stable)
-  # Check against the highest stable tag.
+  # Check against the highest stable tag according to semver.
   #
   # This check does not need to run on release branch commits because
   # they are built sequentially, so no conflicts are possible and the per-PR
@@ -97,19 +97,20 @@ USAGE
   readonly RELEASE_BRANCH_REGEX="^release/.*"
   LATEST_STABLE_TAG=""
   if [[ "${TARGET}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
-    readonly VERSION="${TARGET#release/}"
-    readonly VERSION_PREFIX="${VERSION%.x}"
+    readonly BRANCH_SUFFIX="${TARGET#release/}"
+    readonly MINOR_VERSION="${BRANCH_SUFFIX%.x}"
+    readonly NEXT_MINOR_VERSION=$(semver bump minor "$MINOR_VERSION.0")
     readonly STABLE_TAGS=($(git tag | grep "v.*" | grep -v "snapshot" | sort -V))
-    LATEST_STABLE_TAG="$(for TAG in "${STABLE_TAGS[@]}"; do if [[ $(semver compare "${TAG#v}" "${VERSION_PREFIX}.999") == "-1" ]]; then echo "$TAG"; fi; done | tail -1)"
+    LATEST_STABLE_TAG="$(for TAG in "${STABLE_TAGS[@]}"; do if [[ $(semver compare "${TAG#v}" "$NEXT_MINOR_VERSION") == "-1" ]]; then echo "$TAG"; fi; done | tail -1)"
   elif [[ "${TARGET}" == "main" ]]; then
     LATEST_STABLE_TAG="$(git tag | grep "v.*" | grep -v "snapshot" | sort -V | tail -1)"
   else
     echo "unsupported target branch $TARGET" >&2
     exit 1
   fi
-  # The v1.17 stable release includes the buf config file with the default name `buf.yml`.
   # Starting with v1.18 we have multiple buf config files.
-  if [[ $LATEST_STABLE_TAG =~ "v1.17."* ]]; then
+  # Older versions include the buf config file with the default name `buf.yml`.
+  if [[ $(semver compare "${LATEST_STABLE_TAG#v}" "1.18.0") == "-1" ]]; then
     BUF_CONFIG_UPDATED=false
   else
     BUF_CONFIG_UPDATED=true
