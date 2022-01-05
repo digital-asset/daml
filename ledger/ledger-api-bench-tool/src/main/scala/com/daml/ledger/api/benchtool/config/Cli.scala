@@ -187,12 +187,12 @@ object Cli {
           filters = filters,
           beginOffset = beginOffset,
           endOffset = endOffset,
-          objectives = WorkflowConfig.StreamConfig.TransactionObjectives(
+          objectives = Some(WorkflowConfig.StreamConfig.TransactionObjectives(
             maxDelaySeconds = maxDelaySeconds,
             minConsumptionSpeed = minConsumptionSpeed,
             minItemRate = minItemRate,
             maxItemRate = maxItemRate,
-          ),
+          )),
         )
 
         def transactionTreesConfig
@@ -211,12 +211,12 @@ object Cli {
             filters = filters,
             beginOffset = beginOffset,
             endOffset = endOffset,
-            objectives = WorkflowConfig.StreamConfig.TransactionObjectives(
+            objectives = Some(WorkflowConfig.StreamConfig.TransactionObjectives(
               maxDelaySeconds = maxDelaySeconds,
               minConsumptionSpeed = minConsumptionSpeed,
               minItemRate = minItemRate,
               maxItemRate = maxItemRate,
-            ),
+            )),
           )
 
         def activeContractsConfig
@@ -228,10 +228,10 @@ object Cli {
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
-          objectives = WorkflowConfig.StreamConfig.RateObjectives(
+          objectives = Some(WorkflowConfig.StreamConfig.RateObjectives(
             minItemRate = minItemRate,
             maxItemRate = maxItemRate,
-          ),
+          )),
         )
 
         def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =
@@ -247,10 +247,10 @@ object Cli {
             party = party,
             applicationId = applicationId,
             beginOffset = beginOffset,
-            objectives = WorkflowConfig.StreamConfig.RateObjectives(
+            objectives = Some(WorkflowConfig.StreamConfig.RateObjectives(
               minItemRate = minItemRate,
               maxItemRate = maxItemRate,
-            ),
+            )),
           )
 
         val config = stringField("stream-type").flatMap[String, WorkflowConfig.StreamConfig] {

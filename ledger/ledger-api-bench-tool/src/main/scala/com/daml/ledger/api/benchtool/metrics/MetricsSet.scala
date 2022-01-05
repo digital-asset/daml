@@ -17,7 +17,7 @@ import java.time.{Clock, Duration}
 import scala.concurrent.duration.FiniteDuration
 
 object MetricsSet {
-  def transactionMetrics(objectives: TransactionObjectives): List[Metric[GetTransactionsResponse]] =
+  def transactionMetrics(objectives: Option[TransactionObjectives]): List[Metric[GetTransactionsResponse]] =
     transactionMetrics[GetTransactionsResponse](
       countingFunction = _.transactions.length,
       sizingFunction = _.serializedSize.toLong,
@@ -44,7 +44,7 @@ object MetricsSet {
     )
 
   def transactionTreesMetrics(
-      objectives: TransactionObjectives
+      objectives: Option[TransactionObjectives]
   ): List[Metric[GetTransactionTreesResponse]] =
     transactionMetrics[GetTransactionTreesResponse](
       countingFunction = _.transactions.length,
@@ -71,14 +71,14 @@ object MetricsSet {
       }),
     )
 
-  def activeContractsMetrics(objectives: RateObjectives): List[Metric[GetActiveContractsResponse]] =
+  def activeContractsMetrics(objectives: Option[RateObjectives]): List[Metric[GetActiveContractsResponse]] =
     List[Metric[GetActiveContractsResponse]](
       CountRateMetric.empty[GetActiveContractsResponse](
         countingFunction = _.activeContracts.length,
         periodicObjectives = Nil,
         finalObjectives = List(
-          objectives.minItemRate.map(CountRateMetric.RateObjective.MinRate),
-          objectives.maxItemRate.map(CountRateMetric.RateObjective.MaxRate),
+          objectives.flatMap(_.minItemRate.map(CountRateMetric.RateObjective.MinRate)),
+          objectives.flatMap(_.maxItemRate.map(CountRateMetric.RateObjective.MaxRate)),
         ).flatten,
       ),
       TotalCountMetric.empty[GetActiveContractsResponse](
@@ -103,14 +103,14 @@ object MetricsSet {
       recordTimeFunction = None,
     )
 
-  def completionsMetrics(objectives: RateObjectives): List[Metric[CompletionStreamResponse]] =
+  def completionsMetrics(objectives: Option[RateObjectives]): List[Metric[CompletionStreamResponse]] =
     List[Metric[CompletionStreamResponse]](
       CountRateMetric.empty(
         countingFunction = _.completions.length,
         periodicObjectives = Nil,
         finalObjectives = List(
-          objectives.minItemRate.map(CountRateMetric.RateObjective.MinRate),
-          objectives.maxItemRate.map(CountRateMetric.RateObjective.MaxRate),
+          objectives.flatMap(_.minItemRate.map(CountRateMetric.RateObjective.MinRate)),
+          objectives.flatMap(_.maxItemRate.map(CountRateMetric.RateObjective.MaxRate)),
         ).flatten,
       ),
       TotalCountMetric.empty(
@@ -139,15 +139,15 @@ object MetricsSet {
       countingFunction: T => Int,
       sizingFunction: T => Long,
       recordTimeFunction: T => Seq[Timestamp],
-      objectives: TransactionObjectives,
+      objectives: Option[TransactionObjectives],
   ): List[Metric[T]] = {
     List[Metric[T]](
       CountRateMetric.empty[T](
         countingFunction = countingFunction,
         periodicObjectives = Nil,
         finalObjectives = List(
-          objectives.minItemRate.map(CountRateMetric.RateObjective.MinRate),
-          objectives.maxItemRate.map(CountRateMetric.RateObjective.MaxRate),
+          objectives.flatMap(_.minItemRate.map(CountRateMetric.RateObjective.MinRate)),
+          objectives.flatMap(_.maxItemRate.map(CountRateMetric.RateObjective.MaxRate)),
         ).flatten,
       ),
       TotalCountMetric.empty[T](
@@ -155,12 +155,12 @@ object MetricsSet {
       ),
       ConsumptionSpeedMetric.empty[T](
         recordTimeFunction = recordTimeFunction,
-        objective = objectives.minConsumptionSpeed.map(ConsumptionSpeedMetric.MinConsumptionSpeed),
+        objective = objectives.flatMap(_.minConsumptionSpeed.map(ConsumptionSpeedMetric.MinConsumptionSpeed)),
       ),
       DelayMetric.empty[T](
         recordTimeFunction = recordTimeFunction,
         clock = Clock.systemUTC(),
-        objective = objectives.maxDelaySeconds.map(DelayMetric.MaxDelay),
+        objective = objectives.flatMap(_.maxDelaySeconds.map(DelayMetric.MaxDelay)),
       ),
       SizeMetric.empty[T](
         sizingFunction = sizingFunction
