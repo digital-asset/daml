@@ -99,6 +99,12 @@ object TransactionConversions {
 
   /** Decodes and extracts outputs of a submitted transaction, that is the IDs and keys of contracts created or updated
     * by processing a submission.
+    *
+    * The results, among the others, may include contract IDs of transient contracts (created and archived within the same transaction),
+    * contract IDs that may cause divulgence and keys that are not modified. Actual outputs must be a subset of,
+    * or the same as, computed outputs and we currently relax this check by widening the latter set,
+    * treating a node the same regardless of whether it was a child of a rollback node or not, for example.
+    * Computed outputs that are not actual outputs can be safely trimmed.
     */
   def extractTransactionOutputs(
       rawTransaction: RawTransaction
@@ -116,13 +122,7 @@ object TransactionConversions {
                   TransactionCoder.decodeNodeVersion(txVersion, node).flatMap { nodeVersion =>
                     node.getNodeTypeCase match {
                       case NodeTypeCase.ROLLBACK =>
-                        // Nodes under rollback will potentially produce outputs such as divulgence.
-                        // Actual outputs must be a subset of, or the same as, computed outputs and
-                        // we currently relax this check by widening the latter set, treating a node the
-                        // same regardless of whether it was under a rollback node or not.
-                        // Computed outputs that are not actual outputs can be safely trimmed: examples
-                        // are transient contracts and, now, potentially also outputs from nodes under
-                        // rollback.
+                        // Nodes under a rollback node may potentially produce outputs such as divulgence.
                         Right(contractIdsOrKeys)
 
                       case NodeTypeCase.CREATE =>
@@ -152,7 +152,7 @@ object TransactionConversions {
                         } yield newContractIdsOrKeys + ContractIdOrKey.Id(contractId)
 
                       case NodeTypeCase.FETCH =>
-                        // A fetch may cause a divulgence, which is why the target contract is a potential output.
+                        // A fetch may cause divulgence, which is why the target contract is a potential output.
                         ValueCoder.CidDecoder.decode(node.getFetch.getContractIdStruct).map {
                           contractId => contractIdsOrKeys + ContractIdOrKey.Id(contractId)
                         }
@@ -173,7 +173,7 @@ object TransactionConversions {
           .map(ConversionError.DecodeError)
     }
 
-  /** Removes `Fetch`, `LookupByKey` and `Rollback` nodes from a transaction tree. */
+  /** Removes `Fetch`, `LookupByKey` and `Rollback` nodes (including their children) from a transaction tree. */
   def keepCreateAndExerciseNodes(
       rawTransaction: RawTransaction
   ): Either[ConversionError, RawTransaction] =
