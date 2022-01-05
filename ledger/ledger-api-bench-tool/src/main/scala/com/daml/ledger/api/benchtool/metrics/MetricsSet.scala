@@ -17,7 +17,9 @@ import java.time.{Clock, Duration}
 import scala.concurrent.duration.FiniteDuration
 
 object MetricsSet {
-  def transactionMetrics(objectives: Option[TransactionObjectives]): List[Metric[GetTransactionsResponse]] =
+  def transactionMetrics(
+      objectives: Option[TransactionObjectives]
+  ): List[Metric[GetTransactionsResponse]] =
     transactionMetrics[GetTransactionsResponse](
       countingFunction = _.transactions.length,
       sizingFunction = _.serializedSize.toLong,
@@ -71,7 +73,9 @@ object MetricsSet {
       }),
     )
 
-  def activeContractsMetrics(objectives: Option[RateObjectives]): List[Metric[GetActiveContractsResponse]] =
+  def activeContractsMetrics(
+      objectives: Option[RateObjectives]
+  ): List[Metric[GetActiveContractsResponse]] =
     List[Metric[GetActiveContractsResponse]](
       CountRateMetric.empty[GetActiveContractsResponse](
         countingFunction = _.activeContracts.length,
@@ -103,7 +107,9 @@ object MetricsSet {
       recordTimeFunction = None,
     )
 
-  def completionsMetrics(objectives: Option[RateObjectives]): List[Metric[CompletionStreamResponse]] =
+  def completionsMetrics(
+      objectives: Option[RateObjectives]
+  ): List[Metric[CompletionStreamResponse]] =
     List[Metric[CompletionStreamResponse]](
       CountRateMetric.empty(
         countingFunction = _.completions.length,
@@ -155,7 +161,8 @@ object MetricsSet {
       ),
       ConsumptionSpeedMetric.empty[T](
         recordTimeFunction = recordTimeFunction,
-        objective = objectives.flatMap(_.minConsumptionSpeed.map(ConsumptionSpeedMetric.MinConsumptionSpeed)),
+        objective =
+          objectives.flatMap(_.minConsumptionSpeed.map(ConsumptionSpeedMetric.MinConsumptionSpeed)),
       ),
       DelayMetric.empty[T](
         recordTimeFunction = recordTimeFunction,
