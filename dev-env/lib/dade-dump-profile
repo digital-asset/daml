@@ -99,7 +99,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/ensure-nix"
 echo "source $(dirname "${BASH_SOURCE[0]}")/ensure-nix"
 
 # Expose our tools in /dev-env/bin and our version of nixpkgs
-echo "export NIX_USER_CONF_FILES=\"${DADE_DEVENV_DIR}/etc/nix.conf:\${NIX_USER_CONF_FILES}:\${XDG_CONFIG_HOME:-\${HOME}/.config}/nix/nix.conf\""
+echo "export NIX_USER_CONF_FILES=\"${DADE_DEVENV_DIR}/etc/nix.conf:\${NIX_USER_CONF_FILES:-}:\${XDG_CONFIG_HOME:-\${HOME}/.config}/nix/nix.conf\""
 echo "export NIX_PATH=nixpkgs=\"${DADE_NIXPKGS}\""
 echo "export PATH=\"${DADE_DEVENV_DIR}/bin:\$PATH\""
 echo "export PYTHONPATH=\".\${PYTHONPATH:+:\$PYTHONPATH}\""
