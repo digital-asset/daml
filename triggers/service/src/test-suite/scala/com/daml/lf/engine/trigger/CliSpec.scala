@@ -53,21 +53,18 @@ class CliSpec extends AsyncWordSpec with Matchers {
     val cli = loadCli(file.getAbsolutePath)
     cli.configFile should not be empty
     val cfg = cli.loadFromConfigFile
-    cfg should not be empty
-    cfg.get match {
-      case Left(ex) => fail(s"Failed to load config from config file: ${ex.head.description}")
-      case Right(c) =>
-        c shouldBe minimalConf.copy(
-          darPaths = List(Paths.get("./my-app.dar")),
-          portFile = Some(Paths.get("port-file")),
-          authorization = expectedAuthCfg,
-          triggerStore = Some(expectedJdbcConfig),
-          timeProviderType = TimeProviderType.Static,
-          compilerConfig = Compiler.Config.Dev,
-          initDb = true,
-          ttl = 60.seconds,
-          allowExistingSchema = true,
-        )
+    inside(cfg) { case Some(Right(c)) =>
+      c shouldBe minimalConf.copy(
+        darPaths = List(Paths.get("./my-app.dar")),
+        portFile = Some(Paths.get("port-file")),
+        authorization = expectedAuthCfg,
+        triggerStore = Some(expectedJdbcConfig),
+        timeProviderType = TimeProviderType.Static,
+        compilerConfig = Compiler.Config.Dev,
+        initDb = true,
+        ttl = 60.seconds,
+        allowExistingSchema = true,
+      )
     }
   }
 
@@ -77,10 +74,8 @@ class CliSpec extends AsyncWordSpec with Matchers {
     val cli = loadCli(file.getAbsolutePath)
     cli.configFile should not be empty
     val cfg = cli.loadFromConfigFile
-    cfg should not be empty
-    cfg.get match {
-      case Left(ex) => fail(s"Failed to load config from config file: ${ex.head.description}")
-      case Right(c) => c shouldBe minimalConf
+    inside(cfg) { case Some(Right(c)) =>
+      c shouldBe minimalConf
     }
   }
 
@@ -88,13 +83,8 @@ class CliSpec extends AsyncWordSpec with Matchers {
     val cli = loadCli("missingFile.conf")
     cli.configFile should not be empty
     val cfg = cli.loadFromConfigFile
-    cfg should not be empty
-    cfg.get match {
-      case Right(_) => fail("Unexpected success trying to load missing config file")
-      case Left(ex) =>
-        inside(ex) { case ConfigReaderFailures(head) =>
-          head shouldBe a[CannotReadFile]
-        }
+    inside(cfg) { case Some(Left(ConfigReaderFailures(head))) =>
+      head shouldBe a[CannotReadFile]
     }
 
     //parseConfig for non-existent file should return a None
