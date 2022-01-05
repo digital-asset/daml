@@ -84,3 +84,22 @@ alias(
     actual = "sdk-release-tarball-ce",
     visibility = ["//visibility:public"],
 )
+
+sh_test(
+    name = "test-protobuf-structure",
+    srcs = ["test-protobuf-structure.sh"],
+    args = [
+        "$(location :protobufs.zip)",
+        "$(POSIX_DIFF)",
+        "$(POSIX_SORT)",
+    ],
+    data = [
+        ":protobufs.zip",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+) if not is_windows else None
