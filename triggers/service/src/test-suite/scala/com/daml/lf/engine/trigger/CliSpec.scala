@@ -19,12 +19,7 @@ import scala.concurrent.duration._
 
 class CliSpec extends AsyncWordSpec with Matchers {
 
-  val minimalConf = TriggerServiceAppConf(
-    List(Paths.get("./my-app.dar")),
-    "127.0.0.1",
-    Cli.DefaultHttpPort,
-    ledgerApi = LedgerApiConfig("127.0.0.1", 5041),
-  )
+  val minimalConf = TriggerServiceAppConf(ledgerApi = LedgerApiConfig("127.0.0.1", 5041))
   val confFile = "triggers/service/src/test-suite/resources/trigger-service.conf"
   def loadCli(file: String): Cli = {
     Cli.parse(Array("--config", file), Set()).getOrElse(fail("Could not load Cli on parse"))

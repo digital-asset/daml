@@ -88,9 +88,9 @@ private[trigger] object TriggerServiceAppConf {
   this eventually gets mapped to `ServiceConfig`
  */
 private[trigger] final case class TriggerServiceAppConf(
-    darPaths: List[Path],
-    address: String,
-    port: Int,
+    darPaths: List[Path] = Nil,
+    address: String = "127.0.0.1",
+    port: Int = Cli.DefaultHttpPort,
     portFile: Option[Path] = None,
     ledgerApi: LedgerApiConfig,
     authorization: AuthorizationConfig = AuthorizationConfig(),
