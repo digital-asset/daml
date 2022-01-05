@@ -5,8 +5,12 @@ package com.daml.ledger.api.benchtool
 
 import akka.actor.testkit.typed.scaladsl.{BehaviorTestKit, ScalaTestWithActorTestKit}
 import akka.actor.typed.{ActorRef, Behavior}
-import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
-import com.daml.ledger.api.benchtool.metrics.{Metric, MetricValue, MetricsCollector}
+import com.daml.ledger.api.benchtool.metrics.{
+  Metric,
+  MetricValue,
+  MetricsCollector,
+  ServiceLevelObjective,
+}
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.time.{Clock, Duration, Instant, ZoneId}
@@ -82,7 +86,7 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
             Response.MetricFinalReportData(
               name = "Test Metric",
               value = TestMetricValue("FINAL:"),
-              violatedObjective = None,
+              violatedObjectives = Nil,
             )
           ),
           totalDuration = Duration.ofSeconds(10),
@@ -108,7 +112,7 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
             Response.MetricFinalReportData(
               name = "Test Metric",
               value = TestMetricValue("FINAL:mango-banana-cherry"),
-              violatedObjective = None,
+              violatedObjectives = Nil,
             )
           ),
           totalDuration = Duration.ofSeconds(10),
@@ -134,7 +138,7 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
             Response.MetricFinalReportData(
               name = "Test Metric",
               value = TestMetricValue("FINAL:mango-tomato-cherry"),
-              violatedObjective = Some(
+              violatedObjectives = List(
                 (
                   TestObjective,
                   TestMetricValue(TestObjective.TestViolatingValue),
@@ -217,11 +221,15 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
       TestMetricValue(s"FINAL:${processedElems.mkString("-")}")
     }
 
-    override def violatedObjective: Option[(TestObjective.type, TestMetricValue)] =
+    override def violatedPeriodicObjectives: List[(TestObjective.type, TestMetricValue)] =
       if (processedElems.contains(TestObjective.TestViolatingValue))
-        Some(TestObjective -> TestMetricValue(TestObjective.TestViolatingValue))
+        List(TestObjective -> TestMetricValue(TestObjective.TestViolatingValue))
       else
-        None
+        Nil
+
+    override def violatedFinalObjectives(
+        totalDuration: Duration
+    ): List[(TestObjective.type, TestMetricValue)] = Nil
 
   }
 

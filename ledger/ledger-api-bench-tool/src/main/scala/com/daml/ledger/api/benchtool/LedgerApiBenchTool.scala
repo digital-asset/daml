@@ -37,8 +37,6 @@ object LedgerApiBenchTool {
               logger.info(s"Benchmark finished successfully.")
             case Left(error) =>
               logger.info(s"Benchmark failed: $error")
-              // Exit with error status code to facilitate scripting
-              sys.exit(1)
           }
           .recover { case ex =>
             logger.error(s"ledger-api-bench-tool failure: ${ex.getMessage}", ex)

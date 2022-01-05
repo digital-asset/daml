@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.metrics.ConsumptionSpeedMetric
-import com.daml.ledger.api.benchtool.metrics.objectives.MinConsumptionSpeed
+import com.daml.ledger.api.benchtool.metrics.ConsumptionSpeedMetric._
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -20,8 +20,8 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
       val (_, periodicValue) = metric.periodicValue(Duration.ofMillis(100))
       val finalValue = metric.finalValue(Duration.ofSeconds(1))
 
-      periodicValue shouldBe ConsumptionSpeedMetric.Value(Some(0.0))
-      finalValue shouldBe ConsumptionSpeedMetric.Value(None)
+      periodicValue shouldBe Value(Some(0.0))
+      finalValue shouldBe Value(None)
     }
 
     "compute values after processing elements" in {
@@ -57,8 +57,8 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
       val expectedSpeed =
         (lastElementOfThePeriod.getEpochSecond - firstElementOfThePeriod.getEpochSecond) * 1000.0 / periodDuration.toMillis
 
-      periodicValue shouldBe ConsumptionSpeedMetric.Value(Some(expectedSpeed))
-      finalValue shouldBe ConsumptionSpeedMetric.Value(None)
+      periodicValue shouldBe Value(Some(expectedSpeed))
+      finalValue shouldBe Value(None)
     }
 
     "correctly handle initial periods with a single record time" in {
@@ -81,8 +81,8 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
         .periodicValue(periodDuration)
       val finalValue = newMetric.finalValue(totalDuration)
 
-      periodicValue shouldBe ConsumptionSpeedMetric.Value(Some(0.0))
-      finalValue shouldBe ConsumptionSpeedMetric.Value(None)
+      periodicValue shouldBe Value(Some(0.0))
+      finalValue shouldBe Value(None)
     }
 
     "correctly handle non-initial periods with a single record time" in {
@@ -116,8 +116,8 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
         .periodicValue(periodDuration)
       val finalValue = newMetric.finalValue(totalDuration)
 
-      periodicValue shouldBe ConsumptionSpeedMetric.Value(Some(300.0))
-      finalValue shouldBe ConsumptionSpeedMetric.Value(None)
+      periodicValue shouldBe Value(Some(300.0))
+      finalValue shouldBe Value(None)
     }
 
     "correctly handle periods with no elements" in {
@@ -149,8 +149,8 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
         .periodicValue(periodDuration)
       val finalValue = newMetric.finalValue(totalDuration)
 
-      periodicValue shouldBe ConsumptionSpeedMetric.Value(Some(0.0))
-      finalValue shouldBe ConsumptionSpeedMetric.Value(None)
+      periodicValue shouldBe Value(Some(0.0))
+      finalValue shouldBe Value(None)
     }
 
     "correctly handle multiple periods with elements" in {
@@ -201,8 +201,8 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
       val expectedSpeed =
         (last.getEpochSecond - first.getEpochSecond) * 1000.0 / period3Duration.toMillis
 
-      periodicValue shouldBe ConsumptionSpeedMetric.Value(Some(expectedSpeed))
-      finalValue shouldBe ConsumptionSpeedMetric.Value(None)
+      periodicValue shouldBe Value(Some(expectedSpeed))
+      finalValue shouldBe Value(None)
     }
 
     "compute violated min speed SLO and the minimum speed" in {
@@ -250,10 +250,10 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
           .onNext(elem3)
           .periodicValue(periodDuration)
           ._1
-          .violatedObjective
+          .violatedPeriodicObjectives
 
-      violatedObjectives shouldBe Some(
-        objective -> ConsumptionSpeedMetric.Value(Some(0.8))
+      violatedObjectives shouldBe List(
+        objective -> Value(Some(0.8))
       )
     }
   }

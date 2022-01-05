@@ -24,12 +24,19 @@ object WorkflowConfigParser {
   case class ParserError(details: String)
 
   object Decoders {
-    implicit val objectivesDecoder: Decoder[StreamConfig.Objectives] =
-      Decoder.forProduct3(
+    implicit val transactionObjectivesDecoder: Decoder[StreamConfig.TransactionObjectives] =
+      Decoder.forProduct4(
         "max_delay_seconds",
         "min_consumption_speed",
         "min_item_rate",
-      )(StreamConfig.Objectives.apply)
+        "max_item_rate",
+      )(StreamConfig.TransactionObjectives.apply)
+
+    implicit val rateObjectivesDecoder: Decoder[StreamConfig.RateObjectives] =
+      Decoder.forProduct2(
+        "min_item_rate",
+        "max_item_rate",
+      )(StreamConfig.RateObjectives.apply)
 
     implicit val offsetDecoder: Decoder[LedgerOffset] =
       Decoder.decodeString.map(LedgerOffset.defaultInstance.withAbsolute)
@@ -66,11 +73,12 @@ object WorkflowConfigParser {
       )(StreamConfig.ActiveContractsStreamConfig.apply)
 
     implicit val completionsStreamDecoder: Decoder[StreamConfig.CompletionsStreamConfig] =
-      Decoder.forProduct4(
+      Decoder.forProduct5(
         "name",
         "party",
         "application_id",
         "begin_offset",
+        "objectives",
       )(StreamConfig.CompletionsStreamConfig.apply)
 
     implicit val streamConfigDecoder: Decoder[StreamConfig] =

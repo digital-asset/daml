@@ -2,22 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.metrics
-import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 
 import java.time.Duration
 
 final case class CountRateMetric[T](
     countingFunction: T => Int,
-    objective: Option[
-      (ServiceLevelObjective[CountRateMetric.Value], Option[CountRateMetric.Value])
+    periodicObjectives: List[
+      (CountRateMetric.RateObjective, Option[CountRateMetric.Value])
     ],
+    finalObjectives: List[CountRateMetric.RateObjective],
     counter: Int = 0,
     lastCount: Int = 0,
 ) extends Metric[T] {
   import CountRateMetric._
 
   override type V = Value
-  override type Objective = ServiceLevelObjective[Value]
+  override type Objective = RateObjective
 
   override def onNext(value: T): CountRateMetric[T] =
     this.copy(counter = counter + countingFunction(value))
@@ -25,7 +25,7 @@ final case class CountRateMetric[T](
   override def periodicValue(periodDuration: Duration): (Metric[T], Value) = {
     val value = Value(periodicRate(periodDuration))
     val updatedMetric = this.copy(
-      objective = updatedObjective(value),
+      periodicObjectives = updatedPeriodicObjectives(value),
       lastCount = counter,
     )
     (updatedMetric, value)
@@ -34,9 +34,17 @@ final case class CountRateMetric[T](
   override def finalValue(totalDuration: Duration): Value =
     Value(ratePerSecond = totalRate(totalDuration))
 
-  override def violatedObjective: Option[(ServiceLevelObjective[Value], Value)] =
-    objective.collect { case (objective, Some(value)) =>
+  override def violatedPeriodicObjectives: List[(RateObjective, Value)] =
+    periodicObjectives.collect { case (objective, Some(value)) =>
       objective -> value
+    }
+
+  override def violatedFinalObjectives(
+      totalDuration: Duration
+  ): List[(RateObjective, Value)] =
+    finalObjectives.collect {
+      case objective if objective.isViolatedBy(finalValue(totalDuration)) =>
+        (objective, finalValue(totalDuration))
     }
 
   private def periodicRate(periodDuration: Duration): Double =
@@ -45,10 +53,10 @@ final case class CountRateMetric[T](
   private def totalRate(totalDuration: Duration): Double =
     counter / totalDuration.toMillis.toDouble * 1000.0
 
-  private def updatedObjective(
+  private def updatedPeriodicObjectives(
       newValue: Value
-  ): Option[(ServiceLevelObjective[CountRateMetric.Value], Option[CountRateMetric.Value])] = {
-    objective.map { case (objective, currentMinValue) =>
+  ): List[(RateObjective, Option[Value])] = {
+    periodicObjectives.map { case (objective, currentMinValue) =>
       if (objective.isViolatedBy(newValue)) {
         currentMinValue match {
           case None => objective -> Some(newValue)
@@ -69,11 +77,30 @@ object CountRateMetric {
       Ordering.fromLessThan(_.ratePerSecond < _.ratePerSecond)
   }
 
+  abstract class RateObjective extends ServiceLevelObjective[Value] with Product with Serializable
+  object RateObjective {
+    final case class MinRate(minAllowedRatePerSecond: Double) extends RateObjective {
+      override def isViolatedBy(metricValue: CountRateMetric.Value): Boolean =
+        Ordering[CountRateMetric.Value].lt(metricValue, v)
+
+      private val v = CountRateMetric.Value(minAllowedRatePerSecond)
+    }
+
+    final case class MaxRate(minAllowedRatePerSecond: Double) extends RateObjective {
+      override def isViolatedBy(metricValue: CountRateMetric.Value): Boolean =
+        Ordering[CountRateMetric.Value].gt(metricValue, v)
+
+      private val v = CountRateMetric.Value(minAllowedRatePerSecond)
+    }
+  }
+
   def empty[T](
       countingFunction: T => Int,
-      objective: Option[ServiceLevelObjective[Value]] = None,
+      periodicObjectives: List[RateObjective],
+      finalObjectives: List[RateObjective],
   ): CountRateMetric[T] = CountRateMetric[T](
     countingFunction,
-    objective.map(obj => obj -> None),
+    periodicObjectives.map(obj => obj -> None),
+    finalObjectives = finalObjectives,
   )
 }

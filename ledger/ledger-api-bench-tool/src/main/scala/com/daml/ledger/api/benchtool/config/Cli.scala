@@ -101,7 +101,7 @@ object Cli {
 
     private def note(level: Int, param: String, desc: String = ""): OptionDef[Unit, Config] = {
       val paddedParam = s"${" " * level * 2}$param"
-      val internalPadding = math.max(1, 40 - paddedParam.length)
+      val internalPadding = math.max(1, 50 - paddedParam.length)
       note(s"$paddedParam${" " * internalPadding}$desc")
     }
 
@@ -110,12 +110,17 @@ object Cli {
     note(1, "Transactions/transaction trees:")
     note(2, "stream-type=<transactions|transaction-trees>", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
-    note(2, "filters=party1@template1@template2+party2", "(required)")
+    note(
+      2,
+      "filters=party1@template1@template2+party2",
+      "List of per-party filters separated by the plus symbol (required)",
+    )
     note(2, "begin-offset=<offset>")
     note(2, "end-offset=<offset>")
     note(2, "max-delay=<seconds>", "Max record time delay objective")
     note(2, "min-consumption-speed=<speed>", "Min consumption speed objective")
-    note(2, "min-rate=<rate>", "Min item rate per second")
+    note(2, "min-item-rate=<rate>", "Min item rate per second")
+    note(2, "max-item-rate=<rate>", "Max item rate per second")
     note(1, "Active contract sets:")
     note(2, "stream-type=active-contracts", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
@@ -124,13 +129,16 @@ object Cli {
       "filters=party1@template1@template2+party2",
       "List of per-party filters separated by the plus symbol (required)",
     )
-    note(2, "min-rate=<rate>", "Min item rate per second")
+    note(2, "min-item-rate=<rate>", "Min item rate per second")
+    note(2, "max-item-rate=<rate>", "Max item rate per second")
     note(1, "Command completions:")
     note(2, "stream-type=completions", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
     note(2, "party=<party>", "(required)")
     note(2, "begin-offset=<offset>")
     note(2, "template-ids=<id1>|<id2>")
+    note(2, "min-item-rate=<rate>", "Min item rate per second")
+    note(2, "max-item-rate=<rate>", "Max item rate per second")
   }
 
   def config(args: Array[String]): Option[Config] =
@@ -172,16 +180,20 @@ object Cli {
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
           maxDelaySeconds <- optionalLongField("max-delay")
           minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
-          minItemRate <- optionalDoubleField("min-rate")
+          minItemRate <- optionalDoubleField("min-item-rate")
+          maxItemRate <- optionalDoubleField("max-item-rate")
         } yield WorkflowConfig.StreamConfig.TransactionsStreamConfig(
           name = name,
           filters = filters,
           beginOffset = beginOffset,
           endOffset = endOffset,
-          objectives = WorkflowConfig.StreamConfig.Objectives(
-            maxDelaySeconds = maxDelaySeconds,
-            minConsumptionSpeed = minConsumptionSpeed,
-            minItemRate = minItemRate,
+          objectives = Some(
+            WorkflowConfig.StreamConfig.TransactionObjectives(
+              maxDelaySeconds = maxDelaySeconds,
+              minConsumptionSpeed = minConsumptionSpeed,
+              minItemRate = minItemRate,
+              maxItemRate = maxItemRate,
+            )
           ),
         )
 
@@ -194,16 +206,20 @@ object Cli {
             endOffset <- optionalStringField("end-offset").map(_.map(offset))
             maxDelaySeconds <- optionalLongField("max-delay")
             minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
-            minItemRate <- optionalDoubleField("min-rate")
+            minItemRate <- optionalDoubleField("min-item-rate")
+            maxItemRate <- optionalDoubleField("max-item-rate")
           } yield WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
             name = name,
             filters = filters,
             beginOffset = beginOffset,
             endOffset = endOffset,
-            objectives = WorkflowConfig.StreamConfig.Objectives(
-              maxDelaySeconds = maxDelaySeconds,
-              minConsumptionSpeed = minConsumptionSpeed,
-              minItemRate = minItemRate,
+            objectives = Some(
+              WorkflowConfig.StreamConfig.TransactionObjectives(
+                maxDelaySeconds = maxDelaySeconds,
+                minConsumptionSpeed = minConsumptionSpeed,
+                minItemRate = minItemRate,
+                maxItemRate = maxItemRate,
+              )
             ),
           )
 
@@ -211,14 +227,16 @@ object Cli {
             : Either[String, WorkflowConfig.StreamConfig.ActiveContractsStreamConfig] = for {
           name <- stringField("name")
           filters <- stringField("filters").flatMap(filters)
-          minItemRate <- optionalDoubleField("min-rate")
+          minItemRate <- optionalDoubleField("min-item-rate")
+          maxItemRate <- optionalDoubleField("max-item-rate")
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
-          objectives = WorkflowConfig.StreamConfig.Objectives(
-            maxDelaySeconds = None,
-            minConsumptionSpeed = None,
-            minItemRate = minItemRate,
+          objectives = Some(
+            WorkflowConfig.StreamConfig.RateObjectives(
+              minItemRate = minItemRate,
+              maxItemRate = maxItemRate,
+            )
           ),
         )
 
@@ -228,11 +246,19 @@ object Cli {
             party <- stringField("party")
             applicationId <- stringField("application-id")
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
+            minItemRate <- optionalDoubleField("min-item-rate")
+            maxItemRate <- optionalDoubleField("max-item-rate")
           } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
             name = name,
             party = party,
             applicationId = applicationId,
             beginOffset = beginOffset,
+            objectives = Some(
+              WorkflowConfig.StreamConfig.RateObjectives(
+                minItemRate = minItemRate,
+                maxItemRate = maxItemRate,
+              )
+            ),
           )
 
         val config = stringField("stream-type").flatMap[String, WorkflowConfig.StreamConfig] {
