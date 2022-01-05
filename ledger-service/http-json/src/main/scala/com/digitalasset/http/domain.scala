@@ -156,6 +156,11 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   final case class UserDetails(userId: String, primaryParty: Option[String])
 
+  final case class CreateUserRequest(
+      userDetails: UserDetails,
+      initialRights: UserRights,
+  )
+
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 
   final case class CommandMeta(

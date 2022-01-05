@@ -55,6 +55,8 @@ import scala.util.control.NonFatal
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
+import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
@@ -217,6 +219,7 @@ class Endpoints(
           ),
           path("query") & withTimer(queryMatchingTimer) apply toRoute(query(req)),
           path("fetch") & withFetchTimer apply toRoute(fetch(req)),
+          path("user" / "create") & withFetchTimer apply toRoute(allocateUser(req)),
           path("parties") & withFetchTimer apply toRoute(parties(req)),
           path("parties" / "allocate") & withTimer(
             allocatePartyTimer
@@ -498,6 +501,53 @@ class Endpoints(
       (jwt, cmd) => partiesService.parties(jwt, toNonEmptySet(cmd))
     )(req)
       .map(ps => partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList))
+
+  def allocateUser(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[Boolean]] =
+    proxyWithCommand { (jwt, createUserRequest: domain.CreateUserRequest) =>
+      {
+        import scalaz.std.list._
+        import scalaz.std.option._
+        import scalaz.syntax.traverse._
+        import scalaz.syntax.std.either._
+        import com.daml.lf.data.Ref
+        val input =
+          for {
+            username <- Ref.UserId.fromString(createUserRequest.userDetails.userId).disjunction
+            primaryParty <- createUserRequest.userDetails.primaryParty.traverse(it =>
+              Ref.Party.fromString(it).disjunction
+            )
+            canActAs <-
+              createUserRequest.initialRights.canActAs.traverse(it =>
+                Ref.Party
+                  .fromString(it.toString)
+                  .map(CanActAs(_): UserRight)
+                  .disjunction
+              )
+            canReadAs <-
+              createUserRequest.initialRights.canReadAs.traverse(it =>
+                Ref.Party.fromString(it.toString).map(CanReadAs(_): UserRight).disjunction
+              )
+            isAdminLs =
+              if (createUserRequest.initialRights.isAdmin) List(ParticipantAdmin)
+              else List.empty
+          } yield (username, primaryParty, canActAs ++ canReadAs ++ isAdminLs)
+        for {
+          info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
+            (Ref.UserId, Option[Ref.Party], List[UserRight])
+          ]
+          (username, primaryParty, initialRights) = info
+          _ <- EitherT.rightT(
+            userManagementClient.createUser(
+              User(username, primaryParty),
+              initialRights,
+              Some(jwt.value),
+            )
+          )
+        } yield domain.OkResponse(true): domain.SyncResponse[Boolean]
+      }.run
+    }(req)
 
   def allocateParty(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
