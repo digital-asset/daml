@@ -811,29 +811,6 @@ load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_depen
 buildifier_dependencies()
 
 nixpkgs_package(
-    name = "grpc_nix",
-    attribute_path = "grpc",
-    build_file_content = """
-load("@os_info//:os_info.bzl", "is_linux")
-cc_library(
-  name = "grpc_lib",
-  srcs = [":lib/libgrpc.so", ":lib/libgrpc.so.20", ":lib/libgrpc.so.20.0.0", ":lib/libgpr.so", ":lib/libgpr.so.20", ":lib/libgpr.so.20.0.0"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
-  visibility = ["//visibility:public"],
-  hdrs = [":include"],
-  includes = ["include"],
-)
-filegroup(
-  name = "grpc_file",
-  srcs = glob(["lib/*"]),
-  visibility = ["//visibility:public"],
-)
-    """,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
-nixpkgs_package(
     name = "postgresql_nix",
     attribute_path = "postgresql_10",
     fail_not_supported = False,

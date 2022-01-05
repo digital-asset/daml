@@ -12,7 +12,6 @@ let shared = rec {
     docker
     gawk
     gnutar
-    grpc
     grpcurl
     gzip
     imagemagick
