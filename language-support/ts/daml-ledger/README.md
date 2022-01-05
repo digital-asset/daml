@@ -131,6 +131,11 @@ Return an array of PartyInfo for all parties on the ledger.
 
 Allocate a new party.
 
+`getUser`
+------------------
+
+Returns the current User implicitly described by the currently used JWT.
+
 `listPackages`
 --------------
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess, spawn, spawnSync } from 'child_process';
 import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
@@ -24,12 +24,25 @@ const computeToken = (party: string) => encode({
   },
 }, SECRET_KEY, 'HS256');
 
+const computeUserToken = (name: string) => encode({
+    sub: name,
+}, SECRET_KEY, 'HS256');
+
 const ALICE_PARTY = 'Alice';
 const ALICE_TOKEN = computeToken(ALICE_PARTY);
 const BOB_PARTY = 'Bob';
 const BOB_TOKEN = computeToken(BOB_PARTY);
 const CHARLIE_PARTY = 'Charlie'
 const CHARLIE_TOKEN = computeToken(CHARLIE_PARTY)
+const USERNAME = "NiceUser"
+const USER_DETAILS = {
+  "user": {
+    "id": USERNAME,
+    "primary_party": ALICE_PARTY,
+  },
+  "rights": [{"can_act_as": {"party": ALICE_PARTY}}]
+};
+const USER_TOKEN = computeUserToken(USERNAME);
 
 let sandboxPort: number | undefined = undefined;
 const SANDBOX_PORT_FILE = 'sandbox.port';
@@ -74,6 +87,18 @@ beforeAll(async () => {
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, { encoding: 'utf8' });
   sandboxPort = parseInt(sandboxPortData);
   console.log('Sandbox listening on port ' + sandboxPort.toString());
+
+  const grpcurlUserArgs = [
+    "-plaintext",
+    "-d",
+    JSON.stringify(USER_DETAILS),
+    "localhost:6865",
+    "com.daml.ledger.api.v1.admin.UserManagementService/CreateUser",
+  ];
+  
+  spawnSync('grpcurl', grpcurlUserArgs, {"encoding": "utf8"});
+  console.log('Created user')
+
 
   jsonApiProcess = spawnJvm(
     getEnv('JSON_API'),
@@ -580,6 +605,13 @@ test('party API', async () => {
 
   expect(_.sortBy(allPartiesAfter)).toEqual(_.sortBy(["Alice", "Bob", "Dave", newParty1.identifier, newParty2.identifier]));
 
+});
+
+
+test('user API', async () => {
+  const ledger = new Ledger({token: USER_TOKEN, httpBaseUrl: httpBaseUrl()});
+  const user = await ledger.getUser()
+  expect(user).toEqual({ userId: USER_DETAILS.user.id, primaryParty: USER_DETAILS.user.primary_party });
 });
 
 test('package API', async () => {
