@@ -1,15 +1,13 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
-package ledger.sandbox.bridge
+package com.daml.ledger.sandbox.bridge
 
-import metrics.{MetricName, Metrics}
-
-import com.codahale.metrics.{Counter, Histogram, Timer}
+import com.daml.metrics.{MetricName, Metrics}
+import com.codahale.metrics.{Counter, Histogram, MetricRegistry, Timer}
 
 class BridgeMetrics(metrics: Metrics) {
-  private val registry = metrics.registry
+  val registry: MetricRegistry = metrics.registry
 
   val Prefix: MetricName = MetricName.Daml :+ "sandbox_ledger_bridge"
 

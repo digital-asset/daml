@@ -37,18 +37,19 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     initialLedgerEnd: Offset,
     bridgeMetrics: BridgeMetrics,
     errorFactories: ErrorFactories,
+    servicesThreadPoolSize: Int,
 )(implicit
     loggingContext: LoggingContext,
-    executionContext: ExecutionContext,
+    servicesExecutionContext: ExecutionContext,
 ) extends LedgerBridge {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  private val AsyncStagesParallelism = 64
 
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
-      .mapAsyncUnordered(AsyncStagesParallelism)(prepareSubmission)
+      // Set the parallelism as high as the bridgeThreadPoolSize
+      .mapAsyncUnordered(servicesThreadPoolSize)(prepareSubmission)
       .mapAsync(parallelism = 1)(tagWithLedgerEnd)
-      .mapAsync(AsyncStagesParallelism)(conflictCheckWithCommitted)
+      .mapAsync(servicesThreadPoolSize)(conflictCheckWithCommitted)
       .statefulMapConcat(sequence)
 
   // This stage precomputes the transaction effects for transaction submissions.

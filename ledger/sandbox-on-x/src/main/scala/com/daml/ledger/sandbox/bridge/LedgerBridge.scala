@@ -1,12 +1,10 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
-package ledger.sandbox.bridge
+package com.daml.ledger.sandbox.bridge
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -18,12 +16,10 @@ import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.common.primitives.Longs
 
 import java.util.UUID
-import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
 trait LedgerBridge {
@@ -35,21 +31,13 @@ object LedgerBridge {
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       indexService: IndexService,
-      metrics: Metrics,
+      bridgeMetrics: BridgeMetrics,
+      servicesThreadPoolSize: Int,
   )(implicit
-      loggingContext: LoggingContext
-  ): ResourceOwner[LedgerBridge] = {
-    val bridgeMetrics = new BridgeMetrics(metrics)
-
-    implicit val ec: ExecutionContext =
-      ExecutionContext.fromExecutorService(
-        new InstrumentedExecutorService(
-          Executors.newWorkStealingPool(config.extra.bridgeThreadPoolSize),
-          metrics.registry,
-          bridgeMetrics.threadpool.toString,
-        )
-      )
-
+      loggingContext: LoggingContext,
+      // TODO SoX: Consider using a dedicated thread-pool for the ledger bridge
+      servicesExecutionContext: ExecutionContext,
+  ): ResourceOwner[LedgerBridge] =
     if (config.extra.conflictCheckingEnabled)
       for {
         initialLedgerEnd <- ResourceOwner.forFuture(() => indexService.currentLedgerEnd())
@@ -62,13 +50,13 @@ object LedgerBridge {
           errorFactories = ErrorFactories(
             new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
           ),
+          servicesThreadPoolSize = servicesThreadPoolSize,
         )
       } yield conflictCheckingLedgerBridge
     else
       ResourceOwner.forValue(() =>
         new PassThroughLedgerBridge(participantId = participantConfig.participantId)
       )
-  }
 
   private[bridge] def fromOffset(offset: Offset): Long = {
     val offsetBytes = offset.toByteArray
