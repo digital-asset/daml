@@ -89,26 +89,39 @@ USAGE
   exit
   ;;
 --stable)
-  if [[ $TARGET == "main" ]]; then
-    # Check against the most recent stable tag.
-    # This check runs only on main or PRs targeting main.
-    #
-    # This check does not need to run on release branch commits because
-    # they are built sequentially, so no conflicts are possible and the per-PR
-    # check is enough.
-    readonly LATEST_STABLE_TAG="$(git tag | grep -v "snapshot" | sort -V | tail -1)"
-    # The v1.17 stable release includes the buf config file with the default name `buf.yml`.
-    # Starting with v1.18 we have multiple buf config files.
-    if [[ $LATEST_STABLE_TAG =~ "v1.17."* ]]; then
-      BUF_CONFIG_UPDATED=false
-    else
-      BUF_CONFIG_UPDATED=true
-    fi
-    BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
-    check_protos
+  # Check against the highest stable tag (according to semver) for the target branch.
+  #
+  # This check does not need to run on release branch commits because
+  # they are built sequentially, so no conflicts are possible and the per-PR
+  # check is enough.
+  readonly RELEASE_BRANCH_REGEX="^release/.*"
+  LATEST_STABLE_TAG=""
+  if [[ "${TARGET}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
+    readonly BRANCH_SUFFIX="${TARGET#release/}"
+    readonly MINOR_VERSION="${BRANCH_SUFFIX%.x}"
+    readonly NEXT_MINOR_VERSION=$(semver bump minor "$MINOR_VERSION.0")
+    readonly STABLE_TAGS=($(git tag | grep "v.*" | grep -v "snapshot" | sort -V))
+    LATEST_STABLE_TAG="$(
+      for TAG in "${STABLE_TAGS[@]}"; do
+        if [[ $(semver compare "${TAG#v}" "$NEXT_MINOR_VERSION") == "-1" ]]; then
+          echo "$TAG";
+        fi;
+      done | tail -1)"
+  elif [[ "${TARGET}" == "main" ]]; then
+    LATEST_STABLE_TAG="$(git tag | grep "v.*" | grep -v "snapshot" | sort -V | tail -1)"
   else
-    echo "Skipping check for protobuf compatibility because the target is '${TARGET}' and not 'main'"
+    echo "unsupported target branch $TARGET" >&2
+    exit 1
   fi
+  # Starting with v1.18 we have multiple buf config files.
+  # Older versions include the buf config file with the default name `buf.yml`.
+  if [[ $(semver compare "${LATEST_STABLE_TAG#v}" "1.18.0") == "-1" ]]; then
+    BUF_CONFIG_UPDATED=false
+  else
+    BUF_CONFIG_UPDATED=true
+  fi
+  BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
+  check_protos
   ;;
 --target)
   # Check against the tip of the target branch.
