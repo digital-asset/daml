@@ -157,10 +157,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     } yield assertion
   }
 
-  import com.daml.http.json.JsonProtocol._
   "requesting the user id should be possible via the user endpoint" in withHttpServiceAndClient(
     participantAdminJwt
   ) { (uri, _, _, ledgerClient, _) =>
+    import com.daml.http.json.JsonProtocol._
     for {
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
