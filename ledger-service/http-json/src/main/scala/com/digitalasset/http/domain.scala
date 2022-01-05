@@ -4,6 +4,8 @@
 package com.daml.http
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
+import com.daml.ledger.api.domain.UserRight
+import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.lf.iface
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
@@ -130,6 +132,29 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   )
 
   final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
+
+  final case class UserRights(canActAs: List[Party], canReadAs: List[Party], isAdmin: Boolean)
+
+  object UserRights {
+    def fromListUserRights(input: Vector[UserRight]): UserRights = {
+      val (canActAs, remaining1) = input.partitionMap {
+        case CanActAs(party) => Left(party)
+        case other => Right(other)
+      }
+      val (canReadAs, remaining2) = remaining1.partitionMap {
+        case CanReadAs(party) => Left(party)
+        case other => Right(other)
+      }
+      val isAdmin = remaining2.exists {
+        case ParticipantAdmin =>
+          true
+        case _ => false
+      }
+      UserRights(Party.subst(canActAs.toList), Party.subst(canReadAs.toList), isAdmin)
+    }
+  }
+
+  final case class UserDetails(userId: String, primaryParty: Option[String])
 
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 

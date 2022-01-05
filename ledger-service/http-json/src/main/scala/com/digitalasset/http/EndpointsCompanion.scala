@@ -87,6 +87,26 @@ object EndpointsCompanion {
       def apply(userId: String, actAs: List[String], readAs: List[String], ledgerId: String): A \/ B
     }
 
+    private[http] def parseUserIdFromToken(
+        jwt: DecodedJwt[String]
+    ): Unauthorized \/ UserId = {
+      import scalaz.syntax.std.either._
+      import spray.json._
+      val res =
+        for {
+          jsValue <-
+            Try(jwt.payload.parseJson).toEither.left.map(it => it.getMessage)
+          parsedToken <-
+            readStandardTokenPayload(
+              jsValue
+            ).toRight("Invalid token supplied")
+          userId <- parsedToken.applicationId.map(UserId.fromString) getOrElse Left(
+            "This user token contains no applicationId/userId"
+          )
+        } yield userId
+      res.disjunction.leftMap(Unauthorized)
+    }
+
     private def transformUserTokenTo[B](
         jwt: DecodedJwt[String],
         listUserRights: UserId => Future[Vector[UserRight]],
@@ -96,25 +116,8 @@ object EndpointsCompanion {
     )(implicit
         mf: Monad[Future]
     ): EitherT[Future, Unauthorized, B] = {
-      import scalaz.syntax.std.option._
-      import scalaz.syntax.std.either._
-      import spray.json._
       for {
-        jsValue <- either(
-          Try(jwt.payload.parseJson).toEither.disjunction
-            .leftMap(it => Unauthorized(it.getMessage))
-        )
-        decodedToken <- either(
-          readStandardTokenPayload(
-            jsValue
-          ) \/> Unauthorized("Invalid token supplied")
-        )
-
-        userId <- either(
-          (decodedToken.applicationId \/> Unauthorized(
-            "This user token contains no applicationId/userId"
-          )).flatMap(UserId.fromString(_).left.map(Unauthorized).disjunction)
-        )
+        userId <- either(parseUserIdFromToken(jwt))
         rights <- EitherT.rightT(listUserRights(userId))
 
         actAs = rights.collect { case CanActAs(party) =>
@@ -305,6 +308,14 @@ object EndpointsCompanion {
       a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
       p <- parse.parsePayload(a)
     } yield (jwt, p)
+
+  private[http] def decodeAndParseUserIdFromToken(rawJwt: Jwt, decodeJwt: ValidateJwt)(implicit
+      mf: Monad[Future]
+  ): ET[UserId] =
+    for {
+      decodedJwt <- EitherT.either(decodeJwt(rawJwt): Unauthorized \/ DecodedJwt[String])
+      result <- EitherT.either(CreateFromUserToken.parseUserIdFromToken(decodedJwt))
+    } yield result
 
   private[http] def decodeAndParsePayload[A](
       jwt: Jwt,
