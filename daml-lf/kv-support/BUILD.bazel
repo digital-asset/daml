@@ -25,6 +25,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
+        "//daml-lf/transaction:value_proto_java",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

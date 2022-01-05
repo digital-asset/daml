@@ -13,4 +13,6 @@ object ConversionError {
       extends ConversionError(errorMessage)
   final case class DecodeError(cause: ValueCoder.DecodeError)
       extends ConversionError(cause.errorMessage)
+  final case class InternalError(override val errorMessage: String)
+      extends ConversionError(errorMessage)
 }

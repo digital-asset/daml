@@ -27,15 +27,16 @@ import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Blinding, Engine}
+import com.daml.lf.kv.ConversionError
 import com.daml.lf.kv.contracts.{ContractConversions, RawContractInstance}
-import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
+import com.daml.lf.kv.transactions.{RawTransaction, TransactionConversions}
+import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
-import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
 private[kvutils] class TransactionCommitter(
@@ -156,72 +157,27 @@ private[kvutils] class TransactionCommitter(
     }
   }
 
-  /** Removes `Fetch` and `LookupByKey` nodes from the transactionEntry.
+  /** Removes `Fetch`, `LookupByKey` and `Rollback` nodes from the transactionEntry.
     */
   private[transaction] def trimUnnecessaryNodes: Step = new Step {
     def apply(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-      val transaction =
-        TransactionOuterClass.Transaction.parseFrom(transactionEntry.submission.getRawTransaction)
-      val nodes = transaction.getNodesList.asScala
-      val nodeMap: Map[String, TransactionOuterClass.Node] =
-        nodes.view.map(n => n.getNodeId -> n).toMap
-
-      @tailrec
-      def goNodesToKeep(todo: List[String], result: Set[String]): Set[String] = todo match {
-        case Nil => result
-        case head :: tail =>
-          import TransactionOuterClass.Node.NodeTypeCase
-          val node =
-            nodeMap.getOrElse(head, throw Err.InternalError(s"Invalid transaction node id $head"))
-          node.getNodeTypeCase match {
-            case NodeTypeCase.CREATE =>
-              goNodesToKeep(tail, result + head)
-            case NodeTypeCase.EXERCISE =>
-              goNodesToKeep(node.getExercise.getChildrenList.asScala.toList ++ tail, result + head)
-            case NodeTypeCase.ROLLBACK | NodeTypeCase.FETCH | NodeTypeCase.LOOKUP_BY_KEY |
-                NodeTypeCase.NODETYPE_NOT_SET =>
-              goNodesToKeep(tail, result)
-          }
-      }
-
-      val nodesToKeep = goNodesToKeep(transaction.getRootsList.asScala.toList, Set.empty)
-
-      val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
-
-      def stripUnnecessaryNodes(node: TransactionOuterClass.Node): TransactionOuterClass.Node =
-        if (node.hasExercise) {
-          val exerciseNode = node.getExercise
-          val keptChildren =
-            exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
-          val newExerciseNode = exerciseNode.toBuilder
-            .clearChildren()
-            .addAllChildren(keptChildren.asJavaCollection)
-            .build()
-
-          node.toBuilder
-            .setExercise(newExerciseNode)
-            .build()
-        } else {
-          node
-        }
-
-      val filteredNodes = nodes
-        .collect {
-          case node if nodesToKeep(node.getNodeId) => stripUnnecessaryNodes(node)
-        }
-
-      val newTransaction = transaction
-        .newBuilderForType()
-        .addAllRoots(filteredRoots.asJavaCollection)
-        .addAllNodes(filteredNodes.asJavaCollection)
-        .setVersion(transaction.getVersion)
-        .build()
+      val rawTransaction = RawTransaction(transactionEntry.submission.getRawTransaction)
+      val newRawTransaction = TransactionConversions
+        .keepCreateAndExerciseNodes(rawTransaction)
+        .fold(
+          {
+            case ConversionError.InternalError(errorMessage) =>
+              throw Err.InternalError(errorMessage)
+            case error => throw Err.DecodeError("Transaction", error.errorMessage)
+          },
+          identity,
+        )
 
       val newTransactionEntry = transactionEntry.submission.toBuilder
-        .setRawTransaction(newTransaction.toByteString)
+        .setRawTransaction(newRawTransaction.byteString)
         .build()
 
       StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
