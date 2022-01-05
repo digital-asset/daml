@@ -6,14 +6,14 @@ package com.daml.platform.store.backend
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 private[backend] trait StorageBackendTestsInitializeIngestion
     extends Matchers
     with Inside
     with StorageBackendSpec {
-  this: AsyncFlatSpec =>
+  this: AnyFlatSpec =>
 
   behavior of "StorageBackend (initializeIngestion)"
 
@@ -59,93 +59,91 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     // TODO: make sure it's obvious these are the stakeholders of dtoCreate() nodes created above
     val readers = Set(Ref.Party.assertFromString("signatory"))
 
-    for {
-      // Initialize
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    // Initialize
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
-      // Start the indexer (a no-op in this case)
-      end1 <- executeSql(backend.parameter.ledgerEnd)
-      _ <- executeSql(backend.ingestion.deletePartiallyIngestedData(end1))
+    // Start the indexer (a no-op in this case)
+    val end1 = executeSql(backend.parameter.ledgerEnd)
+    executeSql(backend.ingestion.deletePartiallyIngestedData(end1))
 
-      // Fully insert first batch of updates
-      _ <- executeSql(ingest(dtos1, _))
-      _ <- executeSql(updateLedgerEnd(ledgerEnd(5, 3L)))
+    // Fully insert first batch of updates
+    executeSql(ingest(dtos1, _))
+    executeSql(updateLedgerEnd(ledgerEnd(5, 3L)))
 
-      // Partially insert second batch of updates (indexer crashes before updating ledger end)
-      _ <- executeSql(ingest(dtos2, _))
+    // Partially insert second batch of updates (indexer crashes before updating ledger end)
+    executeSql(ingest(dtos2, _))
 
-      // Check the contents
-      parties1 <- executeSql(backend.party.knownParties)
-      config1 <- executeSql(backend.configuration.ledgerConfiguration)
-      packages1 <- executeSql(backend.packageBackend.lfPackages)
-      contract41 <- executeSql(
-        backend.contract.activeContractWithoutArgument(
-          readers,
-          ContractId.V0.assertFromString("#4"),
-        )
+    // Check the contents
+    val parties1 = executeSql(backend.party.knownParties)
+    val config1 = executeSql(backend.configuration.ledgerConfiguration)
+    val packages1 = executeSql(backend.packageBackend.lfPackages)
+    val contract41 = executeSql(
+      backend.contract.activeContractWithoutArgument(
+        readers,
+        ContractId.V0.assertFromString("#4"),
       )
-      contract91 <- executeSql(
-        backend.contract.activeContractWithoutArgument(
-          readers,
-          ContractId.V0.assertFromString("#9"),
-        )
+    )
+    val contract91 = executeSql(
+      backend.contract.activeContractWithoutArgument(
+        readers,
+        ContractId.V0.assertFromString("#9"),
       )
-      filterIds1 <- executeSql(
-        backend.event.activeContractEventIds(
-          partyFilter = someParty,
-          templateIdFilter = None,
-          startExclusive = 0,
-          endInclusive = 1000,
-          limit = 1000,
-        )
+    )
+    val filterIds1 = executeSql(
+      backend.event.activeContractEventIds(
+        partyFilter = someParty,
+        templateIdFilter = None,
+        startExclusive = 0,
+        endInclusive = 1000,
+        limit = 1000,
       )
+    )
 
-      // Restart the indexer - should delete data from the partial insert above
-      end2 <- executeSql(backend.parameter.ledgerEnd)
-      _ <- executeSql(backend.ingestion.deletePartiallyIngestedData(end2))
+    // Restart the indexer - should delete data from the partial insert above
+    val end2 = executeSql(backend.parameter.ledgerEnd)
+    executeSql(backend.ingestion.deletePartiallyIngestedData(end2))
 
-      // Move the ledger end so that any non-deleted data would become visible
-      _ <- executeSql(updateLedgerEnd(ledgerEnd(10, 6L)))
+    // Move the ledger end so that any non-deleted data would become visible
+    executeSql(updateLedgerEnd(ledgerEnd(10, 6L)))
 
-      // Check the contents
-      parties2 <- executeSql(backend.party.knownParties)
-      config2 <- executeSql(backend.configuration.ledgerConfiguration)
-      packages2 <- executeSql(backend.packageBackend.lfPackages)
-      contract42 <- executeSql(
-        backend.contract.activeContractWithoutArgument(
-          readers,
-          ContractId.V0.assertFromString("#4"),
-        )
+    // Check the contents
+    val parties2 = executeSql(backend.party.knownParties)
+    val config2 = executeSql(backend.configuration.ledgerConfiguration)
+    val packages2 = executeSql(backend.packageBackend.lfPackages)
+    val contract42 = executeSql(
+      backend.contract.activeContractWithoutArgument(
+        readers,
+        ContractId.V0.assertFromString("#4"),
       )
-      contract92 <- executeSql(
-        backend.contract.activeContractWithoutArgument(
-          readers,
-          ContractId.V0.assertFromString("#9"),
-        )
+    )
+    val contract92 = executeSql(
+      backend.contract.activeContractWithoutArgument(
+        readers,
+        ContractId.V0.assertFromString("#9"),
       )
-      filterIds2 <- executeSql(
-        backend.event.activeContractEventIds(
-          partyFilter = someParty,
-          templateIdFilter = None,
-          startExclusive = 0,
-          endInclusive = 1000,
-          limit = 1000,
-        )
+    )
+    val filterIds2 = executeSql(
+      backend.event.activeContractEventIds(
+        partyFilter = someParty,
+        templateIdFilter = None,
+        startExclusive = 0,
+        endInclusive = 1000,
+        limit = 1000,
       )
-    } yield {
-      parties1 should have length 1
-      packages1 should have size 1
-      config1 shouldBe Some(offset(1) -> someConfiguration)
-      contract41 should not be empty
-      contract91 shouldBe None
-      filterIds1 shouldBe List(1L, 4L) // since ledger-end does not limit the range query
+    )
 
-      parties2 should have length 1
-      packages2 should have size 1
-      config2 shouldBe Some(offset(1) -> someConfiguration)
-      contract42 should not be empty
-      contract92 shouldBe None
-      filterIds2 shouldBe List(1L)
-    }
+    parties1 should have length 1
+    packages1 should have size 1
+    config1 shouldBe Some(offset(1) -> someConfiguration)
+    contract41 should not be empty
+    contract91 shouldBe None
+    filterIds1 shouldBe List(1L, 4L) // since ledger-end does not limit the range query
+
+    parties2 should have length 1
+    packages2 should have size 1
+    config2 shouldBe Some(offset(1) -> someConfiguration)
+    contract42 should not be empty
+    contract92 shouldBe None
+    filterIds2 shouldBe List(1L)
   }
 }
