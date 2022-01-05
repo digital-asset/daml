@@ -104,10 +104,15 @@ source "$(dirname "${BASH_SOURCE[0]}")/ensure-nix"
 )
 
 # Make sure nix gets ensured in main shell
-echo source "$(dirname "${BASH_SOURCE[0]}")/ensure-nix"
+echo "source $(dirname "${BASH_SOURCE[0]}")/ensure-nix"
 
 # Expose our tools in /dev-env/bin and our version of nixpkgs
-echo "export NIX_CONF_DIR=\"${DADE_DEVENV_DIR}/etc\""
+if [[ "$("${DADE_DEVENV_DIR}/bin/semver" compare "$(get_nix_version)" '2.4.0')" -ge 0 ]]; then
+  echo "export NIX_USER_CONF_FILES=\"${DADE_DEVENV_DIR}/etc/nix.conf:\${NIX_USER_CONF_FILES}:\${XDG_CONFIG_HOME:-\${HOME}/.config}/nix/nix.conf\""
+else
+  # On an old version of Nix, overwrite the system config, as we can't support multiple config files.
+  echo "export NIX_CONF_DIR=\"${DADE_DEVENV_DIR}/etc\""
+fi
 echo "export NIX_PATH=nixpkgs=\"${DADE_NIXPKGS}\""
 echo "export PATH=\"${DADE_DEVENV_DIR}/bin:\$PATH\""
 echo "export PYTHONPATH=\".\${PYTHONPATH:+:\$PYTHONPATH}\""
