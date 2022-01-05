@@ -985,8 +985,7 @@ main =
                   , "  u2 <- createUser (User \"u1\" None) []"
                   , "  pure ()"
                   , "testUserNotFound = do"
-                  , "  u1 <- createUser (User \"u1\" None) []"
-                  , "  deleteUser \"u2\""
+                  , "  deleteUser \"nonexistent\""
                   , "  pure ()"
                   ]
                 expectScriptSuccess rs (vr "testUserManagement") $ \r ->
@@ -996,7 +995,7 @@ main =
                 expectScriptFailure rs (vr "testUserAlreadyExists") $ \r ->
                     matchRegex r "User already exists:  u1\n"
                 expectScriptFailure rs (vr "testUserNotFound") $ \r ->
-                    matchRegex r "User not found:  u2\n"
+                    matchRegex r "User not found:  nonexistent\n"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
