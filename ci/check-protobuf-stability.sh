@@ -44,13 +44,7 @@ function check_non_lf_protos() {
 
   echo "Checking protobufs against git target '${BUF_GIT_TARGET_TO_CHECK}'"
   for buf_module in "${BUF_MODULES_AGAINST_STABLE[@]}"; do
-    # Starting with version 1.17 we split the default `buf.yaml` file into multiple config files
-    # This in turns requires that we pass the `--against-config` flag for any check that is run on versions > 1.17
-    if [[ $BUF_CONFIG_UPDATED == true ]]; then
-      buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK" --against-config "${buf_module}"
-    else
-      buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK"
-    fi
+    buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK" --against-config "${buf_module}"
   done
 
 }
@@ -113,13 +107,6 @@ USAGE
     echo "unsupported target branch $TARGET" >&2
     exit 1
   fi
-  # Starting with v1.18 we have multiple buf config files.
-  # Older versions include the buf config file with the default name `buf.yml`.
-  if [[ $(semver compare "${LATEST_STABLE_TAG#v}" "1.18.0") == "-1" ]]; then
-    BUF_CONFIG_UPDATED=false
-  else
-    BUF_CONFIG_UPDATED=true
-  fi
   BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
   check_protos
   ;;
@@ -128,9 +115,6 @@ USAGE
   #
   # This check ensures that backwards compatibility is never broken on the target branch,
   # which is stricter than guaranteeing compatibility between release tags.
-  #
-  # The files are always split for versions > 1.17, and there is no way of opening a PR against a target <= 1.17 which includes this check
-  BUF_CONFIG_UPDATED=true
   BUF_GIT_TARGET_TO_CHECK=".git#branch=origin/${TARGET}"
   # The target check can be skipped by including the following trailer `Breaks-Protobuf: true` into the commit message
   if is_check_skipped; then
