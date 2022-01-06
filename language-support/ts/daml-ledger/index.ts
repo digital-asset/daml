@@ -1389,6 +1389,12 @@ class Ledger {
     return decode(jtv.array(partyInfoDecoder), json);
   }
 
+  /**
+   * Get the current user details obtained by the currently used JWT.
+   *
+   * @returns User details
+   *
+   */
   async getUser(): Promise<User> {
     const json = await this.submit('v1/user', undefined, 'get');
     return decode(userDecoder, json);
@@ -1410,7 +1416,7 @@ class Ledger {
   /**
    * Fetch a list of all package IDs from the ledger.
    *
-   * @returns List of package IDs.
+   * @returns List of package IDs. 
    *
    */
   async listPackages(): Promise<PackageId[]> {

@@ -88,6 +88,7 @@ beforeAll(async () => {
   sandboxPort = parseInt(sandboxPortData);
   console.log('Sandbox listening on port ' + sandboxPort.toString());
 
+  // TODO: Replace this with a call to the json api as soon as the CreateUser endpoint has been merged.
   const grpcurlUserArgs = [
     "-plaintext",
     "-d",
