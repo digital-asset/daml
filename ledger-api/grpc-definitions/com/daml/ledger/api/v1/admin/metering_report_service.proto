@@ -1,0 +1,69 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+option java_outer_classname = "MeteringReportOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+import "google/protobuf/timestamp.proto";
+
+// Experimental API to extract metering reports.
+//
+// Authorization rules for the services RPCs are specified on the `RpcNameRequest`
+// messages as boolean expressions over these facts:
+// - ``HasRight(r)``: true iff the authenticated user has right `r`
+//
+service MeteringReportService {
+
+    // Run a report.
+    rpc Report (ReportRequest) returns (ReportResponse);
+
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message ReportRequest {
+
+    // The from timestamp (inclusive)
+    google.protobuf.Timestamp from = 1;
+
+    // The to timestamp (exclusive)
+    google.protobuf.Timestamp to = 2;
+
+    // If provided only return results for the given applications
+    repeated string applications = 3;
+}
+
+message ApplicationReport {
+
+    // The application Id
+    string application = 1;
+
+    // The event count for the application
+    int64 events = 2;
+}
+
+message ReportResponse {
+
+    // The reporting participant
+    string participant = 1;
+
+    // The requested, and actual, from-time
+    google.protobuf.Timestamp from = 2;
+
+    // The requested to-time
+    google.protobuf.Timestamp to_requested = 3;
+
+    // The to_actual will be to_requested if the report was constructed based on immutable aggregated
+    // records.  If the report was based on partially incomplete un-aggregated records then to_actual
+    // will contain the timestamp of the last timestamp actually used in the construction of the report.
+    google.protobuf.Timestamp to_actual = 4;
+
+    // A list of event counts for each application
+    repeated ApplicationReport reports = 5;
+
+}
+
