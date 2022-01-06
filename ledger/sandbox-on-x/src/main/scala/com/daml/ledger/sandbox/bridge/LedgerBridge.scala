@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.ledger.sandbox.domain.Submission
+import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.logging.LoggingContext
@@ -41,15 +42,20 @@ object LedgerBridge {
     if (config.extra.conflictCheckingEnabled)
       for {
         initialLedgerEnd <- ResourceOwner.forFuture(() => indexService.currentLedgerEnd())
+        allocatedPartiesAtInitialization <- ResourceOwner.forFuture(() =>
+          indexService.listKnownParties().map(_.map(_.party).toSet)
+        )
         conflictCheckingLedgerBridge = new ConflictCheckingLedgerBridge(
           participantId = participantConfig.participantId,
           indexService = indexService,
           initialLedgerEnd =
             Offset.fromHexString(Ref.HexString.assertFromString(initialLedgerEnd.value)),
+          allocatedPartiesAtInitialization = allocatedPartiesAtInitialization,
           bridgeMetrics = bridgeMetrics,
           errorFactories = ErrorFactories(
             new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
           ),
+          validatePartyAllocation = !config.extra.implicitPartyAllocation,
           servicesThreadPoolSize = servicesThreadPoolSize,
         )
       } yield conflictCheckingLedgerBridge
@@ -67,6 +73,20 @@ object LedgerBridge {
         Array.fill[Byte](8 - offsetBytes.length)(0) ++ offsetBytes
       )
   }
+
+  private[bridge] def partyAllocationSuccessMapper(
+      party: Ref.Party,
+      displayName: Option[String],
+      submissionId: Ref.SubmissionId,
+      participantId: ParticipantId,
+  ): Update.PartyAddedToParticipant =
+    Update.PartyAddedToParticipant(
+      party = party,
+      displayName = displayName.getOrElse(party),
+      participantId = participantId,
+      recordTime = Time.Timestamp.now(),
+      submissionId = Some(submissionId),
+    )
 
   def successMapper(submission: Submission, index: Long, participantId: Ref.ParticipantId): Update =
     submission match {

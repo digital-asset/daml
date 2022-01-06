@@ -5,7 +5,6 @@ package com.daml.ledger.sandbox
 
 import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit}
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -44,7 +43,7 @@ import com.daml.platform.apiserver.{
   StandaloneApiServer,
   StandaloneIndexService,
 }
-import com.daml.platform.configuration.ServerRole
+import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
@@ -248,7 +247,7 @@ object SandboxOnXRunner {
       config = apiServerConfig,
       commandConfig = config.commandConfig,
       submissionConfig = config.submissionConfig,
-      partyConfig = BridgeConfigProvider.partyConfig(config),
+      partyConfig = PartyConfiguration(config.extra.implicitPartyAllocation),
       optWriteService = Some(writeService),
       authService = BridgeConfigProvider.authService(config),
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),

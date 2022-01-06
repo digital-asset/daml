@@ -10,6 +10,7 @@ case class BridgeConfig(
     conflictCheckingEnabled: Boolean,
     maxDedupSeconds: Int,
     submissionBufferSize: Int,
+    implicitPartyAllocation: Boolean,
 )
 
 object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
@@ -29,6 +30,14 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
       .text("Enables the ledger-side submission conflict checking.")
       .action((_, c) => c.copy(extra = c.extra.copy(conflictCheckingEnabled = true)))
 
+    parser
+      .opt[Boolean](name = "implicit-party-allocation")
+      .optional()
+      .action((x, c) => c.copy(extra = c.extra.copy(implicitPartyAllocation = x)))
+      .text(
+        s"When referring to a party that doesn't yet exist on the ledger, the participant will implicitly allocate that party."
+          + s" You can optionally disable this behavior to bring participant into line with other ledgers."
+      )
     ()
   }
 
@@ -37,5 +46,6 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     conflictCheckingEnabled = false,
     maxDedupSeconds = 30,
     submissionBufferSize = 500,
+    implicitPartyAllocation = false,
   )
 }

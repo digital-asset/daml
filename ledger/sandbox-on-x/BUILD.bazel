@@ -82,6 +82,7 @@ da_scala_test_suite(
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
         "//ledger/participant-state",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_mockito_mockito_core",
@@ -159,7 +160,6 @@ conformance_test(
         "--verbose",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        "--exclude=ClosedWorldIT",
         "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
         # Exclude offset command deduplication tests as
         # Sandbox-on-X has support only for participant side deduplication,

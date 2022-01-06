@@ -11,10 +11,15 @@ import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.daml.ledger.sandbox.bridge.ConflictCheckingLedgerBridge._
-import com.daml.ledger.sandbox.bridge.LedgerBridge.{fromOffset, successMapper, toOffset}
+import com.daml.ledger.sandbox.bridge.LedgerBridge.{
+  fromOffset,
+  partyAllocationSuccessMapper,
+  successMapper,
+  toOffset,
+}
 import com.daml.ledger.sandbox.bridge.SequencerState.LastUpdatedAt
 import com.daml.ledger.sandbox.domain.Rejection._
-import com.daml.ledger.sandbox.domain.Submission.Transaction
+import com.daml.ledger.sandbox.domain.Submission.{AllocateParty, Transaction}
 import com.daml.ledger.sandbox.domain._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -27,6 +32,7 @@ import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining._
 import scala.util.{Failure, Success, Try}
@@ -35,14 +41,16 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     participantId: Ref.ParticipantId,
     indexService: IndexService,
     initialLedgerEnd: Offset,
+    allocatedPartiesAtInitialization: Set[Ref.Party],
     bridgeMetrics: BridgeMetrics,
     errorFactories: ErrorFactories,
+    validatePartyAllocation: Boolean,
     servicesThreadPoolSize: Int,
 )(implicit
-    loggingContext: LoggingContext,
-    servicesExecutionContext: ExecutionContext,
+    servicesExecutionContext: ExecutionContext
 ) extends LedgerBridge {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+  @volatile private var allocatedParties = allocatedPartiesAtInitialization
 
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
@@ -67,6 +75,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
                 transaction.transaction.updatedContractKeys,
                 transaction.transaction.consumedContracts,
                 Blinding.blind(transaction),
+                transaction.informees,
                 transactionSubmission,
               )
             )
@@ -74,7 +83,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
             .map(
               withErrorLogger(submitterInfo.submissionId)(
                 invalidInputFromParticipantRejection(submitterInfo.toCompletionInfo())(_)
-              )
+              )(transactionSubmission.loggingContext, logger)
             )
         ),
       )
@@ -89,7 +98,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
       Timed.future(
         bridgeMetrics.Stages.tagWithLedgerEnd,
         indexService
-          .currentLedgerEnd()
+          .currentLedgerEnd()(preparedSubmission.submission.loggingContext)
           .map(ledgerEnd =>
             Right(ApiOffset.assertFromString(ledgerEnd.value) -> preparedSubmission)
           ),
@@ -109,6 +118,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
               _,
               _,
               blindingInfo,
+              transactionInformees,
               originalSubmission,
             ),
           )
@@ -127,7 +137,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
                     originalSubmission.transactionMeta.ledgerEffectiveTime,
                   divulged = blindingInfo.divulgence.keySet,
                 ).flatMap {
-                  case Right(_) => validatePartyAllocation(originalSubmission)
+                  case Right(_) => validateParties(originalSubmission, transactionInformees)
                   case rejection => Future.successful(rejection)
                 }.flatMap {
                   case Right(_) => validateKeyUsages(originalSubmission, keyInputs)
@@ -136,7 +146,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
             },
           )
           .map(_.map(_ => validated))
-      }
+      }(originalSubmission.loggingContext, logger)
     case Right(validated) => Future.successful(Right(validated))
   }
 
@@ -154,10 +164,10 @@ private[sandbox] class ConflictCheckingLedgerBridge(
 
           val update = in match {
             case Left(rejection) => rejection
-            case Right((_, NoOpPreparedSubmission(other))) =>
-              successMapper(other, offsetIdx, participantId)
+            case Right((_, NoOpPreparedSubmission(submission))) =>
+              processNonTransactionSubmission(offsetIdx, submission)
             case Right((noConflictUpTo, txSubmission: PreparedTransactionSubmission)) =>
-              val submitterInfo = txSubmission.originalSubmission.submitterInfo
+              val submitterInfo = txSubmission.submission.submitterInfo
 
               withErrorLogger(submitterInfo.submissionId) { implicit errorLogger =>
                 conflictCheckWithInFlight(
@@ -166,7 +176,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
                   keyInputs = txSubmission.keyInputs,
                   inputContracts = txSubmission.inputContracts,
                 )
-              }.fold(
+              }(txSubmission.submission.loggingContext, logger).fold(
                 toCommandRejectedUpdate(_, submitterInfo.toCompletionInfo()),
                 { _ =>
                   // Update the sequencer state
@@ -174,7 +184,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
                     .dequeue(noConflictUpTo)
                     .enqueue(newOffset, txSubmission.updatedKeys, txSubmission.consumedContracts)
 
-                  successMapper(txSubmission.originalSubmission, offsetIdx, participantId)
+                  successMapper(txSubmission.submission, offsetIdx, participantId)
                 },
               )
           }
@@ -184,6 +194,20 @@ private[sandbox] class ConflictCheckingLedgerBridge(
       )
     }
   }
+
+  private def processNonTransactionSubmission(offsetIndex: Long, submission: Submission): Update =
+    submission match {
+      case AllocateParty(hint, displayName, submissionId) =>
+        val party = Ref.Party.assertFromString(hint.getOrElse(UUID.randomUUID().toString))
+        if (allocatedParties(party))
+          logger.warn(
+            s"Found duplicate party submission with ID $party for submissionId ${Some(submissionId)}"
+          )(submission.loggingContext)
+
+        allocatedParties = allocatedParties + party
+        partyAllocationSuccessMapper(party, displayName, submissionId, participantId)
+      case other => successMapper(other, offsetIndex, participantId)
+    }
 
   private def conflictCheckWithInFlight(
       keysState: Map[Key, (Option[ContractId], LastUpdatedAt)],
@@ -220,15 +244,26 @@ private[sandbox] class ConflictCheckingLedgerBridge(
           }
     }
 
-  private def validatePartyAllocation(
-      transaction: Submission.Transaction
+  private def validateParties(
+      transaction: Submission.Transaction,
+      transactionInformees: Set[Ref.Party],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): AsyncValidation[Unit] = {
-    val _ = (transaction, contextualizedErrorLogger)
-    // TODO SoX: Implement
-    Future.successful(Right(()))
-  }
+  ): AsyncValidation[Unit] =
+    // This check which is O(n) in the number of transaction informees does not warrant a separate async dispatch
+    Future.successful {
+      if (validatePartyAllocation) {
+        val unallocatedInformees = transactionInformees diff allocatedParties
+        Either.cond(
+          unallocatedInformees.isEmpty,
+          (),
+          toCommandRejectedUpdate(
+            UnallocatedParties(unallocatedInformees.toSet)(errorFactories),
+            transaction.submitterInfo.toCompletionInfo(),
+          ),
+        )
+      } else Right(())
+    }
 
   private def checkTimeModel(
       transaction: Transaction
@@ -251,7 +286,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
       Future.successful(Right(()))
     else
       indexService
-        .lookupMaximumLedgerTime(referredContracts)
+        .lookupMaximumLedgerTime(referredContracts)(transaction.loggingContext)
         .transform {
           case Failure(MissingContracts(missingContractIds)) =>
             Success(
@@ -302,7 +337,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
           case Right(_) =>
             indexService
               // TODO SoX: Perform lookup more efficiently and do not use a readers-based lookup
-              .lookupContractKey(transaction.transaction.informees, key)
+              .lookupContractKey(transaction.transaction.informees, key)(transaction.loggingContext)
               .map { lookupResult =>
                 (inputState, lookupResult) match {
                   case (LfTransaction.NegativeKeyLookup, Some(actual)) =>
