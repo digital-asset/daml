@@ -2,7 +2,7 @@
 , binutils
 , buildEnv
 , darwin
-, llvmPackages
+, llvmPackages_7
 , makeWrapper
 , overrideCC
 , runCommand
@@ -14,6 +14,9 @@
 # https://github.com/NixOS/nixpkgs/pull/41589.
 let cc-darwin =
   with darwin.apple_sdk.frameworks;
+  # Note (MK): For now we pin to clang 7 since newer versions fail to build abseil.
+  let stdenv = llvmPackages_7.stdenv;
+  in
   runCommand "cc-wrapper-bazel"
   {
     buildInputs = [ stdenv.cc makeWrapper ];
@@ -33,12 +36,12 @@ let cc-darwin =
     makeWrapper ${stdenv.cc}/bin/cc $out/bin/cc \
       --add-flags "-Wno-unused-command-line-argument \
                    -mmacosx-version-min=10.14 \
-                   -isystem ${llvmPackages.libcxx}/include/c++/v1 \
+                   -isystem ${llvmPackages_7.libcxx}/include/c++/v1 \
                    -F${CoreFoundation}/Library/Frameworks \
                    -F${CoreServices}/Library/Frameworks \
                    -F${Security}/Library/Frameworks \
                    -F${Foundation}/Library/Frameworks \
-                   -L${llvmPackages.libcxx}/lib \
+                   -L${llvmPackages_7.libcxx}/lib \
                    -L${darwin.libobjc}/lib"
   '';
 
