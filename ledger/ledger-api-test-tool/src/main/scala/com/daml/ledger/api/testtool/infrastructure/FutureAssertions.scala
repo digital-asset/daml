@@ -3,16 +3,16 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
+import java.time.Instant
 
 import com.daml.ledger.api.testtool.infrastructure.FutureAssertions.ExpectedFailureException
+import com.daml.timer.Delayed
 import org.slf4j.Logger
 
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
-import scala.concurrent.duration._
 
 final class FutureAssertions[T](future: Future[T]) {
 
@@ -45,34 +45,80 @@ final class FutureAssertions[T](future: Future[T]) {
 
 object FutureAssertions {
 
-  implicit val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
-
-  def succeedsAfter[V](delay: FiniteDuration)(test: => Future[V]): Future[V] = {
-    scheduler.schedule(() => test, delay.toMillis, TimeUnit.MILLISECONDS).get()
+  def assertAfter[V](
+      delay: FiniteDuration
+  )(test: => Future[V]): Future[V] = {
+    Delayed.Future.by(delay)(test)
   }
 
-  def succeedsEventually(delay: FiniteDuration = 10.millis, maxInterval: FiniteDuration)(
-      test: => Future[_]
-  )(implicit ec: ExecutionContext): Future[Any] = {
-    if ((maxInterval - delay) <= Duration.Zero) {
-      succeedsAfter(delay)(test)
-    } else {
-      succeedsAfter(delay)(test).recoverWith { case NonFatal(_) =>
-        succeedsEventually(delay, maxInterval - delay)(test)
+  def succeedsEventually[V](
+      delay: FiniteDuration = 100.millis,
+      maxInterval: FiniteDuration,
+      description: String,
+  )(
+      test: => Future[V]
+  )(implicit ec: ExecutionContext, logger: Logger): Future[V] = {
+    def internalSucceedsEventually(interval: FiniteDuration): Future[V] = {
+      val newMaxInterval = interval - delay
+      if (newMaxInterval < Duration.Zero) {
+        test.andThen { case Failure(exception) =>
+          logger.error(
+            s"Assertion never succeeded after $maxInterval with a delay of $delay. Description: $description",
+            exception,
+          )
+        }
+      } else {
+        if (newMaxInterval == Duration.Zero) {
+          assertAfter(delay)(test)
+        } else {
+          assertAfter(delay)(test).recoverWith { case NonFatal(ex) =>
+            logger.debug(
+              s"Failed assertion: $description. Running again with new max interval $newMaxInterval",
+              ex,
+            )
+            internalSucceedsEventually(newMaxInterval)
+          }
+        }
       }
     }
+
+    internalSucceedsEventually(maxInterval)
   }
 
-  def succeedsUntil(delay: FiniteDuration = 10.millis, succeedDuration: FiniteDuration)(
-      test: => Future[_]
-  )(implicit ec: ExecutionContext): Future[Any] = {
-    if ((succeedDuration - delay) <= Duration.Zero) {
-      succeedsAfter(delay)(test)
-    } else {
-      succeedsAfter(delay)(test).flatMap { _ =>
-        succeedsEventually(delay, succeedDuration - delay)(test)
+  def succeedsUntil[V](
+      delay: FiniteDuration = 100.millis,
+      succeedDuration: FiniteDuration,
+      succeedDeadline: Option[Instant] = None,
+  )(
+      test: => Future[V]
+  )(implicit ec: ExecutionContext, logger: Logger): Future[V] = {
+    def internalSucceedsUntil(interval: FiniteDuration): Future[V] = {
+      val newMaxInterval = interval - delay
+      if (
+        succeedDeadline.exists(
+          _.isBefore(Instant.now().plusSeconds(delay.toSeconds))
+        ) || newMaxInterval < Duration.Zero
+      ) {
+        test
+      } else {
+        if (newMaxInterval == Duration.Zero) {
+          assertAfter(delay)(test)
+        } else {
+          assertAfter(delay)(test)
+            .flatMap { _ =>
+              internalSucceedsUntil(newMaxInterval)
+            }
+        }
       }
     }
+
+    internalSucceedsUntil(succeedDuration)
+      .andThen { case Failure(exception) =>
+        logger.error(
+          s"Repeated assertion failed with a succeed duration of $succeedDuration.",
+          exception,
+        )
+      }
   }
 
   def forAllParallel[T](
