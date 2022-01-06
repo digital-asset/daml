@@ -64,6 +64,11 @@ let
         # This should be upstreamed once we tested it a bit
         # on our own setup.
         ./bazel-retry-cache.patch
+        # This fixes an issue where protoc segfaults on MacOS Monterey
+        (pkgs.fetchpatch {
+          url = "https://github.com/bazelbuild/bazel/commit/ae0a6c98d4f94abedbedb2d51c27de5febd7df67.patch";
+          sha256 = "sha256-YcdxqjTMGI86k1wgFqxJqghv0kknAjlFQFpt4VccCTE=";
+        })
       ];
     });
   };
