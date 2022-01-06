@@ -28,7 +28,7 @@
             "$ErrorActionPreference = 'Continue'",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman --version'\"",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -S --noconfirm unzip zip mingw-w64-x86_64-gcc'\"",
-            "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -S --noconfirm tar diffutils'\"",
+            "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -S --noconfirm autoconf automake diffutils git-core make ncurses perl tar xz'\"",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -U --noconfirm /jq.msys2'\"",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -U --noconfirm /netcat.msys2'\"",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -U --noconfirm /patch.msys2'\"",
