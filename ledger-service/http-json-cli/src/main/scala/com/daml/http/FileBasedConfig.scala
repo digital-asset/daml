@@ -10,22 +10,25 @@ import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.metrics.MetricsReporter
 import com.daml.pureconfigutils.{HttpServerConfig, LedgerApiConfig, MetricsConfig}
 import com.daml.pureconfigutils.SharedConfigReaders._
-import pureconfig.{ConfigReader, ConvertHelpers}
+import pureconfig.ConfigReader
+import pureconfig.error.{FailureReason, CannotConvert}
 import pureconfig.generic.semiauto._
 import ch.qos.logback.classic.{Level => LogLevel}
 
 import scala.concurrent.duration._
 
 private[http] object FileBasedConfig {
+  private[this] def catchConvertError[A, B](f: String => Either[String, B])(implicit
+      B: reflect.ClassTag[B]
+  ): String => Either[FailureReason, B] =
+    s => f(s).left.map(CannotConvert(s, B.toString, _))
+
   implicit val timeProviderTypeCfgReader: ConfigReader[ThrottleMode] =
-    ConfigReader.fromString[ThrottleMode](ConvertHelpers.catchReadError { s =>
+    ConfigReader.fromString[ThrottleMode](catchConvertError { s =>
       s.toLowerCase() match {
-        case "enforcing" => ThrottleMode.Enforcing
-        case "shaping" => ThrottleMode.Shaping
-        case s =>
-          throw new IllegalArgumentException(
-            s"Value '$s' for throttle-mode is not one of 'shaping' or 'enforcing'"
-          )
+        case "enforcing" => Right(ThrottleMode.Enforcing)
+        case "shaping" => Right(ThrottleMode.Shaping)
+        case _ => Left("not one of 'shaping' or 'enforcing'")
       }
     })
   implicit val websocketCfgReader: ConfigReader[WebsocketConfig] =
@@ -34,13 +37,12 @@ private[http] object FileBasedConfig {
     deriveReader[StaticContentConfig]
 
   implicit val dbStartupModeReader: ConfigReader[DbStartupMode] =
-    ConfigReader.fromString[DbStartupMode](ConvertHelpers.catchReadError { s =>
-      DbStartupMode.configValuesMap.getOrElse(
-        s.toLowerCase(),
-        throw new IllegalArgumentException(
-          s"Value $s for db-startup is not one of ${DbStartupMode.allConfigValues.mkString(",")}"
-        ),
-      )
+    ConfigReader.fromString[DbStartupMode](catchConvertError { s =>
+      DbStartupMode.configValuesMap
+        .get(s.toLowerCase())
+        .toRight(
+          s"not one of ${DbStartupMode.allConfigValues.mkString(",")}"
+        )
     })
   implicit val queryStoreCfgReader: ConfigReader[JdbcConfig] = deriveReader[JdbcConfig]
 
