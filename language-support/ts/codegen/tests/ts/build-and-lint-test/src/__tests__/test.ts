@@ -34,7 +34,7 @@ const BOB_PARTY = 'Bob';
 const BOB_TOKEN = computeToken(BOB_PARTY);
 const CHARLIE_PARTY = 'Charlie'
 const CHARLIE_TOKEN = computeToken(CHARLIE_PARTY)
-const USERNAME = "NiceUser"
+const USERNAME = "nice.user"
 const USER_DETAILS = {
   "user": {
     "id": USERNAME,
