@@ -1,12 +1,13 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback } from 'react'
 import { Button, Form, Grid, Header, Image, Segment } from 'semantic-ui-react'
 import Credentials from '../Credentials';
 import Ledger from '@daml/ledger';
+import { DamlHubLogin as DamlHubLoginBtn } from '@daml/hub-react';
 import { User } from '@daml.js/__PROJECT_NAME__';
-import { authConfig, httpBaseUrl, Insecure, DamlHub } from '../config';
+import { authConfig, Insecure } from '../config';
 import { useAuth0 } from "@auth0/auth0-react";
 
 type Props = {
@@ -20,7 +21,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
 
   const login = useCallback(async (credentials: Credentials) => {
     try {
-      const ledger = new Ledger({token: credentials.token, httpBaseUrl});
+      const ledger = new Ledger({token: credentials.token});
       let userContract = await ledger.fetchByKey(User.User, credentials.party);
       if (userContract === null) {
         const user = {username: credentials.party, following: []};
@@ -85,29 +86,24 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
     </>);
   };
 
-  const DamlHubLogin: React.FC<{auth: DamlHub}> = ({auth}) => {
-    const handleDamlHubLogin = () => {
-      window.location.assign(`https://login.projectdabl.com/auth/login?ledgerId=${auth.ledgerId}`);
-    }
-    const getCookieValue = (name: string): string => (
-      document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)')?.pop() || ''
+  const DamlHubLogin: React.FC = () => (
+    wrap(
+      <DamlHubLoginBtn
+        onLogin={creds => {
+          if (creds) {
+            login(creds);
+          }
+        }}
+        options={{
+          method: {
+            button: {
+              render: () => <Button primary fluid/>,
+            },
+          },
+        }}
+        />
     )
-    useEffect(() => {
-      const url = new URL(window.location.toString());
-      const party = url.searchParams.get('party');
-      if (party === null) {
-        return;
-      }
-      url.search = '';
-      window.history.replaceState(window.history.state, '', url.toString());
-      const token = getCookieValue('DAMLHUB_LEDGER_ACCESS_TOKEN');
-      login({token, party});
-    }, []);
-
-    return wrap(<Button primary fluid onClick={handleDamlHubLogin}>
-                  Log in with Daml Hub
-                </Button>);
-  };
+  );
 
   const Auth0Login: React.FC = () => {
     const { user, isAuthenticated, isLoading, loginWithRedirect, getAccessTokenSilently } = useAuth0();
@@ -139,7 +135,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
   return authConfig.provider === "none"
        ? <InsecureLogin auth={authConfig} />
        : authConfig.provider === "daml-hub"
-       ? <DamlHubLogin auth={authConfig} />
+       ? <DamlHubLogin />
        : authConfig.provider === "auth0"
        ? <Auth0Login />
        : <div>Invalid configuation.</div>;
