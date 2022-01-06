@@ -17,6 +17,7 @@ import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.traverse._
+import scala.jdk.CollectionConverters._
 
 import com.daml.lf.engine.trigger.TriggerMsg
 
@@ -554,6 +555,31 @@ abstract class AbstractFuncTests
         } yield {
           inside(toHighLevelResult(result).state) { case SInt64(i) =>
             i shouldBe 3
+          }
+        }
+      }
+    }
+    "getActAs" should {
+      "produce a consistent party" in {
+        for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          runner = getRunner(
+            client,
+            QualifiedName.assertFromString("ActAs:test"),
+            party,
+          )
+          (acs, offset) <- runner.queryACS()
+          // 1 for the completion & 1 for the transaction.
+          result <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+        } yield {
+          inside(toHighLevelResult(result).state) { case SRecord(_, _, values) =>
+            // Check that both updateState and rule were executed.
+            values.asScala shouldBe Seq[SValue](
+              SParty(Party.assertFromString(party)),
+              SBool(true),
+              SBool(true),
+            )
           }
         }
       }

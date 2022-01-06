@@ -20,6 +20,8 @@ module Daml.Trigger.Internal
   , liftTriggerRule
   , TriggerAState (..)
   , TriggerState (..)
+  , TriggerInitState(..)
+  , TriggerUpdateState(..)
   ) where
 
 import DA.Action.State
@@ -65,12 +67,20 @@ instance ActionState s (TriggerA s) where
 instance HasTime (TriggerA s) where
   getTime = TriggerA $ const getTime
 
+-- | HIDE
+data TriggerUpdateState = TriggerUpdateState
+  with
+    commandsInFlight : Map CommandId [Command]
+    acs : ACS
+    actAs : Party
+    readAs : [Party]
+
 -- | TriggerUpdateA is the type used in the `updateState` of a Daml
 -- trigger.  It has similar actions in common with `TriggerA`, but
 -- cannot use `emitCommands` or `getTime`.
 newtype TriggerUpdateA s a =
   -- | HIDE
-  TriggerUpdateA { runTriggerUpdateA : (Map CommandId [Command], ACS, [Party]) -> State s a }
+  TriggerUpdateA { runTriggerUpdateA : TriggerUpdateState -> State s a }
 
 instance Functor (TriggerUpdateA s) where
   fmap f (TriggerUpdateA r) = TriggerUpdateA $ rliftFmap fmap f r
@@ -87,11 +97,18 @@ instance ActionState s (TriggerUpdateA s) where
   put = TriggerUpdateA . const . put
   modify = TriggerUpdateA . const . modify
 
+-- | HIDE
+data TriggerInitState = TriggerInitState
+  with
+    acs : ACS
+    actAs : Party
+    readAs : [Party]
+
 -- | TriggerInitializeA is the type used in the `initialize` of a Daml
 -- trigger.  It can query, but not emit commands or update the state.
 newtype TriggerInitializeA a =
   -- | HIDE
-  TriggerInitializeA { runTriggerInitializeA : (ACS, [Party]) -> a }
+  TriggerInitializeA { runTriggerInitializeA : TriggerInitState -> a }
   deriving (Functor, Applicative, Action)
 
 -- Internal API
@@ -142,14 +159,15 @@ runRule
 runRule rule = do
   state <- get
   TriggerRule . zoom zoomIn zoomOut . runTriggerRule . flip runTriggerA state.acs
-      $ rule state.party
-  where zoomIn state = TriggerAState state.commandsInFlight state.acs.pendingContracts state.userState state.readAs
+      $ rule state.actAs
+  where zoomIn state = TriggerAState state.commandsInFlight state.acs.pendingContracts state.userState state.readAs state.actAs
         zoomOut state aState =
           let commandsInFlight = aState.commandsInFlight
               acs = state.acs { pendingContracts = aState.pendingContracts }
               userState = aState.userState
               readAs = aState.readAs
-          in state { commandsInFlight, acs, userState, readAs }
+              actAs = aState.actAs
+          in state { commandsInFlight, acs, userState, readAs, actAs }
 
 -- | HIDE
 liftTriggerRule : TriggerRule (TriggerAState s) a -> TriggerA s a
@@ -167,12 +185,14 @@ data TriggerAState s = TriggerAState
   -- ^ zoomed from TriggerState
   , readAs : [Party]
   -- ^ zoomed from TriggerState
+  , actAs : Party
+  -- ^ zoomed from TriggerState
   }
 
 -- | HIDE
 data TriggerState s = TriggerState
   { acs : ACS
-  , party : Party
+  , actAs : Party
   , readAs : [Party]
   , userState : s
   , commandsInFlight : Map CommandId [Command]
