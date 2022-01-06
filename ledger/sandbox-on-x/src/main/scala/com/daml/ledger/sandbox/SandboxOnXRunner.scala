@@ -31,6 +31,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
@@ -149,7 +150,11 @@ object SandboxOnXRunner {
 
           (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
-          servicesExecutionContext <- buildServicesExecutionContext(metrics)
+          servicesThreadPoolSize = Runtime.getRuntime.availableProcessors()
+          servicesExecutionContext <- buildServicesExecutionContext(
+            metrics,
+            servicesThreadPoolSize,
+          )
 
           readServiceWithSubscriber = new BridgeReadService(
             ledgerId = config.ledgerId,
@@ -173,7 +178,13 @@ object SandboxOnXRunner {
             servicesExecutionContext,
           )
 
-          writeService <- buildWriteService(stateUpdatesFeedSink, servicesExecutionContext)
+          writeService <- buildWriteService(
+            stateUpdatesFeedSink,
+            indexService,
+            metrics,
+            servicesExecutionContext,
+            servicesThreadPoolSize,
+          )
 
           _ <- buildStandaloneApiServer(
             sharedEngine,
@@ -254,7 +265,7 @@ object SandboxOnXRunner {
             DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
           )
         ),
-        ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED,
+        ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_SUPPORTED,
       ),
     )
 
@@ -283,12 +294,13 @@ object SandboxOnXRunner {
     )
 
   private def buildServicesExecutionContext(
-      metrics: Metrics
+      metrics: Metrics,
+      servicesThreadPoolSize: Int,
   ): ResourceOwner[ExecutionContextExecutorService] =
     ResourceOwner
       .forExecutorService(() =>
         new InstrumentedExecutorService(
-          Executors.newWorkStealingPool(),
+          Executors.newWorkStealingPool(servicesThreadPoolSize),
           metrics.registry,
           metrics.daml.lapi.threadpool.apiServices.toString,
         )
@@ -315,23 +327,34 @@ object SandboxOnXRunner {
   // Builds the write service and uploads the initialization DARs
   private def buildWriteService(
       feedSink: Sink[(Offset, Update), NotUsed],
+      indexService: IndexService,
+      metrics: Metrics,
       servicesExecutionContext: ExecutionContext,
+      servicesThreadPoolSize: Int,
   )(implicit
       materializer: Materializer,
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       loggingContext: LoggingContext,
-  ): ResourceOwner[BridgeWriteService] = {
+  ): ResourceOwner[WriteService] = {
     implicit val ec: ExecutionContext = servicesExecutionContext
+    val bridgeMetrics = new BridgeMetrics(metrics)
     for {
-      writeService <- ResourceOwner
-        .forCloseable(() =>
-          new BridgeWriteService(
-            feedSink = feedSink,
-            participantId = participantConfig.participantId,
-            submissionBufferSize = config.extra.submissionBufferSize,
-          )
+      ledgerBridge <- LedgerBridge.owner(
+        config,
+        participantConfig,
+        indexService,
+        bridgeMetrics,
+        servicesThreadPoolSize,
+      )
+      writeService <- ResourceOwner.forCloseable(() =>
+        new BridgeWriteService(
+          feedSink = feedSink,
+          submissionBufferSize = config.extra.submissionBufferSize,
+          ledgerBridge = ledgerBridge,
+          bridgeMetrics = bridgeMetrics,
         )
+      )
       _ <- ResourceOwner.forFuture(() =>
         Future.sequence(
           config.archiveFiles.map(path =>

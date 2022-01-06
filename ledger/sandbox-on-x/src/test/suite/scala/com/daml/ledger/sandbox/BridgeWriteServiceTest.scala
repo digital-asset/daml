@@ -7,7 +7,8 @@ import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta, Update}
-import com.daml.ledger.sandbox.BridgeWriteService.Submission
+import com.daml.ledger.sandbox.bridge.LedgerBridge
+import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction._
@@ -72,7 +73,7 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
     val expected = TransactionNodeStatistics(tx)
 
     val update =
-      BridgeWriteService.successMapper(submission, 0, Ref.ParticipantId.assertFromString("p0"))
+      LedgerBridge.successMapper(submission, 0, Ref.ParticipantId.assertFromString("p0"))
 
     update
       .asInstanceOf[Update.TransactionAccepted]
