@@ -254,7 +254,7 @@ withCantonSandbox ports remainingArgs k = do
     let cantonJar = sdkPath </> "canton" </> "canton.jar"
     withTempFile $ \config -> do
         BSL.writeFile config (cantonConfig ports)
-        withJar cantonJar [] ("daemon" : "-v" :  "-c" : config :  "--auto-connect-local" : remainingArgs) k
+        withJar cantonJar [] ("daemon" : "-c" : config :  "--auto-connect-local" : remainingArgs) k
 
 data CantonPorts = CantonPorts
   { ledgerApi :: Int
