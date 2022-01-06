@@ -58,6 +58,10 @@ check_nix_version() {
   fi
 }
 
+nix_tool() {
+  echo "$(nix-build ./nix/default.nix -A "tools.$1" -Q --no-out-link)/$2"
+}
+
 # TODO(gleber): Compatibility mode until JBH is ugraded.
 DADE_DEVENV_DIR="${DADE_DEVENV_DIR:-${DADE_BASE:-}}"
 if [ -z "$DADE_DEVENV_DIR" ]; then
@@ -107,7 +111,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/ensure-nix"
 echo "source $(dirname "${BASH_SOURCE[0]}")/ensure-nix"
 
 # Expose our tools in /dev-env/bin and our version of nixpkgs
-if [[ "$("${DADE_DEVENV_DIR}/bin/semver" compare "$(get_nix_version)" '2.4.0')" -ge 0 ]]; then
+semver="$(nix_tool semver bin/semver)"
+if [[ "$("$semver" compare "$(get_nix_version)" '2.4.0')" -ge 0 ]]; then
   echo "export NIX_USER_CONF_FILES=\"${DADE_DEVENV_DIR}/etc/nix.conf:\${NIX_USER_CONF_FILES:-}:\${XDG_CONFIG_HOME:-\${HOME}/.config}/nix/nix.conf\""
 else
   # On an old version of Nix, overwrite the system config, as we can't support multiple config files.
