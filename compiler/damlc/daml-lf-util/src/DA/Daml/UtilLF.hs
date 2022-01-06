@@ -99,7 +99,13 @@ instance Outputable Expr where
 
 sourceLocToRange :: SourceLoc -> Range
 sourceLocToRange (SourceLoc _ slin scol elin ecol) =
-  Range (Position slin scol) (Position elin ecol)
+  Range
+    (Position
+        (fromIntegral slin)
+        (fromIntegral scol))
+    (Position
+        (fromIntegral elin)
+        (fromIntegral ecol))
 
 mkBuiltinEqual :: BuiltinType -> Expr
 mkBuiltinEqual ty = EBuiltin BEEqualGeneric `ETyApp` TBuiltin ty

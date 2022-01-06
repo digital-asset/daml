@@ -1,0 +1,50 @@
+diff --git a/lsp-types.cabal b/lsp-types.cabal
+index 7992cb6..370791d 100644
+--- a/lsp-types.cabal
++++ b/lsp-types.cabal
+@@ -87,7 +87,7 @@ library
+                      , lens >= 4.15.2
+                      , mtl
+                      , network-uri
+-                     , mod
++                     , modular-arithmetic
+                      , rope-utf16-splay >= 0.3.1.0
+                      , scientific
+                      , some
+diff --git a/src/Language/LSP/Types/Common.hs b/src/Language/LSP/Types/Common.hs
+index fdc1ad0..0be3d52 100644
+--- a/src/Language/LSP/Types/Common.hs
++++ b/src/Language/LSP/Types/Common.hs
+@@ -4,7 +4,9 @@
+ {-# LANGUAGE DeriveTraversable          #-}
+ {-# LANGUAGE DeriveGeneric              #-}
+ {-# LANGUAGE DerivingStrategies         #-}
++{-# LANGUAGE StandaloneDeriving         #-}
+ {-# LANGUAGE TypeOperators              #-}
++{-# OPTIONS_GHC -Wno-orphans            #-}
+ 
+ -- | Common types that aren't in the specification
+ module Language.LSP.Types.Common (
+@@ -19,16 +21,20 @@ import Control.Applicative
+ import Control.DeepSeq
+ import Data.Aeson
+ import Data.Int (Int32)
+-import Data.Mod.Word
++import Data.Word (Word32)
++import Data.Modular
+ import Text.Read (Read(readPrec))
+ import GHC.Generics hiding (UInt)
+ import GHC.TypeNats hiding (Mod)
+ import Data.Bifunctor (bimap)
+ 
++instance NFData i => NFData (Mod i n) where
++  rnf m = rnf (unMod m)
++
+ -- | The "uinteger" type in the LSP spec.
+ --
+ -- Unusually, this is a **31**-bit unsigned integer, not a 32-bit one.
+-newtype UInt = UInt (Mod (2^31))
++newtype UInt = UInt (Mod Word32 (2^31))
+   deriving newtype (Num, Bounded, Enum, Eq, Ord)
+   deriving stock (Generic)
+   deriving anyclass (NFData)

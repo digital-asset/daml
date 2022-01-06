@@ -1,8 +1,8 @@
 diff --git a/src/Language/LSP/Types/Uri.hs b/src/Language/LSP/Types/Uri.hs
-index 8970d37..e1a7233 100644
+index 8d2d43f..8477dde 100644
 --- a/src/Language/LSP/Types/Uri.hs
 +++ b/src/Language/LSP/Types/Uri.hs
-@@ -110,12 +110,12 @@ platformAdjustFromUriPath systemOS authority srcPath =
+@@ -112,12 +112,12 @@ platformAdjustFromUriPath systemOS authority srcPath =
      else let
        firstSegment:rest = (FPP.splitDirectories . tail) srcPath  -- Drop leading '/' for absolute Windows paths
        drive = if FPW.isDrive firstSegment
@@ -18,7 +18,7 @@ index 8970d37..e1a7233 100644
  
  {-# WARNING platformAwareFilePathToUri "This function is considered private. Use normalizedUriToFilePath instead." #-}
  platformAwareFilePathToUri :: SystemOS -> FilePath -> Uri
-@@ -187,10 +187,22 @@ instance Hashable NormalizedFilePath where
+@@ -193,10 +193,22 @@ instance Hashable NormalizedFilePath where
  instance IsString NormalizedFilePath where
      fromString = toNormalizedFilePath
  
@@ -35,7 +35,7 @@ index 8970d37..e1a7233 100644
 +        | otherwise = drv
 +
  toNormalizedFilePath :: FilePath -> NormalizedFilePath
- toNormalizedFilePath fp = NormalizedFilePath nuri nfp
+ toNormalizedFilePath fp = normalizedFilePath nuri nfp
    where
 -      nfp = FP.normalise fp
 +      nfp = normalise' fp
