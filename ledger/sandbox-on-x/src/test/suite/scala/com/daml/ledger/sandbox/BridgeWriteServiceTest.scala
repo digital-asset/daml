@@ -13,6 +13,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction._
 import com.daml.lf.value.Value.{ContractId, ValueNone}
+import com.daml.logging.LoggingContext
 import org.mockito.MockitoSugar
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -68,7 +69,7 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
       transactionMeta,
       transaction = tx,
       estimatedInterpretationCost = 0,
-    )
+    )(LoggingContext.ForTesting)
 
     val expected = TransactionNodeStatistics(tx)
 

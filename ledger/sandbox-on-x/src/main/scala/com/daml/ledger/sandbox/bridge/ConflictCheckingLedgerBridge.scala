@@ -47,8 +47,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     validatePartyAllocation: Boolean,
     servicesThreadPoolSize: Int,
 )(implicit
-    loggingContext: LoggingContext,
-    servicesExecutionContext: ExecutionContext,
+    servicesExecutionContext: ExecutionContext
 ) extends LedgerBridge {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   @volatile private var allocatedParties = allocatedPartiesAtInitialization
@@ -84,7 +83,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
             .map(
               withErrorLogger(submitterInfo.submissionId)(
                 invalidInputFromParticipantRejection(submitterInfo.toCompletionInfo())(_)
-              )
+              )(transactionSubmission.loggingContext, logger)
             )
         ),
       )
@@ -99,7 +98,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
       Timed.future(
         bridgeMetrics.Stages.tagWithLedgerEnd,
         indexService
-          .currentLedgerEnd()
+          .currentLedgerEnd()(preparedSubmission.submission.loggingContext)
           .map(ledgerEnd =>
             Right(ApiOffset.assertFromString(ledgerEnd.value) -> preparedSubmission)
           ),
@@ -147,7 +146,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
             },
           )
           .map(_.map(_ => validated))
-      }
+      }(originalSubmission.loggingContext, logger)
     case Right(validated) => Future.successful(Right(validated))
   }
 
@@ -168,7 +167,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
             case Right((_, NoOpPreparedSubmission(submission))) =>
               processNonTransactionSubmission(offsetIdx, submission)
             case Right((noConflictUpTo, txSubmission: PreparedTransactionSubmission)) =>
-              val submitterInfo = txSubmission.originalSubmission.submitterInfo
+              val submitterInfo = txSubmission.submission.submitterInfo
 
               withErrorLogger(submitterInfo.submissionId) { implicit errorLogger =>
                 conflictCheckWithInFlight(
@@ -177,7 +176,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
                   keyInputs = txSubmission.keyInputs,
                   inputContracts = txSubmission.inputContracts,
                 )
-              }.fold(
+              }(txSubmission.submission.loggingContext, logger).fold(
                 toCommandRejectedUpdate(_, submitterInfo.toCompletionInfo()),
                 { _ =>
                   // Update the sequencer state
@@ -185,7 +184,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
                     .dequeue(noConflictUpTo)
                     .enqueue(newOffset, txSubmission.updatedKeys, txSubmission.consumedContracts)
 
-                  successMapper(txSubmission.originalSubmission, offsetIdx, participantId)
+                  successMapper(txSubmission.submission, offsetIdx, participantId)
                 },
               )
           }
@@ -287,7 +286,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
       Future.successful(Right(()))
     else
       indexService
-        .lookupMaximumLedgerTime(referredContracts)
+        .lookupMaximumLedgerTime(referredContracts)(transaction.loggingContext)
         .transform {
           case Failure(MissingContracts(missingContractIds)) =>
             Success(
@@ -338,7 +337,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
           case Right(_) =>
             indexService
               // TODO SoX: Perform lookup more efficiently and do not use a readers-based lookup
-              .lookupContractKey(transaction.transaction.informees, key)
+              .lookupContractKey(transaction.transaction.informees, key)(transaction.loggingContext)
               .map { lookupResult =>
                 (inputState, lookupResult) match {
                   case (LfTransaction.NegativeKeyLookup, Some(actual)) =>
