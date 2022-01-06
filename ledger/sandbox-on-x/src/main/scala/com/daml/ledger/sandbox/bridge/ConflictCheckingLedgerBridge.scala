@@ -5,7 +5,9 @@ package com.daml.ledger.sandbox.bridge
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
+import com.daml.api.util.TimeProvider
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
@@ -19,7 +21,7 @@ import com.daml.ledger.sandbox.bridge.LedgerBridge.{
 }
 import com.daml.ledger.sandbox.bridge.SequencerState.LastUpdatedAt
 import com.daml.ledger.sandbox.domain.Rejection._
-import com.daml.ledger.sandbox.domain.Submission.{AllocateParty, Transaction}
+import com.daml.ledger.sandbox.domain.Submission.{AllocateParty, Config, Transaction}
 import com.daml.ledger.sandbox.domain._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -40,8 +42,10 @@ import scala.util.{Failure, Success, Try}
 private[sandbox] class ConflictCheckingLedgerBridge(
     participantId: Ref.ParticipantId,
     indexService: IndexService,
+    timeProvider: TimeProvider,
     initialLedgerEnd: Offset,
-    allocatedPartiesAtInitialization: Set[Ref.Party],
+    initialAllocatedParties: Set[Ref.Party],
+    initialLedgerConfiguration: Option[Configuration],
     bridgeMetrics: BridgeMetrics,
     errorFactories: ErrorFactories,
     validatePartyAllocation: Boolean,
@@ -50,7 +54,8 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     servicesExecutionContext: ExecutionContext
 ) extends LedgerBridge {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  @volatile private var allocatedParties = allocatedPartiesAtInitialization
+  @volatile private var allocatedParties = initialAllocatedParties
+  @volatile private var ledgerConfiguration = initialLedgerConfiguration
 
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
@@ -206,6 +211,37 @@ private[sandbox] class ConflictCheckingLedgerBridge(
 
         allocatedParties = allocatedParties + party
         partyAllocationSuccessMapper(party, displayName, submissionId, participantId)
+      case Config(maxRecordTime, submissionId, config) =>
+        val recordTime = timeProvider.getCurrentTimestamp
+        if (recordTime > maxRecordTime)
+          Update.ConfigurationChangeRejected(
+            recordTime = recordTime,
+            submissionId = submissionId,
+            participantId = participantId,
+            proposedConfiguration = config,
+            rejectionReason = s"Configuration change timed out: $maxRecordTime > $recordTime",
+          )
+        else {
+          val expectedGeneration = ledgerConfiguration.map(_.generation).map(_ + 1L)
+          if (expectedGeneration.forall(_ == config.generation)) {
+            ledgerConfiguration = Some(config)
+            Update.ConfigurationChanged(
+              recordTime = recordTime,
+              submissionId = submissionId,
+              participantId = participantId,
+              newConfiguration = config,
+            )
+          } else
+            Update.ConfigurationChangeRejected(
+              recordTime = recordTime,
+              submissionId = submissionId,
+              participantId = participantId,
+              proposedConfiguration = config,
+              rejectionReason =
+                s"Generation mismatch: expected=$expectedGeneration, actual=${config.generation}",
+            )
+        }
+
       case other => successMapper(other, offsetIndex, participantId)
     }
 
@@ -355,25 +391,10 @@ private[sandbox] class ConflictCheckingLedgerBridge(
           case left => Future.successful(left)
         }
     }
-}
-
-object ConflictCheckingLedgerBridge {
-  private type Validated[T] = Either[Update.CommandRejected, T]
-  private type AsyncValidation[T] = Future[Validated[T]]
-  private type KeyInputs = Map[Key, LfTransaction.KeyInput]
-
-  // Conflict checking stages
-  private type PrepareSubmission = Submission => AsyncValidation[PreparedSubmission]
-  private type TagWithLedgerEnd =
-    Validated[PreparedSubmission] => AsyncValidation[(Offset, PreparedSubmission)]
-  private type ConflictCheckWithCommitted =
-    Validated[(Offset, PreparedSubmission)] => AsyncValidation[(Offset, PreparedSubmission)]
-  private type Sequence =
-    () => Validated[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)]
 
   private def toCommandRejectedUpdate(rejection: Rejection, completionInfo: CompletionInfo) =
     Update.CommandRejected(
-      recordTime = Timestamp.now(),
+      recordTime = timeProvider.getCurrentTimestamp,
       completionInfo = completionInfo,
       reasonTemplate = FinalReason(rejection.toStatus),
     )
@@ -391,6 +412,21 @@ object ConflictCheckingLedgerBridge {
     case LfTransaction.DuplicateKeys(key) =>
       toCommandRejectedUpdate(TransactionInternallyInconsistentContract(key), completionInfo)
   }
+}
+
+object ConflictCheckingLedgerBridge {
+  private type Validated[T] = Either[Update.CommandRejected, T]
+  private type AsyncValidation[T] = Future[Validated[T]]
+  private type KeyInputs = Map[Key, LfTransaction.KeyInput]
+
+  // Conflict checking stages
+  private type PrepareSubmission = Submission => AsyncValidation[PreparedSubmission]
+  private type TagWithLedgerEnd =
+    Validated[PreparedSubmission] => AsyncValidation[(Offset, PreparedSubmission)]
+  private type ConflictCheckWithCommitted =
+    Validated[(Offset, PreparedSubmission)] => AsyncValidation[(Offset, PreparedSubmission)]
+  private type Sequence =
+    () => Validated[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)]
 
   private def withErrorLogger[T](submissionId: Option[String])(
       f: ContextualizedErrorLogger => T

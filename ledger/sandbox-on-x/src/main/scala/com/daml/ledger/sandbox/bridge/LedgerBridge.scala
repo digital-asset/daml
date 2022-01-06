@@ -5,6 +5,7 @@ package com.daml.ledger.sandbox.bridge
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
+import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -34,35 +35,61 @@ object LedgerBridge {
       indexService: IndexService,
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
+      timeProvider: TimeProvider,
   )(implicit
       loggingContext: LoggingContext,
       // TODO SoX: Consider using a dedicated thread-pool for the ledger bridge
       servicesExecutionContext: ExecutionContext,
   ): ResourceOwner[LedgerBridge] =
     if (config.extra.conflictCheckingEnabled)
-      for {
-        initialLedgerEnd <- ResourceOwner.forFuture(() => indexService.currentLedgerEnd())
-        allocatedPartiesAtInitialization <- ResourceOwner.forFuture(() =>
-          indexService.listKnownParties().map(_.map(_.party).toSet)
-        )
-        conflictCheckingLedgerBridge = new ConflictCheckingLedgerBridge(
-          participantId = participantConfig.participantId,
-          indexService = indexService,
-          initialLedgerEnd =
-            Offset.fromHexString(Ref.HexString.assertFromString(initialLedgerEnd.value)),
-          allocatedPartiesAtInitialization = allocatedPartiesAtInitialization,
-          bridgeMetrics = bridgeMetrics,
-          errorFactories = ErrorFactories(
-            new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
-          ),
-          validatePartyAllocation = !config.extra.implicitPartyAllocation,
-          servicesThreadPoolSize = servicesThreadPoolSize,
-        )
-      } yield conflictCheckingLedgerBridge
+      buildConfigCheckingLedgerBridge(
+        config,
+        participantConfig,
+        indexService,
+        bridgeMetrics,
+        servicesThreadPoolSize,
+        timeProvider,
+      )
     else
       ResourceOwner.forValue(() =>
         new PassThroughLedgerBridge(participantId = participantConfig.participantId)
       )
+
+  private def buildConfigCheckingLedgerBridge(
+      config: Config[BridgeConfig],
+      participantConfig: ParticipantConfig,
+      indexService: IndexService,
+      bridgeMetrics: BridgeMetrics,
+      servicesThreadPoolSize: Int,
+      timeProvider: TimeProvider,
+  )(implicit
+      loggingContext: LoggingContext,
+      // TODO SoX: Consider using a dedicated thread-pool for the ledger bridge
+      servicesExecutionContext: ExecutionContext,
+  ) =
+    for {
+      initialLedgerEnd <- ResourceOwner.forFuture(() => indexService.currentLedgerEnd())
+      initialLedgerConfiguration <- ResourceOwner.forFuture(() =>
+        indexService.lookupConfiguration().map(_.map(_._2))
+      )
+      allocatedPartiesAtInitialization <- ResourceOwner.forFuture(() =>
+        indexService.listKnownParties().map(_.map(_.party).toSet)
+      )
+    } yield new ConflictCheckingLedgerBridge(
+      participantId = participantConfig.participantId,
+      indexService = indexService,
+      timeProvider = timeProvider,
+      initialLedgerEnd =
+        Offset.fromHexString(Ref.HexString.assertFromString(initialLedgerEnd.value)),
+      initialAllocatedParties = allocatedPartiesAtInitialization,
+      initialLedgerConfiguration = initialLedgerConfiguration,
+      bridgeMetrics = bridgeMetrics,
+      errorFactories = ErrorFactories(
+        new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
+      ),
+      validatePartyAllocation = !config.extra.implicitPartyAllocation,
+      servicesThreadPoolSize = servicesThreadPoolSize,
+    )
 
   private[bridge] def fromOffset(offset: Offset): Long = {
     val offsetBytes = offset.toByteArray
