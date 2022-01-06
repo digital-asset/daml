@@ -67,7 +67,7 @@ testRule trigger party readAs acsBuilder commandsInFlight s = do
   acs <- buildACS party acsBuilder
   let state = TriggerState
         { acs = acs
-        , party = party
+        , actAs = party
         , readAs = readAs
         , userState = s
         , commandsInFlight = commandsInFlight
