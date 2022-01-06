@@ -265,7 +265,7 @@ object SandboxOnXRunner {
             DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
           )
         ),
-        ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED,
+        ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_SUPPORTED,
       ),
     )
 
