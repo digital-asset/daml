@@ -127,6 +127,7 @@ da_haskell_test(
         "aeson",
         "async",
         "base",
+        "bytestring",
         "conduit",
         "conduit-extra",
         "containers",

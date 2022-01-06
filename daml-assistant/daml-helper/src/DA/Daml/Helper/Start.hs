@@ -168,12 +168,13 @@ withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) extraArgs a = do
             , "--http-port", show jsonApiPort
             , "--allow-insecure-tokens"
             ] ++ extraArgs
+    putStrLn ("Starting JSON API: " <> unwords args)
     withPlatformJar args "json-api-logback.xml" $ \ph -> do
         putStrLn "Waiting for JSON API to start: "
         -- The secret doesn’t matter here
         let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
                 { JWT.unregisteredClaims = JWT.ClaimsMap $
-                      Map.fromList [("https://daml.com/ledger-api", Object $ HashMap.fromList [("actAs", toJSON ["Alice" :: T.Text]), ("ledgerId", "MyLedger"), ("applicationId", "foobar")])]
+                      Map.fromList [("https://daml.com/ledger-api", Object $ HashMap.fromList [("actAs", toJSON ["Alice" :: T.Text]), ("ledgerId", "sandbox"), ("applicationId", "foobar")])]
                 }
         -- For now, we have a dummy authorization header here to wait for startup since we cannot get a 200
         -- response otherwise. We probably want to add some method to detect successful startup without
