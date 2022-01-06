@@ -5,8 +5,9 @@ import React from 'react';
 import LoginScreen from './LoginScreen';
 import MainScreen from './MainScreen';
 import DamlLedger from '@daml/react';
+import { damlHubLogout } from '@daml/hub-react';
 import Credentials from '../Credentials';
-import { httpBaseUrl } from '../config';
+import { authConfig } from '../config';
 
 /**
  * React component for the entry point into the application.
@@ -19,9 +20,13 @@ const App: React.FC = () => {
     ? <DamlLedger
         token={credentials.token}
         party={credentials.party}
-        httpBaseUrl={httpBaseUrl}
       >
-        <MainScreen onLogout={() => setCredentials(undefined)}/>
+      <MainScreen onLogout={() => {
+        if (authConfig.provider === 'daml-hub') {
+          damlHubLogout();
+        }
+        setCredentials(undefined);
+      }} />
       </DamlLedger>
     : <LoginScreen onLogin={setCredentials} />
 }
