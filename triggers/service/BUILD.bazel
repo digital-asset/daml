@@ -41,6 +41,8 @@ da_scala_library(
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_free",
         "@maven//:org_typelevel_cats_kernel",
+        "@maven//:com_github_pureconfig_pureconfig_core",
+        "@maven//:com_github_pureconfig_pureconfig_generic",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
@@ -201,9 +203,14 @@ da_scala_test_suite(
         ["src/test-suite/scala/**/*.scala"],
         exclude = ["**/*Oracle*"],
     ),
+    data = [
+        ":src/test-suite/resources/trigger-service.conf",
+        ":src/test-suite/resources/trigger-service-minimal.conf",
+    ],
     scala_deps = [
         "@maven//:io_spray_spray_json",
         "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_parsing",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
@@ -214,9 +221,11 @@ da_scala_test_suite(
     deps = [
         ":trigger-service",
         ":trigger-service-tests",
+        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/interpreter",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
@@ -234,6 +243,7 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
         "@maven//:org_flywaydb_flyway_core",

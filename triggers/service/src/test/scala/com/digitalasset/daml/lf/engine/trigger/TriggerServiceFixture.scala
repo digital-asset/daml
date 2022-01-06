@@ -520,20 +520,20 @@ trait TriggerServiceFixture
               toxiSandboxPort.value,
               TimeProviderType.Static,
               java.time.Duration.ofSeconds(30),
-              ServiceConfig.DefaultMaxInboundMessageSize,
+              Cli.DefaultMaxInboundMessageSize,
             )
             val restartConfig = TriggerRestartConfig(
               minRestartInterval,
-              ServiceConfig.DefaultMaxRestartInterval,
+              Cli.DefaultMaxRestartInterval,
             )
             for {
               r <- ServiceMain.startServer(
                 host.getHostName,
                 Port.Dynamic.value,
-                ServiceConfig.DefaultMaxAuthCallbacks,
-                ServiceConfig.DefaultAuthCallbackTimeout,
-                ServiceConfig.DefaultMaxHttpEntityUploadSize,
-                ServiceConfig.DefaultHttpEntityUploadTimeout,
+                Cli.DefaultMaxAuthCallbacks,
+                Cli.DefaultAuthCallbackTimeout,
+                Cli.DefaultMaxHttpEntityUploadSize,
+                Cli.DefaultHttpEntityUploadTimeout,
                 authConfig,
                 AuthClient.RedirectToLogin.Yes,
                 authCallback,

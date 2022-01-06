@@ -87,7 +87,7 @@ object ServiceMain {
   }
 
   def main(args: Array[String]): Unit = {
-    ServiceConfig.parse(
+    Cli.parseConfig(
       args,
       DbTriggerDao.supportedJdbcDriverNames(JdbcDrivers.availableJdbcDriverNames),
     ) match {
