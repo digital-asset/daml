@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import java.util
 import java.util.regex.Pattern
 
 import com.daml.error.ErrorCode
@@ -144,7 +145,7 @@ object Assertions {
         errorInfo.getMetadataMap
       }
       .getOrElse {
-        java.util.Map.of()
+        new util.HashMap()
       }
   }
 
