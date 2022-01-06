@@ -39,7 +39,7 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
   private val numberOfParallelRequests = 10
 
   test(
-    s"DeduplicateParallelSubmissionsUsingCommandSubmissionService",
+    "DeduplicateParallelSubmissionsUsingCommandSubmissionService",
     "Commands submitted at the same, in parallel, using the CommandSubmissionService, should be deduplicated",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
@@ -52,7 +52,7 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
   })
 
   test(
-    s"DeduplicateParallelSubmissionsUsingCommandService",
+    "DeduplicateParallelSubmissionsUsingCommandService",
     "Commands submitted at the same, in parallel, using the CommandService, should be deduplicated",
     allocate(SingleParty),
     runConcurrently = false,
@@ -66,7 +66,7 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
   })
 
   test(
-    s"DeduplicateParallelSubmissionsUsingMixedCommandServiceAndCommandSubmissionService",
+    "DeduplicateParallelSubmissionsUsingMixedCommandServiceAndCommandSubmissionService",
     "Commands submitted at the same, in parallel, using the CommandService and the CommandSubmissionService, should be deduplicated",
     allocate(SingleParty),
     runConcurrently = false,
@@ -182,8 +182,8 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
             completion.submissionId == submissionId
           })
           .map {
-            case Some((_, completion)) =>
-              Status.fromCodeValue(completion.getStatus.code).getCode
+            case Some(response) =>
+              Status.fromCodeValue(response.completion.getStatus.code).getCode
             case None =>
               fail(s"Did not find completion for request with submission id $submissionId")
           }
