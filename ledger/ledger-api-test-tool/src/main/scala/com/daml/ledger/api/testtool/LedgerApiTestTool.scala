@@ -3,6 +3,10 @@
 
 package com.daml.ledger.api.testtool
 
+import java.io.File
+import java.nio.file.{Files, Paths, StandardCopyOption}
+import java.util.concurrent.Executors
+
 import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
 import com.daml.ledger.api.testtool.infrastructure.Result.Excluded
 import com.daml.ledger.api.testtool.infrastructure._
@@ -13,9 +17,6 @@ import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
 
 import scala.collection.compat._
-import java.io.File
-import java.nio.file.{Files, Paths, StandardCopyOption}
-import java.util.concurrent.Executors
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -179,7 +180,7 @@ object LedgerApiTestTool {
           testsToRun,
         )
 
-    runner.flatMap(_.runTests).onComplete {
+    runner.flatMap(_.runTests(ExecutionContext.global)).onComplete {
       case Success(summaries) =>
         val excludedTestSummaries =
           excludedTests.map { ledgerTestCase =>
