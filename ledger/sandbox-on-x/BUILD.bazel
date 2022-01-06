@@ -159,7 +159,6 @@ conformance_test(
         "--verbose",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        "--exclude=ClosedWorldIT",
         "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
         # Exclude offset command deduplication tests as
         # Sandbox-on-X has support only for participant side deduplication,

@@ -8,8 +8,11 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.logging.LoggingContext
 
-private[sandbox] sealed trait Submission extends Product with Serializable
+private[sandbox] sealed trait Submission extends Product with Serializable {
+  def loggingContext: LoggingContext
+}
 
 private[sandbox] object Submission {
   final case class Transaction(
@@ -17,20 +20,27 @@ private[sandbox] object Submission {
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  ) extends Submission
+  )(implicit val loggingContext: LoggingContext)
+      extends Submission
+
   final case class Config(
       maxRecordTime: Time.Timestamp,
       submissionId: Ref.SubmissionId,
       config: Configuration,
-  ) extends Submission
+  )(implicit val loggingContext: LoggingContext)
+      extends Submission
+
   final case class AllocateParty(
       hint: Option[Ref.Party],
       displayName: Option[String],
       submissionId: Ref.SubmissionId,
-  ) extends Submission
+  )(implicit val loggingContext: LoggingContext)
+      extends Submission
+
   final case class UploadPackages(
       submissionId: Ref.SubmissionId,
       archives: List[Archive],
       sourceDescription: Option[String],
-  ) extends Submission
+  )(implicit val loggingContext: LoggingContext)
+      extends Submission
 }

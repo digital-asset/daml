@@ -4,6 +4,7 @@
 package com.daml.ledger.sandbox.bridge
 
 import com.daml.ledger.sandbox.domain.Submission
+import com.daml.lf.data.Ref
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.Transaction.{KeyInput => TxKeyInput}
 import com.daml.platform.store.appendonlydao.events
@@ -19,6 +20,7 @@ final case class PreparedTransactionSubmission(
     updatedKeys: Map[Key, Option[events.ContractId]],
     consumedContracts: Set[events.ContractId],
     blindingInfo: BlindingInfo,
+    transactionInformees: Set[Ref.Party],
     originalSubmission: Submission.Transaction,
 ) extends PreparedSubmission
 
