@@ -1,6 +1,7 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
 load("@rules_sh//sh:posix.bzl", "posix")
 
@@ -231,3 +232,76 @@ _dadew_sh_posix_config = repository_rule(
 def dadew_sh_posix_configure(name = "dadew_sh_posix"):
     _dadew_sh_posix_config(name = name)
     native.register_toolchains("@%s//:dadew_posix_toolchain" % name)
+
+def _create_shim(repository_ctx, shim_exe, *, shim, path, extension):
+    if extension in [".exe", ".cmd", ".bat"]:
+        repository_ctx.file(shim + ".shim", executable = False, content = "path = " + str(path))
+        result = shim + ".exe"
+
+        # Will create a copy on Windows
+        repository_ctx.symlink(shim_exe, result)
+    else:
+        # We assume that files without standard extension are scripts (bash,
+        # perl, ...), e.g. automake. Scoop's shim doesn't work on these. So, we
+        # assume that, since they are shell scripts in the first place, they
+        # will only be called in a shell context and simply create a copy.
+        repository_ctx.symlink(path, shim)
+        result = shim + extension
+    return result
+
+def _dadew_binary_bundle_impl(repository_ctx):
+    ps = repository_ctx.which("powershell")
+    dadew = dadew_where(repository_ctx, ps)
+
+    scoop_home = dadew_tool_home(dadew, "scoop")
+    shim_exe = repository_ctx.path(paths.join(scoop_home, "supporting/shimexe/bin/shim.exe"))
+
+    tool_home = dadew_tool_home(dadew, repository_ctx.attr.tool)
+    extensions = ["", ".exe", ".cmd", ".bat"]
+    missing = []
+    found = []
+    for path_str in repository_ctx.attr.paths:
+        parts = path_str.split(":", 1)
+        if len(parts) == 1:
+            [path_str] = parts
+            shim = path_str
+        elif len(parts) == 2:
+            [path_str, shim] = parts
+        else:
+            fail("Invalid path '{}': Expected 'PATH' or 'PATH:SHIM'.".format(path_str))
+        for ext in extensions:
+            path = repository_ctx.path(paths.join(tool_home, path_str + ext))
+            if path.exists:
+                break
+            else:
+                path = None
+        if path:
+            found.append(
+                _create_shim(repository_ctx, shim_exe, shim = shim, path = path, extension = ext),
+            )
+        else:
+            missing.append(path_str)
+    repository_ctx.file("BUILD.bazel", executable = False, content = """\
+load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "binary_bundle")
+
+package(default_visibility = ["//visibility:public"])
+
+binary_bundle(
+    name = "tools",
+    tools = {tools},
+)
+""".format(
+        tools = repr(found),
+    ))
+    if missing:
+        fail("Missing paths in '{}': {}".format(tool_home, ", ".join(missing)))
+
+dadew_binary_bundle = repository_rule(
+    _dadew_binary_bundle_impl,
+    attrs = {
+        "tool": attr.string(mandatory = True),
+        "paths": attr.string_list(mandatory = True),
+    },
+    configure = True,
+    local = True,
+)
