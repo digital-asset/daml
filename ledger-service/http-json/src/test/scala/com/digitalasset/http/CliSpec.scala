@@ -229,24 +229,17 @@ final class CliSpec extends AnyFreeSpec with Matchers {
     val confFile = "ledger-service/http-json/src/test/resources/http-json-api-minimal.conf"
 
     "should fail on missing ledgerHost and ledgerPort if no config file supplied" in {
-      configParser(sharedOptions.drop(4)) match {
-        case Some(_) =>
-          fail("Expected failure on missing required values --ledger-host and --ledger-port")
-        case None => succeed
-      }
+      configParser(sharedOptions.drop(4)) should ===(None)
     }
     "should fail on missing httpPort and no config file is supplied" in {
-      configParser(sharedOptions.take(4)) match {
-        case Some(_) => fail("Expected failure on missing required value --http-port")
-        case None => succeed
-      }
+      configParser(sharedOptions.take(4)) should ===(None)
     }
 
     "should successfully load a minimal config file" in {
-      val cfg = configParser(Seq("--config", requiredResource(confFile).getAbsolutePath)).getOrElse(
-        fail(s"Unexpected failure parsing $confFile")
+      val cfg = configParser(Seq("--config", requiredResource(confFile).getAbsolutePath))
+      cfg shouldBe Some(
+        Config.Empty.copy(httpPort = 7500, ledgerHost = "127.0.0.1", ledgerPort = 6400)
       )
-      cfg shouldBe Config.Empty.copy(httpPort = 7500, ledgerHost = "127.0.0.1", ledgerPort = 6400)
     }
 
     "should load a minimal config file along with logging opts from cli" in {
@@ -259,25 +252,22 @@ final class CliSpec extends AnyFreeSpec with Matchers {
           "--log-encoder",
           "json",
         )
-      ).getOrElse(
-        fail(s"Unexpected failure parsing $confFile")
       )
-      cfg shouldBe Config(
-        httpPort = 7500,
-        ledgerHost = "127.0.0.1",
-        ledgerPort = 6400,
-        logLevel = Some(LogLevel.DEBUG),
-        logEncoder = LogEncoder.Json,
+      cfg shouldBe Some(
+        Config(
+          httpPort = 7500,
+          ledgerHost = "127.0.0.1",
+          ledgerPort = 6400,
+          logLevel = Some(LogLevel.DEBUG),
+          logEncoder = LogEncoder.Json,
+        )
       )
     }
 
     "should fail when config file and cli args both are supplied" in {
       configParser(
         Seq("--config", requiredResource(confFile).getAbsolutePath) ++ sharedOptions
-      ) match {
-        case Some(_) => fail("Expected failure on supplying both config file and cli args ")
-        case None => succeed
-      }
+      ) should ===(None)
     }
 
     "should successfully load a complete config file" in {
@@ -321,10 +311,8 @@ final class CliSpec extends AnyFreeSpec with Matchers {
         packageMaxInboundMessageSize = Some(StartSettings.DefaultMaxInboundMessageSize),
       )
       val confFile = "ledger-service/http-json/src/test/resources/http-json-api.conf"
-      val cfg = configParser(Seq("--config", requiredResource(confFile).getAbsolutePath)).getOrElse(
-        fail(s"Unexpected failure parsing $confFile")
-      )
-      cfg shouldBe expectedConfig
+      val cfg = configParser(Seq("--config", requiredResource(confFile).getAbsolutePath))
+      cfg shouldBe Some(expectedConfig)
     }
   }
 
