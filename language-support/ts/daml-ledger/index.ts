@@ -1416,7 +1416,7 @@ class Ledger {
   /**
    * Fetch a list of all package IDs from the ledger.
    *
-   * @returns List of package IDs. 
+   * @returns List of package IDs.
    *
    */
   async listPackages(): Promise<PackageId[]> {
