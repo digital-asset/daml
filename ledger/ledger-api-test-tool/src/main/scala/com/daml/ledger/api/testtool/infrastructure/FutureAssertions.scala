@@ -123,7 +123,9 @@ object FutureAssertions {
 
   def forAllParallel[T](
       data: Seq[T]
-  )(testCase: T => Future[Unit])(implicit ec: ExecutionContext): Future[Seq[Unit]] = Future
+  )(
+      testCase: T => Future[Unit]
+  )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[Seq[Unit]] = Future
     .traverse(data)(input =>
       testCase(input).map(Right(_)).recover { case NonFatal(ex) =>
         Left(input -> ex)
@@ -131,14 +133,16 @@ object FutureAssertions {
     )
     .map { results =>
       val (failures, successes) = results.partitionMap(identity)
-      if (failures.nonEmpty)
+      if (failures.nonEmpty) {
+        failures
+          .foreach(res => logger.error(s"Failed parallel test case for input ${res._1}", res._2))
         throw ParallelTestFailureException(
           s"Failed parallel test case. Failures: ${failures.length}. Success: ${successes.length}\nFailed inputs: ${failures
             .map(_._1)
             .mkString("[", ",", "]")}",
           failures.last._2,
         )
-      else successes
+      } else successes
     }
 
   def optionalAssertion(runs: Boolean, description: String)(

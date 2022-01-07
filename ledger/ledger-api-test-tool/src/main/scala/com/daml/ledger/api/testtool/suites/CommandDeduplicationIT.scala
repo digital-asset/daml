@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import java.util
+import java.{time, util}
 
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
@@ -56,7 +56,7 @@ final class CommandDeduplicationIT(
 
   private[this] val logger: Logger = LoggerFactory.getLogger(getClass.getName)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  val deduplicationDuration: FiniteDuration = scaledDuration(3.seconds)
+  val deduplicationDuration: FiniteDuration = scaledDuration(2.seconds)
 
   test(
     s"SimpleDeduplicationBasic",
@@ -302,20 +302,13 @@ final class CommandDeduplicationIT(
 
     for {
       // Submit command (first deduplication window)
-      response1 <- submitAndAssertAccepted(firstCall)
-      completion <- succeedsUntil(
-        succeedDuration = deduplicationDuration,
-        succeedDeadline = Some(
-          response1.recordTime.plusMillis(deduplicationDuration.toMillis)
-        ), // account for any network latency
-      ) {
-        submitAndAssertDeduplicated(
-          secondCall,
-          LedgerString.assertFromString(response1.completion.submissionId),
-          response1.offset,
-        )
-      }
-      deduplicationDurationFromPeriod = completion
+      firstAcceptedCommand <- submitAndAssertAccepted(firstCall)
+      duplicateResponse <- submitAndAssertDeduplicated(
+        secondCall,
+        LedgerString.assertFromString(firstAcceptedCommand.completion.submissionId),
+        firstAcceptedCommand.offset,
+      )
+      deduplicationDurationFromPeriod = duplicateResponse
         .map(_.deduplicationPeriod)
         .map {
           case CompletionDeduplicationPeriod.Empty =>
@@ -327,32 +320,29 @@ final class CommandDeduplicationIT(
         }
         .getOrElse(deduplicationDuration + delay.skews)
         .asInstanceOf[FiniteDuration]
-      // deduplication duration is respected
-      _ <- optionalAssertion(
-        staticTime || deduplicationDurationFromPeriod <= scaledDuration(15.seconds),
-        "The effective deduplication duration is too high to run the optional assertions",
+      eventuallyAccepted <- succeedsEventually(
+        maxRetryDuration = deduplicationDurationFromPeriod,
+        description =
+          s"Deduplication period expires and request is accepted for command ${submitRequest.getCommands}.",
       ) {
-        for {
-          response2 <- succeedsEventually(
-            maxRetryDuration = deduplicationDurationFromPeriod,
-            description =
-              s"Deduplication period expires and request is accepted for command ${submitRequest.getCommands}.",
-          ) {
-            submitAndAssertAccepted(thirdCall)
-          }
-          _ <- submitAndAssertDeduplicated(
-            fourthCall,
-            LedgerString.assertFromString(response2.completion.submissionId),
-            response2.offset,
-          )
-        } yield {}
-      }.flatMap { _ =>
-        assertPartyHasActiveContracts(
-          ledger,
-          party = party,
-          noOfActiveContracts = 2,
-        )
+        submitAndAssertAccepted(thirdCall)
       }
+      _ = assert(
+        time.Duration
+          .between(firstAcceptedCommand.recordTime, eventuallyAccepted.recordTime)
+          .toMillis > deduplicationDuration.toMillis,
+        "Interval between accepted commands is smaller than the deduplication duration",
+      )
+      _ <- submitAndAssertDeduplicated(
+        fourthCall,
+        LedgerString.assertFromString(eventuallyAccepted.completion.submissionId),
+        eventuallyAccepted.offset,
+      )
+      _ <- assertPartyHasActiveContracts(
+        ledger,
+        party = party,
+        noOfActiveContracts = 2,
+      )
     } yield {}
   }
 
@@ -654,7 +644,7 @@ final class CommandDeduplicationIT(
       acceptedOffset: LedgerOffset,
   )(implicit ec: ExecutionContext): Future[Unit] =
     ledger
-      .submitAndWait(request)
+      .submitAndWaitForTransaction(request)
       .mustFail("Request was accepted but we were expecting it to fail with a duplicate error")
       .map(
         assertGrpcError(
@@ -694,16 +684,16 @@ final class CommandDeduplicationIT(
 
   private def assertCompletionStatus(
       requestString: String,
-      completion: Completion,
+      response: CompletionResponse,
       statusCode: Code,
   ): Unit =
     assert(
-      completion.getStatus.code == statusCode.value(),
-      s"""Expecting completion with status code $statusCode but completion has status ${completion.status}.
+      response.completion.getStatus.code == statusCode.value(),
+      s"""Expecting completion with status code $statusCode but completion has status ${response.completion.status}.
          |Request: $requestString
-         |Completion: $completion
+         |Response: $response
          |Metadata: ${extractErrorInfoMetadata(
-        GrpcStatus.toJavaProto(completion.getStatus)
+        GrpcStatus.toJavaProto(response.completion.getStatus)
       )}""".stripMargin,
     )
 
@@ -722,10 +712,10 @@ final class CommandDeduplicationIT(
   private def assertDeduplicatedSubmissionIdAndOffsetOnCompletion(
       acceptedSubmissionId: SubmissionId,
       acceptedCompletionOffset: LedgerOffset,
-      completion: Completion,
+      response: CompletionResponse,
   ): Unit = {
     val metadata = extractErrorInfoMetadata(
-      GrpcStatus.toJavaProto(completion.getStatus)
+      GrpcStatus.toJavaProto(response.completion.getStatus)
     )
     assertExistingSubmissionIdOnMetadata(metadata, acceptedSubmissionId)
     assertExistingCompletionOffsetOnMetadata(metadata, acceptedCompletionOffset)
@@ -760,12 +750,12 @@ final class CommandDeduplicationIT(
       request: SubmitRequest,
       parties: Party*
   )(
-      additionalCompletionAssertion: Completion => Unit
+      additionalCompletionAssertion: CompletionResponse => Unit
   )(implicit
       ec: ExecutionContext
   ): Future[CompletionResponse] =
     submitRequestAndFindCompletion(ledger, request, parties: _*).map { response =>
-      additionalCompletionAssertion(response.completion)
+      additionalCompletionAssertion(response)
       response
     }
 
@@ -774,12 +764,12 @@ final class CommandDeduplicationIT(
       request: SubmitAndWaitRequest,
       parties: Party*
   )(
-      additionalCompletionAssertion: Completion => Unit
+      additionalCompletionAssertion: CompletionResponse => Unit
   )(implicit
       ec: ExecutionContext
   ): Future[CompletionResponse] =
     submitRequestAndFindCompletion(ledger, request, parties: _*).map { response =>
-      additionalCompletionAssertion(response.completion)
+      additionalCompletionAssertion(response)
       response
     }
 
