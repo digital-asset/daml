@@ -10,6 +10,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
+import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.version_service.{
@@ -42,6 +43,7 @@ import com.daml.platform.apiserver.{
   ApiServerConfig,
   StandaloneApiServer,
   StandaloneIndexService,
+  TimeServiceBackend,
 }
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
@@ -177,12 +179,15 @@ object SandboxOnXRunner {
             servicesExecutionContext,
           )
 
+          timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
+
           writeService <- buildWriteService(
             stateUpdatesFeedSink,
             indexService,
             metrics,
             servicesExecutionContext,
             servicesThreadPoolSize,
+            timeServiceBackend,
           )
 
           _ <- buildStandaloneApiServer(
@@ -192,6 +197,7 @@ object SandboxOnXRunner {
             servicesExecutionContext,
             new TimedWriteService(writeService, metrics),
             indexerHealthChecks,
+            timeServiceBackend,
           )
         } yield ()
     }
@@ -235,6 +241,7 @@ object SandboxOnXRunner {
       servicesExecutionContext: ExecutionContextExecutorService,
       writeService: WriteService,
       healthChecksWithIndexer: HealthChecks,
+      timeServiceBackend: Option[TimeServiceBackend],
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
@@ -252,7 +259,7 @@ object SandboxOnXRunner {
       authService = BridgeConfigProvider.authService(config),
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
       metrics = metrics,
-      timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config),
+      timeServiceBackend = timeServiceBackend,
       otherInterceptors = BridgeConfigProvider.interceptors(config),
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
@@ -330,6 +337,7 @@ object SandboxOnXRunner {
       metrics: Metrics,
       servicesExecutionContext: ExecutionContext,
       servicesThreadPoolSize: Int,
+      timeServiceBackend: Option[TimeServiceBackend],
   )(implicit
       materializer: Materializer,
       config: Config[BridgeConfig],
@@ -345,6 +353,7 @@ object SandboxOnXRunner {
         indexService,
         bridgeMetrics,
         servicesThreadPoolSize,
+        timeServiceBackend.getOrElse(TimeProvider.UTC),
       )
       writeService <- ResourceOwner.forCloseable(() =>
         new BridgeWriteService(

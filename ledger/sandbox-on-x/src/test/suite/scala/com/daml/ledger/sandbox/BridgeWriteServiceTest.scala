@@ -81,5 +81,4 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
       .optCompletionInfo
       .flatMap(_.statistics) shouldBe Some(expected)
   }
-
 }

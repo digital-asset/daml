@@ -4,13 +4,18 @@
 package com.daml.ledger.sandbox
 
 import com.daml.ledger.participant.state.kvutils.app.{Config, ConfigProvider}
+import com.daml.platform.apiserver.TimeServiceBackend
+import com.daml.platform.services.time.TimeProviderType
 import scopt.OptionParser
+
+import java.time.Instant
 
 case class BridgeConfig(
     conflictCheckingEnabled: Boolean,
     maxDedupSeconds: Int,
     submissionBufferSize: Int,
     implicitPartyAllocation: Boolean,
+    timeProviderType: TimeProviderType,
 )
 
 object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
@@ -38,8 +43,20 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
         s"When referring to a party that doesn't yet exist on the ledger, the participant will implicitly allocate that party."
           + s" You can optionally disable this behavior to bring participant into line with other ledgers."
       )
+
+    parser
+      .opt[Unit]('s', "static-time")
+      .optional()
+      .action((_, c) => c.copy(extra = c.extra.copy(timeProviderType = TimeProviderType.Static)))
+      .text("Use static time. When not specified, wall-clock-time is used.")
     ()
   }
+
+  override def timeServiceBackend(config: Config[BridgeConfig]): Option[TimeServiceBackend] =
+    config.extra.timeProviderType match {
+      case TimeProviderType.Static => Some(TimeServiceBackend.simple(Instant.EPOCH))
+      case TimeProviderType.WallClock => None
+    }
 
   override val defaultExtraConfig: BridgeConfig = BridgeConfig(
     // TODO SoX: Enabled by default
@@ -47,5 +64,6 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     maxDedupSeconds = 30,
     submissionBufferSize = 500,
     implicitPartyAllocation = false,
+    timeProviderType = TimeProviderType.WallClock,
   )
 }
