@@ -94,6 +94,7 @@ da_scala_binary(
                 "//ledger/error",
                 "//ledger/ledger-api-common",
                 "//libs-scala/build-info",
+                "//libs-scala/contextualized-logging",
                 "//libs-scala/grpc-utils",
                 "//libs-scala/resources",
                 "//libs-scala/resources-akka",

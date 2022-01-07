@@ -6,8 +6,8 @@ package com.daml.ledger.api.testtool.infrastructure
 import java.time.Instant
 
 import com.daml.ledger.api.testtool.infrastructure.FutureAssertions.ExpectedFailureException
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.timer.Delayed
-import org.slf4j.Logger
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -45,6 +45,8 @@ final class FutureAssertions[T](future: Future[T]) {
 
 object FutureAssertions {
 
+  private val logger = ContextualizedLogger.get(getClass)
+
   def assertAfter[V](
       delay: FiniteDuration
   )(test: => Future[V]): Future[V] = {
@@ -57,7 +59,7 @@ object FutureAssertions {
       description: String,
   )(
       test: => Future[V]
-  )(implicit ec: ExecutionContext, logger: Logger): Future[V] = {
+  )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[V] = {
     def internalSucceedsEventually(interval: FiniteDuration): Future[V] = {
       val newMaxInterval = interval - delay
       if (newMaxInterval < Duration.Zero) {
@@ -91,7 +93,7 @@ object FutureAssertions {
       succeedDeadline: Option[Instant] = None,
   )(
       test: => Future[V]
-  )(implicit ec: ExecutionContext, logger: Logger): Future[V] = {
+  )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[V] = {
     def internalSucceedsUntil(interval: FiniteDuration): Future[V] = {
       val newMaxInterval = interval - delay
       if (
@@ -147,14 +149,13 @@ object FutureAssertions {
 
   def optionalAssertion(runs: Boolean, description: String)(
       assertions: => Future[_]
-  )(logger: Logger): Future[_] = {
-    if (runs) {
-      assertions
-    } else {
-      logger.warn(s"Not running optional assertions: $description")
-      Future.unit
-    }
+  )(implicit loggingContext: LoggingContext): Future[_] = if (runs) {
+    assertions
+  } else {
+    logger.warn(s"Not running optional assertions: $description")
+    Future.unit
   }
+
   final class ExpectedFailureException[T](context: String, value: T)
       extends NoSuchElementException(
         s"Expected a failure when $context, but got a successful result of: $value"
