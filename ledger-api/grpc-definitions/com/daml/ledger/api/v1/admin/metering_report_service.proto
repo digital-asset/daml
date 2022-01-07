@@ -20,12 +20,12 @@ import "google/protobuf/timestamp.proto";
 service MeteringReportService {
 
     // Run a report.
-    rpc Report (ReportRequest) returns (ReportResponse);
+    rpc MeteringReport (MeteringReportRequest) returns (MeteringReportResponse);
 
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
-message ReportRequest {
+message MeteringReportRequest {
 
     // The from timestamp (inclusive)
     google.protobuf.Timestamp from = 1;
@@ -34,22 +34,30 @@ message ReportRequest {
     google.protobuf.Timestamp to = 2;
 
     // If provided only return results for the given applications
-    repeated string applications = 3;
+    repeated string application_ids = 3;
 }
 
-message ApplicationReport {
+message ApplicationMeteringReport {
 
     // The application Id
-    string application = 1;
+    string application_id = 1;
 
     // The event count for the application
-    int64 events = 2;
+    int64 event_count = 2;
 }
 
-message ReportResponse {
+message MeteringReportResponse {
+
+    ParticipantMeteringReport participant_report = 1;
+
+    google.protobuf.Timestamp report_generation_time = 2;
+
+}
+
+message ParticipantMeteringReport {
 
     // The reporting participant
-    string participant = 1;
+    string participant_id = 1;
 
     // The requested, and actual, from-time
     google.protobuf.Timestamp from = 2;
@@ -63,7 +71,7 @@ message ReportResponse {
     google.protobuf.Timestamp to_actual = 4;
 
     // A list of event counts for each application
-    repeated ApplicationReport reports = 5;
+    repeated ApplicationMeteringReport application_reports = 5;
 
 }
 
