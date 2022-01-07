@@ -321,18 +321,21 @@ final class CommandDeduplicationIT(
         .getOrElse(deduplicationDuration + delay.skews)
         .asInstanceOf[FiniteDuration]
       eventuallyAccepted <- succeedsEventually(
-        maxRetryDuration = deduplicationDurationFromPeriod,
+        maxRetryDuration = deduplicationDurationFromPeriod + delay.skews + 10.seconds,
         description =
           s"Deduplication period expires and request is accepted for command ${submitRequest.getCommands}.",
       ) {
         submitAndAssertAccepted(thirdCall)
       }
-      _ = assert(
-        time.Duration
-          .between(firstAcceptedCommand.recordTime, eventuallyAccepted.recordTime)
-          .toMillis > deduplicationDuration.toMillis,
-        "Interval between accepted commands is smaller than the deduplication duration",
+      _ = if ( // participant deduplication is based on submittedAt, and thus the delta between record times can actually be smaller than the deduplication duration
+        !ledger.features.commandDeduplicationFeatures.participantDeduplicationSupport.isParticipantDeduplicationSupported
       )
+        assert(
+          time.Duration
+            .between(firstAcceptedCommand.recordTime, eventuallyAccepted.recordTime)
+            .toMillis > deduplicationDuration.toMillis,
+          s"Interval between accepted commands is smaller than the deduplication duration. First accepted command record time: ${firstAcceptedCommand.recordTime}. Second accepted command record time: ${eventuallyAccepted.recordTime}",
+        )
       _ <- submitAndAssertDeduplicated(
         fourthCall,
         LedgerString.assertFromString(eventuallyAccepted.completion.submissionId),
