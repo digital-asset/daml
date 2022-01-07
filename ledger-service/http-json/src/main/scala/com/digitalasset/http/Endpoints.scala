@@ -519,16 +519,18 @@ class Endpoints(
               Ref.Party.fromString(it).disjunction
             )
             canActAs <-
-              createUserRequest.canActAs.traverse(it =>
-                Ref.Party
-                  .fromString(it.toString)
-                  .map(CanActAs(_): UserRight)
-                  .disjunction
-              )
+              domain.Party
+                .unsubst(createUserRequest.canActAs)
+                .traverse(it =>
+                  Ref.Party
+                    .fromString(it)
+                    .map(CanActAs(_): UserRight)
+                    .disjunction
+                )
             canReadAs <-
-              createUserRequest.canReadAs.traverse(it =>
-                Ref.Party.fromString(it.toString).map(CanReadAs(_): UserRight).disjunction
-              )
+              domain.Party
+                .unsubst(createUserRequest.canReadAs)
+                .traverse(it => Ref.Party.fromString(it).map(CanReadAs(_): UserRight).disjunction)
             isAdminLs =
               if (createUserRequest.isAdmin) List(ParticipantAdmin)
               else List.empty
