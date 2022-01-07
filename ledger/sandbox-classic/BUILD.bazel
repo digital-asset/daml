@@ -415,6 +415,8 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
+        # This test case runs multiple concurrent tests, which don't work well with h2
+        "--exclude=CommandDeduplicationIT:DeduplicationMixedClients",
         # not enforced
         "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
@@ -437,6 +439,8 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
+        # This test case runs multiple concurrent tests, which don't work well with h2
+        "--exclude=CommandDeduplicationIT:DeduplicationMixedClients",
         # not enforced
         "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
