@@ -93,6 +93,12 @@ object AuthServiceJWTCodec {
   private[this] final val propExp: String = "exp"
   private[this] final val propParty: String = "party" // Legacy JSON API payload
 
+  // Properties whose presence signals a custom token. We do not include "applicationId", "admin", and "party" as we deem
+  // it too likely that they are present in a standard token as well due to vagaries of the identity provider. Identity
+  // providers can always be configured to set "actAs: []" to ensure proper parsing.
+  private[this] final val distinguishingCustomProps: Array[String] =
+    Array(oidcNamespace, propLedgerId, propParticipantId, propActAs, propReadAs)
+
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
   // ------------------------------------------------------------------------------------------------------------------
@@ -183,9 +189,8 @@ object AuthServiceJWTCodec {
   }
 
   def readStandardTokenPayload(jsValue: JsValue): Option[AuthServiceJWTPayload] = jsValue match {
-    // NOTE: there is the corner-case of a legacy Daml token containing a "sub" field.
-    // We accept that risk.
-    case JsObject(fields) if !fields.contains(oidcNamespace) && fields.contains("sub") =>
+    case JsObject(fields)
+        if fields.contains("sub") && !distinguishingCustomProps.exists(fields.contains) =>
       Some(
         AuthServiceJWTPayload(
           ledgerId = None,

@@ -171,6 +171,30 @@ class AuthServiceJWTCodecSpec
         result.map(_.payload.party) shouldBe Success(Some("Alice"))
       }
 
+      "support legacy sandbox format even with standard JWT claims present" in {
+        val serialized =
+          """{
+            |  "participantId": "someLegacyParticipantId",
+            |  "aud": "someParticipantId",
+            |  "sub": "someUserId",
+            |  "exp": 100
+            |}
+          """.stripMargin
+        val expected = CustomDamlJWTPayload(
+          AuthServiceJWTPayload(
+            ledgerId = None,
+            participantId = Some("someLegacyParticipantId"),
+            applicationId = None,
+            exp = Some(Instant.ofEpochSecond(100)),
+            admin = false,
+            actAs = List.empty,
+            readAs = List.empty,
+          )
+        )
+        val result = parse(serialized)
+        result shouldBe Success(expected)
+      }
+
       "support standard JWT claims" in {
         val serialized =
           """{
