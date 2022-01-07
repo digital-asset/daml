@@ -39,6 +39,7 @@ import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, TextKeyOperations}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{LedgerString, SubmissionId}
+import com.daml.logging.LoggingContext
 import com.daml.timer.Delayed
 import io.grpc.Status.Code
 import org.slf4j.{Logger, LoggerFactory}
@@ -53,7 +54,8 @@ final class CommandDeduplicationIT(
     staticTime: Boolean,
 ) extends LedgerTestSuite {
 
-  private[this] implicit val logger: Logger = LoggerFactory.getLogger(getClass.getName)
+  private[this] val logger: Logger = LoggerFactory.getLogger(getClass.getName)
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   val deduplicationDuration: FiniteDuration = scaledDuration(3.seconds)
 
   test(
@@ -332,7 +334,7 @@ final class CommandDeduplicationIT(
       ) {
         for {
           response2 <- succeedsEventually(
-            maxInterval = deduplicationDurationFromPeriod,
+            maxRetryDuration = deduplicationDurationFromPeriod,
             description =
               s"Deduplication period expires and request is accepted for command ${submitRequest.getCommands}.",
           ) {
@@ -344,14 +346,13 @@ final class CommandDeduplicationIT(
             response2.offset,
           )
         } yield {}
-      }(logger)
-        .flatMap { _ =>
-          assertPartyHasActiveContracts(
-            ledger,
-            party = party,
-            noOfActiveContracts = 2,
-          )
-        }
+      }.flatMap { _ =>
+        assertPartyHasActiveContracts(
+          ledger,
+          party = party,
+          noOfActiveContracts = 2,
+        )
+      }
     } yield {}
   }
 
