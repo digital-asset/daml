@@ -575,14 +575,13 @@ excluded_test_tool_tests = [
                 "end": "1.18.0",
                 "exclusions": [
                     # Unexpected failure (StatusRuntimeException) ALREADY_EXISTS: DUPLICATE_COMMAND(10,KVComman):
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationMixedClients",
+                    "CommandDeduplicationIT:DeduplicationMixedClients",
                     # Assertion failed: Expecting completion with status code OK but completion has status Some(Status(6,DUPLICATE_COMMAND(10,972fae4b)
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
+                    "CommandDeduplicationIT:SimpleDeduplicationBasic",
                     # Unexpected failure (StatusRuntimeException) ALREADY_EXISTS: DUPLICATE_COMMAND(10,KVComman):
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationCommandClient",
+                    "CommandDeduplicationIT:SimpleDeduplicationCommandClient",
                     # Offsets are not supported for versions < 2.0.0
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateUsingOffsets",
-                    "CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
+                    "CommandDeduplicationIT:DeduplicateUsingOffsets",
                     # Actual error id (INCONSISTENT) does not match expected error id (DUPLICATE_CONTRACT_KEY}
                     "ExceptionsIT:ExRollbackDuplicateKeyCreated",
                     "ExceptionsIT:ExRollbackDuplicateKeyArchived",
