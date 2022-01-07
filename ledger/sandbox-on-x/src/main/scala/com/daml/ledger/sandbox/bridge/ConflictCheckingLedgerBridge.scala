@@ -10,7 +10,6 @@ import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.daml.ledger.sandbox.bridge.ConflictCheckingLedgerBridge._
 import com.daml.ledger.sandbox.bridge.LedgerBridge.{
@@ -59,7 +58,6 @@ private[sandbox] class ConflictCheckingLedgerBridge(
 
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
-      // Set the parallelism as high as the bridgeThreadPoolSize
       .mapAsyncUnordered(servicesThreadPoolSize)(prepareSubmission)
       .mapAsync(parallelism = 1)(tagWithLedgerEnd)
       .mapAsync(servicesThreadPoolSize)(conflictCheckWithCommitted)
@@ -71,7 +69,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     case transactionSubmission @ Submission.Transaction(submitterInfo, _, transaction, _) =>
       Timed.future(
         bridgeMetrics.Stages.precomputeTransactionOutputs,
-        Future(
+        Future {
           transaction.transaction.contractKeyInputs
             .map(contractKeyInputs =>
               PreparedTransactionSubmission(
@@ -87,18 +85,19 @@ private[sandbox] class ConflictCheckingLedgerBridge(
             .left
             .map(
               withErrorLogger(submitterInfo.submissionId)(
-                invalidInputFromParticipantRejection(submitterInfo.toCompletionInfo())(_)
+                invalidInputFromParticipantRejection(
+                  transactionSubmission.submitterInfo.toCompletionInfo()
+                )(_)
               )(transactionSubmission.loggingContext, logger)
             )
-        ),
+        },
       )
     case other => Future.successful(Right(NoOpPreparedSubmission(other)))
   }
 
   // Tags the prepared submission with the current ledger end as available on the Ledger API.
   private val tagWithLedgerEnd: TagWithLedgerEnd = {
-    case Left(rejection) =>
-      Future.successful(Left(rejection))
+    case Left(rejection) => Future.successful(Left(rejection))
     case Right(preparedSubmission) =>
       Timed.future(
         bridgeMetrics.Stages.tagWithLedgerEnd,
@@ -132,22 +131,22 @@ private[sandbox] class ConflictCheckingLedgerBridge(
         Timed
           .future(
             bridgeMetrics.Stages.conflictCheckWithCommitted,
-            checkTimeModel(originalSubmission) match {
-              case Left(value) => Future(Left(value))
+            validateCausalMonotonicity(
+              transaction = originalSubmission,
+              inputContracts = inputContracts,
+              transactionLedgerEffectiveTime =
+                originalSubmission.transactionMeta.ledgerEffectiveTime,
+              divulged = blindingInfo.divulgence.keySet,
+            ).flatMap {
               case Right(_) =>
-                validateCausalMonotonicity(
-                  transaction = originalSubmission,
-                  inputContracts = inputContracts,
-                  transactionLedgerEffectiveTime =
-                    originalSubmission.transactionMeta.ledgerEffectiveTime,
-                  divulged = blindingInfo.divulgence.keySet,
-                ).flatMap {
-                  case Right(_) => validateParties(originalSubmission, transactionInformees)
-                  case rejection => Future.successful(rejection)
-                }.flatMap {
-                  case Right(_) => validateKeyUsages(originalSubmission, keyInputs)
-                  case rejection => Future.successful(rejection)
-                }
+                validateParties(
+                  transactionInformees,
+                  originalSubmission.submitterInfo.toCompletionInfo(),
+                )
+              case rejection => Future.successful(rejection)
+            }.flatMap {
+              case Right(_) => validateKeyUsages(originalSubmission, keyInputs)
+              case rejection => Future.successful(rejection)
             },
           )
           .map(_.map(_ => validated))
@@ -166,32 +165,39 @@ private[sandbox] class ConflictCheckingLedgerBridge(
         bridgeMetrics.Stages.sequence, {
           offsetIdx = offsetIdx + 1
           val newOffset = toOffset(offsetIdx)
+          val recordTime = timeProvider.getCurrentTimestamp
 
           val update = in match {
-            case Left(rejection) => rejection
+            case Left(rejection) =>
+              rejection.toCommandRejectedUpdate(recordTime)
             case Right((_, NoOpPreparedSubmission(submission))) =>
               processNonTransactionSubmission(offsetIdx, submission)
             case Right((noConflictUpTo, txSubmission: PreparedTransactionSubmission)) =>
               val submitterInfo = txSubmission.submission.submitterInfo
 
               withErrorLogger(submitterInfo.submissionId) { implicit errorLogger =>
-                conflictCheckWithInFlight(
-                  keysState = sequencerQueueState.keyState,
-                  consumedContractsState = sequencerQueueState.consumedContractsState,
-                  keyInputs = txSubmission.keyInputs,
-                  inputContracts = txSubmission.inputContracts,
-                )
-              }(txSubmission.submission.loggingContext, logger).fold(
-                toCommandRejectedUpdate(_, submitterInfo.toCompletionInfo()),
-                { _ =>
-                  // Update the sequencer state
-                  sequencerQueueState = sequencerQueueState
-                    .dequeue(noConflictUpTo)
-                    .enqueue(newOffset, txSubmission.updatedKeys, txSubmission.consumedContracts)
+                checkTimeModel(txSubmission.submission, recordTime)
+                  .flatMap { _ =>
+                    conflictCheckWithInFlight(
+                      keysState = sequencerQueueState.keyState,
+                      consumedContractsState = sequencerQueueState.consumedContractsState,
+                      keyInputs = txSubmission.keyInputs,
+                      inputContracts = txSubmission.inputContracts,
+                      completionInfo = txSubmission.submission.submitterInfo.toCompletionInfo(),
+                    )
+                  }
+              }(txSubmission.submission.loggingContext, logger)
+                .fold(
+                  _.toCommandRejectedUpdate(recordTime),
+                  { _ =>
+                    // Update the sequencer state
+                    sequencerQueueState = sequencerQueueState
+                      .dequeue(noConflictUpTo)
+                      .enqueue(newOffset, txSubmission.updatedKeys, txSubmission.consumedContracts)
 
-                  successMapper(txSubmission.submission, offsetIdx, participantId)
-                },
-              )
+                    successMapper(txSubmission.submission, offsetIdx, participantId)
+                  },
+                )
           }
 
           Iterable(newOffset -> update)
@@ -250,39 +256,40 @@ private[sandbox] class ConflictCheckingLedgerBridge(
       consumedContractsState: Set[ContractId],
       keyInputs: KeyInputs,
       inputContracts: Set[ContractId],
+      completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[Rejection, Unit] =
+  ): Validation[Unit] =
     inputContracts.intersect(consumedContractsState) pipe {
       case alreadyArchived if alreadyArchived.nonEmpty =>
-        Left(UnknownContracts(alreadyArchived)(errorFactories))
+        Left(UnknownContracts(alreadyArchived)(completionInfo, errorFactories))
       case _ =>
         keyInputs
           .foldLeft[Either[Rejection, Unit]](Right(())) {
             case (Right(_), (key, LfTransaction.KeyCreate)) =>
               keysState.get(key) match {
                 case None | Some((None, _)) => Right(())
-                case Some((Some(_), _)) => Left(DuplicateKey(key)(errorFactories))
+                case Some((Some(_), _)) => Left(DuplicateKey(key)(completionInfo, errorFactories))
               }
             case (Right(_), (key, LfTransaction.NegativeKeyLookup)) =>
               keysState.get(key) match {
                 case None | Some((None, _)) => Right(())
                 case Some((Some(actual), _)) =>
-                  Left(InconsistentContractKey(None, Some(actual))(errorFactories))
+                  Left(InconsistentContractKey(None, Some(actual))(completionInfo, errorFactories))
               }
             case (Right(_), (key, LfTransaction.KeyActive(cid))) =>
               keysState.get(key) match {
                 case None | Some((Some(`cid`), _)) => Right(())
                 case Some((other, _)) =>
-                  Left(InconsistentContractKey(other, Some(cid))(errorFactories))
+                  Left(InconsistentContractKey(other, Some(cid))(completionInfo, errorFactories))
               }
             case (left, _) => left
           }
     }
 
   private def validateParties(
-      transaction: Submission.Transaction,
       transactionInformees: Set[Ref.Party],
+      completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): AsyncValidation[Unit] =
@@ -293,20 +300,27 @@ private[sandbox] class ConflictCheckingLedgerBridge(
         Either.cond(
           unallocatedInformees.isEmpty,
           (),
-          toCommandRejectedUpdate(
-            UnallocatedParties(unallocatedInformees.toSet)(errorFactories),
-            transaction.submitterInfo.toCompletionInfo(),
-          ),
+          UnallocatedParties(unallocatedInformees.toSet)(completionInfo, errorFactories),
         )
       } else Right(())
     }
 
   private def checkTimeModel(
-      transaction: Transaction
-  ): Validated[Unit] = {
-    // TODO SoX: Implement
-    val _ = transaction
-    Right(())
+      transaction: Transaction,
+      recordTime: Timestamp,
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Validation[Unit] = {
+    val completionInfo = transaction.submitterInfo.toCompletionInfo()
+    ledgerConfiguration
+      .toRight(Rejection.NoLedgerConfiguration(completionInfo, errorFactories))
+      .flatMap(configuration =>
+        configuration.timeModel
+          .checkTime(
+            transaction.transactionMeta.ledgerEffectiveTime,
+            recordTime,
+          )
+          .left
+          .map(Rejection.InvalidLedgerTime(completionInfo, _)(errorFactories))
+      )
   }
 
   private def validateCausalMonotonicity(
@@ -318,6 +332,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): AsyncValidation[Unit] = {
     val referredContracts = inputContracts.diff(divulged)
+    val completionInfo = transaction.submitterInfo.toCompletionInfo()
     if (referredContracts.isEmpty)
       Future.successful(Right(()))
     else
@@ -325,36 +340,19 @@ private[sandbox] class ConflictCheckingLedgerBridge(
         .lookupMaximumLedgerTime(referredContracts)(transaction.loggingContext)
         .transform {
           case Failure(MissingContracts(missingContractIds)) =>
-            Success(
-              Left(
-                toCommandRejectedUpdate(
-                  UnknownContracts(missingContractIds)(errorFactories),
-                  transaction.submitterInfo.toCompletionInfo(),
-                )
-              )
-            )
+            Success(Left(UnknownContracts(missingContractIds)(completionInfo, errorFactories)))
           case Failure(err) =>
-            Success(
-              Left(
-                toCommandRejectedUpdate(
-                  LedgerBridgeInternalError(err),
-                  transaction.submitterInfo.toCompletionInfo(),
-                )
-              )
-            )
+            Success(Left(LedgerBridgeInternalError(err, completionInfo)))
           case Success(maximumLedgerEffectiveTime) =>
             maximumLedgerEffectiveTime
               .filter(_ > transactionLedgerEffectiveTime)
-              .fold[Try[Validated[Unit]]](Success(Right(())))(contractLedgerEffectiveTime =>
+              .fold[Try[Validation[Unit]]](Success(Right(())))(contractLedgerEffectiveTime =>
                 Success(
                   Left(
-                    toCommandRejectedUpdate(
-                      CausalMonotonicityViolation(
-                        contractLedgerEffectiveTime = contractLedgerEffectiveTime,
-                        transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
-                      )(errorFactories),
-                      transaction.submitterInfo.toCompletionInfo(),
-                    )
+                    CausalMonotonicityViolation(
+                      contractLedgerEffectiveTime = contractLedgerEffectiveTime,
+                      transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
+                    )(completionInfo, errorFactories)
                   )
                 )
               )
@@ -366,8 +364,9 @@ private[sandbox] class ConflictCheckingLedgerBridge(
       keyInputs: KeyInputs,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): AsyncValidation[Unit] =
-    keyInputs.foldLeft(Future.successful[Validated[Unit]](Right(()))) {
+  ): AsyncValidation[Unit] = {
+    val completionInfo = transaction.submitterInfo.toCompletionInfo()
+    keyInputs.foldLeft(Future.successful[Validation[Unit]](Right(()))) {
       case (f, (key, inputState)) =>
         f.flatMap {
           case Right(_) =>
@@ -377,56 +376,49 @@ private[sandbox] class ConflictCheckingLedgerBridge(
               .map { lookupResult =>
                 (inputState, lookupResult) match {
                   case (LfTransaction.NegativeKeyLookup, Some(actual)) =>
-                    Left(InconsistentContractKey(None, Some(actual))(errorFactories))
+                    Left(
+                      InconsistentContractKey(None, Some(actual))(completionInfo, errorFactories)
+                    )
                   case (LfTransaction.KeyCreate, Some(_)) =>
-                    Left(DuplicateKey(key)(errorFactories))
+                    Left(DuplicateKey(key)(completionInfo, errorFactories))
                   case (LfTransaction.KeyActive(expected), actual) if !actual.contains(expected) =>
-                    Left(InconsistentContractKey(Some(expected), actual)(errorFactories))
+                    Left(
+                      InconsistentContractKey(Some(expected), actual)(
+                        completionInfo,
+                        errorFactories,
+                      )
+                    )
                   case _ => Right(())
                 }
               }
-              .map(
-                _.left.map(toCommandRejectedUpdate(_, transaction.submitterInfo.toCompletionInfo()))
-              )
           case left => Future.successful(left)
         }
     }
+  }
 
-  private def toCommandRejectedUpdate(rejection: Rejection, completionInfo: CompletionInfo) =
-    Update.CommandRejected(
-      recordTime = timeProvider.getCurrentTimestamp,
-      completionInfo = completionInfo,
-      reasonTemplate = FinalReason(rejection.toStatus),
-    )
-
-  private def invalidInputFromParticipantRejection(
-      completionInfo: CompletionInfo
-  )(implicit
+  private def invalidInputFromParticipantRejection(completionInfo: CompletionInfo)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): LfTransaction.KeyInputError => Update.CommandRejected = {
+  ): LfTransaction.KeyInputError => Rejection = {
     case LfTransaction.InconsistentKeys(key) =>
-      toCommandRejectedUpdate(
-        TransactionInternallyInconsistentKey(key),
-        completionInfo,
-      )
+      TransactionInternallyInconsistentKey(key, completionInfo)
     case LfTransaction.DuplicateKeys(key) =>
-      toCommandRejectedUpdate(TransactionInternallyInconsistentContract(key), completionInfo)
+      TransactionInternallyInconsistentContract(key, completionInfo)
   }
 }
 
 object ConflictCheckingLedgerBridge {
-  private type Validated[T] = Either[Update.CommandRejected, T]
-  private type AsyncValidation[T] = Future[Validated[T]]
+  private type Validation[T] = Either[Rejection, T]
+  private type AsyncValidation[T] = Future[Validation[T]]
   private type KeyInputs = Map[Key, LfTransaction.KeyInput]
 
   // Conflict checking stages
   private type PrepareSubmission = Submission => AsyncValidation[PreparedSubmission]
   private type TagWithLedgerEnd =
-    Validated[PreparedSubmission] => AsyncValidation[(Offset, PreparedSubmission)]
+    Validation[PreparedSubmission] => AsyncValidation[(Offset, PreparedSubmission)]
   private type ConflictCheckWithCommitted =
-    Validated[(Offset, PreparedSubmission)] => AsyncValidation[(Offset, PreparedSubmission)]
+    Validation[(Offset, PreparedSubmission)] => AsyncValidation[(Offset, PreparedSubmission)]
   private type Sequence =
-    () => Validated[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)]
+    () => Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)]
 
   private def withErrorLogger[T](submissionId: Option[String])(
       f: ContextualizedErrorLogger => T
