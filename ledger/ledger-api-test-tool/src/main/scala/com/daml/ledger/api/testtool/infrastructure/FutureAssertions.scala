@@ -55,9 +55,9 @@ object FutureAssertions {
     Delayed.Future.by(delay)(test)
 
   /** Run the test every [[retryDelay]] up to [[maxRetryDuration]].
-    * The assertion will succeed if any of the test case runs are successful.
+    * The test case will run up to [[ceil(maxRetryDuration / retryDelay)]] times.
+    * The assertion will succeed as soon as any of the test case runs are successful.
     * The assertion will fail if no test case runs are successful and the [[maxRetryDuration]] is exceeded.
-    * The test case will run up to [[ceil(maxRetryDuration / retryDelay)]] times
     */
   def succeedsEventually[V](
       retryDelay: FiniteDuration = 100.millis,
