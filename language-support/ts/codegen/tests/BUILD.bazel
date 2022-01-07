@@ -86,6 +86,7 @@ sh_test(
         "$(location //language-support/ts/daml-ledger:npm_package)",
         sdk_version,
         "$(location //ledger/test-common:model-tests-default.dar)",
+        "$(location @grpcurl_nix//:bin)",
     ],
     data = [
         "//:java",
@@ -97,6 +98,7 @@ sh_test(
         "//ledger/test-common:model-tests-default.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
+        "@grpcurl_nix//:bin",
     ] + glob(
         ["ts/**"],
         exclude = [

@@ -93,13 +93,11 @@ beforeAll(async () => {
     "-plaintext",
     "-d",
     JSON.stringify(USER_DETAILS),
-    "localhost:6865",
+    "localhost:" + sandboxPort.toString(),
     "com.daml.ledger.api.v1.admin.UserManagementService/CreateUser",
   ];
-  
-  spawnSync('grpcurl', grpcurlUserArgs, {"encoding": "utf8"});
+  spawnSync('grpcurl', grpcurlUserArgs, {"encoding": "utf8"})
   console.log('Created user')
-
 
   jsonApiProcess = spawnJvm(
     getEnv('JSON_API'),
