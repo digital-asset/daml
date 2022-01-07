@@ -66,10 +66,7 @@ class CliSpec extends AsyncWordSpec with Matchers {
         oauthRefreshTemplate = Some(Paths.get("refresh_template")),
       )
       // token verifier needs to be set.
-      c.tokenVerifier match {
-        case _: JwksVerifier => succeed
-        case _ => fail("expected JwksVerifier based on supplied config")
-      }
+      c.tokenVerifier shouldBe a[JwksVerifier]
     }
   }
 
