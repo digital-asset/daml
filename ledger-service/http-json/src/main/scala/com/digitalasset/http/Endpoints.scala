@@ -514,23 +514,23 @@ class Endpoints(
         import com.daml.lf.data.Ref
         val input =
           for {
-            username <- Ref.UserId.fromString(createUserRequest.userDetails.userId).disjunction
-            primaryParty <- createUserRequest.userDetails.primaryParty.traverse(it =>
+            username <- Ref.UserId.fromString(createUserRequest.userId).disjunction
+            primaryParty <- createUserRequest.primaryParty.traverse(it =>
               Ref.Party.fromString(it).disjunction
             )
             canActAs <-
-              createUserRequest.initialRights.canActAs.traverse(it =>
+              createUserRequest.canActAs.traverse(it =>
                 Ref.Party
                   .fromString(it.toString)
                   .map(CanActAs(_): UserRight)
                   .disjunction
               )
             canReadAs <-
-              createUserRequest.initialRights.canReadAs.traverse(it =>
+              createUserRequest.canReadAs.traverse(it =>
                 Ref.Party.fromString(it.toString).map(CanReadAs(_): UserRight).disjunction
               )
             isAdminLs =
-              if (createUserRequest.initialRights.isAdmin) List(ParticipantAdmin)
+              if (createUserRequest.isAdmin) List(ParticipantAdmin)
               else List.empty
           } yield (username, primaryParty, canActAs ++ canReadAs ++ isAdminLs)
         for {

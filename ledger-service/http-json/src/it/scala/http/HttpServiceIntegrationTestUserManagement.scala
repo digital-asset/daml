@@ -6,7 +6,7 @@ package com.daml.http
 import akka.http.scaladsl.model.headers.Authorization
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import com.daml.fetchcontracts.domain.TemplateId.OptionalPkg
-import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, getResult}
+import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, getResult, postRequest}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.{UserDetails, UserRights}
@@ -50,8 +50,8 @@ trait HttpServiceIntegrationTestUserManagementFuns
       Some(participantAdminJwt.value),
     )
 
-  def headersWithUserAuth(userId: String): List[Authorization] =
-    authorizationHeader(jwtForUser(userId))
+  def headersWithUserAuth(userId: String, admin: Boolean = false): List[Authorization] =
+    authorizationHeader(jwtForUser(userId, admin))
 
   def getUniqueUserName(name: String): String = getUniqueParty(name).toString
 
@@ -209,6 +209,33 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       }
     } yield assertion
   }
+
+  "creating a user should be possible via the user/create endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, _, _) =>
+    import spray.json._
+    import spray.json.DefaultJsonProtocol._
+    val alice = getUniqueParty("Alice")
+    val createUserRequest = domain.CreateUserRequest(
+      "nice.user2",
+      Some(alice.unwrap),
+      List(alice),
+      List.empty,
+      isAdmin = true,
+    )
+    for {
+      (status, output) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/create")),
+        createUserRequest.toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      assertion <- {
+        status shouldBe StatusCodes.OK
+        getResult(output).convertTo[Boolean] shouldBe true
+      }
+    } yield assertion
+  }
+
 }
 
 class HttpServiceIntegrationTestUserManagement

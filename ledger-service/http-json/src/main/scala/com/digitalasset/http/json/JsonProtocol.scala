@@ -80,7 +80,7 @@ object JsonProtocol extends JsonProtocolLow {
     jsonFormat3(domain.PartyDetails.apply)
 
   implicit val CreateUserRequest: JsonFormat[domain.CreateUserRequest] =
-    jsonFormat2(domain.CreateUserRequest)
+    jsonFormat5(domain.CreateUserRequest)
 
   implicit val AllocatePartyRequest: JsonFormat[domain.AllocatePartyRequest] =
     jsonFormat2(domain.AllocatePartyRequest)
