@@ -4,7 +4,6 @@
 package com.daml.auth.middleware.oauth2
 
 import akka.http.scaladsl.model.Uri
-import com.auth0.jwt.algorithms.Algorithm
 import com.daml.auth.middleware.oauth2.Config.{
   DefaultCookieSecure,
   DefaultHttpPort,
@@ -12,35 +11,20 @@ import com.daml.auth.middleware.oauth2.Config.{
   DefaultMaxLoginRequests,
 }
 import com.daml.cliopts
-import com.daml.jwt.{
-  ECDSAVerifier,
-  HMAC256Verifier,
-  JwksVerifier,
-  JwtVerifierBase,
-  JwtVerifierConfigurationCli,
-  RSA256Verifier,
-}
+import com.daml.jwt.{JwtVerifierBase, JwtVerifierConfigurationCli}
 import com.typesafe.scalalogging.StrictLogging
-import pureconfig.{ConfigReader, ConfigSource, ConvertHelpers}
-import pureconfig.error.ConfigReaderException
+import pureconfig.ConfigSource
+import pureconfig.error.ConfigReaderFailures
 import scopt.OptionParser
 
 import java.io.File
-import pureconfig.generic.semiauto._
-
 import java.nio.file.{Path, Paths}
+
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
+import scalaz.syntax.std.option._
 
-sealed trait ConfigError extends Product with Serializable {
-  def msg: String
-}
-case object MissingConfigError extends ConfigError {
-  val msg = "Missing auth middleware config file"
-}
-final case class ConfigParseError(msg: String) extends ConfigError
-
-final case class Cli(
+private[oauth2] final case class Cli(
     configFile: Option[File] = None,
     // Host and port the middleware listens on
     address: String = cliopts.Http.defaultAddress,
@@ -64,24 +48,13 @@ final case class Cli(
     clientSecret: SecretString,
     // Token verification
     tokenVerifier: JwtVerifierBase,
-) {
+) extends StrictLogging {
 
-  import Cli._
-
-  def loadConfigFromFile: Either[ConfigError, Config] = {
-    require(configFile.nonEmpty, "Config file should be defined to load app config")
-    configFile
-      .map(f =>
-        try {
-          Right(ConfigSource.file(f).loadOrThrow[Config])
-        } catch {
-          case ex: ConfigReaderException[_] => Left(ConfigParseError(ex.failures.head.description))
-        }
-      )
-      .get
+  def loadFromConfigFile: Option[Either[ConfigReaderFailures, Config]] = {
+    configFile.map(cf => ConfigSource.file(cf).load[Config])
   }
 
-  def loadConfigFromCliArgs: Config = {
+  def loadFromCliArgs: Config = {
     val cfg = Config(
       address,
       port,
@@ -102,40 +75,28 @@ final case class Cli(
     cfg.validate
     cfg
   }
+
+  def loadConfig: Option[Config] = {
+    loadFromConfigFile.cata(
+      {
+        case Right(cfg) => Some(cfg)
+        case Left(ex) =>
+          logger.error(
+            s"Error loading oauth2-middleware config from file ${configFile}",
+            ex.prettyPrint(),
+          )
+          None
+      }, {
+        logger.warn("Using cli opts for running oauth2-middleware is deprecated")
+        Some(loadFromCliArgs)
+      },
+    )
+  }
 }
 
-object Cli extends StrictLogging {
-  implicit val tokenVerifierReader: ConfigReader[JwtVerifierBase] =
-    ConfigReader.forProduct2[JwtVerifierBase, String, String]("type", "uri") {
-      case (t: String, p: String) =>
-        // hs256-unsafe, rs256-crt, es256-crt, es512-crt, rs256-jwks
-        t match {
-          case "hs256-unsafe" =>
-            HMAC256Verifier(p)
-              .valueOr(err => sys.error(s"Failed to create HMAC256 verifier: $err"))
-          case "rs256-crt" =>
-            RSA256Verifier
-              .fromCrtFile(p)
-              .valueOr(err => sys.error(s"Failed to create RSA256 verifier: $err"))
-          case "es256-crt" =>
-            ECDSAVerifier
-              .fromCrtFile(p, Algorithm.ECDSA256(_, null))
-              .valueOr(err => sys.error(s"Failed to create ECDSA256 verifier: $err"))
-          case "es512-crt" =>
-            ECDSAVerifier
-              .fromCrtFile(p, Algorithm.ECDSA512(_, null))
-              .valueOr(err => sys.error(s"Failed to create ECDSA512 verifier: $err"))
-          case "rs256-jwks" =>
-            JwksVerifier(p)
-        }
-    }
-  lazy implicit val uriReader: ConfigReader[Uri] =
-    ConfigReader.fromString[Uri](ConvertHelpers.catchReadError(s => Uri(s)))
-  lazy implicit val clientSecretReader: ConfigReader[SecretString] =
-    ConfigReader.fromString[SecretString](ConvertHelpers.catchReadError(s => SecretString(s)))
-  lazy implicit val cfgReader: ConfigReader[Config] = deriveReader[Config]
+private[oauth2] object Cli {
 
-  private val Empty =
+  private[oauth2] val Default =
     Cli(
       configFile = None,
       address = cliopts.Http.defaultAddress,
@@ -259,22 +220,10 @@ object Cli extends StrictLogging {
     override def showUsageOnError: Option[Boolean] = Some(true)
   }
 
-  def parse(args: Array[String]): Option[Cli] = parser.parse(args, Empty)
+  def parse(args: Array[String]): Option[Cli] = parser.parse(args, Default)
 
   def parseConfig(args: Array[String]): Option[Config] = {
     val cli = parse(args)
-    cli.flatMap { c =>
-      if (c.configFile.isDefined) {
-        c.loadConfigFromFile match {
-          case Right(conf) => Some(conf)
-          case Left(err) =>
-            logger.error(s"Unable to start oauth2-middleware using config: ${err.msg}")
-            None
-        }
-      } else {
-        logger.warn("Using cli opts for running oauth2-middleware is deprecated")
-        Some(c.loadConfigFromCliArgs)
-      }
-    }
+    cli.flatMap(_.loadConfig)
   }
 }

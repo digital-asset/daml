@@ -13,6 +13,7 @@ import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import pureconfig.error.{CannotReadFile, ConfigReaderFailures}
+import com.daml.pureconfigutils.LedgerApiConfig
 
 import java.nio.file.Paths
 import scala.concurrent.duration._

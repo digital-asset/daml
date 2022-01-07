@@ -8,11 +8,21 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.jwt.JwksVerifier
+import org.scalatest.Inside.inside
+import pureconfig.error.{CannotReadFile, ConfigReaderFailures}
 
 import java.nio.file.Paths
 import scala.concurrent.duration._
 
 class CliSpec extends AsyncWordSpec with Matchers {
+  val minimalCfg = Config(
+    oauthAuth = Uri("https://oauth2/uri"),
+    oauthToken = Uri("https://oauth2/token"),
+    callbackUri = Some(Uri("https://example.com/auth/cb")),
+    clientId = sys.env.getOrElse("DAML_CLIENT_ID", "foo"),
+    clientSecret = SecretString(sys.env.getOrElse("DAML_CLIENT_SECRET", "bar")),
+    tokenVerifier = null,
+  )
   val confFile = "triggers/service/auth/src/test/resources/oauth2-middleware.conf"
   def loadCli(file: String): Cli = {
     Cli.parse(Array("--config", file)).getOrElse(fail("Could not load Cli on parse"))
@@ -29,30 +39,14 @@ class CliSpec extends AsyncWordSpec with Matchers {
       requiredResource("triggers/service/auth/src/test/resources/oauth2-middleware-minimal.conf")
     val cli = loadCli(file.getAbsolutePath)
     cli.configFile should not be empty
-    cli.loadConfigFromFile match {
-      case Left(ex) => fail(ex.msg)
-      case Right(c) =>
-        c.address shouldBe "127.0.0.1"
-        c.port shouldBe Config.DefaultHttpPort
-        c.callbackUri shouldBe Some(Uri("https://example.com/auth/cb"))
-        c.maxLoginRequests shouldBe Config.DefaultMaxLoginRequests
-        c.loginTimeout shouldBe Config.DefaultLoginTimeout
-        c.cookieSecure shouldBe Config.DefaultCookieSecure
-        c.oauthAuth shouldBe Uri("https://oauth2/uri")
-        c.oauthToken shouldBe Uri("https://oauth2/token")
-
-        c.oauthAuthTemplate shouldBe None
-        c.oauthTokenTemplate shouldBe None
-        c.oauthRefreshTemplate shouldBe None
-
-        c.clientId shouldBe sys.env.getOrElse("DAML_CLIENT_ID", "foo")
-        c.clientSecret shouldBe SecretString(sys.env.getOrElse("DAML_CLIENT_SECRET", "bar"))
-
-        // token verifier needs to be set.
-        c.tokenVerifier match {
-          case _: JwksVerifier => succeed
-          case _ => fail("expected JwksVerifier based on supplied config")
-        }
+    val cfg = cli.loadFromConfigFile
+    inside(cfg) { case Some(Right(c)) =>
+      c.copy(tokenVerifier = null) shouldBe minimalCfg
+      // token verifier needs to be set.
+      c.tokenVerifier match {
+        case _: JwksVerifier => succeed
+        case _ => fail("expected JwksVerifier based on supplied config")
+      }
     }
   }
 
@@ -60,46 +54,34 @@ class CliSpec extends AsyncWordSpec with Matchers {
     val file = requiredResource(confFile)
     val cli = loadCli(file.getAbsolutePath)
     cli.configFile should not be empty
-    cli.loadConfigFromFile match {
-      case Left(ex) => fail(ex.msg)
-      case Right(c) =>
-        c.address shouldBe "127.0.0.1"
-        c.port shouldBe 3000
-        c.callbackUri shouldBe Some(Uri("https://example.com/auth/cb"))
-        c.maxLoginRequests shouldBe 10
-        c.loginTimeout shouldBe FiniteDuration(60, SECONDS)
-        c.cookieSecure shouldBe false
-        c.oauthAuth shouldBe Uri("https://oauth2/uri")
-        c.oauthToken shouldBe Uri("https://oauth2/token")
-
-        c.oauthAuthTemplate shouldBe Some(Paths.get("auth_template"))
-        c.oauthTokenTemplate shouldBe Some(Paths.get("token_template"))
-        c.oauthRefreshTemplate shouldBe Some(Paths.get("refresh_template"))
-
-        c.clientId shouldBe sys.env.getOrElse("DAML_CLIENT_ID", "foo")
-        c.clientSecret shouldBe SecretString(sys.env.getOrElse("DAML_CLIENT_SECRET", "bar"))
-
-        c.tokenVerifier match {
-          case _: JwksVerifier => succeed
-          case _ => fail("expected JwksVerifier based on supplied config")
-        }
-
+    val cfg = cli.loadFromConfigFile
+    inside(cfg) { case Some(Right(c)) =>
+      c.copy(tokenVerifier = null) shouldBe minimalCfg.copy(
+        port = 3000,
+        maxLoginRequests = 10,
+        loginTimeout = 60.seconds,
+        cookieSecure = false,
+        oauthAuthTemplate = Some(Paths.get("auth_template")),
+        oauthTokenTemplate = Some(Paths.get("token_template")),
+        oauthRefreshTemplate = Some(Paths.get("refresh_template")),
+      )
+      // token verifier needs to be set.
+      c.tokenVerifier shouldBe a[JwksVerifier]
     }
   }
 
   "parse should raise error on non-existent config file" in {
     val cli = loadCli("missingFile.conf")
     cli.configFile should not be empty
-    val cfg = cli.loadConfigFromFile
-    cfg match {
-      case Left(err) => err shouldBe a[ConfigParseError]
-      case _ => fail("Expected a `ConfigParseError` on missing conf file")
+    val cfg = cli.loadFromConfigFile
+    inside(cfg) { case Some(Left(ConfigReaderFailures(head))) =>
+      head shouldBe a[CannotReadFile]
     }
 
     //parseConfig for non-existent file should return a None
     Cli.parseConfig(
       Array(
-        "--config-file",
+        "--config",
         "missingFile.conf",
       )
     ) shouldBe None

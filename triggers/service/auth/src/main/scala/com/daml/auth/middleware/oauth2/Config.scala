@@ -8,11 +8,13 @@ import akka.http.scaladsl.model.Uri
 import com.daml.auth.middleware.oauth2.Config._
 import com.daml.cliopts
 import com.daml.jwt.JwtVerifierBase
+import com.daml.pureconfigutils.SharedConfigReaders._
+import pureconfig.{ConfigReader, ConvertHelpers}
+import pureconfig.generic.semiauto.deriveReader
 
-import scala.concurrent.duration
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
-case class Config(
+final case class Config(
     // Host and port the middleware listens on
     address: String = cliopts.Http.defaultAddress,
     port: Int = DefaultHttpPort,
@@ -27,9 +29,9 @@ case class Config(
     oauthAuth: Uri,
     oauthToken: Uri,
     // OAuth2 server request templates
-    oauthAuthTemplate: Option[Path],
-    oauthTokenTemplate: Option[Path],
-    oauthRefreshTemplate: Option[Path],
+    oauthAuthTemplate: Option[Path] = None,
+    oauthTokenTemplate: Option[Path] = None,
+    oauthRefreshTemplate: Option[Path] = None,
     // OAuth2 client properties
     clientId: String,
     clientSecret: SecretString,
@@ -45,7 +47,7 @@ case class Config(
   }
 }
 
-case class SecretString(value: String) {
+final case class SecretString(value: String) {
   override def toString: String = "###"
 }
 
@@ -53,5 +55,9 @@ object Config {
   val DefaultHttpPort: Int = 3000
   val DefaultCookieSecure: Boolean = true
   val DefaultMaxLoginRequests: Int = 100
-  val DefaultLoginTimeout: FiniteDuration = FiniteDuration(5, duration.MINUTES)
+  val DefaultLoginTimeout: FiniteDuration = 5.minutes
+
+  implicit val clientSecretReader: ConfigReader[SecretString] =
+    ConfigReader.fromString[SecretString](ConvertHelpers.catchReadError(s => SecretString(s)))
+  implicit val cfgReader: ConfigReader[Config] = deriveReader[Config]
 }
