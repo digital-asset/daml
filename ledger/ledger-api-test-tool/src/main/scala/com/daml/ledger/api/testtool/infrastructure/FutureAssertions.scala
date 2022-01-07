@@ -47,71 +47,69 @@ object FutureAssertions {
 
   private val logger = ContextualizedLogger.get(getClass)
 
+  /** Runs the test case after the specified delay
+    */
   def assertAfter[V](
       delay: FiniteDuration
-  )(test: => Future[V]): Future[V] = {
+  )(test: => Future[V]): Future[V] =
     Delayed.Future.by(delay)(test)
-  }
 
+  /** Run the test every [[retryDelay]] up to [[maxRetryDuration]].
+    * The assertion will succeed if any of the test case runs are successful.
+    * The assertion will fail if no test case runs are successful and the [[maxRetryDuration]] is exceeded.
+    * The test case will run up to [[ceil(maxRetryDuration / retryDelay)]] times
+    */
   def succeedsEventually[V](
-      delay: FiniteDuration = 100.millis,
-      maxInterval: FiniteDuration,
+      retryDelay: FiniteDuration = 100.millis,
+      maxRetryDuration: FiniteDuration,
       description: String,
   )(
       test: => Future[V]
   )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[V] = {
-    def internalSucceedsEventually(interval: FiniteDuration): Future[V] = {
-      val newMaxInterval = interval - delay
-      if (newMaxInterval < Duration.Zero) {
-        test.andThen { case Failure(exception) =>
-          logger.error(
-            s"Assertion never succeeded after $maxInterval with a delay of $delay. Description: $description",
-            exception,
-          )
-        }
-      } else {
-        if (newMaxInterval == Duration.Zero) {
-          assertAfter(delay)(test)
-        } else {
-          assertAfter(delay)(test).recoverWith { case NonFatal(ex) =>
-            logger.debug(
-              s"Failed assertion: $description. Running again with new max interval $newMaxInterval",
-              ex,
-            )
-            internalSucceedsEventually(newMaxInterval)
-          }
-        }
+    def internalSucceedsEventually(remainingDuration: FiniteDuration): Future[V] = {
+      val nextRetryRemainingDuration = remainingDuration - retryDelay
+      if (nextRetryRemainingDuration < Duration.Zero) test.andThen { case Failure(exception) =>
+        logger.error(
+          s"Assertion never succeeded after $maxRetryDuration with a delay of $retryDelay. Description: $description",
+          exception,
+        )
       }
+      else
+        assertAfter(retryDelay)(test).recoverWith { case NonFatal(ex) =>
+          logger.debug(
+            s"Failed assertion: $description. Running again with new max duration $nextRetryRemainingDuration",
+            ex,
+          )
+          internalSucceedsEventually(nextRetryRemainingDuration)
+        }
     }
 
-    internalSucceedsEventually(maxInterval)
+    internalSucceedsEventually(maxRetryDuration)
   }
 
+  /** Run the test every [[rerunDelay]] for a duration of [[succeedDuration]] or until the current time exceeds [[succeedDeadline]].
+    * The assertion will succeed if all of the test case runs are successful and [[succeedDuration]] is exceeded or [[succeedDeadline]] is exceeded.
+    * The assertion will fail if any test case runs fail.
+    */
   def succeedsUntil[V](
-      delay: FiniteDuration = 100.millis,
+      rerunDelay: FiniteDuration = 100.millis,
       succeedDuration: FiniteDuration,
       succeedDeadline: Option[Instant] = None,
   )(
       test: => Future[V]
   )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[V] = {
-    def internalSucceedsUntil(interval: FiniteDuration): Future[V] = {
-      val newMaxInterval = interval - delay
+    def internalSucceedsUntil(remainingDuration: FiniteDuration): Future[V] = {
+      val nextRerunRemainingDuration = remainingDuration - rerunDelay
       if (
         succeedDeadline.exists(
-          _.isBefore(Instant.now().plusSeconds(delay.toSeconds))
-        ) || newMaxInterval < Duration.Zero
-      ) {
-        test
-      } else {
-        if (newMaxInterval == Duration.Zero) {
-          assertAfter(delay)(test)
-        } else {
-          assertAfter(delay)(test)
-            .flatMap { _ =>
-              internalSucceedsUntil(newMaxInterval)
-            }
-        }
-      }
+          _.isBefore(Instant.now().plusSeconds(rerunDelay.toSeconds))
+        ) || nextRerunRemainingDuration < Duration.Zero
+      ) test
+      else
+        assertAfter(rerunDelay)(test)
+          .flatMap { _ =>
+            internalSucceedsUntil(nextRerunRemainingDuration)
+          }
     }
 
     internalSucceedsUntil(succeedDuration)
@@ -125,33 +123,28 @@ object FutureAssertions {
 
   def forAllParallel[T](
       data: Seq[T]
-  )(testCase: T => Future[Unit])(implicit ec: ExecutionContext): Future[Seq[Unit]] = {
-    Future
-      .traverse(data)(input =>
-        testCase(input).map(Right(_)).recover { case NonFatal(ex) =>
-          Left(input -> ex)
-        }
-      )
-      .map { results =>
-        val (failures, successes) = results.partitionMap(identity)
-        if (failures.nonEmpty) {
-          throw ParallelTestFailureException(
-            s"Failed parallel test case. Failures: ${failures.length}. Success: ${successes.length}\nFailed inputs: ${failures
-              .map(_._1)
-              .mkString("[", ",", "]")}",
-            failures.last._2,
-          )
-        } else {
-          successes
-        }
+  )(testCase: T => Future[Unit])(implicit ec: ExecutionContext): Future[Seq[Unit]] = Future
+    .traverse(data)(input =>
+      testCase(input).map(Right(_)).recover { case NonFatal(ex) =>
+        Left(input -> ex)
       }
-  }
+    )
+    .map { results =>
+      val (failures, successes) = results.partitionMap(identity)
+      if (failures.nonEmpty)
+        throw ParallelTestFailureException(
+          s"Failed parallel test case. Failures: ${failures.length}. Success: ${successes.length}\nFailed inputs: ${failures
+            .map(_._1)
+            .mkString("[", ",", "]")}",
+          failures.last._2,
+        )
+      else successes
+    }
 
   def optionalAssertion(runs: Boolean, description: String)(
       assertions: => Future[_]
-  )(implicit loggingContext: LoggingContext): Future[_] = if (runs) {
-    assertions
-  } else {
+  )(implicit loggingContext: LoggingContext): Future[_] = if (runs) assertions
+  else {
     logger.warn(s"Not running optional assertions: $description")
     Future.unit
   }
@@ -162,5 +155,6 @@ object FutureAssertions {
       )
 
 }
+
 final case class ParallelTestFailureException(message: String, failure: Throwable)
     extends RuntimeException(message, failure)
