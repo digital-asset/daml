@@ -11,30 +11,64 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
 import "google/protobuf/timestamp.proto";
 
-// Experimental API to extract metering reports.
+
+// Experimental API to retrieve metering reports.
 //
-// Authorization rules for the services RPCs are specified on the `RpcNameRequest`
-// messages as boolean expressions over these facts:
-// - ``HasRight(r)``: true iff the authenticated user has right `r`
+// Metering reports aim to provide the information necessary for billing participant
+// and application operators.
 //
 service MeteringReportService {
 
-    // Run a report.
-    rpc MeteringReport (MeteringReportRequest) returns (MeteringReportResponse);
+    // Retrieve a metering report.
+    rpc GetMeteringReport (GetMeteringReportRequest) returns (GetMeteringReportResponse);
 
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
-message MeteringReportRequest {
+// Authorized if and only if the authenticated user is a participant admin.
+message GetMeteringReportRequest {
 
-    // The from timestamp (inclusive)
+    // The from timestamp (inclusive).
+    // Required.
     google.protobuf.Timestamp from = 1;
 
-    // The to timestamp (exclusive)
+    // The to timestamp (exclusive).
+    // If not provided, the server will default to its current time.
     google.protobuf.Timestamp to = 2;
 
-    // If provided only return results for the given applications
-    repeated string application_ids = 3;
+    // If set to a non-empty value, then the report will only be generated for that application.
+    // Optional.
+    string application_id = 3;
+}
+
+message GetMeteringReportResponse {
+
+    // The actual request that was executed.
+    GetMeteringReportRequest request = 1;
+
+    // The computed report.
+    ParticipantMeteringReport participant_report = 2;
+
+    // The time at which the report was computed.
+    google.protobuf.Timestamp report_generated_time = 3;
+}
+
+
+// Report representation
+////////////////////////
+
+message ParticipantMeteringReport {
+
+    // The reporting participant
+    string participant_id = 1;
+
+    // The actual ``to`` date that was used to compute the report.
+    // This value can be smaller than than the requested ``to`` value in case events have
+    // not yet been aggregated for all times up to requested ``to``.
+    google.protobuf.Timestamp to_actual = 2;
+
+    // Per application reports.
+    repeated ApplicationMeteringReport application_reports = 3;
+
 }
 
 message ApplicationMeteringReport {
@@ -42,36 +76,7 @@ message ApplicationMeteringReport {
     // The application Id
     string application_id = 1;
 
-    // The event count for the application
+    // The event count for the application; i.e., the number of fetch, lookup-by-key, create, and exercise events
+    // in transactions issued by this application.
     int64 event_count = 2;
 }
-
-message MeteringReportResponse {
-
-    ParticipantMeteringReport participant_report = 1;
-
-    google.protobuf.Timestamp report_generation_time = 2;
-
-}
-
-message ParticipantMeteringReport {
-
-    // The reporting participant
-    string participant_id = 1;
-
-    // The requested, and actual, from-time
-    google.protobuf.Timestamp from = 2;
-
-    // The requested to-time
-    google.protobuf.Timestamp to_requested = 3;
-
-    // The to_actual will be to_requested if the report was constructed based on immutable aggregated
-    // records.  If the report was based on partially incomplete un-aggregated records then to_actual
-    // will contain the timestamp of the last timestamp actually used in the construction of the report.
-    google.protobuf.Timestamp to_actual = 4;
-
-    // A list of event counts for each application
-    repeated ApplicationMeteringReport application_reports = 5;
-
-}
-
