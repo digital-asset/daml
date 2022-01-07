@@ -86,7 +86,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
             .map(
               withErrorLogger(submitterInfo.submissionId)(
                 invalidInputFromParticipantRejection(
-                  transactionSubmission.submitterInfo.toCompletionInfo()
+                  submitterInfo.toCompletionInfo()
                 )(_)
               )(transactionSubmission.loggingContext, logger)
             )
