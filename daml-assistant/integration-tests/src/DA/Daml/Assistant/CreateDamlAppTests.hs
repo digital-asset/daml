@@ -43,15 +43,16 @@ main :: IO ()
 main = withTempDir $ \npmCache -> do
     setEnv "npm_config_cache" npmCache True
     limitJvmMemory defaultJvmMemoryLimits
-    npm : node : args <- getArgs
+    npm : node : grpcurl : args <- getArgs
     javaPath <- locateRunfiles "local_jdk/bin"
     oldPath <- getSearchPath
     npmPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> npm)
     -- we need node in scope for the post install step of babel
     nodePath <- takeDirectory <$> locateRunfiles (mainWorkspace </> node)
+    grpcurlPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> grpcurl)
     let ingredients = defaultIngredients ++ [includingOptions [Option @ProjectName Proxy]]
     withArgs args (withEnv
-        [ ("PATH", Just $ intercalate [searchPathSeparator] (javaPath : npmPath : nodePath : oldPath))
+        [ ("PATH", Just $ intercalate [searchPathSeparator] (javaPath : npmPath : nodePath : grpcurlPath : oldPath))
         , ("TASTY_NUM_THREADS", Just "1")
         ] $ defaultMainWithIngredients ingredients tests)
 

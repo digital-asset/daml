@@ -220,6 +220,7 @@ da_haskell_library(
         "directory",
         "extra",
         "filepath",
+        "process",
         "tagged",
         "tasty",
         "tasty-hunit",
@@ -242,10 +243,12 @@ da_haskell_test(
     args = [
         "$(location @nodejs//:npm_bin)",
         "$(location @nodejs//:node_bin)",
+        "$(location @grpcurl_nix//:bin)",
         "--project-name",
         "not-create-daml-app",
     ],
     data = [
+        "@grpcurl_nix//:bin",
         "@nodejs//:node_bin",
         "@nodejs//:npm_bin",
     ],

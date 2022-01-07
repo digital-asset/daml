@@ -161,6 +161,10 @@ main :: IO ()
 main = withTempDir $ \npmCache -> do
   setEnv "npm_config_cache" npmCache True
   setEnv "TASTY_NUM_THREADS" "1" True
+  -- We disable user management since older ledgers do not support it.
+  -- We might eventually want to enable it when running against > 1.18 but for now
+  -- this also acts as a nice test for running without user management.
+  setEnv "REACT_APP_SUPPORTS_USERMANAGEMENT" "false" True
   let options =
         [ Option @DamlOption Proxy
         , Option @DamlLedgerOption Proxy

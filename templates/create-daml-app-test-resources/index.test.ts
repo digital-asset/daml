@@ -3,7 +3,7 @@
 
 // Keep in sync with compatibility/bazel_tools/create-daml-app/index.test.ts
 
-import { ChildProcess, spawn, SpawnOptions } from 'child_process';
+import { ChildProcess, spawn, spawnSync, SpawnOptions } from 'child_process';
 import { promises as fs } from 'fs';
 import puppeteer, { Browser, Page } from 'puppeteer';
 import waitOn from 'wait-on';
@@ -26,17 +26,40 @@ let uiProc: ChildProcess | undefined = undefined;
 let browser: Browser | undefined = undefined;
 
 // Function to generate unique party names for us.
-// This should be replaced by the party management service once that is exposed
-// in the HTTP JSON API.
 let nextPartyId = 1;
-function getParty(): string {
-  const party = `P${nextPartyId}`;
+const getParty = async () : [string, string] => {
+  // TODO For now we use grpcurl to allocate parties and users.
+  // Once the JSON API exposes party & user management we can switch to that.
+  const grpcurlPartyArgs = [
+    "-plaintext",
+    "localhost:6865",
+    "com.daml.ledger.api.v1.admin.PartyManagementService/AllocateParty",
+  ];
+  const allocResult = spawnSync('grpcurl', grpcurlPartyArgs, {"encoding": "utf8"});
+  const parsedResult = JSON.parse(allocResult.stdout);
+  const user = `u${nextPartyId}`;
+  const party = parsedResult.partyDetails.party;
+  const createUser = {
+    "user": {
+      "id": user,
+      "primary_party": party,
+    },
+    "rights": [{"can_act_as": {"party": party}}]
+  };
+  const grpcurlUserArgs = [
+    "-plaintext",
+    "-d",
+    JSON.stringify(createUser),
+    "localhost:6865",
+    "com.daml.ledger.api.v1.admin.UserManagementService/CreateUser",
+  ];
+  const result = spawnSync('grpcurl', grpcurlUserArgs, {"encoding": "utf8"});
   nextPartyId++;
-  return party;
-}
+  return [user, party];
+};
 
 test('Party names are unique', async () => {
-  const parties = new Set(Array(10).fill({}).map(() => getParty()));
+  const parties = new Set(await Promise.all(Array(10).fill({}).map(() => getParty())));
   expect(parties.size).toEqual(10);
 });
 
@@ -126,13 +149,13 @@ afterAll(async () => {
 });
 
 test('create and look up user using ledger library', async () => {
-  const party = getParty();
-  const token = authConfig.makeToken(party);
+  const [user, party] = await getParty();
+  const token = authConfig.makeToken(user);
   const ledger = new Ledger({token});
   const users0 = await ledger.query(User.User);
   expect(users0).toEqual([]);
-  const user = {username: party, following: []};
-  const userContract1 = await ledger.create(User.User, user);
+  const userPayload = {username: party, following: []};
+  const userContract1 = await ledger.create(User.User, userPayload);
   const userContract2 = await ledger.fetchByKey(User.User, party);
   expect(userContract1).toEqual(userContract2);
   const users = await ledger.query(User.User);
@@ -202,27 +225,27 @@ const follow = async (page: Page, userToFollow: string) => {
 
 // LOGIN_TEST_BEGIN
 test('log in as a new user, log out and log back in', async () => {
-  const partyName = getParty();
+  const [user, party] = await getParty();
 
   // Log in as a new user.
   const page = await newUiPage();
-  await login(page, partyName);
+  await login(page, user);
 
   // Check that the ledger contains the new User contract.
-  const token = authConfig.makeToken(partyName);
+  const token = authConfig.makeToken(user);
   const ledger = new Ledger({token});
   const users = await ledger.query(User.User);
   expect(users).toHaveLength(1);
-  expect(users[0].payload.username).toEqual(partyName);
+  expect(users[0].payload.username).toEqual(party);
 
   // Log out and in again as the same user.
   await logout(page);
-  await login(page, partyName);
+  await login(page, user);
 
   // Check we have the same one user.
   const usersFinal = await ledger.query(User.User);
   expect(usersFinal).toHaveLength(1);
-  expect(usersFinal[0].payload.username).toEqual(partyName);
+  expect(usersFinal[0].payload.username).toEqual(party);
 
   await page.close();
 }, 40_000);
@@ -236,13 +259,13 @@ test('log in as a new user, log out and log back in', async () => {
 // These are all successful cases.
 
 test('log in as three different users and start following each other', async () => {
-  const party1 = getParty();
-  const party2 = getParty();
-  const party3 = getParty();
+  const [user1, party1] = await getParty();
+  const [user2, party2] = await getParty();
+  const [user3, party3] = await getParty();
 
   // Log in as Party 1.
   const page1 = await newUiPage();
-  await login(page1, party1);
+  await login(page1, user1);
 
   // Party 1 should initially follow no one.
   const noFollowing1 = await page1.$$('.test-select-following');
@@ -266,7 +289,7 @@ test('log in as three different users and start following each other', async () 
 
   // Log in as Party 2.
   const page2 = await newUiPage();
-  await login(page2, party2);
+  await login(page2, user2);
 
   // Party 2 should initially follow no one.
   const noFollowing2 = await page2.$$('.test-select-following');
@@ -305,7 +328,7 @@ test('log in as three different users and start following each other', async () 
 
   // Log in as Party 3.
   const page3 = await newUiPage();
-  await login(page3, party3);
+  await login(page3, user3);
 
   // Party 3 should follow no one.
   const noFollowing3 = await page3.$$('.test-select-following');
@@ -324,13 +347,13 @@ test('log in as three different users and start following each other', async () 
 }, 60_000);
 
 test('error when following self', async () => {
-  const party = getParty();
+  const [user, party] = await getParty();
   const page = await newUiPage();
 
   const dismissError = jest.fn(dialog => dialog.dismiss());
   page.on('dialog', dismissError);
 
-  await login(page, party);
+  await login(page, user);
   await follow(page, party);
 
   expect(dismissError).toHaveBeenCalled();
@@ -339,14 +362,14 @@ test('error when following self', async () => {
 });
 
 test('error when adding a user that you are already following', async () => {
-  const party1 = getParty();
-  const party2 = getParty();
+  const [user1, party1] = await getParty();
+  const [user2, party2] = await getParty();
   const page = await newUiPage();
 
   const dismissError = jest.fn(dialog => dialog.dismiss());
   page.on('dialog', dismissError);
 
-  await login(page, party1);
+  await login(page, user1);
   // First attempt should succeed
   await follow(page, party2);
   // Second attempt should result in an error
