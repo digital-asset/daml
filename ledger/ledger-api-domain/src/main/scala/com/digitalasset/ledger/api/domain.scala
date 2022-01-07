@@ -404,5 +404,30 @@ object domain {
   object Feature {
     case object UserManagement extends Feature
     case object SelfServiceErrorCodes extends Feature
+    case object StaticTime extends Feature
+    case object ExperimentalOptionalLedgerId extends Feature
+
+    sealed case class CommandDeduplication(
+        offsetSupport: Option[CommandDeduplication.OffsetSupport.Value],
+        durationSupport: Option[CommandDeduplication.DurationSupport.Value],
+        deduplicationType: Option[CommandDeduplication.Type.Value],
+        maxDeduplicationDurationEnforced: Boolean,
+    ) extends Feature
+    object CommandDeduplication {
+      @SuppressWarnings(Array("org.wartremover.warts.Enumeration"))
+      object OffsetSupport extends Enumeration {
+        val OFFSET_NOT_SUPPORTED, OFFSET_NATIVE_SUPPORT, OFFSET_CONVERT_TO_DURATION = Value
+      }
+
+      @SuppressWarnings(Array("org.wartremover.warts.Enumeration"))
+      object DurationSupport extends Enumeration {
+        val DURATION_NATIVE_SUPPORT, DURATION_CONVERT_TO_OFFSET = Value
+      }
+
+      @SuppressWarnings(Array("org.wartremover.warts.Enumeration"))
+      object Type extends Enumeration {
+        val ASYNC_ONLY, ASYNC_AND_CONCURRENT_SYNC, SYNC_ONLY = Value
+      }
+    }
   }
 }
