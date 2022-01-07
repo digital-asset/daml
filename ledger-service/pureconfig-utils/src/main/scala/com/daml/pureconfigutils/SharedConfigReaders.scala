@@ -112,7 +112,7 @@ object SharedConfigReaders {
       s.toLowerCase() match {
         case "static" => Right(TimeProviderType.Static)
         case "wall-clock" => Right(TimeProviderType.WallClock)
-        case _ => Left("value  is not one of 'static' or 'wall-clock'")
+        case _ => Left("not one of 'static' or 'wall-clock'")
       }
     })
   }
