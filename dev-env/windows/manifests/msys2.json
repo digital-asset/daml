@@ -8,7 +8,8 @@
         "https://repo.msys2.org/msys/x86_64/patch-2.7.6-1-x86_64.pkg.tar.xz#/patch.msys2",
         "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-openssl-1.1.1.j-1-any.pkg.tar.zst#/openssl.msys2",
         "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-python-3.8.8-2-any.pkg.tar.zst#/python.msys2",
-        "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-postgresql-12.4-1-any.pkg.tar.zst#/pgsql.msys2"
+        "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-postgresql-12.4-1-any.pkg.tar.zst#/pgsql.msys2",
+        "https://repo.msys2.org/msys/x86_64/perl-5.32.1-2-x86_64.pkg.tar.zst#/perl.msys2"
     ],
     "hash": [
         "2ec6fe9c3e01ecba10b9ffa708ea13bf1f8c9739e5ce9da853b77f1f3e270034",
@@ -17,7 +18,8 @@
         "5c18ce8979e9019d24abd2aee7ddcdf8824e31c4c7e162a204d4dc39b3b73776",
         "cc4e172354f7e4465b3348aa988bc79f992d64f587feffaaa81fcbd4b7d552cb",
         "d5e6b484435225a0f9bdc3e09cac76a479d05bd07b4064badf7bb453d02cb69d",
-        "13712ce2b639117b93dfce61481ab9895e8877d762410b96432d68852dd5f727"
+        "13712ce2b639117b93dfce61481ab9895e8877d762410b96432d68852dd5f727",
+        "f2b3815eb11fd349fe862feeb74635084609eed7039636af0071c533dbc46ff9"
     ],
     "env_add_path": ".",
     "installer": {
@@ -28,7 +30,8 @@
             "$ErrorActionPreference = 'Continue'",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman --version'\"",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -S --noconfirm unzip zip mingw-w64-x86_64-gcc'\"",
-            "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -S --noconfirm autoconf automake diffutils git-core make ncurses perl tar xz'\"",
+            "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -U --noconfirm /perl.msys2'\"",
+            "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -S --noconfirm autoconf automake diffutils git-core make ncurses tar xz'\"",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -U --noconfirm /jq.msys2'\"",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -U --noconfirm /netcat.msys2'\"",
             "iex \"$dir\\usr\\bin\\bash.exe -lc 'pacman -U --noconfirm /patch.msys2'\"",
