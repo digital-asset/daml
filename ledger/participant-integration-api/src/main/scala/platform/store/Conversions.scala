@@ -17,6 +17,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
 import com.daml.platform.server.api.validation.ErrorFactories
+import org.h2.jdbc.{JdbcArray => H2JdbcArray}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -170,6 +171,28 @@ private[platform] object Conversions {
                       s"Cannot convert object array element (of type ${invalid.getClass.getName}) to Int"
                     )
                 }.toArray
+              ).toEither.left.map(t => TypeDoesNotMatch(t.getMessage))
+
+            case h2Array: H2JdbcArray =>
+              Try(
+                // H2 guarantees that getArray always returs an Object[] but for whatever
+                // reason the return type is still Object and we have to cast.
+                h2Array
+                  .getArray()
+                  .asInstanceOf[Array[AnyRef]]
+                  .view
+                  .map {
+                    case s: String => s.toInt
+                    case null =>
+                      throw new SQLNonTransientException(
+                        s"Cannot convert object array element null to Int"
+                      )
+                    case invalid =>
+                      throw new SQLNonTransientException(
+                        s"Cannot convert object array element (of type ${invalid.getClass.getName}) to Int"
+                      )
+                  }
+                  .toArray
               ).toEither.left.map(t => TypeDoesNotMatch(t.getMessage))
 
             case jsonArrayString: String =>

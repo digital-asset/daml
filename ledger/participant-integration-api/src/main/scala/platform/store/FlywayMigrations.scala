@@ -13,6 +13,7 @@ import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -36,6 +37,7 @@ private[platform] class FlywayMigrations(
       .locations((locations(dbType) ++ additionalMigrationPaths): _*)
       .dataSource(dataSource)
 
+  @nowarn("msg=method ignoreFutureMigrations .* is deprecated")
   def validate(): Future[Unit] = run { configBase =>
     val flyway = configBase
       .ignoreFutureMigrations(false)
@@ -45,6 +47,7 @@ private[platform] class FlywayMigrations(
     logger.info("Flyway schema validation finished successfully.")
   }
 
+  @nowarn("msg=method ignoreFutureMigrations .* is deprecated")
   def migrate(allowExistingSchema: Boolean = false): Future[Unit] = run { configBase =>
     val flyway = configBase
       .baselineOnMigrate(allowExistingSchema)
@@ -66,6 +69,7 @@ private[platform] class FlywayMigrations(
     logger.info("Flyway schema clean finished successfully.")
   }
 
+  @nowarn("msg=method ignoreFutureMigrations .* is deprecated")
   def validateAndWaitOnly(retries: Int, retryBackoff: FiniteDuration): Future[Unit] = runF {
     configBase =>
       val flyway = configBase
@@ -88,6 +92,7 @@ private[platform] class FlywayMigrations(
       }
   }
 
+  @nowarn("msg=method ignoreFutureMigrations .* is deprecated")
   def migrateOnEmptySchema(): Future[Unit] = run { configBase =>
     val flyway = configBase
       .ignoreFutureMigrations(false)

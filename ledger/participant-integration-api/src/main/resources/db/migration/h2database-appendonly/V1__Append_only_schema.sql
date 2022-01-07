@@ -110,7 +110,7 @@ CREATE TABLE participant_command_completions (
     completion_offset VARCHAR NOT NULL,
     record_time BIGINT NOT NULL,
     application_id VARCHAR NOT NULL,
-    submitters ARRAY NOT NULL,
+    submitters VARCHAR ARRAY NOT NULL,
     command_id VARCHAR NOT NULL,
     -- The transaction ID is `NULL` for rejected transactions.
     transaction_id VARCHAR,
@@ -153,12 +153,12 @@ CREATE TABLE participant_events_divulgence (
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
     application_id VARCHAR,
-    submitters ARRAY,
+    submitters VARCHAR ARRAY,
 
     -- * shared event information
     contract_id VARCHAR NOT NULL,
     template_id INTEGER,
-    tree_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- informees
+    tree_event_witnesses VARCHAR ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * contract data
     create_argument BYTEA,
@@ -195,7 +195,7 @@ CREATE TABLE participant_events_create (
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
     application_id VARCHAR,
-    submitters ARRAY,
+    submitters VARCHAR ARRAY,
 
     -- * event metadata
     event_id VARCHAR NOT NULL,       -- string representation of (transaction_id, node_index)
@@ -203,13 +203,13 @@ CREATE TABLE participant_events_create (
     -- * shared event information
     contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
-    flat_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
-    tree_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- informees
+    flat_event_witnesses VARCHAR ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
+    tree_event_witnesses VARCHAR ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * contract data
     create_argument BYTEA NOT NULL,
-    create_signatories ARRAY NOT NULL,
-    create_observers ARRAY NOT NULL,
+    create_signatories VARCHAR ARRAY NOT NULL,
+    create_observers VARCHAR ARRAY NOT NULL,
     create_agreement_text VARCHAR,
     create_key_value BYTEA,
     create_key_hash VARCHAR,
@@ -256,7 +256,7 @@ CREATE TABLE participant_events_consuming_exercise (
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
     application_id VARCHAR,
-    submitters ARRAY,
+    submitters VARCHAR ARRAY,
 
     -- * event metadata
     event_id VARCHAR NOT NULL,        -- string representation of (transaction_id, node_index)
@@ -264,8 +264,8 @@ CREATE TABLE participant_events_consuming_exercise (
     -- * shared event information
     contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
-    flat_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
-    tree_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- informees
+    flat_event_witnesses VARCHAR ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
+    tree_event_witnesses VARCHAR ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * information about the corresponding create event
     create_key_value BYTEA,        -- used for the mutable state cache
@@ -274,8 +274,8 @@ CREATE TABLE participant_events_consuming_exercise (
     exercise_choice VARCHAR NOT NULL,
     exercise_argument BYTEA NOT NULL,
     exercise_result BYTEA,
-    exercise_actors ARRAY NOT NULL,
-    exercise_child_event_ids ARRAY NOT NULL,
+    exercise_actors VARCHAR ARRAY NOT NULL,
+    exercise_child_event_ids VARCHAR ARRAY NOT NULL,
 
     -- * compression flags
     create_key_value_compression SMALLINT,
@@ -317,7 +317,7 @@ CREATE TABLE participant_events_non_consuming_exercise (
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
     application_id VARCHAR,
-    submitters ARRAY,
+    submitters VARCHAR ARRAY,
 
     -- * event metadata
     event_id VARCHAR NOT NULL,        -- string representation of (transaction_id, node_index)
@@ -325,8 +325,8 @@ CREATE TABLE participant_events_non_consuming_exercise (
     -- * shared event information
     contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
-    flat_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
-    tree_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- informees
+    flat_event_witnesses VARCHAR ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
+    tree_event_witnesses VARCHAR ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * information about the corresponding create event
     create_key_value BYTEA,        -- used for the mutable state cache
@@ -335,8 +335,8 @@ CREATE TABLE participant_events_non_consuming_exercise (
     exercise_choice VARCHAR NOT NULL,
     exercise_argument BYTEA NOT NULL,
     exercise_result BYTEA,
-    exercise_actors ARRAY NOT NULL,
-    exercise_child_event_ids ARRAY NOT NULL,
+    exercise_actors VARCHAR ARRAY NOT NULL,
+    exercise_child_event_ids VARCHAR ARRAY NOT NULL,
 
     -- * compression flags
     create_key_value_compression SMALLINT,
@@ -384,19 +384,19 @@ SELECT
     NULL::VARCHAR as event_id,
     contract_id,
     template_id,
-    NULL::ARRAY as flat_event_witnesses,
+    NULL::VARCHAR ARRAY as flat_event_witnesses,
     tree_event_witnesses,
     create_argument,
-    NULL::ARRAY as create_signatories,
-    NULL::ARRAY as create_observers,
+    NULL::VARCHAR ARRAY as create_signatories,
+    NULL::VARCHAR ARRAY as create_observers,
     NULL::VARCHAR as create_agreement_text,
     NULL::BYTEA as create_key_value,
     NULL::VARCHAR as create_key_hash,
     NULL::VARCHAR as exercise_choice,
     NULL::BYTEA as exercise_argument,
     NULL::BYTEA as exercise_result,
-    NULL::ARRAY as exercise_actors,
-    NULL::ARRAY as exercise_child_event_ids,
+    NULL::VARCHAR ARRAY as exercise_actors,
+    NULL::VARCHAR ARRAY as exercise_child_event_ids,
     create_argument_compression,
     NULL::smallint as create_key_value_compression,
     NULL::smallint as exercise_argument_compression,
@@ -428,8 +428,8 @@ SELECT
     NULL::VARCHAR as exercise_choice,
     NULL::BYTEA as exercise_argument,
     NULL::BYTEA as exercise_result,
-    NULL::ARRAY as exercise_actors,
-    NULL::ARRAY as exercise_child_event_ids,
+    NULL::VARCHAR ARRAY as exercise_actors,
+    NULL::VARCHAR ARRAY as exercise_child_event_ids,
     create_argument_compression,
     create_key_value_compression,
     NULL::smallint as exercise_argument_compression,
@@ -453,8 +453,8 @@ SELECT
     flat_event_witnesses,
     tree_event_witnesses,
     NULL::BYTEA as create_argument,
-    NULL::ARRAY as create_signatories,
-    NULL::ARRAY as create_observers,
+    NULL::VARCHAR ARRAY as create_signatories,
+    NULL::VARCHAR ARRAY as create_observers,
     NULL::VARCHAR as create_agreement_text,
     create_key_value,
     NULL::VARCHAR as create_key_hash,
@@ -486,8 +486,8 @@ SELECT
     flat_event_witnesses,
     tree_event_witnesses,
     NULL::BYTEA as create_argument,
-    NULL::ARRAY as create_signatories,
-    NULL::ARRAY as create_observers,
+    NULL::VARCHAR ARRAY as create_signatories,
+    NULL::VARCHAR ARRAY as create_observers,
     NULL::VARCHAR as create_agreement_text,
     create_key_value,
     NULL::VARCHAR as create_key_hash,
