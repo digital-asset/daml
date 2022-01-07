@@ -20,7 +20,8 @@ import com.daml.platform.services.time.TimeProviderType
 import pureconfig.error.{CannotConvert, ConvertFailure, FailureReason}
 import pureconfig.{ConfigObjectCursor, ConfigReader, ConvertHelpers}
 import pureconfig.generic.semiauto.deriveReader
-import scalaz.{-\/, \/, \/-}
+import scalaz.\/
+import scalaz.syntax.std.option._
 
 import java.nio.file.Path
 import java.io.File
@@ -44,8 +45,19 @@ final case class LedgerApiConfig(
 final case class MetricsConfig(reporter: MetricsReporter, reportingInterval: FiniteDuration)
 
 object TokenVerifierConfig {
-  val knownTokenVerifiers =
-    List("hs256-unsafe", "rs256-crt", "es256-crt", "es512-crt", "rs256-jwks")
+  private val knownTokenVerifiers: Map[String, String => JwtVerifier.Error \/ JwtVerifierBase] =
+    Map(
+      "rs256-crt" -> RSA256Verifier.fromCrtFile,
+      "es256-crt" -> (ECDSAVerifier
+        .fromCrtFile(_, Algorithm.ECDSA256(_, null))),
+      "es512-crt" -> (ECDSAVerifier
+        .fromCrtFile(_, Algorithm.ECDSA512(_, null))),
+      "rs256-jwks" -> (valueStr =>
+        \/.attempt(JwksVerifier(valueStr))(e => JwtVerifier.Error(Symbol("RS256"), e.getMessage))
+      ),
+    )
+  private val unsafeTokenVerifier: (String, String => JwtVerifier.Error \/ JwtVerifierBase) =
+    "hs256-unsafe" -> (HMAC256Verifier(_))
 
   def extractByType(
       typeStr: String,
@@ -60,29 +72,17 @@ object TokenVerifierConfig {
         )
       )
     }
-    if (!knownTokenVerifiers.contains(typeStr)) {
-      convertFailure(s"value not one of ${knownTokenVerifiers.drop(1).mkString(", ")}")
-    } else {
-      val result: JwtVerifier.Error \/ JwtVerifierBase = typeStr match {
-        case "hs256-unsafe" =>
-          HMAC256Verifier(valueStr)
-        case "rs256-crt" =>
-          RSA256Verifier
-            .fromCrtFile(valueStr)
-        case "es256-crt" =>
-          ECDSAVerifier
-            .fromCrtFile(valueStr, Algorithm.ECDSA256(_, null))
-        case "es512-crt" =>
-          ECDSAVerifier
-            .fromCrtFile(valueStr, Algorithm.ECDSA512(_, null))
-        case "rs256-jwks" =>
-          \/.attempt(JwksVerifier(valueStr))(e => JwtVerifier.Error(Symbol("RS256"), e.getMessage))
-      }
-      result match {
-        case -\/(err) => convertFailure(s"Failed to create $typeStr verifier: ${err}")
-        case \/-(res) => Right(res)
-      }
-    }
+    (knownTokenVerifiers + unsafeTokenVerifier)
+      .get(typeStr)
+      .cata(
+        { conv =>
+          conv(valueStr).fold(
+            err => convertFailure(s"Failed to create $typeStr verifier: $err"),
+            (Right(_)),
+          )
+        },
+        convertFailure(s"value not one of ${knownTokenVerifiers.keys.mkString(", ")}"),
+      )
   }
 }
 object SharedConfigReaders {
