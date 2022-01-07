@@ -183,7 +183,7 @@ private[sandbox] object ScenarioLoader {
 
   private val submissionIdPrefix = Ref.LedgerString.assertFromString("scenario-submission-")
   private val workflowIdPrefix = Ref.LedgerString.assertFromString("scenario-workflow-")
-  private val scenarioLoader = Ref.LedgerString.assertFromString("scenario-loader")
+  private val scenarioLoader = Ref.ApplicationId.assertFromString("scenario-loader")
 
   private def executeScenarioStep(
       ledger: ArrayBuffer[(ScenarioLedger.TransactionId, LedgerEntry)],

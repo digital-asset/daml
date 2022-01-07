@@ -7,9 +7,9 @@ import java.time.Duration
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.ledger.api.domain._
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
-import com.daml.ledger.api.domain._
 
 package v2 {
 
@@ -54,7 +54,7 @@ package v2 {
     */
   final case class SubmitterInfo(
       submitter: Ref.Party,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       commandId: CommandId,
   )
 

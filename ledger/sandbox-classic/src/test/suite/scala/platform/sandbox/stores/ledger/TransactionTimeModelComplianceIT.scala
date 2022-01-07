@@ -128,7 +128,7 @@ class TransactionTimeModelComplianceIT
         .completions(
           Some(offset),
           None,
-          com.daml.ledger.api.domain.ApplicationId(submitterInfo.applicationId),
+          submitterInfo.applicationId,
           submitterInfo.actAs.toSet,
         )
         .filter(_._2.completions.head.commandId == submitterInfo.commandId)

@@ -292,13 +292,6 @@ object domain {
   type ParticipantId = Ref.ParticipantId @@ ParticipantIdTag
   val ParticipantId: Tag.TagOf[ParticipantIdTag] = Tag.of[ParticipantIdTag]
 
-  sealed trait ApplicationIdTag
-
-  /** Identifiers for applications connecting to the Ledger API.
-    */
-  type ApplicationId = Ref.ApplicationId @@ ApplicationIdTag
-  val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
-
   sealed trait SubmissionIdTag
 
   type SubmissionId = Ref.SubmissionId @@ SubmissionIdTag
@@ -307,7 +300,7 @@ object domain {
   case class Commands(
       ledgerId: LedgerId,
       workflowId: Option[WorkflowId],
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       commandId: CommandId,
       submissionId: Option[SubmissionId],
       actAs: Set[Ref.Party],

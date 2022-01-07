@@ -98,6 +98,12 @@ sealed abstract class IdString {
   /** Identifiers for contracts */
   type ContractIdString <: String
 
+  /** Identifiers for applications submitting requests to the Ledger API.
+    * See the comments on the actual definitions below for details on application and
+    * user ids and their relation.
+    */
+  type ApplicationId <: String
+
   /** Identifiers for participant node users */
   type UserId <: String
 
@@ -110,6 +116,7 @@ sealed abstract class IdString {
   val ParticipantId: StringModule[ParticipantId]
   val LedgerString: ConcatenableStringModule[LedgerString, HexString]
   val ContractIdString: StringModule[ContractIdString]
+  val ApplicationId: StringModule[ApplicationId]
   val UserId: StringModule[UserId]
 }
 
@@ -337,17 +344,23 @@ private[data] final class IdStringImpl extends IdString {
   override val ContractIdString: StringModule[ContractIdString] =
     new MatchingStringModule("Daml-LF Contract ID", """#[\w._:\-#/ ]{0,254}""")
 
-  /** Identifiers for participant node users consist of ASCII digits and lower-case alphabetic characters,
-    *  hyphens, underscores, and dots, and satisfy the following  rules:
-    *  1. The characters `-._` never follow each other.
-    *  2. The characters `-._` neither occur at the start nor at the end of the user name.
-    *  Thus 'john.doe1' is a valid user-name, while 'john..doe1', 'john.-doe1', and '-john.doe' are not.
+  /** Identifiers for applications as used in custom tokens and requests.
+    * They used to be equal to [[LedgerString]], but additionally allow the symbols
+    * "!|@^$`+'~" when introducing participant users to ensure that they are a superset of [[UserId]].
+    */
+  override type ApplicationId = String
+  override val ApplicationId: ConcatenableStringModule[LedgerString, HexString] =
+    new ConcatenableMatchingStringModule("Application ID", "._:-#/!|@^$`+'~ ", 255)
+
+  /** Identifiers for participant node users are non-empty strings with a length <= 128 that consist of
+    * lowercase ASCII alphanumeric characters and the symbols "@^$.!`-#+'~_|".
+    * This character set is chosen such that it maximizes the ease of integration with IAM systems, while removing
+    * the ambiguity of allowing both "john" and "John" as separate user names.
+    * Concretely, the character set contains the Auth0 allowed characters (https://auth0.com/docs/authenticate/database-connections/require-username#allowed-characters)
+    * plus the pipe character used by Auth0 itself (see https://auth0.com/docs/manage-users/user-accounts/user-profiles/sample-user-profiles).
     */
   override type UserId = String
   override val UserId: StringModule[UserId] =
-    new MatchingStringModule(
-      "User ID",
-      """[\p{Lower}\d]([\p{Lower}\d]|[-._][\p{Lower}\d]){0,62}""",
-    )
+    new MatchingStringModule("User ID", """[a-z0-9@^$.!`\-#+'~_|]{1,128}""")
 
 }

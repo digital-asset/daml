@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId}
+import com.daml.ledger.api.domain.{CommandId, LedgerId}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -33,7 +33,6 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
-import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -87,12 +86,12 @@ private[platform] abstract class BaseLedger(
   override def completions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed] =
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
-      RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId.unwrap, parties)),
+      RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId, parties)),
       endInclusive,
     )
 

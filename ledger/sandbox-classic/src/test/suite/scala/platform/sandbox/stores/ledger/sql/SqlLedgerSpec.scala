@@ -3,17 +3,20 @@
 
 package com.daml.platform.sandbox.stores.ledger.sql
 
+import java.io.File
+import java.time.{Duration, Instant}
+
 import akka.stream.scaladsl.Sink
 import ch.qos.logback.classic.Level
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.ErrorCodesVersionSwitcher
+import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.api.{DeduplicationPeriod, domain}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.v2.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
@@ -46,8 +49,6 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSp
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.wordspec.AsyncWordSpec
-import java.io.File
-import java.time.{Duration, Instant}
 
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
@@ -276,7 +277,7 @@ final class SqlLedgerSpec
           .completions(
             startExclusive = Some(start),
             endInclusive = None,
-            applicationId = domain.ApplicationId(applicationId),
+            applicationId = applicationId,
             parties = Set(party1),
           )
           .runWith(Sink.head)
@@ -313,7 +314,7 @@ final class SqlLedgerSpec
           .completions(
             startExclusive = Some(start),
             endInclusive = None,
-            applicationId = domain.ApplicationId(applicationId),
+            applicationId = applicationId,
             parties = Set(party1),
           )
           .runWith(Sink.head)
@@ -375,7 +376,7 @@ final class SqlLedgerSpec
           .completions(
             startExclusive = Some(start),
             endInclusive = None,
-            applicationId = domain.ApplicationId(applicationId),
+            applicationId = applicationId,
             parties = Set(party1),
           )
           .runWith(Sink.head)

@@ -63,11 +63,11 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         "empty user-id",
         User(""),
         List.empty,
-        LedgerApiErrors.RequestValidation.InvalidField,
+        LedgerApiErrors.RequestValidation.MissingField,
       )
       _ <- createAndCheck(
         "invalid user-id",
-        User("!!"),
+        User("?"),
         List.empty,
         LedgerApiErrors.RequestValidation.InvalidField,
       )
@@ -103,7 +103,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
 
     for {
       _ <- getAndCheck("empty user-id", "", LedgerApiErrors.RequestValidation.InvalidArgument)
-      _ <- getAndCheck("invalid user-id", "!!", LedgerApiErrors.RequestValidation.InvalidField)
+      _ <- getAndCheck("invalid user-id", "?", LedgerApiErrors.RequestValidation.InvalidField)
     } yield ()
   })
 

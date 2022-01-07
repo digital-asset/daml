@@ -183,6 +183,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected implicit def toLedgerString(s: String): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s)
 
+  implicit def toApplicationId(s: String): Ref.ApplicationId =
+    Ref.ApplicationId.assertFromString(s)
+
   protected final def create(
       absCid: ContractId,
       signatories: Set[Party] = Set(alice, bob),

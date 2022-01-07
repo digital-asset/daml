@@ -248,7 +248,7 @@ object Conversions {
     }
     CompletionInfo(
       actAs = subInfo.getSubmittersList.asScala.toList.map(Ref.Party.assertFromString),
-      applicationId = Ref.LedgerString.assertFromString(subInfo.getApplicationId),
+      applicationId = Ref.ApplicationId.assertFromString(subInfo.getApplicationId),
       commandId = Ref.LedgerString.assertFromString(subInfo.getCommandId),
       optDeduplicationPeriod = deduplicationPeriod,
       submissionId = Option(subInfo.getSubmissionId)

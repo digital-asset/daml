@@ -62,7 +62,7 @@ class SubmitRequestValidatorTest
     val commands = Commands(
       ledgerId = ledgerId.unwrap,
       workflowId = workflowId.unwrap,
-      applicationId = applicationId.unwrap,
+      applicationId = applicationId,
       submissionId = submissionId.unwrap,
       commandId = commandId.unwrap,
       party = submitter,

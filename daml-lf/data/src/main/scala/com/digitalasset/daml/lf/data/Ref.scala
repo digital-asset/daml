@@ -44,8 +44,8 @@ object Ref {
   val LedgerString: IdString.LedgerString.type = IdString.LedgerString
 
   /** Identifiers for submitting client applications. */
-  type ApplicationId = LedgerString
-  val ApplicationId: LedgerString.type = LedgerString
+  type ApplicationId = IdString.ApplicationId
+  val ApplicationId: IdString.ApplicationId.type = IdString.ApplicationId
 
   /** Identifiers for participant node users, which act as clients to the Ledger API.
     *

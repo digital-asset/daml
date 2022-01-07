@@ -9,7 +9,6 @@ import akka.stream.Materializer
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.TestLoggers
 import com.daml.ledger.api.DeduplicationPeriod
-import com.daml.ledger.api.domain.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.deduplication.DeduplicationPeriodSupport
@@ -83,7 +82,7 @@ class WriteServiceWithDeduplicationSupportSpec
         eqTo(submitterInfo.deduplicationPeriod),
         eqTo(Configuration.reasonableMaxDeduplicationTime),
         eqTo(LedgerTimeModel.reasonableDefault),
-        eqTo(ApplicationId(submitterInfo.applicationId)),
+        eqTo(submitterInfo.applicationId),
         any[Set[Ref.Party]],
         eqTo(transactionMeta.submissionTime.toInstant),
       )(
@@ -131,7 +130,7 @@ class WriteServiceWithDeduplicationSupportSpec
         any[DeduplicationPeriod],
         any[Duration],
         any[LedgerTimeModel],
-        any[ApplicationId],
+        any[Ref.ApplicationId],
         any[Set[Ref.Party]],
         any[Instant],
       )(
@@ -164,7 +163,7 @@ class WriteServiceWithDeduplicationSupportSpec
           any[DeduplicationPeriod],
           any[Duration],
           any[LedgerTimeModel],
-          any[ApplicationId],
+          any[Ref.ApplicationId],
           eqTo(expectedReaders),
           any[Instant],
         )(

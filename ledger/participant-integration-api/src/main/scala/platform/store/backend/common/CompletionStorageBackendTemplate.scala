@@ -36,7 +36,7 @@ class CompletionStorageBackendTemplate(
       parties: Set[Party],
   )(connection: Connection): List[CompletionStreamResponse] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    import com.daml.platform.store.Conversions.ledgerStringToStatement
+    import com.daml.platform.store.Conversions.applicationIdToStatement
     import ComposableQuery._
     val internedParties =
       parties.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet

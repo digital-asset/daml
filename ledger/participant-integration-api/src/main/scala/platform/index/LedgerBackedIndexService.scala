@@ -10,7 +10,6 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
-  ApplicationId,
   CommandId,
   LedgerId,
   LedgerOffset,
@@ -184,7 +183,7 @@ private[platform] final class LedgerBackedIndexService(
 
   override def getCompletions(
       startExclusive: LedgerOffset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] = {
     val convert = convertOffset
@@ -196,8 +195,8 @@ private[platform] final class LedgerBackedIndexService(
   override def getCompletions(
       startExclusive: LedgerOffset,
       endInclusive: LedgerOffset,
-      applicationId: ApplicationId,
-      parties: Set[Party],
+      applicationId: Ref.ApplicationId,
+      parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] = {
     between(startExclusive, Some(endInclusive))((start, end) =>
       ledger.completions(start, end, applicationId, parties).map(_._2)

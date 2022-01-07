@@ -30,7 +30,7 @@ class CompletionServiceRequestValidatorTest
   )
   private val completionReq = CompletionStreamRequest(
     domain.LedgerId(expectedLedgerId),
-    domain.ApplicationId(Ref.ApplicationId.assertFromString(expectedApplicationId)),
+    Ref.ApplicationId.assertFromString(expectedApplicationId),
     List(party).toSet,
     Some(domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(absoluteOffset))),
   )

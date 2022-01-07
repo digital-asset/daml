@@ -3,12 +3,12 @@
 
 package com.daml.ledger.api.messages.command.completion
 
+import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
 import com.daml.lf.data.Ref
-import com.daml.ledger.api.domain.{ApplicationId, LedgerId, LedgerOffset}
 
 case class CompletionStreamRequest(
     ledgerId: LedgerId,
-    applicationId: ApplicationId,
+    applicationId: Ref.ApplicationId,
     parties: Set[Ref.Party],
     offset: Option[LedgerOffset],
 )

@@ -55,7 +55,7 @@ message CompletionStreamRequest {
   string ledger_id = 1;
 
   // Only completions of commands submitted with the same application_id will be visible in the stream.
-  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Must be a valid ApplicationIdString (as described in ``value.proto``).
   // Required unless authentication is used with a user token or a custom token specifying an application-id.
   // In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
   string application_id = 2;

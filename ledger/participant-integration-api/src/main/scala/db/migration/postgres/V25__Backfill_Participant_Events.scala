@@ -27,7 +27,7 @@ private[migration] class V25__Backfill_Participant_Events extends BaseJavaMigrat
     while (rows.next()) {
       val transactionId = Ref.LedgerString.assertFromString(rows.getString("transaction_id"))
       val applicationId =
-        getNonEmptyString("application_id").map(Ref.LedgerString.assertFromString)
+        getNonEmptyString("application_id").map(Ref.ApplicationId.assertFromString)
       val commandId = getNonEmptyString("command_id").map(Ref.LedgerString.assertFromString)
       val submitter = getNonEmptyString("submitter").map(Ref.Party.assertFromString)
       val workflowId = getNonEmptyString("workflow_id").map(Ref.LedgerString.assertFromString)

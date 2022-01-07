@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.{
-  ApplicationId,
   CommandId,
   ConfigurationEntry,
   LedgerId,
@@ -72,7 +71,7 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
 
   override def getCompletions(
       begin: domain.LedgerOffset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     delegate.getCompletions(begin, applicationId, parties)
@@ -203,7 +202,7 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   override def getCompletions(
       startExclusive: LedgerOffset,
       endInclusive: LedgerOffset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     delegate.getCompletions(startExclusive, endInclusive, applicationId, parties)

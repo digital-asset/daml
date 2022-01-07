@@ -8,7 +8,6 @@ import java.time.{Duration, Instant}
 import akka.stream.Materializer
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.DeduplicationPeriod
-import com.daml.ledger.api.domain.ApplicationId
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -28,7 +27,7 @@ class DeduplicationPeriodSupport(
       deduplicationPeriod: DeduplicationPeriod,
       maxDeduplicationDuration: Duration,
       timeModel: LedgerTimeModel,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       readers: Set[Ref.Party],
       submittedAt: Instant,
   )(implicit
