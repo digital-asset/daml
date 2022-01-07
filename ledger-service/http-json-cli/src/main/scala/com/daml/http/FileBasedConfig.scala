@@ -7,23 +7,17 @@ import akka.stream.ThrottleMode
 import com.daml.cliopts
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
-import com.daml.metrics.MetricsReporter
 import com.daml.pureconfigutils.{HttpServerConfig, LedgerApiConfig, MetricsConfig}
 import com.daml.pureconfigutils.SharedConfigReaders._
 import pureconfig.ConfigReader
-import pureconfig.error.{FailureReason, CannotConvert}
 import pureconfig.generic.semiauto._
 import ch.qos.logback.classic.{Level => LogLevel}
 
 import scala.concurrent.duration._
 
 private[http] object FileBasedConfig {
-  private[this] def catchConvertError[A, B](f: String => Either[String, B])(implicit
-      B: reflect.ClassTag[B]
-  ): String => Either[FailureReason, B] =
-    s => f(s).left.map(CannotConvert(s, B.toString, _))
 
-  implicit val timeProviderTypeCfgReader: ConfigReader[ThrottleMode] =
+  implicit val throttleModeCfgReader: ConfigReader[ThrottleMode] =
     ConfigReader.fromString[ThrottleMode](catchConvertError { s =>
       s.toLowerCase() match {
         case "enforcing" => Right(ThrottleMode.Enforcing)
@@ -72,8 +66,6 @@ private[http] final case class FileBasedConfig(
       nonRepudiation: nonrepudiation.Configuration.Cli,
       logLevel: Option[LogLevel], // the default is in logback.xml
       logEncoder: LogEncoder,
-      metricsReporter: Option[MetricsReporter],
-      metricsReportingInterval: FiniteDuration,
   ): Config = {
     Config(
       ledgerHost = ledgerApi.address,
@@ -93,9 +85,9 @@ private[http] final case class FileBasedConfig(
       nonRepudiation = nonRepudiation,
       logLevel = logLevel,
       logEncoder = logEncoder,
-      metricsReporter = metricsReporter,
+      metricsReporter = metrics.map(_.reporter),
       metricsReportingInterval =
-        metrics.map(_.reportingInterval).getOrElse(metricsReportingInterval),
+        metrics.map(_.reportingInterval).getOrElse(StartSettings.DefaultMetricsReportingInterval),
       surrogateTpIdCacheMaxEntries = maxTemplateIdCacheEntries,
     )
   }

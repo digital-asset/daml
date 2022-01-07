@@ -36,6 +36,7 @@ da_scala_library(
     deps = [
         "//ledger-service/jwt",
         "//ledger/ledger-api-common",
+        "//ledger/metrics",
         "//libs-scala/db-utils",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_config",

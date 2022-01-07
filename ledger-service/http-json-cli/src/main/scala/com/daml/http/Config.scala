@@ -42,7 +42,7 @@ private[http] final case class Config(
     logLevel: Option[LogLevel] = None, // the default is in logback.xml
     logEncoder: LogEncoder = LogEncoder.Plain,
     metricsReporter: Option[MetricsReporter] = None,
-    metricsReportingInterval: FiniteDuration = 10 seconds,
+    metricsReportingInterval: FiniteDuration = StartSettings.DefaultMetricsReportingInterval,
     surrogateTpIdCacheMaxEntries: Option[Long] = None,
 ) extends StartSettings
 

@@ -79,8 +79,6 @@ private[http] final case class JsonApiCli(
               nonRepudiation,
               logLevel,
               logEncoder,
-              metricsReporter,
-              metricsReportingInterval,
             )
           )
         case Left(ex) =>

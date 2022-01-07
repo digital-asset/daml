@@ -8,7 +8,9 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.daml.dbutils.JdbcConfig
 import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, JwtVerifierBase, RSA256Verifier}
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.metrics.MetricsReporter
 import com.daml.platform.services.time.TimeProviderType
+import pureconfig.error.{CannotConvert, FailureReason}
 import pureconfig.{ConfigReader, ConvertHelpers}
 import pureconfig.generic.semiauto.deriveReader
 
@@ -31,9 +33,14 @@ final case class LedgerApiConfig(
     port: Int,
     tls: LedgerTlsConfig = LedgerTlsConfig(),
 )
-final case class MetricsConfig(reporter: String, reportingInterval: FiniteDuration)
+final case class MetricsConfig(reporter: MetricsReporter, reportingInterval: FiniteDuration)
 
 object SharedConfigReaders {
+
+  def catchConvertError[A, B](f: String => Either[String, B])(implicit
+      B: reflect.ClassTag[B]
+  ): String => Either[FailureReason, B] =
+    s => f(s).left.map(CannotConvert(s, B.toString, _))
 
   implicit val tokenVerifierReader: ConfigReader[JwtVerifierBase] =
     ConfigReader.forProduct2[JwtVerifierBase, String, String]("type", "uri") {
@@ -63,17 +70,21 @@ object SharedConfigReaders {
   implicit val uriCfgReader: ConfigReader[Uri] =
     ConfigReader.fromString[Uri](ConvertHelpers.catchReadError(s => Uri(s)))
 
-  implicit val timeProviderTypeCfgReader: ConfigReader[TimeProviderType] =
-    ConfigReader.fromString[TimeProviderType](ConvertHelpers.catchReadError { s =>
+  implicit val timeProviderTypeCfgReader: ConfigReader[TimeProviderType] = {
+    ConfigReader.fromString[TimeProviderType](catchConvertError { s =>
       s.toLowerCase() match {
-        case "static" => TimeProviderType.Static
-        case "wall-clock" => TimeProviderType.WallClock
-        case s =>
-          throw new IllegalArgumentException(
-            s"Value '$s' for time-provider-type is not one of 'static' or 'wall-clock'"
-          )
+        case "static" => Right(TimeProviderType.Static)
+        case "wall-clock" => Right(TimeProviderType.WallClock)
+        case _ => Left("value  is not one of 'static' or 'wall-clock'")
       }
     })
+  }
+
+  implicit val metricReporterReader: ConfigReader[MetricsReporter] = {
+    ConfigReader.fromString[MetricsReporter](ConvertHelpers.catchReadError { s =>
+      MetricsReporter.parseMetricsReporter(s.toLowerCase())
+    })
+  }
   implicit val jdbcCfgReader: ConfigReader[JdbcConfig] = deriveReader[JdbcConfig]
 
   implicit val httpServerCfgReader: ConfigReader[HttpServerConfig] =
