@@ -231,12 +231,12 @@ final class LedgerTestCasesRunner(
               ledgerSession,
               concurrentTestCases,
               concurrentTestRuns,
-            )(materializer, materializer.executionContext)
+            )(materializer, executionContext)
             sequentialTestResults <- runTestCases(
               ledgerSession,
               sequentialTestCases,
               concurrency = 1,
-            )(materializer, materializer.executionContext)
+            )(materializer, executionContext)
           } yield concurrentTestResults ++ sequentialTestResults ++ excludedTestResults
 
         testResults.recover {
@@ -259,7 +259,7 @@ final class LedgerTestCasesRunner(
     val results =
       for {
         materializer <- materializerResources.asFuture
-        results <- run(participants)(materializer, materializer.executionContext)
+        results <- run(participants)(materializer, executionContext)
       } yield results
 
     results.onComplete(_ => materializerResources.release())

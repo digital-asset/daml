@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import java.util
 import java.util.regex.Pattern
 
 import com.daml.error.ErrorCode
@@ -144,9 +145,7 @@ object Assertions {
         errorInfo.getMetadataMap
       }
       .getOrElse {
-        fail(
-          s"The error did not contain a definite answer. Details were: ${details.mkString("[", ", ", "]")}"
-        )
+        new util.HashMap()
       }
   }
 
