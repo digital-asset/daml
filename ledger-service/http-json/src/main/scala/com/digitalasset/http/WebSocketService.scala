@@ -604,7 +604,7 @@ class WebSocketService(
   import util.ErrorOps._
   import com.daml.http.json.JsonProtocol._
 
-  private val config = wsConfig.getOrElse(Config.DefaultWsConfig)
+  private val config = wsConfig.getOrElse(WebsocketConfig())
 
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 

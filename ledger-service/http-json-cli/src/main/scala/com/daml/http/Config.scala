@@ -6,7 +6,6 @@ package com.daml.http
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
-
 import akka.stream.ThrottleMode
 import com.daml.dbutils.ConfigCompanion
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -15,9 +14,16 @@ import scalaz.Show
 import scalaz.StateT.liftM
 
 import scala.concurrent.duration._
-
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
+import com.daml.http.WebsocketConfig.{
+  DefaultHeartbeatPeriod,
+  DefaultMaxBurst,
+  DefaultMaxDuration,
+  DefaultThrottleElem,
+  DefaultThrottleMode,
+  DefaultThrottlePer,
+}
 import com.daml.metrics.MetricsReporter
 import com.daml.http.dbbackend.JdbcConfig
 
@@ -47,27 +53,17 @@ private[http] final case class Config(
 ) extends StartSettings
 
 private[http] object Config {
-  import scala.language.postfixOps
   val Empty = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
-  val DefaultWsConfig =
-    WebsocketConfig(
-      maxDuration = 120 minutes,
-      throttleElem = 20,
-      throttlePer = 1 second,
-      maxBurst = 20,
-      ThrottleMode.Shaping,
-      heartbeatPeriod = 5 second,
-    )
 }
 
 // It is public for Daml Hub
 final case class WebsocketConfig(
-    maxDuration: FiniteDuration,
-    throttleElem: Int,
-    throttlePer: FiniteDuration,
-    maxBurst: Int,
-    mode: ThrottleMode,
-    heartbeatPeriod: FiniteDuration,
+    maxDuration: FiniteDuration = DefaultMaxDuration,
+    throttleElem: Int = DefaultThrottleElem,
+    throttlePer: FiniteDuration = DefaultThrottlePer,
+    maxBurst: Int = DefaultMaxBurst,
+    mode: ThrottleMode = DefaultThrottleMode,
+    heartbeatPeriod: FiniteDuration = DefaultHeartbeatPeriod,
 )
 
 private[http] object WebsocketConfig
@@ -76,6 +72,13 @@ private[http] object WebsocketConfig
   implicit val showInstance: Show[WebsocketConfig] = Show.shows(c =>
     s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartbeatPeriod})"
   )
+
+  val DefaultMaxDuration: FiniteDuration = 120.minutes
+  val DefaultThrottleElem: Int = 20
+  val DefaultThrottlePer: FiniteDuration = 1.second
+  val DefaultMaxBurst: Int = 20
+  val DefaultThrottleMode: ThrottleMode = ThrottleMode.Shaping
+  val DefaultHeartbeatPeriod: FiniteDuration = 5.second
 
   lazy val help: String =
     "Contains comma-separated key-value pairs. Where:\n" +
@@ -92,15 +95,14 @@ private[http] object WebsocketConfig
     for {
       md <- optionalLongField("maxDuration")
       hbp <- optionalLongField("heartBeatPer")
-    } yield Config.DefaultWsConfig
-      .copy(
-        maxDuration = md
-          .map(t => FiniteDuration(t, TimeUnit.MINUTES))
-          .getOrElse(Config.DefaultWsConfig.maxDuration),
-        heartbeatPeriod = hbp
-          .map(t => FiniteDuration(t, TimeUnit.SECONDS))
-          .getOrElse(Config.DefaultWsConfig.heartbeatPeriod),
-      )
+    } yield WebsocketConfig(
+      maxDuration = md
+        .map(t => FiniteDuration(t, TimeUnit.MINUTES))
+        .getOrElse(WebsocketConfig.DefaultMaxDuration),
+      heartbeatPeriod = hbp
+        .map(t => FiniteDuration(t, TimeUnit.SECONDS))
+        .getOrElse(WebsocketConfig.DefaultHeartbeatPeriod),
+    )
 
   private def helpString(maxDuration: String, heartBeatPer: String): String =
     s"""\"maxDuration=$maxDuration,heartBeatPer=$heartBeatPer\""""
