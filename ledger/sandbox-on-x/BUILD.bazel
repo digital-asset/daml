@@ -170,7 +170,7 @@ conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-conflict-checking",
+    name = "conformance-test-conflict-checking-static-time",
     ports = [6865],
     server = ":app",
     server_args = [
