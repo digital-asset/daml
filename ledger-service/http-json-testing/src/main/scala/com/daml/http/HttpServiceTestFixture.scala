@@ -294,27 +294,52 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   final val clientTlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt)
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
 
-  def jwtForParties(actAs: List[String], readAs: List[String], ledgerId: String) = {
+  def jwtForParties(
+      actAs: List[String],
+      readAs: List[String],
+      ledgerId: String,
+      withoutNamespace: Boolean = false,
+  ) = {
     import AuthServiceJWTCodec.JsonImplicits._
-    val decodedJwt = DecodedJwt(
-      """{"alg": "HS256", "typ": "JWT"}""",
-      AuthServiceJWTPayload(
-        ledgerId = Some(ledgerId),
-        applicationId = Some("test"),
-        actAs = actAs,
-        participantId = None,
-        exp = None,
-        admin = false,
-        readAs = readAs,
-      ).toJson.prettyPrint,
-    )
+    val payload =
+      if (withoutNamespace)
+        s"""{
+               |  "ledgerId": "$ledgerId",
+               |  "applicationId": "test",
+               |  "exp": 0,
+               |  "admin": false,
+               |  "actAs": ${actAs.toJson.prettyPrint},
+               |  "readAs": ${readAs.toJson.prettyPrint}
+               |}
+              """.stripMargin
+      else
+        AuthServiceJWTPayload(
+          ledgerId = Some(ledgerId),
+          applicationId = Some("test"),
+          actAs = actAs,
+          participantId = None,
+          exp = None,
+          admin = false,
+          readAs = readAs,
+        ).toJson.prettyPrint
     JwtSigner.HMAC256
-      .sign(decodedJwt, "secret")
+      .sign(
+        DecodedJwt(
+          """{"alg": "HS256", "typ": "JWT"}""",
+          payload,
+        ),
+        "secret",
+      )
       .fold(e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.shows}"), identity)
   }
 
-  def headersWithPartyAuth(actAs: List[String], readAs: List[String], ledgerId: String) =
-    authorizationHeader(jwtForParties(actAs, readAs, ledgerId))
+  def headersWithPartyAuth(
+      actAs: List[String],
+      readAs: List[String],
+      ledgerId: String,
+      withoutNamespace: Boolean = false,
+  ) =
+    authorizationHeader(jwtForParties(actAs, readAs, ledgerId, withoutNamespace))
 
   def authorizationHeader(token: Jwt): List[Authorization] =
     List(Authorization(OAuth2BearerToken(token.value)))
