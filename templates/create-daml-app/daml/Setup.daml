@@ -1,10 +1,28 @@
 module Setup where
 
-import DA.Foldable
+import DA.Action (unless)
+import DA.Foldable (forA_)
+import qualified DA.Text as T
 import Daml.Script
 
 setup : Script ()
 setup = do
-  forA_ [("Alice", "alice"), ("Bob", "bob"), ("Charlie", "charlie")] $ \(displayName, userName) -> do
-    p <- allocatePartyWithHint displayName (PartyIdHint ("p" <> userName))
-    createUser (User userName (Some p)) [CanActAs p]
+  let displayNames = ["Alice", "Bob", "Charlie"]
+  let userIds = map toUserId displayNames
+  users <- listUsers
+  -- Only allocate users if they do not already exist.
+  -- This is required for hot reload to work since it
+  -- reruns the start script.
+  unless (all (\t -> t `elem` map (.id) users) userIds) $
+    forA_ displayNames $ \displayName -> do
+      let userId = toUserId displayName
+      let partyIdHint = toPartyIdHint displayName
+      p <- allocatePartyWithHint displayName (PartyIdHint partyIdHint)
+      createUser (User userId (Some p)) [CanActAs p]
+
+toUserId : Text -> Text
+toUserId = T.asciiToLower
+
+-- TODO Drop hints once we have aliases.
+toPartyIdHint : Text -> Text
+toPartyIdHint p = "p" <> toUserId p
