@@ -757,8 +757,6 @@ abstract class AbstractHttpServiceIntegrationTest
       import scalaz.std.vector._
       val partyIds = Vector("P1", "P2", "P3", "P4").map(getUniqueParty(_).unwrap)
       val partyManagement = client.partyManagementClient
-      val _ =
-        headersWithPartyAuthLegacyFormat(List())
       partyIds
         .traverse { p =>
           partyManagement.allocateParty(Some(p), Some(s"$p & Co. LLC"))
