@@ -89,14 +89,6 @@ object Database {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
-      case "jdbc:h2:mem:" =>
-        throw new InvalidDatabaseException(
-          "Unnamed in-memory H2 databases are not supported. Please name the database using the format \"jdbc:h2:mem:NAME\"."
-        )
-      case url if url.startsWith("jdbc:h2:mem:") =>
-        SingleConnectionDatabase.owner(RDBMS.H2, jdbcUrl, offsetBuilder, metrics)
-      case url if url.startsWith("jdbc:h2:") =>
-        MultipleConnectionDatabase.owner(RDBMS.H2, jdbcUrl, offsetBuilder, metrics)
       case url if url.startsWith("jdbc:postgresql:") =>
         MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, jdbcUrl, offsetBuilder, metrics)
       case url if url.startsWith("jdbc:sqlite::memory:") =>
@@ -194,12 +186,6 @@ object Database {
   }
 
   object RDBMS {
-    object H2 extends RDBMS {
-      override val name: String = "h2"
-
-      override val queries: QueriesFactory = H2Queries.apply
-    }
-
     object PostgreSQL extends RDBMS {
       override val name: String = "postgresql"
 

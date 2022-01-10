@@ -13,18 +13,6 @@ load("@oracle//:index.bzl", "oracle_testing")
 
 supported_databases = [
     {
-        "name": "h2-memory",
-        "runtime_deps": [
-            "@maven//:com_h2database_h2",
-        ],
-        "conformance_test_tags": [
-            "manual",
-        ],
-        "conformance_test_server_args": [
-            "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
-        ],
-    },
-    {
         "name": "postgresql",
         "runtime_deps": [
             "@maven//:org_postgresql_postgresql",
@@ -37,7 +25,7 @@ supported_databases = [
             "@maven//:org_xerial_sqlite_jdbc",
         ],
         "conformance_test_server_args": [
-            "--jdbc-url=jdbc:sqlite:file:daml-on-sql-conformance-test?mode=memory&cache=shared",
+            "--jdbc-url=jdbc:sqlite:file:conformance-test?mode=memory&cache=shared",
         ],
     },
 ]
@@ -298,6 +286,7 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
+        "@maven//:org_xerial_sqlite_jdbc",
     ],
     deps = [
         ":ledger-on-sql",
@@ -314,33 +303,6 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
         "--mutable-contract-state-cache",
-        "--max-deduplication-duration=PT5S",
-    ],
-    tags = [],
-    test_tool_args = [
-        "--verbose",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=KVCommandDeduplicationIT",
-        "--additional=ParticipantPruningIT",
-        "--additional=MultiPartySubmissionIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-    ],
-)
-
-# Full conformance test (H2)
-conformance_test(
-    name = "conformance-test-h2",
-    ports = [6865],
-    server = ":conformance-test-h2-memory-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--mutable-contract-state-cache",
-        "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
         "--max-deduplication-duration=PT5S",
     ],
     tags = [],
@@ -440,16 +402,16 @@ conformance_test(
 
 # Feature test: contract ids
 # This asserts that the Daml engine in ledger-on-sql only accepts V1 contract ids.
-# These tests do not depend on the ledger backend, and therefore only run on H2
+# These tests do not depend on the ledger backend, and therefore only run on SQLite
 conformance_test(
     name = "conformance-test-contract-ids",
     ports = [6865],
-    server = ":conformance-test-h2-memory-bin",
+    server = ":conformance-test-sqlite-memory-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
         "--mutable-contract-state-cache",
-        "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
+        "--jdbc-url=jdbc:sqlite:file:conformance-test?mode=memory&cache=shared",
     ],
     test_tool_args = [
         "--verbose",
