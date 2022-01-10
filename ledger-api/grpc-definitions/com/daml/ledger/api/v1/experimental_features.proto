@@ -34,15 +34,17 @@ message CommandDeduplicationFeatures {
 
 message DeduplicationPeriodSupport {
   enum OffsetSupport {
-    // Ledgers use offsets for command deduplication
+    // The ledger natively supports deduplication periods specified as offsets.
     OFFSET_NATIVE_SUPPORT = 0;
-    // Ledger convert offsets into a duration for command deduplication
+    // The ledger doesn't natively support deduplication periods specified as offsets but it converts them into durations.
     OFFSET_CONVERT_TO_DURATION = 1;
-    // Ledger does not support offsets for command deduplication
+    // The ledger does not support specifiying deduplication periods as offsets.
     OFFSET_NOT_SUPPORTED = 2;
   }
   enum DurationSupport {
+    // The ledger natively support deduplication periods specified as durations.
     DURATION_NATIVE_SUPPORT = 0;
+    // The ledger doesn't natively support deduplication periods specified as durations but it converts them into offsets.
     DURATION_CONVERT_TO_OFFSET = 1;
   }
   OffsetSupport offset_support = 1;
@@ -51,7 +53,10 @@ message DeduplicationPeriodSupport {
 
 // Ledger support for participant deduplication
 enum ParticipantDeduplicationSupport {
+  // The participant does not support deduplication.
   PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED = 0;
+  // The participant only supports deduplicating submissions that are being concurrently processed.
   PARTICIPANT_DEDUPLICATION_PARALLEL_ONLY = 1;
+  // The participant supports deduplication for all the submissions it receives.
   PARTICIPANT_DEDUPLICATION_SUPPORTED = 2;
 }
