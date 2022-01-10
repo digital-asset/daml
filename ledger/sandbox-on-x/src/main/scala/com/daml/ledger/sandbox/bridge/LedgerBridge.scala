@@ -75,7 +75,7 @@ object LedgerBridge {
       allocatedPartiesAtInitialization <- ResourceOwner.forFuture(() =>
         indexService.listKnownParties().map(_.map(_.party).toSet)
       )
-    } yield new ConflictCheckingLedgerBridge(
+    } yield ConflictCheckingLedgerBridge(
       participantId = participantConfig.participantId,
       indexService = indexService,
       timeProvider = timeProvider,
