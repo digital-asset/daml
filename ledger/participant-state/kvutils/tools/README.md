@@ -49,26 +49,33 @@ jmh command line functionality:
 
     bazel run //ledger/participant-state/kvutils/tools:benchmark-replay -- \
       -p ledgerFile=<ledger export files>                                  \
-      -p darFile=<dar files>                                               \
       -p choiceName=<exercise choice names>                                \
-      [-p adapt=true]
+      [-p exerciseIndex=<index of the exercise node>]                      \
+      [-p darFile=<dar files>]                                              
+
 
 where:
 
 * `<ledger export files>`: is the full path of the ledger export
   files to be used separated by commas (`,`)
 
-* `<dar files>` : is the full path of the dar files to be used
-  separated by commas (`,`)
-
-* `<exercise choice names`>: is the full qualified choice name of the
-  exercises to be benchmarked separated by commas (`,`).  A full
+* `<exercise choice names>`: is the full qualified choice name of the
+  root exercise node to be benchmarked separated by commas (`,`). A full
   qualified choice name should be of the form
   `ModuleName:TemplateName:ChoiceName`.  Note the package ID is
-  omitted.
+  omitted. By default, the tool benchmarks the first choice with 
+  such a name it finds in the ledger export.
 
-* the optional parameter `adapt=true` can be set to enable dar-export
-  "adaptation". The adaptation process attempts to map the identifiers
+* the optional parameter `<position of the exercise node>` is the 
+  index of the exercise among the root exercise nodes that matches
+  choice name specified by the `choiceName` parameter in the order 
+  they appear in the export.
+
+* the optional parameter `<dar files>` specify the full path of 
+  the dar files to be used  separated by commas (`,`). If defined 
+  the program contained in the dar file is used instead of one
+  present in the ledger export, and the export is "adapted" to this 
+  program. The adaptation process attempts to map the identifiers
   from the export file with the ones of dar file when those latter
   differ only in their package ID.  This can be used when the original
   Daml source used to generate the ledger export is only slightly

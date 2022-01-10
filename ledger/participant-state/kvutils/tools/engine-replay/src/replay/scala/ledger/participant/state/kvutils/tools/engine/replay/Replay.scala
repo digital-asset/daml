@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.tools.engine.replay
 
 import java.lang.System.err.println
 import java.nio.file.Path
-
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.export.{
   ProtobufBasedLedgerDataImporter,
@@ -13,19 +12,21 @@ import com.daml.ledger.participant.state.kvutils.export.{
 }
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Conversions, Envelope, Raw}
-import com.daml.lf.archive.UniversalArchiveDecoder
+import com.daml.lf.archive.{ArchiveDecoder, UniversalArchiveDecoder}
 import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.engine.{Engine, EngineConfig, Error}
 import com.daml.lf.kv.transactions.RawTransaction
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
+import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, SubmittedTransaction}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.Value
+import com.google.protobuf.ByteString
 
-import scala.collection.compat._
-import scala.collection.compat.immutable.LazyList
 import scala.jdk.CollectionConverters._
+
+sealed abstract class SubmissionEntry extends Product with Serializable
 
 final case class TxEntry(
     tx: SubmittedTransaction,
@@ -34,22 +35,24 @@ final case class TxEntry(
     ledgerTime: Time.Timestamp,
     submissionTime: Time.Timestamp,
     submissionSeed: crypto.Hash,
-)
+) extends SubmissionEntry
 
-final case class BenchmarkState(
-    name: String,
-    transaction: TxEntry,
-    contracts: Map[ContractId, Value.VersionedContractInstance],
-    contractKeys: Map[GlobalKey, ContractId],
+final case class PkgEntry(archive: ByteString) extends SubmissionEntry
+
+final class BenchmarkState(
+    val transaction: TxEntry,
+    val contracts: Map[ContractId, Value.VersionedContractInstance],
+    val contractKeys: Map[GlobalKey, ContractId],
+    val pkgs: Map[Ref.PackageId, Ast.Package],
+    val profileDir: Option[Path],
 ) {
 
-  private def getContract(cid: ContractId) =
-    contracts.get(cid)
-
-  private def getContractKey(globalKeyWithMaintainers: GlobalKeyWithMaintainers) =
+  private[this] def getContractKey(globalKeyWithMaintainers: GlobalKeyWithMaintainers) =
     contractKeys.get(globalKeyWithMaintainers.globalKey)
 
-  def replay(engine: Engine): Either[Error, Unit] =
+  private[this] lazy val engine = Replay.compile(pkgs, profileDir)
+
+  def replay(): Either[Error, Unit] =
     engine
       .replay(
         transaction.submitters.toSet,
@@ -59,10 +62,10 @@ final case class BenchmarkState(
         transaction.submissionTime,
         transaction.submissionSeed,
       )
-      .consume(getContract, Replay.unexpectedError, getContractKey)
+      .consume(contracts.get, pkgs.get, getContractKey)
       .map(_ => ())
 
-  def validate(engine: Engine): Either[Error, Unit] =
+  def validate(): Either[Error, Unit] =
     engine
       .validate(
         transaction.submitters.toSet,
@@ -72,24 +75,8 @@ final case class BenchmarkState(
         transaction.submissionTime,
         transaction.submissionSeed,
       )
-      .consume(getContract, Replay.unexpectedError, getContractKey)
-}
+      .consume(contracts.get, pkgs.get, getContractKey)
 
-class Benchmarks(private val benchmarks: Map[String, Vector[BenchmarkState]]) {
-  def get(choiceName: String, choiceIndex: Option[Int] = None) = {
-    val xs = benchmarks(choiceName)
-    choiceIndex match {
-      case Some(idx) => xs(idx)
-      case None =>
-        if (xs.length > 1) {
-          throw new IllegalArgumentException(
-            s"Found ${xs.length} transactions for $choiceName, use --choice-index to choose one"
-          )
-        } else {
-          xs.head
-        }
-    }
-  }
 }
 
 private[replay] object Replay {
@@ -118,7 +105,7 @@ private[replay] object Replay {
   private[this] def decodeSubmission(
       participantId: Ref.ParticipantId,
       submission: DamlSubmission,
-  ): LazyList[TxEntry] =
+  ): LazyList[SubmissionEntry] = {
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val entry = submission.getTransactionEntry
@@ -135,14 +122,18 @@ private[replay] object Replay {
             submissionSeed = parseHash(entry.getSubmissionSeed),
           )
         )
+      case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
+        val entry = submission.getPackageUploadEntry
+        entry.getArchivesList.asScala.iterator.map(PkgEntry).to(LazyList)
       case _ =>
         LazyList.empty
     }
+  }
 
   private[this] def decodeEnvelope(
       participantId: Ref.ParticipantId,
       envelope: Raw.Envelope,
-  ): LazyList[TxEntry] =
+  ): LazyList[SubmissionEntry] =
     assertRight(Envelope.open(envelope)) match {
       case Envelope.SubmissionMessage(submission) =>
         decodeSubmission(participantId, submission)
@@ -160,62 +151,89 @@ private[replay] object Replay {
   private[this] def decodeSubmissionInfo(submissionInfo: SubmissionInfo) =
     decodeEnvelope(submissionInfo.participantId, submissionInfo.submissionEnvelope)
 
-  def loadBenchmarks(dumpFile: Path): Benchmarks = {
+  def loadBenchmark(
+      dumpFile: Path,
+      choice: (Ref.QualifiedName, Ref.Name),
+      index: Int,
+      profileDir: Option[Path],
+  ): BenchmarkState = {
     println(s"%%% load ledger export file  $dumpFile...")
     val importer = ProtobufBasedLedgerDataImporter(dumpFile)
+
+    var idx: Int = index
+    var contracts = Map.empty[ContractId, Value.VersionedContractInstance]
+    var contractKeys = Map.empty[GlobalKey, ContractId]
+    var pkgs = Map.empty[Ref.PackageId, Ast.Package]
+
+    var result = Option.empty[BenchmarkState]
+
     try {
-      val transactions = importer.read().map(_._1).flatMap(decodeSubmissionInfo)
-      if (transactions.isEmpty) sys.error("no transaction find")
+      val entries = importer.read().map(_._1).flatMap(decodeSubmissionInfo).iterator
 
-      val createsNodes: Seq[Node.Create] =
-        transactions.flatMap(entry =>
-          entry.tx.nodes.values.collect { case create: Node.Create =>
-            create
-          }
-        )
-
-      val allContracts: Map[ContractId, Value.VersionedContractInstance] =
-        createsNodes.map(node => node.coid -> node.versionedCoinst).toMap
-
-      val allContractsWithKey = createsNodes.flatMap { node =>
-        node.key.toList.map(key => node.coid -> GlobalKey.assertBuild(node.templateId, key.key))
-      }.toMap
-
-      val benchmarks = transactions.flatMap { entry =>
-        entry.tx.roots.map(entry.tx.nodes) match {
-          case ImmArray(exe: Node.Exercise) =>
-            val inputContracts = entry.tx.inputContracts
-            List(
-              BenchmarkState(
-                name = exe.templateId.qualifiedName.toString + ":" + exe.choiceId,
-                transaction = entry,
-                contracts = allContracts.view.filterKeys(inputContracts).toMap,
-                contractKeys = inputContracts.iterator
-                  .flatMap(cid => allContractsWithKey.get(cid).toList.map(_ -> cid))
-                  .toMap,
-              )
+      while (result.isEmpty && entries.hasNext) {
+        entries.next() match {
+          case entry: TxEntry =>
+            val root = entry.tx.roots.iterator.toSet
+            entry.tx.foreachInExecutionOrder(
+              { (nid, exe) =>
+                if (root(nid) && (exe.templateId.qualifiedName, exe.choiceId) == choice) {
+                  if (idx == 0) {
+                    val inputContract = entry.tx.inputContracts
+                    result = Some(
+                      new BenchmarkState(
+                        entry,
+                        contracts.filter { case (cid, _) => inputContract(cid) },
+                        contractKeys.filter { case (_, cid) => inputContract(cid) },
+                        pkgs,
+                        profileDir,
+                      )
+                    )
+                  }
+                  idx -= 1
+                }
+                if (exe.consuming) {
+                  contracts = contracts - exe.targetCoid
+                  exe.key.foreach(key =>
+                    contractKeys = contractKeys - GlobalKey.assertBuild(exe.templateId, key.key)
+                  )
+                }
+                ChildrenRecursion.DoRecurse
+              },
+              (_, _) => ChildrenRecursion.DoNotRecurse,
+              {
+                case (_, create: Node.Create) =>
+                  contracts = contracts.updated(create.coid, create.versionedCoinst)
+                  create.key.foreach(key =>
+                    contractKeys = contractKeys
+                      .updated(GlobalKey.assertBuild(create.templateId, key.key), create.coid)
+                  )
+                case (_, _) =>
+              },
+              (_, _) => (),
+              (_, _) => (),
             )
-          case _ =>
-            List.empty
+          case PkgEntry(archive) =>
+            pkgs += ArchiveDecoder.assertFromByteString(archive)
         }
       }
-
-      new Benchmarks(benchmarks.groupBy(_.name).view.mapValues(_.toVector).toMap)
     } finally {
       importer.close()
     }
+
+    result match {
+      case Some(value) => value
+      case None => sys.error(s"choice ${choice._1}:${choice._2} not found")
+    }
   }
 
-  def adapt(
-      pkgs: Map[Ref.PackageId, Ast.Package],
-      pkgLangVersion: Ref.PackageId => LanguageVersion,
-      state: BenchmarkState,
-  ): BenchmarkState = {
-    val adapter = new Adapter(pkgs, pkgLangVersion)
-    state.copy(
+  def adapt(pkgs: Map[Ref.PackageId, Ast.Package], state: BenchmarkState): BenchmarkState = {
+    val adapter = new Adapter(pkgs)
+    new BenchmarkState(
       transaction = state.transaction.copy(tx = adapter.adapt(state.transaction.tx)),
       contracts = state.contracts.transform((_, v) => adapter.adapt(v)),
       contractKeys = state.contractKeys.iterator.map { case (k, v) => adapter.adapt(k) -> v }.toMap,
+      pkgs,
+      state.profileDir,
     )
   }
 

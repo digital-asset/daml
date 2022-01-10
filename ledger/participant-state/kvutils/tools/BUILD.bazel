@@ -203,7 +203,6 @@ da_scala_binary(
         ":engine-replay",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/interpreter",
         "//daml-lf/language",
     ],
 )
