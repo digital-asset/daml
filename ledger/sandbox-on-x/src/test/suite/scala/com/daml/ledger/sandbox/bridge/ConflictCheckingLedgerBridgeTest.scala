@@ -4,13 +4,13 @@
 package com.daml.ledger.sandbox.bridge
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.api.util.TimeProvider
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.{DeduplicationPeriod, domain}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.{CompletionInfo, SubmitterInfo, TransactionMeta}
+import com.daml.ledger.sandbox.bridge.ConflictCheckingLedgerBridge.Sequence
 import com.daml.ledger.sandbox.bridge.ConflictCheckingLedgerBridgeTest._
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.{Rejection, Submission}
@@ -220,26 +220,16 @@ class ConflictCheckingLedgerBridgeTest
         : ContextualizedErrorLogger =
       new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-    private val participantId = Ref.ParticipantId.assertFromString("participant")
-
     private[ConflictCheckingLedgerBridgeTest] val indexServiceMock = mock[IndexService]
     private[ConflictCheckingLedgerBridgeTest] val errorFactories =
       ErrorFactories(useSelfServiceErrorCodes = true)
 
     private[ConflictCheckingLedgerBridgeTest] val conflictCheckingLedgerBridge =
       new ConflictCheckingLedgerBridge(
-        participantId = participantId,
         indexService = indexServiceMock,
-        timeProvider = mock[TimeProvider],
-        // TODO Sox: Test different ledger time
-        initialLedgerEnd = Offset.beforeBegin,
-        // TODO Sox: Test initial allocated parties
-        initialAllocatedParties = Set.empty,
-        initialLedgerConfiguration = None,
+        sequence = mock[Sequence],
         bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry())),
         errorFactories = errorFactories,
-        // TODO SoX: Test with implicit party allocation
-        validatePartyAllocation = true,
         servicesThreadPoolSize = 16,
         // TODO SoX: Consider using a dedicated execution context
       )(scala.concurrent.ExecutionContext.global)
@@ -333,7 +323,6 @@ class ConflictCheckingLedgerBridgeTest
 
 object ConflictCheckingLedgerBridgeTest {
   private val templateId = Ref.Identifier.assertFromString("pkg:Mod:Template")
-
   private val offsetString = Ref.HexString.assertFromString("ab")
   private val offset = Offset.fromHexString(offsetString)
 

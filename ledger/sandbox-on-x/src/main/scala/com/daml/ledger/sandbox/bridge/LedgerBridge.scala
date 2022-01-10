@@ -75,21 +75,33 @@ object LedgerBridge {
       allocatedPartiesAtInitialization <- ResourceOwner.forFuture(() =>
         indexService.listKnownParties().map(_.map(_.party).toSet)
       )
-    } yield new ConflictCheckingLedgerBridge(
-      participantId = participantConfig.participantId,
-      indexService = indexService,
-      timeProvider = timeProvider,
-      initialLedgerEnd =
-        Offset.fromHexString(Ref.HexString.assertFromString(initialLedgerEnd.value)),
-      initialAllocatedParties = allocatedPartiesAtInitialization,
-      initialLedgerConfiguration = initialLedgerConfiguration,
-      bridgeMetrics = bridgeMetrics,
-      errorFactories = ErrorFactories(
-        new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
-      ),
-      validatePartyAllocation = !config.extra.implicitPartyAllocation,
-      servicesThreadPoolSize = servicesThreadPoolSize,
-    )
+      sequenceStage <- ResourceOwner.forValue(() =>
+        new SequenceImpl(
+          participantId = participantConfig.participantId,
+          timeProvider = timeProvider,
+          initialLedgerEnd =
+            Offset.fromHexString(Ref.HexString.assertFromString(initialLedgerEnd.value)),
+          initialAllocatedParties = allocatedPartiesAtInitialization,
+          initialLedgerConfiguration = initialLedgerConfiguration,
+          bridgeMetrics = bridgeMetrics,
+          errorFactories = ErrorFactories(
+            new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
+          ),
+          validatePartyAllocation = !config.extra.implicitPartyAllocation,
+        )
+      )
+      conflictCheckingLedgerBridge <- ResourceOwner.forValue(() =>
+        new ConflictCheckingLedgerBridge(
+          indexService = indexService,
+          sequence = sequenceStage,
+          bridgeMetrics = bridgeMetrics,
+          errorFactories = ErrorFactories(
+            new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
+          ),
+          servicesThreadPoolSize = servicesThreadPoolSize,
+        )
+      )
+    } yield conflictCheckingLedgerBridge
 
   private[bridge] def fromOffset(offset: Offset): Long = {
     val offsetBytes = offset.toByteArray
