@@ -5,6 +5,7 @@ package com.daml.ledger.sandbox
 
 import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit}
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -13,7 +14,7 @@ import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.version_service.{
+import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   DeduplicationPeriodSupport,
   ParticipantDeduplicationSupport,

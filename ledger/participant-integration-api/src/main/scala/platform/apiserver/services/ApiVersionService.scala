@@ -9,13 +9,13 @@ import com.daml.error.{
   ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.v1.experimental_features.{
+  CommandDeduplicationFeatures,
   ExperimentalFeatures,
   ExperimentalSelfServiceErrorCodes,
   ExperimentalStaticTime,
 }
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import com.daml.ledger.api.v1.version_service.{
-  CommandDeduplicationFeatures,
   FeaturesDescriptor,
   GetLedgerApiVersionRequest,
   GetLedgerApiVersionResponse,
@@ -59,9 +59,9 @@ private[apiserver] final class ApiVersionService private (
           selfServiceErrorCodes =
             Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes()),
           staticTime = Option.when(enableStaticTime)(ExperimentalStaticTime()),
+          commandDeduplication = Some(commandDeduplicationFeatures),
         )
       ),
-      commandDeduplication = Some(commandDeduplicationFeatures),
     )
 
   override def getLedgerApiVersion(

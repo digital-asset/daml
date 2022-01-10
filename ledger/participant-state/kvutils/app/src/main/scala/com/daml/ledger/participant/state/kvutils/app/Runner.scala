@@ -12,7 +12,7 @@ import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.version_service.{
+import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   DeduplicationPeriodSupport,
   ParticipantDeduplicationSupport,

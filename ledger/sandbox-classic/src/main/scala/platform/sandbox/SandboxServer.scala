@@ -18,7 +18,7 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.version_service.{
+import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   DeduplicationPeriodSupport,
   ParticipantDeduplicationSupport,

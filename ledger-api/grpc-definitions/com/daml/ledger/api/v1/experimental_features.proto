@@ -18,6 +18,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 message ExperimentalFeatures {
   ExperimentalSelfServiceErrorCodes self_service_error_codes = 1;
   ExperimentalStaticTime static_time = 2;
+  CommandDeduplicationFeatures command_deduplication = 3;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
@@ -25,3 +26,32 @@ message ExperimentalSelfServiceErrorCodes {}
 
 // Ledger is in the static time mode and exposes a time service.
 message ExperimentalStaticTime {}
+
+message CommandDeduplicationFeatures {
+  DeduplicationPeriodSupport deduplication_period_support = 1;
+  ParticipantDeduplicationSupport participant_deduplication_support = 2;
+}
+
+message DeduplicationPeriodSupport {
+  enum OffsetSupport {
+    // Ledgers use offsets for command deduplication
+    OFFSET_NATIVE_SUPPORT = 0;
+    // Ledger convert offsets into a duration for command deduplication
+    OFFSET_CONVERT_TO_DURATION = 1;
+    // Ledger does not support offsets for command deduplication
+    OFFSET_NOT_SUPPORTED = 2;
+  }
+  enum DurationSupport {
+    DURATION_NATIVE_SUPPORT = 0;
+    DURATION_CONVERT_TO_OFFSET = 1;
+  }
+  OffsetSupport offset_support = 1;
+  DurationSupport duration_support = 2;
+}
+
+// Ledger support for participant deduplication
+enum ParticipantDeduplicationSupport {
+  PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED = 0;
+  PARTICIPANT_DEDUPLICATION_PARALLEL_ONLY = 1;
+  PARTICIPANT_DEDUPLICATION_SUPPORTED = 2;
+}

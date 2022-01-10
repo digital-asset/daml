@@ -3,10 +3,8 @@
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
-import com.daml.ledger.api.v1.version_service.{
-  CommandDeduplicationFeatures,
-  GetLedgerApiVersionResponse,
-}
+import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationFeatures
+import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionResponse
 
 final case class Features(
     selfServiceErrorCodes: Boolean = false,
@@ -26,8 +24,8 @@ object Features {
     Features(
       selfServiceErrorCodes = experimental.flatMap(_.selfServiceErrorCodes).isDefined,
       userManagement = features.flatMap(_.userManagement).isDefined,
-      commandDeduplicationFeatures = response.getFeatures.getCommandDeduplication,
       staticTime = experimental.flatMap(_.staticTime).isDefined,
+      commandDeduplicationFeatures = response.getFeatures.getExperimental.getCommandDeduplication,
     )
   }
 }
