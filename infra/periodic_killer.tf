@@ -31,9 +31,10 @@ locals {
 }
 
 resource "google_project_iam_member" "periodic-killer" {
-  count  = length(local.accounts_that_can_kill_machines)
-  role   = google_project_iam_custom_role.periodic-killer.id
-  member = local.accounts_that_can_kill_machines[count.index]
+  count   = length(local.accounts_that_can_kill_machines)
+  project = local.project
+  role    = google_project_iam_custom_role.periodic-killer.id
+  member  = local.accounts_that_can_kill_machines[count.index]
 }
 
 resource "google_compute_instance" "periodic-killer" {
