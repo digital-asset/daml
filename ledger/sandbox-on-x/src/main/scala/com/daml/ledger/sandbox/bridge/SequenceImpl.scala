@@ -33,7 +33,7 @@ import scala.util.chaining._
 
 // This stage performs sequential conflict checking with the in-flight commands,
 // assigns offsets and converts the accepted/rejected commands to updates.
-private[bridge] class SequenceImpl(
+private[bridge] case class SequenceImpl(
     participantId: Ref.ParticipantId,
     bridgeMetrics: BridgeMetrics,
     timeProvider: TimeProvider,
@@ -98,13 +98,21 @@ private[bridge] class SequenceImpl(
     submission match {
       case AllocateParty(hint, displayName, submissionId) =>
         val party = Ref.Party.assertFromString(hint.getOrElse(UUID.randomUUID().toString))
-        if (allocatedPartiesRef.get()(party))
+        if (allocatedPartiesRef.get()(party)) {
+          // TODO SoX: Do not forward an update for duplicate party
           logger.warn(
             s"Found duplicate party submission with ID $party for submissionId ${Some(submissionId)}"
           )(submission.loggingContext)
+        }
 
         allocatedPartiesRef.updateAndGet(_ + party)
-        partyAllocationSuccessMapper(party, displayName, submissionId, participantId)
+        partyAllocationSuccessMapper(
+          party,
+          displayName,
+          submissionId,
+          participantId,
+          timeProvider.getCurrentTimestamp,
+        )
       case Config(maxRecordTime, submissionId, config) =>
         val recordTime = timeProvider.getCurrentTimestamp
         if (recordTime > maxRecordTime)

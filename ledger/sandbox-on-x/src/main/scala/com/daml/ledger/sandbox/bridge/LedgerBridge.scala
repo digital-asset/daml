@@ -76,7 +76,7 @@ object LedgerBridge {
         indexService.listKnownParties().map(_.map(_.party).toSet)
       )
       sequenceStage <- ResourceOwner.forValue(() =>
-        new SequenceImpl(
+        SequenceImpl(
           participantId = participantConfig.participantId,
           timeProvider = timeProvider,
           initialLedgerEnd =
@@ -118,12 +118,13 @@ object LedgerBridge {
       displayName: Option[String],
       submissionId: Ref.SubmissionId,
       participantId: ParticipantId,
+      recordTime: Time.Timestamp,
   ): Update.PartyAddedToParticipant =
     Update.PartyAddedToParticipant(
       party = party,
       displayName = displayName.getOrElse(party),
       participantId = participantId,
-      recordTime = Time.Timestamp.now(),
+      recordTime = recordTime,
       submissionId = Some(submissionId),
     )
 
