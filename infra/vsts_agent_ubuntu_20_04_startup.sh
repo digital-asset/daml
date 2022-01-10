@@ -199,7 +199,8 @@ rm /etc/sudoers.d/nix_installation
 # legacy reasons; it bears no relation to the DNS hostname of the current
 # cache.
 cat <<NIX_CONF > /etc/nix/nix.conf
-${nix_cache ~}
+extra-substituters = https://nix-cache.da-ext.net
+extra-trusted-public-keys = hydra.da-int.net-2:91tXuJGf/ExbAz7IWsMsxQ5FsO6lG/EGM5QVt+xhZu0= hydra.da-int.net-1:6Oy2+KYvI7xkAOg0gJisD7Nz/6m8CmyKMbWfSKUe03g=
 build-users-group = nixbld
 cores = 1
 max-jobs = 0
