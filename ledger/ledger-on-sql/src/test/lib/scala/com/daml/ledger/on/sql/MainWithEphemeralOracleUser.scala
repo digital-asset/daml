@@ -22,9 +22,10 @@ object MainWithEphemeralOracleUser extends OracleAround {
     val oracleJdbcUrl = s"jdbc:oracle:thin:${user.name}/${user.pwd}@localhost:$oraclePort/ORCLPDB1"
     val config = originalConfig.copy(
       participants = originalConfig.participants.map(_.copy(serverJdbcUrl = oracleJdbcUrl)),
-      extra = ExtraConfig(jdbcUrl =
-        Some("jdbc:h2:mem:ledger-on-sql-conformance-test")
-      ), // Oracle is only used as persistence for participant, we use in-memory H2 for sql ledger persistence here
+      extra = ExtraConfig(
+        // Oracle is only used as persistence for the participant; we use in-memory ledger persistence here.
+        jdbcUrl = Some("jdbc:sqlite:file:test?mode=memory&cache=shared")
+      ),
     )
     new ProgramResource(new Runner("SQL Ledger", SqlLedgerFactory, SqlConfigProvider).owner(config))
       .run(ResourceContext.apply)

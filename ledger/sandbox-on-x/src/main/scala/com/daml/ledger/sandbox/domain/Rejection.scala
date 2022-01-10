@@ -4,6 +4,8 @@
 package com.daml
 package ledger.sandbox.domain
 
+import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
+import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import error.ContextualizedErrorLogger
 import error.definitions.LedgerApiErrors
 import ledger.configuration.LedgerTimeModel
@@ -12,17 +14,27 @@ import lf.data.Time.Timestamp
 import lf.transaction.GlobalKey
 import platform.server.api.validation.ErrorFactories
 import platform.store.appendonlydao.events.ContractId
-
 import com.google.protobuf.any.Any
 import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 
 private[sandbox] sealed trait Rejection extends Product with Serializable {
   def toStatus: Status
+  def completionInfo: CompletionInfo
+  def toCommandRejectedUpdate(recordTime: Timestamp): Update.CommandRejected =
+    Update.CommandRejected(
+      recordTime = recordTime,
+      completionInfo = completionInfo,
+      reasonTemplate = FinalReason(toStatus),
+    )
 }
 
 private[sandbox] object Rejection {
-  final case class DuplicateKey(key: GlobalKey)(errorFactories: ErrorFactories)(implicit
+
+  final case class DuplicateKey(key: GlobalKey)(
+      val completionInfo: CompletionInfo,
+      errorFactories: ErrorFactories,
+  )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
@@ -35,22 +47,25 @@ private[sandbox] object Rejection {
   final case class InconsistentContractKey(
       expectation: Option[ContractId],
       result: Option[ContractId],
-  )(errorFactories: ErrorFactories)(implicit
+  )(val completionInfo: CompletionInfo, errorFactories: ErrorFactories)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
       errorFactories.CommandRejections.inconsistentContractKeys(expectation, result)
   }
 
-  final case class LedgerBridgeInternalError(_err: Throwable)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+  final case class LedgerBridgeInternalError(_err: Throwable, completionInfo: CompletionInfo)(
+      implicit contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status = LedgerApiErrors.InternalError
       .UnexpectedOrUnknownException(_err)
       .rpcStatus(None)
   }
 
-  final case class TransactionInternallyInconsistentKey(key: GlobalKey)(implicit
+  final case class TransactionInternallyInconsistentKey(
+      key: GlobalKey,
+      completionInfo: CompletionInfo,
+  )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status = {
@@ -59,7 +74,10 @@ private[sandbox] object Rejection {
     }
   }
 
-  final case class TransactionInternallyInconsistentContract(key: GlobalKey)(implicit
+  final case class TransactionInternallyInconsistentContract(
+      key: GlobalKey,
+      completionInfo: CompletionInfo,
+  )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status = {
@@ -71,7 +89,7 @@ private[sandbox] object Rejection {
   final case class CausalMonotonicityViolation(
       contractLedgerEffectiveTime: Timestamp,
       transactionLedgerEffectiveTime: Timestamp,
-  )(errorFactories: ErrorFactories)(implicit
+  )(val completionInfo: CompletionInfo, errorFactories: ErrorFactories)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
@@ -80,7 +98,10 @@ private[sandbox] object Rejection {
       )
   }
 
-  final case class UnknownContracts(ids: Set[ContractId])(errorFactories: ErrorFactories)(implicit
+  final case class UnknownContracts(ids: Set[ContractId])(
+      val completionInfo: CompletionInfo,
+      errorFactories: ErrorFactories,
+  )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status =
@@ -88,7 +109,8 @@ private[sandbox] object Rejection {
   }
 
   final case class UnallocatedParties(unallocatedParties: Set[String])(
-      errorFactories: ErrorFactories
+      val completionInfo: CompletionInfo,
+      errorFactories: ErrorFactories,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
@@ -96,7 +118,10 @@ private[sandbox] object Rejection {
       errorFactories.CommandRejections.partiesNotKnownToLedger(unallocatedParties)
   }
 
-  final case class NoLedgerConfiguration(errorFactories: ErrorFactories)(implicit
+  final case class NoLedgerConfiguration(
+      completionInfo: CompletionInfo,
+      errorFactories: ErrorFactories,
+  )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
     override def toStatus: Status = errorFactories.missingLedgerConfig(
@@ -117,7 +142,10 @@ private[sandbox] object Rejection {
     )
   }
 
-  final case class InvalidLedgerTime(outOfRange: LedgerTimeModel.OutOfRange)(
+  final case class InvalidLedgerTime(
+      completionInfo: CompletionInfo,
+      outOfRange: LedgerTimeModel.OutOfRange,
+  )(
       errorFactories: ErrorFactories
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

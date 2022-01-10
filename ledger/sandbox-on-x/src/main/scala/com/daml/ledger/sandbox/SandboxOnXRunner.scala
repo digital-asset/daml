@@ -94,7 +94,7 @@ object SandboxOnXRunner {
     implicit val materializer: Materializer = Materializer(actorSystem)
 
     val sharedEngine = new Engine(
-      EngineConfig(config.allowedLanguageVersions, forbidV0ContractId = true)
+      EngineConfig(config.allowedLanguageVersions, forbidV0ContractId = false)
     )
 
     for {

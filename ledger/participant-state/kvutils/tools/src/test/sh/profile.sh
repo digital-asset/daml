@@ -23,5 +23,5 @@ JQ=$(rlocation "$TEST_WORKSPACE/$4")
 PROFILE_DIR=$(mktemp -d)
 trap "rm -rf $PROFILE_DIR" EXIT
 
-$PROFILE --choice "Iou:Iou:Iou_Transfer" --choice-index 0 --dar $DAR --export $EXPORT --profile-dir $PROFILE_DIR --adapt
+$PROFILE --choice "Iou:Iou:Iou_Transfer" --choice-index 0 --dar $DAR --export $EXPORT --profile-dir $PROFILE_DIR
 $JQ -e '.shared.frames | map(.name) | contains(["exercise @Iou:Iou Iou_Transfer"])' < $PROFILE_DIR/*.json

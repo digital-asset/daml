@@ -220,23 +220,11 @@ def daml_deps():
         # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.42.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.42.0.tar.gz"],
-            sha256 = "b2f2620c762427bfeeef96a68c1924319f384e877bc0e084487601e4cc6e434c",
+            strip_prefix = "grpc-1.43.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.43.0.tar.gz"],
+            sha256 = "9647220c699cea4dafa92ec0917c25c7812be51a18143af047e20f3fb05adddc",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
-            ],
-            patch_args = ["-p1"],
-        )
-
-    if "com_google_absl" not in native.existing_rules():
-        http_archive(
-            name = "com_google_absl",
-            sha256 = "35f22ef5cb286f09954b7cc4c85b5a3f6221c9d4df6b8c4a1e9d399555b366ee",
-            strip_prefix = "abseil-cpp-997aaf3a28308eba1b9156aa35ab7bca9688e9f6",
-            urls = [
-                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
-                "https://github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
             ],
             patch_args = ["-p1"],
         )
@@ -368,7 +356,7 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "9fa170ae70a61d6f585ae9e4c23d3d3d73c2d1ba33b0a4414f3a995fb33ae7dc",
+            sha256 = "ef767f4e45492aea7c89b796a549f8cce35c91e2836211b64be20f3dfb4e5309",
             strip_prefix = "canton-community-1.0.0-SNAPSHOT",
-            urls = ["https://www.canton.io/releases/canton-community-20220105.tar.gz"],
+            urls = ["https://www.canton.io/releases/canton-community-20220110.tar.gz"],
         )
