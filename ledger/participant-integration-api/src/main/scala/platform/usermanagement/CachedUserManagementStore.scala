@@ -4,136 +4,111 @@
 package com.daml.platform.usermanagement
 
 import java.time.Duration
+import java.util.concurrent.{CompletableFuture, Executor}
 
-import com.daml.caching.{CaffeineCache, ConcurrentCache}
+import com.daml.caching.{AsyncLoadingCache, CaffeineCache}
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
-import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
-  Result,
-  UserExists,
-  UserNotFound,
-  Users,
-}
+import com.daml.ledger.participant.state.index.v2.UserManagementStore.{Result, UserInfo, Users}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
-import com.github.benmanes.caffeine.cache.Caffeine
+
+import scala.util.{Failure, Success}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 
 class CachedUserManagementStore(
-    private val delegate: UserManagementStore,
-    expiryAfterWriteInSeconds: Int = 10,
-)(implicit val executionContext: ExecutionContext)
-    extends UserManagementStore {
+                                 private val delegate: UserManagementStore,
+                                 expiryAfterWriteInSeconds: Int = 10,
+                               )(implicit val executionContext: ExecutionContext)
+  extends UserManagementStore {
 
-  private val usersCache: ConcurrentCache[UserId, User] = CaffeineCache[Ref.UserId, User](
-    builder = Caffeine
+  // TODO participant user management: Use metrics (instrumented cache)
+  val cache: AsyncLoadingCache[Ref.UserId, UserInfo] = new CaffeineCache.SimpleAsyncLoadingCache(
+    com.github.benmanes.caffeine.cache.Caffeine
       .newBuilder()
       .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
       // TODO participant user management: Check the choice of the maximum size
-      .maximumSize(10000),
-    // TODO participant user management: Use metrics
-    metrics = None,
+      .maximumSize(10000)
+      .buildAsync(new com.github.benmanes.caffeine.cache.AsyncCacheLoader[Ref.UserId, UserInfo] {
+        override def asyncLoad(key: Ref.UserId, executor: Executor): CompletableFuture[UserInfo] = {
+          val future = for {
+            userE <- delegate.getUser(key)
+            user <- userE match {
+              case Left(error) => Future.failed(error)
+              case Right(user) => Future.successful(user)
+            }
+            rightsE <- delegate.listUserRights(key)
+            rights <- rightsE match {
+              case Left(error) => Future.failed(error)
+              case Right(user) => Future.successful(user)
+            }
+          } yield {
+            UserInfo(user, rights)
+          }
+          val cf = new CompletableFuture[UserInfo]
+          future.onComplete {
+            case Success(value) => cf.complete(value)
+            case Failure(e) => cf.completeExceptionally(e)
+          }
+          cf
+        }
+      })
   )
 
-  import com.github.benmanes.caffeine.cache.Caffeine
-
-  private val userRightsCache: ConcurrentCache[UserId, Set[UserRight]] =
-    CaffeineCache[Ref.UserId, Set[UserRight]](
-      builder = Caffeine
-        .newBuilder()
-        .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
-        // TODO participant user management: Check the choice of the maximum size
-        .maximumSize(10000),
-      // TODO participant user management: Use metrics
-      metrics = None,
-    )
-
-  // TODO copied from Persistent version
-  private def tapSuccess[T](f: T => Unit)(r: Result[T]): Result[T] = {
-    r match {
-      case Right(v) => f(v)
-      case Left(error) =>
-        error match {
-          case UserNotFound(userId) =>
-            // TODO participant user management: We don't need to invalidate here as deleteUser() already handles it
-            usersCache.invalidate(userId)
-            userRightsCache.invalidate(userId)
-          case _: UserExists =>
-        }
-    }
-    r
+  override def getUserInfo(id: UserId): Future[Result[UserManagementStore.UserInfo]] = {
+    cache
+      .get(id)
+      // Mapping from Future[UserInfo] to Future[Result[UserInfo]]
+      .map[Result[UserManagementStore.UserInfo]](Right(_))
+      .recover {
+        case e: UserManagementStore.Error => Left(e)
+      }
   }
 
   override def createUser(user: domain.User, rights: Set[domain.UserRight]): Future[Result[Unit]] =
-    delegate
-      .createUser(user, rights)
-      .map(tapSuccess { _ =>
-        usersCache.put(user.id, user)
-        userRightsCache.put(user.id, rights)
-      })
-
-  override def getUser(id: UserId): Future[Result[domain.User]] = {
-    usersCache
-      .getIfPresent(id)
-      .fold(
-        delegate
-          .getUser(id)
-          .map(tapSuccess(user => usersCache.put(id, user)))
-      )((user) => Future.successful(Right(user)))
-  }
+    delegate.createUser(user, rights)
 
   override def deleteUser(id: UserId): Future[Result[Unit]] = {
-    delegate
-      .deleteUser(id)
-      .map(tapSuccess { _ =>
-        usersCache.invalidate(id)
-        userRightsCache.invalidate(id)
-      })
+    cache.invalidate(id)
+    // TODO pbatko: Invalidating cache after a successful write to ensure cache gets refreshed. Prevents
+    //              a case when there is a read just after the above eager cache invalidation. Need this?
+    //              Prevents the cache from being stale for 10s in a rare case of a such a race.
+    //              Leaning towards dropping eager cache invalidation.
+    delegate.deleteUser(id).map(tapInvalidateOnSuccess(id))
   }
 
   override def grantRights(
-      id: UserId,
-      rights: Set[domain.UserRight],
-  ): Future[Result[Set[domain.UserRight]]] = {
+                            id: UserId,
+                            rights: Set[domain.UserRight],
+                          ): Future[Result[Set[domain.UserRight]]] = {
+    cache.invalidate(id)
     delegate
       .grantRights(id, rights)
-      .map(
-        tapSuccess(granted =>
-          userRightsCache
-            .getIfPresent(id)
-            .foreach(cachedRights => userRightsCache.put(id, cachedRights.union(granted)))
-        )
-      )
+      .map(tapInvalidateOnSuccess(id))
   }
 
   override def revokeRights(
-      id: UserId,
-      rights: Set[domain.UserRight],
-  ): Future[Result[Set[domain.UserRight]]] = {
+                             id: UserId,
+                             rights: Set[domain.UserRight],
+                           ): Future[Result[Set[domain.UserRight]]] = {
+    cache.invalidate(id)
     delegate
       .revokeRights(id, rights)
-      .map(
-        tapSuccess(revoked =>
-          userRightsCache
-            .getIfPresent(id)
-            .foreach(cachedRights => userRightsCache.put(id, cachedRights.diff(revoked)))
-        )
-      )
-  }
-
-  override def listUserRights(id: UserId): Future[Result[Set[domain.UserRight]]] = {
-    userRightsCache
-      .getIfPresent(id)
-      .fold(
-        delegate.listUserRights(id).map(tapSuccess(rights => userRightsCache.put(id, rights)))
-      )(rights => Future.successful(Right(rights)))
-
+      .map(tapInvalidateOnSuccess(id))
   }
 
   override def listUsers(): Future[Result[Users]] = {
     delegate.listUsers()
   }
+
+  private def tapInvalidateOnSuccess[T](id: UserId)(r: Result[T]): Result[T] ={
+    r match {
+      case Right(_) => cache.invalidate(id)
+      case Left(_) =>
+    }
+    r
+  }
+
 }

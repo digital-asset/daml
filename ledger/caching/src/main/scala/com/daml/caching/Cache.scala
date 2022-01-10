@@ -3,6 +3,8 @@
 
 package com.daml.caching
 
+import scala.concurrent.Future
+
 /** A cache. Used for caching values.
   *
   * The strategy used for eviction is implementation-dependent.
@@ -53,6 +55,17 @@ abstract class ConcurrentCache[Key, Value] extends Cache[Key, Value] {
     * using the provided function, writes it to the cache, and returns it.
     */
   def getOrAcquire(key: Key, acquire: Key => Value): Value
+}
+
+
+abstract class AsyncLoadingCache[Key, Value]{
+
+  // TODO pbatko: docs
+  def get(key: Key): Future[Value]
+
+  // TODO pbatko: docs
+  def invalidate(key: Key): Unit
+
 }
 
 object Cache {

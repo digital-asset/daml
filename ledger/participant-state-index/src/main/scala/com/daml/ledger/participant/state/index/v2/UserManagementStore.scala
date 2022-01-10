@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class UserManagementStore()(implicit executionContext: ExecutionContext) {
+abstract class UserManagementStore {
   import UserManagementStore._
 
   def getUserInfo(id: Ref.UserId): Future[Result[UserInfo]]
@@ -24,11 +24,11 @@ abstract class UserManagementStore()(implicit executionContext: ExecutionContext
   def revokeRights(id: Ref.UserId, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
 
   final def getUser(id: Ref.UserId): Future[Result[User]] = {
-    getUserInfo(id).map(_.map(_.user))
+    getUserInfo(id).map(_.map(_.user))(ExecutionContext.parasitic)
   }
 
   final def listUserRights(id: Ref.UserId): Future[Result[Set[UserRight]]] = {
-    getUserInfo(id).map(_.map(_.rights))
+    getUserInfo(id).map(_.map(_.rights))(ExecutionContext.parasitic)
   }
 
 }
@@ -39,7 +39,7 @@ object UserManagementStore {
 
   case class UserInfo(user: User, rights: Set[UserRight])
 
-  sealed trait Error
+  sealed trait Error extends RuntimeException
   final case class UserNotFound(userId: Ref.UserId) extends Error
   final case class UserExists(userId: Ref.UserId) extends Error
 }

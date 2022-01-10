@@ -15,16 +15,16 @@ import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.appendonlydao.DbDispatcher
-import com.daml.platform.store.backend.common.UserManagementStorageBackendTemplate
 import com.daml.platform.store.backend.UserManagementStorageBackend
+import com.daml.platform.store.backend.common.UserManagementStorageBackendTemplate
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 class PersistentUserManagementStore(
     dbDispatcher: DbDispatcher,
     metrics: Metrics,
     createAdminUser: Boolean = true,
-)(implicit executionContext: ExecutionContext) extends UserManagementStore {
+) extends UserManagementStore {
 
   private val backend: UserManagementStorageBackend = UserManagementStorageBackendTemplate
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -37,6 +37,15 @@ class PersistentUserManagementStore(
       InMemoryUserManagementStore.AdminUser.user,
       InMemoryUserManagementStore.AdminUser.rights,
     )
+
+  override def getUserInfo(id: UserId): Future[Result[UserInfo]] = {
+    inTransaction { implicit connection =>
+      withUser(id) { dbUser =>
+        val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
+        UserInfo(dbUser.domainUser, rights)
+      }
+    }
+  }
 
   override def createUser(
       user: domain.User,
@@ -72,16 +81,6 @@ class PersistentUserManagementStore(
     }.map(tapSuccess { _ =>
       logger.info(s"Deleted user with id: ${id}")
     })(scala.concurrent.ExecutionContext.parasitic)
-  }
-
-
-  override def getUserInfo(id: UserId): Future[Result[UserInfo]] = {
-    inTransaction { implicit connection =>
-      withUser(id) { dbUser =>
-        val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
-        UserInfo(dbUser.domainUser, rights)
-      }
-    }
   }
 
   override def grantRights(

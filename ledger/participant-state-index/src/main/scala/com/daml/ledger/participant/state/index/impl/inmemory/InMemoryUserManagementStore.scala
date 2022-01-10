@@ -10,9 +10,9 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class InMemoryUserManagementStore(executionContext: ExecutionContext) extends UserManagementStore()(executionContext) {
+class InMemoryUserManagementStore extends UserManagementStore {
   import InMemoryUserManagementStore._
 
   // Underlying mutable map to keep track of UserInfo state.

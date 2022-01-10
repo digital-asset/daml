@@ -34,7 +34,7 @@ class CachedUserManagementStoreSpec
 
   "cache users accesses with on write invalidation (createUser, getUser, deleteUser)" in {
     val delegate = mock[UserManagementStore]
-    val tested = new CachedUserManagementStore(delegate)
+    val tested = new CachedUserManagementStore(delegate, expiryAfterWriteInSeconds = 10)
 
     when(delegate.getUser(eqTo(user.id)))
       .thenReturn(Future(Left(UserNotFound(user.id))))
@@ -68,7 +68,7 @@ class CachedUserManagementStoreSpec
 
   "listing all users should bypass cache (listUsers)" in {
     val delegate = mock[UserManagementStore]
-    val tested = new CachedUserManagementStore(delegate)
+    val tested = new CachedUserManagementStore(delegate, expiryAfterWriteInSeconds = 10)
 
     when(delegate.createUser(eqTo(user), eqTo(emptyUserRights)))
       .thenReturn(Future.successful(Right(())))
@@ -93,7 +93,7 @@ class CachedUserManagementStoreSpec
 
   "caches for users and for user rights should be in sync" in {
     val delegate = mock[UserManagementStore]
-    val tested = new CachedUserManagementStore(delegate)
+    val tested = new CachedUserManagementStore(delegate, expiryAfterWriteInSeconds = 10)
 
     when(delegate.createUser(eqTo(user), eqTo(Set(right1))))
       .thenReturn(Future.successful(Right(())))
@@ -131,7 +131,7 @@ class CachedUserManagementStoreSpec
 
   "cache users rights accesses with on write invalidation (grantRights, revokeRights, listUserRights)" in {
     val delegate = mock[UserManagementStore]
-    val tested = new CachedUserManagementStore(delegate)
+    val tested = new CachedUserManagementStore(delegate, expiryAfterWriteInSeconds = 10)
 
     when(delegate.createUser(eqTo(user), eqTo(emptyUserRights)))
       .thenReturn(Future.successful(Right(())))
