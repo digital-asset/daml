@@ -28,7 +28,7 @@ object Store {
   /** Reinitialize the platform connection and reset all local state `Unit` */
   case object ResetConnection
 
-  case object UpdatePartiesAndUsers
+  case object UpdateUsersOrParties
   case class UpdatedUsers(details: Seq[User])
 
   case class UpdatedParties(details: List[PartyDetails])

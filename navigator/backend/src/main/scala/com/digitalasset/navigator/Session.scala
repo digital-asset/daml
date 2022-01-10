@@ -14,6 +14,7 @@ import scala.reflect.ClassTag
 final case class User(
     id: String,
     party: PartyState,
+    // TODO: where is `role` used? frontend has some references, but doesn't seem to impact anything?
     role: Option[String] = None,
     canAdvanceTime: Boolean = true,
 )
