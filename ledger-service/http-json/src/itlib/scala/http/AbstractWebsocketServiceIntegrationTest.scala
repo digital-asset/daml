@@ -20,7 +20,15 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
-import spray.json.{JsNull, JsObject, JsString, JsValue}
+import spray.json.{
+  JsArray,
+  JsNull,
+  JsObject,
+  JsString,
+  JsValue,
+  DeserializationException,
+  enrichAny => `sj enrichAny`,
+}
 
 import scala.annotation.nowarn
 import scala.collection.compat._
@@ -259,7 +267,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   private def exercisePayload(cid: domain.ContractId, amount: BigDecimal = BigDecimal("42.42")) = {
     import json.JsonProtocol._
-    import spray.json._
     Map(
       "templateId" -> "Iou:Iou".toJson,
       "contractId" -> cid.toJson,
@@ -270,8 +277,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   "matchedQueries should be correct for multiqueries with per-query offsets" in withHttpService {
     (uri, _, _, _) =>
-      import spray.json._
-
       val (party, headers) = getUniquePartyAndAuthHeaders("Alice")
       val initialCreate = initialIouCreate(uri, party, headers)
 
@@ -345,8 +350,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   "query should receive deltas as contracts are archived/created" in withHttpService {
     (uri, _, _, _) =>
-      import spray.json._
-
       val (party, headers) = getUniquePartyAndAuthHeaders("Alice")
       val initialCreate = initialIouCreate(uri, party, headers)
 
@@ -448,8 +451,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   "multi-party query should receive deltas as contracts are archived/created" in withHttpService {
     (uri, encoder, _, _) =>
-      import spray.json._
-
       val (alice, aliceAuthHeaders) = getUniquePartyAndAuthHeaders("Alice")
       val (bob, bobAuthHeaders) = getUniquePartyAndAuthHeaders("Bob")
       val f1 =
@@ -566,7 +567,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
       val templateId = domain.TemplateId(None, "Account", "Account")
       def fetchRequest(contractIdAtOffset: Option[Option[domain.ContractId]] = None) = {
-        import spray.json._, json.JsonProtocol._
+        import json.JsonProtocol._
         List(
           Map(
             "templateId" -> "Account:Account".toJson,
@@ -751,8 +752,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   "multi-party fetch-by-key query should receive deltas as contracts are archived/created" in withHttpService {
     (uri, encoder, _, _) =>
-      import spray.json._
-
       val templateId = domain.TemplateId(None, "Account", "Account")
       val (alice, aliceAuthHeaders) = getUniquePartyAndAuthHeaders("Alice")
       val (bob, bobAuthHeaders) = getUniquePartyAndAuthHeaders("Bob")
@@ -967,7 +966,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     }
 
     val initialPayload = {
-      import spray.json._, json.JsonProtocol._
+      import json.JsonProtocol._
       Map(
         "templateId" -> "Iou:Iou".toJson,
         "payload" -> Map(
@@ -1010,7 +1009,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
     (uri, encoder, _, _) =>
       val aliceAndBob = List("Alice", "Bob")
       val jwtForAliceAndBob = jwtForParties(actAs = aliceAndBob, readAs = Nil, ledgerId = testId)
-      import spray.json._
 
       def test(
           expectedContractId: String,
@@ -1070,7 +1068,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
   "Per-query offsets should work as expected" in withHttpService { (uri, _, _, _) =>
     val dslSyntax = Consume.syntax[JsValue]
     import dslSyntax._
-    import spray.json._
     val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
     val jwt = jwtForParties(List(alice.unwrap), List(), testId)
     def createIouCommand(currency: String): String =
@@ -1234,7 +1231,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "ContractKeyStreamRequest" - {
-    import spray.json._, json.JsonProtocol._
+    import json.JsonProtocol._
     val baseVal =
       domain.EnrichedContractKey(domain.TemplateId(Some("ab"), "cd", "ef"), JsString("42"): JsValue)
     val baseMap = baseVal.toJson.asJsObject.fields

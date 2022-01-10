@@ -46,7 +46,7 @@ import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
-import spray.json.{JsArray, JsObject, JsValue, JsonReader}
+import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny => `sj enrichAny`}
 
 import scala.collection.compat._
 import scala.collection.mutable.HashSet
@@ -97,7 +97,7 @@ object WebSocketService {
       errors: Seq[ServerError],
       step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfVT], Pos)],
   ) {
-    import JsonProtocol._, spray.json._
+    import JsonProtocol._
 
     def logHiddenErrors()(implicit lc: LoggingContextOf[InstanceUUID]): Unit =
       errors foreach { case ServerError(message) =>
@@ -355,7 +355,7 @@ object WebSocketService {
 
       override def renderCreatedMetadata(p: Positive) =
         Map {
-          import spray.json._, JsonProtocol._
+          import JsonProtocol._
           "matchedQueries" -> p.toJson
         }
 
@@ -971,7 +971,6 @@ class WebSocketService(
   ): Source[JsValue, NotUsed] =
     if (unresolved.isEmpty) Source.empty
     else {
-      import spray.json._
       Source.single(
         domain.AsyncWarningsWrapper(domain.UnknownTemplateIds(unresolved.toList)).toJson
       )
