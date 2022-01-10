@@ -21,14 +21,6 @@ import com.github.benmanes.caffeine.cache.Caffeine
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object CachedUserManagementStore {
-
-  // TODO participant user management: copied from InMemory version
-  case class UserInfo(user: User, rights: Set[UserRight]) {
-    def toStateEntry: (Ref.UserId, UserInfo) = user.id -> this
-  }
-
-}
 
 class CachedUserManagementStore(
     private val delegate: UserManagementStore,

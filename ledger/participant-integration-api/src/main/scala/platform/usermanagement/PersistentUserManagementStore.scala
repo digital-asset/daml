@@ -9,12 +9,7 @@ import java.time.Instant
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
-import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
-  Result,
-  UserExists,
-  UserNotFound,
-  Users,
-}
+import com.daml.ledger.participant.state.index.v2.UserManagementStore.{Result, UserExists, UserInfo, UserNotFound, Users}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -23,13 +18,13 @@ import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.common.UserManagementStorageBackendTemplate
 import com.daml.platform.store.backend.UserManagementStorageBackend
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class PersistentUserManagementStore(
     dbDispatcher: DbDispatcher,
     metrics: Metrics,
     createAdminUser: Boolean = true,
-) extends UserManagementStore {
+)(implicit executionContext: ExecutionContext) extends UserManagementStore {
 
   private val backend: UserManagementStorageBackend = UserManagementStorageBackendTemplate
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -79,10 +74,12 @@ class PersistentUserManagementStore(
     })(scala.concurrent.ExecutionContext.parasitic)
   }
 
-  override def getUser(id: UserId): Future[Result[domain.User]] = {
+
+  override def getUserInfo(id: UserId): Future[Result[UserInfo]] = {
     inTransaction { implicit connection =>
       withUser(id) { dbUser =>
-        dbUser.domainUser
+        val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
+        UserInfo(dbUser.domainUser, rights)
       }
     }
   }
@@ -134,14 +131,6 @@ class PersistentUserManagementStore(
       }
     })(scala.concurrent.ExecutionContext.parasitic)
 
-  }
-
-  override def listUserRights(id: UserId): Future[Result[Set[domain.UserRight]]] = {
-    inTransaction { implicit connection =>
-      withUser(id = id) { user =>
-        backend.getUserRights(internalId = user.internalId)(connection)
-      }
-    }
   }
 
   override def listUsers(): Future[Result[Users]] = {
