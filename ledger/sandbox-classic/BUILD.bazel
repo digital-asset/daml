@@ -415,8 +415,6 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
-        # This test case runs multiple concurrent tests, which don't work well with h2
-        "--exclude=CommandDeduplicationIT:DeduplicationMixedClients",
         # not enforced
         "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
@@ -457,8 +455,6 @@ server_conformance_test(
         "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
-        # This test case runs multiple concurrent tests, which don't work well with h2
-        "--exclude=CommandDeduplicationIT:DeduplicationMixedClients",
         "--exclude=ClosedWorldIT",
     ],
 )
