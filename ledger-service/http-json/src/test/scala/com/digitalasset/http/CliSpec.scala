@@ -47,7 +47,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       idleTimeout,
       tablePrefix,
     ),
-    dbStartupMode = DbStartupMode.StartOnly,
+    startMode = DbStartupMode.StartOnly,
   )
   val jdbcConfigString =
     "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password," +
@@ -141,7 +141,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
         val config =
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
-        config.jdbcConfig shouldBe Some(jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateOnly))
+        config.jdbcConfig shouldBe Some(jdbcConfig.copy(startMode = DbStartupMode.CreateOnly))
       }
 
       "should get the StartOnly startup mode from the string" in {
@@ -149,7 +149,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
         val config =
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
-        config.jdbcConfig shouldBe Some(jdbcConfig.copy(dbStartupMode = DbStartupMode.StartOnly))
+        config.jdbcConfig shouldBe Some(jdbcConfig.copy(startMode = DbStartupMode.StartOnly))
       }
 
       "should get the CreateIfNeededAndStart startup mode from the string" in {
@@ -158,7 +158,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
         config.jdbcConfig shouldBe Some(
-          jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateIfNeededAndStart)
+          jdbcConfig.copy(startMode = DbStartupMode.CreateIfNeededAndStart)
         )
       }
 
@@ -168,7 +168,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
         config.jdbcConfig shouldBe Some(
-          jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateAndStart)
+          jdbcConfig.copy(startMode = DbStartupMode.CreateAndStart)
         )
       }
 
@@ -178,7 +178,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
         config.jdbcConfig shouldBe Some(
-          jdbcConfig.copy(dbStartupMode = DbStartupMode.StartOnly)
+          jdbcConfig.copy(startMode = DbStartupMode.StartOnly)
         )
       }
 
@@ -188,7 +188,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
           configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
             .getOrElse(fail())
         config.jdbcConfig shouldBe Some(
-          jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateOnly)
+          jdbcConfig.copy(startMode = DbStartupMode.CreateOnly)
         )
       }
     }

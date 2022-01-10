@@ -13,7 +13,7 @@ import com.daml.dbutils, dbutils.DBConfig
 
 private[http] final case class JdbcConfig(
     baseConfig: dbutils.JdbcConfig,
-    dbStartupMode: DbStartupMode = DbStartupMode.StartOnly,
+    startMode: DbStartupMode = DbStartupMode.StartOnly,
     backendSpecificConf: Map[String, String] = Map.empty,
 )
 
@@ -23,7 +23,7 @@ private[http] object JdbcConfig
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows { a =>
     import a._, baseConfig._
-    s"JdbcConfig(driver=$driver, url=$url, user=$user, start-mode=$dbStartupMode)"
+    s"JdbcConfig(driver=$driver, url=$url, user=$user, start-mode=$startMode)"
   }
 
   private[this] val DisableContractPayloadIndexing = "disableContractPayloadIndexing"
@@ -68,7 +68,7 @@ private[http] object JdbcConfig
       remainingConf <- StateT.get: Fields[Map[String, String]]
     } yield JdbcConfig(
       baseConfig = baseConfig,
-      dbStartupMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
+      startMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
       backendSpecificConf = remainingConf,
     )
 

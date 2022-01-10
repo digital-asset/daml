@@ -44,7 +44,7 @@ trait HttpFailureTestFixture extends ToxicSandboxFixture with PostgresAroundAll 
         password = "",
         poolSize = ConnectionPool.PoolSize.Integration,
       ),
-      dbStartupMode = DbStartupMode.CreateOnly,
+      startMode = DbStartupMode.CreateOnly,
     )
 
   override def packageFiles =

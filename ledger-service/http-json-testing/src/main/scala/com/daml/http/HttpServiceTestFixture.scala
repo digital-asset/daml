@@ -272,7 +272,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     for {
       dao <- Future(ContractDao(c))
       isSuccess <- DbStartupOps
-        .fromStartupMode(dao, c.dbStartupMode)
+        .fromStartupMode(dao, c.startMode)
         .unsafeToFuture()
       _ = if (!isSuccess) throw new Exception("Db startup failed")
     } yield dao
