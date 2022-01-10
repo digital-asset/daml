@@ -20,7 +20,7 @@ class StructProjBench {
 
   // log2 of the structural record size.
   // We test up to 2^7=128 as 100 seems to be a reasonable limit for the number
-  // of fields of record typically used by DAML.
+  // of fields of record typically used by Daml.
   @Param(Array("0", "1", "2", "3", "4", "5", "6", "7"))
   var n: Int = _
   private def N = 1 << n
