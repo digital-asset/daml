@@ -93,7 +93,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
   }
 
   // Tags the prepared submission with the current ledger end as available on the Ledger API.
-  private val tagWithLedgerEnd: TagWithLedgerEnd = {
+  private[bridge] val tagWithLedgerEnd: TagWithLedgerEnd = {
     case Left(rejection) => Future.successful(Left(rejection))
     case Right(preparedSubmission) =>
       Timed.future(
@@ -108,7 +108,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
 
   // This stage performs conflict checking for incoming submissions against the ledger state
   // as it is visible on the Ledger API.
-  private val conflictCheckWithCommitted: ConflictCheckWithCommitted = {
+  private[bridge] val conflictCheckWithCommitted: ConflictCheckWithCommitted = {
     case Left(rejection) => Future.successful(Left(rejection))
     case Right(
           validated @ (
@@ -119,34 +119,43 @@ private[sandbox] class ConflictCheckingLedgerBridge(
               _,
               _,
               blindingInfo,
-              _,
+              transactionInformees,
               originalSubmission,
             ),
           )
         ) =>
+      implicit val submissionLoggingContext: LoggingContext = originalSubmission.loggingContext
       withErrorLogger(originalSubmission.submitterInfo.submissionId) { implicit errorLogger =>
+        val completionInfo = originalSubmission.submitterInfo.toCompletionInfo()
         Timed
           .future(
             bridgeMetrics.Stages.conflictCheckWithCommitted,
             validateCausalMonotonicity(
-              transaction = originalSubmission,
+              completionInfo = completionInfo,
               inputContracts = inputContracts,
               transactionLedgerEffectiveTime =
                 originalSubmission.transactionMeta.ledgerEffectiveTime,
               divulged = blindingInfo.divulgence.keySet,
+              loggingContext = submissionLoggingContext,
             ).flatMap {
-              case Right(_) => validateKeyUsages(originalSubmission, keyInputs)
+              case Right(_) =>
+                validateKeyUsages(
+                  transactionInformees,
+                  completionInfo,
+                  keyInputs,
+                  submissionLoggingContext,
+                )
               case rejection => Future.successful(rejection)
             },
           )
           .map(_.map(_ => validated))
-      }(originalSubmission.loggingContext, logger)
+      }
     case Right(validated) => Future.successful(Right(validated))
   }
 
   // This stage performs sequential conflict checking with the in-flight commands,
   // assigns offsets and converts the accepted/rejected commands to updates.
-  private val sequence: Sequence = () => {
+  private[bridge] val sequence: Sequence = () => {
     // The mutating references below are the bridge's state
     @volatile var offsetIdx: Long = fromOffset(initialLedgerEnd)
     val sequencerQueueStateRef = new AtomicReference(SequencerState()(bridgeMetrics))
@@ -360,20 +369,20 @@ private[sandbox] class ConflictCheckingLedgerBridge(
   }
 
   private def validateCausalMonotonicity(
-      transaction: Transaction,
+      completionInfo: CompletionInfo,
       inputContracts: Set[ContractId],
       transactionLedgerEffectiveTime: Timestamp,
       divulged: Set[ContractId],
+      loggingContext: LoggingContext,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): AsyncValidation[Unit] = {
     val referredContracts = inputContracts.diff(divulged)
-    val completionInfo = transaction.submitterInfo.toCompletionInfo()
     if (referredContracts.isEmpty)
       Future.successful(Right(()))
     else
       indexService
-        .lookupMaximumLedgerTime(referredContracts)(transaction.loggingContext)
+        .lookupMaximumLedgerTime(referredContracts)(loggingContext)
         .transform {
           case Failure(MissingContracts(missingContractIds)) =>
             Success(Left(UnknownContracts(missingContractIds)(completionInfo, errorFactories)))
@@ -396,19 +405,20 @@ private[sandbox] class ConflictCheckingLedgerBridge(
   }
 
   private def validateKeyUsages(
-      transaction: Transaction,
+      transactionInformees: Set[Ref.Party],
+      completionInfo: CompletionInfo,
       keyInputs: KeyInputs,
+      loggingContext: LoggingContext,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): AsyncValidation[Unit] = {
-    val completionInfo = transaction.submitterInfo.toCompletionInfo()
+  ): AsyncValidation[Unit] =
     keyInputs.foldLeft(Future.successful[Validation[Unit]](Right(()))) {
       case (f, (key, inputState)) =>
         f.flatMap {
           case Right(_) =>
             indexService
               // TODO SoX: Perform lookup more efficiently and do not use a readers-based lookup
-              .lookupContractKey(transaction.transaction.informees, key)(transaction.loggingContext)
+              .lookupContractKey(transactionInformees, key)(loggingContext)
               .map { lookupResult =>
                 (inputState, lookupResult) match {
                   case (LfTransaction.NegativeKeyLookup, Some(actual)) =>
@@ -430,7 +440,6 @@ private[sandbox] class ConflictCheckingLedgerBridge(
           case left => Future.successful(left)
         }
     }
-  }
 
   private def invalidInputFromParticipantRejection(completionInfo: CompletionInfo)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
