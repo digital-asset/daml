@@ -544,7 +544,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.18.0",
-        "end": " 2.0.0-snapshot.20220105.8777.1", # was removed in 2.0
+        "end": " 2.0.0-snapshot.20220105.8777.1",  # was removed in 2.0
         "platform_ranges": [
             {
                 "end": "1.18.0",
