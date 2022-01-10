@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
-# $ bazel run @unpinned_maven//:pin && DAML_SCALA_VERSION=2.12.14 bazel run @unpinned_maven//:pin
+# $ bazel run @unpinned_maven//:pin && DAML_SCALA_VERSION=2.12.15 bazel run @unpinned_maven//:pin
 # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
@@ -44,7 +44,7 @@ netty_version = "4.1.67.Final"
 # <tcnative.version>2.0.42.Final</tcnative.version>
 # ```
 netty_tcnative_version = "2.0.40.Final"
-grpc_version = "1.41.0"
+grpc_version = "1.35.0"
 akka_version = "2.6.13"
 
 def install_java_deps():
@@ -56,7 +56,7 @@ def install_java_deps():
             "com.auth0:jwks-rsa:0.11.0",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
             "com.github.ben-manes.caffeine:caffeine:2.8.0",
-            "com.github.ghik:silencer-plugin_{}:1.7.5".format(scala_version),
+            "com.github.ghik:silencer-plugin_{}:1.7.7".format(scala_version),
             "com.github.pureconfig:pureconfig_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-generic_{}:0.14.0".format(scala_major_version),
@@ -65,7 +65,7 @@ def install_java_deps():
             "com.google.code.findbugs:jsr305:3.0.2",
             "com.google.code.gson:gson:2.8.2",
             "com.google.guava:guava:29.0-jre",
-            "com.h2database:h2:1.4.200",
+            "com.h2database:h2:2.0.206",
             "com.lihaoyi:pprint_{}:0.6.0".format(scala_major_version),
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
             "commons-io:commons-io:2.5",
@@ -160,7 +160,7 @@ def install_java_deps():
             "org.apache.commons:commons-text:1.4",
             "org.awaitility:awaitility:3.1.6",
             "org.checkerframework:checker:2.5.4",
-            "org.flywaydb:flyway-core:7.13.0",
+            "org.flywaydb:flyway-core:8.4.0",
             "org.freemarker:freemarker-gae:2.3.28",
             "org.jline:jline:3.7.1",
             "org.jline:jline-reader:3.7.1",
@@ -192,7 +192,7 @@ def install_java_deps():
             "org.seleniumhq.selenium:selenium-java:3.12.0",
             "org.slf4j:slf4j-api:1.7.26",
             "org.slf4j:slf4j-simple:1.7.26",
-            "org.typelevel:kind-projector_{}:0.13.0".format(scala_version),
+            "org.typelevel:kind-projector_{}:0.13.2".format(scala_version),
             "org.tpolecat:doobie-core_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-hikari_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-postgres_{}:0.13.4".format(scala_major_version),
