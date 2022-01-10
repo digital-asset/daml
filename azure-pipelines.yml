@@ -203,8 +203,8 @@ jobs:
 
         source $(bash-lib)
         cd $(Build.StagingDirectory)/split-release
-        gcs "$GCRED" -m cp -r github gs://daml-binaries/split-releases/$(release_tag)/
-        gcs "$GCRED" -m cp -r split-release gs://daml-binaries/split-releases/$(release_tag)/
+        gcs "$GCRED" -m cp -r github gs://daml-data/split-releases/$(release_tag)/
+        gcs "$GCRED" -m cp -r split-release gs://daml-data/split-releases/$(release_tag)/
       name: upload_to_gcs
       env:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
