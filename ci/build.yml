@@ -150,7 +150,7 @@ jobs:
         release_tag: $(release_tag)
         name: 'linux-scala-2.12'
         is_release: variables.is_release
-        scala_version: "2.12.14"
+        scala_version: "2.12.15"
     - template: upload-bazel-metrics.yml
     - template: tell-slack-failed.yml
       parameters:
