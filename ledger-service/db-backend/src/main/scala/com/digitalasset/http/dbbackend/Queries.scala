@@ -550,25 +550,28 @@ object Queries {
   // an expression that yields a comma-terminated/separated list of SQL-side
   // string conversions of `Ix`es indicating which tpid/query pairs matched
   private[dbbackend] def projectedIndex[Ix: Put](
-      queries: ISeq[((SurrogateTpId, Fragment), Ix)],
+      queries: NonEmpty[ISeq[((SurrogateTpId, Fragment), Ix)]],
       tpidSelector: Fragment,
   ): Fragment = {
     import Implicits._
     caseLookupFragment(
       // SortedMap is only used so the tests are consistent; the SQL semantics
       // don't care what order this map is in
-      SortedMap.from(queries.groupBy1(_._1._1)).transform {
-        case (_, (_, ix) +-: ISeq()) => fr"${ix: Ix}||''"
-        case (_, tqixes) =>
-          concatFragment(
-            intersperse(
-              tqixes.toVector.toOneAnd.map { case ((_, q), ix) =>
-                fr"(CASE WHEN ($q) THEN ${ix: Ix}||',' ELSE '' END)"
-              },
-              fr"||",
+      queries
+        .groupBy(_._1._1)
+        .to(SortedMap)
+        .transform {
+          case (_, (_, ix) +-: ISeq()) => fr"${ix: Ix}||''"
+          case (_, tqixes) =>
+            concatFragment(
+              intersperse(
+                tqixes.toVector.toOneAnd.map { case ((_, q), ix) =>
+                  fr"(CASE WHEN ($q) THEN ${ix: Ix}||',' ELSE '' END)"
+                },
+                fr"||",
+              )
             )
-          )
-      },
+        },
       selector = tpidSelector,
     )
   }

@@ -121,6 +121,9 @@ object NonEmptyColl extends NonEmptyCollInstances {
   ) extends AnyVal {
     import NonEmpty.{unsafeNarrow => un}
     private type ESelf = IterableOps[A, imm.Iterable, C with imm.Iterable[A]]
+    def groupBy[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] =
+      NonEmpty.subst[Lambda[f[_] => f[Map[K, f[C]]]]]((self: ESelf) groupBy f)
+    def groupBy1[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] = self groupBy f
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
     def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
     def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf).toSeq)
