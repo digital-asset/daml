@@ -37,6 +37,8 @@ private[platform] class FlywayMigrations(
       .locations((locations(dbType) ++ additionalMigrationPaths): _*)
       .dataSource(dataSource)
 
+  // There is currently no way to get the previous behavior in
+  // a non-deprecated way. See https://github.com/flyway/flyway/issues/3338
   @nowarn("msg=method ignoreFutureMigrations .* is deprecated")
   def validate(): Future[Unit] = run { configBase =>
     val flyway = configBase
