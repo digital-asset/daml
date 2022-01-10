@@ -105,13 +105,14 @@ getPortForSandbox defaultPort = \case
     Just (SpecifiedPort port) -> pure (unSandboxPort port)
     Just FreePort -> fromIntegral <$> getFreePort
 
-determineCantonPorts :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> IO CantonPorts
-determineCantonPorts ledgerApiSpec SandboxCantonPortSpec{..} = do
+determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> FilePath -> IO CantonOptions
+determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile = do
     ledgerApi <- getPortForSandbox 6865 ledgerApiSpec
     adminApi <- getPortForSandbox 6866 adminApiSpec
     domainPublicApi <- getPortForSandbox 6867 domainPublicApiSpec
     domainAdminApi <- getPortForSandbox 6868 domainAdminApiSpec
-    pure CantonPorts {..}
+    let portFileM = Just portFile -- TODO allow canton port file to be passed in from command line?
+    pure CantonOptions {..}
 
 withSandbox :: StartOptions -> FilePath -> [String] -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
 withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
@@ -121,12 +122,12 @@ withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
       SandboxCanton cantonPortSpec -> cantonSandbox cantonPortSpec
 
   where
-    cantonSandbox cantonPortSpec = do
-      cantonPorts <- determineCantonPorts sandboxPortM cantonPortSpec
-      withCantonSandbox cantonPorts sandboxArgs $ \ph -> do
-        let sandboxPort = ledgerApi cantonPorts
-        putStrLn "Waiting for canton sandbox to start: "
-        waitForConnectionOnPort (putStr "." *> threadDelay 500000) sandboxPort
+    cantonSandbox cantonPortSpec = withTempDir $ \tempDir -> do
+      let portFile = tempDir </> "sandbox-portfile"
+      cantonOptions <- determineCantonOptions sandboxPortM cantonPortSpec portFile
+      withCantonSandbox cantonOptions sandboxArgs $ \ph -> do
+        putStrLn "Waiting for canton sandbox to start."
+        sandboxPort <- readPortFileWith decodeCantonSandboxPort maxRetries portFile
         runLedgerUploadDar ((defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}) (Just darPath)
         kont ph (SandboxPort sandboxPort)
 

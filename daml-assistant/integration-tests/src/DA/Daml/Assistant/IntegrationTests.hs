@@ -33,7 +33,7 @@ import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer, tokenFor)
+import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer, tokenFor, decodeCantonSandboxPort)
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent, callCommandSilentIn, callCommandSilentWithEnvIn, subprocessEnv)
 import DA.Test.Util
@@ -829,13 +829,16 @@ cantonTests = testGroup "daml canton-sandbox"
       domainPublicApiPort <- getFreePort
       domainAdminApiPort <- getFreePort
       step "Staring Canton sandbox"
+      let portFile = dir </> "canton-portfile.json"
       withDamlServiceIn (dir </> "skeleton") "canton-sandbox"
         [ "--port", show ledgerApiPort
         , "--admin-api-port", show adminApiPort
         , "--domain-public-port", show domainPublicApiPort
         , "--domain-admin-port", show domainAdminApiPort
+        , "--port-file", portFile
         ] $ do
-        waitForConnectionOnPort (threadDelay 500000) (fromIntegral ledgerApiPort)
+        -- wait for port file to be written
+        _ <- readPortFileWith decodeCantonSandboxPort maxRetries portFile
         step "Uploading DAR"
         callCommandSilentIn (dir </> "skeleton") $ unwords
           ["daml ledger upload-dar --host=localhost --port=" <> show ledgerApiPort, ".daml/dist/skeleton-0.0.1.dar"]

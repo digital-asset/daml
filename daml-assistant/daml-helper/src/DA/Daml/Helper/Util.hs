@@ -24,7 +24,8 @@ module DA.Daml.Helper.Util
   , waitForConnectionOnPort
   , waitForHttpServer
   , tokenFor
-  , CantonPorts(..)
+  , CantonOptions(..)
+  , decodeCantonSandboxPort
   ) where
 
 import Control.Exception.Safe
@@ -32,6 +33,7 @@ import Control.Monad.Extra
 import Control.Monad.Loops (untilJust)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSL8
 import Data.Foldable
 import Data.Maybe
 import qualified Data.Text as T
@@ -245,44 +247,55 @@ tokenFor parties ledgerId applicationId =
             ]
       }
 
-runCantonSandbox :: CantonPorts -> [String] -> IO ()
-runCantonSandbox ports args = withCantonSandbox ports args (const $ pure ())
+runCantonSandbox :: CantonOptions -> [String] -> IO ()
+runCantonSandbox options args = withCantonSandbox options args (const $ pure ())
 
-withCantonSandbox :: CantonPorts -> [String] -> (Process () () () -> IO a) -> IO a
-withCantonSandbox ports remainingArgs k = do
+withCantonSandbox :: CantonOptions -> [String] -> (Process () () () -> IO a) -> IO a
+withCantonSandbox options remainingArgs k = do
     sdkPath <- getSdkPath
     let cantonJar = sdkPath </> "canton" </> "canton.jar"
     withTempFile $ \config -> do
-        BSL.writeFile config (cantonConfig ports)
+        BSL.writeFile config (cantonConfig options)
         withJar cantonJar [] ("daemon" : "-c" : config :  "--auto-connect-local" : remainingArgs) k
 
-data CantonPorts = CantonPorts
+data CantonOptions = CantonOptions
   { ledgerApi :: Int
   , adminApi :: Int
   , domainPublicApi :: Int
   , domainAdminApi :: Int
+  , portFileM :: Maybe FilePath
   }
 
-cantonConfig :: CantonPorts -> BSL.ByteString
-cantonConfig CantonPorts{..} =
+cantonConfig :: CantonOptions -> BSL.ByteString
+cantonConfig CantonOptions{..} =
     Aeson.encode $ Aeson.object
-      [ "canton" Aeson..= Aeson.object
-          [ "participants" Aeson..= Aeson.object
-              [ "sandbox" Aeson..= Aeson.object
-                  [ storage
-                  , "admin-api" Aeson..= port adminApi
-                  , "ledger-api" Aeson..= port ledgerApi
-                  ]
-              ]
-          , "domains" Aeson..= Aeson.object
-              [ "local" Aeson..= Aeson.object
-                [ storage
-                , "public-api" Aeson..= port domainPublicApi
-                , "admin-api" Aeson..= port domainAdminApi
+        [ "canton" Aeson..= Aeson.object (
+            [ "participants" Aeson..= Aeson.object
+                [ "sandbox" Aeson..= Aeson.object
+                    [ storage
+                    , "admin-api" Aeson..= port adminApi
+                    , "ledger-api" Aeson..= port ledgerApi
+                    ]
                 ]
-              ]
-          ]
-      ]
+            , "domains" Aeson..= Aeson.object
+                [ "local" Aeson..= Aeson.object
+                    [ storage
+                    , "public-api" Aeson..= port domainPublicApi
+                    , "admin-api" Aeson..= port domainAdminApi
+                    ]
+                ]
+            ] ++
+            [ "parameters" Aeson..= Aeson.object
+                [ "ports-file" Aeson..= portFile ]
+            | Just portFile <- [portFileM]
+            ] )
+        ]
   where
     port p = Aeson.object [ "port" Aeson..= p ]
     storage = "storage" Aeson..= Aeson.object [ "type" Aeson..= ("memory" :: T.Text) ]
+
+decodeCantonSandboxPort :: String -> Maybe Int
+decodeCantonSandboxPort json = do
+    participants :: Map.Map String (Map.Map String Int) <- Aeson.decode (BSL8.pack json)
+    ports <- Map.lookup "sandbox" participants
+    Map.lookup "ledgerApi" ports
