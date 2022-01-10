@@ -24,7 +24,7 @@ CREATE TABLE configuration_entries (
     recorded_at BIGINT NOT NULL,
     submission_id VARCHAR NOT NULL,
     typ VARCHAR NOT NULL,
-    configuration BYTEA NOT NULL,
+    configuration BINARY LARGE OBJECT NOT NULL,
     rejection_reason VARCHAR,
 
     CONSTRAINT configuration_entries_check_reason
@@ -46,7 +46,7 @@ CREATE TABLE packages (
     package_size BIGINT NOT NULL,
     known_since BIGINT NOT NULL,
     ledger_offset VARCHAR NOT NULL,
-    package BYTEA NOT NULL
+    package BINARY LARGE OBJECT NOT NULL
 );
 
 CREATE INDEX idx_packages_ledger_offset ON packages (ledger_offset);
@@ -132,7 +132,7 @@ CREATE TABLE participant_command_completions (
     -- (decided by the ledger driver), and may be `NULL` even if the other two columns are set.
     rejection_status_code INTEGER,
     rejection_status_message VARCHAR,
-    rejection_status_details BYTEA
+    rejection_status_details BINARY LARGE OBJECT
 );
 
 CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions (completion_offset, application_id);
@@ -161,7 +161,7 @@ CREATE TABLE participant_events_divulgence (
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * contract data
-    create_argument BYTEA,
+    create_argument BINARY LARGE OBJECT,
 
     -- * compression flags
     create_argument_compression SMALLINT
@@ -207,11 +207,11 @@ CREATE TABLE participant_events_create (
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * contract data
-    create_argument BYTEA NOT NULL,
+    create_argument BINARY LARGE OBJECT NOT NULL,
     create_signatories INTEGER ARRAY NOT NULL,
     create_observers INTEGER ARRAY NOT NULL,
     create_agreement_text VARCHAR,
-    create_key_value BYTEA,
+    create_key_value BINARY LARGE OBJECT,
     create_key_hash VARCHAR,
 
     -- * compression flags
@@ -268,12 +268,12 @@ CREATE TABLE participant_events_consuming_exercise (
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * information about the corresponding create event
-    create_key_value BYTEA,        -- used for the mutable state cache
+    create_key_value BINARY LARGE OBJECT,        -- used for the mutable state cache
 
     -- * choice data
     exercise_choice VARCHAR NOT NULL,
-    exercise_argument BYTEA NOT NULL,
-    exercise_result BYTEA,
+    exercise_argument BINARY LARGE OBJECT NOT NULL,
+    exercise_result BINARY LARGE OBJECT,
     exercise_actors INTEGER ARRAY NOT NULL,
     exercise_child_event_ids VARCHAR ARRAY NOT NULL,
 
@@ -329,12 +329,12 @@ CREATE TABLE participant_events_non_consuming_exercise (
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * information about the corresponding create event
-    create_key_value BYTEA,        -- used for the mutable state cache
+    create_key_value BINARY LARGE OBJECT,        -- used for the mutable state cache
 
     -- * choice data
     exercise_choice VARCHAR NOT NULL,
-    exercise_argument BYTEA NOT NULL,
-    exercise_result BYTEA,
+    exercise_argument BINARY LARGE OBJECT NOT NULL,
+    exercise_result BINARY LARGE OBJECT,
     exercise_actors INTEGER ARRAY NOT NULL,
     exercise_child_event_ids VARCHAR ARRAY NOT NULL,
 
@@ -390,11 +390,11 @@ SELECT
     NULL::INTEGER ARRAY as create_signatories,
     NULL::INTEGER ARRAY as create_observers,
     NULL::VARCHAR as create_agreement_text,
-    NULL::BYTEA as create_key_value,
+    NULL::BINARY LARGE OBJECT as create_key_value,
     NULL::VARCHAR as create_key_hash,
     NULL::VARCHAR as exercise_choice,
-    NULL::BYTEA as exercise_argument,
-    NULL::BYTEA as exercise_result,
+    NULL::BINARY LARGE OBJECT as exercise_argument,
+    NULL::BINARY LARGE OBJECT as exercise_result,
     NULL::INTEGER ARRAY as exercise_actors,
     NULL::VARCHAR ARRAY as exercise_child_event_ids,
     create_argument_compression,
@@ -426,8 +426,8 @@ SELECT
     create_key_value,
     create_key_hash,
     NULL::VARCHAR as exercise_choice,
-    NULL::BYTEA as exercise_argument,
-    NULL::BYTEA as exercise_result,
+    NULL::BINARY LARGE OBJECT as exercise_argument,
+    NULL::BINARY LARGE OBJECT as exercise_result,
     NULL::INTEGER ARRAY as exercise_actors,
     NULL::VARCHAR ARRAY as exercise_child_event_ids,
     create_argument_compression,
@@ -452,7 +452,7 @@ SELECT
     template_id,
     flat_event_witnesses,
     tree_event_witnesses,
-    NULL::BYTEA as create_argument,
+    NULL::BINARY LARGE OBJECT as create_argument,
     NULL::INTEGER ARRAY as create_signatories,
     NULL::INTEGER ARRAY as create_observers,
     NULL::VARCHAR as create_agreement_text,
@@ -485,7 +485,7 @@ SELECT
     template_id,
     flat_event_witnesses,
     tree_event_witnesses,
-    NULL::BYTEA as create_argument,
+    NULL::BINARY LARGE OBJECT as create_argument,
     NULL::INTEGER ARRAY as create_signatories,
     NULL::INTEGER ARRAY as create_observers,
     NULL::VARCHAR as create_agreement_text,
