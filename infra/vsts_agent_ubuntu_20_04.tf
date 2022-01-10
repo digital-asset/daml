@@ -15,7 +15,7 @@ EOF
     {
       name      = "ci-u2",
       disk_size = 400,
-      size      = 0,
+      size      = 30,
       nix_cache = <<EOF
 extra-substituters = https://nix-cache.da-ext.net
 extra-trusted-public-keys = hydra.da-int.net-2:91tXuJGf/ExbAz7IWsMsxQ5FsO6lG/EGM5QVt+xhZu0= hydra.da-int.net-1:6Oy2+KYvI7xkAOg0gJisD7Nz/6m8CmyKMbWfSKUe03g=
