@@ -28,11 +28,26 @@ message ExperimentalSelfServiceErrorCodes {}
 message ExperimentalStaticTime {}
 
 // Command deduplication feature descriptors used for testing
+//
+// KV ledger configuration:
+//  deduplication_period_support {
+//    offset_support = OFFSET_CONVERT_TO_DURATION
+//    duration_support = DURATION_NATIVE_SUPPORT
+//  }
+//  deduplication_type = ASYNC
+//
+// Canton configuration:
+//  deduplication_period_support {
+//    offset_support = OFFSET_NATIVE_SUPPORT
+//    duration_support = DURATION_CONVERT_TO_OFFSET
+//  }
+//  deduplication_type = ASYNC
 message CommandDeduplicationFeatures {
   // Feature descriptor for support for different deduplication periods
   DeduplicationPeriodSupport deduplication_period_support = 1;
   // Feature descriptor for support for participant deduplication
-  ParticipantDeduplicationSupport participant_deduplication_support = 2;
+  // Used to adapt the conformance tests based on the deduplication type supported by the ledger
+  DeduplicationType deduplication_type = 2;
 }
 
 message DeduplicationPeriodSupport {
@@ -57,11 +72,11 @@ message DeduplicationPeriodSupport {
 }
 
 // Ledger support for participant deduplication
-enum ParticipantDeduplicationSupport {
+enum DeduplicationType {
   // The participant does not support deduplication.
-  PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED = 0;
+  ASYNC = 0;
   // The participant only supports deduplicating submissions that are being concurrently processed.
-  PARTICIPANT_DEDUPLICATION_PARALLEL_ONLY = 1;
+  ASYNC_AND_CONCURRENT_SYNC = 1;
   // The participant supports deduplication for all the submissions it receives.
-  PARTICIPANT_DEDUPLICATION_SUPPORTED = 2;
+  ONLY_SYNC = 2;
 }
