@@ -349,7 +349,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   // implementation aid for selectContractsMultiTemplate
   @nowarn("msg=parameter value evidence.* is never used")
   protected[this] final def queryByCondition[Mark, Key: Read, SigsObs: Read, Agreement: Read](
-      queries: ISeq[(SurrogateTpId, Fragment)],
+      queries: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Mark],
       tpidSelector: Fragment,
       query: (Fragment, Fragment) => Fragment,
@@ -359,7 +359,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   )(implicit
       log: LogHandler
   ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] = {
-    val NonEmpty(queryConditions) = queries.toVector
+    val queryConditions = queries.toVector
     val queriesCondition =
       joinFragment(
         queryConditions.toOneAnd map { case (tpid, predicate) =>
@@ -531,11 +531,10 @@ object Queries {
     OneAnd(oaa.head, oaa.tail.flatMap(Vector(a, _)))
 
   private[this] def caseLookupFragment[SelEq: Put](
-      m: Map[SelEq, Fragment],
+      m: NonEmpty[Map[SelEq, Fragment]],
       selector: Fragment,
   ): Fragment =
     fr"CASE" ++ {
-      assert(m.nonEmpty, "existing offsets must be non-empty")
       val when +: whens = m.iterator.map { case (k, v) =>
         fr"WHEN ($selector = $k) THEN $v"
       }.toVector
@@ -543,7 +542,7 @@ object Queries {
     } ++ fr"ELSE NULL END"
 
   private[dbbackend] def caseLookup[SelEq: Put, Then: Put](
-      m: Map[SelEq, Then],
+      m: NonEmpty[Map[SelEq, Then]],
       selector: Fragment,
   ): Fragment =
     caseLookupFragment(m transform { (_, e) => fr"$e" }, selector)
@@ -732,7 +731,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
 
   private[http] override def selectContractsMultiTemplate[Mark](
       parties: PartySet,
-      queries: ISeq[(SurrogateTpId, Fragment)],
+      queries: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
       log: LogHandler
@@ -901,7 +900,7 @@ private final class OracleQueries(
 
   private[http] override def selectContractsMultiTemplate[Mark](
       parties: PartySet,
-      queries: ISeq[(SurrogateTpId, Fragment)],
+      queries: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
       log: LogHandler
