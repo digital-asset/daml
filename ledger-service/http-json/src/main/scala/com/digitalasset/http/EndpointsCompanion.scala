@@ -104,10 +104,10 @@ object EndpointsCompanion {
         val ast = jwt.payload.parseJson
         for {
           obj <- asJsObject(ast).toRightDisjunction(Unauthorized("invalid access token"))
-          namespace <- obj
+          namespace = obj
             .get(AuthServiceJWTCodec.oidcNamespace)
             .flatMap(asJsObject)
-            .toRightDisjunction(Unauthorized("namespace missing in access token"))
+            .getOrElse(obj)
           ledgerId <- namespace
             .get("ledgerId")
             .flatMap(asString)
