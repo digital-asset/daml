@@ -49,7 +49,7 @@ message GetMeteringReportResponse {
     ParticipantMeteringReport participant_report = 2;
 
     // The time at which the report was computed.
-    google.protobuf.Timestamp report_generated_time = 3;
+    google.protobuf.Timestamp report_generation_time = 3;
 }
 
 
