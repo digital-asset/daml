@@ -16,8 +16,8 @@ import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
-  DeduplicationPeriodSupport,
-  ParticipantDeduplicationSupport,
+  CommandDeduplicationPeriodSupport,
+  CommandDeduplicationType,
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
@@ -267,12 +267,12 @@ object SandboxOnXRunner {
       userManagementStore = new InMemoryUserManagementStore, // TODO persistence wiring comes here
       commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
         Some(
-          DeduplicationPeriodSupport.of(
-            DeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
-            DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+          CommandDeduplicationPeriodSupport.of(
+            CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
+            CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
           )
         ),
-        ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_SUPPORTED,
+        CommandDeduplicationType.SYNC_ONLY,
       ),
     )
 

@@ -14,8 +14,8 @@ import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
-  DeduplicationPeriodSupport,
-  ParticipantDeduplicationSupport,
+  CommandDeduplicationPeriodSupport,
+  CommandDeduplicationType,
 }
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.WritePackagesService
@@ -201,14 +201,14 @@ final class Runner[T <: ReadWriteService, Extra](
                         servicesExecutionContext = servicesExecutionContext,
                         commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
                           Some(
-                            DeduplicationPeriodSupport.of(
+                            CommandDeduplicationPeriodSupport.of(
                               offsetSupport =
-                                DeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
+                                CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
                               durationSupport =
-                                DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+                                CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
                             )
                           ),
-                          ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED,
+                          CommandDeduplicationType.ASYNC_ONLY,
                         ),
                       ).acquire()
                     } yield {}
