@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.sandbox.bridge
+package com.daml.ledger.sandbox.bridge.validate
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
@@ -11,7 +11,8 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.Update
-import com.daml.ledger.sandbox.bridge.ConflictCheckingLedgerBridge._
+import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge._
+import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge, PreparedSubmission}
 import com.daml.ledger.sandbox.domain._
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{Transaction => LfTransaction}
@@ -21,7 +22,7 @@ import com.daml.platform.store.appendonlydao.events._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[bridge] class ConflictCheckingLedgerBridge(
+private[validate] class ConflictCheckingLedgerBridge(
     // Precomputes the transaction effects for transaction submissions.
     // For other update types, this stage is a no-op.
     prepareSubmission: PrepareSubmission,
@@ -44,17 +45,17 @@ private[bridge] class ConflictCheckingLedgerBridge(
 }
 
 private[bridge] object ConflictCheckingLedgerBridge {
-  private[bridge] type Validation[T] = Either[Rejection, T]
-  private[bridge] type AsyncValidation[T] = Future[Validation[T]]
-  private[bridge] type KeyInputs = Map[Key, LfTransaction.KeyInput]
+  private[validate] type Validation[T] = Either[Rejection, T]
+  private[validate] type AsyncValidation[T] = Future[Validation[T]]
+  private[validate] type KeyInputs = Map[Key, LfTransaction.KeyInput]
 
   // Conflict checking stages
-  private[bridge] type PrepareSubmission = Submission => AsyncValidation[PreparedSubmission]
-  private[bridge] type TagWithLedgerEnd =
+  private[validate] type PrepareSubmission = Submission => AsyncValidation[PreparedSubmission]
+  private[validate] type TagWithLedgerEnd =
     Validation[PreparedSubmission] => AsyncValidation[(Offset, PreparedSubmission)]
-  private[bridge] type ConflictCheckWithCommitted =
+  private[validate] type ConflictCheckWithCommitted =
     Validation[(Offset, PreparedSubmission)] => AsyncValidation[(Offset, PreparedSubmission)]
-  private[bridge] type Sequence =
+  private[validate] type Sequence =
     () => Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)]
 
   def apply(
@@ -70,32 +71,26 @@ private[bridge] object ConflictCheckingLedgerBridge {
       servicesThreadPoolSize: Int,
   )(implicit
       servicesExecutionContext: ExecutionContext
-  ): ConflictCheckingLedgerBridge = {
-    val prepareSubmission = new PrepareSubmissionImpl(bridgeMetrics)
-    val tagWithLedgerEnd = new TagWithLedgerEndImpl(indexService, bridgeMetrics)
-    val conflictCheckWithCommitted =
-      new ConflictCheckWithCommittedImpl(indexService, bridgeMetrics, errorFactories)
-    val sequence = new SequenceImpl(
-      participantId = participantId,
-      timeProvider = timeProvider,
-      initialLedgerEnd = initialLedgerEnd,
-      initialAllocatedParties = initialAllocatedParties,
-      initialLedgerConfiguration = initialLedgerConfiguration,
-      validatePartyAllocation = validatePartyAllocation,
-      bridgeMetrics = bridgeMetrics,
-      errorFactories = errorFactories,
-    )
-
+  ): ConflictCheckingLedgerBridge =
     new ConflictCheckingLedgerBridge(
-      prepareSubmission = prepareSubmission,
-      tagWithLedgerEnd = tagWithLedgerEnd,
-      conflictCheckWithCommitted = conflictCheckWithCommitted,
-      sequence = sequence,
+      prepareSubmission = new PrepareSubmissionImpl(bridgeMetrics),
+      tagWithLedgerEnd = new TagWithLedgerEndImpl(indexService, bridgeMetrics),
+      conflictCheckWithCommitted =
+        new ConflictCheckWithCommittedImpl(indexService, bridgeMetrics, errorFactories),
+      sequence = new SequenceImpl(
+        participantId = participantId,
+        timeProvider = timeProvider,
+        initialLedgerEnd = initialLedgerEnd,
+        initialAllocatedParties = initialAllocatedParties,
+        initialLedgerConfiguration = initialLedgerConfiguration,
+        validatePartyAllocation = validatePartyAllocation,
+        bridgeMetrics = bridgeMetrics,
+        errorFactories = errorFactories,
+      ),
       servicesThreadPoolSize = servicesThreadPoolSize,
     )
-  }
 
-  private[bridge] def withErrorLogger[T](submissionId: Option[String])(
+  private[validate] def withErrorLogger[T](submissionId: Option[String])(
       f: ContextualizedErrorLogger => T
   )(implicit loggingContext: LoggingContext, logger: ContextualizedLogger) =
     f(new DamlContextualizedErrorLogger(logger, loggingContext, submissionId))

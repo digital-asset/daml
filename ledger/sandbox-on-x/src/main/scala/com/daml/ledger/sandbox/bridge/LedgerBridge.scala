@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.app.{Config, ParticipantConfig}
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.sandbox.BridgeConfig
+import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{Ref, Time}

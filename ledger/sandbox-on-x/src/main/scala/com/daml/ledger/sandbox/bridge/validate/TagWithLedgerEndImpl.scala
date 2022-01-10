@@ -1,17 +1,18 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.sandbox.bridge
+package com.daml.ledger.sandbox.bridge.validate
 
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.sandbox.bridge.ConflictCheckingLedgerBridge._
+import ConflictCheckingLedgerBridge._
+import com.daml.ledger.sandbox.bridge.{BridgeMetrics, PreparedSubmission}
 import com.daml.metrics.Timed
 import com.daml.platform.ApiOffset
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[bridge] class TagWithLedgerEndImpl(
+private[validate] class TagWithLedgerEndImpl(
     indexService: IndexService,
     bridgeMetrics: BridgeMetrics,
 )(implicit executionContext: ExecutionContext)

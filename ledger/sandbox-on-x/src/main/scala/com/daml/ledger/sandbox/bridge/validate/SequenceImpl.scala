@@ -1,14 +1,14 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.sandbox.bridge
+package com.daml.ledger.sandbox.bridge.validate
 
 import com.daml.api.util.TimeProvider
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
-import com.daml.ledger.sandbox.bridge.ConflictCheckingLedgerBridge.{Sequence, Validation, _}
+import ConflictCheckingLedgerBridge.{Sequence, Validation, _}
 import com.daml.ledger.sandbox.bridge.LedgerBridge.{
   fromOffset,
   partyAllocationSuccessMapper,
@@ -16,6 +16,7 @@ import com.daml.ledger.sandbox.bridge.LedgerBridge.{
   toOffset,
 }
 import com.daml.ledger.sandbox.bridge.SequencerState.LastUpdatedAt
+import com.daml.ledger.sandbox.bridge._
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.{AllocateParty, Config, Transaction}
 import com.daml.ledger.sandbox.domain._
@@ -31,7 +32,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import scala.util.chaining._
 
-private[bridge] class SequenceImpl(
+private[validate] class SequenceImpl(
     participantId: Ref.ParticipantId,
     timeProvider: TimeProvider,
     initialLedgerEnd: Offset,
