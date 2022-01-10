@@ -9,15 +9,15 @@ scala_artifacts = {
     "2.12.15": {
         "io_bazel_rules_scala_scala_compiler": {
             "artifact": "org.scala-lang:scala-compiler:2.12.15",
-            "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "sha256": "bf4d3ed5a5bc1581bc44512c98f61e0aee128fbfa7536f0ce367d2e42b84db07",
         },
         "io_bazel_rules_scala_scala_library": {
             "artifact": "org.scala-lang:scala-library:2.12.15",
-            "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "sha256": "e518bb640e2175de5cb1f8e326679b8d975376221f1b547757de429bbf4563f0",
         },
         "io_bazel_rules_scala_scala_reflect": {
             "artifact": "org.scala-lang:scala-reflect:2.12.15",
-            "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "sha256": "d5a21ab16b35dbe1fa9f50267d3c198d4797084a61557874ca53c85f15747e48",
         },
     },
     "2.13.6": {

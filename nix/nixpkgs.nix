@@ -21,7 +21,7 @@ let
       name = "scala-2.12.15";
       src = pkgs.fetchurl {
         url = "https://www.scala-lang.org/files/archive/${name}.tgz";
-        sha256 = "0000000000000000000000000000000000000000000000000000000000000000";
+        sha256 = "17945e3ca9478d06a8436056aac6b9afdf60deafdc3e382c6c08b603921b7ab6";
       };
     });
     scala_2_13 = pkgs.scala_2_13.overrideAttrs (oldAttrs: rec {
