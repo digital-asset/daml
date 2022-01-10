@@ -32,7 +32,7 @@ message Completion {
   string transaction_id = 3;
 
   // The application-id or user-id that was used for the submission, as described in ``commands.proto``.
-  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Must be a valid ApplicationIdString (as described in ``value.proto``).
   // Optional for historic completions where this data is not available.
   string application_id = 4;
 

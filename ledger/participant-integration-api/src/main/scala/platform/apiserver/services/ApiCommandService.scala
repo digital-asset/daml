@@ -16,7 +16,7 @@ import com.daml.error.{
   ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.SubmissionIdGenerator
-import com.daml.ledger.api.domain.{ApplicationId, LedgerId}
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.commands.Commands
@@ -309,7 +309,7 @@ private[apiserver] object ApiCommandService {
                       .completionStreamSource(
                         CompletionStreamRequest(
                           configuration.ledgerId,
-                          ApplicationId(key.applicationId),
+                          key.applicationId,
                           key.parties,
                           Some(offset),
                         )

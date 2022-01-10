@@ -264,6 +264,20 @@ private[platform] object Conversions {
   implicit val ledgerStringMetaParameter: ParameterMetaData[Ref.LedgerString] =
     new SubTypeOfStringMetaParameter[Ref.LedgerString]
 
+  // ApplicationId
+
+  implicit val columnToApplicationId: Column[Ref.ApplicationId] =
+    stringColumnToX(Ref.ApplicationId.fromString)
+
+  implicit val applicationIdToStatement: ToStatement[Ref.ApplicationId] =
+    new SubTypeOfStringToStatement[Ref.ApplicationId]
+
+  def applicationId(columnName: String): RowParser[Ref.ApplicationId] =
+    SqlParser.get[Ref.ApplicationId](columnName)(columnToApplicationId)
+
+  implicit val applicationIdMetaParameter: ParameterMetaData[Ref.ApplicationId] =
+    new SubTypeOfStringMetaParameter[Ref.ApplicationId]
+
   // EventId
 
   implicit val columnToEventId: Column[EventId] =

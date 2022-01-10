@@ -8,7 +8,6 @@ import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{
-  ApplicationId,
   CommandId,
   ConfigurationEntry,
   LedgerId,
@@ -80,7 +79,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def getCompletions(
       begin: domain.LedgerOffset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     Timed.source(
@@ -235,7 +234,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
   override def getCompletions(
       startExclusive: LedgerOffset,
       endInclusive: LedgerOffset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     Timed.source(

@@ -5,13 +5,13 @@ package com.daml.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.{
-  ApplicationId,
   CommandId,
   Filters,
   InclusiveFilters,
@@ -197,12 +197,11 @@ private[sandbox] final class InMemoryLedger(
   override def completions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      applicationId: ApplicationId,
+      appId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
-    val appId = applicationId.unwrap
     entries.getSource(startExclusive, endInclusive).collect {
       case (
             offset,

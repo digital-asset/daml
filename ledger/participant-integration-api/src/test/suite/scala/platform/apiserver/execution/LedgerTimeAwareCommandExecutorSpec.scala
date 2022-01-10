@@ -10,7 +10,7 @@ import com.daml.error.ErrorCause
 import com.daml.error.ErrorCause.LedgerTime
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
-import com.daml.ledger.api.domain.{ApplicationId, CommandId, Commands, LedgerId}
+import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
@@ -106,7 +106,7 @@ class LedgerTimeAwareCommandExecutorSpec
     val commands = Commands(
       ledgerId = LedgerId("ledgerId"),
       workflowId = None,
-      applicationId = ApplicationId(Ref.ApplicationId.assertFromString("applicationId")),
+      applicationId = Ref.ApplicationId.assertFromString("applicationId"),
       commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
       submissionId = None,
       actAs = Set.empty,

@@ -34,16 +34,24 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   ): Either[StatusRuntimeException, Ref.Name] =
     Ref.Name.fromString(s).left.map(invalidArgument(definiteAnswer = Some(false)))
 
+  private def requireNonEmptyParsedId[T](parser: String => Either[String, T])(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, T] =
+    if (s.isEmpty)
+      Left(missingField(fieldName, definiteAnswer = Some(false)))
+    else
+      parser(s).left.map(invalidField(fieldName, _, definiteAnswer = Some(false)))
+
   def requireName(
       s: String,
       fieldName: String,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.Name] =
-    if (s.isEmpty)
-      Left(missingField(fieldName, definiteAnswer = Some(false)))
-    else
-      Ref.Name.fromString(s).left.map(invalidField(fieldName, _, definiteAnswer = Some(false)))
+    requireNonEmptyParsedId(Ref.Name.fromString)(s, fieldName)
 
   def requirePackageId(
       s: String,
@@ -51,9 +59,7 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.PackageId] =
-    if (s.isEmpty) Left(missingField(fieldName, definiteAnswer = Some(false)))
-    else
-      Ref.PackageId.fromString(s).left.map(invalidField(fieldName, _, definiteAnswer = Some(false)))
+    requireNonEmptyParsedId(Ref.PackageId.fromString)(s, fieldName)
 
   def requireParty(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -77,10 +83,15 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.UserId] =
-    Ref.UserId.fromString(s) match {
-      case Right(userId) => Right(userId)
-      case Left(msg) => Left(invalidField(fieldName, msg, definiteAnswer = Some(false)))
-    }
+    requireNonEmptyParsedId(Ref.UserId.fromString)(s, fieldName)
+
+  def requireApplicationId(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Ref.ApplicationId] =
+    requireNonEmptyParsedId(Ref.ApplicationId.fromString)(s, fieldName)
 
   def requireLedgerString(
       s: String,
@@ -88,12 +99,7 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.LedgerString] =
-    if (s.isEmpty) Left(missingField(fieldName, definiteAnswer = Some(false)))
-    else
-      Ref.LedgerString
-        .fromString(s)
-        .left
-        .map(invalidField(fieldName, _, definiteAnswer = Some(false)))
+    requireNonEmptyParsedId(Ref.LedgerString.fromString)(s, fieldName)
 
   def requireLedgerString(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

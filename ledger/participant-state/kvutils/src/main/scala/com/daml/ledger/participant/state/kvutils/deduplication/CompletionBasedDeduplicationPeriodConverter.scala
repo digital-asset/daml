@@ -7,7 +7,7 @@ import java.time.{Duration, Instant}
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.api.domain.{ApplicationId, LedgerOffset}
+import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.lf.data.Ref
@@ -21,7 +21,7 @@ class CompletionBasedDeduplicationPeriodConverter(
 
   override def convertOffsetToDuration(
       offset: Ref.HexString,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       readers: Set[Ref.Party],
       maxRecordTime: Instant,
   )(implicit
@@ -50,7 +50,7 @@ class CompletionBasedDeduplicationPeriodConverter(
   }
 
   private def completionAtOffset(
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       readers: Set[Ref.Party],
       offset: Ref.HexString,
   )(implicit

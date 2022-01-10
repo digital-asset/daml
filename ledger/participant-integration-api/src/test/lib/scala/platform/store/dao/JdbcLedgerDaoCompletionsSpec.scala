@@ -138,7 +138,12 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeRejection(rejection)
       to <- ledgerDao.lookupLedgerEnd()
       response <- ledgerDao.completions
-        .getCommandCompletions(from.lastOffset, to.lastOffset, applicationId = "WRONG", parties)
+        .getCommandCompletions(
+          from.lastOffset,
+          to.lastOffset,
+          applicationId = Ref.ApplicationId.assertFromString("WRONG"),
+          parties,
+        )
         .runWith(Sink.seq)
     } yield {
       response shouldBe Seq.empty

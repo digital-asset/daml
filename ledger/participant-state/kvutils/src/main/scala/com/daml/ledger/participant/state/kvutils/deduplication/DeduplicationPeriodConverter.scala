@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils.deduplication
 import java.time.{Duration, Instant}
 
 import akka.stream.Materializer
-import com.daml.ledger.api.domain.ApplicationId
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 
@@ -16,7 +15,7 @@ trait DeduplicationPeriodConverter {
 
   def convertOffsetToDuration(
       offset: Ref.HexString,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       actAs: Set[Ref.Party],
       submittedAt: Instant,
   )(implicit

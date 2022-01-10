@@ -6,7 +6,7 @@ package com.daml.platform.store
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails}
+import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -53,7 +53,7 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
   def completions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed]
 

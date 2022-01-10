@@ -8,7 +8,6 @@ import java.util.concurrent.CompletionStage
 import akka.stream.Materializer
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.ledger.api.domain.ApplicationId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -17,13 +16,7 @@ import com.daml.ledger.participant.state.kvutils.deduplication.{
   CompletionBasedDeduplicationPeriodConverter,
   DeduplicationPeriodSupport,
 }
-import com.daml.ledger.participant.state.v2.{
-  PruningResult,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  WriteService,
-}
+import com.daml.ledger.participant.state.v2._
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.Time
 import com.daml.lf.transaction.SubmittedTransaction
@@ -59,7 +52,7 @@ class WriteServiceWithDeduplicationSupport(
         submitterInfo.deduplicationPeriod,
         submitterInfo.ledgerConfiguration.maxDeduplicationTime,
         submitterInfo.ledgerConfiguration.timeModel,
-        ApplicationId(submitterInfo.applicationId),
+        submitterInfo.applicationId,
         readers.toSet,
         transactionMeta.submissionTime.toInstant,
       )

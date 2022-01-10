@@ -24,7 +24,7 @@ import scalaz.syntax.tag.ToTagOps
 trait SandboxRequiringAuthorizationFuns {
 
   private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
-  protected val jwtSecret = UUID.randomUUID.toString
+  protected val jwtSecret: String = UUID.randomUUID.toString
 
   protected val emptyToken: AuthServiceJWTPayload = AuthServiceJWTPayload(
     ledgerId = None,
@@ -58,7 +58,7 @@ trait SandboxRequiringAuthorizationFuns {
   protected val adminToken: AuthServiceJWTPayload = emptyToken.copy(admin = true)
   protected val adminTokenStandardJWT: SupportedJWTPayload = standardToken("participant_admin")
   protected val unknownUserTokenStandardJWT: SupportedJWTPayload = standardToken("unknown_user")
-  protected val invalidUserTokenStandardJWT: SupportedJWTPayload = standardToken("!!invalid_user!!")
+  protected val invalidUserTokenStandardJWT: SupportedJWTPayload = standardToken("??invalid_user??")
 
   protected def readOnlyToken(party: String): AuthServiceJWTPayload =
     emptyToken.copy(readAs = List(party))

@@ -8,7 +8,6 @@ import java.time.{Duration, Instant}
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.TestLoggers
 import com.daml.ledger.api.DeduplicationPeriod
-import com.daml.ledger.api.domain.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.offset.Offset
@@ -181,7 +180,7 @@ class DeduplicationPeriodSupportSpec
     )
     val maxDeduplicationDuration = Duration.ofSeconds(5)
     val ledgerTimeModel = LedgerTimeModel.reasonableDefault
-    val applicationId = ApplicationId(Ref.LedgerString.assertFromString("applicationid"))
+    val applicationId = Ref.ApplicationId.assertFromString("applicationid")
     val submittedAt = Instant.now()
     val maxRecordTimeFromSubmissionTime =
       ledgerTimeModel.maxRecordTime(Time.Timestamp.assertFromInstant(submittedAt)).toInstant

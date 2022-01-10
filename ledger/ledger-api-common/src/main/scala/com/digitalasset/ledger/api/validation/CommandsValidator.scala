@@ -62,8 +62,7 @@ final class CommandsValidator(
       workflowId <-
         if (commands.workflowId.isEmpty) Right(None)
         else requireLedgerString(commands.workflowId).map(x => Some(domain.WorkflowId(x)))
-      appId <- requireLedgerString(commands.applicationId, "application_id")
-        .map(domain.ApplicationId(_))
+      appId <- requireApplicationId(commands.applicationId, "application_id")
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
       submissionId <- validateSubmissionId(commands.submissionId)
       submitters <- validateSubmitters(commands)
