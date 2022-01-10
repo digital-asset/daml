@@ -56,7 +56,7 @@ final class CommandDeduplicationIT(
 
   private[this] val logger: Logger = LoggerFactory.getLogger(getClass.getName)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  val deduplicationDuration: FiniteDuration = scaledDuration(2.seconds)
+  private val deduplicationDuration: FiniteDuration = scaledDuration(2.seconds)
 
   test(
     s"SimpleDeduplicationBasic",
