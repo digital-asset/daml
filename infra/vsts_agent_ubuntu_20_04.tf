@@ -6,7 +6,7 @@ locals {
     {
       name      = "ci-u1",
       disk_size = 200,
-      size      = 30,
+      size      = 0,
       nix_cache = <<EOF
 binary-cache-public-keys = hydra.da-int.net-2:91tXuJGf/ExbAz7IWsMsxQ5FsO6lG/EGM5QVt+xhZu0= hydra.da-int.net-1:6Oy2+KYvI7xkAOg0gJisD7Nz/6m8CmyKMbWfSKUe03g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs=
 binary-caches = https://nix-cache.da-ext.net https://cache.nixos.org
