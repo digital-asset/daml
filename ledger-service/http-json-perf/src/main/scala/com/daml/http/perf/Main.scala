@@ -228,7 +228,7 @@ object Main extends StrictLogging {
             user.pwd,
             ConnectionPool.PoolSize.Production,
           ),
-          dbStartupMode = startupMode,
+          startMode = startupMode,
         )
       }
 
@@ -254,7 +254,7 @@ object Main extends StrictLogging {
           password = "",
           ConnectionPool.PoolSize.Production,
         ),
-      dbStartupMode = DbStartupMode.CreateOnly,
+      startMode = DbStartupMode.CreateOnly,
     )
 
   private def resolveSimulationClass(str: String): Throwable \/ Class[_ <: Simulation] = {

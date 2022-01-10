@@ -126,7 +126,7 @@ trait OracleBenchmarkDbConn extends BenchmarkDbConnection with OracleAround {
         password = user.pwd,
         poolSize = ConnectionPool.PoolSize.Integration,
       ),
-      dbStartupMode = DbStartupMode.CreateOnly,
+      startMode = DbStartupMode.CreateOnly,
       backendSpecificConf =
         if (disableContractPayloadIndexing) Map(DisableContractPayloadIndexing -> "true")
         else Map.empty,
@@ -158,7 +158,7 @@ trait PostgresBenchmarkDbConn extends BenchmarkDbConnection with PostgresAround 
         password = database.password,
         poolSize = ConnectionPool.PoolSize.Integration,
       ),
-      dbStartupMode = DbStartupMode.CreateOnly,
+      startMode = DbStartupMode.CreateOnly,
     )
   }
 
