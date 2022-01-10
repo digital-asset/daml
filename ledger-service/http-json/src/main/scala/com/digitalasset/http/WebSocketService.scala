@@ -412,7 +412,6 @@ object WebSocketService {
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ) = {
-        import scalaz.Scalaz._
         type NelCKRH[Hint, V] = NonEmptyList[domain.ContractKeyStreamRequest[Hint, V]]
         def go[Hint](
             alg: StreamQuery[NelCKRH[Hint, LfV]]
