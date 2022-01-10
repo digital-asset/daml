@@ -5,7 +5,7 @@ package com.daml.extractor
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{RestartSource, Sink}
-import akka.stream.{KillSwitches, Materializer, RestartSettings}
+import akka.stream.{KillSwitches, Materializer, OverflowStrategy, RestartSettings}
 import com.daml.auth.TokenHolder
 import com.daml.extractor.Types._
 import com.daml.extractor.config.{ExtractorConfig, SnapshotEndSetting}
@@ -47,7 +47,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
   private val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
   private val parties: Set[String] = config.parties.toSet.map(identity)
 
-  implicit val system: ActorSystem = ActorSystem()
+  lazy implicit val system: ActorSystem = ActorSystem()
   import system.dispatcher
   implicit val materializer: Materializer = Materializer(system)
   implicit val esf: ExecutionSequencerFactory =
@@ -188,6 +188,11 @@ class Extractor[T](config: ExtractorConfig, target: T)(
           .collect {
             Function.unlift(convertTransactionTree(parties, requestedTemplateIds))
           }
+          // mapAsync with par=1 creates a buffer size=1 which holds the element being processed, when waiting on callback
+          // the buffer is full and triggers backpressure. 
+          // A buffer after the transforming & filtering is required to allow it to execute in parralel and not be blocked waiting 
+          // for the async call to return.
+          .buffer(2, OverflowStrategy.backpressure)
           .mapAsync(parallelism = 1) { t =>
             writer
               .handleTransaction(t)
