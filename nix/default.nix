@@ -178,6 +178,7 @@ in rec {
     jq = bazel_dependencies.jq;
     sed = pkgs.gnused;
     sha1sum = pkgs.coreutils;
+    sha256sum = pkgs.coreutils;
     xargs = pkgs.findutils;
     xmlstarlet = pkgs.xmlstarlet;
 
