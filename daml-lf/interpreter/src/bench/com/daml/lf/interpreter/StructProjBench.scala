@@ -25,9 +25,6 @@ class StructProjBench {
   var n: Int = _
   private def N = 1 << n
 
-  @Param(Array("true", "false"))
-  var validation: Boolean = _
-
   // Parsing of this program may require a stack larger that the default one.
   // 100 MB seems to be fine for m = 12.
   private[this] def pkg = {
@@ -52,10 +49,7 @@ class StructProjBench {
   def init(): Unit = {
     assert(m >= n)
     println(s"M = $M, N = $N")
-    val config =
-      Compiler.Config.Dev.copy(packageValidation =
-        if (validation) Compiler.FullPackageValidation else Compiler.NoPackageValidation
-      )
+    val config = Compiler.Config.Dev.copy(packageValidation = Compiler.NoPackageValidation)
     compiledPackages = PureCompiledPackages.assertBuild(Map(defaultPackageId -> pkg), config)
     sexpr = compiledPackages.compiler.unsafeCompile(e"Mod:bench Mod:struct")
     val value = bench()
