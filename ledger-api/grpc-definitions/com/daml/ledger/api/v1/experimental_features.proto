@@ -27,8 +27,11 @@ message ExperimentalSelfServiceErrorCodes {}
 // Ledger is in the static time mode and exposes a time service.
 message ExperimentalStaticTime {}
 
+// Command deduplication feature descriptors used for testing
 message CommandDeduplicationFeatures {
+  // Feature descriptor for support for different deduplication periods
   DeduplicationPeriodSupport deduplication_period_support = 1;
+  // Feature descriptor for support for participant deduplication
   ParticipantDeduplicationSupport participant_deduplication_support = 2;
 }
 
@@ -47,7 +50,9 @@ message DeduplicationPeriodSupport {
     // The ledger doesn't natively support deduplication periods specified as durations but it converts them into offsets.
     DURATION_CONVERT_TO_OFFSET = 1;
   }
+  // Feature descriptor for how the ledger handles offsets as deduplication periods
   OffsetSupport offset_support = 1;
+  // Feature descriptor for how the ledger handles durations as deduplication periods
   DurationSupport duration_support = 2;
 }
 
