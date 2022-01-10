@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Keep in sync with compatibility/bazel_tools/daml_ledger/Sandbox.hs
-module DA.PortFile (readPortFile, maxRetries, retryDelayMillis) where
+module DA.PortFile (readPortFileWith, readPortFile, maxRetries, retryDelayMillis) where
 
 import Control.Concurrent
 import Control.Exception
@@ -14,17 +14,20 @@ import System.Exit
 import System.IO
 import System.IO.Error
 
-readPortFile :: Int -> String -> IO Int
-readPortFile 0 file = do
+readPortFileWith :: (String -> Maybe t) -> Int -> String -> IO t
+readPortFileWith _ 0 file = do
   T.hPutStrLn stderr ("Port file was not written to '" <> pack file <> "' in time.")
   exitFailure
-readPortFile n file = do
+readPortFileWith parseFn n file = do
   fileContent <- catchJust (guard . shouldCatch) (readFile file) (const $ pure "")
-  case readMay fileContent of
+  case parseFn fileContent of
     Nothing -> do
       threadDelay (1000 * retryDelayMillis)
-      readPortFile (n-1) file
+      readPortFileWith parseFn (n-1) file
     Just p -> pure p
+
+readPortFile :: Int -> String -> IO Int
+readPortFile = readPortFileWith readMay
 
 -- On Windows we sometimes get permission errors. It looks like
 -- this might come from a race where sandbox is writing the file at the same

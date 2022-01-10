@@ -75,7 +75,7 @@ data Command
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
     | CantonSandbox
-      { ports :: CantonPorts
+      { ports :: CantonOptions
       , remainingArguments :: [String]
       }
 
@@ -424,11 +424,12 @@ commandParser = subparser $ fold
         ]
 
     cantonSandboxCmd = CantonSandbox
-      <$> (CantonPorts
+      <$> (CantonOptions
              <$> option auto (long "port" <> value 6865)
              <*> option auto (long "admin-api-port" <> value 6866)
              <*> option auto (long "domain-public-port" <> value 6867)
              <*> option auto (long "domain-admin-port" <> value 6868)
+             <*> optional (option str (long "port-file" <> metavar "PATH"))
           )
       <*> many (argument str (metavar "ARG"))
 
