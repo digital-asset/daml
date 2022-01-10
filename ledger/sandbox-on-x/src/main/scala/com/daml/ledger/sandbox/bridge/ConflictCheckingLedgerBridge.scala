@@ -34,6 +34,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining._
 import scala.util.{Failure, Success, Try}
@@ -53,8 +54,6 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     servicesExecutionContext: ExecutionContext
 ) extends LedgerBridge {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  @volatile private var allocatedParties = initialAllocatedParties
-  @volatile private var ledgerConfiguration = initialLedgerConfiguration
 
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
@@ -71,7 +70,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
         bridgeMetrics.Stages.precomputeTransactionOutputs,
         Future {
           transaction.transaction.contractKeyInputs
-            .map(contractKeyInputs =>
+            .map(contractKeyInputs => {
               PreparedTransactionSubmission(
                 contractKeyInputs,
                 transaction.transaction.inputContracts,
@@ -81,13 +80,11 @@ private[sandbox] class ConflictCheckingLedgerBridge(
                 transaction.informees,
                 transactionSubmission,
               )
-            )
+            })
             .left
             .map(
               withErrorLogger(submitterInfo.submissionId)(
-                invalidInputFromParticipantRejection(
-                  submitterInfo.toCompletionInfo()
-                )(_)
+                invalidInputFromParticipantRejection(submitterInfo.toCompletionInfo())(_)
               )(transactionSubmission.loggingContext, logger)
             )
         },
@@ -122,7 +119,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
               _,
               _,
               blindingInfo,
-              transactionInformees,
+              _,
               originalSubmission,
             ),
           )
@@ -138,13 +135,6 @@ private[sandbox] class ConflictCheckingLedgerBridge(
                 originalSubmission.transactionMeta.ledgerEffectiveTime,
               divulged = blindingInfo.divulgence.keySet,
             ).flatMap {
-              case Right(_) =>
-                validateParties(
-                  transactionInformees,
-                  originalSubmission.submitterInfo.toCompletionInfo(),
-                )
-              case rejection => Future.successful(rejection)
-            }.flatMap {
               case Right(_) => validateKeyUsages(originalSubmission, keyInputs)
               case rejection => Future.successful(rejection)
             },
@@ -157,8 +147,11 @@ private[sandbox] class ConflictCheckingLedgerBridge(
   // This stage performs sequential conflict checking with the in-flight commands,
   // assigns offsets and converts the accepted/rejected commands to updates.
   private val sequence: Sequence = () => {
-    @volatile var sequencerQueueState: SequencerState = SequencerState()(bridgeMetrics)
+    // The mutating references below are the bridge's state
     @volatile var offsetIdx: Long = fromOffset(initialLedgerEnd)
+    val sequencerQueueStateRef = new AtomicReference(SequencerState()(bridgeMetrics))
+    val allocatedPartiesRef = new AtomicReference(initialAllocatedParties)
+    val ledgerConfigurationRef = new AtomicReference(initialLedgerConfiguration)
 
     in => {
       Timed.value(
@@ -171,33 +164,23 @@ private[sandbox] class ConflictCheckingLedgerBridge(
             case Left(rejection) =>
               rejection.toCommandRejectedUpdate(recordTime)
             case Right((_, NoOpPreparedSubmission(submission))) =>
-              processNonTransactionSubmission(offsetIdx, submission)
+              processNonTransactionSubmission(
+                offsetIdx,
+                submission,
+                allocatedPartiesRef,
+                ledgerConfigurationRef,
+              )
             case Right((noConflictUpTo, txSubmission: PreparedTransactionSubmission)) =>
-              val submitterInfo = txSubmission.submission.submitterInfo
-
-              withErrorLogger(submitterInfo.submissionId) { implicit errorLogger =>
-                checkTimeModel(txSubmission.submission, recordTime)
-                  .flatMap { _ =>
-                    conflictCheckWithInFlight(
-                      keysState = sequencerQueueState.keyState,
-                      consumedContractsState = sequencerQueueState.consumedContractsState,
-                      keyInputs = txSubmission.keyInputs,
-                      inputContracts = txSubmission.inputContracts,
-                      completionInfo = txSubmission.submission.submitterInfo.toCompletionInfo(),
-                    )
-                  }
-              }(txSubmission.submission.loggingContext, logger)
-                .fold(
-                  _.toCommandRejectedUpdate(recordTime),
-                  { _ =>
-                    // Update the sequencer state
-                    sequencerQueueState = sequencerQueueState
-                      .dequeue(noConflictUpTo)
-                      .enqueue(newOffset, txSubmission.updatedKeys, txSubmission.consumedContracts)
-
-                    successMapper(txSubmission.submission, offsetIdx, participantId)
-                  },
-                )
+              sequentialTransactionValidation(
+                noConflictUpTo,
+                newOffset,
+                recordTime,
+                txSubmission,
+                offsetIdx,
+                sequencerQueueStateRef,
+                allocatedPartiesRef,
+                ledgerConfigurationRef,
+              )
           }
 
           Iterable(newOffset -> update)
@@ -206,16 +189,21 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     }
   }
 
-  private def processNonTransactionSubmission(offsetIndex: Long, submission: Submission): Update =
+  private def processNonTransactionSubmission(
+      offsetIndex: Long,
+      submission: Submission,
+      allocatedPartiesRef: AtomicReference[Set[Ref.Party]],
+      ledgerConfigurationRef: AtomicReference[Option[Configuration]],
+  ): Update =
     submission match {
       case AllocateParty(hint, displayName, submissionId) =>
         val party = Ref.Party.assertFromString(hint.getOrElse(UUID.randomUUID().toString))
-        if (allocatedParties(party))
+        if (allocatedPartiesRef.get()(party))
           logger.warn(
             s"Found duplicate party submission with ID $party for submissionId ${Some(submissionId)}"
           )(submission.loggingContext)
 
-        allocatedParties = allocatedParties + party
+        allocatedPartiesRef.updateAndGet(_ + party)
         partyAllocationSuccessMapper(party, displayName, submissionId, participantId)
       case Config(maxRecordTime, submissionId, config) =>
         val recordTime = timeProvider.getCurrentTimestamp
@@ -228,9 +216,9 @@ private[sandbox] class ConflictCheckingLedgerBridge(
             rejectionReason = s"Configuration change timed out: $maxRecordTime > $recordTime",
           )
         else {
-          val expectedGeneration = ledgerConfiguration.map(_.generation).map(_ + 1L)
+          val expectedGeneration = ledgerConfigurationRef.get().map(_.generation).map(_ + 1L)
           if (expectedGeneration.forall(_ == config.generation)) {
-            ledgerConfiguration = Some(config)
+            ledgerConfigurationRef.set(Some(config))
             Update.ConfigurationChanged(
               recordTime = recordTime,
               submissionId = submissionId,
@@ -251,6 +239,55 @@ private[sandbox] class ConflictCheckingLedgerBridge(
       case other => successMapper(other, offsetIndex, participantId)
     }
 
+  private def sequentialTransactionValidation(
+      noConflictUpTo: Offset,
+      newOffset: LastUpdatedAt,
+      recordTime: Timestamp,
+      txSubmission: PreparedTransactionSubmission,
+      offsetIdx: Long,
+      sequencerQueueStateRef: AtomicReference[SequencerState],
+      allocatedPartiesRef: AtomicReference[Set[Ref.Party]],
+      ledgerConfigurationRef: AtomicReference[Option[Configuration]],
+  ) = {
+    val sequencerQueueState = sequencerQueueStateRef.get()
+    val allocatedParties = allocatedPartiesRef.get()
+    val ledgerConfiguration = ledgerConfigurationRef.get()
+
+    val submitterInfo = txSubmission.submission.submitterInfo
+
+    withErrorLogger(submitterInfo.submissionId) { implicit errorLogger =>
+      for {
+        _ <- checkTimeModel(txSubmission.submission, recordTime, ledgerConfiguration)
+        completionInfo = submitterInfo.toCompletionInfo()
+        _ <- validateParties(
+          allocatedParties,
+          txSubmission.transactionInformees,
+          completionInfo,
+        )
+        _ <- conflictCheckWithInFlight(
+          keysState = sequencerQueueState.keyState,
+          consumedContractsState = sequencerQueueState.consumedContractsState,
+          keyInputs = txSubmission.keyInputs,
+          inputContracts = txSubmission.inputContracts,
+          completionInfo = completionInfo,
+        )
+      } yield ()
+    }(txSubmission.submission.loggingContext, logger)
+      .fold(
+        _.toCommandRejectedUpdate(recordTime),
+        { _ =>
+          // Update the sequencer state
+          sequencerQueueStateRef.updateAndGet(sequencerQueueState =>
+            sequencerQueueState
+              .dequeue(noConflictUpTo)
+              .enqueue(newOffset, txSubmission.updatedKeys, txSubmission.consumedContracts)
+          )
+
+          successMapper(txSubmission.submission, offsetIdx, participantId)
+        },
+      )
+  }
+
   private def conflictCheckWithInFlight(
       keysState: Map[Key, (Option[ContractId], LastUpdatedAt)],
       consumedContractsState: Set[ContractId],
@@ -265,7 +302,7 @@ private[sandbox] class ConflictCheckingLedgerBridge(
         Left(UnknownContracts(alreadyArchived)(completionInfo, errorFactories))
       case _ =>
         keyInputs
-          .foldLeft[Either[Rejection, Unit]](Right(())) {
+          .foldLeft[Validation[Unit]](Right(())) {
             case (Right(_), (key, LfTransaction.KeyCreate)) =>
               keysState.get(key) match {
                 case None | Some((None, _)) => Right(())
@@ -288,26 +325,25 @@ private[sandbox] class ConflictCheckingLedgerBridge(
     }
 
   private def validateParties(
+      allocatedParties: Set[Ref.Party],
       transactionInformees: Set[Ref.Party],
       completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): AsyncValidation[Unit] =
-    // This check which is O(n) in the number of transaction informees does not warrant a separate async dispatch
-    Future.successful {
-      if (validatePartyAllocation) {
-        val unallocatedInformees = transactionInformees diff allocatedParties
-        Either.cond(
-          unallocatedInformees.isEmpty,
-          (),
-          UnallocatedParties(unallocatedInformees.toSet)(completionInfo, errorFactories),
-        )
-      } else Right(())
-    }
+  ): Validation[Unit] =
+    if (validatePartyAllocation) {
+      val unallocatedInformees = transactionInformees diff allocatedParties
+      Either.cond(
+        unallocatedInformees.isEmpty,
+        (),
+        UnallocatedParties(unallocatedInformees.toSet)(completionInfo, errorFactories),
+      )
+    } else Right(())
 
   private def checkTimeModel(
       transaction: Transaction,
       recordTime: Timestamp,
+      ledgerConfiguration: Option[Configuration],
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Validation[Unit] = {
     val completionInfo = transaction.submitterInfo.toCompletionInfo()
     ledgerConfiguration
