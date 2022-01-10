@@ -12,6 +12,7 @@ final case class Features(
     selfServiceErrorCodes: Boolean = false,
     userManagement: Boolean = false,
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
+    staticTime: Boolean = false,
 )
 
 object Features {
@@ -26,6 +27,7 @@ object Features {
       selfServiceErrorCodes = experimental.flatMap(_.selfServiceErrorCodes).isDefined,
       userManagement = features.flatMap(_.userManagement).isDefined,
       commandDeduplicationFeatures = response.getFeatures.getCommandDeduplication,
+      staticTime = experimental.flatMap(_.staticTime).isDefined,
     )
   }
 }

@@ -1,0 +1,20 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TimeTests where
+
+import DA.Time
+
+template TimeChecker
+  with
+    party: Party
+    anchor: Time
+  where
+    signatory party
+
+    nonconsuming choice TimeChecker_CheckTime : ()
+      controller party
+      do
+        currentTime <- getTime
+        assert (anchor == currentTime)
+        return ()
