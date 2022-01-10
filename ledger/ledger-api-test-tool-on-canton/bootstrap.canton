@@ -2,6 +2,6 @@ nodes.local start
 
 participants.local foreach (_.domains.connect_local(test_domain))
 
-utils.retry_until_true() {
+utils.retry_until_true {
   participants.local forall (_.domains.active(test_domain.name))
 }
