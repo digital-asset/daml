@@ -27,56 +27,37 @@ message ExperimentalSelfServiceErrorCodes {}
 // Ledger is in the static time mode and exposes a time service.
 message ExperimentalStaticTime {}
 
-// Command deduplication feature descriptors used for testing
-//
-// KV ledger configuration:
-//  deduplication_period_support {
-//    offset_support = OFFSET_CONVERT_TO_DURATION
-//    duration_support = DURATION_NATIVE_SUPPORT
-//  }
-//  deduplication_type = ASYNC
-//
-// Canton configuration:
-//  deduplication_period_support {
-//    offset_support = OFFSET_NATIVE_SUPPORT
-//    duration_support = DURATION_CONVERT_TO_OFFSET
-//  }
-//  deduplication_type = ASYNC
+// Feature descriptors for command deduplication intended to be used for adapting Ledger API tests.
 message CommandDeduplicationFeatures {
-  // Feature descriptor for support for different deduplication periods
-  DeduplicationPeriodSupport deduplication_period_support = 1;
-  // Feature descriptor for support for participant deduplication
-  // Used to adapt the conformance tests based on the deduplication type supported by the ledger
-  DeduplicationType deduplication_type = 2;
+  CommandDeduplicationPeriodSupport deduplication_period_support = 1;
+  CommandDeduplicationType deduplication_type = 2;
 }
 
-message DeduplicationPeriodSupport {
+// Feature descriptor specifying how deduplication periods can be specified and how they are handled by the participant
+// node.
+message CommandDeduplicationPeriodSupport {
+  // How the participant node supports deduplication periods specified using offsets.
   enum OffsetSupport {
-    // The ledger natively supports deduplication periods specified as offsets.
-    OFFSET_NATIVE_SUPPORT = 0;
-    // The ledger doesn't natively support deduplication periods specified as offsets but it converts them into durations.
-    OFFSET_CONVERT_TO_DURATION = 1;
-    // The ledger does not support specifiying deduplication periods as offsets.
-    OFFSET_NOT_SUPPORTED = 2;
+    OFFSET_NOT_SUPPORTED = 0;
+    OFFSET_NATIVE_SUPPORT = 1;
+    OFFSET_CONVERT_TO_DURATION = 2;
   }
+  // How the participant node supports deduplication periods specified as durations.
   enum DurationSupport {
-    // The ledger natively support deduplication periods specified as durations.
     DURATION_NATIVE_SUPPORT = 0;
-    // The ledger doesn't natively support deduplication periods specified as durations but it converts them into offsets.
     DURATION_CONVERT_TO_OFFSET = 1;
   }
-  // Feature descriptor for how the ledger handles offsets as deduplication periods
   OffsetSupport offset_support = 1;
-  // Feature descriptor for how the ledger handles durations as deduplication periods
   DurationSupport duration_support = 2;
 }
 
-// Ledger support for participant deduplication
-enum DeduplicationType {
-  // The participant does not support deduplication.
-  ASYNC = 0;
-  // The participant only supports deduplicating submissions that are being concurrently processed.
+// How the participant node reports duplicate command submissions.
+enum CommandDeduplicationType {
+  // Duplicate commands are exclusively reported asynchronous via completions.
+  ASYNC_ONLY = 0;
+  // Commands that are duplicates of concurrently submitted commands are reported synchronously via a gRPC error on the
+  // command submission, while all other duplicate commands are reported asynchronously via completions.
   ASYNC_AND_CONCURRENT_SYNC = 1;
-  // The participant supports deduplication for all the submissions it receives.
+  // Duplicate commands are always reported synchronously via a synchronous gRPC error on the command submission.
   ONLY_SYNC = 2;
 }
