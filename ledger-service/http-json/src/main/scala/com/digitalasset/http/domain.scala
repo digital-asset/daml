@@ -158,7 +158,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   object UserDetails {
     def fromUser(user: User) =
-      UserDetails(user.id, user.primaryParty.map(_.toString))
+      UserDetails(user.id, user.primaryParty)
   }
 
   final case class CreateUserRequest(
