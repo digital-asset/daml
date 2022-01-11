@@ -318,7 +318,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 otherInterceptors = List(resetService),
                 servicesExecutionContext = servicesExecutionContext,
                 commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
-                  Some(
+                  deduplicationPeriodSupport = Some(
                     CommandDeduplicationPeriodSupport.of(
                       offsetSupport =
                         CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
@@ -326,7 +326,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                         CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
                     )
                   ),
-                  CommandDeduplicationType.ASYNC_ONLY,
+                  deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
+                  maxDeduplicationDurationEnforced = true,
                 ),
               )
               _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())

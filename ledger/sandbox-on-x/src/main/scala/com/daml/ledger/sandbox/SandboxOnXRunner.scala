@@ -266,13 +266,14 @@ object SandboxOnXRunner {
       servicesExecutionContext = servicesExecutionContext,
       userManagementStore = new InMemoryUserManagementStore, // TODO persistence wiring comes here
       commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
-        Some(
+        deduplicationPeriodSupport = Some(
           CommandDeduplicationPeriodSupport.of(
             CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
             CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
           )
         ),
-        CommandDeduplicationType.SYNC_ONLY,
+        deduplicationType = CommandDeduplicationType.SYNC_ONLY,
+        maxDeduplicationDurationEnforced = false,
       ),
     )
 
