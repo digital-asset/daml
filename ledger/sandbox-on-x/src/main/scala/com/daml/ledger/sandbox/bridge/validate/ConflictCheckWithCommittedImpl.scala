@@ -7,6 +7,7 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import ConflictCheckingLedgerBridge._
+import com.daml.ledger.participant.state.v2.CompletionInfo
 import com.daml.ledger.sandbox.bridge.{
   BridgeMetrics,
   PreparedSubmission,
@@ -14,9 +15,10 @@ import com.daml.ledger.sandbox.bridge.{
 }
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.Transaction
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{Transaction => LfTransaction}
-import com.daml.logging.ContextualizedLogger
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
 import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -49,7 +51,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
               _,
               _,
               blindingInfo,
-              _,
+              transactionInformees,
               originalSubmission,
             ),
           )
@@ -65,7 +67,13 @@ private[validate] class ConflictCheckWithCommittedImpl(
                 originalSubmission.transactionMeta.ledgerEffectiveTime,
               divulged = blindingInfo.divulgence.keySet,
             ).flatMap {
-              case Right(_) => validateKeyUsages(originalSubmission, keyInputs)
+              case Right(_) =>
+                validateKeyUsages(
+                  transactionInformees,
+                  keyInputs,
+                  originalSubmission.loggingContext,
+                  originalSubmission.submitterInfo.toCompletionInfo(),
+                )
               case rejection => Future.successful(rejection)
             },
           )
@@ -111,19 +119,20 @@ private[validate] class ConflictCheckWithCommittedImpl(
   }
 
   private def validateKeyUsages(
-      transaction: Transaction,
+      transactionInformees: Set[Ref.Party],
       keyInputs: KeyInputs,
+      loggingContext: LoggingContext,
+      completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): AsyncValidation[Unit] = {
-    val completionInfo = transaction.submitterInfo.toCompletionInfo()
     keyInputs.foldLeft(Future.successful[Validation[Unit]](Right(()))) {
       case (f, (key, inputState)) =>
         f.flatMap {
           case Right(_) =>
             indexService
               // TODO SoX: Perform lookup more efficiently and do not use a readers-based lookup
-              .lookupContractKey(transaction.transaction.informees, key)(transaction.loggingContext)
+              .lookupContractKey(transactionInformees, key)(loggingContext)
               .map { lookupResult =>
                 (inputState, lookupResult) match {
                   case (LfTransaction.NegativeKeyLookup, Some(actual)) =>
