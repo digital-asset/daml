@@ -1,10 +1,11 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.sandbox.bridge
+package com.daml.ledger.sandbox.bridge.validate
 
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.sandbox.bridge.SequencerState.{LastUpdatedAt, SequencerQueue}
+import com.daml.ledger.sandbox.bridge.BridgeMetrics
+import com.daml.ledger.sandbox.bridge.validate.SequencerState.{LastUpdatedAt, SequencerQueue}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 

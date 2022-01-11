@@ -6,7 +6,7 @@ package com.daml.ledger.sandbox.bridge.validate
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import ConflictCheckingLedgerBridge._
-import com.daml.ledger.sandbox.bridge.{BridgeMetrics, PreparedSubmission}
+import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.metrics.Timed
 import com.daml.platform.ApiOffset
 

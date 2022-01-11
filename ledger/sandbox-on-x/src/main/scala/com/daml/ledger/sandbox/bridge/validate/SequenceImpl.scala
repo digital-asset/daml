@@ -8,13 +8,8 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
-import com.daml.ledger.sandbox.bridge.LedgerBridge.{
-  fromOffset,
-  partyAllocationSuccessMapper,
-  successMapper,
-  toOffset,
-}
-import com.daml.ledger.sandbox.bridge.SequencerState.LastUpdatedAt
+import com.daml.ledger.sandbox.bridge.LedgerBridge._
+import SequencerState.LastUpdatedAt
 import com.daml.ledger.sandbox.bridge._
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge.{
   Sequence,
@@ -25,6 +20,7 @@ import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.{AllocateParty, Config, Transaction}
 import com.daml.ledger.sandbox.domain._
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{Transaction => LfTransaction}
 import com.daml.logging.ContextualizedLogger
@@ -32,7 +28,6 @@ import com.daml.metrics.Timed
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
-import java.util.UUID
 import scala.util.chaining._
 
 /** Conflict checking with the in-flight commands,
@@ -51,7 +46,7 @@ private[validate] class SequenceImpl(
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   @volatile private var offsetIdx = fromOffset(initialLedgerEnd)
-  @volatile private var sequencerQueueState = SequencerState()(bridgeMetrics)
+  @volatile private var sequencerState = SequencerState()(bridgeMetrics)
   @volatile private var allocatedParties = initialAllocatedParties
   @volatile private var ledgerConfiguration = initialLedgerConfiguration
 
@@ -63,70 +58,86 @@ private[validate] class SequenceImpl(
           val newOffset = toOffset(offsetIdx)
           val recordTime = timeProvider.getCurrentTimestamp
 
-          val update = in match {
-            case Left(rejection) =>
-              rejection.toCommandRejectedUpdate(recordTime)
+          val updateO = in match {
+            case Left(rejection) => Some(rejection.toCommandRejectedUpdate(recordTime))
             case Right((_, NoOpPreparedSubmission(submission))) =>
               processNonTransactionSubmission(submission)
             case Right((noConflictUpTo, txSubmission: PreparedTransactionSubmission)) =>
-              sequentialTransactionValidation(
-                noConflictUpTo,
-                newOffset,
-                recordTime,
-                txSubmission,
+              Some(
+                sequentialTransactionValidation(
+                  noConflictUpTo,
+                  newOffset,
+                  recordTime,
+                  txSubmission,
+                )
               )
           }
 
-          Iterable(newOffset -> update)
+          updateO.map(newOffset -> _).toList
         },
       )
     }
 
-  private def processNonTransactionSubmission(submission: Submission): Update =
-    submission match {
-      case AllocateParty(hint, displayName, submissionId) =>
-        val party = Ref.Party.assertFromString(hint.getOrElse(UUID.randomUUID().toString))
-        if (allocatedParties(party))
-          logger.warn(
-            s"Found duplicate party submission with ID $party for submissionId ${Some(submissionId)}"
-          )(submission.loggingContext)
+  private val processNonTransactionSubmission: Submission => Option[Update] = {
+    case s: Submission.AllocateParty => validatedPartyAllocation(s)
+    case s @ Submission.Config(maxRecordTime, submissionId, config) =>
+      Some(validatedConfigUpload(s, maxRecordTime, submissionId, config))
+    case s: Submission.UploadPackages =>
+      Some(packageUploadSuccess(s, timeProvider.getCurrentTimestamp))
+    case _: Submission.Transaction =>
+      // TODO SoX: Handle gracefully
+      throw new RuntimeException("Unexpected Submission.Transaction")
+  }
 
-        allocatedParties = allocatedParties + party
-        // TODO SoX: Do not forward a successful party allocation update on duplicates
-        partyAllocationSuccessMapper(party, displayName, submissionId, participantId)
-      case Config(maxRecordTime, submissionId, config) =>
-        val recordTime = timeProvider.getCurrentTimestamp
-        if (recordTime > maxRecordTime)
-          Update.ConfigurationChangeRejected(
-            recordTime = recordTime,
-            submissionId = submissionId,
-            participantId = participantId,
-            proposedConfiguration = config,
-            rejectionReason = s"Configuration change timed out: $maxRecordTime > $recordTime",
-          )
-        else {
-          val expectedGeneration = ledgerConfiguration.map(_.generation).map(_ + 1L)
-          if (expectedGeneration.forall(_ == config.generation)) {
-            ledgerConfiguration = Some(config)
-            Update.ConfigurationChanged(
-              recordTime = recordTime,
-              submissionId = submissionId,
-              participantId = participantId,
-              newConfiguration = config,
-            )
-          } else
-            Update.ConfigurationChangeRejected(
-              recordTime = recordTime,
-              submissionId = submissionId,
-              participantId = participantId,
-              proposedConfiguration = config,
-              rejectionReason =
-                s"Generation mismatch: expected=$expectedGeneration, actual=${config.generation}",
-            )
-        }
+  private def validatedPartyAllocation(allocateParty: AllocateParty) = {
+    val partyAllocation =
+      partyAllocationSuccess(allocateParty, participantId, timeProvider.getCurrentTimestamp)
 
-      case other => successMapper(other, offsetIdx, participantId)
+    val party = partyAllocation.party
+
+    if (allocatedParties(party)) {
+      logger.warn(
+        s"Found duplicate party submission with ID $party for submissionId ${Some(allocateParty.submissionId)}"
+      )(allocateParty.loggingContext)
+      // Duplicate party allocations are skipped
+      None
+    } else {
+      allocatedParties = allocatedParties + party
+      Some(partyAllocation)
     }
+  }
+
+  private def validatedConfigUpload(
+      c: Config,
+      maxRecordTime: Timestamp,
+      submissionId: SubmissionId,
+      config: Configuration,
+  ) = {
+    val recordTime = timeProvider.getCurrentTimestamp
+    if (recordTime > maxRecordTime)
+      Update.ConfigurationChangeRejected(
+        recordTime = recordTime,
+        submissionId = submissionId,
+        participantId = participantId,
+        proposedConfiguration = config,
+        rejectionReason = s"Configuration change timed out: $recordTime > $maxRecordTime",
+      )
+    else {
+      val expectedGeneration = ledgerConfiguration.map(_.generation).map(_ + 1L)
+      if (expectedGeneration.forall(_ == config.generation)) {
+        ledgerConfiguration = Some(config)
+        configChangedSuccess(c, participantId, timeProvider.getCurrentTimestamp)
+      } else
+        Update.ConfigurationChangeRejected(
+          recordTime = recordTime,
+          submissionId = submissionId,
+          participantId = participantId,
+          proposedConfiguration = config,
+          rejectionReason =
+            s"Generation mismatch: expected=$expectedGeneration, actual=${config.generation}",
+        )
+    }
+  }
 
   private def sequentialTransactionValidation(
       noConflictUpTo: Offset,
@@ -146,8 +157,8 @@ private[validate] class SequenceImpl(
           completionInfo,
         )
         _ <- conflictCheckWithInFlight(
-          keysState = sequencerQueueState.keyState,
-          consumedContractsState = sequencerQueueState.consumedContractsState,
+          keysState = sequencerState.keyState,
+          consumedContractsState = sequencerState.consumedContractsState,
           keyInputs = txSubmission.keyInputs,
           inputContracts = txSubmission.inputContracts,
           completionInfo = completionInfo,
@@ -158,11 +169,15 @@ private[validate] class SequenceImpl(
         _.toCommandRejectedUpdate(recordTime),
         { _ =>
           // Update the sequencer state
-          sequencerQueueState = sequencerQueueState
+          sequencerState = sequencerState
             .dequeue(noConflictUpTo)
             .enqueue(newOffset, txSubmission.updatedKeys, txSubmission.consumedContracts)
 
-          successMapper(txSubmission.submission, offsetIdx, participantId)
+          transactionAccepted(
+            txSubmission.submission,
+            offsetIdx,
+            timeProvider.getCurrentTimestamp,
+          )
         },
       )
   }
