@@ -172,6 +172,20 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   final case class ListUserRightsRequest(userId: String)
 
+  final case class GrantUserRightsRequest(
+      userId: String,
+      canActAs: List[Party],
+      canReadAs: List[Party],
+      isAdmin: Boolean,
+  )
+
+  final case class RevokeUserRightsRequest(
+      userId: String,
+      canActAs: List[Party],
+      canReadAs: List[Party],
+      isAdmin: Boolean,
+  )
+
   final case class GetUserRequest(userId: String)
 
   final case class DeleteUserRequest(userId: String)

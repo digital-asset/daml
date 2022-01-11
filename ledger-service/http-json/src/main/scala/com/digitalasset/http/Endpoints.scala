@@ -224,6 +224,8 @@ class Endpoints(
           path("user" / "create") apply toRoute(allocateUser(req)),
           path("user" / "delete") apply toRoute(deleteUser(req)),
           path("user" / "rights") apply toRoute(listUserRights(req)),
+          path("user" / "rights" / "grant") apply toRoute(grantUserRights(req)),
+          path("user" / "rights" / "revoke") apply toRoute(revokeUserRights(req)),
           path("parties") & withFetchTimer apply toRoute(parties(req)),
           path("parties" / "allocate") & withTimer(
             allocatePartyTimer
@@ -527,6 +529,44 @@ class Endpoints(
       )
     } yield domain.OkResponse(domain.UserRights.fromListUserRights(rights))
 
+  def grantUserRights(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[Boolean]] =
+    proxyWithCommandET { (jwt, grantUserRightsRequest: domain.GrantUserRightsRequest) =>
+      for {
+        userId <- parseUserId(grantUserRightsRequest.userId)
+        rights <- either(
+          toUserRightsList(
+            grantUserRightsRequest.canActAs,
+            grantUserRightsRequest.canReadAs,
+            grantUserRightsRequest.isAdmin,
+          )
+        ).leftMap(InvalidUserInput): ET[List[UserRight]]
+        _ <- EitherT.rightT(
+          userManagementClient.grantUserRights(userId, rights, Some(jwt.value))
+        )
+      } yield domain.OkResponse(true): domain.SyncResponse[Boolean]
+    }(req)
+
+  def revokeUserRights(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[Boolean]] =
+    proxyWithCommandET { (jwt, revokeUserRightsRequest: domain.RevokeUserRightsRequest) =>
+      for {
+        userId <- parseUserId(revokeUserRightsRequest.userId)
+        rights <- either(
+          toUserRightsList(
+            revokeUserRightsRequest.canActAs,
+            revokeUserRightsRequest.canReadAs,
+            revokeUserRightsRequest.isAdmin,
+          )
+        ).leftMap(InvalidUserInput): ET[List[UserRight]]
+        _ <- EitherT.rightT(
+          userManagementClient.revokeUserRights(userId, rights, Some(jwt.value))
+        )
+      } yield domain.OkResponse(true): domain.SyncResponse[Boolean]
+    }(req)
+
   def getUser(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[domain.UserDetails]] =
@@ -561,7 +601,6 @@ class Endpoints(
   ): ET[domain.SyncResponse[Boolean]] =
     proxyWithCommand { (jwt, createUserRequest: domain.CreateUserRequest) =>
       {
-        import scalaz.std.list._
         import scalaz.std.option._
         import scalaz.syntax.traverse._
         import scalaz.syntax.std.either._
@@ -572,23 +611,12 @@ class Endpoints(
             primaryParty <- createUserRequest.primaryParty.traverse(it =>
               Ref.Party.fromString(it).disjunction
             )
-            canActAs <-
-              domain.Party
-                .unsubst(createUserRequest.canActAs)
-                .traverse(it =>
-                  Ref.Party
-                    .fromString(it)
-                    .map(CanActAs(_): UserRight)
-                    .disjunction
-                )
-            canReadAs <-
-              domain.Party
-                .unsubst(createUserRequest.canReadAs)
-                .traverse(it => Ref.Party.fromString(it).map(CanReadAs(_): UserRight).disjunction)
-            isAdminLs =
-              if (createUserRequest.isAdmin) List(ParticipantAdmin)
-              else List.empty
-          } yield (username, primaryParty, canActAs ++ canReadAs ++ isAdminLs)
+            rights <- toUserRightsList(
+              createUserRequest.canActAs,
+              createUserRequest.canReadAs,
+              createUserRequest.isAdmin,
+            )
+          } yield (username, primaryParty, rights)
         for {
           info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
             (UserId, Option[Ref.Party], List[UserRight])
@@ -903,6 +931,35 @@ class Endpoints(
     either(
       UserId.fromString(rawUserId).disjunction.leftMap(InvalidUserInput)
     )
+  }
+
+  private def toUserRightsList(
+      canActAs: List[domain.Party],
+      canReadAs: List[domain.Party],
+      isAdmin: Boolean,
+  ): String \/ List[UserRight] = {
+    import scalaz.std.list._
+    import scalaz.syntax.traverse._
+    import scalaz.syntax.std.either._
+    import com.daml.lf.data.Ref
+    for {
+      canActAs <-
+        domain.Party
+          .unsubst(canActAs)
+          .traverse(it =>
+            Ref.Party
+              .fromString(it)
+              .map(CanActAs(_): UserRight)
+              .disjunction
+          )
+      canReadAs <-
+        domain.Party
+          .unsubst(canReadAs)
+          .traverse(it => Ref.Party.fromString(it).map(CanReadAs(_): UserRight).disjunction)
+      isAdminLs =
+        if (isAdmin) List(ParticipantAdmin)
+        else List.empty
+    } yield canActAs ++ canReadAs ++ isAdminLs
   }
 }
 

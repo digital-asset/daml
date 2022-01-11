@@ -13,7 +13,7 @@ import com.daml.http.domain.{UserDetails, UserRights}
 import com.daml.http.json.JsonProtocol._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.api.domain.UserRight.CanActAs
+import com.daml.ledger.api.domain.UserRight.{CanActAs, ParticipantAdmin}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
 import com.daml.platform.sandbox.{SandboxRequiringAuthorization, SandboxRequiringAuthorizationFuns}
@@ -414,6 +414,80 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       status3 shouldBe StatusCodes.OK
       getResult(output3).convertTo[List[UserDetails]] should not contain createUserRequest.userId
     }
+  }
+
+  "granting the user rights for a specific user should be possible via a POST to the user/rights/grant endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, ledgerClient, _) =>
+    import spray.json._
+    val alice = getUniqueParty("Alice")
+    val bob = getUniqueParty("Bob")
+    for {
+      user <- createUser(ledgerClient)(
+        Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+        initialRights = List(
+          CanActAs(Ref.Party.assertFromString(alice.toString))
+        ),
+      )
+      (status, _) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/rights/grant")),
+        domain.GrantUserRightsRequest(user.id, List(bob), List.empty, isAdmin = true).toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ = status shouldBe StatusCodes.OK
+      (status2, output2) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/rights")),
+        domain.ListUserRightsRequest(user.id).toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      assertion <- {
+        status2 shouldBe StatusCodes.OK
+        assertStatus(output2, StatusCodes.OK)
+        getResult(output2).convertTo[UserRights] shouldEqual UserRights(
+          canActAs = List(alice, bob),
+          canReadAs = List.empty,
+          isAdmin = true,
+        )
+      }
+    } yield assertion
+  }
+
+  "revoking the user rights for a specific user should be possible via a POST to the user/rights/revoke endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, ledgerClient, _) =>
+    import spray.json._
+    val alice = getUniqueParty("Alice")
+    val bob = getUniqueParty("Bob")
+    for {
+      user <- createUser(ledgerClient)(
+        Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+        initialRights = List(
+          CanActAs(Ref.Party.assertFromString(alice.toString)),
+          CanActAs(Ref.Party.assertFromString(bob.toString)),
+          ParticipantAdmin,
+        ),
+      )
+      (status, _) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/rights/revoke")),
+        domain.RevokeUserRightsRequest(user.id, List(bob), List.empty, isAdmin = true).toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ = status shouldBe StatusCodes.OK
+      (status2, output2) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/rights")),
+        domain.ListUserRightsRequest(user.id).toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      assertion <- {
+        status2 shouldBe StatusCodes.OK
+        assertStatus(output2, StatusCodes.OK)
+        getResult(output2).convertTo[UserRights] shouldEqual UserRights(
+          canActAs = List(alice),
+          canReadAs = List.empty,
+          isAdmin = false,
+        )
+      }
+    } yield assertion
   }
 }
 
