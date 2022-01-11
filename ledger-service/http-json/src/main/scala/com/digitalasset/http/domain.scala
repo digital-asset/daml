@@ -169,6 +169,10 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       isAdmin: Boolean,
   )
 
+  final case class GetUserRequest(userId: String)
+
+  final case class DeleteUserRequest(userId: String)
+
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 
   final case class CommandMeta(
