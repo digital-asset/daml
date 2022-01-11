@@ -8,7 +8,6 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
-import ConflictCheckingLedgerBridge.{Sequence, Validation, _}
 import com.daml.ledger.sandbox.bridge.LedgerBridge.{
   fromOffset,
   partyAllocationSuccessMapper,
@@ -17,6 +16,11 @@ import com.daml.ledger.sandbox.bridge.LedgerBridge.{
 }
 import com.daml.ledger.sandbox.bridge.SequencerState.LastUpdatedAt
 import com.daml.ledger.sandbox.bridge._
+import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge.{
+  Sequence,
+  Validation,
+  _,
+}
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.{AllocateParty, Config, Transaction}
 import com.daml.ledger.sandbox.domain._
@@ -29,7 +33,6 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
 import java.util.UUID
-import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import scala.util.chaining._
 
 /** Conflict checking with the in-flight commands,
@@ -47,16 +50,16 @@ private[validate] class SequenceImpl(
 ) extends Sequence {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
-  val offsetIdxRef = new AtomicLong(fromOffset(initialLedgerEnd))
-  val sequencerQueueStateRef = new AtomicReference(SequencerState()(bridgeMetrics))
-  val allocatedPartiesRef = new AtomicReference(initialAllocatedParties)
-  val ledgerConfigurationRef = new AtomicReference(initialLedgerConfiguration)
+  @volatile private var offsetIdx = fromOffset(initialLedgerEnd)
+  @volatile private var sequencerQueueState = SequencerState()(bridgeMetrics)
+  @volatile private var allocatedParties = initialAllocatedParties
+  @volatile private var ledgerConfiguration = initialLedgerConfiguration
 
   override def apply(): Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)] =
     in => {
       Timed.value(
         bridgeMetrics.Stages.sequence, {
-          val offsetIdx = offsetIdxRef.incrementAndGet()
+          offsetIdx = offsetIdx + 1L
           val newOffset = toOffset(offsetIdx)
           val recordTime = timeProvider.getCurrentTimestamp
 
@@ -64,22 +67,13 @@ private[validate] class SequenceImpl(
             case Left(rejection) =>
               rejection.toCommandRejectedUpdate(recordTime)
             case Right((_, NoOpPreparedSubmission(submission))) =>
-              processNonTransactionSubmission(
-                offsetIdx,
-                submission,
-                allocatedPartiesRef,
-                ledgerConfigurationRef,
-              )
+              processNonTransactionSubmission(submission)
             case Right((noConflictUpTo, txSubmission: PreparedTransactionSubmission)) =>
               sequentialTransactionValidation(
                 noConflictUpTo,
                 newOffset,
                 recordTime,
                 txSubmission,
-                offsetIdx,
-                sequencerQueueStateRef,
-                allocatedPartiesRef,
-                ledgerConfigurationRef,
               )
           }
 
@@ -88,21 +82,16 @@ private[validate] class SequenceImpl(
       )
     }
 
-  private def processNonTransactionSubmission(
-      offsetIndex: Long,
-      submission: Submission,
-      allocatedPartiesRef: AtomicReference[Set[Ref.Party]],
-      ledgerConfigurationRef: AtomicReference[Option[Configuration]],
-  ): Update =
+  private def processNonTransactionSubmission(submission: Submission): Update =
     submission match {
       case AllocateParty(hint, displayName, submissionId) =>
         val party = Ref.Party.assertFromString(hint.getOrElse(UUID.randomUUID().toString))
-        if (allocatedPartiesRef.get()(party))
+        if (allocatedParties(party))
           logger.warn(
             s"Found duplicate party submission with ID $party for submissionId ${Some(submissionId)}"
           )(submission.loggingContext)
 
-        allocatedPartiesRef.updateAndGet(_ + party)
+        allocatedParties = allocatedParties + party
         // TODO SoX: Do not forward a successful party allocation update on duplicates
         partyAllocationSuccessMapper(party, displayName, submissionId, participantId)
       case Config(maxRecordTime, submissionId, config) =>
@@ -116,9 +105,9 @@ private[validate] class SequenceImpl(
             rejectionReason = s"Configuration change timed out: $maxRecordTime > $recordTime",
           )
         else {
-          val expectedGeneration = ledgerConfigurationRef.get().map(_.generation).map(_ + 1L)
+          val expectedGeneration = ledgerConfiguration.map(_.generation).map(_ + 1L)
           if (expectedGeneration.forall(_ == config.generation)) {
-            ledgerConfigurationRef.set(Some(config))
+            ledgerConfiguration = Some(config)
             Update.ConfigurationChanged(
               recordTime = recordTime,
               submissionId = submissionId,
@@ -136,7 +125,7 @@ private[validate] class SequenceImpl(
             )
         }
 
-      case other => successMapper(other, offsetIndex, participantId)
+      case other => successMapper(other, offsetIdx, participantId)
     }
 
   private def sequentialTransactionValidation(
@@ -144,15 +133,7 @@ private[validate] class SequenceImpl(
       newOffset: LastUpdatedAt,
       recordTime: Timestamp,
       txSubmission: PreparedTransactionSubmission,
-      offsetIdx: Long,
-      sequencerQueueStateRef: AtomicReference[SequencerState],
-      allocatedPartiesRef: AtomicReference[Set[Ref.Party]],
-      ledgerConfigurationRef: AtomicReference[Option[Configuration]],
   ) = {
-    val sequencerQueueState = sequencerQueueStateRef.get()
-    val allocatedParties = allocatedPartiesRef.get()
-    val ledgerConfiguration = ledgerConfigurationRef.get()
-
     val submitterInfo = txSubmission.submission.submitterInfo
 
     withErrorLogger(submitterInfo.submissionId) { implicit errorLogger =>
@@ -177,11 +158,9 @@ private[validate] class SequenceImpl(
         _.toCommandRejectedUpdate(recordTime),
         { _ =>
           // Update the sequencer state
-          sequencerQueueStateRef.updateAndGet(sequencerQueueState =>
-            sequencerQueueState
-              .dequeue(noConflictUpTo)
-              .enqueue(newOffset, txSubmission.updatedKeys, txSubmission.consumedContracts)
-          )
+          sequencerQueueState = sequencerQueueState
+            .dequeue(noConflictUpTo)
+            .enqueue(newOffset, txSubmission.updatedKeys, txSubmission.consumedContracts)
 
           successMapper(txSubmission.submission, offsetIdx, participantId)
         },

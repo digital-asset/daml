@@ -24,6 +24,7 @@ private[validate] class TagWithLedgerEndImpl(
     case Left(rejection) => Future.successful(Left(rejection))
     case Right(preparedSubmission) =>
       Timed.future(
+        // TODO SoX: Remove as this should be instantaneous
         bridgeMetrics.Stages.tagWithLedgerEnd,
         indexService
           .currentLedgerEnd()(preparedSubmission.submission.loggingContext)
