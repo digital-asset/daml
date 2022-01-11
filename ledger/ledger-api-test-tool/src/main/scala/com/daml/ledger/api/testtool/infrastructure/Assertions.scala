@@ -5,7 +5,6 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import java.util
 import java.util.regex.Pattern
-
 import com.daml.api.util.DurationConversion
 import com.daml.error.ErrorCode
 import com.daml.error.utils.ErrorDetails
@@ -15,7 +14,7 @@ import com.daml.ledger.api.testtool.infrastructure.participant.{
   ParticipantTestContext,
 }
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.api.v1.version_service.DeduplicationPeriodSupport.{
+import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationPeriodSupport.{
   DurationSupport,
   OffsetSupport,
 }
