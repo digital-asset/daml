@@ -180,7 +180,38 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     } yield assertion
   }
 
-  "requesting the user rights should be possible via the user/rights endpoint" in withHttpServiceAndClient(
+  "requesting the user rights for a specific user should be possible via a POST to the user/rights endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, ledgerClient, _) =>
+    import spray.json._
+    val alice = getUniqueParty("Alice")
+    val bob = getUniqueParty("Bob")
+    for {
+      user <- createUser(ledgerClient)(
+        Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+        initialRights = List(
+          CanActAs(Ref.Party.assertFromString(alice.toString)),
+          CanActAs(Ref.Party.assertFromString(bob.toString)),
+        ),
+      )
+      (status, output) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/rights")),
+        domain.ListUserRightsRequest(user.id).toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      assertion <- {
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        getResult(output).convertTo[UserRights] shouldEqual UserRights(
+          canActAs = List(alice, bob),
+          canReadAs = List.empty,
+          isAdmin = false,
+        )
+      }
+    } yield assertion
+  }
+
+  "requesting the user rights for the current user should be possible via a GET to the user/rights endpoint" in withHttpServiceAndClient(
     participantAdminJwt
   ) { (uri, _, _, ledgerClient, _) =>
     val alice = getUniqueParty("Alice")
