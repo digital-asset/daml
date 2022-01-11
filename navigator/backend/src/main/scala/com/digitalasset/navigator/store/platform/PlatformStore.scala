@@ -3,7 +3,6 @@
 
 package com.daml.navigator.store.platform
 
-import java.net.URLEncoder
 import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -27,7 +26,6 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.lf.data.Ref
 import com.daml.navigator.ApplicationInfo
-import com.daml.navigator.config.UserConfig
 import com.daml.navigator.model._
 import com.daml.navigator.store.Store._
 import com.daml.navigator.time._
@@ -181,32 +179,36 @@ class PlatformStore(
       }
 
       usersWithPrimaryParties.foreach { case (userId, party) =>
-        self ! Subscribe(
-          userId,
-          UserConfig(party = ApiTypes.Party(party), role = None, useDatabase = false),
-        )
+        self ! Subscribe(userId, new PartyState(ApiTypes.Party(party)))
       }
 
     case UpdatedParties(details) =>
       details.foreach { partyDetails =>
         if (partyDetails.isLocal) {
-          self ! Subscribe(
-            partyDetails.displayName.getOrElse(partyDetails.party),
-            UserConfig(party = ApiTypes.Party(partyDetails.party), role = None, useDatabase = false),
-          )
+          val displayName = partyDetails.displayName.getOrElse(partyDetails.party)
+          self ! Subscribe(displayName, new PartyState(ApiTypes.Party(partyDetails.party)))
         } else {
           log.debug(s"Ignoring non-local party ${partyDetails.party}")
         }
       }
 
-    case Subscribe(displayName, config) =>
+    case Subscribe(displayName, partyState) =>
       if (!state.parties.contains(displayName)) {
-        log.info(s"Starting actor for $displayName")
-        val partyState = new PartyState(config)
-        startPartyActor(state.ledgerClient, partyState)
-        context.become(connected(state.copy(parties = state.parties + (displayName -> partyState))))
+        log.info(s"Starting actor for ${partyState.name} (aka $displayName)")
+
+        // start party actor if needed (since users subscribe to their primary party,
+        // we may subscribe to the same party under different display names, but we should only create one actor per party)
+        val partyActorName = partyState.actorName
+        if (context.child(partyActorName).isEmpty)
+          context.actorOf(
+            PlatformSubscriber.props(state.ledgerClient, partyState, applicationId, token),
+            partyActorName,
+          )
+
+        val updatedParties = state.parties + (displayName -> partyState)
+        context.become(connected(state.copy(parties = updatedParties)))
       } else {
-        log.debug(s"Actor for $displayName is already running")
+        log.debug(s"Actor for ${partyState.name} (aka $displayName) is already running")
       }
 
     case CreateContract(party, templateId, value) =>
@@ -236,7 +238,7 @@ class PlatformStore(
 
       // context.child must be invoked from actor thread
       val userIdToActorRef = state.parties.view
-        .mapValues(partyState => context.child(childName(partyState.name)))
+        .mapValues(partyState => context.child(partyState.actorName))
         .toList // TODO can we keep this a map and make traverse work?
 
       Future
@@ -283,16 +285,6 @@ class PlatformStore(
   // ----------------------------------------------------------------------------------------------
   // Helpers
   // ----------------------------------------------------------------------------------------------
-  private def childName(party: ApiTypes.Party): String =
-    "party-" + URLEncoder.encode(ApiTypes.Party.unwrap(party), "UTF-8")
-
-  private def startPartyActor(ledgerClient: LedgerClient, state: PartyState): ActorRef = {
-    context.actorOf(
-      PlatformSubscriber.props(ledgerClient, state, applicationId, token),
-      childName(state.name),
-    )
-  }
-
   private def sslContext: Option[SslContext] =
     tlsConfig.flatMap { c =>
       if (c.enabled)
@@ -467,15 +459,11 @@ class PlatformStore(
       })
   }
 
-  private def submitCommand(
-      party: PartyState,
-      command: Command,
-      sender: ActorRef,
-  ): Unit = {
+  private def submitCommand(partyState: PartyState, command: Command, sender: ActorRef): Unit = {
     // Each party has its own command completion stream.
     // Forward the request to the party actor, so that it can be tracked.
     context
-      .child(childName(party.name))
+      .child(partyState.actorName)
       .foreach(child => child ! PlatformSubscriber.SubmitCommand(command, sender))
   }
 

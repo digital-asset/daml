@@ -3,7 +3,6 @@
 
 package com.daml.navigator
 
-import com.daml.navigator.config.UserConfig
 import com.daml.navigator.model.PartyState
 import scalaz.Tag
 
@@ -43,10 +42,10 @@ object Session {
   def open(
       sessionId: String,
       userId: String,
-      userConfig: UserConfig,
+      userRole: Option[String],
       state: PartyState,
   ): Session = {
-    val user = Session(User(userId, state, userConfig.role))
+    val user = Session(User(userId, state, userRole))
     sessions += sessionId -> user
     user
   }
