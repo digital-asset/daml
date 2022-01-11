@@ -33,7 +33,12 @@ API.
    documentation](https://blog.restcase.com/rest-api-error-codes-101/).
    So do not overthink HTTP status; we do report broadly reasonable
    status, but what matters is that the response error body is
-   semantically useful.
+   semantically useful.  The sole exception is that, in most cases, gRPC
+   errors upstream translate to [the gRPC-recommended HTTP status
+   codes](https://cloud.google.com/apis/design/errors#generating_errors);
+   this is handled globally within json-api, so you do not have to think
+   about this, as long as you do not suppress exceptions from the ledger
+   client.
 
 4. Endpoints should be POSTs, and input arguments should be supplied as
    a POST request body, not in the URL.  This allows for obvious
