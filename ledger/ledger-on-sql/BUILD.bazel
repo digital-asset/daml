@@ -319,6 +319,23 @@ conformance_test(
     ],
 )
 
+conformance_test(
+    name = "conformance-test-postgres-batko",
+    ports = [6865],
+    server = ":conformance-test-postgresql-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--mutable-contract-state-cache",
+        "--feature-user-management=true",
+    ],
+    tags = [],
+    test_tool_args = [
+        "--verbose",
+        "--include=UserManagement",
+    ],
+)
+
 # Full conformance test (Oracle)
 conformance_test(
     name = "conformance-test-oracle",

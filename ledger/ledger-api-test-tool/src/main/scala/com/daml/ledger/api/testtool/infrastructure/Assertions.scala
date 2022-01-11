@@ -48,6 +48,29 @@ object Assertions {
     }
   }
 
+  def assertEquals[T](actual: T, expected: T): Unit = {
+    try {
+      MUnit.assertEquals(actual, expected)
+    } catch {
+      case e: ComparisonFailException =>
+        throw AssertionErrorWithPreformattedMessage(
+          e.message,
+          s"two objects are supposed to be equal but they are not",
+        )
+    }
+  }
+
+  def assertSameElements[T](actual: Iterable[T], expected: Iterable[T]): Unit = {
+    assert(
+      actual.toSet == expected.toSet,
+      s"Actual |${actual.mkString(", ")}| should have the same elements as (expected): |${expected.mkString(", ")}|",
+    )
+  }
+
+  //  protected def assertEquals(actual: Any, expected: Any): Unit = {
+  //    assert(actual == expected, s"Actual |${actual}| should be equal (expected): |${expected}|")
+  //  }
+
   /** Asserts GRPC error codes depending on the self-service error codes feature in the Ledger API. */
   def assertGrpcError(
       participant: ParticipantTestContext,

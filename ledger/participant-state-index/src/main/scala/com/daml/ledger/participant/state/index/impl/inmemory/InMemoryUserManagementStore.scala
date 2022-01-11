@@ -12,14 +12,17 @@ import com.daml.lf.data.Ref.UserId
 import scala.collection.mutable
 import scala.concurrent.Future
 
-class InMemoryUserManagementStore extends UserManagementStore {
+class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManagementStore {
   import InMemoryUserManagementStore._
 
   // Underlying mutable map to keep track of UserInfo state.
   // Structured so we can use a ConcurrentHashMap (to more closely mimic a real implementation, where performance is key).
   // We synchronize on a private object (the mutable map), not the service (which could cause deadlocks).
   // (No need to mark state as volatile -- rely on synchronized to establish the JMM's happens-before relation.)
-  private val state: mutable.Map[Ref.UserId, UserInfo] = mutable.Map(AdminUser.user.id -> AdminUser)
+  private val state: mutable.Map[Ref.UserId, UserInfo] = mutable.Map()
+  if (createAdmin){
+    state.put(AdminUser.user.id, AdminUser)
+  }
 
   override def getUserInfo(id: UserId): Future[Result[UserManagementStore.UserInfo]] =
     withUser(id)(identity)

@@ -66,7 +66,7 @@ class PersistentUserManagementStoreSpec
 
   }
 
-  "in-memory user management" - {
+  "user management" - {
     "allow creating a fresh user" in {
       testIt { tested =>
         for {
@@ -190,7 +190,7 @@ class PersistentUserManagementStoreSpec
     }
   }
 
-  "in-memory user rights management" - {
+  "user rights management" - {
     import UserRight._
     "listUserRights should find the rights of a freshly created user" in {
       testIt { tested =>
@@ -296,7 +296,6 @@ class PersistentUserManagementStoreSpec
     val tested = new PersistentUserManagementStore(
       dbDispatcher = getDbDispatcher,
       metrics = metrics,
-      createAdminUser = false,
     )
     f(tested)
 

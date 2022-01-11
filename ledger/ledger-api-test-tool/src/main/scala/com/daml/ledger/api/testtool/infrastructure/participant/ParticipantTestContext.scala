@@ -131,14 +131,20 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   private[this] val identifierPrefix =
     s"$applicationId-$endpointId-$identifierSuffix"
-  private[this] def nextId(idType: String): () => String =
-    Identification.indexSuffix(s"$identifierPrefix-$idType")
+  private[this] def nextIdGenerator(name: String, lowerCase: Boolean = false): () => String = {
+    val f = Identification.indexSuffix(s"$identifierPrefix-$name")
+    if(lowerCase)
+      () => f().toLowerCase
+    else
+      f
+  }
 
-  private[this] val nextPartyHintId: () => String = nextId("party")
-  private[this] val nextCommandId: () => String = nextId("command")
-  private[this] val nextSubmissionId: () => String = nextId("submission")
+  private[this] val nextPartyHintId: () => String = nextIdGenerator("party")
+  private[this] val nextCommandId: () => String = nextIdGenerator("command")
+  private[this] val nextSubmissionId: () => String = nextIdGenerator("submission")
   private[this] val workflowId: String = s"$applicationId-$identifierSuffix"
-  val nextKeyId: () => String = nextId("key")
+  val nextKeyId: () => String = nextIdGenerator("key")
+  val nextUserId: () => String = nextIdGenerator("user", lowerCase = true)
 
   override def toString: String = s"participant $endpointId"
 

@@ -8,14 +8,14 @@ import java.util.concurrent.{CompletableFuture, Executor}
 
 import com.daml.caching.{AsyncLoadingCache, CaffeineCache}
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.User
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{Result, UserInfo, Users}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 
-import scala.util.{Failure, Success}
-
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 
 class CachedUserManagementStore(
@@ -25,49 +25,31 @@ class CachedUserManagementStore(
   extends UserManagementStore {
 
   // TODO participant user management: Use metrics (instrumented cache)
-  val cache: AsyncLoadingCache[Ref.UserId, UserInfo] = new CaffeineCache.SimpleAsyncLoadingCache(
+  val cache: AsyncLoadingCache[Ref.UserId, Result[UserInfo]] = new CaffeineCache.SimpleAsyncLoadingCache(
     com.github.benmanes.caffeine.cache.Caffeine
       .newBuilder()
       .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
       // TODO participant user management: Check the choice of the maximum size
       .maximumSize(10000)
-      .buildAsync(new com.github.benmanes.caffeine.cache.AsyncCacheLoader[Ref.UserId, UserInfo] {
-        override def asyncLoad(key: Ref.UserId, executor: Executor): CompletableFuture[UserInfo] = {
-          val future = for {
-            userE <- delegate.getUser(key)
-            user <- userE match {
-              case Left(error) => Future.failed(error)
-              case Right(user) => Future.successful(user)
-            }
-            rightsE <- delegate.listUserRights(key)
-            rights <- rightsE match {
-              case Left(error) => Future.failed(error)
-              case Right(user) => Future.successful(user)
-            }
-          } yield {
-            UserInfo(user, rights)
-          }
-          val cf = new CompletableFuture[UserInfo]
-          future.onComplete {
+      .buildAsync(new com.github.benmanes.caffeine.cache.AsyncCacheLoader[Ref.UserId, Result[UserInfo]] {
+        override def asyncLoad(key: Ref.UserId, executor: Executor): CompletableFuture[Result[UserInfo]] = {
+          val cf = new CompletableFuture[Result[UserInfo]]
+          delegate.getUserInfo(key).onComplete {
             case Success(value) => cf.complete(value)
             case Failure(e) => cf.completeExceptionally(e)
           }
           cf
         }
-      })
+      }
+
+      )
   )
 
   override def getUserInfo(id: UserId): Future[Result[UserManagementStore.UserInfo]] = {
-    cache
-      .get(id)
-      // Mapping from Future[UserInfo] to Future[Result[UserInfo]]
-      .map[Result[UserManagementStore.UserInfo]](Right(_))
-      .recover {
-        case e: UserManagementStore.Error => Left(e)
-      }
+    cache.get(id)
   }
 
-  override def createUser(user: domain.User, rights: Set[domain.UserRight]): Future[Result[Unit]] =
+  override def createUser(user: User, rights: Set[domain.UserRight]): Future[Result[Unit]] =
     delegate.createUser(user, rights)
 
   override def deleteUser(id: UserId): Future[Result[Unit]] = {
@@ -103,7 +85,7 @@ class CachedUserManagementStore(
     delegate.listUsers()
   }
 
-  private def tapInvalidateOnSuccess[T](id: UserId)(r: Result[T]): Result[T] ={
+  private def tapInvalidateOnSuccess[T](id: UserId)(r: Result[T]): Result[T] = {
     r match {
       case Right(_) => cache.invalidate(id)
       case Left(_) =>

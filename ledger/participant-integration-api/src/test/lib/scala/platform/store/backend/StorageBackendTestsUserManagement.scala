@@ -19,8 +19,18 @@ private[backend] trait StorageBackendTestsUserManagement
 
   behavior of "StorageBackend (user management)"
 
+  private val tested = backend.userManagement
+
+  it should "check admin user exists" in {
+    for {
+      admin <- executeSql(tested.getUser(Ref.UserId.assertFromString("participant_admin")))
+    } yield {
+      admin shouldBe Some(User(Ref.UserId.assertFromString("participant_admin"), None))
+    }
+  }
+
   it should "check if rights exist" in {
-    val tested = backend.userManagement
+
     val user = User(
       id = Ref.UserId.assertFromString("user_id_123"),
       primaryParty = Some(Ref.Party.assertFromString("primary_party_123")),
@@ -64,7 +74,6 @@ private[backend] trait StorageBackendTestsUserManagement
         )
       )
     } yield {
-      user_id shouldBe 1
       rightExists1 shouldBe false
       rightExists2 shouldBe false
       rightExists3 shouldBe false
@@ -72,7 +81,6 @@ private[backend] trait StorageBackendTestsUserManagement
       rightAdded2 shouldBe true
       rightExists1b shouldBe true
       rightExists2b shouldBe true
-
     }
   }
   it should "create user with rights" in {
@@ -123,14 +131,12 @@ private[backend] trait StorageBackendTestsUserManagement
       deletedUser <- executeSql(tested.getUser(id = user.id))
       deletedRights <- executeSql(tested.getUserRights(internalId = user_id))
     } yield {
-      user_id shouldBe 2
       right1 shouldBe true
       right2 shouldBe true
       right3 shouldBe true
       right4 shouldBe true
 
       addedUser shouldBe defined
-      addedUser.get.internalId shouldBe 2
       addedUser.get.domainUser shouldBe user
 
       addedUserRights shouldBe rights.toSet

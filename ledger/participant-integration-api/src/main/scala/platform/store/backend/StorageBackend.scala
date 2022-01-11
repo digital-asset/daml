@@ -417,6 +417,13 @@ trait StringInterningStorageBackend {
 
 trait UserManagementStorageBackend {
 
+//  final def getUserInfo(id: UserId)(connection: Connection): Option[UserInfo] = {
+//    getUser(id)(connection).map { user =>
+//      val rights = getUserRights(user.internalId)(connection)
+//      UserInfo(user.domainUser, rights)
+//    }
+//  }
+
   def createUser(user: User, createdAt: Long)(connection: Connection): Int
 
   def deleteUser(id: UserId)(connection: Connection): Boolean

@@ -11,17 +11,23 @@ import scala.concurrent.{ExecutionContext, Future}
 abstract class UserManagementStore {
   import UserManagementStore._
 
+  // read access
+
   def getUserInfo(id: Ref.UserId): Future[Result[UserInfo]]
 
-  def createUser(user: User, rights: Set[UserRight]): Future[Result[Unit]]
-
   def listUsers(): Future[Result[Users]]
+
+  // write access
+
+  def createUser(user: User, rights: Set[UserRight]): Future[Result[Unit]]
 
   def deleteUser(id: Ref.UserId): Future[Result[Unit]]
 
   def grantRights(id: Ref.UserId, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
 
   def revokeRights(id: Ref.UserId, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
+
+  // read helpers
 
   final def getUser(id: Ref.UserId): Future[Result[User]] = {
     getUserInfo(id).map(_.map(_.user))(ExecutionContext.parasitic)
