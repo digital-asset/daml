@@ -38,7 +38,8 @@ private[backend] class PackageStorageBackendTemplate(ledgerEndCache: LedgerEndCa
     )
 
   def lfPackages(connection: Connection): Map[PackageId, PackageDetails] = {
-    val ledgerEndOffset = ledgerEndCache()._1.toHexString.toString
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    val ledgerEndOffset = ledgerEndCache()._1
     SQL"""
       select packages.package_id, packages.source_description, packages.known_since, packages.package_size
       from packages
@@ -57,7 +58,8 @@ private[backend] class PackageStorageBackendTemplate(ledgerEndCache: LedgerEndCa
 
   def lfArchive(packageId: PackageId)(connection: Connection): Option[Array[Byte]] = {
     import com.daml.platform.store.Conversions.packageIdToStatement
-    val ledgerEndOffset = ledgerEndCache()._1.toHexString.toString
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    val ledgerEndOffset = ledgerEndCache()._1
     SQL"""
       select packages.package
       from packages

@@ -16,7 +16,8 @@ private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
       ledgerEnd: Option[ParameterStorageBackend.LedgerEnd]
   )(connection: Connection): Unit = {
     ledgerEnd.foreach { existingLedgerEnd =>
-      val ledgerOffset = existingLedgerEnd.lastOffset.toHexString.toString
+      import com.daml.platform.store.Conversions.OffsetToStatement
+      val ledgerOffset = existingLedgerEnd.lastOffset
       val lastStringInterningId = existingLedgerEnd.lastStringInterningId
       val lastEventSequentialId = existingLedgerEnd.lastEventSeqId
 

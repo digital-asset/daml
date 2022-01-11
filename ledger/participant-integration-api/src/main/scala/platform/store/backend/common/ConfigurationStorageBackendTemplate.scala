@@ -51,7 +51,8 @@ private[backend] class ConfigurationStorageBackendTemplate(ledgerEndCache: Ledge
       }
 
   def ledgerConfiguration(connection: Connection): Option[(Offset, Configuration)] = {
-    val ledgerEndOffset = ledgerEndCache()._1.toHexString.toString
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    val ledgerEndOffset = ledgerEndCache()._1
     SQL"""
       select
         configuration_entries.ledger_offset,

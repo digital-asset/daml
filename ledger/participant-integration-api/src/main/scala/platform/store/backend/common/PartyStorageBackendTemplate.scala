@@ -102,10 +102,12 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
       parties: Option[Set[String]],
       connection: Connection,
   ): Vector[PartyDetails] = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
     val partyFilter = parties match {
       case Some(requestedParties) => cSQL"party_entries.party in ($requestedParties) AND"
       case None => cSQL""
     }
+    val ledgerEndOffset = ledgerEndCache()._1
     SQL"""
         WITH relevant_offsets AS (
           SELECT
@@ -114,7 +116,7 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
             #${queryStrategy.booleanOrAggregationFunction}(is_local) is_local
           FROM party_entries
           WHERE
-            ledger_offset <= ${ledgerEndCache()._1.toHexString.toString} AND
+            ledger_offset <= $ledgerEndOffset AND
             $partyFilter
             typ = 'accept'
           GROUP BY party
