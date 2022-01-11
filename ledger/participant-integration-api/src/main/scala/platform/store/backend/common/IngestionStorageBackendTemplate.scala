@@ -20,28 +20,19 @@ private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
       val lastStringInterningId = existingLedgerEnd.lastStringInterningId
       val lastEventSequentialId = existingLedgerEnd.lastEventSeqId
 
-      SQL"DELETE FROM configuration_entries WHERE ledger_offset > ${ledgerOffset}"
-        .execute()(connection)
-      SQL"DELETE FROM package_entries WHERE ledger_offset > ${ledgerOffset}"
-        .execute()(connection)
-      SQL"DELETE FROM packages WHERE ledger_offset > ${ledgerOffset}"
-        .execute()(connection)
-      SQL"DELETE FROM participant_command_completions WHERE completion_offset > ${ledgerOffset}"
-        .execute()(connection)
-      SQL"DELETE FROM participant_events_divulgence WHERE event_offset > ${ledgerOffset}"
-        .execute()(connection)
-      SQL"DELETE FROM participant_events_create WHERE event_offset > ${ledgerOffset}"
-        .execute()(connection)
-      SQL"DELETE FROM participant_events_consuming_exercise WHERE event_offset > ${ledgerOffset}"
-        .execute()(connection)
-      SQL"DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > ${ledgerOffset}"
-        .execute()(connection)
-      SQL"DELETE FROM party_entries WHERE ledger_offset > ${ledgerOffset}"
-        .execute()(connection)
-      SQL"DELETE FROM string_interning WHERE internal_id > ${lastStringInterningId}"
-        .execute()(connection)
-      SQL"DELETE FROM participant_events_create_filter WHERE event_sequential_id > ${lastEventSequentialId}"
-        .execute()(connection)
+      List(
+        SQL"DELETE FROM configuration_entries WHERE ledger_offset > $ledgerOffset",
+        SQL"DELETE FROM package_entries WHERE ledger_offset > $ledgerOffset",
+        SQL"DELETE FROM packages WHERE ledger_offset > $ledgerOffset",
+        SQL"DELETE FROM participant_command_completions WHERE completion_offset > $ledgerOffset",
+        SQL"DELETE FROM participant_events_divulgence WHERE event_offset > $ledgerOffset",
+        SQL"DELETE FROM participant_events_create WHERE event_offset > $ledgerOffset",
+        SQL"DELETE FROM participant_events_consuming_exercise WHERE event_offset > $ledgerOffset",
+        SQL"DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > $ledgerOffset",
+        SQL"DELETE FROM party_entries WHERE ledger_offset > $ledgerOffset",
+        SQL"DELETE FROM string_interning WHERE internal_id > $lastStringInterningId",
+        SQL"DELETE FROM participant_events_create_filter WHERE event_sequential_id > $lastEventSequentialId",
+      ).map(_.execute()(connection))
 
       ()
     }
