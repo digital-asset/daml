@@ -5,17 +5,29 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import java.util
 import java.util.regex.Pattern
-
+import com.daml.api.util.DurationConversion
 import com.daml.error.ErrorCode
 import com.daml.error.utils.ErrorDetails
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.participant.{
+  CompletionResponse,
+  ParticipantTestContext,
+}
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.version_service.DeduplicationPeriodSupport.{
+  DurationSupport,
+  OffsetSupport,
+}
+import com.daml.lf.data.Ref
+import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
+import com.google.protobuf.duration.Duration
 import com.google.rpc.ErrorInfo
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Status, StatusRuntimeException}
 import munit.{ComparisonFailException, Assertions => MUnit}
 
+import java.time.Instant
 import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -187,6 +199,74 @@ object Assertions {
       actualRetryabilitySeconds,
       expectedRetryabilitySeconds,
     )
+  }
+
+  def assertCompletionIsDefined(optCompletion: Option[Completion]): Completion = {
+    assert(optCompletion.isDefined, "No completion has been produced")
+    optCompletion.get
+  }
+
+  def assertDeduplicationDuration(
+      requestedDeduplicationDuration: Duration,
+      previousSubmissionSendTime: Instant,
+      completionReceiveTime: Instant,
+      completion: Completion,
+      durationSupport: DurationSupport,
+  ): Unit = discard {
+    durationSupport match {
+      case DurationSupport.DURATION_NATIVE_SUPPORT =>
+        completion.deduplicationPeriod.deduplicationDuration.map { reportedDuration =>
+          assert(
+            DurationConversion
+              .fromProto(reportedDuration)
+              .compareTo(DurationConversion.fromProto(requestedDeduplicationDuration)) <= 0,
+            s"The reported deduplication duration $reportedDuration was smaller than the requested deduplication duration $requestedDeduplicationDuration.",
+          )
+        }
+      case DurationSupport.DURATION_CONVERT_TO_OFFSET =>
+        assert(
+          DurationConversion
+            .fromProto(requestedDeduplicationDuration)
+            .compareTo(
+              java.time.Duration.between(previousSubmissionSendTime, completionReceiveTime)
+            ) <= 0,
+          s"The requested deduplication duration $requestedDeduplicationDuration was greater than the duration between sending the previous submission and receiving the next completion.",
+        )
+      case DurationSupport.Unrecognized(_) =>
+        ()
+    }
+  }
+
+  def assertDeduplicationOffset(
+      requestedDeduplicationOffset: Ref.HexString,
+      previousCompletionResponse: CompletionResponse,
+      completionResponse: CompletionResponse,
+      offsetSupport: OffsetSupport,
+  ): Unit = discard {
+    offsetSupport match {
+      case OffsetSupport.OFFSET_NATIVE_SUPPORT =>
+        completionResponse.completion.deduplicationPeriod.deduplicationOffset.map {
+          reportedOffset =>
+            assert(
+              reportedOffset <= requestedDeduplicationOffset,
+              s"The reported deduplication offset $reportedOffset was more recent than the requested deduplication offset $requestedDeduplicationOffset.",
+            )
+        }
+      case OffsetSupport.OFFSET_CONVERT_TO_DURATION =>
+        completionResponse.completion.deduplicationPeriod.deduplicationDuration.map {
+          reportedDuration =>
+            val durationBetweenPreviousAndCurrentCompletionRecordTimes = java.time.Duration
+              .between(previousCompletionResponse.recordTime, completionResponse.recordTime)
+            assert(
+              DurationConversion
+                .fromProto(reportedDuration)
+                .compareTo(durationBetweenPreviousAndCurrentCompletionRecordTimes) >= 0,
+              s"The reported duration $reportedDuration was smaller than the duration between record times ($durationBetweenPreviousAndCurrentCompletionRecordTimes).",
+            )
+        }
+      case OffsetSupport.Unrecognized(_) | OffsetSupport.OFFSET_NOT_SUPPORTED =>
+        ()
+    }
   }
 
   /** Allows for assertions with more information in the error messages. */

@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.suites
 
 import java.{time, util}
-
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.GrpcStatus
@@ -44,6 +43,7 @@ import com.daml.timer.Delayed
 import io.grpc.Status.Code
 import org.slf4j.{Logger, LoggerFactory}
 
+import java.time.Instant
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -69,23 +69,25 @@ final class CommandDeduplicationIT(
         _.commands.deduplicationPeriod :=
           DeduplicationPeriod.DeduplicationDuration(deduplicationDuration.asProtobuf)
       )
-    val acceptedSubmissionId1 = newSubmissionId()
+    val firstAcceptedSubmissionId = newSubmissionId()
+    val firstSubmissionSendTime = Instant.now()
     for {
       // Submit command (first deduplication window)
       // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
       // only one submission is therefore sent to the ledger.
       response <- submitRequestAndAssertCompletionAccepted(
         ledger,
-        updateSubmissionId(request, acceptedSubmissionId1),
+        updateSubmissionId(request, firstAcceptedSubmissionId),
         party,
       )
-      _ <- submitRequestAndAssertDeduplication(
+      optCompletion <- submitRequestAndAssertDeduplication(
         ledger,
         updateWithFreshSubmissionId(request),
-        acceptedSubmissionId1,
+        firstAcceptedSubmissionId,
         response.offset,
         party,
       )
+      secondCompletionReceiveTime = Instant.now()
       // Inspect created contracts
       _ <- assertPartyHasActiveContracts(
         ledger,
@@ -96,6 +98,14 @@ final class CommandDeduplicationIT(
       assert(
         response.completion.commandId == request.commands.get.commandId,
         "The command ID of the first completion does not match the command ID of the submission",
+      )
+      val completion = assertCompletionIsDefined(optCompletion)
+      assertDeduplicationDuration(
+        deduplicationDuration.asProtobuf,
+        firstSubmissionSendTime,
+        secondCompletionReceiveTime,
+        completion,
+        ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.durationSupport,
       )
     }
   })
@@ -479,7 +489,7 @@ final class CommandDeduplicationIT(
           // This is done so that we can validate that the third command is accepted
           _ <- delayForOffsetIfRequired(ledger, delay, ledger.features)
           // Submit command again using the first offset as the deduplication offset
-          _ <- submitRequestAndAssertAsyncDeduplication(
+          response2 <- submitRequestAndAssertAsyncDeduplication(
             ledger,
             updateWithFreshSubmissionId(
               request.update(
@@ -498,7 +508,7 @@ final class CommandDeduplicationIT(
             party,
           )
           // Submit command again using the rejection offset as a deduplication period
-          _ <- submitRequestAndAssertCompletionAccepted(
+          response4 <- submitRequestAndAssertCompletionAccepted(
             ledger,
             updateWithFreshSubmissionId(
               request.update(
@@ -509,7 +519,20 @@ final class CommandDeduplicationIT(
             ),
             party,
           )
-        } yield {}
+        } yield {
+          assertDeduplicationOffset(
+            Ref.HexString.assertFromString(response.offset.getAbsolute),
+            response,
+            response2,
+            ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport,
+          )
+          assertDeduplicationOffset(
+            Ref.HexString.assertFromString(response3.offset.getAbsolute),
+            response3,
+            response4,
+            ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport,
+          )
+        }
       }
     }
   )
