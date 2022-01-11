@@ -54,7 +54,7 @@ API.
    in a gRPC endpoint; consider whether it is actually important enough
    for the use cases described above.
 
-7. Returning extra data is not free; it is a permanent semantic burden
+7. Returning extra data is not free; it is a permanent cognitive burden
    on every new user of the endpoint.  As such, if a piece of
    information will not be used by many users of the endpoint, it should
    probably be stripped away.  Do not merely pass through everything
@@ -66,7 +66,7 @@ API.
    the ground quickly_ as described in (1), not because this should be
    done for all applications.  A more complicated way that it adds value
    is with the query language.  The easiest way to _add simplifying
-   value_ is to exclude rarely needed arguments and results as mentioned
+   value_ is to exclude rarely-needed arguments and results as mentioned
    in the above points.
 
 9. The query language leans heavily on (1).  It is meant to efficiently
