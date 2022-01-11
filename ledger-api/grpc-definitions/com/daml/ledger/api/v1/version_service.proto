@@ -57,8 +57,7 @@ message FeaturesDescriptor {
 
 }
 
-// Used to signal the presence of the user management service.
-// Defined as a message to enable future addition of individual per-service features.
+// Whether the Ledger API server provides the user management service.
 message UserManagementFeature {
   bool supported = 1;
 }
