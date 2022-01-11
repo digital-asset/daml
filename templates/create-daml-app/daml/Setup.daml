@@ -1,10 +1,29 @@
 module Setup where
 
-import DA.Foldable
+import DA.Action (unless)
+import DA.Foldable (forA_)
+import qualified DA.Text as T
 import Daml.Script
 
 setup : Script ()
 setup = do
-  forA_ [("Alice", "alice"), ("Bob", "bob"), ("Charlie", "charlie")] $ \(displayName, userName) -> do
-    p <- allocatePartyWithHint displayName (PartyIdHint ("p" <> userName))
-    createUser (User userName (Some p)) [CanActAs p]
+  let displayNames = ["Alice", "Bob", "Charlie"]
+  forA_ displayNames $ \displayName -> do
+    let userId = toUserId displayName
+    u <- getUser userId
+    case u of
+      Some _ ->
+        -- user already exists do nothing
+        pure ()
+      None -> do
+        let partyIdHint = toPartyIdHint displayName
+        p <- allocatePartyWithHint displayName (PartyIdHint partyIdHint)
+        createUser (User userId (Some p)) [CanActAs p]
+        pure ()
+
+toUserId : Text -> Text
+toUserId = T.asciiToLower
+
+-- TODO Drop hints once we have aliases.
+toPartyIdHint : Text -> Text
+toPartyIdHint p = "p" <> toUserId p

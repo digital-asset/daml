@@ -106,9 +106,8 @@ class CommandDeduplicationParallelIT extends LedgerTestSuite {
       // Canton can return ABORTED for parallel in-flight duplicate submissions
       val abortedResponses = responses.getOrElse(Code.ABORTED, 0)
       val duplicateResponses =
-        if (
-          ledger.features.commandDeduplicationFeatures.participantDeduplicationSupport.isParticipantDeduplicationParallelOnly
-        ) alreadyExistsResponses + abortedResponses
+        if (ledger.features.commandDeduplicationFeatures.deduplicationType.isAsyncAndConcurrentSync)
+          alreadyExistsResponses + abortedResponses
         else alreadyExistsResponses
       assert(
         okResponses == 1 && duplicateResponses == numberOfParallelRequests - 1,

@@ -17,7 +17,47 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 // See the feature message definitions for descriptions.
 message ExperimentalFeatures {
   ExperimentalSelfServiceErrorCodes self_service_error_codes = 1;
+  ExperimentalStaticTime static_time = 2;
+  CommandDeduplicationFeatures command_deduplication = 3;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
 message ExperimentalSelfServiceErrorCodes {}
+
+// Ledger is in the static time mode and exposes a time service.
+message ExperimentalStaticTime {}
+
+// Feature descriptors for command deduplication intended to be used for adapting Ledger API tests.
+message CommandDeduplicationFeatures {
+  CommandDeduplicationPeriodSupport deduplication_period_support = 1;
+  CommandDeduplicationType deduplication_type = 2;
+}
+
+// Feature descriptor specifying how deduplication periods can be specified and how they are handled by the participant
+// node.
+message CommandDeduplicationPeriodSupport {
+  // How the participant node supports deduplication periods specified using offsets.
+  enum OffsetSupport {
+    OFFSET_NOT_SUPPORTED = 0;
+    OFFSET_NATIVE_SUPPORT = 1;
+    OFFSET_CONVERT_TO_DURATION = 2;
+  }
+  // How the participant node supports deduplication periods specified as durations.
+  enum DurationSupport {
+    DURATION_NATIVE_SUPPORT = 0;
+    DURATION_CONVERT_TO_OFFSET = 1;
+  }
+  OffsetSupport offset_support = 1;
+  DurationSupport duration_support = 2;
+}
+
+// How the participant node reports duplicate command submissions.
+enum CommandDeduplicationType {
+  // Duplicate commands are exclusively reported asynchronously via completions.
+  ASYNC_ONLY = 0;
+  // Commands that are duplicates of concurrently submitted commands are reported synchronously via a gRPC error on the
+  // command submission, while all other duplicate commands are reported asynchronously via completions.
+  ASYNC_AND_CONCURRENT_SYNC = 1;
+  // Duplicate commands are always reported synchronously via a synchronous gRPC error on the command submission.
+  SYNC_ONLY = 2;
+}

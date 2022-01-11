@@ -648,26 +648,19 @@ private[validation] object Typing {
         .fromSeq(fields.iterator.map { case (f, x) => f -> typeOf(x) }.toSeq)
         .fold(name => throw EDuplicateField(ctx, name), TStruct)
 
-    private def typeOfStructProj(proj: EStructProj): Type = {
-      val TStruct(structType) = toStruct(typeOf(proj.struct))
-      val index = structType.indexOf(proj.field)
-      if (index < 0)
-        throw EUnknownField(ctx, proj.field)
-      else {
-        proj.fieldIndex = Some(index)
-        structType.toImmArray(index)._2
+    private def typeOfStructProj(proj: EStructProj): Type =
+      toStruct(typeOf(proj.struct)).fields.get(proj.field) match {
+        case Some(typ) => typ
+        case None => throw EUnknownField(ctx, proj.field)
       }
-    }
 
     private def typeOfStructUpd(upd: EStructUpd): Type = {
-      val typ @ TStruct(structType) = toStruct(typeOf(upd.struct))
-      val index = structType.indexOf(upd.field)
-      if (index < 0)
-        throw EUnknownField(ctx, upd.field)
-      else {
-        upd.fieldIndex = Some(index)
-        checkExpr(upd.update, structType.toImmArray(index)._2)
-        typ
+      val structType = toStruct(typeOf(upd.struct))
+      structType.fields.get(upd.field) match {
+        case Some(updateType) =>
+          checkExpr(upd.update, updateType)
+          structType
+        case None => throw EUnknownField(ctx, upd.field)
       }
     }
 

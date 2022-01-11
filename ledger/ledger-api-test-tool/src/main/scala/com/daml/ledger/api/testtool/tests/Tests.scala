@@ -45,6 +45,7 @@ object Tests {
       new PartyManagementServiceIT,
       new RaceConditionIT,
       new SemanticTests,
+      new TimeServiceIT,
       new TransactionServiceArgumentsIT,
       new TransactionServiceAuthorizationIT,
       new TransactionServiceCorrectnessIT,

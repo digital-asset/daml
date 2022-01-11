@@ -9,12 +9,13 @@ import com.daml.error.{
   ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.v1.experimental_features.{
+  CommandDeduplicationFeatures,
   ExperimentalFeatures,
   ExperimentalSelfServiceErrorCodes,
+  ExperimentalStaticTime,
 }
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import com.daml.ledger.api.v1.version_service.{
-  CommandDeduplicationFeatures,
   FeaturesDescriptor,
   GetLedgerApiVersionRequest,
   GetLedgerApiVersionResponse,
@@ -34,6 +35,7 @@ import scala.util.control.NonFatal
 private[apiserver] final class ApiVersionService private (
     enableSelfServiceErrorCodes: Boolean,
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
+    enableStaticTime: Boolean,
 )(implicit
     loggingContext: LoggingContext,
     ec: ExecutionContext,
@@ -53,11 +55,13 @@ private[apiserver] final class ApiVersionService private (
     FeaturesDescriptor.of(
       userManagement = Some(UserManagementFeature()),
       experimental = Some(
-        ExperimentalFeatures(selfServiceErrorCodes =
-          Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes())
+        ExperimentalFeatures(
+          selfServiceErrorCodes =
+            Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes()),
+          staticTime = Option.when(enableStaticTime)(ExperimentalStaticTime()),
+          commandDeduplication = Some(commandDeduplicationFeatures),
         )
       ),
-      commandDeduplication = Some(commandDeduplicationFeatures),
     )
 
   override def getLedgerApiVersion(
@@ -99,6 +103,11 @@ private[apiserver] object ApiVersionService {
   def create(
       enableSelfServiceErrorCodes: Boolean,
       commandDeduplicationFeatures: CommandDeduplicationFeatures,
+      enableStaticTime: Boolean,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
-    new ApiVersionService(enableSelfServiceErrorCodes, commandDeduplicationFeatures)
+    new ApiVersionService(
+      enableSelfServiceErrorCodes,
+      commandDeduplicationFeatures,
+      enableStaticTime,
+    )
 }
