@@ -231,6 +231,7 @@ class Endpoints(
             toRoute(retrieveAll(req)),
           path("user") & withFetchTimer apply toRoute(getUser(req)),
           path("user" / "rights") & withFetchTimer apply toRoute(listUserRights(req)),
+          path("users") & withFetchTimer apply toRoute(listUsers(req)),
           path("parties") & withTimer(getPartyTimer) apply
             toRoute(allParties(req)),
           path("packages") apply toRoute(listPackages(req)),
@@ -473,6 +474,16 @@ class Endpoints(
   ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
     proxyWithoutCommand((jwt, _) => partiesService.allParties(jwt))(req)
       .flatMap(pd => either(pd map (domain.OkResponse(_))))
+
+  def listUsers(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[List[domain.UserDetails]]] =
+    for {
+      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
+      users <- EitherT.rightT(
+        userManagementClient.listUsers(Some(jwt.value))
+      )
+    } yield domain.OkResponse(users.map(domain.UserDetails.fromUser).toList)
 
   def listUserRights(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]

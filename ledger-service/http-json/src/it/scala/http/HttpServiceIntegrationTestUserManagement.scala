@@ -236,6 +236,44 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     } yield assertion
   }
 
+  "getting all users should be possible via the users endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, _, _) =>
+    import spray.json._
+    import scalaz.std.scalaFuture._
+    import scalaz.syntax.traverse._
+    import scalaz.std.list._
+    val alice = getUniqueParty("Alice")
+    val usernames = List("nice.username", "nice.username2", "nice.username3").map(getUniqueUserName)
+    val createUserRequests = usernames.map(name =>
+      domain.CreateUserRequest(
+        name,
+        Some(alice.unwrap),
+        List(alice),
+        List.empty,
+        isAdmin = true,
+      )
+    )
+    for {
+      _ <- createUserRequests.traverse(createUserRequest =>
+        for {
+          (status, _) <- postRequest(
+            uri.withPath(Uri.Path("/v1/user/create")),
+            createUserRequest.toJson,
+            headers = authorizationHeader(participantAdminJwt),
+          )
+          _ = status shouldBe StatusCodes.OK
+        } yield ()
+      )
+      (status, output) <- getRequest(
+        uri.withPath(Uri.Path("/v1/users")),
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ = status shouldBe StatusCodes.OK
+      users = getResult(output).convertTo[List[UserDetails]]
+    } yield users.map(_.userId) should contain allElementsOf usernames
+  }
+
 }
 
 class HttpServiceIntegrationTestUserManagement
