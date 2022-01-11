@@ -53,12 +53,12 @@ private[apiserver] final class ApiVersionService private (
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
-      userManagement = Some(UserManagementFeature()),
+      userManagement = Some(UserManagementFeature(supported = true)),
       experimental = Some(
         ExperimentalFeatures(
           selfServiceErrorCodes =
-            Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes()),
-          staticTime = Option.when(enableStaticTime)(ExperimentalStaticTime()),
+            Some(ExperimentalSelfServiceErrorCodes(supported = enableSelfServiceErrorCodes)),
+          staticTime = Some(ExperimentalStaticTime(supported = enableStaticTime)),
           commandDeduplication = Some(commandDeduplicationFeatures),
         )
       ),

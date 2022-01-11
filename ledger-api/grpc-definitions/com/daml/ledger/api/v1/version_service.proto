@@ -59,4 +59,6 @@ message FeaturesDescriptor {
 
 // Used to signal the presence of the user management service.
 // Defined as a message to enable future addition of individual per-service features.
-message UserManagementFeature {}
+message UserManagementFeature {
+  bool supported = 1;
+}

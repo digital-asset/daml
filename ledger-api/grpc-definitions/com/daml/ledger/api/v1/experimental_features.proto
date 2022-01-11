@@ -22,10 +22,14 @@ message ExperimentalFeatures {
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
-message ExperimentalSelfServiceErrorCodes {}
+message ExperimentalSelfServiceErrorCodes {
+  bool supported = 1;
+}
 
 // Ledger is in the static time mode and exposes a time service.
-message ExperimentalStaticTime {}
+message ExperimentalStaticTime {
+  bool supported = 1;
+}
 
 // Feature descriptors for command deduplication intended to be used for adapting Ledger API tests.
 message CommandDeduplicationFeatures {

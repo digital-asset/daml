@@ -22,9 +22,10 @@ object Features {
     val experimental = features.flatMap(_.experimental)
 
     Features(
-      selfServiceErrorCodes = experimental.flatMap(_.selfServiceErrorCodes).isDefined,
-      userManagement = features.flatMap(_.userManagement).isDefined,
-      staticTime = experimental.flatMap(_.staticTime).isDefined,
+      selfServiceErrorCodes =
+        experimental.flatMap(_.selfServiceErrorCodes.map(_.supported)).contains(true),
+      userManagement = features.flatMap(_.userManagement.map(_.supported)).contains(true),
+      staticTime = experimental.flatMap(_.staticTime.map(_.supported)).contains(true),
       commandDeduplicationFeatures = response.getFeatures.getExperimental.getCommandDeduplication,
     )
   }
