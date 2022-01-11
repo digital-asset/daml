@@ -434,7 +434,7 @@ final class SandboxServer(
                 CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
             )
           ),
-          CommandDeduplicationType.ASYNC_ONLY,
+          CommandDeduplicationType.SYNC_ONLY,
         ),
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
