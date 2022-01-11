@@ -127,7 +127,7 @@ withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
       cantonOptions <- determineCantonOptions sandboxPortM cantonPortSpec portFile
       withCantonSandbox cantonOptions sandboxArgs $ \ph -> do
         putStrLn "Waiting for canton sandbox to start."
-        sandboxPort <- readPortFileWith decodeCantonSandboxPort maxRetries portFile
+        sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries portFile
         runLedgerUploadDar ((defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}) (Just darPath)
         kont ph (SandboxPort sandboxPort)
 
@@ -143,7 +143,7 @@ withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
             ]
       withPlatformJar args "sandbox-logback.xml" $ \ph -> do
           putStrLn "Waiting for sandbox to start: "
-          port <- readPortFile maxRetries portFile
+          port <- readPortFile (unsafeProcessHandle ph) maxRetries portFile
           kont ph (SandboxPort port)
 
 withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (Process () () () -> IO a) -> IO a
@@ -156,8 +156,8 @@ withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
     withJar damlSdkJar [logbackArg] ("navigator":navigatorArgs) $ \ph -> do
         putStrLn "Waiting for navigator to start: "
-        -- TODO We need to figure out a sane timeout for this step.
-        waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort) []
+        waitForHttpServer 240 (unsafeProcessHandle ph) (putStr "." *> threadDelay 500000)
+            (navigatorURL navigatorPort) []
         a ph
 
 withJsonApi :: SandboxPort -> JsonApiPort -> [String] -> (Process () () () -> IO a) -> IO a
@@ -185,7 +185,8 @@ withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) extraArgs a = do
         let headers =
                 [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
                 ] :: HTTP.RequestHeaders
-        waitForHttpServer (putStr "." *> threadDelay 500000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
+        waitForHttpServer 240 (unsafeProcessHandle ph) (putStr "." *> threadDelay 500000)
+            ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
         a ph
 
 data JsonApiConfig = JsonApiConfig

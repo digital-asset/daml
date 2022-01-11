@@ -58,10 +58,10 @@ createHttpJson httpJsonOutput getLedgerPort HttpJsonConfig {actor, mbSharedSecre
   writeFileUTF8 tokenFile $ T.unpack token
   httpJsonProc <- getHttpJsonProc getLedgerPort portFile
   mask $ \unmask -> do
-    ph <- createProcess httpJsonProc {std_out = UseHandle httpJsonOutput}
+    ph@(_,_,_,ph') <- createProcess httpJsonProc {std_out = UseHandle httpJsonOutput}
     let cleanup = cleanupProcess ph >> rmTmpDir
     let waitForStart = do
-          port <- readPortFile maxRetries portFile
+          port <- readPortFile ph' maxRetries portFile
           pure
             (HttpJsonResource
                { httpJsonProcess = ph
