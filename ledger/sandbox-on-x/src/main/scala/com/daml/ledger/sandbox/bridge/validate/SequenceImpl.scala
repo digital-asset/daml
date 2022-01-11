@@ -45,10 +45,10 @@ private[validate] class SequenceImpl(
 ) extends Sequence {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
-  @volatile private var offsetIdx = fromOffset(initialLedgerEnd)
-  @volatile private var sequencerState = SequencerState()(bridgeMetrics)
-  @volatile private var allocatedParties = initialAllocatedParties
-  @volatile private var ledgerConfiguration = initialLedgerConfiguration
+  @volatile private[validate] var offsetIdx = fromOffset(initialLedgerEnd)
+  @volatile private[validate] var sequencerState = SequencerState()(bridgeMetrics)
+  @volatile private[validate] var allocatedParties = initialAllocatedParties
+  @volatile private[validate] var ledgerConfiguration = initialLedgerConfiguration
 
   override def apply(): Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)] =
     in => {
