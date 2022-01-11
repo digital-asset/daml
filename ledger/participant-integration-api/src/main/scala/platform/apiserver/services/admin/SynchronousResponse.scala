@@ -55,13 +55,21 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             }
             .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
             .runWith(Sink.head)
-            .recoverWith { case _: TimeoutException =>
-              Future.failed(
-                errorFactories
-                  .isTimeoutUnknown_wasAborted("Request timed out", definiteAnswer = Some(false))(
-                    new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
-                  )
-              )
+            .recoverWith {
+              case _: TimeoutException =>
+                Future.failed(
+                  errorFactories
+                    .isTimeoutUnknown_wasAborted("Request timed out", definiteAnswer = Some(false))(
+                      new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+                    )
+                )
+              case _: NoSuchElementException =>
+                Future.failed(
+                  errorFactories
+                    .queueClosed("Party submission")(
+                      new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+                    )
+                )
             }
             .flatten
         case r: SubmissionResult.SynchronousError =>
