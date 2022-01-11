@@ -254,32 +254,3 @@ proto_jars(
         "@com_google_protobuf//:timestamp_proto",
     ],
 )
-
-REFERENCE_LEDGER_EXPORT_NAME = "reference-ledger-export"
-
-# Generates a ledger export by running the test tool against a kvutils-based ledger.
-client_server_build(
-    name = REFERENCE_LEDGER_EXPORT_NAME,
-    testonly = True,  # only test targets can depend on this.
-    outs = ["%s.out" % REFERENCE_LEDGER_EXPORT_NAME],
-    client = "//ledger/ledger-api-test-tool",
-    client_args = [
-        "--timeout-scale-factor=20",
-        "localhost:%PORT%",
-        "--exclude=HealthServiceIT",  # Does not make sense to run it for the export
-    ],
-    output_env = "KVUTILS_LEDGER_EXPORT",
-    server = "//ledger/ledger-on-memory:app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=export,port=0,port-file=%PORT_FILE%",
-    ],
-    visibility = [":__subpackages__"],
-) if not is_windows else None
-
-# Test for checking the integrity of the ledger export produced above.
-integrity_test(
-    name = "%s-integrity-test" % REFERENCE_LEDGER_EXPORT_NAME,
-    checker = "//ledger/participant-state/kvutils/tools:integrity-check",
-    dump = ":%s" % REFERENCE_LEDGER_EXPORT_NAME,
-) if not is_windows else None
