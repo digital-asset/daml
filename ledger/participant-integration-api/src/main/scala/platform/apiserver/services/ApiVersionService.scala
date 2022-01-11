@@ -57,7 +57,7 @@ private[apiserver] final class ApiVersionService private (
       experimental = Some(
         ExperimentalFeatures(
           selfServiceErrorCodes =
-            Some(ExperimentalSelfServiceErrorCodes(supported = enableSelfServiceErrorCodes)),
+            Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes()),
           staticTime = Some(ExperimentalStaticTime(supported = enableStaticTime)),
           commandDeduplication = Some(commandDeduplicationFeatures),
         )
