@@ -32,8 +32,8 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.completion.Completion.{
   DeduplicationPeriod => CompletionDeduplicationPeriod
 }
+import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationPeriodSupport.OffsetSupport
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.version_service.DeduplicationPeriodSupport.OffsetSupport
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, TextKeyOperations}
@@ -328,7 +328,7 @@ final class CommandDeduplicationIT(
         submitAndAssertAccepted(thirdCall)
       }
       _ = if ( // participant deduplication is based on submittedAt, and thus the delta between record times can actually be smaller than the deduplication duration
-        !ledger.features.commandDeduplicationFeatures.participantDeduplicationSupport.isParticipantDeduplicationSupported
+        !ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly
       )
         assert(
           time.Duration
@@ -586,9 +586,7 @@ final class CommandDeduplicationIT(
   )(implicit
       ec: ExecutionContext
   ): Future[Option[Completion]] =
-    if (
-      ledger.features.commandDeduplicationFeatures.participantDeduplicationSupport.isParticipantDeduplicationSupported
-    )
+    if (ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly)
       submitRequestAndAssertSyncDeduplication(ledger, request, acceptedSubmissionId, acceptedOffset)
         .map(_ => None)
     else

@@ -53,7 +53,7 @@ message CommandDeduplicationPeriodSupport {
 
 // How the participant node reports duplicate command submissions.
 enum CommandDeduplicationType {
-  // Duplicate commands are exclusively reported asynchronous via completions.
+  // Duplicate commands are exclusively reported asynchronously via completions.
   ASYNC_ONLY = 0;
   // Commands that are duplicates of concurrently submitted commands are reported synchronously via a gRPC error on the
   // command submission, while all other duplicate commands are reported asynchronously via completions.
