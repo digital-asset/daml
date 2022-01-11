@@ -8,7 +8,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, PreparedSubmission}
-import com.daml.ledger.sandbox.domain.Submission
+import com.daml.ledger.sandbox.domain.{Rejection, Submission}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -25,12 +25,13 @@ class TagWithLedgerEndSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
+  private val indexServiceMock = mock[IndexService]
+  private val tagWithLedgerEnd = new TagWithLedgerEndImpl(
+    indexService = indexServiceMock,
+    bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry)),
+  )
+
   "tagWithLedgerEnd" should "tag the incoming submissions with the index service ledger end" in {
-    val indexServiceMock = mock[IndexService]
-    val tagWithLedgerEnd = new TagWithLedgerEndImpl(
-      indexServiceMock,
-      bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry)),
-    )
     val offsetString = Ref.HexString.assertFromString("ab")
     val expectedOffset = Offset.fromHexString(offsetString)
     val indexServiceProvidedOffset = domain.LedgerOffset.Absolute(offsetString)
@@ -49,5 +50,10 @@ class TagWithLedgerEndSpec extends AnyFlatSpec with Matchers with MockitoSugar {
 
     tagWithLedgerEnd(Right(somePreparedSubmission))
       .map(_ shouldBe Right(expectedOffset -> somePreparedSubmission))
+  }
+
+  "tagWithLedgerEnd" should "propagate a rejection" in {
+    val rejectionIn = Left(mock[Rejection])
+    tagWithLedgerEnd(rejectionIn).map(_ shouldBe rejectionIn)
   }
 }
