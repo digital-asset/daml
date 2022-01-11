@@ -236,6 +236,193 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     } yield assertion
   }
 
+  "getting all users should be possible via the users endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, _, _) =>
+    import spray.json._
+    import scalaz.std.scalaFuture._
+    import scalaz.syntax.traverse._
+    import scalaz.std.list._
+    val alice = getUniqueParty("Alice")
+    val usernames = List("nice.username", "nice.username2", "nice.username3").map(getUniqueUserName)
+    val createUserRequests = usernames.map(name =>
+      domain.CreateUserRequest(
+        name,
+        Some(alice.unwrap),
+        List(alice),
+        List.empty,
+        isAdmin = true,
+      )
+    )
+    for {
+      _ <- createUserRequests.traverse(createUserRequest =>
+        for {
+          (status, _) <- postRequest(
+            uri.withPath(Uri.Path("/v1/user/create")),
+            createUserRequest.toJson,
+            headers = authorizationHeader(participantAdminJwt),
+          )
+          _ = status shouldBe StatusCodes.OK
+        } yield ()
+      )
+      (status, output) <- getRequest(
+        uri.withPath(Uri.Path("/v1/users")),
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ = status shouldBe StatusCodes.OK
+      users = getResult(output).convertTo[List[UserDetails]]
+    } yield users.map(_.userId) should contain allElementsOf usernames
+  }
+
+  "getting information about a specific user should be possible via the user endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, _, _) =>
+    import spray.json._
+    import spray.json.DefaultJsonProtocol._
+    val alice = getUniqueParty("Alice")
+    val createUserRequest = domain.CreateUserRequest(
+      getUniqueUserName("nice.user"),
+      Some(alice.unwrap),
+      List(alice),
+      List.empty,
+      isAdmin = true,
+    )
+    for {
+      (status1, output1) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/create")),
+        createUserRequest.toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ <- {
+        status1 shouldBe StatusCodes.OK
+        getResult(output1).convertTo[Boolean] shouldBe true
+      }
+      (status2, output2) <- postRequest(
+        uri.withPath(Uri.Path(s"/v1/user")),
+        domain.GetUserRequest(createUserRequest.userId).toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+    } yield {
+      status2 shouldBe StatusCodes.OK
+      getResult(output2).convertTo[UserDetails] shouldBe UserDetails(
+        createUserRequest.userId,
+        createUserRequest.primaryParty,
+      )
+    }
+  }
+
+  "getting information about the current user should be possible via the user endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, _, _) =>
+    import spray.json._
+    import spray.json.DefaultJsonProtocol._
+    val alice = getUniqueParty("Alice")
+    val createUserRequest = domain.CreateUserRequest(
+      getUniqueUserName("nice.user"),
+      Some(alice.unwrap),
+      List(alice),
+      List.empty,
+      isAdmin = true,
+    )
+    for {
+      (status1, output1) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/create")),
+        createUserRequest.toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ <- {
+        status1 shouldBe StatusCodes.OK
+        getResult(output1).convertTo[Boolean] shouldBe true
+      }
+      (status2, output2) <- getRequest(
+        uri.withPath(Uri.Path(s"/v1/user")),
+        headers = headersWithUserAuth(createUserRequest.userId, admin = true),
+      )
+    } yield {
+      status2 shouldBe StatusCodes.OK
+      getResult(output2).convertTo[UserDetails] shouldBe UserDetails(
+        createUserRequest.userId,
+        createUserRequest.primaryParty,
+      )
+    }
+  }
+
+  "deleting a specific user should be possible via the user/delete endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, _, _) =>
+    import spray.json._
+    import spray.json.DefaultJsonProtocol._
+    val alice = getUniqueParty("Alice")
+    val createUserRequest = domain.CreateUserRequest(
+      getUniqueUserName("nice.user"),
+      Some(alice.unwrap),
+      List(alice),
+      List.empty,
+      isAdmin = true,
+    )
+    for {
+      (status1, output1) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/create")),
+        createUserRequest.toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ <- {
+        status1 shouldBe StatusCodes.OK
+        getResult(output1).convertTo[Boolean] shouldBe true
+      }
+      (status2, _) <- postRequest(
+        uri.withPath(Uri.Path(s"/v1/user/delete")),
+        domain.DeleteUserRequest(createUserRequest.userId).toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ = status2 shouldBe StatusCodes.OK
+      (status3, output3) <- getRequest(
+        uri.withPath(Uri.Path("/v1/users")),
+        headers = authorizationHeader(participantAdminJwt),
+      )
+    } yield {
+      status3 shouldBe StatusCodes.OK
+      getResult(output3).convertTo[List[UserDetails]] should not contain createUserRequest.userId
+    }
+  }
+
+  "deleting the current user should be possible via the user/delete endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, _, _) =>
+    import spray.json._
+    import spray.json.DefaultJsonProtocol._
+    val alice = getUniqueParty("Alice")
+    val createUserRequest = domain.CreateUserRequest(
+      getUniqueUserName("nice.user"),
+      Some(alice.unwrap),
+      List(alice),
+      List.empty,
+      isAdmin = true,
+    )
+    for {
+      (status1, output1) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/create")),
+        createUserRequest.toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ <- {
+        status1 shouldBe StatusCodes.OK
+        getResult(output1).convertTo[Boolean] shouldBe true
+      }
+      (status2, _) <- getRequest(
+        uri.withPath(Uri.Path(s"/v1/user/delete")),
+        headers = headersWithUserAuth(createUserRequest.userId),
+      )
+      _ = status2 shouldBe StatusCodes.OK
+      (status3, output3) <- getRequest(
+        uri.withPath(Uri.Path("/v1/users")),
+        headers = authorizationHeader(participantAdminJwt),
+      )
+    } yield {
+      status3 shouldBe StatusCodes.OK
+      getResult(output3).convertTo[List[UserDetails]] should not contain createUserRequest.userId
+    }
+  }
 }
 
 class HttpServiceIntegrationTestUserManagement

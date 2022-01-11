@@ -148,7 +148,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
     WithTimeout(5.seconds)(
       ledger
         .findCompletion(ledger.completionStreamRequest(offset)(party))(_ => true)
-        .map(_.map(_._2))
+        .map(_.map(_.completion))
     )
 
   private def assertSubmissionIdIsPreserved(

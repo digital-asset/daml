@@ -603,7 +603,7 @@ class WebSocketService(
   import util.ErrorOps._
   import com.daml.http.json.JsonProtocol._
 
-  private val config = wsConfig.getOrElse(Config.DefaultWsConfig)
+  private val config = wsConfig.getOrElse(WebsocketConfig())
 
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
@@ -883,7 +883,7 @@ class WebSocketService(
 
     Flow[StepAndErrors[Pos, JsValue]]
       .map(a => Step(a))
-      .keepAlive(config.heartBeatPer, () => TickTrigger)
+      .keepAlive(config.heartbeatPeriod, () => TickTrigger)
       .scan(zero) {
         case ((None, _), TickTrigger) =>
           // skip all ticks we don't have the offset yet

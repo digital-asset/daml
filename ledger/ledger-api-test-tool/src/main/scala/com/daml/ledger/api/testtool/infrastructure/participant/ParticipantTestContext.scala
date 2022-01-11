@@ -679,19 +679,20 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def findCompletion(
       request: CompletionStreamRequest
-  )(p: Completion => Boolean): Future[Option[(LedgerOffset, Completion)]] =
+  )(p: Completion => Boolean): Future[Option[CompletionResponse]] =
     new StreamConsumer[CompletionStreamResponse](
       services.commandCompletion.completionStream(request, _)
     ).find(_.completions.exists(p))
-      .map(response =>
-        response.checkpoint
-          .flatMap(_.offset)
-          .flatMap(offset => response.completions.find(p).map(offset -> _))
-      )
+      .map(response => {
+        val checkpoint = response.getCheckpoint
+        response.completions
+          .find(p)
+          .map(CompletionResponse(_, checkpoint.getOffset, checkpoint.getRecordTime.asJava))
+      })
 
   def findCompletion(parties: Party*)(
       p: Completion => Boolean
-  ): Future[Option[(LedgerOffset, Completion)]] =
+  ): Future[Option[CompletionResponse]] =
     findCompletion(completionStreamRequest()(parties: _*))(p)
 
   def checkpoints(n: Int, request: CompletionStreamRequest): Future[Vector[Checkpoint]] =
@@ -798,3 +799,5 @@ private[testtool] final class ParticipantTestContext private[participant] (
   private def reservePartyNames(n: Int): Future[Vector[Party]] =
     Future.successful(Vector.fill(n)(Party(nextPartyHintId())))
 }
+
+case class CompletionResponse(completion: Completion, offset: LedgerOffset, recordTime: Instant)

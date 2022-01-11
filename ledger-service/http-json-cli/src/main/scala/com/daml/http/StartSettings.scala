@@ -7,7 +7,7 @@ import java.nio.file.Path
 
 import com.daml.ledger.api.tls.TlsConfiguration
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
@@ -39,9 +39,10 @@ trait StartSettings {
 
 object StartSettings {
 
-  val DefaultPackageReloadInterval: FiniteDuration = FiniteDuration(5, "s")
+  val DefaultPackageReloadInterval: FiniteDuration = 5.seconds
   val DefaultMaxInboundMessageSize: Int = 4194304
   val DefaultHealthTimeoutSeconds: Int = 5
+  val DefaultMetricsReportingInterval: FiniteDuration = 10.seconds
 
   trait Default extends StartSettings {
     override val staticContentConfig: Option[StaticContentConfig] = None
