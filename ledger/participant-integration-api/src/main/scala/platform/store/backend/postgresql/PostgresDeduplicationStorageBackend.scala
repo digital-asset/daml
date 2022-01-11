@@ -19,7 +19,7 @@ object PostgresDeduplicationStorageBackend extends DeduplicationStorageBackendTe
   )(connection: Connection)(implicit loggingContext: LoggingContext): Int =
     SQL"""
       insert into participant_command_submissions as pcs (deduplication_key, deduplicate_until)
-      values (${key}, ${deduplicateUntil.micros})
+      values ($key, ${deduplicateUntil.micros})
       on conflict (deduplication_key)
         do update
         set deduplicate_until=${deduplicateUntil.micros}

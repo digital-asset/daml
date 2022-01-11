@@ -77,10 +77,10 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL"""select * from party_entries
-      where (${startExclusive} is null or ledger_offset>${startExclusive}) and ledger_offset<=${endInclusive}
+      where ($startExclusive is null or ledger_offset>$startExclusive) and ledger_offset<=$endInclusive
       order by ledger_offset asc
-      offset ${queryOffset} rows
-      fetch next ${pageSize} rows only
+      offset $queryOffset rows
+      fetch next $pageSize rows only
       """
       .asVectorOf(partyEntryParser)(connection)
   }

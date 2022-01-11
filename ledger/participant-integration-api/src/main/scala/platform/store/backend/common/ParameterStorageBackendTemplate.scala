@@ -143,8 +143,8 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL"""
-      update parameters set participant_pruned_up_to_inclusive=${prunedUpToInclusive}
-      where participant_pruned_up_to_inclusive < ${prunedUpToInclusive} or participant_pruned_up_to_inclusive is null
+      update parameters set participant_pruned_up_to_inclusive=$prunedUpToInclusive
+      where participant_pruned_up_to_inclusive < $prunedUpToInclusive or participant_pruned_up_to_inclusive is null
       """
       .execute()(connection)
     ()
@@ -155,8 +155,8 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
   )(connection: Connection): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL"""
-      update parameters set participant_all_divulged_contracts_pruned_up_to_inclusive=${prunedUpToInclusive}
-      where participant_all_divulged_contracts_pruned_up_to_inclusive < ${prunedUpToInclusive} or participant_all_divulged_contracts_pruned_up_to_inclusive is null
+      update parameters set participant_all_divulged_contracts_pruned_up_to_inclusive=$prunedUpToInclusive
+      where participant_all_divulged_contracts_pruned_up_to_inclusive < $prunedUpToInclusive or participant_all_divulged_contracts_pruned_up_to_inclusive is null
       """
       .execute()(connection)
     ()

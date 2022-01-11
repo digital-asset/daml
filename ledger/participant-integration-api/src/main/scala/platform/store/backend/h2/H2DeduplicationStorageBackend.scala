@@ -36,10 +36,10 @@ object H2DeduplicationStorageBackend extends DeduplicationStorageBackendTemplate
     retry(
       SQL"""
         merge into participant_command_submissions pcs
-        using dual on deduplication_key = ${key}
+        using dual on deduplication_key = $key
         when not matched then
           insert (deduplication_key, deduplicate_until)
-          values (${key}, ${deduplicateUntil.micros})
+          values ($key, ${deduplicateUntil.micros})
         when matched and pcs.deduplicate_until < ${submittedAt.micros} then
           update set deduplicate_until=${deduplicateUntil.micros}
       """

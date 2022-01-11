@@ -21,7 +21,7 @@ private[backend] trait DeduplicationStorageBackendTemplate extends Deduplication
     SQL"""
       select deduplicate_until
       from participant_command_submissions
-      where deduplication_key = ${deduplicationKey}
+      where deduplication_key = $deduplicationKey
     """
       .as(CommandDataParser.single)(connection)
       .deduplicateUntil
@@ -40,7 +40,7 @@ private[backend] trait DeduplicationStorageBackendTemplate extends Deduplication
   override def stopDeduplicatingCommand(deduplicationKey: String)(connection: Connection): Unit = {
     SQL"""
       delete from participant_command_submissions
-      where deduplication_key = ${deduplicationKey}
+      where deduplication_key = $deduplicationKey
     """
       .execute()(connection)
     ()

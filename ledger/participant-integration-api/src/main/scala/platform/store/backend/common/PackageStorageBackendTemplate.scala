@@ -42,7 +42,7 @@ private[backend] class PackageStorageBackendTemplate(ledgerEndCache: LedgerEndCa
     SQL"""
       select packages.package_id, packages.source_description, packages.known_since, packages.package_size
       from packages
-      where packages.ledger_offset <= ${ledgerEndOffset}
+      where packages.ledger_offset <= $ledgerEndOffset
     """
       .as(PackageDataParser.*)(connection)
       .map(d =>
@@ -61,8 +61,8 @@ private[backend] class PackageStorageBackendTemplate(ledgerEndCache: LedgerEndCa
     SQL"""
       select packages.package
       from packages
-      where package_id = ${packageId}
-      and packages.ledger_offset <= ${ledgerEndOffset}
+      where package_id = $packageId
+      and packages.ledger_offset <= $ledgerEndOffset
     """
       .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)(connection)
   }
@@ -94,11 +94,11 @@ private[backend] class PackageStorageBackendTemplate(ledgerEndCache: LedgerEndCa
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL"""
       select * from package_entries
-      where (${startExclusive} is null or ledger_offset>${startExclusive})
-      and ledger_offset<=${endInclusive}
+      where ($startExclusive is null or ledger_offset>$startExclusive)
+      and ledger_offset<=$endInclusive
       order by ledger_offset asc
-      offset ${queryOffset} rows
-      fetch next ${pageSize} rows only
+      offset $queryOffset rows
+      fetch next $pageSize rows only
     """
       .asVectorOf(packageEntryParser)(connection)
   }

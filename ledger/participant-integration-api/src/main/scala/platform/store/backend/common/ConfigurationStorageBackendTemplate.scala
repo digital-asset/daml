@@ -64,7 +64,7 @@ private[backend] class ConfigurationStorageBackendTemplate(ledgerEndCache: Ledge
         configuration_entries
       where
         configuration_entries.typ = '#$acceptType' and
-        ${ledgerEndOffset} >= ledger_offset
+        $ledgerEndOffset >= ledger_offset
       order by ledger_offset desc
       fetch next 1 row only
   """
@@ -92,11 +92,11 @@ private[backend] class ConfigurationStorageBackendTemplate(ledgerEndCache: Ledge
       from
         configuration_entries
       where
-        (${startExclusive} is null or ledger_offset>${startExclusive}) and
-        ledger_offset <= ${endInclusive}
+        ($startExclusive is null or ledger_offset>$startExclusive) and
+        ledger_offset <= $endInclusive
       order by ledger_offset asc
-      offset ${queryOffset} rows
-      fetch next ${pageSize} rows only
+      offset $queryOffset rows
+      fetch next $pageSize rows only
   """
       .asVectorOf(configurationEntryParser)(connection)
   }

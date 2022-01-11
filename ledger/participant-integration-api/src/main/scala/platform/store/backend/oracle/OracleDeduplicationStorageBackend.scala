@@ -37,13 +37,13 @@ object OracleDeduplicationStorageBackend extends DeduplicationStorageBackendTemp
       SQL"""
         merge into participant_command_submissions pcs
         using dual
-        on (pcs.deduplication_key = ${key})
+        on (pcs.deduplication_key = $key)
         when matched then
           update set pcs.deduplicate_until=${deduplicateUntil.micros}
           where pcs.deduplicate_until < ${submittedAt.micros}
         when not matched then
           insert (pcs.deduplication_key, pcs.deduplicate_until)
-          values (${key}, ${deduplicateUntil.micros})
+          values ($key, ${deduplicateUntil.micros})
       """
         .executeUpdate()(connection)
     )
