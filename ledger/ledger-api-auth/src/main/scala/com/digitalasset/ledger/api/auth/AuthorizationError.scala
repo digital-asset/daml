@@ -29,7 +29,7 @@ object AuthorizationError {
   final case class InvalidParticipant(authorized: Vector[String], actual: String)
       extends AuthorizationError {
     override val reason =
-      s"Claims are only valid for participantIds '$authorized', actual participantId is '$actual'."
+      s"Claims are only valid for participantIds '$authorized', actual participantId is '$actual'"
   }
 
   final case class InvalidApplication(authorized: String, actual: String)
