@@ -499,16 +499,8 @@ private[lf] final class Compiler(
         )
       case EStructProj(field, struct) =>
         SBStructProj(field)(compile(env, struct))
-      case structUpd: EStructUpd =>
-        structUpd.fieldIndex match {
-          case None =>
-            SBStructUpdByName(structUpd.field)(
-              compile(env, structUpd.struct),
-              compile(env, structUpd.update),
-            )
-          case Some(index) =>
-            SBStructUpd(index)(compile(env, structUpd.struct), compile(env, structUpd.update))
-        }
+      case EStructUpd(field, struct, update) =>
+        SBStructUpd(field)(compile(env, struct), compile(env, update))
       case ECase(scrut, alts) =>
         compileECase(env, scrut, alts)
       case ENil(_) =>
