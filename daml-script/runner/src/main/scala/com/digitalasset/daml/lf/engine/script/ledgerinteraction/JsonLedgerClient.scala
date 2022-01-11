@@ -66,10 +66,12 @@ class JsonLedgerClient(
   private[script] val tokenPayload: CustomDamlJWTPayload =
     AuthServiceJWTCodec.readFromString(decodedJwt.payload) match {
       case Failure(e) => throw e
-      case Success(s : CustomDamlJWTPayload) => s
-      case Success(_ : StandardJWTPayload) =>
+      case Success(s: CustomDamlJWTPayload) => s
+      case Success(_: StandardJWTPayload) =>
         // TODO https://github.com/digital-asset/daml/issues/12349
-        throw new UnsupportedOperationException("Daml Script over JSON API does not support standard JWT tokens")
+        throw new UnsupportedOperationException(
+          "Daml Script over JSON API does not support standard JWT tokens"
+        )
     }
 
   implicit val system = actorSystem
