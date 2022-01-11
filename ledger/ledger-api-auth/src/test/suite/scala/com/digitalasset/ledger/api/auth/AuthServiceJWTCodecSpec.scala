@@ -62,12 +62,7 @@ class AuthServiceJWTCodecSpec
       "work for arbitrary standard Daml token values" in forAll(
         Gen.resultOf(StandardJWTPayload),
         minSuccessful(100),
-      )(v0 => {
-        val value = StandardJWTPayload(
-          participantId = v0.participantId,
-          applicationId = Some(v0.applicationId.getOrElse("default-user")),
-          exp = v0.exp,
-        )
+      )(value => {
         serializeAndParse(value) shouldBe Success(value)
       })
 
@@ -175,7 +170,7 @@ class AuthServiceJWTCodecSpec
           """.stripMargin
         val expected = StandardJWTPayload(
           participantId = Some("someParticipantId"),
-          applicationId = Some("someUserId"),
+          userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
         )
         parse(serialized) shouldBe Success(expected)

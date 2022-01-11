@@ -94,7 +94,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
     case payload: StandardJWTPayload =>
       ClaimSet.AuthenticatedUser(
         participantId = payload.participantId,
-        userId = payload.applicationId.get,
+        userId = payload.userId,
         expiration = payload.exp,
       )
   }

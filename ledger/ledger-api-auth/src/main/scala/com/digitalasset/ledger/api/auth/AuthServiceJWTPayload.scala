@@ -57,13 +57,12 @@ final case class CustomDamlJWTPayload(
 /** Payload parsed from the standard "sub", "aud", "exp" claims as specified in
   * https://datatracker.ietf.org/doc/html/rfc7519#section-4.1
   *
-  * @param applicationId  The user that is authenticated by this payload.
+  * @param userId  The user that is authenticated by this payload.
   * @param participantId  The participantId for which this user is authenticated.
   * @param exp            If set, the token is only valid before the given instant.
   */
 final case class StandardJWTPayload(
-    // FIXME: rename to 'userId' and make required
-    applicationId: Option[String],
+    userId: String,
     // FIXME: make this a vector of participantIds
     participantId: Option[String],
     exp: Option[Instant],
@@ -139,7 +138,7 @@ object AuthServiceJWTCodec {
     case v: StandardJWTPayload =>
       JsObject(
         "aud" -> writeOptionalString(v.participantId),
-        "sub" -> writeOptionalString(v.applicationId),
+        "sub" -> JsString(v.userId),
         "exp" -> writeOptionalInstant(v.exp),
       )
   }
@@ -173,7 +172,7 @@ object AuthServiceJWTCodec {
       StandardJWTPayload(
         // TODO (i12054): allow for an array of audiences
         participantId = readOptionalString("aud", fields),
-        applicationId = readOptionalString("sub", fields),
+        userId = readOptionalString("sub", fields).get, // guarded by if-clause above
         exp = readInstant("exp", fields),
       )
     case JsObject(fields) if !fields.contains(oidcNamespace) =>

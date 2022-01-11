@@ -41,7 +41,7 @@ trait SandboxRequiringAuthorizationFuns {
   ): StandardJWTPayload =
     StandardJWTPayload(
       participantId = participantId,
-      applicationId = Some(userId),
+      userId = userId,
       exp = expiresIn.map(delta => Instant.now().plusNanos(delta.toNanos)),
     )
 
