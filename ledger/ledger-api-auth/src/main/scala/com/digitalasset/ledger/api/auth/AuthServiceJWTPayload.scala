@@ -67,7 +67,7 @@ final case class CustomDamlJWTPayload(
   * @param exp            If set, the token is only valid before the given instant.
   */
 final case class StandardJWTPayload(
-    userId: String, // TODO (i12049): consider using Ref.UserId here
+    userId: String,
     participantIds: Option[List[String]],
     exp: Option[Instant],
 ) extends AuthServiceJWTPayload
