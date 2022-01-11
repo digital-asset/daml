@@ -10,7 +10,10 @@ import spray.json._
 
 import scala.util.Try
 
-/** The JWT token payload used in [[AuthServiceJWT]]
+/** All the JWT payloads that can be used with the JWT auth service. */
+sealed trait AuthServiceJWTPayload
+
+/** A JWT token payload constructed from custom claims specific to Daml ledgers.
   *
   * @param ledgerId       If set, the token is only valid for the given ledger ID.
   *                       May also be used to fill in missing ledger ID fields in ledger API requests.
@@ -32,7 +35,7 @@ import scala.util.Try
   * @param readAs         List of parties the token bearer can read data for.
   *                       May also be used to fill in missing party fields in ledger API requests (e.g., transaction filter).
   */
-case class AuthServiceJWTPayload(
+final case class CustomDamlJWTPayload(
     ledgerId: Option[String],
     participantId: Option[String],
     applicationId: Option[String],
@@ -40,7 +43,7 @@ case class AuthServiceJWTPayload(
     admin: Boolean,
     actAs: List[String],
     readAs: List[String],
-) {
+) extends AuthServiceJWTPayload {
 
   /** If this token is associated with exactly one party, returns that party name.
     * Otherwise, returns None.
@@ -50,6 +53,21 @@ case class AuthServiceJWTPayload(
     if (allParties.size == 1) allParties.headOption else None
   }
 }
+
+/** Payload parsed from the standard "sub", "aud", "exp" claims as specified in
+  * https://datatracker.ietf.org/doc/html/rfc7519#section-4.1
+  *
+  * @param applicationId  The user that is authenticated by this payload.
+  * @param participantId  The participantId for which this user is authenticated.
+  * @param exp            If set, the token is only valid before the given instant.
+  */
+final case class StandardJWTPayload(
+    // FIXME: rename to 'userId' and make required
+    applicationId: Option[String],
+    // FIXME: make this a vector of participantIds
+    participantId: Option[String],
+    exp: Option[Instant],
+) extends AuthServiceJWTPayload
 
 /** Codec for writing and reading [[AuthServiceJWTPayload]] to and from JSON.
   *
@@ -105,24 +123,26 @@ object AuthServiceJWTCodec {
   def writeToString(v: AuthServiceJWTPayload): String =
     writePayload(v).compactPrint
 
-  def writePayload(v: AuthServiceJWTPayload): JsValue = JsObject(
-    oidcNamespace -> JsObject(
-      propLedgerId -> writeOptionalString(v.ledgerId),
-      propParticipantId -> writeOptionalString(v.participantId),
-      propApplicationId -> writeOptionalString(v.applicationId),
-      propAdmin -> JsBoolean(v.admin),
-      propActAs -> writeStringList(v.actAs),
-      propReadAs -> writeStringList(v.readAs),
-    ),
-    propExp -> writeOptionalInstant(v.exp),
-  )
-
-  def writeStandardTokenPayload(v: AuthServiceJWTPayload): JsValue =
-    JsObject(
-      "aud" -> writeOptionalString(v.participantId),
-      "sub" -> writeOptionalString(v.applicationId),
-      "exp" -> writeOptionalInstant(v.exp),
-    )
+  def writePayload: AuthServiceJWTPayload => JsValue = {
+    case v: CustomDamlJWTPayload =>
+      JsObject(
+        oidcNamespace -> JsObject(
+          propLedgerId -> writeOptionalString(v.ledgerId),
+          propParticipantId -> writeOptionalString(v.participantId),
+          propApplicationId -> writeOptionalString(v.applicationId),
+          propAdmin -> JsBoolean(v.admin),
+          propActAs -> writeStringList(v.actAs),
+          propReadAs -> writeStringList(v.readAs),
+        ),
+        propExp -> writeOptionalInstant(v.exp),
+      )
+    case v: StandardJWTPayload =>
+      JsObject(
+        "aud" -> writeOptionalString(v.participantId),
+        "sub" -> writeOptionalString(v.applicationId),
+        "exp" -> writeOptionalInstant(v.exp),
+      )
+  }
 
   /** Writes the given payload to a compact JSON string */
   def compactPrint(v: AuthServiceJWTPayload): String = writePayload(v).compactPrint
@@ -147,10 +167,19 @@ object AuthServiceJWTCodec {
   }
 
   def readPayload(value: JsValue): AuthServiceJWTPayload = value match {
+    case JsObject(fields)
+        if fields.contains("sub") && !distinguishingCustomProps.exists(fields.contains) =>
+      // Standard JWT claims
+      StandardJWTPayload(
+        // TODO (i12054): allow for an array of audiences
+        participantId = readOptionalString("aud", fields),
+        applicationId = readOptionalString("sub", fields),
+        exp = readInstant("exp", fields),
+      )
     case JsObject(fields) if !fields.contains(oidcNamespace) =>
       // Legacy format
       logger.warn(s"Token ${value.compactPrint} is using a deprecated JWT payload format")
-      AuthServiceJWTPayload(
+      CustomDamlJWTPayload(
         ledgerId = readOptionalString(propLedgerId, fields),
         participantId = readOptionalString(propParticipantId, fields),
         applicationId = readOptionalString(propApplicationId, fields),
@@ -173,7 +202,7 @@ object AuthServiceJWTCodec {
           s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace is not an object"
         )
         .fields
-      AuthServiceJWTPayload(
+      CustomDamlJWTPayload(
         ledgerId = readOptionalString(propLedgerId, customClaims),
         participantId = readOptionalString(propParticipantId, customClaims),
         applicationId = readOptionalString(propApplicationId, customClaims),
@@ -186,24 +215,6 @@ object AuthServiceJWTCodec {
       deserializationError(
         s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object"
       )
-  }
-
-  def readStandardTokenPayload(jsValue: JsValue): Option[AuthServiceJWTPayload] = jsValue match {
-    case JsObject(fields)
-        if fields.contains("sub") && !distinguishingCustomProps.exists(fields.contains) =>
-      Some(
-        AuthServiceJWTPayload(
-          ledgerId = None,
-          // TODO (i12054): allow for an array of audiences
-          participantId = readOptionalString("aud", fields),
-          applicationId = readOptionalString("sub", fields),
-          exp = readInstant("exp", fields),
-          admin = false,
-          actAs = List.empty,
-          readAs = List.empty,
-        )
-      )
-    case _ => None
   }
 
   private[this] def readOptionalString(name: String, fields: Map[String, JsValue]): Option[String] =
