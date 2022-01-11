@@ -788,16 +788,18 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
     }
 
-    "release in parallel" in {
+    "acquire and release in parallel" in {
+      val acquireOrder = mutable.Buffer[Int]()
       val releaseOrder = mutable.Buffer[Int]()
-      val owners = (1 to 4).map(value =>
+      val owners = (4 to 1 by -1).map(value =>
         new AbstractResourceOwner[TestContext, Int] {
           override def acquire()(implicit context: TestContext): Resource[Int] = {
-            Resource(Future(value)) { v =>
+            Resource(Delayed.by((value * 200).milliseconds) {
+              acquireOrder += value
+              value
+            }) { v =>
               Delayed.by((v * 200).milliseconds) {
-                releaseOrder.synchronized {
-                  releaseOrder += v
-                }
+                releaseOrder += v
                 ()
               }
             }
@@ -809,8 +811,11 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val resource = for {
         values <- Resource.sequence(resources)
       } yield {
+        withClue("during acquisition,") {
+          acquireOrder should be(1 to 4)
+        }
         withClue("after sequencing,") {
-          values should be(1 to 4)
+          values should be(4 to 1 by -1)
         }
         ()
       }
