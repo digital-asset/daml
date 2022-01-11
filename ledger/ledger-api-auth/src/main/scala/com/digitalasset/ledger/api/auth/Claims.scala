@@ -83,7 +83,7 @@ object ClaimSet {
     *
     * @param claims         List of [[Claim]]s describing the authorization this object describes.
     * @param ledgerId       If set, the claims will only be valid on the given ledger identifier.
-    * @param participantId  If set, the claims will only be valid on the given participant identifier.
+    * @param participantIds  If set, then the claims will only be valid for the given participant identifiers.
     * @param applicationId  If set, the claims will only be valid on the given application identifier.
     * @param expiration     If set, the claims will cease to be valid at the given time.
     * @param resolvedFromUser  If set, then the claims were resolved from a user in the user management service.
@@ -91,7 +91,7 @@ object ClaimSet {
   final case class Claims(
       claims: Seq[Claim],
       ledgerId: Option[String],
-      participantId: Option[String],
+      participantIds: Option[Seq[String]],
       applicationId: Option[String],
       expiration: Option[Instant],
       resolvedFromUser: Boolean,
@@ -99,12 +99,12 @@ object ClaimSet {
     def validForLedger(id: String): Either[AuthorizationError, Unit] =
       Either.cond(ledgerId.forall(_ == id), (), AuthorizationError.InvalidLedger(ledgerId.get, id))
 
-    def validForParticipant(id: String): Either[AuthorizationError, Unit] =
-      Either.cond(
-        participantId.forall(_ == id),
-        (),
-        AuthorizationError.InvalidParticipant(participantId.get, id),
-      )
+    def validForParticipant(id: String): Either[AuthorizationError, Unit] = participantIds match {
+      case None => Right(())
+      case Some(participantIds) if participantIds.contains(id) => Right(())
+      case Some(participantIds) =>
+        Left(AuthorizationError.InvalidParticipant(participantIds.toVector, id))
+    }
 
     def validForApplication(id: String): Either[AuthorizationError, Unit] =
       Either.cond(
@@ -159,9 +159,7 @@ object ClaimSet {
 
   /** The representation of a user that was authenticated, but whose [[Claims]] have not yet been resolved. */
   final case class AuthenticatedUser(
-      userId: String, // TODO (i12049): use Ref.UserId here
-      participantId: Option[String],
-      expiration: Option[Instant],
+      payload: StandardJWTPayload
   ) extends ClaimSet
 
   object Claims {
@@ -170,7 +168,7 @@ object ClaimSet {
     val Empty: Claims = Claims(
       claims = List.empty[Claim],
       ledgerId = None,
-      participantId = None,
+      participantIds = None,
       applicationId = None,
       expiration = None,
       resolvedFromUser = false,

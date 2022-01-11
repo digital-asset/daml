@@ -201,7 +201,7 @@ final class Authorizer(
   ): Either[StatusRuntimeException, String] =
     if (reqApplicationId.isEmpty)
       claims.applicationId match {
-        case Some(applicationId) if !applicationId.isEmpty => Right(applicationId)
+        case Some(applicationId) if applicationId.nonEmpty => Right(applicationId)
         case _ =>
           Left(
             errorFactories.invalidArgument(None)(
@@ -249,7 +249,7 @@ final class Authorizer(
       .flatMap({
         case ClaimSet.Unauthenticated =>
           Failure(errorFactories.unauthenticatedMissingJwtToken())
-        case authenticatedUser: ClaimSet.AuthenticatedUser =>
+        case ClaimSet.AuthenticatedUser(authenticatedUser) =>
           Failure(
             errorFactories.internalAuthenticationError(
               s"Unexpected unresolved authenticated user claim",

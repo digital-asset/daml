@@ -39,12 +39,18 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   }
   it should "allow calls with 'participant_admin' user token for this participant node" in {
     val payload =
-      standardToken(userId = "participant_admin", participantId = Some("sandbox-participant"))
+      standardToken(
+        userId = "participant_admin",
+        participantIds = Some(List("dummy-participant", "sandbox-participant")),
+      )
     expectSuccess(serviceCallWithPayload(payload))
   }
   it should "deny calls with 'participant_admin' user token for another participant node" in {
     val payload =
-      standardToken(userId = "participant_admin", participantId = Some("other-participant-id"))
+      standardToken(
+        userId = "participant_admin",
+        participantIds = Some(List("other-participant-id")),
+      )
     expectPermissionDenied(serviceCallWithPayload(payload))
   }
   it should "allow calls with freshly created user" in {

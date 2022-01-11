@@ -58,13 +58,17 @@ final case class CustomDamlJWTPayload(
   * https://datatracker.ietf.org/doc/html/rfc7519#section-4.1
   *
   * @param userId  The user that is authenticated by this payload.
-  * @param participantId  The participantId for which this user is authenticated.
+  *
+  * @param participantIds  If not set, then the user is authenticated for any participant node that accepts
+  *                        the JWT issuer. We expect this to be used for development only.
+  *                        If set then the user is authenticated for any participant node
+  *                        whose participantId is in the list of strings.
+  *
   * @param exp            If set, the token is only valid before the given instant.
   */
 final case class StandardJWTPayload(
-    userId: String,
-    // FIXME: make this a vector of participantIds
-    participantId: Option[String],
+    userId: String, // TODO (i12049): consider using Ref.UserId here
+    participantIds: Option[List[String]],
     exp: Option[Instant],
 ) extends AuthServiceJWTPayload
 
@@ -137,7 +141,7 @@ object AuthServiceJWTCodec {
       )
     case v: StandardJWTPayload =>
       JsObject(
-        "aud" -> writeOptionalString(v.participantId),
+        "aud" -> writeOptionalStringList(v.participantIds),
         "sub" -> JsString(v.userId),
         "exp" -> writeOptionalInstant(v.exp),
       )
@@ -151,6 +155,9 @@ object AuthServiceJWTCodec {
 
   private[this] def writeStringList(value: List[String]): JsValue =
     JsArray(value.map(JsString(_)): _*)
+
+  private[this] def writeOptionalStringList(value: Option[List[String]]): JsValue =
+    value.fold[JsValue](JsNull)(writeStringList)
 
   private[this] def writeOptionalInstant(value: Option[Instant]): JsValue =
     value.fold[JsValue](JsNull)(i => JsNumber(i.getEpochSecond))
@@ -170,10 +177,22 @@ object AuthServiceJWTCodec {
         if fields.contains("sub") && !distinguishingCustomProps.exists(fields.contains) =>
       // Standard JWT claims
       StandardJWTPayload(
-        // TODO (i12054): allow for an array of audiences
-        participantId = readOptionalString("aud", fields),
         userId = readOptionalString("sub", fields).get, // guarded by if-clause above
         exp = readInstant("exp", fields),
+        // Note that the standard allows both single strings and arrays of strings
+        participantIds = fields.get("aud") match {
+          case None => None
+          case Some(JsNull) => None
+          case Some(JsString(value)) => Some(List(value))
+          case Some(JsArray(values)) =>
+            Some(values.toList.map {
+              case JsString(value) => value
+              case value =>
+                deserializationError(s"Can't read ${value.prettyPrint} as string element of 'aud'")
+            })
+          case Some(value) =>
+            deserializationError(s"Can't read ${value.prettyPrint} as string list for 'aud'")
+        },
       )
     case JsObject(fields) if !fields.contains(oidcNamespace) =>
       // Legacy format
