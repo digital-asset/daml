@@ -51,11 +51,14 @@ for base in non-repudiation-core non-repudiation-client; do
     done
 done
 
-for platform in linux macos windows; do
-    EE_TARBALL=daml-sdk-$RELEASE_TAG-$platform-ee.tar.gz
-    push sdk-ee $EE_TARBALL
-    push sdk-ee $EE_TARBALL.asc
-done
-EE_INSTALLER=daml-sdk-$RELEASE_TAG-windows-ee.exe
-push sdk-ee $EE_INSTALLER
-push sdk-ee $EE_INSTALLER.asc
+# For the split release process these are not published to artifactory.
+if [[ "$#" -lt 3 || $3 != "split" ]]; then
+   for platform in linux macos windows; do
+       EE_TARBALL=daml-sdk-$RELEASE_TAG-$platform-ee.tar.gz
+       push sdk-ee $EE_TARBALL
+       push sdk-ee $EE_TARBALL.asc
+   done
+   EE_INSTALLER=daml-sdk-$RELEASE_TAG-windows-ee.exe
+   push sdk-ee $EE_INSTALLER
+   push sdk-ee $EE_INSTALLER.asc
+fi
