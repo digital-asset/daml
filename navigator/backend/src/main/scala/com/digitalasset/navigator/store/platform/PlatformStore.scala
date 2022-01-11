@@ -6,13 +6,13 @@ package com.daml.navigator.store.platform
 import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
 import akka.pattern.{ask, pipe}
 import akka.stream.Materializer
 import akka.util.Timeout
 import com.daml.grpc.GrpcException
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.domain.Feature
 import com.daml.ledger.api.refinements.{ApiTypes, IdGenerator}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
@@ -49,6 +49,7 @@ object PlatformStore {
       timeProviderType: TimeProviderType,
       applicationInfo: ApplicationInfo,
       ledgerMaxInbound: Int,
+      disableUserManagement: Boolean,
   ): Props =
     Props(
       classOf[PlatformStore],
@@ -59,6 +60,7 @@ object PlatformStore {
       timeProviderType,
       applicationInfo,
       ledgerMaxInbound,
+      disableUserManagement,
     )
 
   type PlatformTime = Instant
@@ -92,6 +94,7 @@ class PlatformStore(
     timeProviderType: TimeProviderType,
     applicationInfo: ApplicationInfo,
     ledgerMaxInbound: Int,
+    disableUserManagement: Boolean,
 ) extends Actor
     with ActorLogging
     with Stash {
@@ -159,17 +162,33 @@ class PlatformStore(
       stash()
   }
 
+  @SuppressWarnings(
+    Array(
+      "org.wartremover.warts.JavaSerializable",
+      "org.wartremover.warts.Product",
+      "org.wartremover.warts.Serializable",
+    )
+  ) // for the andThen below
   def connected(state: StateConnected): Receive = {
-    case UpdatePartiesAndUsers =>
-      state.ledgerClient.partyManagementClient
-        .listKnownParties()
-        .map(UpdatedParties(_))
-        .pipeTo(self)
+    case UpdateUsersOrParties =>
+      state.ledgerClient.versionClient
+        .getApiFeatures(state.ledgerClient.ledgerId)
+        .filter(features => // if we have user management (and it's not disabled)....
+          !disableUserManagement && features.contains(Feature.UserManagement)
+        )
+        .andThen {
+          case Success(_) => // .. then only list users on the login screen
+            state.ledgerClient.userManagementClient
+              .listUsers() // don't pass token here -- it's already set on startup (LedgerClientConfiguration)
+              .map(UpdatedUsers(_))
+              .pipeTo(self)
+          case Failure(_) => // ... else fallback to parties
+            state.ledgerClient.partyManagementClient
+              .listKnownParties()
+              .map(UpdatedParties(_))
+              .pipeTo(self)
+        }
 
-      state.ledgerClient.userManagementClient
-        .listUsers() // don't pass token here -- it's already set on startup (LedgerClientConfiguration)
-        .map(UpdatedUsers(_))
-        .pipeTo(self)
       ()
 
     case UpdatedUsers(users) =>

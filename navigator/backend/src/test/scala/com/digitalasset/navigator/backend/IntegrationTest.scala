@@ -22,7 +22,6 @@ import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.timer.RetryStrategy
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -34,8 +33,15 @@ class IntegrationTest
     with SuiteResourceManagementAroundAll
     with Matchers {
   self: Suite =>
-  private def withNavigator[A](testFn: (Uri, LedgerClient) => Future[A]): Future[A] = {
-    val args = Arguments(port = 0, participantPort = serverPort.value)
+
+  private def withNavigator[A](
+      disableUserManagement: Boolean
+  )(testFn: (Uri, LedgerClient) => Future[A]): Future[A] = {
+    val args = Arguments(
+      port = 0,
+      participantPort = serverPort.value,
+      disableUserManagement = disableUserManagement,
+    )
     val sys = ActorSystem("navigator")
     val (graphQL, info, _, getAppState, partyRefresh) = NavigatorBackend.setup(args, Config())(sys)
     val bindingF = Http()
@@ -79,53 +85,58 @@ class IntegrationTest
     fb
   }
 
-  private val logger = LoggerFactory.getLogger(getClass)
-
-  "Navigator" - {
-    "picks up newly allocated parties" in withNavigator { case (uri, client) =>
-      for {
-        resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
-        respBody <- getResponseDataBytes(resp)
-        _ = respBody shouldBe """{"method":{"type":"select","users":[]},"type":"sign-in"}"""
-        _ = resp.status shouldBe StatusCodes.OK
-        _ <- client.partyManagementClient
-          .allocateParty(hint = None, displayName = Some("display-name"))
-        _ <- RetryStrategy.constant(20, 1.second) { case (run @ _, duration @ _) =>
-          for {
-            resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
-            respBody <- getResponseDataBytes(resp)
-          } yield {
-            respBody shouldBe """{"method":{"type":"select","users":["display-name"]},"type":"sign-in"}"""
+  "Navigator (parties)" - {
+    "picks up newly allocated parties" in withNavigator(disableUserManagement = true) {
+      case (uri, client) =>
+        for {
+          resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
+          respBody <- getResponseDataBytes(resp)
+          _ = respBody shouldBe """{"method":{"type":"select","users":[]},"type":"sign-in"}"""
+          _ = resp.status shouldBe StatusCodes.OK
+          _ <- client.partyManagementClient
+            .allocateParty(hint = None, displayName = Some("display-name"))
+          _ <- RetryStrategy.constant(20, 1.second) { case (run @ _, duration @ _) =>
+            for {
+              resp <- Http().singleRequest(
+                HttpRequest(uri = uri.withPath(Uri.Path("/api/session/")))
+              )
+              respBody <- getResponseDataBytes(resp)
+            } yield {
+              respBody shouldBe """{"method":{"type":"select","users":["display-name"]},"type":"sign-in"}"""
+            }
           }
-        }
-      } yield succeed
+        } yield succeed
     }
+  }
 
-    "picks up newly created users" in withNavigator { case (uri, client) =>
-      for {
-        resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
-        respBody <- getResponseDataBytes(resp)
-        _ = respBody shouldBe """{"method":{"type":"select","users":[]},"type":"sign-in"}"""
-        _ = resp.status shouldBe StatusCodes.OK
-        partyDetails <- client.partyManagementClient
-          .allocateParty(hint = None, displayName = Some("primary-party"))
+  // TODO: fix test cross talk (they pass when the other one is commented out..)
+  "Navigator (users)" - {
+    "picks up newly created users" in withNavigator(disableUserManagement = false) {
+      case (uri, client) =>
+        for {
+          resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
+          respBody <- getResponseDataBytes(resp)
+          _ = respBody shouldBe """{"method":{"type":"select","users":[]},"type":"sign-in"}"""
+          _ = resp.status shouldBe StatusCodes.OK
+          partyDetails <- client.partyManagementClient
+            .allocateParty(hint = None, displayName = Some("primary-party"))
 
-        _ <- Future.successful(logger.info(s"TEST allocated $partyDetails"))
-
-        _ <- client.userManagementClient
-          .createUser(
-            com.daml.ledger.api.domain
-              .User(UserId.assertFromString("user-name"), Some(partyDetails.party))
-          )
-        _ <- RetryStrategy.constant(20, 1.second) { case (run @ _, duration @ _) =>
-          for {
-            resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
-            respBody <- getResponseDataBytes(resp)
-          } yield {
-            respBody shouldBe """{"method":{"type":"select","users":["user-name"]},"type":"sign-in"}"""
+          _ <- client.userManagementClient
+            .createUser(
+              com.daml.ledger.api.domain
+                .User(UserId.assertFromString("user-name"), Some(partyDetails.party))
+            )
+          _ <- RetryStrategy.constant(20, 1.second) { case (run @ _, duration @ _) =>
+            for {
+              resp <- Http().singleRequest(
+                HttpRequest(uri = uri.withPath(Uri.Path("/api/session/")))
+              )
+              respBody <- getResponseDataBytes(resp)
+            } yield {
+              respBody shouldBe """{"method":{"type":"select","users":["user-name"]},"type":"sign-in"}"""
+            }
           }
-        }
-      } yield succeed
+        } yield succeed
     }
   }
 }

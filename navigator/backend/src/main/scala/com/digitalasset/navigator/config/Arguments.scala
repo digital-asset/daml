@@ -32,6 +32,7 @@ case class Arguments(
     useDatabase: Boolean = false,
     ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024, // 50 MiB
     ignoreProjectParties: Boolean = false,
+    disableUserManagement: Boolean = false,
 )
 
 trait ArgumentsHelper { self: OptionParser[Arguments] =>
@@ -172,6 +173,14 @@ object Arguments {
           "Ignore the parties specified in the project configuration file and query the ledger for parties instead."
         )
         .action((_, arguments) => arguments.copy(ignoreProjectParties = true))
+
+      opt[Unit]("disable-user-management")
+        .hidden()
+        .optional()
+        .text(
+          "Do not query the user management service, only use parties."
+        )
+        .action((_, arguments) => arguments.copy(disableUserManagement = true))
 
       cmd("server")
         .text("serve data from platform")

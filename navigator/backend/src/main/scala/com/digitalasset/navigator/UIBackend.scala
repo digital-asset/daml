@@ -251,6 +251,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         arguments.time,
         applicationInfo,
         arguments.ledgerInboundMessageSizeMax,
+        arguments.disableUserManagement,
       )
     )
     // TODO: usermgmt switching: for now we just poll both user and party mgmt
@@ -263,7 +264,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       if (config.users.isEmpty || arguments.ignoreProjectParties) {
         Some(
           system.scheduler
-            .scheduleWithFixedDelay(Duration.Zero, 1.seconds, store, UpdatePartiesAndUsers)
+            .scheduleWithFixedDelay(Duration.Zero, 1.seconds, store, UpdateUsersOrParties)
         )
       } else {
         config.users.foreach { case (displayName, config) =>
