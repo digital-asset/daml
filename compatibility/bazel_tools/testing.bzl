@@ -639,6 +639,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "end": "1.18.0",
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+                "exclusions": [
+                    "ExceptionsIT:ExUncaught",
+                    "CommandServiceIT:CSReturnStackTrace",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
