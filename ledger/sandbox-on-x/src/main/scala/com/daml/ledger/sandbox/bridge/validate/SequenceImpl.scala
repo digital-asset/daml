@@ -32,6 +32,9 @@ import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import scala.util.chaining._
 
+/** Conflict checking with the in-flight commands,
+  * assigns offsets and converts the accepted/rejected commands to updates.
+  */
 private[validate] class SequenceImpl(
     participantId: Ref.ParticipantId,
     timeProvider: TimeProvider,
@@ -100,6 +103,7 @@ private[validate] class SequenceImpl(
           )(submission.loggingContext)
 
         allocatedPartiesRef.updateAndGet(_ + party)
+        // TODO SoX: Do not forward a successful party allocation update on duplicates
         partyAllocationSuccessMapper(party, displayName, submissionId, participantId)
       case Config(maxRecordTime, submissionId, config) =>
         val recordTime = timeProvider.getCurrentTimestamp

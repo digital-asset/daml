@@ -12,6 +12,7 @@ import com.daml.platform.ApiOffset
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/** Tags the prepared submission with the current ledger end as available on the Ledger API. */
 private[validate] class TagWithLedgerEndImpl(
     indexService: IndexService,
     bridgeMetrics: BridgeMetrics,

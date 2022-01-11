@@ -23,16 +23,9 @@ import com.daml.platform.store.appendonlydao.events._
 import scala.concurrent.{ExecutionContext, Future}
 
 private[validate] class ConflictCheckingLedgerBridge(
-    // Precomputes the transaction effects for transaction submissions.
-    // For other update types, this stage is a no-op.
     prepareSubmission: PrepareSubmission,
-    // Tags the prepared submission with the current ledger end as available on the Ledger API.
     tagWithLedgerEnd: TagWithLedgerEnd,
-    // Conflict checking for incoming submissions against the ledger state
-    // as it is visible on the Ledger API.
     conflictCheckWithCommitted: ConflictCheckWithCommitted,
-    // Conflict checking with the in-flight commands,
-    // assigns offsets and converts the accepted/rejected commands to updates.
     sequence: Sequence,
     servicesThreadPoolSize: Int,
 ) extends LedgerBridge {

@@ -25,6 +25,9 @@ import com.daml.platform.store.appendonlydao.events._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
+/** Conflict checking for incoming submissions against the ledger state
+  * as it is visible on the Ledger API.
+  */
 private[validate] class ConflictCheckWithCommittedImpl(
     indexService: IndexService,
     bridgeMetrics: BridgeMetrics,

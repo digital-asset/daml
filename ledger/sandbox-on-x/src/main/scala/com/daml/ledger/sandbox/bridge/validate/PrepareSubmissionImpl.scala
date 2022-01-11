@@ -21,6 +21,9 @@ import com.daml.metrics.Timed
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/** Precomputes the transaction effects for transaction submissions.
+  * For other update types, this stage is a no-op.
+  */
 private[validate] class PrepareSubmissionImpl(bridgeMetrics: BridgeMetrics)(implicit
     executionContext: ExecutionContext
 ) extends PrepareSubmission {
