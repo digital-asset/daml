@@ -311,7 +311,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class MissingJwtToken()(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = "The command is missing a JWT token"
+            cause = "The command is missing a (valid) JWT token"
           )
     }
 
@@ -678,17 +678,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           )
     }
 
-    @Explanation("""The user referred to by the request was not found, which may be due to:
-        |
-        |1. Connecting to the wrong participant node, as users are a participant local concept.
-        |2. The user-id being misspelled.
-        |3. The user not yet having been created.
-        |4. The user having been deleted.
-        |""")
+    @Explanation("The user referred to by the request was not found.")
     @Resolution(
-      """Check that you are connecting to the right participant node and the user-id is spelled correctly,
-        |if yes, create the user.
-        |"""
+      "Check that you are connecting to the right participant node and the user-id is spelled correctly, if yes, create the user."
     )
     object UserNotFound
         extends ErrorCode(
@@ -698,16 +690,17 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(_operation: String, userId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"cannot ${_operation} for unknown user \"${userId}\"."
-            // TODO (i12053): also output participantId
+            cause = s"cannot ${_operation} for unknown user \"${userId}\""
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId
         )
       }
     }
-    @Explanation("There already exists another user with the same user-id.")
-    @Resolution("Choose a different user-id or use the user that already exists.")
+    @Explanation("There already exists a user with the same user-id.")
+    @Resolution(
+      "Check that you are connecting to the right participant node and the user-id is spelled correctly, or use the user that already exists."
+    )
     object UserAlreadyExists
         extends ErrorCode(
           id = "USER_ALREADY_EXISTS",
@@ -716,8 +709,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(_operation: String, userId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"cannot ${_operation}, as user \"${userId}\" already exists."
-            // TODO (i12053): also output participantId
+            cause = s"cannot ${_operation}, as user \"${userId}\" already exists"
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId

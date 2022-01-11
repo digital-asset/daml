@@ -88,7 +88,7 @@ final class AuthorizationInterceptor(
                 case Left(msg) =>
                   Future.failed(
                     errorFactories.permissionDenied(
-                      s"Could not resolve rights for user '$userId' due to $msg."
+                      s"Could not resolve rights for user '$userId' due to '$msg'"
                     )(errorLogger)
                   )
                 case Right(userClaims) =>
