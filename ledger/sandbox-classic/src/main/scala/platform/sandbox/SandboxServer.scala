@@ -435,7 +435,7 @@ final class SandboxServer(
             )
           ),
           CommandDeduplicationType.SYNC_ONLY,
-          maxDeduplicationDurationEnforced = false
+          maxDeduplicationDurationEnforced = false,
         ),
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
