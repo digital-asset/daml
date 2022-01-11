@@ -41,6 +41,6 @@ object HttpServicePostgresInt {
       tablePrefix = "some_nice_prefix_",
       poolSize = ConnectionPool.PoolSize.Integration,
     ),
-    dbStartupMode = DbStartupMode.CreateOnly,
+    startMode = DbStartupMode.CreateOnly,
   )
 }

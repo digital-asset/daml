@@ -9,18 +9,19 @@ import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.typesafe.scalalogging.StrictLogging
 import scopt.{Read, RenderingMode}
 
+import java.io.File
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
 class OptionParser(getEnvVar: String => Option[String])(implicit
     jdbcConfigDefaults: JdbcConfigDefaults
-) extends scopt.OptionParser[Config]("http-json-binary")
+) extends scopt.OptionParser[JsonApiCli]("http-json-binary")
     with StrictLogging {
 
   private def setJdbcConfig(
-      config: Config,
+      config: JsonApiCli,
       jdbcConfig: JdbcConfig,
-  ): Config = {
+  ): JsonApiCli = {
     if (config.jdbcConfig.exists(_ != jdbcConfig)) {
       throw new IllegalStateException(
         "--query-store-jdbc-config and --query-store-jdbc-config-env are mutually exclusive."
@@ -47,14 +48,21 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
 
   help("help").text("Print this usage text")
 
+  opt[Option[File]]('c', "config")
+    .text(
+      "The application config file, this is the recommended way to run the service, cli-args are now deprecated"
+    )
+    .valueName("<file>")
+    .action((file, cli) => cli.copy(configFile = file))
+
   opt[String]("ledger-host")
     .action((x, c) => c.copy(ledgerHost = x))
-    .required()
+    .optional()
     .text("Ledger host name or IP address")
 
   opt[Int]("ledger-port")
     .action((x, c) => c.copy(ledgerPort = x))
-    .required()
+    .optional()
     .text("Ledger port number")
 
   import com.daml.cliopts
@@ -62,7 +70,7 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
   cliopts.Http.serverParse(this, serviceName = "HTTP JSON API")(
     address = (f, c) => c copy (address = f(c.address)),
     httpPort = (f, c) => c copy (httpPort = f(c.httpPort)),
-    defaultHttpPort = None,
+    defaultHttpPort = Some(-1),
     portFile = Some((f, c) => c copy (portFile = f(c.portFile))),
   )
 
@@ -171,5 +179,32 @@ class OptionParser(getEnvVar: String => Option[String])(implicit
     (f, c) => c.copy(metricsReporter = f(c.metricsReporter)),
     (f, c) => c.copy(metricsReportingInterval = f(c.metricsReportingInterval)),
   )
+
+  checkConfig { cfg =>
+    if (cfg.configFile.isEmpty && (cfg.ledgerHost == null || cfg.ledgerPort == -1))
+      failure(
+        "Missing required values --ledger-host and/or --ledger-port values for cli args"
+      )
+    else
+      success
+  }
+
+  checkConfig { cfg =>
+    if (cfg.configFile.isEmpty && (cfg.httpPort == -1))
+      failure(
+        "Missing required value --http-port for HTTP-JSON-API"
+      )
+    else
+      success
+  }
+
+  //this check only checks for "required" fields to conclude that both config file and cli args were supplied
+  checkConfig { cfg =>
+    if (
+      cfg.configFile.isDefined && (cfg.ledgerHost != "" || cfg.ledgerPort != -1 || cfg.httpPort != -1)
+    )
+      Left("Found both config file and cli opts for the app, please provide only one of them")
+    else Right(())
+  }
 
 }

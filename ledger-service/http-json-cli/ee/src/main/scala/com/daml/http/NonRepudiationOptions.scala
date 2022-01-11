@@ -5,7 +5,7 @@ package com.daml.http
 
 import java.nio.file.Paths
 
-trait NonRepudiationOptions { this: scopt.OptionParser[Config] =>
+trait NonRepudiationOptions { this: scopt.OptionParser[JsonApiCli] =>
 
   opt[String]("non-repudiation-certificate-path")
     .action((path, config) =>

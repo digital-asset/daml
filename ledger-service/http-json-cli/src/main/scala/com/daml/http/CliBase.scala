@@ -14,7 +14,7 @@ trait CliBase {
   ): Option[Config] = {
     implicit val jcd: DBConfig.JdbcConfigDefaults =
       DBConfig.JdbcConfigDefaults(supportedJdbcDriverNames)
-    configParser(getEnvVar).parse(args, Config.Empty)
+    configParser(getEnvVar).parse(args, JsonApiCli.Default).flatMap(_.loadConfig)
   }
 
   protected[this] def configParser(getEnvVar: String => Option[String])(implicit

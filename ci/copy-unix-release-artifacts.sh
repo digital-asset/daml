@@ -17,7 +17,10 @@ TARBALL=daml-sdk-$RELEASE_TAG-$NAME.tar.gz
 EE_TARBALL=daml-sdk-$RELEASE_TAG-$NAME-ee.tar.gz
 bazel build //release:sdk-release-tarball-ce //release:sdk-release-tarball-ee
 cp bazel-bin/release/sdk-release-tarball-ce.tar.gz $OUTPUT_DIR/github/$TARBALL
+# Used for the non-split release process.
 cp bazel-bin/release/sdk-release-tarball-ee.tar.gz $OUTPUT_DIR/artifactory/$EE_TARBALL
+# Used for the split release process.
+cp bazel-bin/release/sdk-release-tarball-ee.tar.gz $OUTPUT_DIR/split-release/$EE_TARBALL
 
 
 bazel build //compiler/damlc:damlc-dist

@@ -8,6 +8,7 @@ OUTPUT_DIR=$2
 
 mkdir -p $OUTPUT_DIR/github
 mkdir -p $OUTPUT_DIR/artifactory
+mkdir -p $OUTPUT_DIR/split-release
 INSTALLER="$OUTPUT_DIR/github/daml-sdk-$RELEASE_TAG-windows.exe"
 EE_INSTALLER="$OUTPUT_DIR/artifactory/daml-sdk-$RELEASE_TAG-windows-ee.exe"
 mv "bazel-bin/release/windows-installer/daml-sdk-installer-ce.exe" "$INSTALLER"
@@ -36,4 +37,7 @@ fi
 TARBALL=daml-sdk-$RELEASE_TAG-windows.tar.gz
 EE_TARBALL=daml-sdk-$RELEASE_TAG-windows-ee.tar.gz
 cp bazel-bin/release/sdk-release-tarball-ce.tar.gz "$OUTPUT_DIR/github/$TARBALL"
+# Used for the non-split release process.
 cp bazel-bin/release/sdk-release-tarball-ee.tar.gz "$OUTPUT_DIR/artifactory/$EE_TARBALL"
+# Used for the split release process.
+cp bazel-bin/release/sdk-release-tarball-ee.tar.gz "$OUTPUT_DIR/split-release/$EE_TARBALL"

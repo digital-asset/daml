@@ -77,14 +77,23 @@ da_scala_test_suite(
         ":sandbox-on-x",
         "//daml-lf/data",
         "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "//language-support/scala/bindings",
+        "//ledger/error",
+        "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
+        "//ledger/metrics",
+        "//ledger/participant-integration-api",
         "//ledger/participant-state",
+        "//ledger/participant-state-index",
+        "//ledger/participant-state-metrics",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
     ],
 )
@@ -132,7 +141,6 @@ conformance_test(
         "--verbose",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        "--exclude=CommandDeduplicationIT",
         "--exclude=ClosedWorldIT",
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
@@ -165,10 +173,6 @@ conformance_test(
         "--additional=ContractIdIT:Accept",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        # Exclude offset command deduplication tests as
-        # Sandbox-on-X has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods.
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # not enforced
         "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
         # Disable tests targeting only multi-participant setups
@@ -192,10 +196,6 @@ conformance_test(
         "--static-time",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        # Exclude offset command deduplication tests as
-        # Sandbox-on-X has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods.
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # not enforced
         "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
         # Disable tests targeting only multi-participant setups

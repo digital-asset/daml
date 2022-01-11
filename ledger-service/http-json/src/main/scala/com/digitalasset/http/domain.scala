@@ -4,7 +4,7 @@
 package com.daml.http
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
-import com.daml.ledger.api.domain.UserRight
+import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.lf.iface
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -156,6 +156,11 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   final case class UserDetails(userId: String, primaryParty: Option[String])
 
+  object UserDetails {
+    def fromUser(user: User) =
+      UserDetails(user.id, user.primaryParty)
+  }
+
   final case class CreateUserRequest(
       userId: String,
       primaryParty: Option[String],
@@ -163,6 +168,10 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       canReadAs: List[Party],
       isAdmin: Boolean,
   )
+
+  final case class GetUserRequest(userId: String)
+
+  final case class DeleteUserRequest(userId: String)
 
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 

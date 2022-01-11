@@ -765,19 +765,17 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $tproj[fieldIndex] :: Struct -> a */
-  final case class SBStructProj(fieldIndex: Int) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue =
-      getSStruct(args, 0).values.get(fieldIndex)
-  }
-
   /** $tproj[field] :: Struct -> a */
-  // This is a slower version of `SBStructProj` for the case when we didn't run
-  // the Daml-LF type checker and hence didn't infer the field index.
-  final case class SBStructProjByName(field: Ast.FieldName) extends SBuiltinPure(1) {
+  final case class SBStructProj(field: Ast.FieldName) extends SBuiltinPure(1) {
+    // The variable `fieldIndex` is used to cache the (logarithmic) evaluation
+    // of `struct.fieldNames.indexOf(field)` at the first call in order to
+    // avoid its reevaluations, hence obtaining an amortized constant
+    // complexity.
+    private[this] var fieldIndex = -1
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
       val struct = getSStruct(args, 0)
-      struct.values.get(struct.fieldNames.indexOf(field))
+      if (fieldIndex < 0) fieldIndex = struct.fieldNames.indexOf(field)
+      struct.values.get(fieldIndex)
     }
   }
 
