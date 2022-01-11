@@ -39,6 +39,7 @@ import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
+import scalaz.std.vector._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
@@ -754,7 +755,6 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "get all parties using the legacy token format" in withHttpServiceAndClient {
     (uri, _, _, client, _) =>
-      import scalaz.std.vector._
       val partyIds = Vector("P1", "P2", "P3", "P4").map(getUniqueParty(_).unwrap)
       val partyManagement = client.partyManagementClient
       partyIds
@@ -900,8 +900,6 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "query with query, can use number or string for numeric field" in withHttpService {
     (uri, encoder, _, _) =>
-      import scalaz.std.scalaFuture._
-
       val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
       val searchDataSet = genSearchDataSet(alice)
       searchDataSet.traverse(c => postCreateCommand(c, encoder, uri, headers)).flatMap {
@@ -1347,7 +1345,6 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "parties endpoint should return all known parties" in withHttpServiceAndClient {
     (uri, _, _, client, _) =>
-      import scalaz.std.vector._
       val partyIds = Vector("P1", "P2", "P3", "P4")
       val partyManagement = client.partyManagementClient
 
@@ -1374,8 +1371,6 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "parties endpoint should return only requested parties, unknown parties returned as warnings" in withHttpServiceAndClient {
     (uri, _, _, client, _) =>
-      import scalaz.std.vector._
-
       val charlie = getUniqueParty("Charlie")
       val knownParties = Vector(getUniqueParty("Alice"), getUniqueParty("Bob")) :+ charlie
       val erin = getUniqueParty("Erin")
@@ -1923,10 +1918,6 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "Should ignore conflicts on contract key hash constraint violation" in withHttpServiceAndClient {
     (uri, encoder, _, _, _) =>
-      import scalaz.std.vector._
-      import scalaz.syntax.tag._
-      import scalaz.syntax.traverse._
-      import scalaz.std.scalaFuture._
       import shapeless.record.{Record => ShRecord}
       import com.daml.ledger.api.refinements.{ApiTypes => lar}
 
