@@ -156,8 +156,6 @@ conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=KVCommandDeduplicationIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
@@ -184,8 +182,6 @@ conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=KVCommandDeduplicationIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
@@ -209,13 +205,11 @@ conformance_test(
         "--verbose",
         # Notoriously times-out
         #"--additional=ParticipantPruningIT",
-        "--additional=KVCommandDeduplicationIT",
         # The following two tests don't actually care about multi-participant but they do need append-only.
         "--additional=CommandDeduplicationParallelIT",
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ConfigManagementServiceIT",
     ],
 )
@@ -241,8 +235,6 @@ conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=KVCommandDeduplicationIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ConfigManagementServiceIT",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",

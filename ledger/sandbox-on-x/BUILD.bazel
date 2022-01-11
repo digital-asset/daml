@@ -132,7 +132,6 @@ conformance_test(
         "--verbose",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        "--exclude=CommandDeduplicationIT",
         "--exclude=ClosedWorldIT",
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
@@ -165,10 +164,6 @@ conformance_test(
         "--additional=ContractIdIT:Accept",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        # Exclude offset command deduplication tests as
-        # Sandbox-on-X has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods.
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # not enforced
         "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
         # Disable tests targeting only multi-participant setups
@@ -192,10 +187,6 @@ conformance_test(
         "--static-time",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        # Exclude offset command deduplication tests as
-        # Sandbox-on-X has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods.
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
         # not enforced
         "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
         # Disable tests targeting only multi-participant setups

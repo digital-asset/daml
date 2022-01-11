@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import java.nio.file.Path
+
 import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, Envelope, LedgerTestSuite}
 import com.daml.ledger.api.testtool.suites.CompletionDeduplicationInfoIT.{
   CommandService,
@@ -12,9 +14,7 @@ import com.daml.ledger.api.testtool.suites._
 import com.daml.ledger.test.TestDar
 import com.daml.lf.language.LanguageVersion
 
-import java.nio.file.Path
 import scala.collection.SortedSet
-import scala.concurrent.duration.FiniteDuration
 
 object Tests {
 
@@ -25,13 +25,12 @@ object Tests {
 
   def default(
       timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor,
-      ledgerClockGranularity: FiniteDuration = Defaults.LedgerClockGranularity,
       staticTime: Boolean = Defaults.StaticTime,
   ): Vector[LedgerTestSuite] =
     Vector(
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
-      new CommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity, staticTime),
+      new CommandDeduplicationIT(timeoutScaleFactor, staticTime),
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
       new ConfigManagementServiceIT,
@@ -63,18 +62,13 @@ object Tests {
     ) ++ (if (supportsExceptions) Vector(new ExceptionsIT, new ExceptionRaceConditionIT)
           else Vector.empty)
 
-  def optional(
-      timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor,
-      ledgerClockGranularity: FiniteDuration = Defaults.LedgerClockGranularity,
-      staticTime: Boolean = Defaults.StaticTime,
-  ): Vector[LedgerTestSuite] =
+  def optional(): Vector[LedgerTestSuite] =
     Vector(
       new CompletionDeduplicationInfoIT(CommandService),
       new CompletionDeduplicationInfoIT(CommandSubmissionService),
       new CommandDeduplicationParallelIT,
       new CommandDeduplicationPeriodValidationIT,
       new ContractIdIT,
-      new KVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity, staticTime),
       new MultiPartySubmissionIT,
       new ParticipantPruningIT,
       new MonotonicRecordTimeIT,
