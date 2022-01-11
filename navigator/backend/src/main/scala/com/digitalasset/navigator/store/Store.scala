@@ -7,7 +7,6 @@ import java.time.Instant
 import com.daml.ledger.api.domain.{PartyDetails, User}
 import com.daml.navigator.model._
 import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.navigator.config.UserConfig
 import com.daml.navigator.time.TimeProviderWithType
 
 trait ActorStatus
@@ -35,7 +34,7 @@ object Store {
   case class UpdatedParties(details: List[PartyDetails])
 
   /** Request to subscribe a party to the store (without response to sender). */
-  case class Subscribe(displayName: String, config: UserConfig)
+  case class Subscribe(displayName: String, partyState: PartyState)
 
   /** Request to create a contract instance for a template and respond with a `scala.util.Try[CommandId]`. */
   case class CreateContract(party: PartyState, templateId: TemplateStringId, argument: ApiRecord)

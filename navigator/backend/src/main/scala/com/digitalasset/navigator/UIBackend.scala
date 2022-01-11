@@ -67,10 +67,10 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       getAppState: () => Future[ApplicationStateInfo],
   ): Route = {
 
-    def openSession(userId: String, userConfig: UserConfig, state: PartyState): Route = {
+    def openSession(userId: String, userRole: Option[String], state: PartyState): Route = {
       val sessionId = UUID.randomUUID().toString
       setCookie(HttpCookie("session-id", sessionId, path = Some("/"))) {
-        complete(Session.open(sessionId, userId, userConfig, state))
+        complete(Session.open(sessionId, userId, userRole, state))
       }
     }
 
@@ -136,7 +136,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                             case Some(resp) =>
                               resp match {
                                 case PartyActorRunning(info) =>
-                                  openSession(request.userId, info.state.config, info.state)
+                                  openSession(request.userId, info.state.userRole, info.state)
                                 case Store.PartyActorUnresponsive =>
                                   complete(
                                     SignIn(SignInSelect(partyActors.keySet), Some(Unresponsive))
@@ -267,7 +267,10 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         )
       } else {
         config.users.foreach { case (displayName, config) =>
-          store ! Subscribe(displayName, config)
+          store ! Subscribe(
+            displayName,
+            new PartyState(config.party, config.role, config.useDatabase),
+          )
         }
         None
       }

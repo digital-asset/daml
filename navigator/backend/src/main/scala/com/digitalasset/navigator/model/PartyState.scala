@@ -4,18 +4,25 @@
 package com.daml.navigator.model
 
 import java.util.concurrent.atomic.AtomicReference
-
 import com.daml.lf.{iface => DamlLfIface}
 import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.navigator.config.UserConfig
+
+import scala.collection.immutable.LazyList
 import scalaz.Tag
+
+import java.net.URLEncoder
 
 case class State(ledger: Ledger, packageRegistry: PackageRegistry)
 
 /** A DA party and its ledger view(s). */
-class PartyState(val config: UserConfig) {
-  val name = config.party
-  val useDatabase = config.useDatabase
+class PartyState(
+    val name: ApiTypes.Party,
+    val userRole: Option[String] = None,
+    val useDatabase: Boolean = false,
+) {
+  def actorName: String =
+    "party-" + URLEncoder.encode(ApiTypes.Party.unwrap(name), "UTF-8")
+
   private val stateRef: AtomicReference[State] = new AtomicReference(
     State(Ledger(name, None, useDatabase), new PackageRegistry)
   )
