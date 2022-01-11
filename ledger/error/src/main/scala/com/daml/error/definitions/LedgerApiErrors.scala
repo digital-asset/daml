@@ -699,7 +699,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
     @Explanation("There already exists a user with the same user-id.")
     @Resolution(
-      "Check that you are connecting to the right participant node and the user-id is spelled correctly and/or use the user that already exists."
+      "Check that you are connecting to the right participant node and the user-id is spelled correctly, or use the user that already exists."
     )
     object UserAlreadyExists
         extends ErrorCode(
