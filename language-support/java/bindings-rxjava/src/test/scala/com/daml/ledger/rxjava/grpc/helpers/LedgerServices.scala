@@ -234,6 +234,17 @@ final class LedgerServices(val ledgerId: String) {
     }
   }
 
+  def withUserManagementClient(
+      authService: AuthService = AuthServiceWildcard,
+      accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
+  )(f: (UserManagementClientImpl, UserManagementServiceImpl) => Any): Any = {
+    val (service, serviceImpl) =
+      UserManagementServiceImpl.createWithRef(authorizer)(executionContext)
+    withServerAndChannel(authService, Seq(service)) { channel =>
+      f(new UserManagementClientImpl(channel, accessToken), serviceImpl)
+    }
+  }
+
   def withFakeLedgerServer(
       getActiveContractsResponse: Observable[GetActiveContractsResponse],
       transactions: Observable[LedgerItem],
