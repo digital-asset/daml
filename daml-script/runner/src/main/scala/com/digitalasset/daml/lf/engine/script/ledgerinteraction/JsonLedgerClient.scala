@@ -17,7 +17,7 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
 import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
@@ -63,10 +63,13 @@ class JsonLedgerClient(
     case -\/(e) => throw new IllegalArgumentException(e.toString)
     case \/-(a) => a
   }
-  private[script] val tokenPayload: AuthServiceJWTPayload =
+  private[script] val tokenPayload: CustomDamlJWTPayload =
     AuthServiceJWTCodec.readFromString(decodedJwt.payload) match {
       case Failure(e) => throw e
-      case Success(s) => s
+      case Success(s : CustomDamlJWTPayload) => s
+      case Success(_ : StandardJWTPayload) =>
+        // TODO https://github.com/digital-asset/daml/issues/12349
+        throw new UnsupportedOperationException("Daml Script over JSON API does not support standard JWT tokens")
     }
 
   implicit val system = actorSystem
@@ -599,7 +602,7 @@ object JsonLedgerClient {
   def validateSubmitParties(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      tokenPayload: AuthServiceJWTPayload,
+      tokenPayload: CustomDamlJWTPayload,
   ): Either[String, Option[SubmitParties]] = {
     val actAsSet = actAs.toList.toSet[String]
     val readAsSet = readAs.toSet[String]
