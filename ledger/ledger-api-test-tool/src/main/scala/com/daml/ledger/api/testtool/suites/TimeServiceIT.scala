@@ -14,6 +14,8 @@ import java.time.Instant
 
 import scala.concurrent.Future
 
+import java.util.regex.Pattern
+
 final class TimeServiceIT extends LedgerTestSuite {
 
   test(
@@ -67,12 +69,12 @@ final class TimeServiceIT extends LedgerTestSuite {
         .exercise(party, checker.exerciseTimeChecker_CheckTime(_))
         .mustFail("submitting choice prematurely")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
-        Some("Unhandled exception"),
+        Some(Pattern.compile("Unhandled (Daml )?exception")),
         checkDefiniteAnswerMetadata = true,
       )
     }
