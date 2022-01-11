@@ -22,7 +22,7 @@ final class TimeServiceIT extends LedgerTestSuite {
     allocate(NoParties),
     runConcurrently = false,
     enabled = _.staticTime,
-    disabledReason = "requires user static time feature",
+    disabledReason = "requires ledger static time feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
       initialTime <- ledger.time()
@@ -39,7 +39,7 @@ final class TimeServiceIT extends LedgerTestSuite {
     allocate(NoParties),
     runConcurrently = false,
     enabled = _.staticTime,
-    disabledReason = "requires user static time feature",
+    disabledReason = "requires ledger static time feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
       initialTime <- ledger.time()
@@ -47,7 +47,7 @@ final class TimeServiceIT extends LedgerTestSuite {
       _ <- ledger.setTime(initialTime, thirtySecLater)
       laterTime <- ledger.time()
     } yield {
-      assertEquals("ledger time should stand still", laterTime, thirtySecLater)
+      assertEquals("ledger time should be advanced", laterTime, thirtySecLater)
     }
   })
 
@@ -57,7 +57,7 @@ final class TimeServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
     runConcurrently = false,
     enabled = _.staticTime,
-    disabledReason = "requires user static time feature",
+    disabledReason = "requires ledger static time feature",
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       initialTime <- ledger.time()
@@ -84,7 +84,7 @@ final class TimeServiceIT extends LedgerTestSuite {
     allocate(SingleParty),
     runConcurrently = false,
     enabled = _.staticTime,
-    disabledReason = "requires user static time feature",
+    disabledReason = "requires ledger static time feature",
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       initialTime <- ledger.time()
