@@ -779,25 +779,13 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $tupd[fieldIndex] :: Struct -> a -> Struct */
-  final case class SBStructUpd(fieldIndex: Int) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
-      val struct = getSStruct(args, 0)
-      val values2 = struct.values.clone.asInstanceOf[util.ArrayList[SValue]]
-      discard(values2.set(fieldIndex, args.get(1)))
-      struct.copy(values = values2)
-    }
-  }
-
   /** $tupd[field] :: Struct -> a -> Struct */
-  // This is a slower version of `SBStructUpd` for the case when we didn't run
-  // the Daml-LF type checker and hence didn't infer the field index.
-  final case class SBStructUpdByName(field: Ast.FieldName) extends SBuiltinPure(2) {
+  final case class SBStructUpd(field: Ast.FieldName) extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
       val struct = getSStruct(args, 0)
-      val values2 = struct.values.clone.asInstanceOf[util.ArrayList[SValue]]
-      discard(values2.set(struct.fieldNames.indexOf(field), args.get(1)))
-      struct.copy(values = values2)
+      val values = struct.values.clone.asInstanceOf[util.ArrayList[SValue]]
+      discard(values.set(struct.fieldNames.indexOf(field), args.get(1)))
+      struct.copy(values = values)
     }
   }
 
