@@ -65,10 +65,16 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
                 )
               case _: NoSuchElementException =>
                 Future.failed(
-                  errorFactories
-                    .queueClosed("Party submission")(
-                      new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
-                    )
+                  errorFactories.grpcError(
+                    errorFactories.SubmissionQueueErrors
+                      .queueClosed("Party submission")(
+                        new DamlContextualizedErrorLogger(
+                          logger,
+                          loggingContext,
+                          Some(submissionId),
+                        )
+                      )
+                  )
                 )
             }
             .flatten

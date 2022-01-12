@@ -390,22 +390,6 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     )
   }
 
-  def queueClosed(queueName: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): StatusRuntimeException =
-    errorCodesVersionSwitcher.choose(
-      v1 = grpcError(
-        Status
-          .newBuilder()
-          .setCode(Code.UNAVAILABLE.value())
-          .setMessage(s"$queueName queue has been closed")
-          .build()
-      ),
-      v2 = LedgerApiErrors.ServiceNotRunning
-        .Reject(s"$queueName queue)")
-        .asGrpcErrorFromContext,
-    )
-
   def packageUploadRejected(message: String, definiteAnswer: Option[Boolean])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = {
