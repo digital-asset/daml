@@ -122,3 +122,11 @@ trait ConfigProvider[ExtraConfig] {
     new Metrics(SharedMetricRegistries.getOrCreate(registryName))
   }
 }
+
+object ConfigProvider {
+  object ForUnit extends ConfigProvider[Unit] {
+    override val defaultExtraConfig: Unit = ()
+
+    override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit = ()
+  }
+}
