@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.test
@@ -13,7 +13,7 @@ import io.grpc.reflection.v1alpha.{
   ServerReflectionRequest,
   ServerReflectionResponse,
 }
-import io.grpc.services.HealthStatusManager
+import io.grpc.protobuf.services.HealthStatusManager
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, Channel, ClientInterceptor}
 import org.scalatest.Assertion

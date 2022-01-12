@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources.grpc
@@ -7,7 +7,7 @@ import com.daml.resources.grpc.{GrpcResourceOwnerFactories => Resources}
 import io.grpc.health.v1.{HealthCheckRequest, HealthGrpc}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.netty.{NettyChannelBuilder, NettyServerBuilder}
-import io.grpc.services.HealthStatusManager
+import io.grpc.protobuf.services.HealthStatusManager
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
