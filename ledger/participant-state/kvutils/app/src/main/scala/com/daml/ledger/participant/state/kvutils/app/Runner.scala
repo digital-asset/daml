@@ -200,7 +200,7 @@ final class Runner[T <: ReadWriteService, Extra](
                         engine = sharedEngine,
                         servicesExecutionContext = servicesExecutionContext,
                         commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
-                          Some(
+                          deduplicationPeriodSupport = Some(
                             CommandDeduplicationPeriodSupport.of(
                               offsetSupport =
                                 CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
@@ -208,7 +208,8 @@ final class Runner[T <: ReadWriteService, Extra](
                                 CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
                             )
                           ),
-                          CommandDeduplicationType.ASYNC_ONLY,
+                          deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
+                          maxDeduplicationDurationEnforced = true,
                         ),
                       ).acquire()
                     } yield {}

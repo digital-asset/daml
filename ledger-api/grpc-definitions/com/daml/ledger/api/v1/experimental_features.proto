@@ -31,6 +31,9 @@ message ExperimentalStaticTime {}
 message CommandDeduplicationFeatures {
   CommandDeduplicationPeriodSupport deduplication_period_support = 1;
   CommandDeduplicationType deduplication_type = 2;
+  // The ledger will reject any requests which specify a deduplication period which exceeds the specified max deduplication duration.
+  // This is also enforced for ledgers that convert deduplication periods specified as offsets to durations.
+  bool max_deduplication_duration_enforced = 3;
 }
 
 // Feature descriptor specifying how deduplication periods can be specified and how they are handled by the participant

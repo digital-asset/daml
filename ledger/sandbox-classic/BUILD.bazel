@@ -363,8 +363,6 @@ server_conformance_test(
         # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
         "--exclude=ClosedWorldIT",
-        # not enforced
-        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
 )
 
@@ -393,8 +391,6 @@ server_conformance_test(
         # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
         "--exclude=ClosedWorldIT",
-        # not enforced
-        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
 )
 
@@ -415,8 +411,6 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
-        # not enforced
-        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
 )
 
@@ -438,8 +432,6 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
-        # not enforced
-        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
     ],
 )
 

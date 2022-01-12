@@ -173,8 +173,6 @@ conformance_test(
         "--additional=ContractIdIT:Accept",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        # not enforced
-        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
@@ -196,8 +194,6 @@ conformance_test(
         "--static-time",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
-        # not enforced
-        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
