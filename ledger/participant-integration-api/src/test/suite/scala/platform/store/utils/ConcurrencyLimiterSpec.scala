@@ -50,7 +50,7 @@ final class ConcurrencyLimiterSpec extends AsyncFlatSpec {
   it should "limit the parallelism to the number of work items" in {
     ConcurrencyLimiterSpec.runTest(
       createLimiter = ec => new QueueBasedConcurrencyLimiter(8, ec),
-      waitTimeMillis = 100,
+      waitTimeMillis = 1000,
       threads = 16,
       items = 4,
       parallelism = 8,
