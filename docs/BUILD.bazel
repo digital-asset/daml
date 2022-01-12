@@ -248,18 +248,13 @@ export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
     # the PDF documentation due to issues with the FreeSerif font in the
     # fontspec package. So, for now we ignore `FutureWarning`.
     SPHINX_BUILD_EXIT_CODE=0
-    SPHINX_BUILD_OUTPUT=$$($(location @sphinx_nix//:bin/sphinx-build) -b {target} -c $$DIR/source/configs/{name} $$DIR/source/source $$DIR/target 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
+    # We hide the output unless we get a failure to make the builds less noisy.
+    SPHINX_BUILD_OUTPUT=$$($(location @sphinx_nix//:bin/sphinx-build) -W -b {target} -c $$DIR/source/configs/{name} $$DIR/source/source $$DIR/target 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
 
     if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
         >&2 echo "## SPHINX-BUILD OUTPUT:"
         >&2 echo "$$SPHINX_BUILD_OUTPUT"
         >&2 echo "## SPHINX-BUILD OUTPUT END"
-        exit 1
-    fi
-    # NOTE: appending ' || true' to force exit code of 0 from grep because grep normally exits with 1 if no lines are selected:
-    WARNINGS=$$(echo "$$SPHINX_BUILD_OUTPUT" | grep -Pi "(?<!future)warning:" || true)
-    if [ "$$WARNINGS" != "" ]; then
-        echo "$$WARNINGS"
         exit 1
     fi
 
