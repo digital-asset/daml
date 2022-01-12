@@ -100,14 +100,16 @@ final class CommandDeduplicationIT(
         response.completion.commandId == request.commands.get.commandId,
         "The command ID of the first completion does not match the command ID of the submission",
       )
-      val completion = assertCompletionIsDefined(optCompletion)
-      assertDeduplicationDuration(
-        deduplicationDuration.asProtobuf,
-        firstSubmissionSendTime,
-        secondCompletionReceiveTime,
-        completion,
-        ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.durationSupport,
-      )
+      if (!ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly) {
+        val completion = assertCompletionIsDefined(optCompletion)
+        assertDeduplicationDuration(
+          deduplicationDuration.asProtobuf,
+          firstSubmissionSendTime,
+          secondCompletionReceiveTime,
+          completion,
+          ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.durationSupport,
+        )
+      }
     }
   })
 

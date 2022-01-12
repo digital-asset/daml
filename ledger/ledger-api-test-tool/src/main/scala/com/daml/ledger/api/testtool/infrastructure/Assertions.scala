@@ -213,20 +213,19 @@ object Assertions {
       completion: Completion,
       durationSupport: DurationSupport,
   ): Unit = discard {
+    val requestedDuration = DurationConversion.fromProto(requestedDeduplicationDuration)
     durationSupport match {
       case DurationSupport.DURATION_NATIVE_SUPPORT =>
-        completion.deduplicationPeriod.deduplicationDuration.map { reportedDuration =>
+        completion.deduplicationPeriod.deduplicationDuration.map { reportedDurationProto =>
+          val reportedDuration = DurationConversion.fromProto(reportedDurationProto)
           assert(
-            DurationConversion
-              .fromProto(reportedDuration)
-              .compareTo(DurationConversion.fromProto(requestedDeduplicationDuration)) <= 0,
-            s"The reported deduplication duration $reportedDuration was smaller than the requested deduplication duration $requestedDeduplicationDuration.",
+            reportedDuration.compareTo(requestedDuration) >= 0,
+            s"The reported deduplication duration $reportedDuration was smaller than the requested deduplication duration $requestedDuration.",
           )
         }
       case DurationSupport.DURATION_CONVERT_TO_OFFSET =>
         assert(
-          DurationConversion
-            .fromProto(requestedDeduplicationDuration)
+          requestedDuration
             .compareTo(
               java.time.Duration.between(previousSubmissionSendTime, completionReceiveTime)
             ) <= 0,
@@ -254,13 +253,14 @@ object Assertions {
         }
       case OffsetSupport.OFFSET_CONVERT_TO_DURATION =>
         completionResponse.completion.deduplicationPeriod.deduplicationDuration.map {
-          reportedDuration =>
+          reportedDurationProto =>
+            val reportedDuration = DurationConversion.fromProto(reportedDurationProto)
             val durationBetweenPreviousAndCurrentCompletionRecordTimes = java.time.Duration
               .between(previousCompletionResponse.recordTime, completionResponse.recordTime)
             assert(
-              DurationConversion
-                .fromProto(reportedDuration)
-                .compareTo(durationBetweenPreviousAndCurrentCompletionRecordTimes) >= 0,
+              reportedDuration.compareTo(
+                durationBetweenPreviousAndCurrentCompletionRecordTimes
+              ) >= 0,
               s"The reported duration $reportedDuration was smaller than the duration between record times ($durationBetweenPreviousAndCurrentCompletionRecordTimes).",
             )
         }
