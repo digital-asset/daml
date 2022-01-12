@@ -57,7 +57,7 @@ private[daml] final class LedgerApiServer(
       val host = address.getOrElse("localhost")
       val actualPort = server.getPort
       val transportMedium = if (sslContext.isDefined) "TLS" else "plain text"
-      logger.info(s"Listening on $host:$actualPort over $transportMedium.")
+      logger.info(s"Listening on $host:$actualPort over $transportMedium")
       new ApiServer {
         override val port: Port =
           Port(server.getPort)
