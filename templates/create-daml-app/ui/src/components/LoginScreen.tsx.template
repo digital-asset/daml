@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useCallback } from 'react'
+import React, { useCallback, useEffect, useState} from 'react'
 import { Button, Form, Grid, Header, Image, Segment } from 'semantic-ui-react'
 import Credentials from '../Credentials';
 import Ledger from '@daml/ledger';
@@ -24,7 +24,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
       const ledger = new Ledger({token: credentials.token});
       let userContract = await ledger.fetchByKey(User.User, credentials.party);
       if (userContract === null) {
-        const user = {username: credentials.party, following: []};
+        const user = {username: credentials.party, following: [], public: 'public'};
         userContract = await ledger.create(User.User, user);
       }
       onLogin(credentials);
@@ -61,7 +61,19 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
     </Grid>;
 
   const InsecureLogin: React.FC<{auth: Insecure}> = ({auth}) => {
+    const [options, setOptions] = useState([{key: '', text: '', value: ''}]);
     const [username, setUsername] = React.useState('');
+
+    useEffect(() => {
+      (async () => {
+        const token = auth.makeToken('public');
+        const ledger = new Ledger({token: token});
+        const allUsers = await ledger.listUsers();
+        setOptions(allUsers.filter((u) => !['participant_admin', 'public'].includes(u.userId) ).map((u) => ({key: u.userId, text: u.userId, value: u.userId})))
+      })()
+
+    }, [auth])
+
     const handleLogin = async (event: React.FormEvent) => {
       event.preventDefault();
       const token = auth.makeToken(username);
@@ -74,15 +86,17 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
       await login({party: primaryParty,
                    token: auth.makeToken(username)});
     }
+
     return wrap(<>
       {/* FORM_BEGIN */}
-      <Form.Input fluid
-                  icon='user'
-                  iconPosition='left'
+      <Form.Select fluid
+                  options={options}
                   placeholder='Username'
                   value={username}
                   className='test-select-username-field'
-                  onChange={e => setUsername(e.currentTarget.value)} />
+                  search
+                  onChange={(e, {value}) => setUsername(value?.toString() ?? '')}
+                   />
       <Button primary
               fluid
               className='test-select-login-button'

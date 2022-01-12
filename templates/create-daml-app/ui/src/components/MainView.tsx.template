@@ -13,7 +13,10 @@ import PartyListEdit from './PartyListEdit';
 const MainView: React.FC = () => {
   const username = useParty();
   const myUserResult = useStreamFetchByKeys(User.User, () => [username], [username]);
+  const aliases = useStreamQueries(User.Alias, () => [], []);
+  const partyToAlias = new Map<Party, string>(aliases.contracts.map(({payload}) => [payload.username, payload.alias]))
   const myUser = myUserResult.contracts[0]?.payload;
+  const myUserName = partyToAlias.get(username) ?? username;
   const allUsers = useStreamQueries(User.User).contracts;
 // USERS_END
 
@@ -45,20 +48,21 @@ const MainView: React.FC = () => {
         <Grid.Row stretched>
           <Grid.Column>
             <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
-                {myUser ? `Welcome, ${myUser.username}!` : 'Loading...'}
+                {myUserName ? `Welcome, ${myUserName}!` : 'Loading...'}
             </Header>
 
             <Segment>
               <Header as='h2'>
                 <Icon name='user' />
                 <Header.Content>
-                  {myUser?.username ?? 'Loading...'}
+                  {myUserName ?? 'Loading...'}
                   <Header.Subheader>Users I'm following</Header.Subheader>
                 </Header.Content>
               </Header>
               <Divider />
               <PartyListEdit
                 parties={myUser?.following ?? []}
+                partyToAlias={partyToAlias}
                 onAddParty={follow}
               />
             </Segment>
@@ -74,6 +78,7 @@ const MainView: React.FC = () => {
               {/* USERLIST_BEGIN */}
               <UserList
                 users={followers}
+                partyToAlias={partyToAlias}
                 onFollow={follow}
               />
               {/* USERLIST_END */}

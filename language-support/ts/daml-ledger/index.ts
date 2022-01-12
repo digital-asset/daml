@@ -1402,6 +1402,16 @@ class Ledger {
   }
 
   /**
+   * List known users.
+   *
+   * @returns List of User details
+   */
+  async listUsers(): Promise<User[]> {
+    const json = await this.submit('v1/users', undefined, 'get');
+    return decode(jtv.array(userDecoder), json);
+  }
+
+  /**
    * Allocate a new party.
    *
    * @param partyOpt Parameters for party allocation.

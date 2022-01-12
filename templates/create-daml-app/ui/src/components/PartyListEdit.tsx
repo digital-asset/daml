@@ -7,25 +7,27 @@ import { Party } from '@daml/types';
 
 type Props = {
   parties: Party[];
+  partyToAlias: Map<Party,String>;
   onAddParty: (party: Party) => Promise<boolean>;
 }
 
 /**
  * React component to edit a list of `Party`s.
  */
-const PartyListEdit: React.FC<Props> = ({parties, onAddParty}) => {
-  const [newParty, setNewParty] = React.useState('');
+const PartyListEdit: React.FC<Props> = ({parties, partyToAlias, onAddParty}) => {
+  const [newParty, setNewParty] = React.useState<string|undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const options = Array.from(partyToAlias.entries()).map((e) => ({key: e[0], text: e[1], value: e[0]}))
 
   const addParty = async (event?: React.FormEvent) => {
     if (event) {
       event.preventDefault();
     }
     setIsSubmitting(true);
-    const success = await onAddParty(newParty);
+    const success = await onAddParty(newParty ?? '');
     setIsSubmitting(false);
     if (success) {
-      setNewParty('');
+      setNewParty(undefined);
     }
   }
 
@@ -38,21 +40,27 @@ const PartyListEdit: React.FC<Props> = ({parties, onAddParty}) => {
           <List.Icon name='user outline' />
           <List.Content>
             <List.Header className='test-select-following'>
-              {party}
+              {partyToAlias.get(party) ?? party}
             </List.Header>
           </List.Content>
         </List.Item>
       )}
       <br />
       <Form onSubmit={addParty}>
-        <Form.Input
+        <Form.Select
           fluid
+          search
+          allowAdditions
+          additionLabel='Insert a party identifier: '
+          additionPosition='bottom'
           readOnly={isSubmitting}
           loading={isSubmitting}
           className='test-select-follow-input'
-          placeholder="Username to follow"
+          placeholder={newParty ?? "Username to follow"}
           value={newParty}
-          onChange={(event) => setNewParty(event.currentTarget.value)}
+          options={options}
+          onAddItem={(event, {value}) => setNewParty(value?.toString())}
+          onChange={(event, {value}) => setNewParty(value?.toString())}
         />
         <Button
           type='submit'
