@@ -6,7 +6,6 @@ package transaction
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
@@ -835,43 +834,6 @@ object Transaction {
       f: crypto.Hash => Bytes,
   ): Either[String, CommittedTransaction] =
     submittedTransaction.suffixCid(f).map(CommittedTransaction(_))
-
-  /** Errors that can happen during building transactions. */
-  sealed abstract class TransactionError extends Product with Serializable
-
-  /** Signals that the contract-id `coid` was expected to be active, but
-    * is not.
-    */
-  final case class ContractNotActive(
-      coid: Value.ContractId,
-      templateId: TypeConName,
-      consumedBy: NodeId,
-  ) extends TransactionError
-
-  /** Signals that within the transaction we got to a point where
-    * two contracts with the same key were active.
-    *
-    * Note that speedy only detects duplicate key collisions
-    * if both contracts are used in the transaction in by-key operations
-    * meaning lookup, fetch or exercise-by-key or local creates.
-    *
-    * Two notable cases that will never produce duplicate key errors
-    * is a standalone create or a create and a fetch (but not fetch-by-key)
-    * with the same key.
-    *
-    * For ledger implementors this means that (for contract key uniqueness)
-    * it is sufficient to only look at the inputs and the outputs of the
-    * transaction whlie leaving all internal checks within the transaction
-    *  to the engine.
-    */
-  final case class DuplicateContractKey(
-      key: GlobalKey
-  ) extends TransactionError
-
-  final case class AuthFailureDuringExecution(
-      nid: NodeId,
-      fa: FailedAuthorization,
-  ) extends TransactionError
 
   /** The state of a key at the beginning of the transaction.
     */

@@ -19,13 +19,7 @@ import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  Versioned,
-  Transaction => Tx,
-}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, Versioned}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.nameof.NameOf
@@ -949,7 +943,6 @@ private[lf] object SBuiltin {
 
       onLedger.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
       onLedger.ptx = newPtx
-      checkAborted(onLedger.ptx)
       machine.returnValue = SContractId(coid)
     }
   }
@@ -1011,7 +1004,6 @@ private[lf] object SBuiltin {
           chosenValue = chosenValue,
           byInterface = byInterface,
         )
-      checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
     }
   }
@@ -1312,7 +1304,6 @@ private[lf] object SBuiltin {
         byKey,
         byInterface,
       )
-      checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
     }
   }
@@ -1354,7 +1345,6 @@ private[lf] object SBuiltin {
         ),
         mbCoid,
       )
-      checkAborted(onLedger.ptx)
       machine.returnValue = SV.Unit
     }
   }
@@ -1872,22 +1862,6 @@ private[lf] object SBuiltin {
 
   // Helpers
   //
-
-  /** Check whether the partial transaction has been aborted, and
-    * throw if so. The partial transaction abort status must be
-    * checked after every operation on it.
-    */
-  private[speedy] def checkAborted(ptx: PartialTransaction): Unit =
-    ptx.aborted match {
-      case Some(Tx.AuthFailureDuringExecution(nid, fa)) =>
-        throw SErrorDamlException(IE.FailedAuthorization(nid, fa))
-      case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
-        throw SErrorDamlException(IE.ContractNotActive(coid, tid, consumedBy))
-      case Some(Tx.DuplicateContractKey(key)) =>
-        throw SErrorDamlException(IE.DuplicateContractKey(key))
-      case None =>
-        ()
-    }
 
   private[this] def extractParties(where: String, v: SValue): TreeSet[Party] =
     v match {

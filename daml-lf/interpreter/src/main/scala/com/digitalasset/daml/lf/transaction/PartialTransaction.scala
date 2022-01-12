@@ -6,6 +6,7 @@ package speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
+import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.ledger.{Authorize, FailedAuthorization}
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
@@ -192,7 +193,6 @@ private[lf] object PartialTransaction {
     actionNodeSeeds = BackStack.empty,
     consumedBy = Map.empty,
     context = Context(initialSeeds, committers),
-    aborted = None,
     keys = Map.empty,
     globalKeyInputs = Map.empty,
     localContracts = Set.empty,
@@ -225,12 +225,6 @@ private[lf] object PartialTransaction {
   *                    been consumed by nodes up to now.
   *  @param context The context of what sub-transaction is being
   *                 built.
-  *  @param aborted The error that lead to aborting the building of
-  *                 this transaction. We inline this error to allow
-  *                 reporting the error jointly with the state that
-  *                 the transaction was in when aborted. It is up to
-  *                 the caller to check for 'isAborted' after every
-  *                 change to a transaction.
   *  @param keys A local store of the contract keys used for lookups and fetches by keys
   *              (including exercise by key). Each of those operations will be resolved
   *              against this map first. Only if there is no entry in here
@@ -274,7 +268,6 @@ private[speedy] case class PartialTransaction(
     actionNodeSeeds: BackStack[crypto.Hash],
     consumedBy: Map[Value.ContractId, NodeId],
     context: PartialTransaction.Context,
-    aborted: Option[Tx.TransactionError],
     keys: Map[GlobalKey, PartialTransaction.KeyMapping],
     globalKeyInputs: Map[GlobalKey, PartialTransaction.KeyMapping],
     localContracts: Set[Value.ContractId],
@@ -360,14 +353,13 @@ private[speedy] case class PartialTransaction(
   /** Finish building a transaction; i.e., try to extract a complete
     *  transaction from the given 'PartialTransaction'. This returns:
     * - a SubmittedTransaction in case of success ;
-    * - the 'PartialTransaction' itself if it is not yet complete or
-    *   has been aborted ;
+    * - the 'PartialTransaction' itself if it is not yet complete ;
     * - an error in case the transaction cannot be serialized using
     *   the `outputTransactionVersions`.
     */
   def finish: PartialTransaction.Result =
     context.info match {
-      case _: RootContextInfo if aborted.isEmpty =>
+      case _: RootContextInfo =>
         val roots = context.children.toImmArray
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
@@ -481,7 +473,7 @@ private[speedy] case class PartialTransaction(
         }
         (conflict, contractKeyUniqueness) match {
           case (KeyConflict.Duplicate, ContractKeyUniquenessMode.On) =>
-            cid -> ptx.noteAbort(Tx.DuplicateContractKey(ck))
+            throw SError.SErrorDamlException(IE.DuplicateContractKey(ck))
           case _ =>
             cid ->
               ptx.copy(
@@ -751,13 +743,9 @@ private[speedy] case class PartialTransaction(
     f(auth) match {
       case Nil => this
       case fa :: _ => // take just the first failure //TODO: dont compute all!
-        noteAbort(Tx.AuthFailureDuringExecution(nid, fa))
+        throw SError.SErrorDamlException(IE.FailedAuthorization(nid, fa))
     }
   }
-
-  /** Note that the transaction building failed due to the given error */
-  private def noteAbort(err: Tx.TransactionError): PartialTransaction =
-    copy(aborted = Some(err))
 
   /** `True` iff the given `ContractId` has been consumed already */
   def isConsumed(coid: Value.ContractId): Boolean = consumedBy.contains(coid)
@@ -772,7 +760,8 @@ private[speedy] case class PartialTransaction(
   ): PartialTransaction =
     consumedBy.get(coid) match {
       case None => f
-      case Some(nid) => noteAbort(Tx.ContractNotActive(coid, templateId, nid))
+      case Some(nid) =>
+        throw SError.SErrorDamlException(IE.ContractNotActive(coid, templateId, nid))
     }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */

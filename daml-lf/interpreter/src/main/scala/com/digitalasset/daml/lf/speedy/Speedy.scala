@@ -16,7 +16,6 @@ import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SBuiltin.checkAborted
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   IncompleteTransaction,
@@ -1373,7 +1372,6 @@ private[lf] object Speedy {
     def execute(exerciseResult: SValue) = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
         onLedger.ptx = onLedger.ptx.endExercises(exerciseResult)
-        checkAborted(onLedger.ptx)
       }
       machine.returnValue = exerciseResult
     }
