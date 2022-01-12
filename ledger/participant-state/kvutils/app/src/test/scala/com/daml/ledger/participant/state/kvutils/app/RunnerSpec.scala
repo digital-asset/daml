@@ -59,20 +59,16 @@ class RunnerSpec extends AsyncWordSpec with Matchers {
     "start a participant" in {
       val config = Config.createDefault(()).copy(ledgerId = LedgerId)
       val participantConfig = newTestPartcipantConfig()
-
       val runner = new Runner(Name, TestLedgerFactory, ConfigProvider.ForUnit)
-      val app = startWithRunner(config, participantConfig, runner)
 
-      app.asFuture
-        .flatMap { channel =>
-          LedgerIdentityServiceGrpc
-            .stub(channel)
-            .getLedgerIdentity(GetLedgerIdentityRequest.of())
-            .map { response =>
-              response.ledgerId should be(LedgerId)
-            }
-        }
-        .transformWith(result => app.release().flatMap(_ => Future.fromTry(result)))
+      newApp(config, participantConfig, runner).use { channel =>
+        LedgerIdentityServiceGrpc
+          .stub(channel)
+          .getLedgerIdentity(GetLedgerIdentityRequest.of())
+          .map { response =>
+            response.ledgerId should be(LedgerId)
+          }
+      }
     }
   }
 }
@@ -99,25 +95,27 @@ object RunnerSpec {
     )
   }
 
-  private def startWithRunner(
+  private def newApp[T <: ReadWriteService](
       config: Config[Unit],
       participantConfig: ParticipantConfig,
-      runner: Runner[Nothing, Unit],
+      runner: Runner[T, Unit],
   )(implicit
-      resourceContext: ResourceContext,
-      loggingContext: LoggingContext,
-  ): Resource[Channel] = {
+      loggingContext: LoggingContext
+  ): ResourceOwner[Channel] =
     for {
-      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(Name)).acquire()
-      materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem)).acquire()
-      port <- runner
-        .runParticipant(config, participantConfig, engine)(
-          resourceContext,
-          loggingContext,
-          actorSystem,
-          materializer,
-        )
-        .map(_.get)
+      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(Name))
+      materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
+      port <- new ResourceOwner[Port] {
+        override def acquire()(implicit context: ResourceContext): Resource[Port] =
+          runner
+            .runParticipant(config, participantConfig, engine)(
+              context,
+              loggingContext,
+              actorSystem,
+              materializer,
+            )
+            .map(_.get)
+      }
       channel <- ResourceOwner
         .forChannel(
           {
@@ -128,9 +126,7 @@ object RunnerSpec {
           },
           shutdownTimeout = 1.second,
         )
-        .acquire()
     } yield channel
-  }
 
   object TestLedgerFactory extends LedgerFactory[Unit] {
     private val offsetBuilder = new KVOffsetBuilder(0)
