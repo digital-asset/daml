@@ -28,7 +28,7 @@ main = do
     let portFile = tempDir </> "portfile"
     let interpolatedServerArgs = map (replace "%PORT_FILE%" portFile) splitServerArgs
     let serverProc = proc serverExe interpolatedServerArgs
-    withCreateProcess serverProc $ \_stdin _stdout _stderr _ph -> do
-      port <- readPortFile maxRetries portFile
+    withCreateProcess serverProc $ \_stdin _stdout _stderr ph -> do
+      port <- readPortFile ph maxRetries portFile
       let interpolatedClientArgs = map (replace "%PORT%" (show port)) splitClientArgs
       callProcess clientExe interpolatedClientArgs
