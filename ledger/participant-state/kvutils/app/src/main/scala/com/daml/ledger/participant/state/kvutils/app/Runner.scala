@@ -27,6 +27,7 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.ports.Port
 
 import scala.concurrent.ExecutionContext
 
@@ -45,12 +46,11 @@ final class Runner[T <: ReadWriteService, Extra](
   def owner(originalConfig: Config[Extra]): ResourceOwner[Unit] = new ResourceOwner[Unit] {
     override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
       val config = configProvider.manipulateConfig(originalConfig)
-      val errorFactories = ErrorFactories(
-        new ErrorCodesVersionSwitcher(originalConfig.enableSelfServiceErrorCodes)
-      )
-
       config.mode match {
         case Mode.DumpIndexMetadata(jdbcUrls) =>
+          val errorFactories = ErrorFactories(
+            new ErrorCodesVersionSwitcher(originalConfig.enableSelfServiceErrorCodes)
+          )
           DumpIndexMetadata(jdbcUrls, errorFactories, name)
           sys.exit(0)
         case Mode.Run =>
@@ -59,7 +59,7 @@ final class Runner[T <: ReadWriteService, Extra](
     }
   }
 
-  private def run(
+  private[app] def run(
       config: Config[Extra]
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     implicit val actorSystem: ActorSystem = ActorSystem(cleanedName)
@@ -80,7 +80,7 @@ final class Runner[T <: ReadWriteService, Extra](
         )
 
         // initialize all configured participants
-        _ <- Resource.sequence(
+        _ <- Resource.sequenceIgnoringValues(
           config.participants.map(participantConfig =>
             runParticipant(config, participantConfig, sharedEngine)
           )
@@ -89,7 +89,7 @@ final class Runner[T <: ReadWriteService, Extra](
     }
   }
 
-  private def runParticipant(
+  private[app] def runParticipant(
       config: Config[Extra],
       participantConfig: ParticipantConfig,
       sharedEngine: Engine,
@@ -98,7 +98,7 @@ final class Runner[T <: ReadWriteService, Extra](
       loggingContext: LoggingContext,
       actorSystem: ActorSystem,
       materializer: Materializer,
-  ): Resource[Unit] =
+  ): Resource[Option[Port]] =
     withEnrichedLoggingContext("participantId" -> participantConfig.participantId) {
       implicit loggingContext =>
         val metrics = configProvider.createMetrics(participantConfig, config)
@@ -154,7 +154,7 @@ final class Runner[T <: ReadWriteService, Extra](
               Resource.successful(new HealthChecks())
           }
           apiServerConfig = configProvider.apiServerConfig(participantConfig, config)
-          _ <- participantConfig.mode match {
+          port <- participantConfig.mode match {
             case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
               for {
                 dbSupport <- DbSupport
@@ -183,7 +183,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   indexService,
                 )(implicitly, servicesExecutionContext)
                 writeService = new TimedWriteService(factory.writeService(), metrics)
-                _ <- StandaloneApiServer(
+                apiServer <- StandaloneApiServer(
                   indexService = indexService,
                   userManagementStore = userManagementStore,
                   ledgerId = config.ledgerId,
@@ -212,10 +212,10 @@ final class Runner[T <: ReadWriteService, Extra](
                     maxDeduplicationDurationEnforced = true,
                   ),
                 ).acquire()
-              } yield {}
+              } yield Some(apiServer.port)
             case ParticipantRunMode.Indexer =>
-              Resource.unit
+              Resource.successful(None)
           }
-        } yield ()
+        } yield port
     }
 }

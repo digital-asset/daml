@@ -96,7 +96,6 @@ da_scala_library(
     srcs = glob(["src/app/scala/**/*.scala"]),
     resources = glob(["src/app/resources/**/*"]),
     scala_deps = [
-        "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
     ],
@@ -108,7 +107,6 @@ da_scala_library(
         "//daml-lf/engine",
         "//language-support/scala/bindings",
         "//ledger/caching",
-        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
