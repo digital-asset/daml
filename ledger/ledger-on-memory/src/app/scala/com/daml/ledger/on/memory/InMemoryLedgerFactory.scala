@@ -54,14 +54,6 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       state = state,
       engine = engine,
       committerExecutionContext = materializer.executionContext,
-    ).map(writer => {
-      new KeyValueReadWriteFactory(
-        config,
-        metrics,
-        reader,
-        writer,
-      )
-    })
+    ).map(writer => new KeyValueReadWriteFactory(config, metrics, reader, writer))
   }
-
 }
