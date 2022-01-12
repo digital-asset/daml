@@ -11,6 +11,7 @@ trait StorageBackendSuite
     with StorageBackendTestsIngestion
     with StorageBackendTestsEvents
     with StorageBackendTestsCompletions
+    with StorageBackendTestsContracts
     with StorageBackendTestsReset
     with StorageBackendTestsPruning
     with StorageBackendTestsDBLockForSuite
