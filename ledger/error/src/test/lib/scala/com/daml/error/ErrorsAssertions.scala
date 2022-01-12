@@ -7,8 +7,9 @@ import com.daml.error.utils.ErrorDetails
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
 import com.daml.platform.testing.LogCollector.ExpectedLogEntry
 import io.grpc.Status.Code
-import io.grpc.StatusRuntimeException
+import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.protobuf.StatusProto
+import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
@@ -17,12 +18,24 @@ import scala.reflect.ClassTag
 trait ErrorsAssertions {
   self: Matchers with LogCollectorAssertions =>
 
+  def assertInternalError(
+      actual: StatusRuntimeException,
+      correlationId: String = "<no-correlation-id>",
+  ): Assertion = {
+    assertError(
+      actual = actual,
+      expectedCode = Status.Code.INTERNAL,
+      expectedMessage =
+        s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+      expectedDetails = Seq.empty,
+    )
+  }
   def assertError(
       actual: StatusRuntimeException,
       expectedCode: Code,
       expectedMessage: String,
       expectedDetails: Seq[ErrorDetails.ErrorDetail],
-  ): Unit = {
+  ): Assertion = {
     doAssertError(actual, expectedCode, expectedMessage, expectedDetails, None)
   }
 
@@ -35,7 +48,7 @@ trait ErrorsAssertions {
   )(implicit
       test: ClassTag[Test],
       logger: ClassTag[Logger],
-  ): Unit = {
+  ): Assertion = {
     doAssertError(actual, expectedCode, expectedMessage, expectedDetails, Some(expectedLogEntry))(
       test,
       logger,
@@ -51,7 +64,7 @@ trait ErrorsAssertions {
   )(implicit
       test: ClassTag[Test],
       logger: ClassTag[Logger],
-  ): Unit = {
+  ): Assertion = {
     val status = StatusProto.fromThrowable(actual)
     status.getCode shouldBe expectedCode.value()
     status.getMessage shouldBe expectedMessage
@@ -62,6 +75,7 @@ trait ErrorsAssertions {
       actualLogs should have size 1
       assertLogEntry(actualLogs.head, expectedLogEntry.get)
     }
+    succeed
   }
 
 }

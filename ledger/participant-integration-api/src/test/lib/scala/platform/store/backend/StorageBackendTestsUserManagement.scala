@@ -1,155 +1,211 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
 
+import java.util.UUID
+
+import com.daml.error.ErrorsAssertions
+import com.daml.ledger.api.domain.User
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
-import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.Ref
-import org.scalatest.Inside
+import com.daml.platform.testing.LogCollectorAssertions
+import io.grpc.StatusRuntimeException
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{Inside, OptionValues}
 
-// TODO participant user management: Refactor and make sure all is covered
+import scala.concurrent.Future
+
+import scala.language.implicitConversions
+
 private[backend] trait StorageBackendTestsUserManagement
     extends Matchers
     with Inside
-    with StorageBackendSpec {
+    with StorageBackendSpec
+    with ErrorsAssertions
+    with LogCollectorAssertions
+    with OptionValues {
   this: AsyncFlatSpec =>
 
   behavior of "StorageBackend (user management)"
 
-  private val tested = backend.userManagement
+  // Representative values for each kind of right
+  private val right1 = ParticipantAdmin
+  private val right2 = CanActAs(Ref.Party.assertFromString("party_act_as_1"))
+  private val right3 = CanReadAs(Ref.Party.assertFromString("party_read_as_1"))
 
-  it should "check admin user exists" in {
+  private def tested = backend.userManagement
+
+  /** Allows for assertions with more information in the error messages. */
+  implicit def futureAssertions[T](future: Future[T]): FutureAssertions[T] =
+    new FutureAssertions[T](future)
+
+  it should "create user (createUser)" in {
+    val user1 = newUniqueUser()
+    val user2 = newUniqueUser()
     for {
-      admin <- executeSql(tested.getUser(Ref.UserId.assertFromString("participant_admin")))
+      internalId1 <- executeSql(tested.createUser(user1))
+      error <- executeSql(tested.createUser(user1))
+        .mustFail2[StatusRuntimeException]("creating duplicate user")
+      internalId2 <- executeSql(tested.createUser(user2))
     } yield {
-      admin shouldBe Some(User(Ref.UserId.assertFromString("participant_admin"), None))
+      internalId1 should not equal internalId2
+      // TODO pbatko: Should be FAILED_PRECONDITION ? (or more precisey ALREADY_EXISTS)
+      // Logged message:
+      // 13:06:30.954 [daml.index.db.threadpool.connection.storagebackendpostgresspec-6] ERROR c.d.p.s.appendonlydao.DbDispatcher - INDEX_DB_SQL_NON_TRANSIENT_ERROR(4,0): Processing the request failed due to a non-transient database error: ERROR: duplicate key value violates unique constraint "participant_users_user_id_key"
+      //  Detail: Key (user_id)=(user_id_1) already exists. , context: {metric: "db", err-context: "{location=DatabaseSelfServiceError.scala:56}"}
+      //org.postgresql.util.PSQLException: ERROR: duplicate key value violates unique constraint "participant_users_user_id_key"
+      //  Detail: Key (user_id)=(user_id_1) already exists.
+      assertInternalError(error)
     }
   }
 
-  it should "check if rights exist" in {
+  it should "handle user ops (getUser, deleteUser)" in {
+    val user1 = newUniqueUser()
+    val user2 = newUniqueUser()
+    for {
+      _ <- executeSql(tested.createUser(user1))
+      getExisting <- executeSql(tested.getUser(user1.id))
+      deleteExisting <- executeSql(tested.deleteUser(user1.id))
+      deleteNonexistent <- executeSql(tested.deleteUser(user2.id))
+      getDeleted <- executeSql(tested.getUser(user1.id))
+      getNonexistent <- executeSql(tested.getUser(user2.id))
+    } yield {
+      getExisting.value.domainUser shouldBe user1
+      deleteExisting shouldBe true
+      deleteNonexistent shouldBe false
+      getDeleted shouldBe None
+      getNonexistent shouldBe None
+    }
+  }
 
-    val user = User(
-      id = Ref.UserId.assertFromString("user_id_123"),
-      primaryParty = Some(Ref.Party.assertFromString("primary_party_123")),
-    )
+  it should "get users (getUsers)" in {
+    val user1 = newUniqueUser()
+    val user2 = newUniqueUser()
+    for {
+      emptyUsers <- executeSql(tested.getUsers())
+      _ <- executeSql(tested.createUser(user1))
+      _ <- executeSql(tested.createUser(user2))
+      allUsers <- executeSql(tested.getUsers())
+    } yield {
+      emptyUsers shouldBe empty
+      allUsers should contain theSameElementsAs Seq(user1, user2)
+    }
+  }
+
+  it should "handle adding rights to non-existent user" in {
     val nonExistentUserInternalId = 123
     for {
-      user_id <- executeSql(tested.createUser(user = user, createdAt = 0))
-      rightExists1 <- executeSql(
-        tested.userRightExists(internalId = user_id, right = ParticipantAdmin)
-      )
-      rightExists2 <- executeSql(
-        tested.userRightExists(
-          internalId = user_id,
-          right = CanActAs(Ref.Party.assertFromString("party_act_as_1")),
-        )
-      )
-
-      rightExists3 <- executeSql(
-        tested.userRightExists(
-          internalId = nonExistentUserInternalId,
-          right = CanActAs(Ref.Party.assertFromString("party_act_as_1")),
-        )
-      )
-      rightAdded1 <- executeSql(
-        tested.addUserRight(internalId = user_id, right = ParticipantAdmin, grantedAt = 0)
-      )
-      rightAdded2 <- executeSql(
-        tested.addUserRight(
-          internalId = user_id,
-          right = CanActAs(Ref.Party.assertFromString("party_act_as_1")),
-          grantedAt = 0,
-        )
-      )
-      rightExists1b <- executeSql(
-        tested.userRightExists(internalId = user_id, right = ParticipantAdmin)
-      )
-      rightExists2b <- executeSql(
-        tested.userRightExists(
-          internalId = user_id,
-          right = CanActAs(Ref.Party.assertFromString("party_act_as_1")),
-        )
-      )
+      allUsers <- executeSql(tested.getUsers())
+      _ <- executeSql(tested.userRightExists(nonExistentUserInternalId, right2))
     } yield {
-      rightExists1 shouldBe false
-      rightExists2 shouldBe false
-      rightExists3 shouldBe false
-      rightAdded1 shouldBe true
-      rightAdded2 shouldBe true
-      rightExists1b shouldBe true
-      rightExists2b shouldBe true
+      allUsers shouldBe empty
     }
   }
-  it should "create user with rights" in {
-    val user = User(
-      id = Ref.UserId.assertFromString("user_id_123"),
-      primaryParty = Some(Ref.Party.assertFromString("primary_party_123")),
-    )
-    val rights: Seq[UserRight] = Seq(
-      ParticipantAdmin,
-      CanActAs(Ref.Party.assertFromString("party_act_as_1")),
-      CanActAs(Ref.Party.assertFromString("party_act_as_2")),
-      CanReadAs(Ref.Party.assertFromString("party_read_as_1")),
-    )
-    val rightsToAdd: Seq[UserRight] = Seq(
-      CanActAs(Ref.Party.assertFromString("party_act_as_3")),
-      CanReadAs(Ref.Party.assertFromString("party_read_as_2")),
-    )
 
-    val tested = backend.userManagement
-
+  it should "handle adding duplicate rights" in {
+    val user1 = newUniqueUser()
+    val adminRight = ParticipantAdmin
+    val readAsRight = CanReadAs(Ref.Party.assertFromString("party_read_as_1"))
+    val actAsRight = CanActAs(Ref.Party.assertFromString("party_act_as_1"))
     for {
-      user_id <- executeSql(tested.createUser(user = user, createdAt = 0))
-      right1 <- executeSql(
-        tested.addUserRight(internalId = user_id, right = rights(0), grantedAt = 0)
-      )
-      right2 <- executeSql(
-        tested.addUserRight(internalId = user_id, right = rights(1), grantedAt = 0)
-      )
-      right3 <- executeSql(
-        tested.addUserRight(internalId = user_id, right = rights(2), grantedAt = 0)
-      )
-      right4 <- executeSql(
-        tested.addUserRight(internalId = user_id, right = rights(3), grantedAt = 0)
-      )
-
-      addedUser <- executeSql(tested.getUser(id = user.id))
-      addedUserRights <- executeSql(tested.getUserRights(internalId = user_id))
-
-      addedRight1 <- executeSql(
-        tested.addUserRight(internalId = user_id, right = rightsToAdd(0), grantedAt = 0)
-      )
-      addedRight2 <- executeSql(
-        tested.addUserRight(internalId = user_id, right = rightsToAdd(1), grantedAt = 0)
-      )
-      allUserRights <- executeSql(tested.getUserRights(internalId = user_id))
-
-      _ <- executeSql(tested.deleteUser(id = user.id))
-      deletedUser <- executeSql(tested.getUser(id = user.id))
-      deletedRights <- executeSql(tested.getUserRights(internalId = user_id))
+      internalId <- executeSql(tested.createUser(user = user1))
+      addOk1 <- executeSql(tested.addUserRight(internalId, adminRight))
+      addError1 <- executeSql(tested.addUserRight(internalId, adminRight))
+        .mustFail2[StatusRuntimeException]("adding a duplicate admin right")
+      addOk2 <- executeSql(tested.addUserRight(internalId, readAsRight))
+      addError2 <- executeSql(tested.addUserRight(internalId, readAsRight))
+        .mustFail2[StatusRuntimeException]("adding a duplicate read as right")
+      addOk3 <- executeSql(tested.addUserRight(internalId, actAsRight))
+      addError3 <- executeSql(tested.addUserRight(internalId, actAsRight))
+        .mustFail2[StatusRuntimeException]("adding a duplicate act as right")
     } yield {
-      right1 shouldBe true
-      right2 shouldBe true
-      right3 shouldBe true
-      right4 shouldBe true
-
-      addedUser shouldBe defined
-      addedUser.get.domainUser shouldBe user
-
-      addedUserRights shouldBe rights.toSet
-
-      addedRight1 shouldBe true
-      addedRight2 shouldBe true
-
-      allUserRights shouldBe (rightsToAdd.toSet ++ rights.toSet)
-
-      deletedUser shouldBe None
-      deletedRights shouldBe Set.empty
-
+      addOk1 shouldBe true
+      assertInternalError(addError1)
+      addOk2 shouldBe true
+      assertInternalError(addError2)
+      addOk3 shouldBe true
+      assertInternalError(addError3)
     }
   }
 
+  it should "handle removing absent rights" in {
+    val user1 = newUniqueUser()
+    for {
+      internalId <- executeSql(tested.createUser(user = user1))
+      delete1 <- executeSql(tested.deleteUserRight(internalId, right1))
+      delete2 <- executeSql(tested.deleteUserRight(internalId, right2))
+      delete3 <- executeSql(tested.deleteUserRight(internalId, right3))
+    } yield {
+      delete1 shouldBe false
+      delete2 shouldBe false
+      delete3 shouldBe false
+    }
+  }
+
+  it should "handle multiple rights (getUserRights, addUserRight, deleteUserRight)" in {
+    val user1 = newUniqueUser()
+    for {
+      internalId <- executeSql(tested.createUser(user = user1))
+      rights1 <- executeSql(tested.getUserRights(internalId))
+      addRight1 <- executeSql(tested.addUserRight(internalId, right1))
+      addRight2 <- executeSql(tested.addUserRight(internalId, right2))
+      addRight3 <- executeSql(tested.addUserRight(internalId, right3))
+      rights2 <- executeSql(tested.getUserRights(internalId))
+      deleteRight2 <- executeSql(tested.deleteUserRight(internalId, right2))
+      rights3 <- executeSql(tested.getUserRights(internalId))
+      deleteRight3 <- executeSql(tested.deleteUserRight(internalId, right3))
+      rights4 <- executeSql(tested.getUserRights(internalId))
+
+    } yield {
+      rights1 shouldBe empty
+      addRight1 shouldBe true
+      addRight2 shouldBe true
+      addRight3 shouldBe true
+      rights2 should contain theSameElementsAs Seq(right1, right2, right3)
+      deleteRight2 shouldBe true
+      rights3 should contain theSameElementsAs Seq(right1, right3)
+      deleteRight3 shouldBe true
+      rights4 should contain theSameElementsAs Seq(right1)
+    }
+  }
+
+  it should "add and delete a single right (userRightExists, addUserRight, deleteUserRight, getUserRights)" in {
+    val user1 = newUniqueUser()
+    for {
+      internalId <- executeSql(tested.createUser(user = user1))
+      // no rights
+      rightExists0 <- executeSql(tested.userRightExists(internalId, right1))
+      rights0 <- executeSql(tested.getUserRights(internalId))
+      // add one rights
+      addRight <- executeSql(tested.addUserRight(internalId, right1))
+      rightExists1 <- executeSql(tested.userRightExists(internalId, right1))
+      rights1 <- executeSql(tested.getUserRights(internalId))
+      // delete
+      deleteRight <- executeSql(tested.deleteUserRight(internalId, right1))
+      rightExists2 <- executeSql(tested.userRightExists(internalId, right1))
+      rights2 <- executeSql(tested.getUserRights(internalId))
+    } yield {
+      // no rights
+      rightExists0 shouldBe false
+      rights0 shouldBe empty
+      // added right
+      addRight shouldBe true
+      rightExists1 shouldBe true
+      rights1 should contain theSameElementsAs Seq(right1)
+      // deleted right
+      deleteRight shouldBe true
+      rightExists2 shouldBe false
+      rights2 shouldBe empty
+    }
+  }
+
+  private def newUniqueUser(): User = {
+    val uuid = UUID.randomUUID.toString
+    User(
+      id = Ref.UserId.assertFromString(s"user_id_${uuid}"),
+      primaryParty = Some(Ref.Party.assertFromString(s"primary_party_${uuid}")),
+    )
+  }
 }

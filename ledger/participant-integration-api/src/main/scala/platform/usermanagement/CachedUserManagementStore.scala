@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.usermanagement
@@ -17,33 +17,36 @@ import com.daml.lf.data.Ref.UserId
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-
 class CachedUserManagementStore(
-                                 private val delegate: UserManagementStore,
-                                 expiryAfterWriteInSeconds: Int = 10,
-                               )(implicit val executionContext: ExecutionContext)
-  extends UserManagementStore {
+    private val delegate: UserManagementStore,
+    expiryAfterWriteInSeconds: Int,
+)(implicit val executionContext: ExecutionContext)
+    extends UserManagementStore {
 
   // TODO participant user management: Use metrics (instrumented cache)
-  val cache: AsyncLoadingCache[Ref.UserId, Result[UserInfo]] = new CaffeineCache.SimpleAsyncLoadingCache(
-    com.github.benmanes.caffeine.cache.Caffeine
-      .newBuilder()
-      .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
-      // TODO participant user management: Check the choice of the maximum size
-      .maximumSize(10000)
-      .buildAsync(new com.github.benmanes.caffeine.cache.AsyncCacheLoader[Ref.UserId, Result[UserInfo]] {
-        override def asyncLoad(key: Ref.UserId, executor: Executor): CompletableFuture[Result[UserInfo]] = {
-          val cf = new CompletableFuture[Result[UserInfo]]
-          delegate.getUserInfo(key).onComplete {
-            case Success(value) => cf.complete(value)
-            case Failure(e) => cf.completeExceptionally(e)
+  val cache: AsyncLoadingCache[Ref.UserId, Result[UserInfo]] =
+    new CaffeineCache.SimpleAsyncLoadingCache(
+      com.github.benmanes.caffeine.cache.Caffeine
+        .newBuilder()
+        .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
+        // TODO participant user management: Check the choice of the maximum size
+        .maximumSize(10000)
+        .buildAsync(
+          new com.github.benmanes.caffeine.cache.AsyncCacheLoader[Ref.UserId, Result[UserInfo]] {
+            override def asyncLoad(
+                key: Ref.UserId,
+                executor: Executor,
+            ): CompletableFuture[Result[UserInfo]] = {
+              val cf = new CompletableFuture[Result[UserInfo]]
+              delegate.getUserInfo(key).onComplete {
+                case Success(value) => cf.complete(value)
+                case Failure(e) => cf.completeExceptionally(e)
+              }
+              cf
+            }
           }
-          cf
-        }
-      }
-
-      )
-  )
+        )
+    )
 
   override def getUserInfo(id: UserId): Future[Result[UserManagementStore.UserInfo]] = {
     cache.get(id)
@@ -62,9 +65,9 @@ class CachedUserManagementStore(
   }
 
   override def grantRights(
-                            id: UserId,
-                            rights: Set[domain.UserRight],
-                          ): Future[Result[Set[domain.UserRight]]] = {
+      id: UserId,
+      rights: Set[domain.UserRight],
+  ): Future[Result[Set[domain.UserRight]]] = {
     cache.invalidate(id)
     delegate
       .grantRights(id, rights)
@@ -72,9 +75,9 @@ class CachedUserManagementStore(
   }
 
   override def revokeRights(
-                             id: UserId,
-                             rights: Set[domain.UserRight],
-                           ): Future[Result[Set[domain.UserRight]]] = {
+      id: UserId,
+      rights: Set[domain.UserRight],
+  ): Future[Result[Set[domain.UserRight]]] = {
     cache.invalidate(id)
     delegate
       .revokeRights(id, rights)

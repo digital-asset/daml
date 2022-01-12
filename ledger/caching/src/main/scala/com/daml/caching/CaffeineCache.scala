@@ -13,9 +13,9 @@ import scala.concurrent.Future
 object CaffeineCache {
 
   def apply[Key <: AnyRef, Value <: AnyRef](
-                                             builder: caffeine.Caffeine[_ >: Key, _ >: Value],
-                                             metrics: Option[CacheMetrics],
-                                           ): ConcurrentCache[Key, Value] =
+      builder: caffeine.Caffeine[_ >: Key, _ >: Value],
+      metrics: Option[CacheMetrics],
+  ): ConcurrentCache[Key, Value] =
     metrics match {
       case None => new SimpleCaffeineCache(builder.build[Key, Value])
       case Some(metrics) =>
@@ -24,8 +24,8 @@ object CaffeineCache {
     }
 
   private final class SimpleCaffeineCache[Key <: AnyRef, Value <: AnyRef](
-                                                                           cache: caffeine.Cache[Key, Value]
-                                                                         ) extends ConcurrentCache[Key, Value] {
+      cache: caffeine.Cache[Key, Value]
+  ) extends ConcurrentCache[Key, Value] {
     override def put(key: Key, value: Value): Unit = cache.put(key, value)
 
     override def getIfPresent(key: Key): Option[Value] =
@@ -38,8 +38,8 @@ object CaffeineCache {
   }
 
   class SimpleAsyncLoadingCache[Key <: AnyRef, Value <: AnyRef](
-                                                                 cache: com.github.benmanes.caffeine.cache.AsyncLoadingCache[Key, Value],
-                                                               ) extends AsyncLoadingCache[Key, Value] {
+      cache: com.github.benmanes.caffeine.cache.AsyncLoadingCache[Key, Value]
+  ) extends AsyncLoadingCache[Key, Value] {
 
     override def get(key: Key): Future[Value] = FutureConverters.toScala(cache.get(key))
 
@@ -48,9 +48,9 @@ object CaffeineCache {
   }
 
   private final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef](
-                                                                                 cache: caffeine.Cache[Key, Value],
-                                                                                 metrics: CacheMetrics,
-                                                                               ) extends ConcurrentCache[Key, Value] {
+      cache: caffeine.Cache[Key, Value],
+      metrics: CacheMetrics,
+  ) extends ConcurrentCache[Key, Value] {
     metrics.registerSizeGauge(() => cache.estimatedSize())
     metrics.registerWeightGauge(() =>
       cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0)
@@ -71,7 +71,6 @@ object CaffeineCache {
       delegate.invalidate(key)
   }
 
-
 //  class InstrumentedAsyncLoadingCache[Key <: AnyRef, Value <: AnyRef](
 //                                                                       cache: AsyncLoadingCache[Key, Value],
 //                                                                       metrics: CacheMetrics
@@ -79,6 +78,5 @@ object CaffeineCache {
 //
 //
 //  }
-
 
 }

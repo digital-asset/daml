@@ -11,7 +11,20 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserRequest, DeleteUserRequest, DeleteUserResponse, GetUserRequest, GrantUserRightsRequest, ListUserRightsRequest, ListUserRightsResponse, ListUsersRequest, RevokeUserRightsRequest, RevokeUserRightsResponse, User, Right => Permission}
+import com.daml.ledger.api.v1.admin.user_management_service.{
+  CreateUserRequest,
+  DeleteUserRequest,
+  DeleteUserResponse,
+  GetUserRequest,
+  GrantUserRightsRequest,
+  ListUserRightsRequest,
+  ListUserRightsResponse,
+  ListUsersRequest,
+  RevokeUserRightsRequest,
+  RevokeUserRightsResponse,
+  User,
+  Right => Permission,
+}
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import io.grpc.Status
 
@@ -25,56 +38,55 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     allocate(NoParties),
     enabled = _.userManagement,
     disabledReason = "requires user management feature",
-  )(implicit ec => {
-    case Participants(Participant(ledger)) =>
-      val userId = UUID.randomUUID.toString
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val userId = UUID.randomUUID.toString
 
-      def createAndCheck(
-                          problem: String,
-                          user: User,
-                          rights: Seq[proto.Right],
-                          expectedErrorCode: ErrorCode,
-                        ): Future[Unit] = {
-        for {
-          throwable <- ledger.userManagement
-            .createUser(CreateUserRequest(Some(user), rights))
-            .mustFail(context = problem)
-        } yield assertGrpcError(
-          participant = ledger,
-          t = throwable,
-          expectedCode = Status.Code.INVALID_ARGUMENT,
-          selfServiceErrorCode = expectedErrorCode,
-          exceptionMessageSubstring = None,
-        )
-      }
-
+    def createAndCheck(
+        problem: String,
+        user: User,
+        rights: Seq[proto.Right],
+        expectedErrorCode: ErrorCode,
+    ): Future[Unit] = {
       for {
-        _ <- createAndCheck(
-          "empty user-id",
-          User(""),
-          List.empty,
-          LedgerApiErrors.RequestValidation.MissingField,
-        )
-        _ <- createAndCheck(
-          "invalid user-id",
-          User("?"),
-          List.empty,
-          LedgerApiErrors.RequestValidation.InvalidField,
-        )
-        _ <- createAndCheck(
-          "invalid primary-party",
-          User("u1-" + userId, "party2-!!"),
-          List.empty,
-          LedgerApiErrors.RequestValidation.InvalidArgument,
-        )
-        r = proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs("party3-!!")))
-        _ <- createAndCheck(
-          "invalid party in right",
-          User("u2-" + userId),
-          List(r),
-          LedgerApiErrors.RequestValidation.InvalidArgument,
-        )
-      } yield ()
+        throwable <- ledger.userManagement
+          .createUser(CreateUserRequest(Some(user), rights))
+          .mustFail(context = problem)
+      } yield assertGrpcError(
+        participant = ledger,
+        t = throwable,
+        expectedCode = Status.Code.INVALID_ARGUMENT,
+        selfServiceErrorCode = expectedErrorCode,
+        exceptionMessageSubstring = None,
+      )
+    }
+
+    for {
+      _ <- createAndCheck(
+        "empty user-id",
+        User(""),
+        List.empty,
+        LedgerApiErrors.RequestValidation.MissingField,
+      )
+      _ <- createAndCheck(
+        "invalid user-id",
+        User("?"),
+        List.empty,
+        LedgerApiErrors.RequestValidation.InvalidField,
+      )
+      _ <- createAndCheck(
+        "invalid primary-party",
+        User("u1-" + userId, "party2-!!"),
+        List.empty,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+      )
+      r = proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs("party3-!!")))
+      _ <- createAndCheck(
+        "invalid party in right",
+        User("u2-" + userId),
+        List(r),
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+      )
+    } yield ()
   })
 
   test(
@@ -83,21 +95,19 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     allocate(NoParties),
     enabled = _.userManagement,
     disabledReason = "requires user management feature",
-  )(implicit ec => {
-    case Participants(Participant(ledger)) =>
-      def getAndCheck(problem: String, userId: String, expectedErrorCode: ErrorCode): Future[Unit] =
-        for {
-          error <- ledger.userManagement
-            .getUser(GetUserRequest(userId))
-            .mustFail(problem)
-        } yield assertGrpcError(ledger, error, Status.Code.INVALID_ARGUMENT, expectedErrorCode, None)
-
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    def getAndCheck(problem: String, userId: String, expectedErrorCode: ErrorCode): Future[Unit] =
       for {
-        _ <- getAndCheck("empty user-id", "", LedgerApiErrors.RequestValidation.InvalidArgument)
-        _ <- getAndCheck("invalid user-id", "?", LedgerApiErrors.RequestValidation.InvalidField)
-      } yield ()
-  })
+        error <- ledger.userManagement
+          .getUser(GetUserRequest(userId))
+          .mustFail(problem)
+      } yield assertGrpcError(ledger, error, Status.Code.INVALID_ARGUMENT, expectedErrorCode, None)
 
+    for {
+      _ <- getAndCheck("empty user-id", "", LedgerApiErrors.RequestValidation.InvalidArgument)
+      _ <- getAndCheck("invalid user-id", "?", LedgerApiErrors.RequestValidation.InvalidField)
+    } yield ()
+  })
 
   private val adminPermission =
     Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))
@@ -111,19 +121,20 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     readAsPermission1,
     Permission(Permission.Kind.CanReadAs(Permission.CanReadAs("reading-party-2"))),
   )
-  private val AdminUserName = "participant_admin"
+  private val AdminUserId = "participant_admin"
 
   userManagementTest(
     "TestAdminExists",
     "Ensure admin user exists",
   )(implicit ec => { implicit ledger =>
     for {
-      res1 <- ledger.userManagement.getUser(GetUserRequest(AdminUserName))
+      get1 <- ledger.userManagement.getUser(GetUserRequest(AdminUserId))
+      rights1 <- ledger.userManagement.listUserRights(ListUserRightsRequest(AdminUserId))
     } yield {
-      assertEquals(res1, User(AdminUserName, ""))
+      assertEquals(get1, User(AdminUserId, ""))
+      assertEquals(rights1, ListUserRightsResponse(Seq(adminPermission)))
     }
-  }
-  )
+  })
 
   userManagementTest(
     "TestCreateUser",
@@ -146,8 +157,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assertEquals(res3, User(userId2, ""))
       assertEquals(res4, DeleteUserResponse())
     }
-  }
-  )
+  })
 
   userManagementTest(
     "TestGetUser",
@@ -167,8 +177,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assertUserNotFound(res2)
       assert(res1 == User(userId1, "party1"))
     }
-  }
-  )
+  })
 
   userManagementTest(
     "TestDeleteUser",
@@ -189,8 +198,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assertEquals(res1, DeleteUserResponse())
       assertUserNotFound(res2)
     }
-  }
-  )
+  })
 
   userManagementTest(
     "TestListUsers",
@@ -220,9 +228,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assertEquals(res4, DeleteUserResponse())
       assertSameElements(filterUsers(res5.users), Seq(User(userId1, "party1")))
     }
-  }
-  )
-
+  })
 
   userManagementTest(
     "TestGrantUserRights",
@@ -252,8 +258,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assertSameElements(res3.newlyGrantedRights, List.empty)
       assertSameElements(res4.newlyGrantedRights.toSet, userRightsBatch.toSet)
     }
-  }
-  )
+  })
 
   userManagementTest(
     "TestRevokeUserRights",
@@ -283,8 +288,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assertSameElements(res3.newlyRevokedRights, List.empty)
       assertSameElements(res4.newlyRevokedRights.toSet, userRightsBatch.toSet)
     }
-  }
-  )
+  })
 
   userManagementTest(
     "TestListUserRights",
@@ -322,26 +326,22 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assertSameElements(res5.newlyRevokedRights, Seq(adminPermission))
       assertSameElements(res6.rights.toSet, Set(actAsPermission1, readAsPermission1))
     }
-  }
-  )
-
+  })
 
   private def userManagementTest(
-                                  shortIdentifier: String,
-                                  description: String,
-                                )
-                                (
-                                  body: ExecutionContext => ParticipantTestContext => Future[Unit],
-                                ): Unit = {
+      shortIdentifier: String,
+      description: String,
+  )(
+      body: ExecutionContext => ParticipantTestContext => Future[Unit]
+  ): Unit = {
     test(
       shortIdentifier = shortIdentifier,
       description = description,
       allocate(NoParties),
       enabled = _.userManagement,
       disabledReason = "requires user management feature",
-    )(implicit ec => {
-      case Participants(Participant(ledger)) =>
-        body(ec)(ledger)
+    )(implicit ec => { case Participants(Participant(ledger)) =>
+      body(ec)(ledger)
     })
   }
 
@@ -355,7 +355,9 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     )
   }
 
-  private def assertUserAlreadyExists(t: Throwable)(implicit ledger: ParticipantTestContext): Unit = {
+  private def assertUserAlreadyExists(
+      t: Throwable
+  )(implicit ledger: ParticipantTestContext): Unit = {
     assertGrpcError(
       participant = ledger,
       t = t,

@@ -133,7 +133,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     s"$applicationId-$endpointId-$identifierSuffix"
   private[this] def nextIdGenerator(name: String, lowerCase: Boolean = false): () => String = {
     val f = Identification.indexSuffix(s"$identifierPrefix-$name")
-    if(lowerCase)
+    if (lowerCase)
       () => f().toLowerCase
     else
       f

@@ -1,14 +1,19 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.usermanagement
 
 import java.sql.Connection
-import java.time.Instant
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
-import com.daml.ledger.participant.state.index.v2.UserManagementStore.{Result, UserExists, UserInfo, UserNotFound, Users}
+import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
+  Result,
+  UserExists,
+  UserInfo,
+  UserNotFound,
+  Users,
+}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -25,7 +30,7 @@ class PersistentUserManagementStore(
 ) extends UserManagementStore {
 
   private val backend: UserManagementStorageBackend = UserManagementStorageBackendTemplate
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private val logger = ContextualizedLogger.get(getClass)
 
   implicit private val loggingContext: LoggingContext = LoggingContext.newLoggingContext(identity)
 
@@ -44,21 +49,19 @@ class PersistentUserManagementStore(
   ): Future[Result[Unit]] = {
     inTransaction { implicit connection: Connection =>
       withoutUser(user.id) {
-        val nowMicros = epochMicroSeconds()
-        val internalId = backend.createUser(user, createdAt = nowMicros)(connection)
+        val internalId = backend.createUser(user)(connection)
         rights.foreach(right =>
-          backend.addUserRight(internalId = internalId, right = right, grantedAt = nowMicros)(
+          backend.addUserRight(internalId = internalId, right = right)(
             connection
           )
         )
         ()
       }
     }.map(tapSuccess { _ =>
-      // // TODO participant user management: Unit test logged messages
-      logger.info(s"Created new user: ${user}")
-      foreachEachUserRight(rights) { suffix =>
-        logger.info(s"New user: ${user} was created with right $suffix")
-      }
+      // TODO participant user management: Unit test logged messages
+      logger.info(
+        s"Created new user: ${user} with ${rights.size} rights: ${rightsDigestText(rights)}"
+      )
     })(scala.concurrent.ExecutionContext.parasitic)
   }
 
@@ -85,7 +88,6 @@ class PersistentUserManagementStore(
             backend.addUserRight(
               internalId = user.internalId,
               right = right,
-              grantedAt = epochMicroSeconds(),
             )(connection)
           } else {
             false
@@ -94,9 +96,9 @@ class PersistentUserManagementStore(
         addedRights
       }
     }.map(tapSuccess { grantedRights =>
-      foreachEachUserRight(grantedRights) { suffix =>
-        logger.info(s"Granted user rights to user id: ${id}. Granted right $suffix")
-      }
+      logger.info(
+        s"Granted ${grantedRights.size} user rights to user ${id}: ${rightsDigestText(grantedRights)}"
+      )
     })(scala.concurrent.ExecutionContext.parasitic)
   }
 
@@ -116,9 +118,9 @@ class PersistentUserManagementStore(
         revokedRights
       }
     }.map(tapSuccess { revokedRights =>
-      foreachEachUserRight(revokedRights) { suffix =>
-        logger.info(s"Revoked user rights from user id: ${id}. Revoked right $suffix")
-      }
+      logger.info(
+        s"Revoked ${revokedRights.size} user rights from user ${id}: ${rightsDigestText(revokedRights)}"
+      )
     })(scala.concurrent.ExecutionContext.parasitic)
 
   }
@@ -152,8 +154,6 @@ class PersistentUserManagementStore(
     }
   }
 
-  private def epochMicroSeconds(): Long = Instant.now.getEpochSecond * 1000 * 1000
-
   private def tapSuccess[T](f: T => Unit)(r: Result[T]): Result[T] = {
     r.map { v =>
       f(v)
@@ -161,11 +161,9 @@ class PersistentUserManagementStore(
     }
   }
 
-  private def foreachEachUserRight(rights: Iterable[domain.UserRight])(f: String => Unit): Unit = {
-    val rightsCount = rights.size
-    rights.zipWithIndex.foreach { case (right, i) =>
-      f(s"${i + 1}/$rightsCount): ${right}")
-    }
+  private def rightsDigestText(rights: Iterable[domain.UserRight]): String = {
+    val closingBracket = if (rights.size > 5) ", ..." else ""
+    rights.take(5).mkString("", ", ", closingBracket)
   }
 
 }

@@ -57,8 +57,7 @@ abstract class ConcurrentCache[Key, Value] extends Cache[Key, Value] {
   def getOrAcquire(key: Key, acquire: Key => Value): Value
 }
 
-
-abstract class AsyncLoadingCache[Key, Value]{
+abstract class AsyncLoadingCache[Key, Value] {
 
   // TODO pbatko: docs
   def get(key: Key): Future[Value]

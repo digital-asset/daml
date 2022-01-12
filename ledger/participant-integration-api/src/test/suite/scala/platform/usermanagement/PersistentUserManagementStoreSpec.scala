@@ -1,8 +1,9 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.usermanagement
 
+import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.ledger.api.domain.{User, UserRight}
@@ -14,20 +15,22 @@ import com.daml.lf.data.Ref.{Party, UserId}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.backend.{StorageBackendProviderPostgres, StorageBackendSpec}
-import org.scalatest.Assertion
+import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.Assertion
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
-// TODO participant user management: Delete when certain test tool integration tests are ready to take over
 class PersistentUserManagementStoreSpec
     extends AsyncFreeSpec
     with StorageBackendProviderPostgres
     with TestResourceContext
     with Matchers
-    with StorageBackendSpec {
+    // TODO pbatko: This is not storage backend
+    with StorageBackendSpec
+    with LogCollectorAssertions {
 
   implicit val lc: LoggingContext = LoggingContext.ForTesting
 
@@ -36,6 +39,67 @@ class PersistentUserManagementStoreSpec
 
   private implicit def toUserId(s: String): UserId =
     UserId.assertFromString(s)
+
+  "log on user creation, deletion, rights granting and revocation" in {
+    val user = User(
+      id = Ref.UserId.assertFromString("user_id_123"),
+      primaryParty = Some(Ref.Party.assertFromString("primary_party_123")),
+    )
+    val rights: Set[UserRight] = Seq(
+      ParticipantAdmin,
+      CanActAs(Ref.Party.assertFromString("party_act_as_1")),
+      CanActAs(Ref.Party.assertFromString("party_act_as_2")),
+      CanReadAs(Ref.Party.assertFromString("party_read_as_1")),
+      CanReadAs(Ref.Party.assertFromString("party_read_as_2")),
+      CanReadAs(Ref.Party.assertFromString("party_read_as_3")),
+    ).toSet
+    val right1 = CanReadAs(Ref.Party.assertFromString("party_read_as_4"))
+    val right2 = CanReadAs(Ref.Party.assertFromString("party_read_as_5"))
+    val rights2: Set[UserRight] = Set(right1, right2)
+
+    testIt { tested: PersistentUserManagementStore =>
+      def assertOneLogThenClear: LogCollector.Entry = {
+        val logs = LogCollector.readAsEntries[this.type, tested.type]
+        LogCollector.clear[this.type]
+        logs.size shouldBe 1
+        logs.head
+      }
+      LogCollector.clear[this.type]
+      for {
+        _ <- tested.createUser(user, rights)
+        createUserLog = assertOneLogThenClear
+
+        _ <- tested.grantRights(user.id, rights2)
+        grantRightsLog = assertOneLogThenClear
+        _ <- tested.revokeRights(user.id, Set(right1, right2))
+        revokeRightLog = assertOneLogThenClear
+        _ <- tested.deleteUser(user.id)
+        deleteUserLog = assertOneLogThenClear
+      } yield {
+        assertLogEntry(
+          createUserLog,
+          expectedLogLevel = Level.INFO,
+          expectedMsg =
+            s"Created new user: $user with 6 rights: ${rights.take(5).mkString(", ")}, ...",
+        )
+        assertLogEntry(
+          grantRightsLog,
+          expectedLogLevel = Level.INFO,
+          expectedMsg = s"Granted 2 user rights to user ${user.id}: ${rights2.mkString(", ")}",
+        )
+        assertLogEntry(
+          revokeRightLog,
+          expectedLogLevel = Level.INFO,
+          expectedMsg = s"Revoked 2 user rights from user ${user.id}: ${rights2.mkString(", ")}",
+        )
+        assertLogEntry(
+          deleteUserLog,
+          expectedLogLevel = Level.INFO,
+          expectedMsg = "Deleted user with id: user_id_123",
+        )
+      }
+    }
+  }
 
   "do it" in {
 

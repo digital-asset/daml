@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.common
@@ -39,13 +39,13 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
   private val IntParser0: RowParser[Int] =
     int("dummy") map { i => i }
 
-  override def createUser(user: domain.User, createdAt: Long)(
+  override def createUser(user: domain.User)(
       connection: Connection
   ): Int = {
     val internalId: Try[Int] =
       SQL"""
-         INSERT INTO participant_users (user_id, primary_party, created_at)
-         VALUES (${user.id: String}, ${user.primaryParty: Option[String]}, ${createdAt})
+         INSERT INTO participant_users (user_id, primary_party)
+         VALUES (${user.id: String}, ${user.primaryParty: Option[String]})
        """.executeInsert1("internal_id")(SqlParser.scalar[Int].single)(connection)
     internalId.get
   }
@@ -112,18 +112,17 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     res.length == 1
   }
 
-  override def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(
+  override def addUserRight(internalId: Int, right: UserRight)(
       connection: Connection
   ): Boolean = {
     val (userRight: Int, forParty: Option[Party]) = fromUserRight(right)
     val rowsUpdated: Int =
       SQL"""
-         INSERT INTO participant_user_rights (user_internal_id, user_right, for_party, granted_at)
+         INSERT INTO participant_user_rights (user_internal_id, user_right, for_party)
          VALUES (
             ${internalId},
             ${userRight},
-            ${forParty: Option[String]},
-            ${grantedAt}
+            ${forParty: Option[String]}
             )
          """.executeUpdate()(connection)
     rowsUpdated == 1

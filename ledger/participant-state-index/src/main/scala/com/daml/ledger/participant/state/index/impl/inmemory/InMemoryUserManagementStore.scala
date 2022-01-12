@@ -20,7 +20,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   // We synchronize on a private object (the mutable map), not the service (which could cause deadlocks).
   // (No need to mark state as volatile -- rely on synchronized to establish the JMM's happens-before relation.)
   private val state: mutable.Map[Ref.UserId, UserInfo] = mutable.Map()
-  if (createAdmin){
+  if (createAdmin) {
     state.put(AdminUser.user.id, AdminUser)
   }
 
