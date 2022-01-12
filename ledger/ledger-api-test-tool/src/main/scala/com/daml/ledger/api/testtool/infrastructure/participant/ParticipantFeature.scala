@@ -18,14 +18,14 @@ object Features {
     Features(commandDeduplicationFeatures = CommandDeduplicationFeatures.defaultInstance)
 
   def fromApiVersionResponse(response: GetLedgerApiVersionResponse): Features = {
-    val features = response.features
-    val experimental = features.flatMap(_.experimental)
+    val features = response.getFeatures
+    val experimental = features.getExperimental
 
     Features(
-      selfServiceErrorCodes = experimental.flatMap(_.selfServiceErrorCodes).isDefined,
-      userManagement = features.flatMap(_.userManagement).isDefined,
-      staticTime = experimental.flatMap(_.staticTime).isDefined,
-      commandDeduplicationFeatures = response.getFeatures.getExperimental.getCommandDeduplication,
+      selfServiceErrorCodes = experimental.selfServiceErrorCodes.isDefined,
+      userManagement = features.getUserManagement.supported,
+      staticTime = experimental.getStaticTime.supported,
+      commandDeduplicationFeatures = experimental.getCommandDeduplication,
     )
   }
 }
