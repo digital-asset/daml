@@ -75,7 +75,7 @@ final class AuthorizationInterceptor(
 
   private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] =
     claimSet match {
-      case ClaimSet.AuthenticatedUser(StandardJWTPayload(userIdStr, participantId, expiration)) =>
+      case ClaimSet.AuthenticatedUser(userIdStr, participantId, expiration) =>
         Ref.UserId.fromString(userIdStr) match {
           case Left(err) =>
             Future.failed(
@@ -96,7 +96,7 @@ final class AuthorizationInterceptor(
                     ClaimSet.Claims(
                       claims = userClaims.view.map(userRightToClaim).toList.prepended(ClaimPublic),
                       ledgerId = None,
-                      participantIds = participantId,
+                      participantId = participantId,
                       applicationId = Some(userId),
                       expiration = expiration,
                       resolvedFromUser = true,

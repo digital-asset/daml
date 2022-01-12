@@ -249,7 +249,7 @@ final class Authorizer(
       .flatMap({
         case ClaimSet.Unauthenticated =>
           Failure(errorFactories.unauthenticatedMissingJwtToken())
-        case ClaimSet.AuthenticatedUser(authenticatedUser) =>
+        case authenticatedUser: ClaimSet.AuthenticatedUser =>
           Failure(
             errorFactories.internalAuthenticationError(
               s"Unexpected unresolved authenticated user claim",

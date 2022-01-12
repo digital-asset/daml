@@ -67,7 +67,6 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
   }
 
   private[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet = {
-    case payload: StandardJWTPayload => ClaimSet.AuthenticatedUser(payload)
     case payload: CustomDamlJWTPayload =>
       val claims = ListBuffer[Claim]()
 
@@ -86,12 +85,18 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
       ClaimSet.Claims(
         claims = claims.toList,
         ledgerId = payload.ledgerId,
-        participantIds = payload.participantId.map(Vector(_)),
+        participantId = payload.participantId,
         applicationId = payload.applicationId,
         expiration = payload.exp,
         resolvedFromUser = false,
       )
 
+    case payload: StandardJWTPayload =>
+      ClaimSet.AuthenticatedUser(
+        participantId = payload.participantId,
+        userId = payload.userId,
+        expiration = payload.exp,
+      )
   }
 }
 

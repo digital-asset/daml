@@ -37,10 +37,10 @@ trait SandboxRequiringAuthorizationFuns {
   protected def standardToken(
       userId: String,
       expiresIn: Option[Duration] = None,
-      participantIds: Option[List[String]] = None,
+      participantId: Option[String] = None,
   ): StandardJWTPayload =
     StandardJWTPayload(
-      participantIds = participantIds,
+      participantId = participantId,
       userId = userId,
       exp = expiresIn.map(delta => Instant.now().plusNanos(delta.toNanos)),
     )

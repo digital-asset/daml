@@ -160,22 +160,7 @@ class AuthServiceJWTCodecSpec
         parse(serialized) shouldBe Success(expected)
       }
 
-      "support standard JWT claims w/o aud claim" in {
-        val serialized =
-          """{
-            |  "sub": "someUserId",
-            |  "exp": 100
-            |}
-          """.stripMargin
-        val expected = StandardJWTPayload(
-          participantIds = None,
-          userId = "someUserId",
-          exp = Some(Instant.ofEpochSecond(100)),
-        )
-        parse(serialized) shouldBe Success(expected)
-      }
-
-      "support standard JWT claims w/ single aud value" in {
+      "support standard JWT claims" in {
         val serialized =
           """{
             |  "aud": "someParticipantId",
@@ -184,23 +169,7 @@ class AuthServiceJWTCodecSpec
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
-          participantIds = Some(List("someParticipantId")),
-          userId = "someUserId",
-          exp = Some(Instant.ofEpochSecond(100)),
-        )
-        parse(serialized) shouldBe Success(expected)
-      }
-
-      "support standard JWT claims w/ multiple aud values" in {
-        val serialized =
-          """{
-            |  "aud": ["someParticipantId1", "someParticipantId2"],
-            |  "sub": "someUserId",
-            |  "exp": 100
-            |}
-          """.stripMargin
-        val expected = StandardJWTPayload(
-          participantIds = Some(List("someParticipantId1", "someParticipantId2")),
+          participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
         )

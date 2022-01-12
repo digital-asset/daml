@@ -59,16 +59,15 @@ final case class CustomDamlJWTPayload(
   *
   * @param userId  The user that is authenticated by this payload.
   *
-  * @param participantIds  If not set, then the user is authenticated for any participant node that accepts
-  *                        the JWT issuer. We expect this to be used for development only.
-  *                        If set then the user is authenticated for any participant node
-  *                        whose participantId is in the list of strings.
+  * @param participantId  If not set, then the user is authenticated for any participant node that accepts
+  *                       the JWT issuer. We expect this to be used for development only.
+  *                       If set then the user is authenticated for the given participantId.
   *
   * @param exp            If set, the token is only valid before the given instant.
   */
 final case class StandardJWTPayload(
     userId: String,
-    participantIds: Option[List[String]],
+    participantId: Option[String],
     exp: Option[Instant],
 ) extends AuthServiceJWTPayload
 
@@ -141,7 +140,7 @@ object AuthServiceJWTCodec {
       )
     case v: StandardJWTPayload =>
       JsObject(
-        "aud" -> writeOptionalStringList(v.participantIds),
+        "aud" -> writeOptionalString(v.participantId),
         "sub" -> JsString(v.userId),
         "exp" -> writeOptionalInstant(v.exp),
       )
@@ -155,9 +154,6 @@ object AuthServiceJWTCodec {
 
   private[this] def writeStringList(value: List[String]): JsValue =
     JsArray(value.map(JsString(_)): _*)
-
-  private[this] def writeOptionalStringList(value: Option[List[String]]): JsValue =
-    value.fold[JsValue](JsNull)(writeStringList)
 
   private[this] def writeOptionalInstant(value: Option[Instant]): JsValue =
     value.fold[JsValue](JsNull)(i => JsNumber(i.getEpochSecond))
@@ -177,22 +173,9 @@ object AuthServiceJWTCodec {
         if fields.contains("sub") && !distinguishingCustomProps.exists(fields.contains) =>
       // Standard JWT claims
       StandardJWTPayload(
+        participantId = readOptionalString("aud", fields),
         userId = readOptionalString("sub", fields).get, // guarded by if-clause above
         exp = readInstant("exp", fields),
-        // Note that the standard allows both single strings and arrays of strings
-        participantIds = fields.get("aud") match {
-          case None => None
-          case Some(JsNull) => None
-          case Some(JsString(value)) => Some(List(value))
-          case Some(JsArray(values)) =>
-            Some(values.toList.map {
-              case JsString(value) => value
-              case value =>
-                deserializationError(s"Can't read ${value.prettyPrint} as string element of 'aud'")
-            })
-          case Some(value) =>
-            deserializationError(s"Can't read ${value.prettyPrint} as string list for 'aud'")
-        },
       )
     case JsObject(fields) if !fields.contains(oidcNamespace) =>
       // Legacy format
