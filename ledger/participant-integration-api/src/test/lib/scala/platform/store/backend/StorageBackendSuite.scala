@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.backend
 
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 
 trait StorageBackendSuite
     extends StorageBackendTestsInitialization
@@ -18,5 +18,5 @@ trait StorageBackendSuite
     with StorageBackendTestsDeduplication
     with StorageBackendTestsTimestamps
     with StorageBackendTestsStringInterning {
-  this: AsyncFlatSpec =>
+  this: AnyFlatSpec =>
 }

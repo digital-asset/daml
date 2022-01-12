@@ -7,10 +7,10 @@ import java.sql.Connection
 
 import com.daml.platform.store.backend.{DBLockStorageBackend, StorageBackendTestsDBLock}
 import org.scalatest.BeforeAndAfter
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 
 class TestDBLockStorageBackendSpec
-    extends AsyncFlatSpec
+    extends AnyFlatSpec
     with StorageBackendTestsDBLock
     with BeforeAndAfter {
 

@@ -10,15 +10,14 @@ import com.daml.platform.store.backend.DBLockStorageBackend.{Lock, LockId, LockM
 import org.scalatest.Assertion
 import org.scalatest.concurrent.Eventually
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Seconds, Span}
 
-import scala.concurrent.Future
 import scala.util.Try
 
 private[platform] trait StorageBackendTestsDBLock extends Matchers with Eventually {
-  this: AsyncFlatSpec =>
+  this: AnyFlatSpec =>
 
   protected def dbLock: DBLockStorageBackend
   protected def getConnection: Connection
@@ -151,18 +150,18 @@ private[platform] trait StorageBackendTestsDBLock extends Matchers with Eventual
 
   private def dbLockTestCase(
       numOfConnectionsNeeded: Int
-  )(test: List[Connection] => Any): Future[Assertion] = {
+  )(test: List[Connection] => Assertion): Assertion = {
     if (dbLock.dbLockSupported) {
       // prepending with null so we can refer to connections 1 based in tests
       val connections = null :: List.fill(numOfConnectionsNeeded)(getConnection)
       val result = Try(test(connections))
       connections.foreach(c => Try(c.close()))
-      Future.fromTry(result).map(_ => 1 shouldBe 1)
+      result.get
     } else {
       info(
         s"This test makes sense only for StorageBackend which supports DB-Locks. For ${dbLock.getClass.getName} StorageBackend this test is disabled."
       )
-      Future.successful(1 shouldBe 1)
+      succeed
     }
   }
 }
@@ -170,7 +169,7 @@ private[platform] trait StorageBackendTestsDBLock extends Matchers with Eventual
 trait StorageBackendTestsDBLockForSuite
     extends StorageBackendTestsDBLock
     with StorageBackendProvider {
-  this: AsyncFlatSpec =>
+  this: AnyFlatSpec =>
 
   override val dbLock: DBLockStorageBackend = backend.dbLock
 
