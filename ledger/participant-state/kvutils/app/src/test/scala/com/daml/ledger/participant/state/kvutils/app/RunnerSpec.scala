@@ -11,8 +11,9 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{Materializer, QueueOfferResult}
+import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
@@ -43,6 +44,7 @@ import com.daml.ports.Port
 import com.daml.telemetry.TelemetryContext
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status.Code
+import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.grpc.{Channel, ManagedChannelBuilder, Status}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -56,33 +58,99 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AkkaBeforeAndAfterAll 
   private implicit val resourceContext: ResourceContext = ResourceContext(ExecutionContext.global)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  "the runner" should {
-    "start a participant" in {
-      val config = Config.createDefault(()).copy(ledgerId = LedgerId)
-      val participantConfig = newTestPartcipantConfig()
-      val runner = new Runner(Name, TestLedgerFactory, ConfigProvider.ForUnit)
+  "the participant" when {
+    "started" should {
+      "respond to requests" in {
+        val participantConfig = newTestParticipantConfig()
+        val runner = new Runner(Name, TestLedgerFactory, TestConfigProvider)
 
-      newApp(config, participantConfig, runner).use { channel =>
-        LedgerIdentityServiceGrpc
-          .stub(channel)
-          .getLedgerIdentity(GetLedgerIdentityRequest.of())
-          .map { response =>
-            response.ledgerId should be(LedgerId)
+        newApp(config, participantConfig, runner).use { channel =>
+          LedgerIdentityServiceGrpc
+            .stub(channel)
+            .getLedgerIdentity(GetLedgerIdentityRequest.of())
+            .map { response =>
+              response.ledgerId should be(LedgerId)
+            }
+        }
+      }
+
+      "respond to health checks" in {
+        val participantConfig = newTestParticipantConfig()
+        val runner = new Runner(Name, TestLedgerFactory, TestConfigProvider)
+
+        newApp(config, participantConfig, runner).use { channel =>
+          requestHealthForAllServices(HealthGrpc.stub(channel)).map { responses =>
+            all(responses.values.map(_.status)) should be(HealthCheckResponse.ServingStatus.SERVING)
           }
+        }
+      }
+    }
+
+    "the read service is unhealthy" should {
+      "respond with the correct health statuses" in {
+        val participantConfig = newTestParticipantConfig()
+        val ledgerFactory = new TestLedgerFactory(readServiceHealth = Unhealthy)
+        val runner = new Runner(Name, ledgerFactory, TestConfigProvider)
+
+        newApp(config, participantConfig, runner).use { channel =>
+          requestHealthForAllServices(HealthGrpc.stub(channel)).map { responses =>
+            responses("").status should be(HealthCheckResponse.ServingStatus.NOT_SERVING)
+            responses("index").status should be(HealthCheckResponse.ServingStatus.SERVING)
+            responses("indexer").status should be(HealthCheckResponse.ServingStatus.SERVING)
+            responses("read").status should be(HealthCheckResponse.ServingStatus.NOT_SERVING)
+            responses("write").status should be(HealthCheckResponse.ServingStatus.SERVING)
+          }
+        }
+      }
+    }
+
+    "the write service is unhealthy" should {
+      "respond with the correct health statuses" in {
+        val participantConfig = newTestParticipantConfig()
+        val ledgerFactory = new TestLedgerFactory(writeServiceHealth = Unhealthy)
+        val runner = new Runner(Name, ledgerFactory, TestConfigProvider)
+
+        newApp(config, participantConfig, runner).use { channel =>
+          requestHealthForAllServices(HealthGrpc.stub(channel)).map { responses =>
+            responses("").status should be(HealthCheckResponse.ServingStatus.NOT_SERVING)
+            responses("index").status should be(HealthCheckResponse.ServingStatus.SERVING)
+            responses("indexer").status should be(HealthCheckResponse.ServingStatus.SERVING)
+            responses("read").status should be(HealthCheckResponse.ServingStatus.SERVING)
+            responses("write").status should be(HealthCheckResponse.ServingStatus.NOT_SERVING)
+          }
+        }
       }
     }
   }
+
+  private def requestHealthForAllServices(
+      health: HealthGrpc.HealthStub
+  ): Future[Map[String, HealthCheckResponse]] =
+    Future
+      .traverse(healthServices) { service =>
+        health.check(HealthCheckRequest.of(service)).map(response => service -> response)
+      }
+      .map(_.toMap)
 }
 
 object RunnerSpec {
+  private val logger = ContextualizedLogger.get(getClass)
+
   private val Name = classOf[RunnerSpec].getSimpleName
   private val LedgerId = s"$Name-Ledger"
-
-  private val logger = ContextualizedLogger.get(getClass)
+  private val config = Config.createDefault(()).copy(ledgerId = LedgerId)
 
   private val engine = Engine.StableEngine()
 
-  private def newTestPartcipantConfig() = {
+  private val healthServices = Seq(
+    "", // all services
+    "index",
+    "indexer",
+    "read",
+    "write",
+  )
+
+  private def newTestParticipantConfig() = {
     val participantId = Ref.ParticipantId.assertFromString("participant")
     ParticipantConfig(
       mode = ParticipantRunMode.Combined,
@@ -124,7 +192,18 @@ object RunnerSpec {
         )
     } yield channel
 
-  object TestLedgerFactory extends LedgerFactory[Unit] {
+  object TestConfigProvider extends ConfigProvider.ForUnit {
+    override def createMetrics(
+        participantConfig: ParticipantConfig,
+        config: Config[Unit],
+    ): Metrics =
+      new Metrics(new MetricRegistry)
+  }
+
+  class TestLedgerFactory(
+      readServiceHealth: HealthStatus = Healthy,
+      writeServiceHealth: HealthStatus = Healthy,
+  ) extends LedgerFactory[Unit] {
     private val offsetBuilder = new KVOffsetBuilder(0)
 
     private val initialConditions = LedgerInitialConditions(
@@ -133,6 +212,11 @@ object RunnerSpec {
       Timestamp.Epoch,
     )
 
+    // This is quite sophisticated because it needs to provision a configuration, and so needs a
+    // basic implementation of the write->read flow, at least for configuration updates.
+    //
+    // The basic ledger used for the initial configuration update is implemented below using an
+    // ArrayBuffer, a BoundedSourceQueue, and a Dispatcher.
     override def readWriteServiceFactoryOwner(
         config: Config[Unit],
         participantConfig: ParticipantConfig,
@@ -159,7 +243,7 @@ object RunnerSpec {
           .map(_._1)
         factory <- ResourceOwner.successful(new ReadWriteServiceFactory {
           override def readService(): ReadService = new ReadService {
-            override def currentHealth(): HealthStatus = Healthy
+            override def currentHealth(): HealthStatus = readServiceHealth
 
             override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
               Source.single(initialConditions).concat(Source.never)
@@ -181,7 +265,7 @@ object RunnerSpec {
           }
 
           override def writeService(): WriteService = new WriteService {
-            override def currentHealth(): HealthStatus = Healthy
+            override def currentHealth(): HealthStatus = writeServiceHealth
 
             override def submitConfiguration(
                 maxRecordTime: Timestamp,
@@ -257,4 +341,7 @@ object RunnerSpec {
         SubmissionResult.SynchronousError(StatusProto.of(code.value(), message, Seq.empty))
       )
   }
+
+  object TestLedgerFactory
+      extends TestLedgerFactory(readServiceHealth = Healthy, writeServiceHealth = Healthy)
 }
