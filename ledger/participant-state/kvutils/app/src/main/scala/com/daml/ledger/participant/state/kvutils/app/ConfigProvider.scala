@@ -124,9 +124,11 @@ trait ConfigProvider[ExtraConfig] {
 }
 
 object ConfigProvider {
-  object ForUnit extends ConfigProvider[Unit] {
+  class ForUnit extends ConfigProvider[Unit] {
     override val defaultExtraConfig: Unit = ()
 
     override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit = ()
   }
+
+  object ForUnit extends ForUnit
 }
