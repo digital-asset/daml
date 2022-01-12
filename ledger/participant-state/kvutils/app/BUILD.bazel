@@ -77,6 +77,8 @@ da_scala_test_suite(
         "//daml-lf/engine",
         "//daml-lf/transaction",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",

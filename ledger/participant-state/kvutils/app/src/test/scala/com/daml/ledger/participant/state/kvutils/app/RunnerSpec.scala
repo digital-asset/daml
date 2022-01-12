@@ -13,6 +13,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc,
@@ -51,7 +52,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.existentials
 
-class RunnerSpec extends AsyncWordSpec with Matchers {
+class RunnerSpec extends AsyncWordSpec with Matchers with AkkaBeforeAndAfterAll {
   private implicit val resourceContext: ResourceContext = ResourceContext(ExecutionContext.global)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -100,20 +101,15 @@ object RunnerSpec {
       participantConfig: ParticipantConfig,
       runner: Runner[T, Unit],
   )(implicit
-      loggingContext: LoggingContext
+      loggingContext: LoggingContext,
+      actorSystem: ActorSystem,
+      materializer: Materializer,
   ): ResourceOwner[Channel] =
     for {
-      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(Name))
-      materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
       port <- new ResourceOwner[Port] {
         override def acquire()(implicit context: ResourceContext): Resource[Port] =
           runner
-            .runParticipant(config, participantConfig, engine)(
-              context,
-              loggingContext,
-              actorSystem,
-              materializer,
-            )
+            .runParticipant(config, participantConfig, engine)
             .map(_.get)
       }
       channel <- ResourceOwner
