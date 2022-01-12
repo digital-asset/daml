@@ -48,7 +48,7 @@ private[backend] trait StorageBackendProvider {
   }
 
   protected final def updateLedgerEndCache(connection: Connection): Unit = {
-    val ledgerEnd = backend.parameter.ledgerEndOrBeforeBegin(connection)
+    val ledgerEnd = backend.parameter.ledgerEnd(connection)
     backend.ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
   }
 }
