@@ -640,13 +640,26 @@ excluded_test_tool_tests = [
         ],
     },
     {
+        "start": "1.3.0",
+
+        "end": "1.18.0",
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+                "exclusions": [
+                    "CommandServiceIT:CSReturnStackTrace",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.16.0",
         "end": "1.18.0",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     "ExceptionsIT:ExUncaught",
-                    "CommandServiceIT:CSReturnStackTrace",
                 ],
             },
         ],
