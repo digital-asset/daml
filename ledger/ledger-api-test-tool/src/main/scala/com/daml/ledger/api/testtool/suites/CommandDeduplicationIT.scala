@@ -14,6 +14,10 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.FutureAssertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
+import com.daml.ledger.api.testtool.infrastructure.assertions.CommandDeduplicationAssertions.{
+  assertDeduplicationDuration,
+  assertDeduplicationOffset,
+}
 import com.daml.ledger.api.testtool.infrastructure.participant.{
   CompletionResponse,
   Features,
@@ -101,7 +105,7 @@ final class CommandDeduplicationIT(
         "The command ID of the first completion does not match the command ID of the submission",
       )
       if (!ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly) {
-        val completion = assertCompletionIsDefined(optCompletion)
+        val completion = assertDefined(optCompletion, "No completion has been produced")
         assertDeduplicationDuration(
           deduplicationDuration.asProtobuf,
           firstSubmissionSendTime,
