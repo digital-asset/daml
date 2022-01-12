@@ -96,29 +96,27 @@ final class MinVersionTest
                 commandId = UUID.randomUUID.toString,
                 party = party,
                 commands = Seq(
-                  Command.of(
-                    Command.Command.Create(
-                      CreateCommand(
-                        templateId = Some(
-                          Identifier(
-                            packageId = dar.main._1,
-                            moduleName = "Iou",
-                            entityName = "Iou",
-                          )
-                        ),
-                        createArguments = Some(
-                          Record(
-                            None,
-                            Seq(
-                              RecordField("issuer", Some(Value().withParty(party))),
-                              RecordField("owner", Some(Value().withParty(party))),
-                              RecordField("currency", Some(Value().withText("EUR"))),
-                              RecordField("amount", Some(Value().withNumeric("10.0"))),
-                              RecordField("observers", Some(Value().withList(List()))),
-                            ),
-                          )
-                        ),
-                      )
+                  Command().withCreate(
+                    CreateCommand(
+                      templateId = Some(
+                        Identifier(
+                          packageId = dar.main._1,
+                          moduleName = "Iou",
+                          entityName = "Iou",
+                        )
+                      ),
+                      createArguments = Some(
+                        Record(
+                          None,
+                          Seq(
+                            RecordField("issuer", Some(Value().withParty(party))),
+                            RecordField("owner", Some(Value().withParty(party))),
+                            RecordField("currency", Some(Value().withText("EUR"))),
+                            RecordField("amount", Some(Value().withNumeric("10.0"))),
+                            RecordField("observers", Some(Value().withList(List()))),
+                          ),
+                        )
+                      ),
                     )
                   )
                 ),
