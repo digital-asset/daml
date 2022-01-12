@@ -117,4 +117,54 @@ final class JsonPartyValidation extends AnyWordSpec with Matchers {
       ) shouldBe Right(Some(SubmitParties(OneAnd(alice, Set.empty), Set.empty)))
     }
   }
+
+  "validateTokenParties" should {
+    "handle a single actAs party" in {
+      validateTokenParties(
+        OneAnd(alice, Set.empty),
+        "",
+        token(List(alice), List()),
+      ) shouldBe Right(None)
+    }
+    "handle a single readAs party" in {
+      validateTokenParties(OneAnd(alice, Set.empty), "", token(List(), List(alice))) shouldBe Right(
+        None
+      )
+    }
+    "handle duplicate actAs" in {
+      validateTokenParties(
+        OneAnd(alice, Set.empty),
+        "",
+        token(List(alice, alice), List()),
+      ) shouldBe Right(None)
+    }
+    "handle duplicate readAs" in {
+      validateTokenParties(
+        OneAnd(alice, Set.empty),
+        "",
+        token(List(), List(alice, alice)),
+      ) shouldBe Right(None)
+    }
+    "fail for missing readAs party" in {
+      validateTokenParties(
+        OneAnd(alice, Set.empty),
+        "",
+        token(List(), List()),
+      ) shouldBe a[Left[_, _]]
+    }
+    "handle party that is in readAs and actAs" in {
+      validateTokenParties(
+        OneAnd(alice, Set.empty),
+        "",
+        token(List(alice), List(alice)),
+      ) shouldBe Right(None)
+    }
+    "return explicit party specification for constrained parties" in {
+      validateTokenParties(
+        OneAnd(alice, Set.empty),
+        "",
+        token(List(alice, bob), List()),
+      ) shouldBe Right(Some(QueryParties(OneAnd(alice, Set.empty))))
+    }
+  }
 }
