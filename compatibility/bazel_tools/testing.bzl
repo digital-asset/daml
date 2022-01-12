@@ -472,6 +472,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.18.0-snapshot.20210928.7948.1",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
         "platform_ranges": [
             {
                 "end": "1.18.0-snapshot.20210928.7948.0.b4d00317",
@@ -587,8 +588,6 @@ excluded_test_tool_tests = [
                 "exclusions": [
                     # Unexpected failure (StatusRuntimeException) ALREADY_EXISTS: DUPLICATE_COMMAND(10,KVComman):
                     "CommandDeduplicationIT:DeduplicationMixedClients",
-                    # Assertion failed: Expecting completion with status code OK but completion has status Some(Status(6,DUPLICATE_COMMAND(10,972fae4b)
-                    "CommandDeduplicationIT:SimpleDeduplicationBasic",
                     # Unexpected failure (StatusRuntimeException) ALREADY_EXISTS: DUPLICATE_COMMAND(10,KVComman):
                     "CommandDeduplicationIT:SimpleDeduplicationCommandClient",
                     # Offsets are not supported for versions < 2.0.0
@@ -641,7 +640,6 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.3.0",
-
         "end": "1.18.0",
         "platform_ranges": [
             {
