@@ -53,7 +53,7 @@ case class SequencerState(
       evictedQueueEntries.iterator
         .flatMap { case (_, (updatedKeys, _)) => updatedKeys.keySet }
         .filter { key =>
-          val (_, lastUpdatedAt) = keyState(key)
+          val (_, lastUpdatedAt) = keyState(key)ledger/sandbox-on-x/src/main/scala/com/daml/ledger/sandbox/bridge/validate/SequenceImpl.scala
           lastUpdatedAt <= noConflictUpTo
         }
         .toSet

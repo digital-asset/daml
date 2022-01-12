@@ -9,6 +9,11 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.daml.ledger.sandbox.bridge.LedgerBridge._
+import com.daml.ledger.sandbox.bridge.LedgerBridge.{
+  fromOffset,
+
+  toOffset,
+}
 import SequencerState.LastUpdatedAt
 import com.daml.ledger.sandbox.bridge._
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge.{
