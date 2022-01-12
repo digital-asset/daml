@@ -4,10 +4,10 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import java.io.File
-import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
@@ -32,7 +32,6 @@ import scala.concurrent.duration.FiniteDuration
 final case class Config[Extra](
     mode: Mode,
     ledgerId: String,
-    archiveFiles: Seq[Path],
     commandConfig: CommandConfiguration,
     submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
@@ -72,7 +71,6 @@ object Config {
     Config(
       mode = Mode.Run,
       ledgerId = UUID.randomUUID().toString,
-      archiveFiles = Vector.empty,
       commandConfig = CommandConfiguration.default,
       submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
@@ -156,14 +154,6 @@ object Config {
                 })
               )
           }
-
-        arg[File]("<archive>...")
-          .optional()
-          .unbounded()
-          .text(
-            "DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default."
-          )
-          .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
 
         help("help").text("Print this help page.")
 

@@ -54,7 +54,7 @@ trait ConfigProvider[ExtraConfig] {
   ): ApiServerConfig =
     ApiServerConfig(
       participantId = participantConfig.participantId,
-      archiveFiles = config.archiveFiles.map(_.toFile).toList,
+      archiveFiles = Nil,
       port = participantConfig.port,
       address = participantConfig.address,
       jdbcUrl = participantConfig.serverJdbcUrl,

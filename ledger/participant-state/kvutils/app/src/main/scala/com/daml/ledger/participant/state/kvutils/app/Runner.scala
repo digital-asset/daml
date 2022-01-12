@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.nio.file.Path
-import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit}
 
 import akka.actor.ActorSystem
@@ -18,13 +16,9 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationType,
 }
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
-import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.archive.DarParser
-import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
-import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
@@ -32,10 +26,8 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
-import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
-import scala.compat.java8.FutureConverters.CompletionStageOps
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 final class Runner[T <: ReadWriteService, Extra](
     name: String,
@@ -123,16 +115,6 @@ final class Runner[T <: ReadWriteService, Extra](
                   )(materializer, servicesExecutionContext, loggingContext)
                   .acquire()
                 writePackageService = ledgerFactory.writePackagesService()
-                _ <- Resource.sequence(
-                  config.archiveFiles.map(path =>
-                    Resource.fromFuture(
-                      uploadDar(path, writePackageService)(
-                        loggingContext,
-                        resourceContext.executionContext,
-                      )
-                    )
-                  )
-                )
                 healthChecksWithIndexer <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
                     val readService = new TimedReadService(ledgerFactory.readService(), metrics)
@@ -220,17 +202,5 @@ final class Runner[T <: ReadWriteService, Extra](
         })
       } yield ()
     }
-  }
-
-  private def uploadDar(from: Path, to: WritePackagesService)(implicit
-      loggingContext: LoggingContext,
-      executionContext: ExecutionContext,
-  ): Future[Unit] = DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
-    implicit telemetryContext =>
-      val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
-      for {
-        dar <- Future.fromTry(DarParser.readArchiveFromFile(from.toFile).toTry)
-        _ <- to.uploadPackages(submissionId, dar.all, None).toScala
-      } yield ()
   }
 }
