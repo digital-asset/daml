@@ -95,21 +95,20 @@ trait MultiParticipantFixture
         )
         participant1Port = readPortfile(participant1Portfile)
         participant2Port = readPortfile(participant2Portfile)
-        channel = {
+        _ <- ResourceOwner.forFuture { () =>
           val builder = ManagedChannelBuilder
             .forAddress(InetAddress.getLoopbackAddress.getHostName, participant1Port.value)
           builder.usePlaintext()
-          builder.build()
-        }
-        packageManagement = PackageManagementServiceGrpc.stub(channel)
-        _ <- ResourceOwner.forFuture(() =>
-          packageManagement.uploadDarFile(
-            UploadDarFileRequest.of(
-              darFile = ByteString.copyFrom(Files.readAllBytes(darFile)),
-              submissionId = s"${getClass.getSimpleName}-upload",
+          ResourceOwner.forChannel(builder, shutdownTimeout = 1.second).use { channel =>
+            val packageManagement = PackageManagementServiceGrpc.stub(channel)
+            packageManagement.uploadDarFile(
+              UploadDarFileRequest.of(
+                darFile = ByteString.copyFrom(Files.readAllBytes(darFile)),
+                submissionId = s"${getClass.getSimpleName}-upload",
+              )
             )
-          )
-        )
+          }
+        }
       } yield (participant1Port, participant2Port),
       acquisitionTimeout = 1.minute,
       releaseTimeout = 1.minute,
