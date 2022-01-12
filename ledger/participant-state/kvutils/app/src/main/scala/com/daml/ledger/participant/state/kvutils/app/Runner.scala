@@ -114,7 +114,6 @@ final class Runner[T <: ReadWriteService, Extra](
                     metrics,
                   )(materializer, servicesExecutionContext, loggingContext)
                   .acquire()
-                writePackageService = ledgerFactory.writePackagesService()
                 healthChecksWithIndexer <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
                     val readService = new TimedReadService(ledgerFactory.readService(), metrics)
