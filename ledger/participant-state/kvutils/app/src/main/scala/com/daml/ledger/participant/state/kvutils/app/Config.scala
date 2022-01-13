@@ -8,7 +8,6 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
@@ -59,7 +58,6 @@ final case class Config[Extra](
     enableInMemoryFanOutForLedgerApi: Boolean,
     extra: Extra,
     enableSelfServiceErrorCodes: Boolean,
-    enableUserManagement: Boolean,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
@@ -100,7 +98,6 @@ object Config {
       maxDeduplicationDuration = None,
       extra = extra,
       enableSelfServiceErrorCodes = true,
-      enableUserManagement = false,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
@@ -656,13 +653,6 @@ object Config {
             "Enables gRPC error code compatibility mode to the pre-1.18 behaviour. This option is deprecated and will be removed in a future release."
           )
           .action((_, config: Config[Extra]) => config.copy(enableSelfServiceErrorCodes = false))
-
-        opt[Boolean]("feature-user-management")
-          .optional()
-          .text(
-            "Whether to enable participant user management."
-          )
-          .action((enabled, config: Config[Extra]) => config.copy(enableUserManagement = enabled))
       }
     extraOptions(parser)
     parser

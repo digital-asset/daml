@@ -42,5 +42,4 @@ case class ApiServerConfig(
     maxTransactionsInMemoryFanOutBufferSize: Long,
     enableInMemoryFanOutForLedgerApi: Boolean,
     enableSelfServiceErrorCodes: Boolean,
-    enableUserManagement: Boolean,
 )

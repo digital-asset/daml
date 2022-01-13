@@ -97,7 +97,6 @@ private[daml] object ApiServices {
       enableSelfServiceErrorCodes: Boolean,
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       commandDeduplicationFeatures: CommandDeduplicationFeatures,
-      enableUserManagement: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -162,11 +161,7 @@ private[daml] object ApiServices {
         ApiLedgerIdentityService.create(() => identityService.getLedgerId(), errorsVersionsSwitcher)
 
       val apiVersionService =
-        ApiVersionService.create(
-          enableSelfServiceErrorCodes = enableSelfServiceErrorCodes,
-          commandDeduplicationFeatures = commandDeduplicationFeatures,
-          enableUserManagement = enableUserManagement,
-        )
+        ApiVersionService.create(enableSelfServiceErrorCodes, commandDeduplicationFeatures)
 
       val apiPackageService =
         ApiPackageService.create(ledgerId, packagesService, errorsVersionsSwitcher)
@@ -210,14 +205,8 @@ private[daml] object ApiServices {
 
       val apiHealthService = new GrpcHealthService(healthChecks, errorsVersionsSwitcher)
 
-      val maybeApiUserManagementService: Option[UserManagementServiceAuthorization] =
-        if (enableUserManagement) {
-          val apiUserManagementService =
-            new ApiUserManagementService(userManagementStore, errorsVersionsSwitcher)
-          val authorized =
-            new UserManagementServiceAuthorization(apiUserManagementService, authorizer)
-          Some(authorized)
-        } else None
+      val apiUserManagementService =
+        new ApiUserManagementService(userManagementStore, errorsVersionsSwitcher)
 
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
@@ -231,7 +220,8 @@ private[daml] object ApiServices {
           apiReflectionService,
           apiHealthService,
           apiVersionService,
-        ) ::: maybeApiUserManagementService.toList
+          new UserManagementServiceAuthorization(apiUserManagementService, authorizer),
+        )
     }
 
     private def intitializeWriteServiceBackedApiServices(
