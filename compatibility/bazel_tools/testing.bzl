@@ -930,7 +930,7 @@ def sdk_platform_test(sdk_version, platform_version):
 
     # We need to use weak seeding to avoid our tests timing out
     # if the CI machine does not have enough entropy.
-    sandbox_args = ["sandbox", "--contract-id-seeding=testing-weak"]
+    sandbox_args = ["sandbox-kv", "--contract-id-seeding=testing-weak"]
 
     sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
 

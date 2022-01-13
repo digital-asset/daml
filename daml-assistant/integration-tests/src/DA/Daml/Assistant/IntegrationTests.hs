@@ -197,7 +197,7 @@ quickSandbox projDir = do
                 (shell $
                     unwords
                         [ "daml"
-                        , "sandbox"
+                        , "sandbox-kv"
                         , "--"
                         , "--port"
                         , show sandboxPort
@@ -817,7 +817,7 @@ codegenTests codegenDir = testGroup "daml codegen" (
                 assertBool "bindings were written" (not $ null contents)
 
 cantonTests :: TestTree
-cantonTests = testGroup "daml canton-sandbox"
+cantonTests = testGroup "daml sandbox-canton"
   [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
       step "Creating project"
       callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
@@ -830,7 +830,7 @@ cantonTests = testGroup "daml canton-sandbox"
       domainAdminApiPort <- getFreePort
       step "Staring Canton sandbox"
       let portFile = dir </> "canton-portfile.json"
-      withDamlServiceIn (dir </> "skeleton") "canton-sandbox"
+      withDamlServiceIn (dir </> "skeleton") "sandbox-canton"
         [ "--port", show ledgerApiPort
         , "--admin-api-port", show adminApiPort
         , "--domain-public-port", show domainPublicApiPort

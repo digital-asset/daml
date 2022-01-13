@@ -125,7 +125,7 @@ beforeAll(async () => {
   await removeFile(`../${SANDBOX_PORT_FILE_NAME}`);
   await removeFile(`../${JSON_API_PORT_FILE_NAME}`);
   const sandboxOptions = [
-    "sandbox",
+    "sandbox-kv",
     `--ledgerid=${SANDBOX_LEDGER_ID}`,
     `--port=0`,
     `--port-file=${SANDBOX_PORT_FILE_NAME}`,

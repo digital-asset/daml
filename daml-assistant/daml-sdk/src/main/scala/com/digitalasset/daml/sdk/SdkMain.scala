@@ -11,7 +11,7 @@ import com.daml.auth.middleware.oauth2.{Main => Oauth2Middleware}
 import com.daml.http.{Main => JsonApi}
 import com.daml.navigator.{NavigatorBackend => Navigator}
 import com.daml.platform.sandbox.{SandboxMain => SandboxClassic}
-import com.daml.platform.sandboxnext.{Main => Sandbox}
+import com.daml.platform.sandboxnext.{Main => SandboxKV}
 import com.daml.script.export.{Main => Export}
 
 object SdkMain {
@@ -28,7 +28,7 @@ object SdkMain {
       case "trigger-service" => TriggerService.main(rest)
       case "oauth2-middleware" => Oauth2Middleware.main(rest)
       case "navigator" => Navigator.main(rest)
-      case "sandbox" => Sandbox.main(rest)
+      case "sandbox-kv" => SandboxKV.main(rest)
       case "sandbox-classic" => SandboxClassic.main(rest)
       case _ => sys.exit(1)
     }
