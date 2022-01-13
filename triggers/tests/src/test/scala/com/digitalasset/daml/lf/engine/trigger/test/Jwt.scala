@@ -32,7 +32,7 @@ class Jwt
 
   override protected def ledgerClientConfiguration: LedgerClientConfiguration =
     super.ledgerClientConfiguration.copy(
-      token = Some(customTokenToHeader(forApplicationId("custom app id", readWriteToken(party))))
+      token = Some(toHeader(forApplicationId("custom app id", readWriteToken(party))))
     )
 
   private val party = "AliceAuth"

@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.script.test
 
-import com.daml.ledger.api.auth.AuthServiceJWTPayload
+import com.daml.ledger.api.auth.CustomDamlJWTPayload
 import com.daml.lf.data.Ref
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -13,8 +13,8 @@ final class JsonPartyValidation extends AnyWordSpec with Matchers {
 
   import com.daml.lf.engine.script.ledgerinteraction.JsonLedgerClient._
 
-  private def token(actAs: List[String], readAs: List[String]): AuthServiceJWTPayload =
-    AuthServiceJWTPayload(
+  private def token(actAs: List[String], readAs: List[String]): CustomDamlJWTPayload =
+    CustomDamlJWTPayload(
       ledgerId = None,
       participantId = None,
       applicationId = None,
