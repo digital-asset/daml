@@ -15,6 +15,7 @@ module Migration.Runner (main) where
 -- 6. Stop postgres.
 
 import Control.Exception
+import Control.Lens
 import Control.Monad
 import Data.Either
 import Data.List
@@ -26,6 +27,8 @@ import Sandbox
     ( createSandbox
     , defaultSandboxConf
     , destroySandbox
+    , maxRetries
+    , readPortFile
     , sandboxPort
     , SandboxConfig(..)
     )
@@ -78,6 +81,10 @@ main = do
         runTest appendOnly jdbcUrl platformAssistants
             (ProposeAccept.test step modelDar `interleave` KeyTransfer.test step modelDar `interleave` Divulgence.test step modelDar)
 
+
+supportsSandboxOnX :: SemVer.Version -> Bool
+supportsSandboxOnX v = v == SemVer.initial || v >= (SemVer.initial & SemVer.major .~ 2)
+
 supportsAppendOnly :: SemVer.Version -> Bool
 supportsAppendOnly v = v == SemVer.initial
 -- Note: until the append-only migration is frozen, only the head version of it should be used
@@ -108,11 +115,29 @@ assistantVersion path =
 
 withSandbox :: AppendOnly -> FilePath -> T.Text -> (Int -> IO a) -> IO a
 withSandbox (AppendOnly appendOnly) assistant jdbcUrl f =
-    withTempFile $ \portFile ->
-    bracket (createSandbox portFile stderr sandboxConfig) destroySandbox $ \resource ->
-      f (sandboxPort resource)
+    withTempDir $ \dir ->
+    withSandbox' (dir </> "portfile") f
   where
+    withSandbox' portFile f
+      | supportsSandboxOnX version = withSandboxOnX portFile f
+      | otherwise = bracket (createSandbox portFile stderr sandboxConfig) destroySandbox (\r -> f (sandboxPort r))
     version = assistantVersion assistant
+    -- The CLI of sandbox on x is not compatible with Sandbox
+    -- so rather than using the utilities from the Sandbox module
+    -- we spin it up directly.
+    withSandboxOnX portFile f = do
+          let args =
+                  [ "--contract-id-seeding=testing-weak", "--enable-conflict-checking", "--mutable-contract-state-cache"
+                  , "--ledger-id=" <> ledgerid
+                  , "--participant=participant-id=sandbox-participant,port=0,port-file=" <> portFile <> ",server-jdbc-url=" <> T.unpack jdbcUrl <> ",ledgerid=" <> ledgerid
+                  ]
+          -- Locating sandbox on x relative to the assistant is easier than making
+          -- the bash script make the decision on whether it needs to pass in
+          -- the assistant or sandbox on x.
+          withCreateProcess (proc (takeDirectory assistant </> "sandbox-on-x") args) $ \_ _ _ _ -> do
+              port <- readPortFile maxRetries portFile
+              f port
+    ledgerid = "myledger"
     sandboxConfig = defaultSandboxConf
         { sandboxBinary = assistant
         , sandboxArgs =
@@ -121,4 +146,5 @@ withSandbox (AppendOnly appendOnly) assistant jdbcUrl f =
           , "--contract-id-seeding=testing-weak"
           ] <>
           [ "--enable-append-only-schema" | supportsAppendOnly version && appendOnly ]
+        , mbLedgerId = Just ledgerid
         }
