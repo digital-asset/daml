@@ -32,7 +32,7 @@ def migration_test(name, versions, tags, quick_tags, **kwargs):
             "//sandbox-migration:sandbox-migration-runner",
             "//sandbox-migration:migration-model.dar",
             "//sandbox-migration:migration-step",
-        ] + ["@daml-sdk-{}//:daml".format(ver) for ver in versions],
+        ] + [dep for ver in versions for dep in runfiles(ver)],
         args = ["--append-only"] + versions,
         **kwargs
     )
