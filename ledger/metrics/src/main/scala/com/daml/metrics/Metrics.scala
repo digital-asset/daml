@@ -341,8 +341,14 @@ final class Metrics(val registry: MetricRegistry) {
 
       val cache = new CacheMetrics(registry, Prefix :+ "cache")
 
-      // TODO pbatko: add metric per storage backend access method
-      val allUserManagement = new DatabaseMetrics(registry, Prefix, "all_user_management")
+      private def createDbMetrics(name: String): DatabaseMetrics =
+        new DatabaseMetrics(registry, Prefix, name)
+      val getUserInfo: DatabaseMetrics = createDbMetrics("getUserInfo")
+      val createUser: DatabaseMetrics = createDbMetrics("createUser")
+      val deleteUser: DatabaseMetrics = createDbMetrics("deleteUser")
+      val grantRights: DatabaseMetrics = createDbMetrics("grantRights")
+      val revokeRights: DatabaseMetrics = createDbMetrics("revokeRights")
+      val listUsers: DatabaseMetrics = createDbMetrics("listUsers")
     }
     object index {
       private val Prefix = daml.Prefix :+ "index"

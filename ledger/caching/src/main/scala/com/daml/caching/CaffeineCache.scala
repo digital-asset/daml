@@ -41,7 +41,6 @@ object CaffeineCache {
       cache: caffeine.AsyncLoadingCache[Key, Value],
       cacheMetrics: CacheMetrics,
   ) {
-    // TODO pbatko: Is calling synchronous() appropriate?
     installMetrics(cacheMetrics, cache.synchronous())
 
     def get(key: Key): Future[Value] = FutureConverters.toScala(cache.get(key))

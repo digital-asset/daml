@@ -20,19 +20,19 @@ import scala.util.Try
 
 object UserManagementStorageBackendTemplate extends UserManagementStorageBackend {
 
-  private val ParticipantUserParser: RowParser[(Int, String, Option[String])] =
-    int("internal_id") ~ str("user_id") ~ str("primary_party").? map {
+  private val ParticipantUserParser: RowParser[(Int, String, String)] =
+    int("internal_id") ~ str("user_id") ~ str("primary_party") map {
       case internalId ~ userId ~ primaryParty =>
         (internalId, userId, primaryParty)
     }
 
-  private val ParticipantUserParser2: RowParser[(String, Option[String])] =
-    str("user_id") ~ str("primary_party").? map { case userId ~ primaryParty =>
+  private val ParticipantUserParser2: RowParser[(String, String)] =
+    str("user_id") ~ str("primary_party") map { case userId ~ primaryParty =>
       (userId, primaryParty)
     }
 
-  private val UserRightParser: RowParser[(Int, Option[String])] =
-    int("user_right") ~ str("for_party").? map { case user_right ~ for_party =>
+  private val UserRightParser: RowParser[(Int, String)] =
+    int("user_right") ~ str("for_party") map { case user_right ~ for_party =>
       (user_right, for_party)
     }
 
@@ -59,12 +59,12 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
        WHERE user_id = ${id: String}
        """
       .as(ParticipantUserParser.singleOpt)(connection)
-      .map { case (internalId, userId, primaryParty) =>
+      .map { case (internalId, userId, primaryPartyRaw) =>
         UserManagementStorageBackend.DbUser(
           internalId = internalId,
           domainUser = domain.User(
             id = Ref.UserId.assertFromString(userId),
-            primaryParty = primaryParty.map(Ref.Party.assertFromString),
+            primaryParty = dbStringToParty(primaryPartyRaw),
           ),
         )
       }
@@ -80,8 +80,8 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     SQL"""SELECT internal_id, user_id, primary_party
           FROM participant_users"""
       .asVectorOf(ParticipantUserParser2)(connection)
-      .map { case (userId, primaryParty) =>
-        toDomainUser(userId, primaryParty)
+      .map { case (userId, primaryPartyRaw) =>
+        toDomainUser(userId, dbStringToParty(primaryPartyRaw))
       }
   }
 
@@ -96,7 +96,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
   override def userRightExists(internalId: Int, right: UserRight)(
       connection: Connection
   ): Boolean = {
-    val (userRight: Int, forParty: Option[Party]) = fromUserRight(right)
+    val (userRight: Int, forParty: String) = fromUserRight(right)
 
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val res: Seq[_] =
@@ -107,7 +107,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
                AND
                ur.user_right = ${userRight}
                AND
-               ur.for_party ${isForPartyPredicate(forParty)}""".asVectorOf(IntParser0)(connection)
+               ur.for_party = $forParty""".asVectorOf(IntParser0)(connection)
     assert(res.length <= 1)
     res.length == 1
   }
@@ -115,30 +115,30 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
   override def addUserRight(internalId: Int, right: UserRight)(
       connection: Connection
   ): Boolean = {
-    val (userRight: Int, forParty: Option[Party]) = fromUserRight(right)
+    val (userRight: Int, forParty: String) = fromUserRight(right)
     val rowsUpdated: Int =
       SQL"""
          INSERT INTO participant_user_rights (user_internal_id, user_right, for_party)
          VALUES (
             ${internalId},
             ${userRight},
-            ${forParty: Option[String]}
+            ${forParty}
             )
          """.executeUpdate()(connection)
     rowsUpdated == 1
   }
 
   override def getUserRights(internalId: Int)(connection: Connection): Set[domain.UserRight] = {
-    val rec: Seq[(Int, Option[String])] =
+    val rec: Seq[(Int, String)] =
       SQL"""
          SELECT ur.user_right, ur.for_party
          FROM participant_user_rights ur
          WHERE ur.user_internal_id = ${internalId}
          """.asVectorOf(UserRightParser)(connection)
-    rec.map { case (userRight, forParty) =>
+    rec.map { case (userRight, forPartyRaw) =>
       makeUserRight(
         value = userRight,
-        party = forParty.map(Ref.Party.assertFromString),
+        party = dbStringToParty(forPartyRaw),
       )
     }.toSet
   }
@@ -146,7 +146,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
   override def deleteUserRight(internalId: Int, right: domain.UserRight)(
       connection: Connection
   ): Boolean = {
-    val (userRight: Int, forParty: Option[Party]) = fromUserRight(right)
+    val (userRight: Int, forParty: String) = fromUserRight(right)
 
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val updatedRowCount: Int =
@@ -157,16 +157,9 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
             AND
             ur.user_right = ${userRight}
             AND
-            ur.for_party ${isForPartyPredicate(forParty)}
+            ur.for_party = ${forParty}
            """.executeUpdate()(connection)
     updatedRowCount == 1
-  }
-
-  private def isForPartyPredicate(forParty: Option[Party]): ComposableQuery.CompositeSql = {
-    import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    forParty.fold(cSQL"IS NULL") { party: Party =>
-      cSQL"= ${party: String}"
-    }
   }
 
   private def makeUserRight(value: Int, party: Option[Party]): UserRight = {
@@ -179,14 +172,21 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     }
   }
 
-  private def fromUserRight(right: UserRight): (Int, Option[Party]) = {
+  private def fromUserRight(right: UserRight): (Int, String) = {
     right match {
-      case ParticipantAdmin => (Right.PARTICIPANT_ADMIN_FIELD_NUMBER, None)
-      case CanActAs(party) => (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party))
-      case CanReadAs(party) => (Right.CAN_READ_AS_FIELD_NUMBER, Some(party))
+      case ParticipantAdmin => (Right.PARTICIPANT_ADMIN_FIELD_NUMBER, "")
+      case CanActAs(party) => (Right.CAN_ACT_AS_FIELD_NUMBER, party: String)
+      case CanReadAs(party) => (Right.CAN_READ_AS_FIELD_NUMBER, party: String)
       case _ =>
         throw new RuntimeException // TODO participant user management: Use self-service error codes
     }
+  }
+
+  private def dbStringToParty(raw: String): Option[Ref.Party] = {
+    if (raw.isEmpty)
+      None
+    else
+      Some(Ref.Party.assertFromString(raw))
   }
 
 }

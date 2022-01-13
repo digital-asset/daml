@@ -3,8 +3,6 @@
 
 package com.daml.caching
 
-import scala.concurrent.Future
-
 /** A cache. Used for caching values.
   *
   * The strategy used for eviction is implementation-dependent.
@@ -24,6 +22,10 @@ abstract class Cache[Key, Value] {
     */
   def getIfPresent(key: Key): Option[Value]
 
+  /** Discard any cached value for the key.
+    *
+    * The behavior of this operation is undefined for an entry that is being loaded and is otherwise not present.
+    */
   def invalidate(key: Key): Unit
 
   /** Transform values when reading from or writing to the cache.

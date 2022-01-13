@@ -33,12 +33,7 @@ class CachedUserManagementStoreSpec
 
   "test cache population" in {
     val delegate = spy(new InMemoryUserManagementStore())
-    val tested = new CachedUserManagementStore(
-      delegate,
-      expiryAfterWriteInSeconds = 10,
-      maximumCacheSize = 100,
-      new Metrics(new MetricRegistry)
-    )
+    val tested = createTested(delegate)
 
     for {
       _ <- tested.createUser(userInfo.user, userInfo.rights)
@@ -59,12 +54,7 @@ class CachedUserManagementStoreSpec
 
   "test cache invalidation after every write method" in {
     val delegate = spy(new InMemoryUserManagementStore())
-    val tested = new CachedUserManagementStore(
-      delegate,
-      expiryAfterWriteInSeconds = 10,
-      maximumCacheSize = 100,
-      new Metrics(new MetricRegistry)
-    )
+    val tested = createTested(delegate)
 
     val userInfo = UserInfo(user, rights)
 
@@ -97,12 +87,7 @@ class CachedUserManagementStoreSpec
 
   "listing all users should not be cached" in {
     val delegate = spy(new InMemoryUserManagementStore(createAdmin = false))
-    val tested = new CachedUserManagementStore(
-      delegate,
-      expiryAfterWriteInSeconds = 10,
-      maximumCacheSize = 100,
-      new Metrics(new MetricRegistry)
-    )
+    val tested = createTested(delegate)
 
     for {
       res0 <- tested.createUser(user, rights)
@@ -120,17 +105,13 @@ class CachedUserManagementStoreSpec
   }
 
   "cache entries expire after a set time" in {
-
     val delegate = spy(new InMemoryUserManagementStore())
-    val tested =
-      new CachedUserManagementStore(delegate, expiryAfterWriteInSeconds = 1, maximumCacheSize = 100,
-        new Metrics(new MetricRegistry))
+    val tested = createTested(delegate)
 
     for {
       create1 <- tested.createUser(user, rights)
       get1 <- tested.getUserInfo(user.id)
       get2 <- tested.getUserInfo(user.id)
-      // TODO participant user management: Check if the sleep time is appropriate
       get3 <- {
         Thread.sleep(2000); tested.getUserInfo(user.id)
       }
@@ -145,4 +126,14 @@ class CachedUserManagementStoreSpec
       get3 shouldBe Right(userInfo)
     }
   }
+
+  private def createTested(delegate: InMemoryUserManagementStore): CachedUserManagementStore = {
+    new CachedUserManagementStore(
+      delegate,
+      expiryAfterWriteInSeconds = 1,
+      maximumCacheSize = 10,
+      new Metrics(new MetricRegistry),
+    )
+  }
+
 }

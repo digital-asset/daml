@@ -12,7 +12,6 @@ import com.daml.lf.data.Ref.UserId
 import scala.collection.mutable
 import scala.concurrent.Future
 
-// TODO pbatko: Which sandboxes should support optional InMemoryUserManagementStore?
 class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManagementStore {
   import InMemoryUserManagementStore._
 

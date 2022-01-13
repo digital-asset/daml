@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.UserManagementStorageBackend
 import com.daml.platform.store.backend.common.UserManagementStorageBackendTemplate
@@ -66,7 +66,7 @@ class PersistentUserManagementStore(
   implicit private val loggingContext: LoggingContext = LoggingContext.newLoggingContext(identity)
 
   override def getUserInfo(id: UserId): Future[Result[UserInfo]] = {
-    inTransaction { implicit connection =>
+    inTransaction(_.getUserInfo) { implicit connection =>
       withUser(id) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
         UserInfo(dbUser.domainUser, rights)
@@ -78,7 +78,7 @@ class PersistentUserManagementStore(
       user: domain.User,
       rights: Set[domain.UserRight],
   ): Future[Result[Unit]] = {
-    inTransaction { implicit connection: Connection =>
+    inTransaction(_.createUser) { implicit connection: Connection =>
       withoutUser(user.id) {
         val internalId = backend.createUser(user)(connection)
         rights.foreach(right =>
@@ -96,7 +96,7 @@ class PersistentUserManagementStore(
   }
 
   override def deleteUser(id: UserId): Future[Result[Unit]] = {
-    inTransaction { implicit connection =>
+    inTransaction(_.deleteUser) { implicit connection =>
       if (!backend.deleteUser(id = id)(connection = connection)) {
         Left(UserNotFound(userId = id))
       } else {
@@ -111,7 +111,7 @@ class PersistentUserManagementStore(
       id: UserId,
       rights: Set[domain.UserRight],
   ): Future[Result[Set[domain.UserRight]]] = {
-    inTransaction { implicit connection =>
+    inTransaction(_.grantRights) { implicit connection =>
       withUser(id = id) { user =>
         val addedRights = rights.filter { right =>
           if (!backend.userRightExists(internalId = user.internalId, right = right)(connection)) {
@@ -136,7 +136,7 @@ class PersistentUserManagementStore(
       id: UserId,
       rights: Set[domain.UserRight],
   ): Future[Result[Set[domain.UserRight]]] = {
-    inTransaction { implicit connection =>
+    inTransaction(_.revokeRights) { implicit connection =>
       withUser(id = id) { user =>
         val revokedRights = rights.filter { right =>
           if (backend.userRightExists(internalId = user.internalId, right = right)(connection)) {
@@ -156,14 +156,15 @@ class PersistentUserManagementStore(
   }
 
   override def listUsers(): Future[Result[Users]] = {
-    inTransaction { connection =>
+    inTransaction(_.listUsers) { connection =>
       Right(backend.getUsers()(connection))
     }
   }
 
-  private def inTransaction[T](thunk: Connection => T): Future[T] = {
-    // TODO participant user management: use finer-grained metrics
-    dbDispatcher.executeSql(metrics.daml.userManagement.allUserManagement)(thunk)
+  private def inTransaction[T](
+      dbMetric: metrics.daml.userManagement.type => DatabaseMetrics
+  )(thunk: Connection => T): Future[T] = {
+    dbDispatcher.executeSql(dbMetric(metrics.daml.userManagement))(thunk)
   }
 
   private def withUser[T](
