@@ -8,9 +8,8 @@ import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.AppenderBase
 import com.daml.platform.testing.LogCollector.Entry
 import com.daml.scalautil.Statement
-import org.scalatest.Assertion
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.Checkpoints.Checkpoint
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.Marker
 
 import scala.beans.BeanProperty
@@ -78,7 +77,7 @@ trait LogCollectorAssertions { self: Matchers =>
   def assertLogEntry(
       actual: LogCollector.Entry,
       expected: LogCollector.ExpectedLogEntry,
-  ): Assertion = {
+  ): Unit = {
     assertLogEntry(actual, expected.level, expected.msg, expected.markerRegex)
   }
 
@@ -87,7 +86,7 @@ trait LogCollectorAssertions { self: Matchers =>
       expectedLogLevel: Level,
       expectedMsg: String,
       expectedMarkerRegex: Option[String] = None,
-  ): Assertion = {
+  ): Unit = {
     val cp = new Checkpoint
     cp { Statement.discard { actual.level shouldBe expectedLogLevel } }
     cp { Statement.discard { actual.msg shouldBe expectedMsg } }
@@ -102,6 +101,5 @@ trait LogCollectorAssertions { self: Matchers =>
       cp { Statement.discard { actual.marker shouldBe None } }
     }
     cp.reportAll()
-    succeed
   }
 }

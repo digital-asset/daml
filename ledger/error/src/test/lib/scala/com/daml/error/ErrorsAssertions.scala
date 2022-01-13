@@ -4,12 +4,11 @@
 package com.daml.error
 
 import com.daml.error.utils.ErrorDetails
-import com.daml.platform.testing.LogCollector.ExpectedLogEntry
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
+import com.daml.platform.testing.LogCollector.ExpectedLogEntry
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
-import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
@@ -23,7 +22,7 @@ trait ErrorsAssertions {
       expectedCode: Code,
       expectedMessage: String,
       expectedDetails: Seq[ErrorDetails.ErrorDetail],
-  ): Assertion = {
+  ): Unit = {
     doAssertError(actual, expectedCode, expectedMessage, expectedDetails, None)
   }
 
@@ -36,7 +35,7 @@ trait ErrorsAssertions {
   )(implicit
       test: ClassTag[Test],
       logger: ClassTag[Logger],
-  ): Assertion = {
+  ): Unit = {
     doAssertError(actual, expectedCode, expectedMessage, expectedDetails, Some(expectedLogEntry))(
       test,
       logger,
@@ -52,7 +51,7 @@ trait ErrorsAssertions {
   )(implicit
       test: ClassTag[Test],
       logger: ClassTag[Logger],
-  ): Assertion = {
+  ): Unit = {
     val status = StatusProto.fromThrowable(actual)
     status.getCode shouldBe expectedCode.value()
     status.getMessage shouldBe expectedMessage
@@ -63,7 +62,6 @@ trait ErrorsAssertions {
       actualLogs should have size 1
       assertLogEntry(actualLogs.head, expectedLogEntry.get)
     }
-    succeed
   }
 
 }
