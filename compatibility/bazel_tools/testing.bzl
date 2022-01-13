@@ -662,6 +662,19 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": first_granular_test_tool,
+        "end": "1.18.0",
+        "platform_ranges": [
+          {
+          "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+          "exclusions": [
+# Error message did not contain [\QParty not known on ledger\E], but was [Parties not known on ledger: [unallocated]].
+"ClosedWorldIT:ClosedWorldObserver",
+          ],
+          }
+        ]
+    }
 ]
 
 def in_range(version, range):
@@ -959,7 +972,8 @@ def sdk_platform_test(sdk_version, platform_version):
     exclusions = ["--exclude=" + test for test in get_excluded_tests(test_tool_version = sdk_version, sandbox_version = platform_version)]
 
     if versions.is_stable(sdk_version) and versions.is_stable(platform_version):
-        if versions.is_at_least("2.0.0", platform_version):
+        # Ledger API test tool < 1.5 do not upload the DAR which doesn’t work on Sandbox on X
+        if versions.is_at_least("2.0.0", platform_version) and versions.is_at_least("1.5.0", sdk_version):
             client_server_test(
                 name = name + "-on-x",
                 client = ledger_api_test_tool,
