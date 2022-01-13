@@ -579,7 +579,7 @@ object JsonLedgerClient {
   def validateTokenParties(
       parties: OneAnd[Set, Ref.Party],
       what: String,
-      tokenPayload: AuthServiceJWTPayload,
+      tokenPayload: CustomDamlJWTPayload,
   ): Either[String, Option[QueryParties]] = {
     val tokenParties = tokenPayload.readAs.toSet union tokenPayload.actAs.toSet
     val partiesSet = parties.toSet.toSet[String]
