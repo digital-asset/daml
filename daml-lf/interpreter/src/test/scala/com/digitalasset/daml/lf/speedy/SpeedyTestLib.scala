@@ -19,14 +19,25 @@ import scala.annotation.tailrec
 
 private[speedy] object SpeedyTestLib {
 
+  sealed abstract class Error(msg: String) extends RuntimeException("SpeedyTestLib.run:" + msg)
+
+  final case object UnexpectedSResultNeedTime extends Error("unexpected SResultNeedTime")
+
+  final case class UnknownContract(contractId: Value.ContractId)
+      extends Error(s"unknown contract '$contractId'")
+
+  final case class UnknownPackage(packageId: PackageId)
+      extends Error(s"unknown package '$packageId'")
+
+  final case object UnexpectedSResultScenarioX extends Error("unexpected SResultScenarioX")
+
   @throws[SError.SErrorCrash]
   def run(
       machine: Speedy.Machine,
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
-      getKey: PartialFunction[GlobalKeyWithMaintainers, Option[Value.ContractId]] =
-        PartialFunction.empty,
+      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SValue] = {
     @tailrec
@@ -38,7 +49,7 @@ private[speedy] object SpeedyTestLib {
               callback(value)
               loop
             case None =>
-              throw new IllegalStateException("SpeedyTestLib.run: unexpected SResultNeedTime")
+              throw UnexpectedSResultNeedTime
           }
         case SResultNeedContract(contractId, _, _, callback) =>
           getContract.lift(contractId) match {
@@ -46,7 +57,7 @@ private[speedy] object SpeedyTestLib {
               callback(value)
               loop
             case None =>
-              throw new IllegalStateException(s"SpeedyTestLib.run: unknown contract '$contractId'")
+              throw UnknownContract(contractId)
           }
         case SResultNeedPackage(pkg, _, callback) =>
           getPkg.lift(pkg) match {
@@ -54,22 +65,17 @@ private[speedy] object SpeedyTestLib {
               callback(value)
               loop
             case None =>
-              throw new IllegalStateException(s"SpeedyTestLib.run: unknown package '$pkg'")
+              throw UnknownPackage(pkg)
           }
         case SResultNeedKey(key, _, callback) =>
-          getKey.lift(key) match {
-            case Some(value) =>
-              discard(callback(value))
-              loop
-            case None =>
-              throw new IllegalStateException("SpeedyTestLib.run: unexpected SResultNeedKey")
-          }
+          discard(callback(getKey.lift(key)))
+          loop
         case SResultFinalValue(v) =>
           Right(v)
         case SResultError(err) =>
           Left(err)
-        case otherwise =>
-          throw new IllegalStateException(s"SpeedyTestLib.run: unexpected ${otherwise.getClass}")
+        case _: SResultScenarioGetParty | _: SResultScenarioPassTime | _: SResultScenarioSubmit =>
+          throw UnexpectedSResultScenarioX
       }
     }
 
@@ -82,8 +88,7 @@ private[speedy] object SpeedyTestLib {
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
-      getKey: PartialFunction[GlobalKeyWithMaintainers, Option[Value.ContractId]] =
-        PartialFunction.empty,
+      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] =
     run(machine, getPkg, getContract, getKey, getTime) match {
