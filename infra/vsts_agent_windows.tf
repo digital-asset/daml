@@ -13,13 +13,13 @@ locals {
       name       = "ci-w1",
       size       = 0,
       assignment = "default",
-      disk_size  = 200,
+      disk_size  = 400,
     },
     {
       name       = "ci-w2"
       size       = 6,
       assignment = "default",
-      disk_size  = 400
+      disk_size  = 400,
     },
   ]
 }
@@ -95,6 +95,9 @@ Set-MpPreference -DisableRealtimeMonitoring $true
 # Disable Print Spooler service (security)
 Stop-Service -Name Spooler -Force
 Set-Service -Name Spooler -StartupType Disabled
+
+# Disable File & Printer sharing
+Set-NetFirewallRule -DisplayGroup "File And Printer Sharing" -Enabled False -Profile Any
 
 # Enable long paths
 Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Type DWord -Value 1
