@@ -163,13 +163,3 @@ def daml_deps():
             strip_prefix = "bazel-common-{}".format(rules_bazel_common_version),
             urls = ["https://github.com/google/bazel-common/archive/{}.zip".format(rules_bazel_common_version)],
         )
-
-    # The tests for the `platform-version` field need a proper assistant installation with
-    # multiple installed SDKs. Therefore, we fetch the (unextracted) installation
-    # tarball for the latest stable release. Together with the tarball for HEAD
-    # that gives us two SDK version to test with.
-    http_file(
-        name = "daml-sdk-tarball-latest-stable",
-        sha256 = version_sha256s[latest_stable_version][os_name],
-        urls = ["https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-{}.tar.gz".format(latest_stable_version, latest_stable_version, os_name)],
-    )

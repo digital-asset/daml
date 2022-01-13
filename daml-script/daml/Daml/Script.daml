@@ -763,7 +763,7 @@ data User = User
   with
     id : Text
     primaryParty : Optional Party
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 -- | HIDE The rights of a user
 data UserRight

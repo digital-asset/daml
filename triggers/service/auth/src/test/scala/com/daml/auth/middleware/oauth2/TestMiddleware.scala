@@ -15,7 +15,7 @@ import com.daml.auth.middleware.api.{Client, Request, Response}
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -42,7 +42,7 @@ class TestMiddleware
       expiresIn: Option[Duration] = None,
   ): OAuthResponse.Token = {
     val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
-    val jwtPayload = AuthServiceJWTPayload(
+    val jwtPayload = CustomDamlJWTPayload(
       ledgerId = Some("test-ledger"),
       applicationId = Some("test-application"),
       participantId = None,

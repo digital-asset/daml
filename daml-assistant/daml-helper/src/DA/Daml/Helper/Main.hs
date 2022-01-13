@@ -49,11 +49,6 @@ data Command
         , remainingArguments :: [String]
         , shutdownStdinClose :: Bool
         }
-    | RunPlatformJar
-        { args :: [String]
-        , logbackConfig :: FilePath
-        , shutdownStdinClose :: Bool
-        }
     | New { targetFolder :: FilePath, appTemplate :: AppTemplate }
     | CreateDamlApp { targetFolder :: FilePath }
     -- ^ CreateDamlApp is sufficiently special that in addition to
@@ -96,7 +91,6 @@ commandParser = subparser $ fold
     , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
     , command "ledger" (info (ledgerCmd <**> helper) ledgerCmdInfo)
     , command "run-jar" (info runJarCmd forwardOptions)
-    , command "run-platform-jar" (info runPlatformJarCmd forwardOptions)
     , command "codegen" (info (codegenCmd <**> helper) forwardOptions)
     , command "packages" (info (packagesCmd <**> helper) packagesCmdInfo)
     , command "canton-sandbox" (info (cantonSandboxCmd <**> helper) cantonSandboxCmdInfo)
@@ -126,11 +120,6 @@ commandParser = subparser $ fold
         <$> argument str (metavar "JAR" <> help "Path to JAR relative to SDK path")
         <*> optional (strOption (long "logback-config"))
         <*> many (argument str (metavar "ARG"))
-        <*> stdinCloseOpt
-
-    runPlatformJarCmd = RunPlatformJar
-        <$> many (argument str (metavar "ARG"))
-        <*> strOption (long "logback-config")
         <*> stdinCloseOpt
 
     newCmd =
@@ -442,9 +431,6 @@ runCommand = \case
     RunJar {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runJar jarPath mbLogbackConfig remainingArguments
-    RunPlatformJar {..} ->
-        (if shutdownStdinClose then withCloseOnStdin else id) $
-        runPlatformJar args logbackConfig
     New {..} -> do
         templateNameM <- case appTemplate of
             AppTemplateDefault -> pure Nothing

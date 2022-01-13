@@ -8,13 +8,16 @@ package speedy
 import data.Ref.PackageId
 import data.Time
 import SResult._
+import com.daml.lf.language.{Ast, PackageInterface}
+import com.daml.lf.testing.parser.ParserParameters
+import com.daml.lf.validation.{Validation, ValidationError}
 import transaction.{GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value
 import scalautil.Statement.discard
 
 import scala.annotation.tailrec
 
-object SpeedyTestLib {
+private[speedy] object SpeedyTestLib {
 
   @throws[SError.SErrorCrash]
   def run(
@@ -96,5 +99,20 @@ object SpeedyTestLib {
       case Left(err) =>
         Left(err)
     }
+
+  @throws[ValidationError]
+  def typeAndCompile(pkgs: Map[PackageId, Ast.Package]): PureCompiledPackages = {
+    Validation.unsafeCheckPackages(PackageInterface(pkgs), pkgs)
+    PureCompiledPackages.assertBuild(
+      pkgs,
+      Compiler.Config.Dev.copy(stacktracing = Compiler.FullStackTrace),
+    )
+  }
+
+  @throws[ValidationError]
+  def typeAndCompile[X](pkg: Ast.Package)(implicit
+      parserParameter: ParserParameters[X]
+  ): PureCompiledPackages =
+    typeAndCompile(Map(parserParameter.defaultPackageId -> pkg))
 
 }

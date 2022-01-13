@@ -11,7 +11,7 @@ import scala.concurrent.Future
 
 trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
-  private val signedIncorrectly = Option(customTokenToHeader(adminToken, UUID.randomUUID.toString))
+  private val signedIncorrectly = Option(toHeader(adminToken, UUID.randomUUID.toString))
 
   protected def serviceCallWithFreshUser(rights: Vector[proto.Right.Kind]): Future[Any] =
     createUserByAdmin(UUID.randomUUID().toString, rights.map(proto.Right(_)))

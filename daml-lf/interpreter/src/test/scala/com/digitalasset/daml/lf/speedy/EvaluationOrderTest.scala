@@ -8,14 +8,11 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Location, Party}
 import com.daml.lf.interpretation.Error._
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{PackageInterface}
-import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -36,7 +33,7 @@ class TestTraceLog extends TraceLog {
 
 class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
-  private val pkgs: PureCompiledPackages = typeAndCompile(p"""
+  private val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
     module M {
       record @serializable TKey = { maintainers : List Party, optCid : Option (ContractId Unit), nested: M:Nested };
 
@@ -247,11 +244,4 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     }
   }
 
-  private def typeAndCompile(pkg: Package): PureCompiledPackages = {
-    import defaultParserParameters.defaultPackageId
-    val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(PackageInterface(rawPkgs), defaultPackageId, pkg)
-    val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
-    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
-  }
 }

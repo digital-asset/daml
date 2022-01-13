@@ -154,6 +154,7 @@ public final class DamlLedgerClient implements LedgerClient {
   private PackageClient packageClient;
   private LedgerConfigurationClient ledgerConfigurationClient;
   private TimeClient timeClient;
+  private UserManagementClient userManagementClient;
   private String expectedLedgerId;
   private Optional<String> accessToken;
   private final Optional<Duration> timeout;
@@ -219,6 +220,7 @@ public final class DamlLedgerClient implements LedgerClient {
     ledgerConfigurationClient =
         new LedgerConfigurationClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     timeClient = new TimeClientImpl(reportedLedgerId, channel, pool, this.accessToken);
+    userManagementClient = new UserManagementClientImpl(channel, this.accessToken);
   }
 
   @Override
@@ -269,6 +271,11 @@ public final class DamlLedgerClient implements LedgerClient {
   @Override
   public TimeClient getTimeClient() {
     return timeClient;
+  }
+
+  @Override
+  public UserManagementClient getUserManagementClient() {
+    return userManagementClient;
   }
 
   public void close() throws Exception {

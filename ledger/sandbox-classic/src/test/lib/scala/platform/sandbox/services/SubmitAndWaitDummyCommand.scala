@@ -14,7 +14,7 @@ import scala.concurrent.Future
 trait SubmitAndWaitDummyCommand extends TestCommands { self: ServiceCallWithMainActorAuthTests =>
 
   protected def submitAndWait(): Future[Empty] =
-    submitAndWait(Option(customTokenToHeader(readWriteToken(mainActor))))
+    submitAndWait(Option(toHeader(readWriteToken(mainActor))))
 
   protected def dummySubmitAndWaitRequest(applicationId: String): SubmitAndWaitRequest =
     SubmitAndWaitRequest(

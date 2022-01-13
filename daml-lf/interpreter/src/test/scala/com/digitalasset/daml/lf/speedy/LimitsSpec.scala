@@ -6,10 +6,9 @@ package speedy
 
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.language.{Ast, PackageInterface}
+import com.daml.lf.language.Ast
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
-import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -18,7 +17,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
-  private[this] val pkgs = typeAndCompile(
+  private[this] val pkgs = SpeedyTestLib.typeAndCompile(
     p"""
       module Mod {
         
@@ -358,14 +357,6 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
     SValue.SList(cids.map(SValue.SContractId).to(FrontStack))
 
   private val txSeed = crypto.Hash.hashPrivateKey(this.getClass.getCanonicalName)
-
-  private def typeAndCompile(pkg: Ast.Package): PureCompiledPackages = {
-    import defaultParserParameters.defaultPackageId
-    val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(PackageInterface(rawPkgs), defaultPackageId, pkg)
-    val compilerConfig = Compiler.Config.Dev
-    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
-  }
 
   private[this] val T = { val Ast.TTyCon(t) = t"Mod:T"; t }
 

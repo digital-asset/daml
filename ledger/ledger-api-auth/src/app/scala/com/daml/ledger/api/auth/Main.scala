@@ -97,7 +97,7 @@ object Main {
           ) =>
         val keyId = kid.getOrElse(defaultKeyId(signingKeyFile))
 
-        val payload = AuthServiceJWTPayload(
+        val payload = CustomDamlJWTPayload(
           ledgerIdO,
           None,
           applicationIdO,

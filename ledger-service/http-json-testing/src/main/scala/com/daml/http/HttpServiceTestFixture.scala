@@ -24,7 +24,12 @@ import com.daml.http.util.TestUtil.getResponseDataBytes
 import com.daml.http.util.{FutureUtil, NewBoolean}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.ledger.api.auth.{AuthService, AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthService,
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -318,7 +323,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
                |}
               """.stripMargin
       else
-        AuthServiceJWTPayload(
+        (CustomDamlJWTPayload(
           ledgerId = Some(ledgerId),
           applicationId = Some("test"),
           actAs = actAs,
@@ -326,7 +331,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
           exp = None,
           admin = false,
           readAs = readAs,
-        ).toJson.prettyPrint
+        ): AuthServiceJWTPayload).toJson.prettyPrint
     JwtSigner.HMAC256
       .sign(
         DecodedJwt(

@@ -17,7 +17,7 @@ import akka.http.scaladsl.unmarshalling.Unmarshaller
 import com.daml.auth.oauth2.api.{Request, Response}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 
 import scala.collection.concurrent.TrieMap
@@ -69,7 +69,7 @@ class Server(config: Config) {
   // To keep things as simple as possible, we use a UUID as the authorization code and refresh token
   // and in the /authorize request we already pre-compute the JWT payload based on the scope.
   // The token request then only does a lookup and signs the token.
-  private val requests = TrieMap.empty[UUID, AuthServiceJWTPayload]
+  private val requests = TrieMap.empty[UUID, CustomDamlJWTPayload]
 
   private def tokenExpiry(): Instant = {
     val now = config.clock match {
@@ -78,7 +78,7 @@ class Server(config: Config) {
     }
     now.plusSeconds(tokenLifetimeSeconds.asInstanceOf[Long])
   }
-  private def toPayload(req: Request.Authorize): AuthServiceJWTPayload = {
+  private def toPayload(req: Request.Authorize): CustomDamlJWTPayload = {
     var actAs: Seq[String] = Seq()
     var readAs: Seq[String] = Seq()
     var admin: Boolean = false
@@ -93,7 +93,7 @@ class Server(config: Config) {
         applicationId = Some(s.stripPrefix("applicationId:"))
       case _ => ()
     })
-    AuthServiceJWTPayload(
+    CustomDamlJWTPayload(
       ledgerId = Some(config.ledgerId),
       applicationId = applicationId,
       // Not required by the default auth service
@@ -107,7 +107,7 @@ class Server(config: Config) {
     )
   }
   // Whether the current configuration of unauthorized parties and admin rights allows to grant the given token payload.
-  private def authorize(payload: AuthServiceJWTPayload): Either[String, Unit] = {
+  private def authorize(payload: CustomDamlJWTPayload): Either[String, Unit] = {
     val parties = Party.subst(payload.readAs ++ payload.actAs).toSet
     val deniedParties = parties.intersect(unauthorizedParties)
     val deniedAdmin: Boolean = payload.admin && !allowAdmin
