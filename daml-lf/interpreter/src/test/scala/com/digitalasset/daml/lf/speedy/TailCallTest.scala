@@ -7,10 +7,8 @@ package speedy
 import java.util
 
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SResult.SResultFinalValue
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.validation.Validation
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -18,7 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
 // TEST_EVIDENCE: Performance: Tail call optimization: Tail recursion does not blow the scala JVM stack.
 class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  val pkg =
+  val pkgs = SpeedyTestLib.typeAndCompile(
     p"""
        module F {
 
@@ -55,6 +53,7 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
        }
       """
+  )
 
   val small: Option[Int] = Some(5)
   val unbounded: Option[Int] = None
@@ -101,20 +100,6 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     val expected = SValue.SInt64(5050)
     runExpr(exp, envBound = small, kontBound = small) shouldBe expected
   }
-
-  private def typeAndCompile(pkg: Ast.Package): PureCompiledPackages = {
-    import defaultParserParameters.defaultPackageId
-    val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(
-      language.PackageInterface(rawPkgs),
-      defaultParserParameters.defaultPackageId,
-      pkg,
-    )
-    val compilerConfig = Compiler.Config.Default.copy(stacktracing = FullStackTrace)
-    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
-  }
-
-  val pkgs = typeAndCompile(pkg)
 
   // Evaluate an expression with optionally bounded env and kont stacks
   private def runExpr(e: Ast.Expr, envBound: Option[Int], kontBound: Option[Int]): SValue = {
