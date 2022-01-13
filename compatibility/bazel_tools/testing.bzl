@@ -930,6 +930,7 @@ def sdk_platform_test(sdk_version, platform_version):
     # for older versions we still have to disable ClosedWorldIT
     (extra_sandbox_next_args, extra_sandbox_next_exclusions) = (["--implicit-party-allocation=false"], []) if versions.is_at_least("1.2.0", platform_version) else ([], ["--exclude=ClosedWorldIT"])
     extra_sandbox_classic_args = []
+    extra_sandbox_on_x_args = []
 
     if versions.is_at_least("1.17.0", platform_version):
         extra_sandbox_next_args += ["--max-deduplication-duration=PT5S"]
@@ -948,6 +949,7 @@ def sdk_platform_test(sdk_version, platform_version):
     if versions.is_at_most(error_codes_version_enabled_by_default, sdk_version):
         extra_sandbox_next_args += ["--use-pre-1.18-error-codes"]
         extra_sandbox_classic_args += ["--use-pre-1.18-error-codes"]
+        extra_sandbox_on_x_args += ["--use-pre-1.18-error-codes"]
 
     # ledger-api-test-tool test-cases
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
@@ -968,7 +970,7 @@ def sdk_platform_test(sdk_version, platform_version):
                 runner = "@//bazel_tools/client_server:runner",
                 runner_args = ["6865"],
                 server = sandbox_on_x,
-                server_args = sandbox_on_x_args,
+                server_args = sandbox_on_x_args + extra_sandbox_on_x_args,
                 tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
             )
         else:
