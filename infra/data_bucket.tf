@@ -38,11 +38,16 @@ resource "google_storage_bucket_iam_member" "data_create" {
 }
 
 resource "google_storage_bucket_iam_member" "data_read" {
+  for_each = setunion(
+    local.appr_team,
+    local.canton_team,
+    ["serviceAccount:${google_service_account.writer.email}"],
+  )
   bucket = google_storage_bucket.data.name
 
   # https://cloud.google.com/storage/docs/access-control/iam-roles
   role   = "roles/storage.objectViewer"
-  member = "serviceAccount:${google_service_account.writer.email}"
+  member = each.key
 }
 
 // allow read access for appr team, as requested by Moritz
@@ -54,13 +59,9 @@ locals {
     "user:stephen.compall@digitalasset.com",
     "user:victor.mueller@digitalasset.com",
   ]
-}
-
-resource "google_storage_bucket_iam_member" "appr" {
-  for_each = toset(local.appr_team)
-  bucket   = google_storage_bucket.data.name
-  role     = "roles/storage.objectViewer"
-  member   = each.key
+  canton_team = [
+    "user:oliver.seeliger@digitalasset.com",
+  ]
 }
 
 resource "google_service_account" "assembly-sas" {
