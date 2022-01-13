@@ -935,7 +935,7 @@ def sdk_platform_test(sdk_version, platform_version):
     sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
 
     sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
-    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--enable-conflict-checking"]
+    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--enable-conflict-checking", "--mutable-contract-state-cache"]
 
     json_api_args = ["json-api"]
 
