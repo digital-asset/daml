@@ -102,7 +102,6 @@ da_scala_library(
     resources = glob(["src/app/resources/**/*"]),
     scala_deps = [
     ],
-    tags = ["maven_coordinates=com.daml:sandbox-on-x-app:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-on-x",
@@ -115,6 +114,11 @@ da_scala_library(
 da_scala_binary(
     name = "app",
     main_class = "com.daml.ledger.sandbox.Main",
+    tags = [
+        "fat_jar",
+        "maven_coordinates=com.daml:sandbox-on-x-app:__VERSION__",
+        "no_scala_version_suffix",
+    ],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
