@@ -45,10 +45,10 @@ trait ExpiringStreamServiceCallAuthTests[T]
   }
 
   private def canActAsMainActorExpiresInFiveSeconds =
-    customTokenToHeader(expiringIn(Duration.ofSeconds(5), readWriteToken(mainActor)))
+    toHeader(expiringIn(Duration.ofSeconds(5), readWriteToken(mainActor)))
 
   private def canReadAsMainActorExpiresInFiveSeconds =
-    customTokenToHeader(expiringIn(Duration.ofSeconds(5), readOnlyToken(mainActor)))
+    toHeader(expiringIn(Duration.ofSeconds(5), readOnlyToken(mainActor)))
 
   it should "break a stream in flight upon read-only token expiration" in {
     val _ = Delayed.Future.by(10.seconds)(submitAndWait())

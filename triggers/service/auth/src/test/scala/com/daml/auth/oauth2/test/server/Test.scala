@@ -11,21 +11,35 @@ import akka.http.scaladsl.model.headers.Location
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import org.scalatest.wordspec.AsyncWordSpec
 import spray.json._
 
 import scala.concurrent.Future
+import scala.util.Try
 
 class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
   import Client.JsonProtocol._
+
+  private def readCustomDamlJWTTokenFromString(
+      serializedPayload: String
+  ): Try[CustomDamlJWTPayload] =
+    AuthServiceJWTCodec.readFromString(serializedPayload).map {
+      case _: StandardJWTPayload =>
+        throw new UnsupportedOperationException(
+          // TODO (i12388): make auth middlware work with user tokens
+          "auth-middleware: user access tokens are not yet supported (https://github.com/digital-asset/daml/issues/12388)."
+        )
+      case payload: CustomDamlJWTPayload => payload
+    }
+
   private def requestToken(
       parties: Seq[String],
       admin: Boolean,
       applicationId: Option[String],
-  ): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
+  ): Future[Either[String, (CustomDamlJWTPayload, String)]] = {
     lazy val clientUri = Uri()
       .withAuthority(clientBinding.localAddress.getHostString, clientBinding.localAddress.getPort)
     val req = HttpRequest(
@@ -61,7 +75,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
                 e => Future.failed(new IllegalArgumentException(e.toString)),
                 Future.successful(_),
               )
-            payload <- Future.fromTry(AuthServiceJWTCodec.readFromString(decodedJwt.payload))
+            payload <- Future.fromTry(readCustomDamlJWTTokenFromString(decodedJwt.payload))
           } yield Right((payload, refreshToken))
         case Client.ErrorResponse(error) => Future(Left(error))
       }
@@ -70,7 +84,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
 
   private def requestRefresh(
       refreshToken: String
-  ): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
+  ): Future[Either[String, (CustomDamlJWTPayload, String)]] = {
     lazy val clientUri = Uri()
       .withAuthority(clientBinding.localAddress.getHostString, clientBinding.localAddress.getPort)
     val req = HttpRequest(
@@ -94,7 +108,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
                 e => Future.failed(new IllegalArgumentException(e.toString)),
                 Future.successful(_),
               )
-            payload <- Future.fromTry(AuthServiceJWTCodec.readFromString(decodedJwt.payload))
+            payload <- Future.fromTry(readCustomDamlJWTTokenFromString(decodedJwt.payload))
           } yield Right((payload, refreshToken))
         case Client.ErrorResponse(error) => Future(Left(error))
       }
@@ -105,7 +119,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       parties: Seq[String],
       admin: Boolean = false,
       applicationId: Option[String] = None,
-  ): Future[(AuthServiceJWTPayload, String)] =
+  ): Future[(CustomDamlJWTPayload, String)] =
     requestToken(parties, admin, applicationId).flatMap {
       case Left(error) => fail(s"Expected token but got error-code $error")
       case Right(token) => Future(token)
@@ -121,7 +135,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       case Right(_) => fail("Expected an error but got a token")
     }
 
-  private def expectRefresh(refreshToken: String): Future[(AuthServiceJWTPayload, String)] =
+  private def expectRefresh(refreshToken: String): Future[(CustomDamlJWTPayload, String)] =
     requestRefresh(refreshToken).flatMap {
       case Left(error) => fail(s"Expected token but got error-code $error")
       case Right(token) => Future(token)

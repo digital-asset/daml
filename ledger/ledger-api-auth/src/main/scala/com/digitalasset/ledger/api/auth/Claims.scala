@@ -159,7 +159,7 @@ object ClaimSet {
 
   /** The representation of a user that was authenticated, but whose [[Claims]] have not yet been resolved. */
   final case class AuthenticatedUser(
-      userId: String, // TODO (i12049): use Ref.UserId here
+      userId: String,
       participantId: Option[String],
       expiration: Option[Instant],
   ) extends ClaimSet
