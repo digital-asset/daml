@@ -130,7 +130,7 @@ patches we backport to the 1.0 release branch).
 
     1. `cd create-daml-app`
 
-       1. `daml start`
+       1. `daml start --sandbox-kv`
 
     1. In a new terminal, from the `ui` folder:
 
@@ -235,7 +235,7 @@ patches we backport to the 1.0 release branch).
 
     1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.
 
-    1. Run `daml start`. Your browser should be opened automatically at
+    1. Run `daml start --sandbox-kv`. Your browser should be opened automatically at
        `http://localhost:7500`. Login as `Alice` and verify that there is
        1 contract and 3 templates. Close the tab and kill `daml start` using
        `Ctrl-C`.
