@@ -935,7 +935,7 @@ def sdk_platform_test(sdk_version, platform_version):
     sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
 
     sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
-    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--participant participant-id=example,port=6865", "--implicit-party-allocation=false", "--enable-conflict-checking"]
+    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--enable-conflict-checking"]
 
     json_api_args = ["json-api"]
 
@@ -984,9 +984,22 @@ def sdk_platform_test(sdk_version, platform_version):
                 runner = "@//bazel_tools/client_server:runner",
                 runner_args = ["6865"],
                 server = sandbox_on_x,
-                server_args = sandbox_on_x_args + extra_sandbox_on_x_args,
+                server_args = ["--participant participant-id=example,port=6865"] + sandbox_on_x_args + extra_sandbox_on_x_args,
                 tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
             )
+            client_server_test(
+                name = name + "-on-x-postgresql",
+                client = ledger_api_test_tool,
+                client_args = [
+                    "localhost:6865",
+                ] + exclusions,
+                data = [dar_files],
+                runner = "@//bazel_tools/client_server:runner",
+                runner_args = ["6865"],
+                server = ":sandbox-with-postgres-{}".format(platform_version),
+                server_args = [platform_version, "sandbox-on-x", "--participant participant-id=example,port=6865,server-jdbc-url=__jdbcurl__"] + sandbox_on_x_args + extra_sandbox_on_x_args,
+                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+            ) if is_linux else None
         else:
             client_server_test(
                 name = name,
@@ -1033,7 +1046,7 @@ def sdk_platform_test(sdk_version, platform_version):
                 runner = "@//bazel_tools/client_server:runner",
                 runner_args = ["6865"],
                 server = ":sandbox-with-postgres-{}".format(platform_version),
-                server_args = [platform_version] + sandbox_args + extra_sandbox_next_args,
+                server_args = [platform_version, "daml"] + sandbox_args + extra_sandbox_next_args + ["--jdbcurl=__jdbcurl__"],
                 server_files = ["$(rootpaths {dar_files})".format(
                     dar_files = dar_files,
                 )],
@@ -1052,7 +1065,7 @@ def sdk_platform_test(sdk_version, platform_version):
                 runner = "@//bazel_tools/client_server:runner",
                 runner_args = ["6865"],
                 server = ":sandbox-with-postgres-{}".format(platform_version),
-                server_args = [platform_version] + sandbox_classic_args + extra_sandbox_classic_args,
+                server_args = [platform_version, "daml"] + sandbox_classic_args + extra_sandbox_classic_args +  ["--jdbcurl=__jdbcurl__"],
                 server_files = ["$(rootpaths {dar_files})".format(
                     dar_files = dar_files,
                 )],
