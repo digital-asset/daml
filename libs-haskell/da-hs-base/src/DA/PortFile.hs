@@ -13,20 +13,38 @@ import Safe (readMay)
 import System.Exit
 import System.IO
 import System.IO.Error
+import System.Process
 
-readPortFileWith :: (String -> Maybe t) -> Int -> String -> IO t
-readPortFileWith _ 0 file = do
+readOnce :: (String -> Maybe t) -> FilePath -> IO (Maybe t)
+readOnce parseFn file = catchJust
+    (guard . shouldCatch)
+    (parseFn <$> readFile file)
+    (const $ pure Nothing)
+
+readPortFileWith :: (String -> Maybe t) -> ProcessHandle -> Int -> FilePath -> IO t
+readPortFileWith _ _ 0 file = do
   T.hPutStrLn stderr ("Port file was not written to '" <> pack file <> "' in time.")
   exitFailure
-readPortFileWith parseFn n file = do
-  fileContent <- catchJust (guard . shouldCatch) (readFile file) (const $ pure "")
-  case parseFn fileContent of
-    Nothing -> do
-      threadDelay (1000 * retryDelayMillis)
-      readPortFileWith parseFn (n-1) file
+readPortFileWith parseFn ph n file = do
+  result <- readOnce parseFn file
+  case result of
     Just p -> pure p
+    Nothing -> do
+      status <- getProcessExitCode ph
+      case status of
+        Nothing -> do -- Process still active. Try again.
+          threadDelay (1000 * retryDelayMillis)
+          readPortFileWith parseFn ph (n-1) file
+        Just exitCode -> do -- Process exited already. Try reading one last time, then give up.
+          threadDelay (1000 * retryDelayMillis)
+          result <- readOnce parseFn file
+          case result of
+            Just p -> pure p
+            Nothing -> do
+              T.hPutStrLn stderr ("Port file was not written to '" <> pack file <> "' before process exit with " <> pack (show exitCode))
+              exitFailure
 
-readPortFile :: Int -> String -> IO Int
+readPortFile :: ProcessHandle -> Int -> FilePath -> IO Int
 readPortFile = readPortFileWith readMay
 
 -- On Windows we sometimes get permission errors. It looks like

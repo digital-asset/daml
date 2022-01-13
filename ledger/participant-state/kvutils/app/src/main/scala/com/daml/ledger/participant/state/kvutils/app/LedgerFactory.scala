@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.kvutils.deduplication.{
   CompletionBasedDeduplicationPeriodConverter,
   DeduplicationPeriodSupport,
 }
-import com.daml.ledger.participant.state.v2.{ReadService, WritePackagesService, WriteService}
+import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
@@ -39,10 +39,7 @@ trait LedgerFactory[ExtraConfig] {
 }
 
 trait ReadWriteServiceFactory {
-
   def readService(): ReadService
-
-  def writePackagesService(): WritePackagesService
 
   def writeService(): WriteService
 }
@@ -53,7 +50,6 @@ class KeyValueReadWriteFactory(
     ledgerReader: LedgerReader,
     ledgerWriter: LedgerWriter,
 ) extends ReadWriteServiceFactory {
-
   override def readService(): ReadService = {
     KeyValueParticipantStateReader(
       ledgerReader,
@@ -62,15 +58,12 @@ class KeyValueReadWriteFactory(
     )
   }
 
-  override def writePackagesService(): WritePackagesService = writeService()
-
   override def writeService(): WriteService = {
     new KeyValueParticipantStateWriter(
       ledgerWriter,
       metrics,
     )
   }
-
 }
 
 class KeyValueDeduplicationSupportFactory(
@@ -80,8 +73,6 @@ class KeyValueDeduplicationSupportFactory(
 )(implicit materializer: Materializer, ec: ExecutionContext)
     extends ReadWriteServiceFactory {
   override def readService(): ReadService = delegate.readService()
-
-  override def writePackagesService(): WritePackagesService = delegate.writePackagesService()
 
   override def writeService(): WriteService = {
     val writeServiceDelegate = delegate.writeService()

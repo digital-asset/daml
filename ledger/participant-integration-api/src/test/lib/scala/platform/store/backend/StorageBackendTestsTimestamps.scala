@@ -7,13 +7,13 @@ import java.sql.Connection
 import java.time.Instant
 import java.util.TimeZone
 
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.util.Success
 
 private[backend] trait StorageBackendTestsTimestamps extends Matchers with StorageBackendSpec {
-  this: AsyncFlatSpec =>
+  this: AnyFlatSpec =>
 
   behavior of "StorageBackend (timestamps)"
 
@@ -28,26 +28,23 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
       contractId = cid.coid,
       ledgerEffectiveTime = Some(let),
     )
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
-      _ <- executeSql(ingest(Vector(create), _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(1), 1L)
-      )
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
-      let1 <- executeSql(backend.contract.maximumLedgerTime(Set(cid)))
-      let2 <- executeSql(
-        withDefaultTimeZone("GMT-1")(backend.contract.maximumLedgerTime(Set(cid)))
-      )
-      let3 <- executeSql(
-        withDefaultTimeZone("GMT+1")(backend.contract.maximumLedgerTime(Set(cid)))
-      )
-    } yield {
-      withClue("UTC") { let1 shouldBe Success(Some(let)) }
-      withClue("GMT-1") { let2 shouldBe Success(Some(let)) }
-      withClue("GMT+1") { let3 shouldBe Success(Some(let)) }
-    }
+    executeSql(ingest(Vector(create), _))
+    executeSql(updateLedgerEnd(offset(1), 1L))
+
+    val let1 = executeSql(backend.contract.maximumLedgerTime(Set(cid)))
+    val let2 = executeSql(
+      withDefaultTimeZone("GMT-1")(backend.contract.maximumLedgerTime(Set(cid)))
+    )
+    val let3 = executeSql(
+      withDefaultTimeZone("GMT+1")(backend.contract.maximumLedgerTime(Set(cid)))
+    )
+
+    withClue("UTC") { let1 shouldBe Success(Some(let)) }
+    withClue("GMT-1") { let2 shouldBe Success(Some(let)) }
+    withClue("GMT+1") { let3 shouldBe Success(Some(let)) }
   }
 
   it should "correctly read ledger effective time using rawEvents" in {
@@ -59,22 +56,19 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
       contractId = cid.coid,
       ledgerEffectiveTime = Some(let),
     )
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
-      _ <- executeSql(ingest(Vector(create), _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(1), 1L)
-      )
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
-      events1 <- executeSql(backend.event.rawEvents(0L, 1L))
-      events2 <- executeSql(withDefaultTimeZone("GMT-1")(backend.event.rawEvents(0L, 1L)))
-      events3 <- executeSql(withDefaultTimeZone("GMT+1")(backend.event.rawEvents(0L, 1L)))
-    } yield {
-      withClue("UTC") { events1.head.ledgerEffectiveTime shouldBe Some(let) }
-      withClue("GMT-1") { events2.head.ledgerEffectiveTime shouldBe Some(let) }
-      withClue("GMT+1") { events3.head.ledgerEffectiveTime shouldBe Some(let) }
-    }
+    executeSql(ingest(Vector(create), _))
+    executeSql(updateLedgerEnd(offset(1), 1L))
+
+    val events1 = executeSql(backend.event.rawEvents(0L, 1L))
+    val events2 = executeSql(withDefaultTimeZone("GMT-1")(backend.event.rawEvents(0L, 1L)))
+    val events3 = executeSql(withDefaultTimeZone("GMT+1")(backend.event.rawEvents(0L, 1L)))
+
+    withClue("UTC") { events1.head.ledgerEffectiveTime shouldBe Some(let) }
+    withClue("GMT-1") { events2.head.ledgerEffectiveTime shouldBe Some(let) }
+    withClue("GMT+1") { events3.head.ledgerEffectiveTime shouldBe Some(let) }
   }
 
   // Some JDBC operations depend on the JVM default time zone.

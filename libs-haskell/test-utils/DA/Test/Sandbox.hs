@@ -88,9 +88,9 @@ createSandbox :: FilePath -> Handle -> SandboxConfig -> IO SandboxResource
 createSandbox portFile sandboxOutput conf = do
     sandboxProc <- getSandboxProc conf portFile
     mask $ \unmask -> do
-        ph <- createProcess sandboxProc { std_out = UseHandle sandboxOutput }
+        ph@(_,_,_,ph') <- createProcess sandboxProc { std_out = UseHandle sandboxOutput }
         let waitForStart = do
-                port <- readPortFile maxRetries portFile
+                port <- readPortFile ph' maxRetries portFile
                 pure (SandboxResource ph port)
         unmask (waitForStart `onException` cleanupProcess ph)
 

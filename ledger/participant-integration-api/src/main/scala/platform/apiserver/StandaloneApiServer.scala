@@ -13,7 +13,7 @@ import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.version_service.CommandDeduplicationFeatures
+import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationFeatures
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.index.v2.{IndexService, UserManagementStore}
 import com.daml.ledger.participant.state.{v2 => state}

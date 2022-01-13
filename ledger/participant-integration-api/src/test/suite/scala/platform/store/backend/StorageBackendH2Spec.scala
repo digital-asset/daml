@@ -3,9 +3,9 @@
 
 package com.daml.platform.store.backend
 
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 
 final class StorageBackendH2Spec
-    extends AsyncFlatSpec
+    extends AnyFlatSpec
     with StorageBackendProviderH2
     with StorageBackendSuite

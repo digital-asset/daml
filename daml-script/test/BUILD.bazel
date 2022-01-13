@@ -153,6 +153,8 @@ da_scala_library(
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "@maven//:com_auth0_java_jwt",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

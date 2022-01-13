@@ -3,12 +3,17 @@
 
 package com.daml.lf.engine.script.test
 
+import java.net.InetAddress
 import java.nio.file.{Files, Path, Paths}
 import java.util.stream.Collectors
 
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, SuiteResource}
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.v1.admin.package_management_service.{
+  PackageManagementServiceGrpc,
+  UploadDarFileRequest,
+}
 import com.daml.ledger.on.memory.Owner
 import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantConfig,
@@ -16,15 +21,18 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantRunMode,
 }
 import com.daml.ledger.participant.state.kvutils.{app => kvutils}
-import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.script._
-import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
 import com.daml.ports.Port
+import com.google.protobuf.ByteString
+import io.grpc.ManagedChannelBuilder
 import org.scalatest.Suite
 
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
+import scala.language.existentials
 
 trait MultiParticipantFixture
     extends AbstractScriptTest
@@ -32,6 +40,7 @@ trait MultiParticipantFixture
     with AkkaBeforeAndAfterAll {
   self: Suite =>
   private def darFile = Paths.get(rlocation("daml-script/test/script-test.dar"))
+
   private val tmpDir = Files.createTempDirectory("testMultiParticipantFixture")
   private val participant1Portfile = tmpDir.resolve("participant1-portfile")
   private val participant2Portfile = tmpDir.resolve("participant2-portfile")
@@ -73,7 +82,7 @@ trait MultiParticipantFixture
       allowExistingSchema = false
     ),
   )
-  override protected lazy val suiteResource = {
+  override protected lazy val suiteResource: OwnedResource[ResourceContext, (Port, Port)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, (Port, Port)](
       for {
@@ -81,17 +90,32 @@ trait MultiParticipantFixture
           kvutils.Config
             .createDefault(())
             .copy(
-              participants = Seq(participant1, participant2),
-              archiveFiles = Seq(darFile),
+              participants = Seq(participant1, participant2)
             )
         )
-      } yield (readPortfile(participant1Portfile), readPortfile(participant2Portfile)),
+        participant1Port = readPortfile(participant1Portfile)
+        participant2Port = readPortfile(participant2Portfile)
+        _ <- ResourceOwner.forFuture { () =>
+          val builder = ManagedChannelBuilder
+            .forAddress(InetAddress.getLoopbackAddress.getHostName, participant1Port.value)
+          builder.usePlaintext()
+          ResourceOwner.forChannel(builder, shutdownTimeout = 1.second).use { channel =>
+            val packageManagement = PackageManagementServiceGrpc.stub(channel)
+            packageManagement.uploadDarFile(
+              UploadDarFileRequest.of(
+                darFile = ByteString.copyFrom(Files.readAllBytes(darFile)),
+                submissionId = s"${getClass.getSimpleName}-upload",
+              )
+            )
+          }
+        }
+      } yield (participant1Port, participant2Port),
       acquisitionTimeout = 1.minute,
       releaseTimeout = 1.minute,
     )
   }
 
-  def participantClients() = {
+  def participantClients(): Future[Participants[GrpcLedgerClient]] = {
     implicit val ec: ExecutionContext = system.dispatcher
     val params = Participants(
       None,
@@ -103,7 +127,12 @@ trait MultiParticipantFixture
     )
     Runner.connect(
       params,
-      tlsConfig = TlsConfiguration(false, None, None, None),
+      tlsConfig = TlsConfiguration(
+        enabled = false,
+        keyCertChainFile = None,
+        keyFile = None,
+        trustCertCollectionFile = None,
+      ),
       maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
     )
   }

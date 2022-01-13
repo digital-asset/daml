@@ -30,7 +30,6 @@ module DA.Daml.Helper.Util
 
 import Control.Exception.Safe
 import Control.Monad.Extra
-import Control.Monad.Loops (untilJust)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL8
@@ -45,7 +44,8 @@ import System.FilePath
 import System.IO
 import System.IO.Extra (withTempFile)
 import System.Info.Extra
-import System.Process (showCommandForUser, terminateProcess)
+import System.Exit (exitFailure)
+import System.Process (ProcessHandle, getProcessExitCode, showCommandForUser, terminateProcess)
 import System.Process.Typed
 import qualified Web.JWT as JWT
 import qualified Data.Aeson as A
@@ -196,35 +196,60 @@ damlSdkJarFolder = "daml-sdk"
 damlSdkJar :: FilePath
 damlSdkJar = damlSdkJarFolder </> "daml-sdk.jar"
 
--- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
--- Between each connection request it calls `sleep`.
-waitForConnectionOnPort :: IO () -> Int -> IO ()
-waitForConnectionOnPort sleep port = do
+-- | `waitForConnectionOnPort numTries processHandle sleep port` tries to establish a TCP connection
+-- on the given port, in a given number of tries. Between each connection request it checks that a
+-- certain process is still alive and calls `sleep`.
+waitForConnectionOnPort :: Int -> ProcessHandle -> IO () -> Int -> IO ()
+waitForConnectionOnPort 0 _processHandle _sleep port = do
+    hPutStrLn stderr ("Failed to connect to port " <> show port <> " in time.")
+    exitFailure
+waitForConnectionOnPort numTries processHandle sleep port = do
     let hints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV], addrSocketType = Stream }
     addr : _ <- getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
-    untilJust $ do
-        r <- tryIO $ checkConnection addr
-        case r of
-            Left _ -> sleep *> pure Nothing
-            Right _ -> pure $ Just ()
+    r <- tryIO $ checkConnection addr
+    case r of
+        Right _ -> pure ()
+        Left _ -> do
+            sleep
+            status <- getProcessExitCode processHandle
+            case status of
+                Nothing -> waitForConnectionOnPort (numTries-1) processHandle sleep port
+                Just exitCode -> do
+                    hPutStrLn stderr ("Failed to connect to port " <> show port
+                        <> " before process exited with " <> show exitCode)
+                    exitFailure
     where
         checkConnection addr = bracket
               (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
               close
               (\s -> connect s (addrAddress addr))
 
--- | `waitForHttpServer sleep url` keeps trying to establish an HTTP connection on the given URL.
--- Between each connection request it calls `sleep`.
-waitForHttpServer :: IO () -> String -> HTTP.RequestHeaders -> IO ()
-waitForHttpServer sleep url headers = do
+-- | `waitForHttpServer numTries processHandle sleep url headers` tries to establish an HTTP connection on
+-- the given URL with the given headers, in a given number of tries. Between each connection request
+-- it checks that a certain process is still alive and calls `sleep`.
+waitForHttpServer :: Int -> ProcessHandle -> IO () -> String -> HTTP.RequestHeaders -> IO ()
+waitForHttpServer 0 _processHandle _sleep url _headers = do
+    hPutStrLn stderr ("Failed to connect to HTTP server " <> url <> " in time.")
+    exitFailure
+waitForHttpServer numTries processHandle sleep url headers = do
     request <- HTTP.parseRequest $ "HEAD " <> url
     request <- pure (HTTP.setRequestHeaders headers request)
-    untilJust $ do
-        r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request
-        case r of
-            Right resp
-                | HTTP.statusCode (HTTP.getResponseStatus resp) == 200 -> pure $ Just ()
-            _ -> sleep *> pure Nothing
+    r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request
+    case r of
+        Right resp | HTTP.statusCode (HTTP.getResponseStatus resp) == 200 -> pure ()
+        Right resp -> do
+            hPutStrLn stderr ("HTTP server " <> url <> " replied with status code "
+                <> show (HTTP.statusCode (HTTP.getResponseStatus resp)) <> ".")
+            exitFailure
+        Left _ -> do
+            sleep
+            status <- getProcessExitCode processHandle
+            case status of
+                Nothing -> waitForHttpServer (numTries-1) processHandle sleep url headers
+                Just exitCode -> do
+                    hPutStrLn stderr ("Failed to connect to HTTP server " <> url
+                        <> " before process exited with " <> show exitCode)
+                    exitFailure
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)
 

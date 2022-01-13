@@ -194,6 +194,24 @@ jobs:
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
+        set -euo pipefail
+        KEY_FILE=$(mktemp)
+        GPG_DIR=$(mktemp -d)
+        cleanup() {
+            rm -rf $KEY_FILE $GPG_DIR
+        }
+        trap cleanup EXIT
+        echo "$GPG_KEY" | base64 -d > $KEY_FILE
+        gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
+        # For now we only sign artifactory artifacts here and leave signing of artifacts
+        # published to GH to the assembly repo.
+        cd $(Build.StagingDirectory)/release-artifacts/artifactory
+        for f in *; do
+            gpg --homedir $GPG_DIR -ab $f
+        done
+      env:
+        GPG_KEY: $(gpg-code-signing)
+    - bash: |
         set -eou pipefail
         eval "$(./dev-env/bin/dade-assist)"
         mkdir -p $(Build.StagingDirectory)/split-release
@@ -208,6 +226,11 @@ jobs:
       name: upload_to_gcs
       env:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - bash: |
+        set -euo pipefail
+        ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
+      env:
+        AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
     - template: ci/tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'

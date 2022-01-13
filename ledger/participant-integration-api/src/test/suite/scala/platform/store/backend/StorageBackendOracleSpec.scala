@@ -3,9 +3,9 @@
 
 package com.daml.platform.store.backend
 
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 
 final class StorageBackendOracleSpec
-    extends AsyncFlatSpec
+    extends AnyFlatSpec
     with StorageBackendProviderOracle
     with StorageBackendSuite

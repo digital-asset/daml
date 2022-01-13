@@ -43,10 +43,7 @@ class CliSpec extends AsyncWordSpec with Matchers {
     inside(cfg) { case Some(Right(c)) =>
       c.copy(tokenVerifier = null) shouldBe minimalCfg
       // token verifier needs to be set.
-      c.tokenVerifier match {
-        case _: JwksVerifier => succeed
-        case _ => fail("expected JwksVerifier based on supplied config")
-      }
+      c.tokenVerifier shouldBe a[JwksVerifier]
     }
   }
 

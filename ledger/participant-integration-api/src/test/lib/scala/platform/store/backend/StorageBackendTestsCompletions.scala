@@ -6,14 +6,14 @@ package com.daml.platform.store.backend
 import com.daml.ledger.offset.Offset
 import com.google.protobuf.duration.Duration
 import org.scalatest.Inside
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 private[backend] trait StorageBackendTestsCompletions
     extends Matchers
     with Inside
     with StorageBackendSpec {
-  this: AsyncFlatSpec =>
+  this: AnyFlatSpec =>
 
   behavior of "StorageBackend (completions)"
 
@@ -30,35 +30,27 @@ private[backend] trait StorageBackendTestsCompletions
       dtoCompletion(offset(4), submitter = party),
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(4), 3L)
-      )
-      completions0to3 <- executeSql(
-        backend.completion.commandCompletions(
-          Offset.beforeBegin,
-          offset(3),
-          applicationId,
-          Set(party),
-        )
-      )
-      completions1to3 <- executeSql(
-        backend.completion.commandCompletions(offset(1), offset(3), applicationId, Set(party))
-      )
-      completions2to3 <- executeSql(
-        backend.completion.commandCompletions(offset(2), offset(3), applicationId, Set(party))
-      )
-      completions1to9 <- executeSql(
-        backend.completion.commandCompletions(offset(1), offset(9), applicationId, Set(party))
-      )
-    } yield {
-      completions0to3 should have length 2
-      completions1to3 should have length 2
-      completions2to3 should have length 1
-      completions1to9 should have length 3
-    }
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(updateLedgerEnd(offset(4), 3L))
+    val completions0to3 = executeSql(
+      backend.completion
+        .commandCompletions(Offset.beforeBegin, offset(3), applicationId, Set(party))
+    )
+    val completions1to3 = executeSql(
+      backend.completion.commandCompletions(offset(1), offset(3), applicationId, Set(party))
+    )
+    val completions2to3 = executeSql(
+      backend.completion.commandCompletions(offset(2), offset(3), applicationId, Set(party))
+    )
+    val completions1to9 = executeSql(
+      backend.completion.commandCompletions(offset(1), offset(9), applicationId, Set(party))
+    )
+
+    completions0to3 should have length 2
+    completions1to3 should have length 2
+    completions2to3 should have length 1
+    completions1to9 should have length 3
   }
 
   it should "correctly persist and retrieve application IDs" in {
@@ -70,20 +62,17 @@ private[backend] trait StorageBackendTestsCompletions
       dtoCompletion(offset(2), submitter = party),
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(2), 1L)
-      )
-      completions <- executeSql(
-        backend.completion.commandCompletions(offset(1), offset(2), applicationId, Set(party))
-      )
-    } yield {
-      completions should have length 1
-      completions.head.completions should have length 1
-      completions.head.completions.head.applicationId should be(applicationId)
-    }
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(updateLedgerEnd(offset(2), 1L))
+
+    val completions = executeSql(
+      backend.completion.commandCompletions(offset(1), offset(2), applicationId, Set(party))
+    )
+
+    completions should have length 1
+    completions.head.completions should have length 1
+    completions.head.completions.head.applicationId should be(applicationId)
   }
 
   it should "correctly persist and retrieve submission IDs" in {
@@ -96,28 +85,19 @@ private[backend] trait StorageBackendTestsCompletions
       dtoCompletion(offset(3), submitter = party, submissionId = None),
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(3), 2L)
-      )
-      completions <- executeSql(
-        backend.completion.commandCompletions(
-          offset(1),
-          offset(3),
-          someApplicationId,
-          Set(party),
-        )
-      )
-    } yield {
-      completions should have length 2
-      val List(completionWithSubmissionId, completionWithoutSubmissionId) = completions
-      completionWithSubmissionId.completions should have length 1
-      completionWithSubmissionId.completions.head.submissionId should be(someSubmissionId)
-      completionWithoutSubmissionId.completions should have length 1
-      completionWithoutSubmissionId.completions.head.submissionId should be("")
-    }
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(updateLedgerEnd(offset(3), 2L))
+    val completions = executeSql(
+      backend.completion.commandCompletions(offset(1), offset(3), someApplicationId, Set(party))
+    )
+
+    completions should have length 2
+    val List(completionWithSubmissionId, completionWithoutSubmissionId) = completions
+    completionWithSubmissionId.completions should have length 1
+    completionWithSubmissionId.completions.head.submissionId should be(someSubmissionId)
+    completionWithoutSubmissionId.completions should have length 1
+    completionWithoutSubmissionId.completions.head.submissionId should be("")
   }
 
   it should "correctly persist and retrieve command deduplication offsets" in {
@@ -134,31 +114,23 @@ private[backend] trait StorageBackendTestsCompletions
       dtoCompletion(offset(3), submitter = party, deduplicationOffset = None),
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(3), 2L)
-      )
-      completions <- executeSql(
-        backend.completion.commandCompletions(
-          offset(1),
-          offset(3),
-          someApplicationId,
-          Set(party),
-        )
-      )
-    } yield {
-      completions should have length 2
-      val List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =
-        completions
-      completionWithDeduplicationOffset.completions should have length 1
-      completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should be(
-        Some(anOffsetHex)
-      )
-      completionWithoutDeduplicationOffset.completions should have length 1
-      completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should not be defined
-    }
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+
+    executeSql(updateLedgerEnd(offset(3), 2L))
+    val completions = executeSql(
+      backend.completion.commandCompletions(offset(1), offset(3), someApplicationId, Set(party))
+    )
+
+    completions should have length 2
+    val List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =
+      completions
+    completionWithDeduplicationOffset.completions should have length 1
+    completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should be(
+      Some(anOffsetHex)
+    )
+    completionWithoutDeduplicationOffset.completions should have length 1
+    completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should not be defined
   }
 
   it should "correctly persist and retrieve command deduplication durations" in {
@@ -183,31 +155,23 @@ private[backend] trait StorageBackendTestsCompletions
       ),
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(3), 2L)
-      )
-      completions <- executeSql(
-        backend.completion.commandCompletions(
-          offset(1),
-          offset(3),
-          someApplicationId,
-          Set(party),
-        )
-      )
-    } yield {
-      completions should have length 2
-      val List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =
-        completions
-      completionWithDeduplicationOffset.completions should have length 1
-      completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should be(
-        Some(expectedDuration)
-      )
-      completionWithoutDeduplicationOffset.completions should have length 1
-      completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should not be defined
-    }
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+
+    executeSql(updateLedgerEnd(offset(3), 2L))
+    val completions = executeSql(
+      backend.completion.commandCompletions(offset(1), offset(3), someApplicationId, Set(party))
+    )
+
+    completions should have length 2
+    val List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =
+      completions
+    completionWithDeduplicationOffset.completions should have length 1
+    completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should be(
+      Some(expectedDuration)
+    )
+    completionWithoutDeduplicationOffset.completions should have length 1
+    completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should not be defined
   }
 
   it should "fail on broken command deduplication durations in DB" in {
@@ -229,24 +193,21 @@ private[backend] trait StorageBackendTestsCompletions
       ),
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos1, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(2), 1L)
-      )
-      result <- executeSql(
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos1, _))
+    executeSql(updateLedgerEnd(offset(2), 1L))
+    val caught = intercept[IllegalArgumentException](
+      executeSql(
         backend.completion.commandCompletions(
           offset(1),
           offset(2),
           someApplicationId,
           Set(party),
         )
-      ).failed
-    } yield {
-      result shouldBe an[IllegalArgumentException]
-      result.getMessage should be(expectedErrorMessage)
-    }
+      )
+    )
+
+    caught.getMessage should be(expectedErrorMessage)
 
     val dtos2 = Vector(
       dtoCompletion(
@@ -257,22 +218,18 @@ private[backend] trait StorageBackendTestsCompletions
       )
     )
 
-    for {
-      _ <- executeSql(ingest(dtos2, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(3), 2L)
-      )
-      result <- executeSql(
+    executeSql(ingest(dtos2, _))
+    executeSql(updateLedgerEnd(offset(3), 2L))
+    val caught2 = intercept[IllegalArgumentException](
+      executeSql(
         backend.completion.commandCompletions(
           offset(2),
           offset(3),
           someApplicationId,
           Set(party),
         )
-      ).failed
-    } yield {
-      result shouldBe an[IllegalArgumentException]
-      result.getMessage should be(expectedErrorMessage)
-    }
+      )
+    )
+    caught2.getMessage should be(expectedErrorMessage)
   }
 }

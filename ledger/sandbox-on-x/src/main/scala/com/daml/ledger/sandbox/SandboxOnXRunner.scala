@@ -3,8 +3,8 @@
 
 package com.daml.ledger.sandbox
 
-import java.util.UUID
 import java.util.concurrent.{Executors, TimeUnit}
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -13,10 +13,10 @@ import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.version_service.{
+import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
-  DeduplicationPeriodSupport,
-  ParticipantDeduplicationSupport,
+  CommandDeduplicationPeriodSupport,
+  CommandDeduplicationType,
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
@@ -32,8 +32,6 @@ import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWrit
 import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
-import com.daml.lf.archive.DarParser
-import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -49,10 +47,8 @@ import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
-import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
-import scala.compat.java8.FutureConverters.CompletionStageOps
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 
 object SandboxOnXRunner {
@@ -265,13 +261,14 @@ object SandboxOnXRunner {
       servicesExecutionContext = servicesExecutionContext,
       userManagementStore = new InMemoryUserManagementStore, // TODO persistence wiring comes here
       commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
-        Some(
-          DeduplicationPeriodSupport.of(
-            DeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
-            DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+        deduplicationPeriodSupport = Some(
+          CommandDeduplicationPeriodSupport.of(
+            CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
+            CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
           )
         ),
-        ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_SUPPORTED,
+        deduplicationType = CommandDeduplicationType.SYNC_ONLY,
+        maxDeduplicationDurationEnforced = false,
       ),
     )
 
@@ -361,20 +358,6 @@ object SandboxOnXRunner {
           submissionBufferSize = config.extra.submissionBufferSize,
           ledgerBridge = ledgerBridge,
           bridgeMetrics = bridgeMetrics,
-        )
-      )
-      _ <- ResourceOwner.forFuture(() =>
-        Future.sequence(
-          config.archiveFiles.map(path =>
-            DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
-              implicit telemetryContext =>
-                val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
-                for {
-                  dar <- Future.fromTry(DarParser.readArchiveFromFile(path.toFile).toTry)
-                  _ <- writeService.uploadPackages(submissionId, dar.all, None).toScala
-                } yield ()
-            }
-          )
         )
       )
     } yield writeService

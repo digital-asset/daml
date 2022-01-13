@@ -30,7 +30,35 @@ The query store is built by saving the state of the ACS up to the current ledger
 offset. This allows the *HTTP JSON API* to only request the delta on subsequent queries,
 making it much faster than having to request the entire ACS every time.
 
-For example to enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, as shown below.
+For example to enable the PostgreSQL backend you can add the ``query-store`` config block in your application config file
+
+.. code-block:: none
+
+    query-store {
+      base-config {
+        user = "postgres"
+        password = "password"
+        driver = "org.postgresql.Driver"
+        url = "jdbc:postgresql://localhost:5432/test?&ssl=true"
+
+        // prefix for table names to avoid collisions, empty by default
+        table-prefix = "foo"
+
+        // max pool size for the database connection pool
+        pool-size = 12
+        //specifies the min idle connections for database connection pool.
+        min-idle = 4
+        //specifies the idle timeout for the database connection pool.
+        idle-timeout = 12s
+        //specifies the connection timeout for database connection pool.
+        connection-timeout = 90s
+      }
+      // option setting how the schema should be handled.
+      // Valid options are start-only, create-only, create-if-needed-and-start and create-and-start
+      start-mode = "start-only"
+    }
+
+You can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), as shown below.
 
 .. code-block:: shell
 
@@ -39,9 +67,8 @@ For example to enable the PostgreSQL backend you can use the ``--query-store-jdb
 
 Consult your database vendor's JDBC driver documentation to learn how to specify a JDBC connection string that suits your needs.
 
-Despite appearing in the JDBC connection string, the ``start-mode`` is a custom parameter defined by
-the query store configuration itself which allows to deal with the initialization and usage of the
-database which backs the query store.
+The ``start-mode`` is a custom parameter defined by the query store configuration itself which allows to deal
+with the initialization and usage of the database which backs the query store.
 
 Depending on how you prefer to operate it, you can either choose to:
 
@@ -92,8 +119,28 @@ rest and using a secure communication channel between the *HTTP JSON API* server
 
 To protect data in transit and over untrusted networks, the *HTTP JSON API* server provides
 TLS support, to enable TLS you need to specify the private key for your server and the
-certificate chain via ``daml json-api --pem server.pem --crt server.crt``. You can also
-set a custom root CA certificate used to validate client certificates via ``--cacrt ca.crt``
+certificate chain via the below config block specifying the ``cert-chain-file``, ``private-key-file``, you can also set
+a custom root CA certificate used to validate client certificates via ``trust-collection-file`` parameter.
+
+.. code-block:: none
+
+    ledger-api {
+      address = "127.0.0.1"
+      port = 6400
+      tls {
+        enabled = "true"
+        // the certificate to be used by the server
+        cert-chain-file = "cert-chain.crt"
+        // private key of the server
+        private-key-file = "pvt-key.pem"
+        // trust collection, which means that all client certificates will be verified using the trusted
+        // certificates in this store. if omitted, the JVM default trust store is used.
+        trust-collection-file = "root-ca.crt"
+      }
+    }
+
+Using the cli options (deprecated), you can specify tls options using``daml json-api --pem server.pem --crt server.crt``.
+Custom root CA certificate can be set via ``--cacrt ca.crt``
 
 For more details on secure DAML infrastructure setup please refer to this `reference implementation <https://github.com/digital-asset/ex-secure-daml-infra>`__
 
@@ -193,7 +240,18 @@ Enable and configure reporting
 ------------------------------
 
 
-To enable metrics and configure reporting, you can use the two following CLI options:
+To enable metrics and configure reporting, you can use the below config block in application config
+
+.. code-block:: none
+
+    metrics {
+      //Start a metrics reporter. Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]".
+      reporter = "console"
+      //Set metric reporting interval , examples : 1s, 30s, 1m, 1h
+      reporting-interval = 30s
+    }
+
+or the two following CLI options (deprecated):
 
 - ``--metrics-reporter``: passing a legal value will enable reporting; the accepted values
   are as follows:
