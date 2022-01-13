@@ -52,10 +52,6 @@ commands:
   path: daml-helper/daml-helper
   desc: "Deprecated. Launch Sandbox KV (the default Sandbox implementation for SDK < 2.0.0)"
   args: ["run-jar", "--logback-config=sandbox-logback.xml", "daml-sdk/daml-sdk.jar", "sandbox-kv"]
-- name: sandbox-classic
-  path: daml-helper/daml-helper
-  desc: "Deprecated. Launch Sandbox Classic (the default Sandbox implementation for SDK <= 0.13.55)"
-  args: ["run-jar", "--logback-config=sandbox-logback.xml", "daml-sdk/daml-sdk.jar", "sandbox-classic"]
 - name: navigator
   path: daml-helper/daml-helper
   desc: "Launch the Navigator"

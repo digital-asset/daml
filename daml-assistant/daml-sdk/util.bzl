@@ -8,7 +8,6 @@ def deps(edition):
         "//language-support/codegen-main:codegen-main-lib",
         "//ledger-service/http-json:http-json-{}".format(edition),
         "//ledger/sandbox:sandbox-{}".format(edition),
-        "//ledger/sandbox-classic:sandbox-classic-{}".format(edition),
         "//navigator/backend:navigator-library",
         "//daml-script/export",
         "//triggers/runner:trigger-runner-lib",

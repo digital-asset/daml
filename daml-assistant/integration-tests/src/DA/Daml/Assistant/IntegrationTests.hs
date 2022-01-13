@@ -5,7 +5,6 @@ module DA.Daml.Assistant.IntegrationTests (main) where
 import Conduit hiding (connect)
 import Control.Concurrent
 import Control.Concurrent.STM
-import Control.Exception.Extra
 import Control.Lens
 import Control.Monad
 import Control.Monad.Loops (untilM_)
@@ -660,20 +659,6 @@ quickstartTests quickstartDir mvnDir getSandbox =
                 Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError mvnDir)
             callCommandSilentIn quickstartDir "daml codegen java"
             callCommandSilentIn quickstartDir $ unwords ["mvn", mvnRepoFlag, "-q", "compile"]
-        subtest "Sandbox Classic startup" $ do
-            p :: Int <- fromIntegral <$> getFreePort
-            withDamlServiceIn quickstartDir "sandbox-classic"
-                [ "--wall-clock-time"
-                , "--port"
-                , show p
-                , ".daml/dist/quickstart-0.0.1.dar"
-                ] $ \ ph -> do
-                    waitForConnectionOnPort 240 ph (threadDelay 500000) p
-                    addr:_ <- getAddrInfo (Just socketHints) (Just "127.0.0.1") (Just $ show p)
-                    bracket
-                        (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
-                        close
-                        (\s -> connect s (addrAddress addr))
         subtest "mvn exec:java@run-quickstart" $ do
             QuickSandboxResource {quickProjDir, quickSandboxPort, quickDar} <- getSandbox
             withDevNull $ \devNull -> do
