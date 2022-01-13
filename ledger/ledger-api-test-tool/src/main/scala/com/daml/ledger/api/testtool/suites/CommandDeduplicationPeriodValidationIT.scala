@@ -34,6 +34,8 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     "DeduplicationDurationExceedsMaxDeduplicationDuration",
     "Submission returns expected error codes if deduplication time is too big",
     allocate(SingleParty),
+    enabled = _.commandDeduplicationFeatures.maxDeduplicationDurationEnforced,
+    disabledReason = "Maximum deduplication duration is not enforced by the ledger",
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitRequest(party, Dummy(party).create.command)
     for {

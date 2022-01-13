@@ -9,12 +9,13 @@ import com.daml.error.{
   ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.v1.experimental_features.{
+  CommandDeduplicationFeatures,
   ExperimentalFeatures,
   ExperimentalSelfServiceErrorCodes,
+  ExperimentalStaticTime,
 }
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import com.daml.ledger.api.v1.version_service.{
-  CommandDeduplicationFeatures,
   FeaturesDescriptor,
   GetLedgerApiVersionRequest,
   GetLedgerApiVersionResponse,
@@ -34,6 +35,7 @@ import scala.util.control.NonFatal
 private[apiserver] final class ApiVersionService private (
     enableSelfServiceErrorCodes: Boolean,
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
+    enableStaticTime: Boolean,
 )(implicit
     loggingContext: LoggingContext,
     ec: ExecutionContext,
@@ -51,13 +53,15 @@ private[apiserver] final class ApiVersionService private (
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
-      userManagement = Some(UserManagementFeature()),
+      userManagement = Some(UserManagementFeature(supported = true)),
       experimental = Some(
-        ExperimentalFeatures(selfServiceErrorCodes =
-          Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes())
+        ExperimentalFeatures(
+          selfServiceErrorCodes =
+            Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes()),
+          staticTime = Some(ExperimentalStaticTime(supported = enableStaticTime)),
+          commandDeduplication = Some(commandDeduplicationFeatures),
         )
       ),
-      commandDeduplication = Some(commandDeduplicationFeatures),
     )
 
   override def getLedgerApiVersion(
@@ -99,6 +103,11 @@ private[apiserver] object ApiVersionService {
   def create(
       enableSelfServiceErrorCodes: Boolean,
       commandDeduplicationFeatures: CommandDeduplicationFeatures,
+      enableStaticTime: Boolean,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
-    new ApiVersionService(enableSelfServiceErrorCodes, commandDeduplicationFeatures)
+    new ApiVersionService(
+      enableSelfServiceErrorCodes,
+      commandDeduplicationFeatures,
+      enableStaticTime,
+    )
 }

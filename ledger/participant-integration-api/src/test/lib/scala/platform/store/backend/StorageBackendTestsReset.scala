@@ -3,51 +3,45 @@
 
 package com.daml.platform.store.backend
 
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.Future
-
 private[backend] trait StorageBackendTestsReset extends Matchers with StorageBackendSpec {
-  this: AsyncFlatSpec =>
+  this: AnyFlatSpec =>
 
   behavior of "StorageBackend (reset)"
 
   import StorageBackendTestValues._
 
   it should "start with an empty index" in {
-    for {
-      identity <- executeSql(backend.parameter.ledgerIdentity)
-      end <- executeSql(backend.parameter.ledgerEnd)
-      parties <- executeSql(backend.party.knownParties)
-      config <- executeSql(backend.configuration.ledgerConfiguration)
-      packages <- executeSql(backend.packageBackend.lfPackages)
-      events <- executeSql(backend.contract.contractStateEvents(0, Long.MaxValue))
-      stringInterningEntries <- executeSql(
-        backend.stringInterning.loadStringInterningEntries(0, 1000)
-      )
-    } yield {
-      identity shouldBe None
-      end shouldBe None
-      parties shouldBe empty
-      packages shouldBe empty
-      events shouldBe empty
-      config shouldBe None
-      stringInterningEntries shouldBe empty
-    }
+    val identity = executeSql(backend.parameter.ledgerIdentity)
+    val end = executeSql(backend.parameter.ledgerEnd)
+    val parties = executeSql(backend.party.knownParties)
+    val config = executeSql(backend.configuration.ledgerConfiguration)
+    val packages = executeSql(backend.packageBackend.lfPackages)
+    val events = executeSql(backend.contract.contractStateEvents(0, Long.MaxValue))
+    val stringInterningEntries = executeSql(
+      backend.stringInterning.loadStringInterningEntries(0, 1000)
+    )
+
+    identity shouldBe None
+    end shouldBe None
+    parties shouldBe empty
+    packages shouldBe empty
+    events shouldBe empty
+    config shouldBe None
+    stringInterningEntries shouldBe empty
   }
 
   it should "not see any data after advancing the ledger end" in {
-    for {
-      _ <- advanceLedgerEndToMakeOldDataVisible()
-      parties <- executeSql(backend.party.knownParties)
-      config <- executeSql(backend.configuration.ledgerConfiguration)
-      packages <- executeSql(backend.packageBackend.lfPackages)
-    } yield {
-      parties shouldBe empty
-      packages shouldBe empty
-      config shouldBe None
-    }
+    advanceLedgerEndToMakeOldDataVisible()
+    val parties = executeSql(backend.party.knownParties)
+    val config = executeSql(backend.configuration.ledgerConfiguration)
+    val packages = executeSql(backend.packageBackend.lfPackages)
+
+    parties shouldBe empty
+    packages shouldBe empty
+    config shouldBe None
   }
 
   it should "reset everything except packages when using reset" in {
@@ -70,47 +64,45 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       DbDto.StringInterningDto(2, "2"),
     )
 
-    for {
-      // Initialize and insert some data
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(updateLedgerEnd(ledgerEnd(5, 3L)))
+    // Initialize and insert some data
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(updateLedgerEnd(ledgerEnd(5, 3L)))
 
-      // Reset
-      _ <- executeSql(backend.reset.reset)
+    // Reset
+    executeSql(backend.reset.reset)
 
-      // Check the contents
-      identity <- executeSql(backend.parameter.ledgerIdentity)
-      end <- executeSql(backend.parameter.ledgerEnd)
-      events <- executeSql(backend.contract.contractStateEvents(0, Long.MaxValue))
+    // Check the contents
+    val identity = executeSql(backend.parameter.ledgerIdentity)
+    val end = executeSql(backend.parameter.ledgerEnd)
+    val events = executeSql(backend.contract.contractStateEvents(0, Long.MaxValue))
 
-      // Check the contents (queries that don't read beyond ledger end)
-      _ <- advanceLedgerEndToMakeOldDataVisible()
-      parties <- executeSql(backend.party.knownParties)
-      config <- executeSql(backend.configuration.ledgerConfiguration)
-      packages <- executeSql(backend.packageBackend.lfPackages)
-      stringInterningEntries <- executeSql(
-        backend.stringInterning.loadStringInterningEntries(0, 1000)
+    // Check the contents (queries that don't read beyond ledger end)
+    advanceLedgerEndToMakeOldDataVisible()
+    val parties = executeSql(backend.party.knownParties)
+    val config = executeSql(backend.configuration.ledgerConfiguration)
+    val packages = executeSql(backend.packageBackend.lfPackages)
+    val stringInterningEntries = executeSql(
+      backend.stringInterning.loadStringInterningEntries(0, 1000)
+    )
+    val filterIds = executeSql(
+      backend.event.activeContractEventIds(
+        partyFilter = someParty,
+        templateIdFilter = None,
+        startExclusive = 0,
+        endInclusive = 1000,
+        limit = 1000,
       )
-      filterIds <- executeSql(
-        backend.event.activeContractEventIds(
-          partyFilter = someParty,
-          templateIdFilter = None,
-          startExclusive = 0,
-          endInclusive = 1000,
-          limit = 1000,
-        )
-      )
-    } yield {
-      identity shouldBe None
-      end shouldBe None
-      parties shouldBe empty
-      packages should not be empty // Note: reset() does not delete packages
-      events shouldBe empty
-      config shouldBe None
-      stringInterningEntries shouldBe empty
-      filterIds shouldBe empty
-    }
+    )
+
+    identity shouldBe None
+    end shouldBe None
+    parties shouldBe empty
+    packages should not be empty // Note: reset() does not delete packages
+    events shouldBe empty
+    config shouldBe None
+    stringInterningEntries shouldBe empty
+    filterIds shouldBe empty
   }
 
   it should "reset everything when using resetAll" in {
@@ -132,56 +124,53 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       dtoCompletion(offset(5)),
     )
 
-    for {
-      // Initialize and insert some data
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(updateLedgerEnd(ledgerEnd(5, 3L)))
+    // Initialize and insert some data
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(updateLedgerEnd(ledgerEnd(5, 3L)))
 
-      // Reset
-      _ <- executeSql(backend.reset.resetAll)
+    // Reset
+    executeSql(backend.reset.resetAll)
 
-      // Check the contents (queries that do not depend on ledger end)
-      identity <- executeSql(backend.parameter.ledgerIdentity)
-      end <- executeSql(backend.parameter.ledgerEnd)
-      events <- executeSql(backend.contract.contractStateEvents(0, Long.MaxValue))
+    // Check the contents (queries that do not depend on ledger end)
+    val identity = executeSql(backend.parameter.ledgerIdentity)
+    val end = executeSql(backend.parameter.ledgerEnd)
+    val events = executeSql(backend.contract.contractStateEvents(0, Long.MaxValue))
 
-      // Check the contents (queries that don't read beyond ledger end)
-      _ <- advanceLedgerEndToMakeOldDataVisible()
-      parties <- executeSql(backend.party.knownParties)
-      config <- executeSql(backend.configuration.ledgerConfiguration)
-      packages <- executeSql(backend.packageBackend.lfPackages)
-      stringInterningEntries <- executeSql(
-        backend.stringInterning.loadStringInterningEntries(0, 1000)
+    // Check the contents (queries that don't read beyond ledger end)
+    advanceLedgerEndToMakeOldDataVisible()
+    val parties = executeSql(backend.party.knownParties)
+    val config = executeSql(backend.configuration.ledgerConfiguration)
+    val packages = executeSql(backend.packageBackend.lfPackages)
+    val stringInterningEntries = executeSql(
+      backend.stringInterning.loadStringInterningEntries(0, 1000)
+    )
+    val filterIds = executeSql(
+      backend.event.activeContractEventIds(
+        partyFilter = someParty,
+        templateIdFilter = None,
+        startExclusive = 0,
+        endInclusive = 1000,
+        limit = 1000,
       )
-      filterIds <- executeSql(
-        backend.event.activeContractEventIds(
-          partyFilter = someParty,
-          templateIdFilter = None,
-          startExclusive = 0,
-          endInclusive = 1000,
-          limit = 1000,
-        )
-      )
-    } yield {
-      identity shouldBe None
-      end shouldBe None
-      parties shouldBe empty
-      packages shouldBe empty // Note: resetAll() does delete packages
-      events shouldBe empty
-      config shouldBe None
-      stringInterningEntries shouldBe empty
-      filterIds shouldBe empty
-    }
+    )
+
+    identity shouldBe None
+    end shouldBe None
+    parties shouldBe empty
+    packages shouldBe empty // Note: resetAll() does delete packages
+    events shouldBe empty
+    config shouldBe None
+    stringInterningEntries shouldBe empty
+    filterIds shouldBe empty
   }
 
   // Some queries are protected to never return data beyond the current ledger end.
   // By advancing the ledger end to a large value, we can check whether these
   // queries now find any left-over data not cleaned by reset.
-  private def advanceLedgerEndToMakeOldDataVisible(): Future[Unit] = {
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(updateLedgerEnd(ledgerEnd(10000, 10000)))
-    } yield ()
+  private def advanceLedgerEndToMakeOldDataVisible(): Unit = {
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(updateLedgerEnd(ledgerEnd(10000, 10000)))
+    ()
   }
 }

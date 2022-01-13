@@ -497,21 +497,10 @@ private[lf] final class Compiler(
           s.SEBuiltin(SBStructCon(fieldsInputOrder)),
           mapToArray(fields) { case (_, e) => compile(env, e) },
         )
-      case structProj: EStructProj =>
-        structProj.fieldIndex match {
-          case None => SBStructProjByName(structProj.field)(compile(env, structProj.struct))
-          case Some(index) => SBStructProj(index)(compile(env, structProj.struct))
-        }
-      case structUpd: EStructUpd =>
-        structUpd.fieldIndex match {
-          case None =>
-            SBStructUpdByName(structUpd.field)(
-              compile(env, structUpd.struct),
-              compile(env, structUpd.update),
-            )
-          case Some(index) =>
-            SBStructUpd(index)(compile(env, structUpd.struct), compile(env, structUpd.update))
-        }
+      case EStructProj(field, struct) =>
+        SBStructProj(field)(compile(env, struct))
+      case EStructUpd(field, struct, update) =>
+        SBStructUpd(field)(compile(env, struct), compile(env, update))
       case ECase(scrut, alts) =>
         compileECase(env, scrut, alts)
       case ENil(_) =>

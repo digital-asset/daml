@@ -6,11 +6,11 @@ package com.daml.platform.store.backend
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.lf.data.Ref
 import com.daml.platform.common.MismatchException
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 private[backend] trait StorageBackendTestsInitialization extends Matchers with StorageBackendSpec {
-  this: AsyncFlatSpec =>
+  this: AnyFlatSpec =>
 
   behavior of "StorageBackend (initialization)"
 
@@ -20,51 +20,55 @@ private[backend] trait StorageBackendTestsInitialization extends Matchers with S
     val otherLedgerId = LedgerId("otherLedger")
     val otherParticipantId = ParticipantId(Ref.ParticipantId.assertFromString("otherParticipant"))
 
-    for {
-      _ <- executeSql(
-        backend.parameter.initializeParameters(
-          ParameterStorageBackend.IdentityParams(
-            ledgerId = ledgerId,
-            participantId = participantId,
-          )
+    executeSql(
+      backend.parameter.initializeParameters(
+        ParameterStorageBackend.IdentityParams(
+          ledgerId = ledgerId,
+          participantId = participantId,
         )
       )
-      error1 <- executeSql(
+    )
+    val error1 = intercept[RuntimeException](
+      executeSql(
         backend.parameter.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = otherLedgerId,
             participantId = participantId,
           )
         )
-      ).failed
-      error2 <- executeSql(
+      )
+    )
+    val error2 = intercept[RuntimeException](
+      executeSql(
         backend.parameter.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = otherParticipantId,
           )
         )
-      ).failed
-      error3 <- executeSql(
+      )
+    )
+    val error3 = intercept[RuntimeException](
+      executeSql(
         backend.parameter.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = otherLedgerId,
             participantId = otherParticipantId,
           )
         )
-      ).failed
-      _ <- executeSql(
-        backend.parameter.initializeParameters(
-          ParameterStorageBackend.IdentityParams(
-            ledgerId = ledgerId,
-            participantId = participantId,
-          )
+      )
+    )
+    executeSql(
+      backend.parameter.initializeParameters(
+        ParameterStorageBackend.IdentityParams(
+          ledgerId = ledgerId,
+          participantId = participantId,
         )
       )
-    } yield {
-      error1 shouldBe MismatchException.LedgerId(ledgerId, otherLedgerId)
-      error2 shouldBe MismatchException.ParticipantId(participantId, otherParticipantId)
-      error3 shouldBe MismatchException.LedgerId(ledgerId, otherLedgerId)
-    }
+    )
+
+    error1 shouldBe MismatchException.LedgerId(ledgerId, otherLedgerId)
+    error2 shouldBe MismatchException.ParticipantId(participantId, otherParticipantId)
+    error3 shouldBe MismatchException.LedgerId(ledgerId, otherLedgerId)
   }
 }

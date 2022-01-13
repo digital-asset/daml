@@ -715,7 +715,7 @@ class Ledger {
   /**
    * Construct a new `Ledger` object. See [[LedgerOptions]] for the constructor arguments.
    */
-  constructor({token, httpBaseUrl, wsBaseUrl, reconnectThreshold = 30000, multiplexQueryStreams = true}: LedgerOptions) {
+  constructor({token, httpBaseUrl, wsBaseUrl, reconnectThreshold = 30000, multiplexQueryStreams = false}: LedgerOptions) {
     if (!httpBaseUrl) {
       httpBaseUrl = `${window.location.protocol}//${window.location.host}/`;
     }

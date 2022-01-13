@@ -4,7 +4,7 @@
 package com.daml.http
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
-import com.daml.ledger.api.domain.UserRight
+import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.lf.iface
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -15,6 +15,7 @@ import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.vector._
+import scalaz.syntax.apply.^
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, OneAnd, Traverse, \/, \/-}
@@ -156,6 +157,11 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   final case class UserDetails(userId: String, primaryParty: Option[String])
 
+  object UserDetails {
+    def fromUser(user: User) =
+      UserDetails(user.id, user.primaryParty)
+  }
+
   final case class CreateUserRequest(
       userId: String,
       primaryParty: Option[String],
@@ -163,6 +169,10 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       canReadAs: List[Party],
       isAdmin: Boolean,
   )
+
+  final case class GetUserRequest(userId: String)
+
+  final case class DeleteUserRequest(userId: String)
 
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 
@@ -256,8 +266,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
     def fromTreeEvent(
         eventsById: Map[String, lav1.transaction.TreeEvent]
     )(eventId: String): Error \/ Vector[Contract[lav1.value.Value]] = {
-      import scalaz.syntax.applicative._
-
       @tailrec
       def loop(
           es: Vector[String],
@@ -461,7 +469,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
           fab: CreateCommand[A, B]
       )(f: A => G[C], g: B => G[D]): G[CreateCommand[C, D]] = {
-        import scalaz.syntax.applicative._
         ^(f(fab.payload), g(fab.templateId))((c, d) => fab.copy(payload = c, templateId = d))
       }
     }
@@ -472,7 +479,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
           fab: ExerciseCommand[A, B]
       )(f: A => G[C], g: B => G[D]): G[ExerciseCommand[C, D]] = {
-        import scalaz.syntax.applicative._
         ^(f(fab.argument), g(fab.reference))((c, d) => fab.copy(argument = c, reference = d))
       }
     }
@@ -513,7 +519,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       override def traverseImpl[G[_]: Applicative, A, B](
           fa: ExerciseResponse[A]
       )(f: A => G[B]): G[ExerciseResponse[B]] = {
-        import scalaz.syntax.applicative._
         val gb: G[B] = f(fa.exerciseResult)
         val gbs: G[List[Contract[B]]] = fa.events.traverse(_.traverse(f))
         ^(gb, gbs) { (exerciseResult, events) =>
@@ -556,7 +561,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       override def traverseImpl[G[_]: Applicative, A, B](
           fa: SyncResponse[A]
       )(f: A => G[B]): G[SyncResponse[B]] = {
-        import scalaz.syntax.functor._
         val G = implicitly[Applicative[G]]
         fa match {
           case err: ErrorResponse => G.point[SyncResponse[B]](err)

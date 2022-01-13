@@ -320,7 +320,6 @@ class ContractsService(
             metrics: Metrics,
         ): Future[Option[domain.ActiveContract[LfV]]] = {
           import ctx.{jwt, parties, templateIds => otemplateId, ledgerId}
-          import scalaz.Scalaz._
           val dbQueried = for {
             templateId <- OptionT(Future.successful(otemplateId))
             resolved <- OptionT(

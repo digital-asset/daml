@@ -54,7 +54,7 @@ trait ConfigProvider[ExtraConfig] {
   ): ApiServerConfig =
     ApiServerConfig(
       participantId = participantConfig.participantId,
-      archiveFiles = config.archiveFiles.map(_.toFile).toList,
+      archiveFiles = Nil,
       port = participantConfig.port,
       address = participantConfig.address,
       jdbcUrl = participantConfig.serverJdbcUrl,
@@ -121,4 +121,14 @@ trait ConfigProvider[ExtraConfig] {
       .getOrElse("")
     new Metrics(SharedMetricRegistries.getOrCreate(registryName))
   }
+}
+
+object ConfigProvider {
+  class ForUnit extends ConfigProvider[Unit] {
+    override val defaultExtraConfig: Unit = ()
+
+    override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit = ()
+  }
+
+  object ForUnit extends ForUnit
 }

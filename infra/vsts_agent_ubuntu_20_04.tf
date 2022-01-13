@@ -6,12 +6,12 @@ locals {
     {
       name      = "ci-u1",
       disk_size = 200,
-      size      = 30,
+      size      = 0,
     },
     {
       name      = "ci-u2",
       disk_size = 400,
-      size      = 0,
+      size      = 30,
     },
   ]
 }

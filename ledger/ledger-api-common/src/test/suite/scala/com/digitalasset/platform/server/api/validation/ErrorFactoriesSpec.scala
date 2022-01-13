@@ -493,7 +493,7 @@ class ErrorFactoriesSpec
         v2_details = expectedInternalErrorDetails,
         v2_logEntry = ExpectedLogEntry(
           Level.WARN,
-          s"UNAUTHENTICATED(6,$truncatedCorrelationId): The command is missing a JWT token",
+          s"UNAUTHENTICATED(6,$truncatedCorrelationId): The command is missing a (valid) JWT token",
           Some(expectedLocationLogMarkerRegex),
         ),
       )

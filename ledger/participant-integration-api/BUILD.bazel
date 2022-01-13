@@ -7,6 +7,7 @@ load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_s
 load("//bazel_tools:proto.bzl", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
@@ -220,6 +221,7 @@ da_scala_library(
         "@maven//:io_netty_netty_transport",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_scalatest_scalatest_compatible",
+#        "@maven//:org_postgresql_postgresql",
     ],
 )
 
@@ -434,4 +436,15 @@ filegroup(
     name = "sources",
     srcs = glob(["src/main/scala/**/*.scala"]),
     visibility = ["//visibility:public"],
+)
+
+da_scala_benchmark_jmh(
+    name = "string-interning-benchmark",
+    srcs = glob(["src/bench/platform/store/interning/**/*.scala"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//ledger/participant-integration-api",
+        "//libs-scala/contextualized-logging",
+    ],
 )

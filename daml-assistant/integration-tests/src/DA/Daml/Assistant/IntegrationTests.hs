@@ -65,7 +65,7 @@ hardcodedToken alice = tokenFor [T.pack alice] "sandbox" "AssistantIntegrationTe
 authorizationHeaders :: String -> RequestHeaders
 authorizationHeaders alice = [("Authorization", "Bearer " <> T.encodeUtf8 (hardcodedToken alice))]
 
-withDamlServiceIn :: FilePath -> String -> [String] -> IO a -> IO a
+withDamlServiceIn :: FilePath -> String -> [String] -> (ProcessHandle -> IO a) -> IO a
 withDamlServiceIn path command args act = withDevNull $ \devNull -> do
     let proc' = (shell $ unwords $ ["daml", command] <> args)
           { std_out = UseHandle devNull
@@ -73,7 +73,7 @@ withDamlServiceIn path command args act = withDevNull $ \devNull -> do
           , cwd = Just path
           }
     withCreateProcess proc' $ \_ _ _ ph -> do
-        r <- act
+        r <- act ph
         interruptProcessGroupOf ph
         pure r
 
@@ -159,8 +159,8 @@ damlStart tmpDir withCantonSandbox = do
     outReader <- forkIO $ forever $ do
         line <- hGetLine startStdout
         atomically $ writeTChan outChan line
-    waitForHttpServer
-        (threadDelay 100000)
+    waitForHttpServer 120 startPh
+        (threadDelay 500000)
         ("http://localhost:" <> show jsonApiPort <> "/v1/query")
         (authorizationHeaders "Alice") -- dummy party here, not important
     scriptOutput <- readFileUTF8 (projDir </> scriptOutputFile)
@@ -207,7 +207,7 @@ quickSandbox projDir = do
                         ])
                     {std_out = UseHandle devNull, create_group = True, cwd = Just projDir}
         (_, _, _, sandboxPh) <- createProcess sandboxProc
-        waitForConnectionOnPort (threadDelay 500000) $ fromIntegral sandboxPort
+        waitForConnectionOnPort 240 sandboxPh (threadDelay 500000) $ fromIntegral sandboxPort
         pure $
             QuickSandboxResource
                 { quickProjDir = projDir
@@ -359,10 +359,10 @@ damlToolTests =
                     , "client-id"
                     , "--secret"
                     , "client-secret"
-                    ] $ do
+                    ] $ \ ph -> do
                         let endpoint =
                                 "http://localhost:" <> show middlewarePort <> "/livez"
-                        waitForHttpServer (threadDelay 100000) endpoint []
+                        waitForHttpServer 240 ph (threadDelay 500000) endpoint []
                         req <- parseRequest endpoint
                         manager <- newManager defaultManagerSettings
                         resp <- httpLbs req manager
@@ -456,9 +456,9 @@ damlStartTests getDamlStart =
                 , "--http-port"
                 , show triggerServicePort
                 , "--wall-clock-time"
-                ] $ do
+                ] $ \ ph -> do
                     let endpoint = "http://localhost:" <> show triggerServicePort <> "/livez"
-                    waitForHttpServer (threadDelay 100000) endpoint []
+                    waitForHttpServer 240 ph (threadDelay 500000) endpoint []
                     req <- parseRequest endpoint
                     manager <- newManager defaultManagerSettings
                     resp <- httpLbs req manager
@@ -475,9 +475,9 @@ damlStartTests getDamlStart =
                 , show sandboxPort
                 , "--port"
                 , show navigatorPort
-                ] $ do
-                    waitForHttpServer
-                        (threadDelay 100000)
+                ] $ \ ph -> do
+                    waitForHttpServer 240 ph
+                        (threadDelay 500000)
                         ("http://localhost:" <> show navigatorPort)
                         []
         subtest "Navigator startup via daml ledger outside project directory" $ do
@@ -491,11 +491,11 @@ damlStartTests getDamlStart =
                     , show sandboxPort
                     , "--port"
                     , show navigatorPort
-                    ] $ do
+                    ] $ \ ph -> do
                         -- waitForHttpServer will only return once we get a 200 response so we
                         -- don’t need to do anything else.
-                        waitForHttpServer
-                            (threadDelay 100000)
+                        waitForHttpServer 240 ph
+                            (threadDelay 500000)
                             ("http://localhost:" <> show navigatorPort)
                             []
 
@@ -538,8 +538,8 @@ damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
             , "--canton-admin-api-port=0"
             , "--canton-domain-public-port=0"
             , "--canton-domain-admin-port=0"
-            ] $ do
-                jsonApiPort <- readPortFile maxRetries (tmpDir </> "jsonapi.port")
+            ] $ \ ph -> do
+                jsonApiPort <- readPortFile ph maxRetries (tmpDir </> "jsonapi.port")
                 initialRequest <-
                     parseRequest $
                     "http://localhost:" <> show jsonApiPort <> "/v1/parties/allocate"
@@ -667,8 +667,8 @@ quickstartTests quickstartDir mvnDir getSandbox =
                 , "--port"
                 , show p
                 , ".daml/dist/quickstart-0.0.1.dar"
-                ] $ do
-                    waitForConnectionOnPort (threadDelay 100000) p
+                ] $ \ ph -> do
+                    waitForConnectionOnPort 240 ph (threadDelay 500000) p
                     addr:_ <- getAddrInfo (Just socketHints) (Just "127.0.0.1") (Just $ show p)
                     bracket
                         (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
@@ -699,7 +699,7 @@ quickstartTests quickstartDir mvnDir getSandbox =
                         , cwd = Just quickProjDir }
                 withCreateProcess mavenProc $ \_ _ _ mavenPh -> do
                     let url = "http://localhost:" <> show restPort <> "/iou"
-                    waitForHttpServer (threadDelay 1000000) url []
+                    waitForHttpServer 240 mavenPh (threadDelay 500000) url []
                     threadDelay 5000000
                     manager <- newManager defaultManagerSettings
                     req <- parseRequest url
@@ -836,9 +836,9 @@ cantonTests = testGroup "daml canton-sandbox"
         , "--domain-public-port", show domainPublicApiPort
         , "--domain-admin-port", show domainAdminApiPort
         , "--port-file", portFile
-        ] $ do
+        ] $ \ ph -> do
         -- wait for port file to be written
-        _ <- readPortFileWith decodeCantonSandboxPort maxRetries portFile
+        _ <- readPortFileWith decodeCantonSandboxPort ph maxRetries portFile
         step "Uploading DAR"
         callCommandSilentIn (dir </> "skeleton") $ unwords
           ["daml ledger upload-dar --host=localhost --port=" <> show ledgerApiPort, ".daml/dist/skeleton-0.0.1.dar"]
