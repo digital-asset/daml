@@ -199,6 +199,12 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def headersWithPartyAuth(actAs: List[String], readAs: List[String] = List()) =
     HttpServiceTestFixture.headersWithPartyAuth(actAs, readAs, testId)
 
+  protected def headersWithPartyAuthLegacyFormat(
+      actAs: List[String],
+      readAs: List[String] = List(),
+  ) =
+    HttpServiceTestFixture.headersWithPartyAuth(actAs, readAs, testId, withoutNamespace = true)
+
   protected def postJsonStringRequest(
       uri: Uri,
       jsonString: String,
@@ -732,6 +738,35 @@ abstract class AbstractHttpServiceIntegrationTest
         cs should have size 2
       )
     } yield succeed
+  }
+
+  "get all parties using the legacy token format" in withHttpServiceAndClient {
+    (uri, _, _, client, _) =>
+      import scalaz.std.vector._
+      val partyIds = Vector("P1", "P2", "P3", "P4").map(getUniqueParty(_).unwrap)
+      val partyManagement = client.partyManagementClient
+      partyIds
+        .traverse { p =>
+          partyManagement.allocateParty(Some(p), Some(s"$p & Co. LLC"))
+        }
+        .flatMap { allocatedParties =>
+          getRequest(
+            uri = uri.withPath(Uri.Path("/v1/parties")),
+            headersWithPartyAuthLegacyFormat(List()),
+          ).flatMap { case (status, output) =>
+            status shouldBe StatusCodes.OK
+            inside(
+              decode1[domain.OkResponse, List[domain.PartyDetails]](output)
+            ) { case \/-(response) =>
+              response.status shouldBe StatusCodes.OK
+              response.warnings shouldBe empty
+              val actualIds: Set[domain.Party] = response.result.view.map(_.identifier).toSet
+              actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
+              response.result.toSet should contain allElementsOf
+                allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
+            }
+          }
+        }: Future[Assertion]
   }
 
   "query POST with empty query" in withHttpService { (uri, encoder, _, _) =>
