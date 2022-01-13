@@ -666,15 +666,15 @@ excluded_test_tool_tests = [
         "start": first_granular_test_tool,
         "end": "1.18.0",
         "platform_ranges": [
-          {
-          "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
-          "exclusions": [
-# Error message did not contain [\QParty not known on ledger\E], but was [Parties not known on ledger: [unallocated]].
-"ClosedWorldIT:ClosedWorldObserver",
-          ],
-          }
-        ]
-    }
+            {
+                "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
+                "exclusions": [
+                    # Error message did not contain [\QParty not known on ledger\E], but was [Parties not known on ledger: [unallocated]].
+                    "ClosedWorldIT:ClosedWorldObserver",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
