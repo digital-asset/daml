@@ -335,7 +335,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       }
       (status2, output2) <- getRequest(
         uri.withPath(Uri.Path(s"/v1/user")),
-        headers = headersWithUserAuth(createUserRequest.userId, admin = true),
+        headers = headersWithUserAuth(createUserRequest.userId),
       )
     } yield {
       status2 shouldBe StatusCodes.OK
