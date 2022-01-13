@@ -18,9 +18,7 @@ final class UserManagementServiceImpl extends UserManagementService with FakeAut
   private val log = mutable.ArrayBuffer.empty[Any]
 
   def requests(): Array[Any] = {
-    val requests = Array.ofDim[Any](log.size)
-    log.copyToArray(requests)
-    requests
+    log.toArray
   }
 
   private def record[Result](request: Any)(result: Result): Future[Result] = {
@@ -53,7 +51,8 @@ final class UserManagementServiceImpl extends UserManagementService with FakeAut
 
 object UserManagementServiceImpl {
 
-  def createWithRef(
+  // for testing only
+  private[helpers] def createWithRef(
       authorizer: Authorizer
   )(implicit ec: ExecutionContext): (ServerServiceDefinition, UserManagementServiceImpl) = {
     implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
