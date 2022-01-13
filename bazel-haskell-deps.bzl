@@ -168,9 +168,6 @@ haskell_cabal_library(
         urls = ["https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-parser-%s.tar.gz" % GHC_LIB_PARSER_REV],
     )
 
-    cbit_dep = ":fat_cbits" if is_windows else ":needed-cbits-clib" if is_linux else ":cbits"
-    grpc_dep = "@com_github_grpc_grpc//:grpc" if is_windows else "@grpc_nix//:grpc_lib"
-
     http_archive(
         name = "grpc_haskell_core",
         build_file_content = """
