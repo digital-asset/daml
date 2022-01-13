@@ -64,3 +64,36 @@ resource "google_storage_bucket_iam_member" "appr" {
   role     = "roles/storage.objectViewer"
   member   = each.key
 }
+
+resource "google_service_account" "assembly-sas" {
+  for_each   = toset(["canton-read", "assembly-rw"])
+  account_id = each.key
+}
+
+resource "google_project_iam_member" "assembly-read" {
+  for_each = google_service_account.assembly-sas
+  project  = local.project
+  role     = "roles/storage.objectViewer"
+  member   = "serviceAccount:${each.value.email}"
+}
+
+resource "google_project_iam_member" "assembly-write" {
+  project = local.project
+  role    = "roles/storage.objectCreator"
+  member  = "serviceAccount:${google_service_account.assembly-sas["assembly-rw"].email}"
+}
+
+resource "google_service_account_key" "assembly-keys" {
+  for_each = google_service_account.assembly-sas
+
+  service_account_id = each.value.name
+  // "Arbitrary map of values that, when changed, will trigger a new key to be
+  // generated."
+  keepers = {
+    generated_on = "2022-01-12"
+  }
+}
+
+output "assembly_keys" {
+  value = { for k, v in google_service_account_key.assembly-keys : k => v.private_key }
+}
