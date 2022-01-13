@@ -13,7 +13,7 @@ locals {
       name       = "ci-w1",
       size       = 0,
       assignment = "default",
-      disk_size  = 200,
+      disk_size  = 400,
     },
     {
       name       = "ci-w2"
