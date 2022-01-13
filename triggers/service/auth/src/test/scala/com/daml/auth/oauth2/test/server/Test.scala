@@ -109,7 +109,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
                 Future.successful(_),
               )
             payload <- Future.fromTry(readCustomDamlJWTTokenFromString(decodedJwt.payload))
-          } yield Right(payload, refreshToken)
+          } yield Right((payload, refreshToken))
         case Client.ErrorResponse(error) => Future(Left(error))
       }
     } yield result
