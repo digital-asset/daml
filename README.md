@@ -76,7 +76,18 @@ We have a single script to build most targets and run the tests. On Linux and Ma
 
 To just build do `bazel build //...`, and to just test do `bazel test //...`. To read more about Bazel and how to use it, see [the Bazel site](https://bazel.build).
 
+#### Mac
 On Mac if building is causing trouble complaining about missing nix packages, you can try first running `nix-build -A tools -A cached nix` repeatedly until it completes without error.
+
+#### Windows
+On Windows you can just run `.\build.ps1` to do a complete build that downloads all the required tools and cleans up any potentially broken builds and has more of a chance of working than invoking bazel directly as suggested above.
+
+Note: you'll need to add the full path to `<proj>\dev-env\windows\bin` to your User or System environment varaibles (a SET PATH=%PATH%;.... won't work as the dadew script reloads then environment varibles from the registry.
+
+Note 2: the build.ps1 script does a one off init'ing `.bazelrc.local` to the following, that may be required for windows builds to work properly:
+```
+build --config windows
+```
 
 ### 4. Installing a local copy
 
