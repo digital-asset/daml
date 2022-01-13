@@ -1033,15 +1033,9 @@ private[lf] object SBuiltin {
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
           if (cached.templateId != templateId) {
-            if (onLedger.ptx.localContracts.contains(coid)) {
-              // This should be prevented by the type checker so it’s an internal error.
-              crash(s"contract ${coid.coid} ($templateId) not found from partial transaction")
-            } else {
-              // This is a user-error.
-              machine.ctrl = SEDamlException(
-                IE.WronglyTypedContract(coid, templateId, cached.templateId)
-              )
-            }
+            machine.ctrl = SEDamlException(
+              IE.WronglyTypedContract(coid, templateId, cached.templateId)
+            )
           } else {
             machine.returnValue = cached.value
           }
