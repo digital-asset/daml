@@ -12,10 +12,10 @@ import com.daml.http.json.SprayJson
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import util.GrpcHttpErrorCodes._
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.ledger.api.auth.AuthServiceJWTCodec
-import com.daml.ledger.api.auth.AuthServiceJWTCodec.readStandardTokenPayload
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
+import AuthServiceJWTCodec.{readPayload => readJWTPayload}
 import com.daml.ledger.api.domain.UserRight
-import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs}
+import UserRight.{CanActAs, CanReadAs}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
@@ -93,9 +93,10 @@ object EndpointsCompanion {
         jsValue <- Try(jwt.payload.parseJson).toEither.disjunction
           .leftMap(it => Unauthorized(it.getMessage))
         decodedToken <-
-          readStandardTokenPayload(
-            jsValue
-          ) \/> Unauthorized("Invalid token supplied")
+          \/.attempt(readJWTPayload(jsValue)) {
+            case _: spray.json.DeserializationException => Unauthorized("Invalid token supplied")
+            case e => throw e
+          }
       } yield decodedToken
     }
 
@@ -104,13 +105,12 @@ object EndpointsCompanion {
     ): Unauthorized \/ UserId =
       for {
         parsedToken <- parseAndDecodeUserToken(jwt)
-        userId <- parsedToken.applicationId
-          .map(UserId.fromString)
-          .getOrElse(
-            Left(
-              "This user token contains no applicationId/userId"
-            )
-          )
+        userId <- (parsedToken match {
+          case d: CustomDamlJWTPayload =>
+            d.applicationId toRight "This user token contains no applicationId/userId"
+          case s: StandardJWTPayload => Right(s.userId)
+        })
+          .flatMap(UserId.fromString)
           .disjunction
           .leftMap(Unauthorized)
       } yield userId
@@ -208,8 +208,13 @@ object EndpointsCompanion {
           .readFromString(jwt.payload)
           .fold(
             e => -\/ apply Unauthorized(e.getMessage),
-            payload =>
+            mPayload =>
               for {
+                payload <- mPayload match {
+                  case d: CustomDamlJWTPayload => \/-(d)
+                  case _: StandardJWTPayload =>
+                    -\/(Unauthorized("ledgerId and actAs missing in access token"))
+                }
                 ledgerId <- payload.ledgerId
                   .toRightDisjunction(Unauthorized("ledgerId missing in access token"))
                 applicationId <- payload.applicationId
@@ -261,17 +266,24 @@ object EndpointsCompanion {
           .readFromString(jwt.payload)
           .fold(
             e => -\/ apply Unauthorized(e.getMessage),
-            payload =>
+            mPayload =>
               for {
-                ledgerId <- payload.ledgerId
+                lpcr <- mPayload match {
+                  case d: CustomDamlJWTPayload =>
+                    \/-((d.ledgerId, d.applicationId, d.actAs, d.readAs))
+                  case _: StandardJWTPayload =>
+                    -\/(Unauthorized("ledgerId, actAs, readAs missing in access token"))
+                }
+                (mLedgerId, mApplicationId, mActAs, mReadAs) = lpcr
+                ledgerId <- mLedgerId
                   .toRightDisjunction(Unauthorized("ledgerId missing in access token"))
-                applicationId <- payload.applicationId
+                applicationId <- mApplicationId
                   .toRightDisjunction(Unauthorized("applicationId missing in access token"))
                 payload <- JwtPayload(
                   lar.LedgerId(ledgerId),
                   lar.ApplicationId(applicationId),
-                  actAs = lar.Party.subst(payload.actAs),
-                  readAs = lar.Party.subst(payload.readAs),
+                  actAs = lar.Party.subst(mActAs),
+                  readAs = lar.Party.subst(mReadAs),
                 ).toRightDisjunction(Unauthorized("No parties in actAs and readAs"))
               } yield payload,
           )
