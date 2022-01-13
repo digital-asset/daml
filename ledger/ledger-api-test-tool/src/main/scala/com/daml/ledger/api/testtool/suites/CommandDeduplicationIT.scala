@@ -99,21 +99,23 @@ final class CommandDeduplicationIT(
         party,
         noOfActiveContracts = 1,
       )
+      _ <-
+        if (!ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly) {
+          val completion = assertDefined(optCompletion, "No completion has been produced")
+          assertDeduplicationDuration(
+            deduplicationDuration.asProtobuf,
+            firstSubmissionSendTime,
+            secondCompletionReceiveTime,
+            completion,
+            party,
+            ledger,
+          )
+        } else Future.unit
     } yield {
       assert(
         response.completion.commandId == request.commands.get.commandId,
         "The command ID of the first completion does not match the command ID of the submission",
       )
-      if (!ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly) {
-        val completion = assertDefined(optCompletion, "No completion has been produced")
-        assertDeduplicationDuration(
-          deduplicationDuration.asProtobuf,
-          firstSubmissionSendTime,
-          secondCompletionReceiveTime,
-          completion,
-          ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.durationSupport,
-        )
-      }
     }
   })
 
@@ -528,13 +530,11 @@ final class CommandDeduplicationIT(
           )
         } yield {
           assertDeduplicationOffset(
-            Ref.HexString.assertFromString(response.offset.getAbsolute),
             response,
             response2,
             ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport,
           )
           assertDeduplicationOffset(
-            Ref.HexString.assertFromString(response3.offset.getAbsolute),
             response3,
             response4,
             ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport,
