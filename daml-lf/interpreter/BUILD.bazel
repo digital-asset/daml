@@ -54,7 +54,9 @@ da_scala_library(
         ":interpreter",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//daml-lf/parser",
         "//daml-lf/transaction",
+        "//daml-lf/validation",
         "//libs-scala/scala-utils",
     ],
 )
@@ -91,7 +93,6 @@ da_scala_test_suite(
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
-        "//daml-lf/validation",
         "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
