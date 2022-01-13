@@ -13,7 +13,7 @@ import io.grpc.reflection.v1alpha.{
   ServerReflectionRequest,
   ServerReflectionResponse,
 }
-import io.grpc.services.HealthStatusManager
+import io.grpc.protobuf.services.HealthStatusManager
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, Channel, ClientInterceptor}
 import org.scalatest.Assertion
