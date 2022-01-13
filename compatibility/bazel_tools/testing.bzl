@@ -921,6 +921,9 @@ def sdk_platform_test(sdk_version, platform_version):
 
     sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
 
+    sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
+    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--participant participant-id=example,port=6865", "--implicit-party-allocation=false", "--enable-conflict-checking"]
+
     json_api_args = ["json-api"]
 
     # --implicit-party-allocation=false only exists in SDK >= 1.2.0 so
@@ -954,76 +957,91 @@ def sdk_platform_test(sdk_version, platform_version):
     exclusions = ["--exclude=" + test for test in get_excluded_tests(test_tool_version = sdk_version, sandbox_version = platform_version)]
 
     if versions.is_stable(sdk_version) and versions.is_stable(platform_version):
-        client_server_test(
-            name = name,
-            client = ledger_api_test_tool,
-            client_args = [
-                "localhost:6865",
-            ] + exclusions + extra_sandbox_next_exclusions,
-            data = [dar_files],
-            runner = "@//bazel_tools/client_server:runner",
-            runner_args = ["6865"],
-            server = sandbox,
-            server_args = sandbox_args + extra_sandbox_next_args,
-            server_files = ["$(rootpaths {dar_files})".format(
-                dar_files = dar_files,
-            )],
-            tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-        )
+        if versions.is_at_least("2.0.0", platform_version):
+            client_server_test(
+                name = name + "-on-x",
+                client = ledger_api_test_tool,
+                client_args = [
+                    "localhost:6865",
+                ] + exclusions,
+                data = [dar_files],
+                runner = "@//bazel_tools/client_server:runner",
+                runner_args = ["6865"],
+                server = sandbox_on_x,
+                server_args = sandbox_on_x_args,
+                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+            )
+        else:
+            client_server_test(
+                name = name,
+                client = ledger_api_test_tool,
+                client_args = [
+                    "localhost:6865",
+                ] + exclusions + extra_sandbox_next_exclusions,
+                data = [dar_files],
+                runner = "@//bazel_tools/client_server:runner",
+                runner_args = ["6865"],
+                server = sandbox,
+                server_args = sandbox_args + extra_sandbox_next_args,
+                server_files = ["$(rootpaths {dar_files})".format(
+                    dar_files = dar_files,
+                )],
+                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+            )
 
-        client_server_test(
-            name = name + "-classic",
-            client = ledger_api_test_tool,
-            client_args = [
-                "localhost:6865",
-                "--exclude=ClosedWorldIT",
-            ] + exclusions,
-            data = [dar_files],
-            runner = "@//bazel_tools/client_server:runner",
-            runner_args = ["6865"],
-            server = sandbox,
-            server_args = sandbox_classic_args + extra_sandbox_classic_args,
-            server_files = ["$(rootpaths {dar_files})".format(
-                dar_files = dar_files,
-            )],
-            tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-        )
+            client_server_test(
+                name = name + "-classic",
+                client = ledger_api_test_tool,
+                client_args = [
+                    "localhost:6865",
+                    "--exclude=ClosedWorldIT",
+                ] + exclusions,
+                data = [dar_files],
+                runner = "@//bazel_tools/client_server:runner",
+                runner_args = ["6865"],
+                server = sandbox,
+                server_args = sandbox_classic_args + extra_sandbox_classic_args,
+                server_files = ["$(rootpaths {dar_files})".format(
+                    dar_files = dar_files,
+                )],
+                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+            )
 
-        client_server_test(
-            name = name + "-postgresql",
-            client = ledger_api_test_tool,
-            client_args = [
-                "localhost:6865",
-            ] + exclusions + extra_sandbox_next_exclusions,
-            data = [dar_files],
-            runner = "@//bazel_tools/client_server:runner",
-            runner_args = ["6865"],
-            server = ":sandbox-with-postgres-{}".format(platform_version),
-            server_args = [platform_version] + sandbox_args + extra_sandbox_next_args,
-            server_files = ["$(rootpaths {dar_files})".format(
-                dar_files = dar_files,
-            )],
-            tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-        ) if is_linux else None
+            client_server_test(
+                name = name + "-postgresql",
+                client = ledger_api_test_tool,
+                client_args = [
+                    "localhost:6865",
+                ] + exclusions + extra_sandbox_next_exclusions,
+                data = [dar_files],
+                runner = "@//bazel_tools/client_server:runner",
+                runner_args = ["6865"],
+                server = ":sandbox-with-postgres-{}".format(platform_version),
+                server_args = [platform_version] + sandbox_args + extra_sandbox_next_args,
+                server_files = ["$(rootpaths {dar_files})".format(
+                    dar_files = dar_files,
+                )],
+                tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
+            ) if is_linux else None
 
-        client_server_test(
-            name = name + "-classic-postgresql",
-            size = "large",
-            client = ledger_api_test_tool,
-            client_args = [
-                "localhost:6865",
-                "--exclude=ClosedWorldIT",
-            ] + exclusions,
-            data = [dar_files],
-            runner = "@//bazel_tools/client_server:runner",
-            runner_args = ["6865"],
-            server = ":sandbox-with-postgres-{}".format(platform_version),
-            server_args = [platform_version] + sandbox_classic_args + extra_sandbox_classic_args,
-            server_files = ["$(rootpaths {dar_files})".format(
-                dar_files = dar_files,
-            )],
-            tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-        ) if is_linux else None
+            client_server_test(
+                name = name + "-classic-postgresql",
+                size = "large",
+                client = ledger_api_test_tool,
+                client_args = [
+                    "localhost:6865",
+                    "--exclude=ClosedWorldIT",
+                ] + exclusions,
+                data = [dar_files],
+                runner = "@//bazel_tools/client_server:runner",
+                runner_args = ["6865"],
+                server = ":sandbox-with-postgres-{}".format(platform_version),
+                server_args = [platform_version] + sandbox_classic_args + extra_sandbox_classic_args,
+                server_files = ["$(rootpaths {dar_files})".format(
+                    dar_files = dar_files,
+                )],
+                tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
+            ) if is_linux else None
 
     # daml-ledger test-cases
     name = "daml-ledger-{sdk_version}-platform-{platform_version}".format(

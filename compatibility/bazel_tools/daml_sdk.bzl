@@ -54,6 +54,19 @@ def _daml_sdk_impl(ctx):
     else:
         fail("Must specify either sdk_tarball or sdk_sha256")
 
+    if ctx.attr.sandbox_on_x:
+        ctx.symlink(ctx.attr.sandbox_on_x, "sandbox-on-x.jar")
+        ctx.file(
+            "sandbox-on-x.sh",
+            content =
+                """#!/usr/bin/env bash
+    {runfiles_library}
+    $JAVA_HOME/bin/java -jar $(rlocation daml-sdk-{version}/sandbox-on-x.jar) $@
+    """.format(version = ctx.attr.version, runfiles_library = runfiles_library),
+        )
+
+    # TODO Support sandbox on x for releases.
+
     if ctx.attr.test_tool:
         ctx.symlink(ctx.attr.test_tool, "ledger-api-test-tool.jar")
     elif ctx.attr.test_tool_sha256:
@@ -156,6 +169,12 @@ sh_binary(
   data = [":ledger-api-test-tool.jar"],
   deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+sh_binary(
+  name = "sandbox-on-x",
+  srcs = [":sandbox-on-x.sh"],
+  data = [":sandbox-on-x.jar"],
+  deps = ["@bazel_tools//tools/bash/runfiles"],
+)
 cc_binary(
   name = "daml",
   srcs = ["daml.cc"],
@@ -190,6 +209,7 @@ _daml_sdk = repository_rule(
         "daml_react_sha256": attr.string(mandatory = False),
         "create_daml_app_patch": attr.label(allow_single_file = True, mandatory = False),
         "create_daml_app_patch_sha256": attr.string(mandatory = False),
+        "sandbox_on_x": attr.label(allow_single_file = True, mandatory = False),
     },
 )
 
@@ -200,13 +220,14 @@ def daml_sdk(version, **kwargs):
         **kwargs
     )
 
-def daml_sdk_head(sdk_tarball, ledger_api_test_tool, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
+def daml_sdk_head(sdk_tarball, ledger_api_test_tool, sandbox_on_x, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
     version = "0.0.0"
     _daml_sdk(
         name = "daml-sdk-{}".format(version),
         version = version,
         sdk_tarball = sdk_tarball,
         test_tool = ledger_api_test_tool,
+        sandbox_on_x = sandbox_on_x,
         daml_types_tarball = daml_types_tarball,
         daml_ledger_tarball = daml_ledger_tarball,
         daml_react_tarball = daml_react_tarball,
