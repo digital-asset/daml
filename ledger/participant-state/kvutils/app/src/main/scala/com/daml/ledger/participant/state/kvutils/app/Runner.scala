@@ -166,11 +166,13 @@ final class Runner[T <: ReadWriteService, Extra](
                     metrics = metrics,
                   )
                   .acquire()
-                userManagementStore =
-                new PersistentUserManagementStore(
+                userManagementStore = PersistentUserManagementStore.cached(
                   dbDispatcher = dbSupport.dbDispatcher,
                   metrics = metrics,
-                )
+                  cacheExpiryAfterWriteInSeconds =
+                    config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
+                  maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+                )(servicesExecutionContext)
                 indexService <- StandaloneIndexService(
                   dbSupport = dbSupport,
                   ledgerId = config.ledgerId,

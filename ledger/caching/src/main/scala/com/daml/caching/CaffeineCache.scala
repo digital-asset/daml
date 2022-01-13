@@ -37,13 +37,16 @@ object CaffeineCache {
     override def invalidate(key: Key): Unit = cache.invalidate(key)
   }
 
-  class SimpleAsyncLoadingCache[Key <: AnyRef, Value <: AnyRef](
-      cache: com.github.benmanes.caffeine.cache.AsyncLoadingCache[Key, Value]
-  ) extends AsyncLoadingCache[Key, Value] {
+  final class AsyncLoadingCacheScala[Key <: AnyRef, Value <: AnyRef](
+      cache: caffeine.AsyncLoadingCache[Key, Value],
+      cacheMetrics: CacheMetrics,
+  ) {
+    // TODO pbatko: Is calling synchronous() appropriate?
+    installMetrics(cacheMetrics, cache.synchronous())
 
-    override def get(key: Key): Future[Value] = FutureConverters.toScala(cache.get(key))
+    def get(key: Key): Future[Value] = FutureConverters.toScala(cache.get(key))
 
-    override def invalidate(key: Key): Unit = cache.synchronous().invalidate(key)
+    def invalidate(key: Key): Unit = cache.synchronous().invalidate(key)
 
   }
 
@@ -51,10 +54,7 @@ object CaffeineCache {
       cache: caffeine.Cache[Key, Value],
       metrics: CacheMetrics,
   ) extends ConcurrentCache[Key, Value] {
-    metrics.registerSizeGauge(() => cache.estimatedSize())
-    metrics.registerWeightGauge(() =>
-      cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0)
-    )
+    installMetrics(metrics, cache)
 
     private val delegate = new SimpleCaffeineCache(cache)
 
@@ -71,12 +71,14 @@ object CaffeineCache {
       delegate.invalidate(key)
   }
 
-//  class InstrumentedAsyncLoadingCache[Key <: AnyRef, Value <: AnyRef](
-//                                                                       cache: AsyncLoadingCache[Key, Value],
-//                                                                       metrics: CacheMetrics
-//                                                                     ) {
-//
-//
-//  }
+  private def installMetrics[Key <: AnyRef, Value <: AnyRef](
+      metrics: CacheMetrics,
+      cache: caffeine.Cache[Key, Value],
+  ): Unit = {
+    metrics.registerSizeGauge(() => cache.estimatedSize())
+    metrics.registerWeightGauge(() =>
+      cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0)
+    )
+  }
 
 }

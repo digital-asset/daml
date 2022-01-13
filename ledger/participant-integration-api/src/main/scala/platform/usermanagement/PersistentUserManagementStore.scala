@@ -22,7 +22,38 @@ import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.UserManagementStorageBackend
 import com.daml.platform.store.backend.common.UserManagementStorageBackendTemplate
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
+
+object UserManagementConfig {
+
+  val default: UserManagementConfig = UserManagementConfig(
+    maximumCacheSize = 100,
+    cacheExpiryAfterWriteInSeconds = 5,
+  )
+}
+final case class UserManagementConfig(
+    maximumCacheSize: Int,
+    cacheExpiryAfterWriteInSeconds: Int,
+)
+
+object PersistentUserManagementStore {
+  def cached(
+      dbDispatcher: DbDispatcher,
+      metrics: Metrics,
+      cacheExpiryAfterWriteInSeconds: Int,
+      maximumCacheSize: Int,
+  )(implicit executionContext: ExecutionContext): UserManagementStore = {
+    new CachedUserManagementStore(
+      delegate = new PersistentUserManagementStore(
+        dbDispatcher = dbDispatcher,
+        metrics = metrics,
+      ),
+      expiryAfterWriteInSeconds = cacheExpiryAfterWriteInSeconds,
+      maximumCacheSize = maximumCacheSize,
+      metrics = metrics,
+    )
+  }
+}
 
 class PersistentUserManagementStore(
     dbDispatcher: DbDispatcher,
@@ -58,7 +89,6 @@ class PersistentUserManagementStore(
         ()
       }
     }.map(tapSuccess { _ =>
-      // TODO participant user management: Unit test logged messages
       logger.info(
         s"Created new user: ${user} with ${rights.size} rights: ${rightsDigestText(rights)}"
       )

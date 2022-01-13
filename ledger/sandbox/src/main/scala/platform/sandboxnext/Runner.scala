@@ -282,10 +282,13 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 connectionTimeout = apiServerConfig.databaseConnectionTimeout,
                 metrics = metrics,
               )
-              userManagementStore = new PersistentUserManagementStore(
+              userManagementStore = PersistentUserManagementStore.cached(
                 dbDispatcher = dbSupport.dbDispatcher,
                 metrics = metrics,
-              )
+                cacheExpiryAfterWriteInSeconds =
+                  config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
+                maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+              )(servicesExecutionContext)
               indexService <- StandaloneIndexService(
                 dbSupport = dbSupport,
                 ledgerId = ledgerId,

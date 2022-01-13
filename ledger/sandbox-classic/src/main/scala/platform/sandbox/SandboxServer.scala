@@ -337,10 +337,13 @@ final class SandboxServer(
       }
       userManagementStore = dbSupportOption match {
         case Some(dbSupport) =>
-          new PersistentUserManagementStore(
+          PersistentUserManagementStore.cached(
             dbDispatcher = dbSupport.dbDispatcher,
             metrics = metrics,
-          )
+            cacheExpiryAfterWriteInSeconds =
+              config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
+            maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+          )(servicesExecutionContext)
         case None => new InMemoryUserManagementStore
       }
       indexAndWriteService <- (dbSupportOption match {

@@ -142,19 +142,21 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
+    val user1 = User(userId1, "party1")
+    val user2 = User(userId2, "")
     for {
       res1 <- ledger.userManagement.createUser(
-        CreateUserRequest(Some(User(userId1, "party1")), Nil)
+        CreateUserRequest(Some(user1), Nil)
       )
       res2 <- ledger.userManagement
-        .createUser(CreateUserRequest(Some(User(userId1, "party1")), Nil))
+        .createUser(CreateUserRequest(Some(user1), Nil))
         .mustFail("allocating a duplicate user")
-      res3 <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId2, "")), Nil))
+      res3 <- ledger.userManagement.createUser(CreateUserRequest(Some(user2), Nil))
       res4 <- ledger.userManagement.deleteUser(DeleteUserRequest(userId2))
     } yield {
-      assertEquals(res1, User(userId1, "party1"))
+      assertEquals(res1, user1)
       assertUserAlreadyExists(res2)
-      assertEquals(res3, User(userId2, ""))
+      assertEquals(res3, user2)
       assertEquals(res4, DeleteUserResponse())
     }
   })
@@ -165,9 +167,10 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
+    val user1 = User(userId1, "party1")
     for {
       _ <- ledger.userManagement.createUser(
-        CreateUserRequest(Some(User(userId1, "party1")), Nil)
+        CreateUserRequest(Some(user1), Nil)
       )
       res1 <- ledger.userManagement.getUser(GetUserRequest(userId1))
       res2 <- ledger.userManagement
@@ -175,7 +178,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         .mustFail("retrieving non-existent user")
     } yield {
       assertUserNotFound(res2)
-      assert(res1 == User(userId1, "party1"))
+      assert(res1 == user1)
     }
   })
 
@@ -185,10 +188,10 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
-
+    val user1 = User(userId1, "party1")
     for {
       _ <- ledger.userManagement.createUser(
-        CreateUserRequest(Some(User(userId1, "party1")), Nil)
+        CreateUserRequest(Some(user1), Nil)
       )
       res1 <- ledger.userManagement.deleteUser(DeleteUserRequest(userId1))
       res2 <- ledger.userManagement
@@ -206,27 +209,29 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
+    val user1 = User(userId1, "party1")
+    val user2 = User(userId2, "party4")
     for {
       _ <- ledger.userManagement.createUser(
-        CreateUserRequest(Some(User(userId1, "party1")), Nil)
+        CreateUserRequest(Some(user1), Nil)
       )
       res1 <- ledger.userManagement.listUsers(ListUsersRequest())
       res2 <- ledger.userManagement.createUser(
-        CreateUserRequest(Some(User(userId2, "party4")), Nil)
+        CreateUserRequest(Some(user2), Nil)
       )
       res3 <- ledger.userManagement.listUsers(ListUsersRequest())
       res4 <- ledger.userManagement.deleteUser(DeleteUserRequest(userId2))
       res5 <- ledger.userManagement.listUsers(ListUsersRequest())
     } yield {
       def filterUsers(users: Iterable[User]) = users.filter(u => u.id == userId1 || u.id == userId2)
-      assertSameElements(filterUsers(res1.users), Seq(User(userId1, "party1")))
-      assertEquals(res2, User(userId2, "party4"))
+      assertSameElements(filterUsers(res1.users), Seq(user1))
+      assertEquals(res2, user2)
       assertSameElements(
         filterUsers(res3.users),
-        Set(User(userId1, "party1"), User(userId2, "party4")),
+        Set(user1, user2),
       )
       assertEquals(res4, DeleteUserResponse())
-      assertSameElements(filterUsers(res5.users), Seq(User(userId1, "party1")))
+      assertSameElements(filterUsers(res5.users), Seq(user1))
     }
   })
 
@@ -236,10 +241,9 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
+    val user1 = User(userId1, "party1")
     for {
-      _ <- ledger.userManagement.createUser(
-        CreateUserRequest(Some(User(userId1, "party1")), Nil)
-      )
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user1), Nil))
       res1 <- ledger.userManagement.grantUserRights(
         GrantUserRightsRequest(userId1, List(adminPermission))
       )
@@ -266,9 +270,10 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
+    val user1 = User(userId1, "party1")
     for {
       _ <- ledger.userManagement.createUser(
-        CreateUserRequest(Some(User(userId1, "party1")), List(adminPermission) ++ userRightsBatch)
+        CreateUserRequest(Some(user1), List(adminPermission) ++ userRightsBatch)
       )
       res1 <- ledger.userManagement.revokeUserRights(
         RevokeUserRightsRequest(userId1, List(adminPermission))
@@ -294,26 +299,27 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     "TestListUserRights",
     "Exercise ListUserRights rpc",
   )(implicit ec => { implicit ledger =>
-    val userId4 = ledger.nextUserId()
+    val userId1 = ledger.nextUserId()
+    val user1 = User(userId1, "party4")
     for {
       res1 <- ledger.userManagement.createUser(
-        CreateUserRequest(Some(User(userId4, "party4")), Nil)
+        CreateUserRequest(Some(user1), Nil)
       )
-      res2 <- ledger.userManagement.listUserRights(ListUserRightsRequest(userId4))
+      res2 <- ledger.userManagement.listUserRights(ListUserRightsRequest(userId1))
       res3 <- ledger.userManagement.grantUserRights(
         GrantUserRightsRequest(
-          userId4,
+          userId1,
           List(adminPermission, actAsPermission1, readAsPermission1),
         )
       )
-      res4 <- ledger.userManagement.listUserRights(ListUserRightsRequest(userId4))
+      res4 <- ledger.userManagement.listUserRights(ListUserRightsRequest(userId1))
       res5 <- ledger.userManagement.revokeUserRights(
-        RevokeUserRightsRequest(userId4, List(adminPermission))
+        RevokeUserRightsRequest(userId1, List(adminPermission))
       )
       res6 <- ledger.userManagement
-        .listUserRights(ListUserRightsRequest(userId4))
+        .listUserRights(ListUserRightsRequest(userId1))
     } yield {
-      assertEquals(res1, User(userId4, "party4"))
+      assertEquals(res1, user1)
       assertEquals(res2, ListUserRightsResponse(Seq.empty))
       assertSameElements(
         res3.newlyGrantedRights.toSet,

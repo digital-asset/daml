@@ -3,11 +3,13 @@
 
 package com.daml.platform.usermanagement
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{UserInfo, UserNotFound}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Ref
+import com.daml.metrics.Metrics
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -31,7 +33,12 @@ class CachedUserManagementStoreSpec
 
   "test cache population" in {
     val delegate = spy(new InMemoryUserManagementStore())
-    val tested = new CachedUserManagementStore(delegate, expiryAfterWriteInSeconds = 10)
+    val tested = new CachedUserManagementStore(
+      delegate,
+      expiryAfterWriteInSeconds = 10,
+      maximumCacheSize = 100,
+      new Metrics(new MetricRegistry)
+    )
 
     for {
       _ <- tested.createUser(userInfo.user, userInfo.rights)
@@ -52,7 +59,12 @@ class CachedUserManagementStoreSpec
 
   "test cache invalidation after every write method" in {
     val delegate = spy(new InMemoryUserManagementStore())
-    val tested = new CachedUserManagementStore(delegate, expiryAfterWriteInSeconds = 10)
+    val tested = new CachedUserManagementStore(
+      delegate,
+      expiryAfterWriteInSeconds = 10,
+      maximumCacheSize = 100,
+      new Metrics(new MetricRegistry)
+    )
 
     val userInfo = UserInfo(user, rights)
 
@@ -85,7 +97,12 @@ class CachedUserManagementStoreSpec
 
   "listing all users should not be cached" in {
     val delegate = spy(new InMemoryUserManagementStore(createAdmin = false))
-    val tested = new CachedUserManagementStore(delegate, expiryAfterWriteInSeconds = 10)
+    val tested = new CachedUserManagementStore(
+      delegate,
+      expiryAfterWriteInSeconds = 10,
+      maximumCacheSize = 100,
+      new Metrics(new MetricRegistry)
+    )
 
     for {
       res0 <- tested.createUser(user, rights)
@@ -105,7 +122,9 @@ class CachedUserManagementStoreSpec
   "cache entries expire after a set time" in {
 
     val delegate = spy(new InMemoryUserManagementStore())
-    val tested = new CachedUserManagementStore(delegate, expiryAfterWriteInSeconds = 1)
+    val tested =
+      new CachedUserManagementStore(delegate, expiryAfterWriteInSeconds = 1, maximumCacheSize = 100,
+        new Metrics(new MetricRegistry))
 
     for {
       create1 <- tested.createUser(user, rights)

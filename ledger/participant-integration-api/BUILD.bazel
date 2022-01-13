@@ -221,7 +221,6 @@ da_scala_library(
         "@maven//:io_netty_netty_transport",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_scalatest_scalatest_compatible",
-#        "@maven//:org_postgresql_postgresql",
     ],
 )
 

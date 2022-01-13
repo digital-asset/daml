@@ -57,7 +57,7 @@
     </logger>
 
     <appender name="PersistentUserManagementStoreSpecAppender" class="com.daml.platform.testing.LogCollector">
-        <test>com.daml.platform.usermanagement.PersistentUserManagementStoreSpec</test>
+        <test>com.daml.platform.usermanagement.UserManagementStoreSpecBase</test>
     </appender>
 
     <logger name="com.daml.platform.usermanagement.PersistentUserManagementStore" level="INFO">

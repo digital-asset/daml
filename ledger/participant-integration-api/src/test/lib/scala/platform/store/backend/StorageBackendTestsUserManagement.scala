@@ -10,7 +10,7 @@ import com.daml.ledger.api.domain.User
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.lf.data.Ref
 import com.daml.platform.testing.LogCollectorAssertions
-import org.scalatest.flatspec.{AnyFlatSpec}
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}
 
@@ -18,7 +18,7 @@ import scala.concurrent.Future
 import scala.language.implicitConversions
 
 private[backend] trait StorageBackendTestsUserManagement
-  extends Matchers
+    extends Matchers
     with Inside
     with StorageBackendSpec
     with ErrorsAssertions

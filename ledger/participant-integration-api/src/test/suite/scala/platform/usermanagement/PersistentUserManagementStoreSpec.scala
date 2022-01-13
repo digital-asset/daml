@@ -7,6 +7,7 @@ import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{UserExists, UserNotFound}
 import com.daml.ledger.resources.TestResourceContext
@@ -14,31 +15,25 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Party, UserId}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.store.backend.{StorageBackendProviderPostgres, StorageBackendSpec}
+import com.daml.platform.store.backend.{StorageBackendProviderPostgres, StorageBackendSpec_forStore}
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
+import org.scalatest.Assertion
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.Assertion
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
-class PersistentUserManagementStoreSpec
-    extends AsyncFreeSpec
-    with StorageBackendProviderPostgres
-    with TestResourceContext
-    with Matchers
-    // TODO pbatko: This is not storage backend
-    with StorageBackendSpec
-    with LogCollectorAssertions {
+class UserManagementStoreSpec_PersistentUserManagementStore extends UserManagementStoreSpecBase {
 
-  implicit val lc: LoggingContext = LoggingContext.ForTesting
-
-  private implicit def toParty(s: String): Party =
-    Party.assertFromString(s)
-
-  private implicit def toUserId(s: String): UserId =
-    UserId.assertFromString(s)
+  override def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion] = {
+    val metrics = new Metrics(new MetricRegistry)
+    val tested = new PersistentUserManagementStore(
+      dbDispatcher = getDbDispatcher,
+      metrics = metrics,
+    )
+    f(tested)
+  }
 
   "log on user creation, deletion, rights granting and revocation" in {
     val user = User(
@@ -57,14 +52,15 @@ class PersistentUserManagementStoreSpec
     val right2 = CanReadAs(Ref.Party.assertFromString("party_read_as_5"))
     val rights2: Set[UserRight] = Set(right1, right2)
 
-    testIt { tested: PersistentUserManagementStore =>
+    testIt { tested =>
       def assertOneLogThenClear: LogCollector.Entry = {
-        val logs = LogCollector.readAsEntries[this.type, tested.type]
-        LogCollector.clear[this.type]
+        val logs =
+          LogCollector.readAsEntries[UserManagementStoreSpecBase, PersistentUserManagementStore]
+        LogCollector.clear[UserManagementStoreSpecBase]
         logs.size shouldBe 1
         logs.head
       }
-      LogCollector.clear[this.type]
+      LogCollector.clear[UserManagementStoreSpecBase]
       for {
         _ <- tested.createUser(user, rights)
         createUserLog = assertOneLogThenClear
@@ -101,34 +97,56 @@ class PersistentUserManagementStoreSpec
     }
   }
 
-  "do it" in {
+}
 
-    testIt { tested: PersistentUserManagementStore =>
-      val user = User(
-        id = Ref.UserId.assertFromString("user_id_123"),
-        primaryParty = Some(Ref.Party.assertFromString("primary_party_123")),
-      )
-      val rights: Set[UserRight] = Seq(
-        ParticipantAdmin,
-        CanActAs(Ref.Party.assertFromString("party_act_as_1")),
-        CanActAs(Ref.Party.assertFromString("party_act_as_2")),
-        CanReadAs(Ref.Party.assertFromString("party_read_as_1")),
-      ).toSet
+class UserManagementStoreSpec_InMemoryUserManagementStore extends UserManagementStoreSpecBase {
 
-      for {
-        _ <- tested.createUser(user, rights)
-        createdUser <- tested.getUser(user.id)
-        nonExistentUser <- tested.getUser(Ref.UserId.assertFromString("user_id_123_non_existent"))
-      } yield {
-        createdUser shouldBe Right(user)
-        nonExistentUser shouldBe Left(
-          UserManagementStore.UserNotFound(Ref.UserId.assertFromString("user_id_123_non_existent"))
-        )
-      }
-
-    }
-
+  override def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion] = {
+    val tested = new InMemoryUserManagementStore(
+      createAdmin = false
+    )
+    f(tested)
   }
+
+}
+
+class UserManagementStoreSpec_CachedUserManagementStore extends UserManagementStoreSpecBase {
+
+  override def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion] = {
+    val metrics = new Metrics(new MetricRegistry)
+    val delegate = new PersistentUserManagementStore(
+      dbDispatcher = getDbDispatcher,
+      metrics = metrics,
+    )
+    val tested = new CachedUserManagementStore(
+      delegate,
+      expiryAfterWriteInSeconds = 10,
+      maximumCacheSize = 100,
+      new Metrics(new MetricRegistry)
+    )
+    f(tested)
+  }
+
+}
+
+trait UserManagementStoreSpecBase
+    extends AsyncFreeSpec
+    with StorageBackendProviderPostgres
+    with TestResourceContext
+    with Matchers
+    // TODO pbatko: This is not storage backend
+    with StorageBackendSpec_forStore
+    with LogCollectorAssertions {
+
+  implicit val lc: LoggingContext = LoggingContext.ForTesting
+
+  private implicit def toParty(s: String): Party =
+    Party.assertFromString(s)
+
+  private implicit def toUserId(s: String): UserId =
+    UserId.assertFromString(s)
+
+  def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion]
 
   "user management" - {
     "allow creating a fresh user" in {
@@ -353,16 +371,6 @@ class PersistentUserManagementStoreSpec
         }
       }
     }
-  }
-
-  def testIt(f: PersistentUserManagementStore => Future[Assertion]): Future[Assertion] = {
-    val metrics = new Metrics(new MetricRegistry)
-    val tested = new PersistentUserManagementStore(
-      dbDispatcher = getDbDispatcher,
-      metrics = metrics,
-    )
-    f(tested)
-
   }
 
 }
