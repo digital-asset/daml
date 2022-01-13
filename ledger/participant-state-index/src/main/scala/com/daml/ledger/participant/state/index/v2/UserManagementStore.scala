@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class UserManagementStore {
+trait UserManagementStore {
   import UserManagementStore._
 
   // read access

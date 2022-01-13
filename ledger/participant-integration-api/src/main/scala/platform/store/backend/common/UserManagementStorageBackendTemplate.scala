@@ -42,10 +42,11 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
   override def createUser(user: domain.User)(
       connection: Connection
   ): Int = {
+    val primaryPartyRaw = (user.primaryParty: Option[String]).getOrElse("")
     val internalId: Try[Int] =
       SQL"""
          INSERT INTO participant_users (user_id, primary_party)
-         VALUES (${user.id: String}, ${user.primaryParty: Option[String]})
+         VALUES (${user.id: String}, $primaryPartyRaw)
        """.executeInsert1("internal_id")(SqlParser.scalar[Int].single)(connection)
     internalId.get
   }
@@ -64,7 +65,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
           internalId = internalId,
           domainUser = domain.User(
             id = Ref.UserId.assertFromString(userId),
-            primaryParty = dbStringToParty(primaryPartyRaw),
+            primaryParty = dbStringToPartyString(primaryPartyRaw),
           ),
         )
       }
@@ -81,7 +82,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
           FROM participant_users"""
       .asVectorOf(ParticipantUserParser2)(connection)
       .map { case (userId, primaryPartyRaw) =>
-        toDomainUser(userId, dbStringToParty(primaryPartyRaw))
+        toDomainUser(userId, dbStringToPartyString(primaryPartyRaw))
       }
   }
 
@@ -138,7 +139,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     rec.map { case (userRight, forPartyRaw) =>
       makeUserRight(
         value = userRight,
-        party = dbStringToParty(forPartyRaw),
+        party = dbStringToPartyString(forPartyRaw),
       )
     }.toSet
   }
@@ -147,8 +148,6 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
       connection: Connection
   ): Boolean = {
     val (userRight: Int, forParty: String) = fromUserRight(right)
-
-    import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val updatedRowCount: Int =
       SQL"""
            DELETE FROM participant_user_rights ur
@@ -168,7 +167,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
       case (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party)) => CanActAs(party)
       case (Right.CAN_READ_AS_FIELD_NUMBER, Some(party)) => CanReadAs(party)
       case _ =>
-        throw new RuntimeException // TODO participant user management: Use self-service error codes
+        throw new RuntimeException(s"Could not convert ${(value, party)} to a user right!")
     }
   }
 
@@ -178,11 +177,11 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
       case CanActAs(party) => (Right.CAN_ACT_AS_FIELD_NUMBER, party: String)
       case CanReadAs(party) => (Right.CAN_READ_AS_FIELD_NUMBER, party: String)
       case _ =>
-        throw new RuntimeException // TODO participant user management: Use self-service error codes
+        throw new RuntimeException(s"Could not recognize user right: $right!")
     }
   }
 
-  private def dbStringToParty(raw: String): Option[Ref.Party] = {
+  private def dbStringToPartyString(raw: String): Option[Ref.Party] = {
     if (raw.isEmpty)
       None
     else

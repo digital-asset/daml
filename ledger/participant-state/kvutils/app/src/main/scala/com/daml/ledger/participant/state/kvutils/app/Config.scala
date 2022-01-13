@@ -656,7 +656,7 @@ object Config {
           .optional()
           .text(
             s"Defaults to ${UserManagementConfig.default.cacheExpiryAfterWriteInSeconds} seconds. " +
-              // TODO participant user management: Update max delay to 2x the configured value when made us of in throttled stream authorization.
+              // TODO participant user management: Update max delay to 2x the configured value when made use of in throttled stream authorization.
               "Determines the maximum delay for propagating user management state changes."
           )
           .action((value, config: Config[Extra]) =>

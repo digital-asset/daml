@@ -104,8 +104,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
 
 object InMemoryUserManagementStore {
 
-  // TODO participant user management: Review usage in PersistentUserManagementStore
-  val AdminUser = UserInfo(
+  private val AdminUser = UserInfo(
     user = User(Ref.UserId.assertFromString("participant_admin"), None),
     rights = Set(UserRight.ParticipantAdmin),
   )

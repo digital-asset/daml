@@ -175,14 +175,14 @@ object SandboxOnXRunner {
               metrics = metrics,
             )
 
-          indexService <- standaloneIndexService(
-            sharedEngine,
-            config,
-            apiServerConfig,
-            metrics,
-            translationCache,
-            servicesExecutionContext,
-            dbSupport,
+          indexService <- StandaloneIndexService(
+            ledgerId = config.ledgerId,
+            config = apiServerConfig,
+            metrics = metrics,
+            engine = sharedEngine,
+            servicesExecutionContext = servicesExecutionContext,
+            lfValueTranslationCache = translationCache,
+            dbSupport = dbSupport,
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
@@ -209,28 +209,6 @@ object SandboxOnXRunner {
         } yield ()
     }
   }
-
-  private def standaloneIndexService(
-      sharedEngine: Engine,
-      config: Config[BridgeConfig],
-      apiServerConfig: ApiServerConfig,
-      metrics: Metrics,
-      translationCache: LfValueTranslationCache.Cache,
-      servicesExecutionContext: ExecutionContextExecutorService,
-      dbSupport: DbSupport,
-  )(implicit
-      loggingContext: LoggingContext,
-      materializer: Materializer,
-  ): ResourceOwner[IndexService] =
-    StandaloneIndexService(
-      ledgerId = config.ledgerId,
-      config = apiServerConfig,
-      metrics = metrics,
-      engine = sharedEngine,
-      servicesExecutionContext = servicesExecutionContext,
-      lfValueTranslationCache = translationCache,
-      dbSupport = dbSupport,
-    )
 
   private def buildStandaloneApiServer(
       sharedEngine: Engine,

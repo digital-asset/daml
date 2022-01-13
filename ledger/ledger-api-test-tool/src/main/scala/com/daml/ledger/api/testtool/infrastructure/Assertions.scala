@@ -67,10 +67,6 @@ object Assertions {
     )
   }
 
-  //  protected def assertEquals(actual: Any, expected: Any): Unit = {
-  //    assert(actual == expected, s"Actual |${actual}| should be equal (expected): |${expected}|")
-  //  }
-
   /** Asserts GRPC error codes depending on the self-service error codes feature in the Ledger API. */
   def assertGrpcError(
       participant: ParticipantTestContext,

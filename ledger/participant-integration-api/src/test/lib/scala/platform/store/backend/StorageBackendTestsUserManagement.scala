@@ -13,7 +13,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}
 
-
 private[backend] trait StorageBackendTestsUserManagement
     extends Matchers
     with Inside
@@ -23,7 +22,7 @@ private[backend] trait StorageBackendTestsUserManagement
 
   behavior of "StorageBackend (user management)"
 
-  // Representative values for each kind of right
+  // Representative values for each kind of user right
   private val right1 = ParticipantAdmin
   private val right2 = CanActAs(Ref.Party.assertFromString("party_act_as_1"))
   private val right3 = CanReadAs(Ref.Party.assertFromString("party_read_as_1"))
@@ -34,8 +33,11 @@ private[backend] trait StorageBackendTestsUserManagement
     val user1 = newUniqueUser()
     val user2 = newUniqueUser()
     val internalId1 = executeSql(tested.createUser(user1))
+    // Attempting to add a duplicate user
     assertThrows[SQLException](executeSql(tested.createUser(user1)))
     val internalId2 = executeSql(tested.createUser(user2))
+    val _ = executeSql(tested.createUser(newUniqueUser(emptyPrimaryParty = true)))
+    internalId1 should not equal internalId2
     internalId1 should not equal internalId2
   }
 
@@ -80,10 +82,13 @@ private[backend] trait StorageBackendTestsUserManagement
     val actAsRight = CanActAs(Ref.Party.assertFromString("party_act_as_1"))
     val internalId = executeSql(tested.createUser(user = user1))
     val addOk1 = executeSql(tested.addUserRight(internalId, adminRight))
+    // Attempting to add a duplicate user admin right
     assertThrows[SQLException](executeSql(tested.addUserRight(internalId, adminRight)))
     val addOk2 = executeSql(tested.addUserRight(internalId, readAsRight))
+    // Attempting to add a duplicate user readAs right
     assertThrows[SQLException](executeSql(tested.addUserRight(internalId, readAsRight)))
     val addOk3 = executeSql(tested.addUserRight(internalId, actAsRight))
+    // Attempting to add a duplicate user actAs right
     assertThrows[SQLException](executeSql(tested.addUserRight(internalId, actAsRight)))
     addOk1 shouldBe true
     addOk2 shouldBe true
@@ -151,11 +156,17 @@ private[backend] trait StorageBackendTestsUserManagement
     rights2 shouldBe empty
   }
 
-  private def newUniqueUser(): User = {
+  private def newUniqueUser(emptyPrimaryParty: Boolean = false): User = {
     val uuid = UUID.randomUUID.toString
+    val primaryParty =
+      if (emptyPrimaryParty)
+        None
+      else
+        Some(Ref.Party.assertFromString(s"primary_party_${uuid}"))
     User(
       id = Ref.UserId.assertFromString(s"user_id_${uuid}"),
-      primaryParty = Some(Ref.Party.assertFromString(s"primary_party_${uuid}")),
+      primaryParty = primaryParty,
     )
   }
+
 }
