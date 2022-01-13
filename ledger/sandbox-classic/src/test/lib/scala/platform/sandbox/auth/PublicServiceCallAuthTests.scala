@@ -6,13 +6,13 @@ package com.daml.platform.sandbox.auth
 import java.time.Duration
 import java.util.UUID
 
-import com.daml.ledger.api.auth.SupportedJWTPayload
+import com.daml.ledger.api.auth.AuthServiceJWTPayload
 
 import scala.concurrent.Future
 
 trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
-  protected def serviceCallWithPayload(payload: SupportedJWTPayload): Future[Any] =
+  protected def serviceCallWithPayload(payload: AuthServiceJWTPayload): Future[Any] =
     serviceCallWithToken(Some(toHeader(payload)))
 
   it should "deny calls with an expired read-only token" in {

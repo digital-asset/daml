@@ -17,7 +17,7 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
 import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
@@ -63,10 +63,15 @@ class JsonLedgerClient(
     case -\/(e) => throw new IllegalArgumentException(e.toString)
     case \/-(a) => a
   }
-  private[script] val tokenPayload: AuthServiceJWTPayload =
+  private[script] val tokenPayload: CustomDamlJWTPayload =
     AuthServiceJWTCodec.readFromString(decodedJwt.payload) match {
       case Failure(e) => throw e
-      case Success(s) => s
+      case Success(s: CustomDamlJWTPayload) => s
+      case Success(_: StandardJWTPayload) =>
+        // TODO https://github.com/digital-asset/daml/issues/12349
+        throw new UnsupportedOperationException(
+          "Daml Script over JSON API does not support standard JWT tokens"
+        )
     }
 
   implicit val system = actorSystem
@@ -319,45 +324,21 @@ class JsonLedgerClient(
     )
   }
 
-  // Check that the parties in the token provide read claims for the given parties
-  // and return explicit party specifications if required.
   private def validateTokenParties(
       parties: OneAnd[Set, Ref.Party],
       what: String,
-  ): Future[Option[QueryParties]] = {
-    val tokenParties = tokenPayload.readAs.toSet union tokenPayload.actAs.toSet
-    val partiesSet = parties.toSet.toSet[String]
-    val missingParties = partiesSet diff tokenParties
-    // First check is just for a nicer error message and would be covered by the second
-    if (tokenParties.isEmpty) {
-      Future.failed(
-        new RuntimeException(
-          s"Tried to $what as ${parties.toList.mkString(" ")} but token contains no parties."
-        )
-      )
-    } else if (missingParties.nonEmpty) {
-      Future.failed(new RuntimeException(s"Tried to $what as [${parties.toList
-        .mkString(", ")}] but token provides claims for [${tokenParties
-        .mkString(", ")}]. Missing claims: [${missingParties.mkString(", ")}]"))
-    } else {
-      import scalaz.std.string._
-      if (partiesSet === tokenParties) {
-        // For backwards-compatibility we only set the party set flags when needed
-        Future.successful(None)
-      } else {
-        Future.successful(Some(QueryParties(parties)))
-      }
-    }
-  }
+  ): Future[Option[QueryParties]] =
+    JsonLedgerClient
+      .validateTokenParties(parties, what, tokenPayload)
+      .fold(s => Future.failed(new RuntimeException(s)), Future.successful(_))
 
   private def validateSubmitParties(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-  ): Future[Option[SubmitParties]] = {
+  ): Future[Option[SubmitParties]] =
     JsonLedgerClient
       .validateSubmitParties(actAs, readAs, tokenPayload)
       .fold(s => Future.failed(new RuntimeException(s)), Future.successful(_))
-  }
 
   private def create(
       tplId: Identifier,
@@ -593,13 +574,43 @@ object JsonLedgerClient {
       readers: OneAnd[Set, Ref.Party]
   )
 
+  // Check that the parties in the token provide read claims for the given parties
+  // and return explicit party specifications if required.
+  def validateTokenParties(
+      parties: OneAnd[Set, Ref.Party],
+      what: String,
+      tokenPayload: CustomDamlJWTPayload,
+  ): Either[String, Option[QueryParties]] = {
+    val tokenParties = tokenPayload.readAs.toSet union tokenPayload.actAs.toSet
+    val partiesSet = parties.toSet.toSet[String]
+    val missingParties = partiesSet diff tokenParties
+    // First check is just for a nicer error message and would be covered by the second
+    if (tokenParties.isEmpty) {
+      Left(
+        s"Tried to $what as ${parties.toList.mkString(" ")} but token contains no parties."
+      )
+    } else if (missingParties.nonEmpty) {
+      Left(s"Tried to $what as [${parties.toList
+        .mkString(", ")}] but token provides claims for [${tokenParties
+        .mkString(", ")}]. Missing claims: [${missingParties.mkString(", ")}]")
+    } else {
+      import scalaz.std.string._
+      if (partiesSet === tokenParties) {
+        // For backwards-compatibility we only set the party set flags when needed
+        Right(None)
+      } else {
+        Right(Some(QueryParties(parties)))
+      }
+    }
+  }
+
   // Validate that the token has the required claims and return
   // SubmitParties we need to pass to the JSON API
   // if the token has more claims than we need.
   def validateSubmitParties(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      tokenPayload: AuthServiceJWTPayload,
+      tokenPayload: CustomDamlJWTPayload,
   ): Either[String, Option[SubmitParties]] = {
     val actAsSet = actAs.toList.toSet[String]
     val readAsSet = readAs.toSet[String]

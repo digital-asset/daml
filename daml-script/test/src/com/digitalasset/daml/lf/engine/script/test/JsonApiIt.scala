@@ -17,7 +17,7 @@ import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
-import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
@@ -103,7 +103,7 @@ trait JsonApiFixture
   }
 
   protected def getToken(actAs: List[String], readAs: List[String], admin: Boolean): String = {
-    val payload = AuthServiceJWTPayload(
+    val payload = CustomDamlJWTPayload(
       ledgerId = Some("MyLedger"),
       participantId = None,
       exp = None,

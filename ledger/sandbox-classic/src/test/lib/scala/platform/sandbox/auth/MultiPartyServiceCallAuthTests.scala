@@ -42,7 +42,7 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       requestSubmitters: RequestSubmitters,
   ): Future[Any] = {
     val token = Option(
-      customTokenToHeader(multiPartyToken(tokenParties.actAs, tokenParties.readAs))
+      toHeader(multiPartyToken(tokenParties.actAs, tokenParties.readAs))
     )
     serviceCallWithToken(token, requestSubmitters)
   }

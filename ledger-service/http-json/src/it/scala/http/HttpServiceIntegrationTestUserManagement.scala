@@ -12,7 +12,6 @@ import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.{UserDetails, UserRights}
 import com.daml.http.json.JsonProtocol._
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.StandardJWTPayload
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.domain.UserRight.CanActAs
 import com.daml.ledger.api.v1.{value => v}
@@ -34,8 +33,8 @@ trait HttpServiceIntegrationTestUserManagementFuns
     with SandboxRequiringAuthorizationFuns {
   this: AsyncTestSuite with Matchers with Inside =>
 
-  def jwtForUser(userId: String, admin: Boolean = false): Jwt =
-    Jwt(toHeader(StandardJWTPayload(standardToken(userId).payload.copy(admin = admin))))
+  def jwtForUser(userId: String): Jwt =
+    Jwt(toHeader(standardToken(userId)))
 
   val participantAdminJwt: Jwt = Jwt(toHeader(adminTokenStandardJWT))
 
@@ -50,8 +49,8 @@ trait HttpServiceIntegrationTestUserManagementFuns
       Some(participantAdminJwt.value),
     )
 
-  def headersWithUserAuth(userId: String, admin: Boolean = false): List[Authorization] =
-    authorizationHeader(jwtForUser(userId, admin))
+  def headersWithUserAuth(userId: String): List[Authorization] =
+    authorizationHeader(jwtForUser(userId))
 
   def getUniqueUserName(name: String): String = getUniqueParty(name).toString
 
@@ -336,7 +335,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       }
       (status2, output2) <- getRequest(
         uri.withPath(Uri.Path(s"/v1/user")),
-        headers = headersWithUserAuth(createUserRequest.userId, admin = true),
+        headers = headersWithUserAuth(createUserRequest.userId),
       )
     } yield {
       status2 shouldBe StatusCodes.OK

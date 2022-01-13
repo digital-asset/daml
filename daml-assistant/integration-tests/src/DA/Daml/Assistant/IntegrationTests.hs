@@ -159,7 +159,7 @@ damlStart tmpDir withCantonSandbox = do
     outReader <- forkIO $ forever $ do
         line <- hGetLine startStdout
         atomically $ writeTChan outChan line
-    waitForHttpServer 120 startPh
+    waitForHttpServer 240 startPh
         (threadDelay 500000)
         ("http://localhost:" <> show jsonApiPort <> "/v1/query")
         (authorizationHeaders "Alice") -- dummy party here, not important

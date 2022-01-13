@@ -8,7 +8,7 @@ import java.io.File
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
-import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -64,7 +64,7 @@ trait SandboxAuthParticipantFixture
   private val appId = ApplicationId("daml-script-test")
 
   def getToken(parties: List[String], admin: Boolean): String = {
-    val payload = AuthServiceJWTPayload(
+    val payload = CustomDamlJWTPayload(
       ledgerId = None,
       participantId = None,
       exp = None,
