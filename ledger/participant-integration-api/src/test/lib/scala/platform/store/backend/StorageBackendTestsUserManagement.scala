@@ -29,6 +29,12 @@ private[backend] trait StorageBackendTestsUserManagement
 
   private def tested = backend.userManagement
 
+  it should "use invalid party string to mark absence of party" in {
+    intercept[IllegalArgumentException](
+      Ref.Party.assertFromString("!")
+    ).getMessage shouldBe "non expected character 0x21 in Daml-LF Party \"!\""
+  }
+
   it should "create user (createUser)" in {
     val user1 = newUniqueUser()
     val user2 = newUniqueUser()
@@ -97,7 +103,7 @@ private[backend] trait StorageBackendTestsUserManagement
 
   it should "handle removing absent rights" in {
     val user1 = newUniqueUser()
-    val internalId = executeSql(tested.createUser(user = user1))
+    val internalId = executeSql(tested.createUser(user1))
     val delete1 = executeSql(tested.deleteUserRight(internalId, right1))
     val delete2 = executeSql(tested.deleteUserRight(internalId, right2))
     val delete3 = executeSql(tested.deleteUserRight(internalId, right3))
@@ -108,7 +114,7 @@ private[backend] trait StorageBackendTestsUserManagement
 
   it should "handle multiple rights (getUserRights, addUserRight, deleteUserRight)" in {
     val user1 = newUniqueUser()
-    val internalId = executeSql(tested.createUser(user = user1))
+    val internalId = executeSql(tested.createUser(user1))
     val rights1 = executeSql(tested.getUserRights(internalId))
     val addRight1 = executeSql(tested.addUserRight(internalId, right1))
     val addRight2 = executeSql(tested.addUserRight(internalId, right2))
@@ -131,7 +137,7 @@ private[backend] trait StorageBackendTestsUserManagement
 
   it should "add and delete a single right (userRightExists, addUserRight, deleteUserRight, getUserRights)" in {
     val user1 = newUniqueUser()
-    val internalId = executeSql(tested.createUser(user = user1))
+    val internalId = executeSql(tested.createUser(user1))
     // no rights
     val rightExists0 = executeSql(tested.userRightExists(internalId, right1))
     val rights0 = executeSql(tested.getUserRights(internalId))

@@ -54,9 +54,9 @@ CREATE TABLE participant_user_rights (
     UNIQUE (user_internal_id, user_right, for_party)
 );
 
-INSERT INTO participant_users(user_id, primary_party) VALUES ('participant_admin', '');
+INSERT INTO participant_users(user_id, primary_party) VALUES ('participant_admin', '!');
 INSERT INTO participant_user_rights(user_internal_id, user_right, for_party)
-    SELECT internal_id, 1, ''
+    SELECT internal_id, 1, '!'
     FROM participant_users
     WHERE user_id = 'participant_admin';
 

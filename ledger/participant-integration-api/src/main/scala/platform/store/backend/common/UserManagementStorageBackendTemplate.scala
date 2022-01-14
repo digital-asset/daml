@@ -12,13 +12,22 @@ import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.ledger.api.v1.admin.user_management_service.Right
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Party, UserId}
+import com.daml.lf.data.Ref.UserId
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.backend.UserManagementStorageBackend
 
 import scala.util.Try
 
 object UserManagementStorageBackendTemplate extends UserManagementStorageBackend {
+
+  /** Marker value for absence of party in a db table (`primary_party` and `for_party` columns).
+    *
+    * Oracle doesn't distinguish between empty strings and NULLs.
+    * If we used NULL/empty string in Oracle then in Postgres we would have to:
+    * a) If chose to use NULL value in Postgres then we would have to use partial index to ensure multi-column uniqueness constrains (`UNIQUE (user_internal_id, user_right, for_party)` index).
+    * b) If chose to use empty string value in Postgres, we would end up with DB aware backends having ot use 1) `... is NULL` in Oracle vs. 2) `... = ''` in Postgres
+    */
+  private val AbsenceOfPartyMarker = "!"
 
   private val ParticipantUserParser: RowParser[(Int, String, String)] =
     int("internal_id") ~ str("user_id") ~ str("primary_party") map {
@@ -42,11 +51,10 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
   override def createUser(user: domain.User)(
       connection: Connection
   ): Int = {
-    val primaryPartyRaw = (user.primaryParty: Option[String]).getOrElse("")
     val internalId: Try[Int] =
       SQL"""
          INSERT INTO participant_users (user_id, primary_party)
-         VALUES (${user.id: String}, $primaryPartyRaw)
+         VALUES (${user.id: String}, ${partyToDbString(user.primaryParty)})
        """.executeInsert1("internal_id")(SqlParser.scalar[Int].single)(connection)
     internalId.get
   }
@@ -72,7 +80,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
   }
 
   override def getUsers()(connection: Connection): Vector[domain.User] = {
-    def toDomainUser(userId: String, primaryParty: Option[String]): domain.User = {
+    def domainUser(userId: String, primaryParty: Option[String]): domain.User = {
       domain.User(
         Ref.UserId.assertFromString(userId),
         primaryParty.map(Ref.Party.assertFromString),
@@ -82,7 +90,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
           FROM participant_users"""
       .asVectorOf(ParticipantUserParser2)(connection)
       .map { case (userId, primaryPartyRaw) =>
-        toDomainUser(userId, dbStringToPartyString(primaryPartyRaw))
+        domainUser(userId, dbStringToPartyString(primaryPartyRaw))
       }
   }
 
@@ -139,7 +147,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     rec.map { case (userRight, forPartyRaw) =>
       makeUserRight(
         value = userRight,
-        party = dbStringToPartyString(forPartyRaw),
+        partyRaw = forPartyRaw,
       )
     }.toSet
   }
@@ -161,19 +169,20 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     updatedRowCount == 1
   }
 
-  private def makeUserRight(value: Int, party: Option[Party]): UserRight = {
-    (value, party) match {
+  private def makeUserRight(value: Int, partyRaw: String): UserRight = {
+    val partyO = dbStringToPartyString(partyRaw)
+    (value, partyO) match {
       case (Right.PARTICIPANT_ADMIN_FIELD_NUMBER, None) => ParticipantAdmin
       case (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party)) => CanActAs(party)
       case (Right.CAN_READ_AS_FIELD_NUMBER, Some(party)) => CanReadAs(party)
       case _ =>
-        throw new RuntimeException(s"Could not convert ${(value, party)} to a user right!")
+        throw new RuntimeException(s"Could not convert ${(value, partyO)} to a user right!")
     }
   }
 
   private def fromUserRight(right: UserRight): (Int, String) = {
     right match {
-      case ParticipantAdmin => (Right.PARTICIPANT_ADMIN_FIELD_NUMBER, "")
+      case ParticipantAdmin => (Right.PARTICIPANT_ADMIN_FIELD_NUMBER, AbsenceOfPartyMarker)
       case CanActAs(party) => (Right.CAN_ACT_AS_FIELD_NUMBER, party: String)
       case CanReadAs(party) => (Right.CAN_READ_AS_FIELD_NUMBER, party: String)
       case _ =>
@@ -182,10 +191,14 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
   }
 
   private def dbStringToPartyString(raw: String): Option[Ref.Party] = {
-    if (raw.isEmpty)
+    if (raw == AbsenceOfPartyMarker)
       None
     else
       Some(Ref.Party.assertFromString(raw))
+  }
+
+  private def partyToDbString(party: Option[Ref.Party]): String = {
+    (party: Option[String]).getOrElse(AbsenceOfPartyMarker)
   }
 
 }
