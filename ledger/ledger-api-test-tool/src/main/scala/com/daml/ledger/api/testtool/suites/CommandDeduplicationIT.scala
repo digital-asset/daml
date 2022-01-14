@@ -32,7 +32,6 @@ import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.completion.Completion.{
   DeduplicationPeriod => CompletionDeduplicationPeriod
 }
@@ -48,7 +47,6 @@ import com.daml.timer.Delayed
 import io.grpc.Status.Code
 import org.slf4j.{Logger, LoggerFactory}
 
-import java.time.Instant
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -75,7 +73,6 @@ final class CommandDeduplicationIT(
           DeduplicationPeriod.DeduplicationDuration(deduplicationDuration.asProtobuf)
       )
     val firstAcceptedSubmissionId = newSubmissionId()
-    val firstSubmissionSendTime = Instant.now()
     for {
       // Submit command (first deduplication window)
       // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
@@ -85,14 +82,13 @@ final class CommandDeduplicationIT(
         updateSubmissionId(request, firstAcceptedSubmissionId),
         party,
       )
-      optCompletion <- submitRequestAndAssertDeduplication(
+      optCompletionResponse <- submitRequestAndAssertDeduplication(
         ledger,
         updateWithFreshSubmissionId(request),
         firstAcceptedSubmissionId,
         response.offset,
         party,
       )
-      secondCompletionReceiveTime = Instant.now()
       // Inspect created contracts
       _ <- assertPartyHasActiveContracts(
         ledger,
@@ -101,11 +97,9 @@ final class CommandDeduplicationIT(
       )
       _ <-
         if (!ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly) {
-          val completion = assertDefined(optCompletion, "No completion has been produced")
+          val completion = assertDefined(optCompletionResponse, "No completion has been produced")
           assertDeduplicationDuration(
             deduplicationDuration.asProtobuf,
-            firstSubmissionSendTime,
-            secondCompletionReceiveTime,
             completion,
             party,
             ledger,
@@ -302,7 +296,7 @@ final class CommandDeduplicationIT(
         submitAndWait: Boolean,
         acceptedSubmissionId: SubmissionId,
         acceptedLedgerOffset: LedgerOffset,
-    ): Future[Option[Completion]] =
+    ): Future[Option[CompletionResponse]] =
       if (submitAndWait)
         submitAndWaitRequestAndAssertDeduplication(
           ledger,
@@ -328,7 +322,7 @@ final class CommandDeduplicationIT(
         firstAcceptedCommand.offset,
       )
       deduplicationDurationFromPeriod = duplicateResponse
-        .map(_.deduplicationPeriod)
+        .map(_.completion.deduplicationPeriod)
         .map {
           case CompletionDeduplicationPeriod.Empty =>
             throw new IllegalStateException("received empty completion")
@@ -615,7 +609,7 @@ final class CommandDeduplicationIT(
       parties: Party*
   )(implicit
       ec: ExecutionContext
-  ): Future[Option[Completion]] =
+  ): Future[Option[CompletionResponse]] =
     if (ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly)
       submitRequestAndAssertSyncDeduplication(ledger, request, acceptedSubmissionId, acceptedOffset)
         .map(_ => None)
@@ -626,7 +620,7 @@ final class CommandDeduplicationIT(
         acceptedSubmissionId,
         acceptedOffset,
         parties: _*
-      ).map(response => Some(response.completion))
+      ).map(response => Some(response))
 
   protected def submitRequestAndAssertSyncDeduplication(
       ledger: ParticipantTestContext,
