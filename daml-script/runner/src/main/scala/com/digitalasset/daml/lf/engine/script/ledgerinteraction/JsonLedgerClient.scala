@@ -500,7 +500,7 @@ class JsonLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[User] =
+  ): Future[Option[Unit]] =
     unsupportedOn("createUser")
 
   override def getUser(id: UserId)(implicit
@@ -514,7 +514,7 @@ class JsonLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] =
+  ): Future[Option[Unit]] =
     unsupportedOn("deleteUser")
 
   override def listUsers()(implicit
@@ -531,7 +531,7 @@ class JsonLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
+  ): Future[Option[List[UserRight]]] =
     unsupportedOn("grantUserRights")
 
   override def revokeUserRights(
@@ -541,14 +541,14 @@ class JsonLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
+  ): Future[Option[List[UserRight]]] =
     unsupportedOn("revokeUserRights")
 
   override def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
+  ): Future[Option[List[UserRight]]] =
     unsupportedOn("listUserRights")
 }
 

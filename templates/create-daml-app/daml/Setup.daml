@@ -7,6 +7,7 @@ import Daml.Script
 
 setup : Script ()
 setup = do
+
   let displayNames = ["Alice", "Bob", "Charlie"]
   forA_ displayNames $ \displayName -> do
     let userId = toUserId displayName
@@ -27,3 +28,9 @@ toUserId = T.asciiToLower
 -- TODO Drop hints once we have aliases.
 toPartyIdHint : Text -> Text
 toPartyIdHint p = "p" <> toUserId p
+{-
+  forA_ [("Alice", "alice"), ("Bob", "bob"), ("Charlie", "charlie")] $ \(displayName, userName) -> do
+    u <- validateUserId userName
+    p <- allocatePartyWithHint displayName (PartyIdHint ("p" <> userName))
+    createUser (User u (Some p)) [CanActAs p]
+-}

@@ -349,15 +349,16 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[User] =
-    grpcClient.userManagementClient.createUser(user, rights)
+  ): Future[Option[Unit]] =
+    //NICK: recover already exists
+    grpcClient.userManagementClient.createUser(user, rights).map(_ => Some(()))
 
   override def getUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[User]] =
-    grpcClient.userManagementClient.getUser(id).map(Some(_)).recover {
+    grpcClient.userManagementClient.getUser(id).map(Some(_)).recover { //NICK: where is this tested?
       case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
     }
 
@@ -365,8 +366,10 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] =
-    grpcClient.userManagementClient.deleteUser(id)
+  ): Future[Option[Unit]] =
+    grpcClient.userManagementClient.deleteUser(id).map(Some(_)).recover {
+      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+    }
 
   override def listUsers()(implicit
       ec: ExecutionContext,
@@ -382,8 +385,10 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    grpcClient.userManagementClient.grantUserRights(id, rights).map(_.toList)
+  ): Future[Option[List[UserRight]]] =
+    grpcClient.userManagementClient.grantUserRights(id, rights).map(_.toList).map(Some(_)).recover {
+      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+    }
 
   override def revokeUserRights(
       id: UserId,
@@ -392,13 +397,21 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    grpcClient.userManagementClient.revokeUserRights(id, rights).map(_.toList)
+  ): Future[Option[List[UserRight]]] =
+    grpcClient.userManagementClient
+      .revokeUserRights(id, rights)
+      .map(_.toList)
+      .map(Some(_))
+      .recover {
+        case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+      }
 
   override def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    grpcClient.userManagementClient.listUserRights(id).map(_.toList)
+  ): Future[Option[List[UserRight]]] =
+    grpcClient.userManagementClient.listUserRights(id).map(_.toList).map(Some(_)).recover {
+      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+    }
 }
