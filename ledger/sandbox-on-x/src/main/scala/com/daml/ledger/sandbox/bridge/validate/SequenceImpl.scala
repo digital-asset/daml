@@ -97,7 +97,7 @@ private[validate] class SequenceImpl(
 
     if (allocatedParties(party)) {
       logger.warn(
-        s"Found duplicate party submission with ID $party for submissionId ${Some(allocateParty.submissionId)}"
+        s"Found duplicate party '$party' for submissionId ${allocateParty.submissionId}"
       )(allocateParty.loggingContext)
       // Duplicate party allocations are skipped
       None

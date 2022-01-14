@@ -129,7 +129,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     assertCommandRejected(update, "Parties not known on ledger: [new-guy]")
   }
 
-  it should "does not perform party allocation validation if disabled" in new TestContext {
+  it should "validate party allocation if disabled" in new TestContext {
     val Seq((offset, update)) =
       sequenceWithoutPartyAllocationValidation()(input(txWithUnallocatedParty))
     offset shouldBe toOffset(1L)
@@ -157,7 +157,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     offset4 shouldBe toOffset(4L)
     assertCommandRejected(update4, "Inconsistent: Could not lookup contracts: [#3]")
 
-    // Archiving a contract for the first time should succeed
+    // Archiving a contract with an assigned key for the first time succeeds
     val Seq((offset5, update5)) = sequence(consume(cId(4), Some(contractKey(2L))))
     offset5 shouldBe toOffset(5L)
     update5 shouldBe transactionAccepted(5)
