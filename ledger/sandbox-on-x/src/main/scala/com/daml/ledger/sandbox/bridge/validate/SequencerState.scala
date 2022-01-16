@@ -19,10 +19,10 @@ import scala.util.chaining._
   *                 with the transaction offset that last updated them.
   * @param consumedContractsState Map of all consumed contracts over the span of the `sequencerQueue`.
   */
-case class SequencerState(
-    private[validate] val sequencerQueue: SequencerQueue = Vector.empty,
-    private[validate] val keyState: Map[Key, (Option[ContractId], LastUpdatedAt)] = Map.empty,
-    private[validate] val consumedContractsState: Set[ContractId] = Set.empty,
+case class SequencerState private (
+    private[validate] val sequencerQueue: SequencerQueue,
+    private[validate] val keyState: Map[Key, (Option[ContractId], LastUpdatedAt)],
+    private[validate] val consumedContractsState: Set[ContractId],
 )(implicit bridgeMetrics: BridgeMetrics) {
 
   def enqueue(
@@ -35,7 +35,7 @@ case class SequencerState(
         s"Offset to be enqueued ($offset) is not higher than the last enqueued offset (${sequencerQueue.last._1})"
       )
     else
-      SequencerState(
+      new SequencerState(
         sequencerQueue = sequencerQueue :+ (offset -> (updatedKeys, consumedContracts)),
         keyState = keyState ++ updatedKeys.view.mapValues(_ -> offset),
         consumedContractsState = consumedContractsState ++ consumedContracts,
@@ -53,7 +53,7 @@ case class SequencerState(
       evictedQueueEntries.iterator
         .flatMap { case (_, (updatedKeys, _)) => updatedKeys.keySet }
         .filter { key =>
-          val (_, lastUpdatedAt) = keyState(key)ledger/sandbox-on-x/src/main/scala/com/daml/ledger/sandbox/bridge/validate/SequenceImpl.scala
+          val (_, lastUpdatedAt) = keyState(key)
           lastUpdatedAt <= noConflictUpTo
         }
         .toSet
@@ -63,7 +63,7 @@ case class SequencerState(
     val prunedConsumedContractsState =
       consumedContractsState.diff(evictedQueueEntries.iterator.flatMap(_._2._2).toSet)
 
-    SequencerState(
+    new SequencerState(
       sequencerQueue = prunedQueue,
       keyState = prunedKeyState,
       consumedContractsState = prunedConsumedContractsState,
@@ -79,6 +79,28 @@ case class SequencerState(
 }
 
 object SequencerState {
+  // Override default apply to prevent construction of an already-populated state.
+  def apply(
+      sequencerQueue: SequencerQueue,
+      keyState: Map[Key, (Option[ContractId], LastUpdatedAt)],
+      consumedContractsState: Set[ContractId],
+  )(implicit bridgeMetrics: BridgeMetrics): SequencerState = {
+    require(sequencerQueue.isEmpty, "The sequencer state queue must be empty at initialization")
+    require(keyState.isEmpty, "The sequencer updated keys state must be empty at initialization")
+    require(
+      consumedContractsState.isEmpty,
+      "The sequencer consumed contracts state must be empty at initialization",
+    )
+
+    new SequencerState(sequencerQueue, keyState, consumedContractsState)
+  }
+
+  private[validate] def empty(implicit bridgeMetrics: BridgeMetrics) =
+    new SequencerState(
+      sequencerQueue = Vector.empty,
+      keyState = Map.empty,
+      consumedContractsState = Set.empty,
+    )
   private[sandbox] type LastUpdatedAt = Offset
   private[sandbox] type SequencerQueue =
     Vector[(Offset, (Map[GlobalKey, Option[ContractId]], Set[ContractId]))]
