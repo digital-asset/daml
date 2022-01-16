@@ -6,12 +6,14 @@ package com.daml.ledger.rxjava.grpc;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import com.daml.grpc.adapter.ExecutionSequencerFactory;
 import com.daml.ledger.api.v1.CommandSubmissionServiceGrpc;
 import com.daml.ledger.api.v1.CommandSubmissionServiceOuterClass;
 import com.daml.ledger.javaapi.data.Command;
 import com.daml.ledger.javaapi.data.SubmitRequest;
 import com.daml.ledger.rxjava.CommandSubmissionClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
+import com.daml.ledger.rxjava.util.CreateSingle;
 import com.google.protobuf.Empty;
 import io.grpc.Channel;
 import io.reactivex.Single;
@@ -25,15 +27,18 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
 
   private final String ledgerId;
   private final CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub serviceStub;
+  private final ExecutionSequencerFactory sequencerFactory;
   private final Optional<Duration> timeout;
 
   public CommandSubmissionClientImpl(
       @NonNull String ledgerId,
       @NonNull Channel channel,
+      ExecutionSequencerFactory sequencerFactory,
       Optional<String> accessToken,
       Optional<Duration> timeout) {
     this.ledgerId = ledgerId;
     this.timeout = timeout;
+    this.sequencerFactory = sequencerFactory;
     this.serviceStub =
         StubHelper.authenticating(CommandSubmissionServiceGrpc.newFutureStub(channel), accessToken);
   }
@@ -65,8 +70,8 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         this.timeout
             .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))
             .orElse(this.serviceStub);
-    return Single.fromFuture(
-        StubHelper.authenticating(stubWithTimeout, accessToken).submit(request));
+    return CreateSingle.fromFuture(
+        StubHelper.authenticating(stubWithTimeout, accessToken).submit(request), sequencerFactory);
   }
 
   public Single<com.google.protobuf.Empty> submit(
