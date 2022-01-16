@@ -11,7 +11,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckWithCommittedSpec._
-import com.daml.ledger.sandbox.bridge.{BridgeMetrics, PreparedTransactionSubmission}
+import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.crypto.Hash

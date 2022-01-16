@@ -12,7 +12,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge._
-import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge, PreparedSubmission}
+import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.ledger.sandbox.domain._
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{Transaction => LfTransaction}
@@ -41,6 +41,7 @@ private[bridge] object ConflictCheckingLedgerBridge {
   private[validate] type Validation[T] = Either[Rejection, T]
   private[validate] type AsyncValidation[T] = Future[Validation[T]]
   private[validate] type KeyInputs = Map[Key, LfTransaction.KeyInput]
+  private[validate] type UpdatedKeys = Map[Key, Option[ContractId]]
 
   // Conflict checking stages
   private[validate] type PrepareSubmission = Submission => AsyncValidation[PreparedSubmission]

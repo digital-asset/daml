@@ -6,12 +6,7 @@ package com.daml.ledger.sandbox.bridge.validate
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.participant.state.v2.CompletionInfo
 import ConflictCheckingLedgerBridge._
-import com.daml.ledger.sandbox.bridge.{
-  BridgeMetrics,
-  NoOpPreparedSubmission,
-  PreparedSubmission,
-  PreparedTransactionSubmission,
-}
+import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain._
 import com.daml.lf.engine.Blinding
