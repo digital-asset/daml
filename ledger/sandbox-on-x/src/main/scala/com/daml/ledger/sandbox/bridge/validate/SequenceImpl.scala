@@ -9,6 +9,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.daml.ledger.sandbox.bridge.LedgerBridge._
+import com.daml.ledger.sandbox.bridge.LedgerBridge.{fromOffset, toOffset}
 import SequencerState.LastUpdatedAt
 import com.daml.ledger.sandbox.bridge._
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge.{
@@ -46,7 +47,7 @@ private[validate] class SequenceImpl(
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   @volatile private[validate] var offsetIdx = fromOffset(initialLedgerEnd)
-  @volatile private[validate] var sequencerState = SequencerState()(bridgeMetrics)
+  @volatile private[validate] var sequencerState = SequencerState.empty(bridgeMetrics)
   @volatile private[validate] var allocatedParties = initialAllocatedParties
   @volatile private[validate] var ledgerConfiguration = initialLedgerConfiguration
 
