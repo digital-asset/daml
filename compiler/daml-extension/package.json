@@ -151,6 +151,9 @@
         "@types/node": "12.7.11",
         "@types/vscode": "1.39",
         "typescript": "3.6.3",
-        "vsce": "1.88.0"
+        "vsce": "^2.6.3"
+    },
+    "resolutions": {
+        "**/markdown-it": "^12.3.2"
     }
 }
