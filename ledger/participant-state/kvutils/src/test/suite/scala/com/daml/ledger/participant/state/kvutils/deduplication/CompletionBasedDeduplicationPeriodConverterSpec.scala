@@ -21,6 +21,8 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.concurrent.Future
+
 class CompletionBasedDeduplicationPeriodConverterSpec
     extends AsyncWordSpec
     with Matchers
@@ -155,16 +157,35 @@ class CompletionBasedDeduplicationPeriodConverterSpec
       }
   }
 
+  "return failure when the requested offset is higher than ledger end" in {
+    when(indexCompletionsService.currentLedgerEnd()(loggingContext))
+      .thenReturn(Future.successful(LedgerOffset.Absolute(lowerOffset)))
+    deduplicationPeriodConverter
+      .convertOffsetToDuration(
+        offset,
+        applicationId,
+        parties,
+        Instant.now(),
+      )
+      .map { result =>
+        result shouldBe Left(DeduplicationConversionFailure.CompletionAtOffsetNotFound)
+      }
+  }
+
   private def completionServiceReturnsResponse(
       response: Source[CompletionStreamResponse, NotUsed]
-  ) = when(
-    indexCompletionsService.getCompletions(
-      LedgerOffset.Absolute(lowerOffset),
-      LedgerOffset.Absolute(offset),
-      applicationId,
-      parties,
-    )(loggingContext)
-  ).thenReturn(
-    response
-  )
+  ) = {
+    when(
+      indexCompletionsService.getCompletions(
+        LedgerOffset.Absolute(lowerOffset),
+        LedgerOffset.Absolute(offset),
+        applicationId,
+        parties,
+      )(loggingContext)
+    ).thenReturn(
+      response
+    )
+    when(indexCompletionsService.currentLedgerEnd()(loggingContext))
+      .thenReturn(Future.successful(LedgerOffset.Absolute(offset)))
+  }
 }
