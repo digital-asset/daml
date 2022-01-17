@@ -83,7 +83,7 @@ def daml_script_test(compiler_version, runner_version):
         runner = "//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = daml_runner,
-        server_args = ["sandbox"],
+        server_args = ["sandbox-kv"],
         server_files = [
             "$(rootpath {})".format(compiled_dar),
         ],

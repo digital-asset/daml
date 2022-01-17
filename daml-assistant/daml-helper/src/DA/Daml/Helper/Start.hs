@@ -90,7 +90,7 @@ withSandbox :: StartOptions -> FilePath -> [String] -> [String] -> (Process () (
 withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
     case sandboxChoice of
       SandboxClassic -> oldSandbox "sandbox-classic"
-      SandboxKV -> oldSandbox "sandbox"
+      SandboxKV -> oldSandbox "sandbox-kv"
       SandboxCanton cantonPortSpec -> cantonSandbox cantonPortSpec
 
   where

@@ -130,7 +130,7 @@ patches we backport to the 1.0 release branch).
 
     1. `cd create-daml-app`
 
-       1. `daml start`
+       1. `daml start --sandbox-kv`
 
     1. In a new terminal, from the `ui` folder:
 
@@ -235,7 +235,7 @@ patches we backport to the 1.0 release branch).
 
     1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.
 
-    1. Run `daml start`. Your browser should be opened automatically at
+    1. Run `daml start --sandbox-kv`. Your browser should be opened automatically at
        `http://localhost:7500`. Login as `Alice` and verify that there is
        1 contract and 3 templates. Close the tab and kill `daml start` using
        `Ctrl-C`.
@@ -244,7 +244,7 @@ patches we backport to the 1.0 release branch).
 
     1. In 3 separate terminals (since each command blocks), run:
 
-       1. `daml sandbox --wall-clock-time --port 6865 .daml/dist/quickstart-0.0.1.dar`
+       1. `daml sandbox-kv --wall-clock-time --port 6865 .daml/dist/quickstart-0.0.1.dar`
        1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time && daml navigator server localhost 6865 --port 7500`
        1. `daml codegen java && mvn compile exec:java@run-quickstart`
 
