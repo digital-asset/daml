@@ -54,10 +54,11 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       ledger,
       party,
       deduplicationPeriod,
-      "Requests with a deduplication period represented by a negative duration",
-      "The submitted command has a field with invalid value: Invalid field deduplication_period: Duration must be positive",
-      Status.Code.INVALID_ARGUMENT,
-      LedgerApiErrors.RequestValidation.InvalidField,
+      failReason = "Requests with a deduplication period represented by a negative duration",
+      expectedMessage =
+        "The submitted command has a field with invalid value: Invalid field deduplication_period: Duration must be positive",
+      expectedCode = Status.Code.INVALID_ARGUMENT,
+      expectedError = LedgerApiErrors.RequestValidation.InvalidField,
     )
   })
 
@@ -73,10 +74,11 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       ledger,
       party,
       deduplicationPeriod,
-      "Submitting a command with an invalid offset",
-      "Offset in deduplication_period not specified in hexadecimal: invalid_offset: the deduplication offset has to be a hexadecimal string and not invalid_offset",
-      Status.Code.INVALID_ARGUMENT,
-      LedgerApiErrors.RequestValidation.NonHexOffset,
+      failReason = "Submitting a command with an invalid offset",
+      expectedMessage =
+        "Offset in deduplication_period not specified in hexadecimal: invalid_offset: the deduplication offset has to be a hexadecimal string and not invalid_offset",
+      expectedCode = Status.Code.INVALID_ARGUMENT,
+      expectedError = LedgerApiErrors.RequestValidation.NonHexOffset,
     )
   })
 
@@ -109,7 +111,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
         failure,
         expectedCode,
         expectedError,
-        Some(
+        optPattern = Some(
           Pattern.compile(
             "The given deduplication .+ exceeds the maximum deduplication .+"
           )
@@ -131,7 +133,6 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     "OffsetOutsideRange",
     "Submission with deduplication periods represented by offsets which are outside the valid range are rejected",
     allocate(SingleParty),
-    // Canton accepts the given offsets
     enabled =
       _.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport.isOffsetConvertToDuration,
     disabledReason = "Only ledgers that convert offsets to durations fail",
@@ -145,10 +146,11 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
         ledger,
         party,
         deduplicationPeriod,
-        "Submitting a command with an invalid offset",
-        "The submitted command had an invalid deduplication period: Cannot convert deduplication offset to duration because there is no completion at given offset .*",
-        Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField,
+        failReason = "Submitting a command with an invalid offset",
+        expectedMessage =
+          "The submitted command had an invalid deduplication period: Cannot convert deduplication offset to duration because there is no completion at given offset .*",
+        expectedCode = Status.Code.INVALID_ARGUMENT,
+        expectedError = LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField,
       )
     } yield {}
   })
@@ -158,9 +160,10 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     "Submission with deduplication periods represented by offsets which are pruned are rejected",
     allocate(SingleParty),
     // Canton accepts the given offsets
+    enabled =
+      !_.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport.isOffsetNotSupported,
     disabledReason = "The ledger does not support deduplication periods represented by offsets",
     runConcurrently = false, // Pruning is involved
-    timeoutScale = 10,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       firstCreate <- ledger.create(party, Dummy(party))
@@ -179,10 +182,10 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
         ledger,
         party,
         deduplicationPeriod,
-        "Submitting a command with a pruned offset",
-        ".*",
-        Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
+        failReason = "Submitting a command with a pruned offset",
+        expectedMessage = ".*",
+        expectedCode = Status.Code.INVALID_ARGUMENT,
+        expectedError = LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
       )
     } yield {}
   })
