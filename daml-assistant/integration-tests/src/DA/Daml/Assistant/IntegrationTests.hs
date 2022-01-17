@@ -56,7 +56,7 @@ main = do
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
             [ ("PATH", Just $ intercalate [searchPathSeparator] $ (tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
-            , ("TASTY_NUM_THREADS", Just "2")
+            , ("TASTY_NUM_THREADS", Just "1")
             ] $ defaultMain (tests tmpDir))
 
 hardcodedToken :: String -> T.Text
@@ -89,8 +89,8 @@ data DamlStartResource = DamlStartResource
     , jsonApiPort :: PortNumber
     }
 
-damlStart :: FilePath -> Bool -> IO DamlStartResource
-damlStart tmpDir withCantonSandbox = do
+damlStart :: FilePath -> IO DamlStartResource
+damlStart tmpDir = do
     let projDir = tmpDir </> "assistant-integration-tests"
     createDirectoryIfMissing True (projDir </> "daml")
     let scriptOutputFile = "script-output.json"
@@ -140,7 +140,7 @@ damlStart tmpDir withCantonSandbox = do
     let startProc =
             (shell $ unwords
                 [ "daml start"
-                , if withCantonSandbox then "--sandbox-canton" else "--sandbox-kv"
+                , "--sandbox-canton"
                 , "--start-navigator=no"
                 , "--sandbox-port", show sandboxPort
                 , "--json-api-port", show jsonApiPort
@@ -232,8 +232,7 @@ tests tmpDir =
                 callCommandSilentIn tmpDir "daml new --list"
             , packagingTests tmpDir
             , damlToolTests
-            , withResource (damlStart (tmpDir </> "sandbox-canton") True) stop damlStartTests
-            , withResource (damlStart (tmpDir </> "sandbox-kv") False) stop damlStartKVTests
+            , withResource (damlStart (tmpDir </> "sandbox-canton")) stop damlStartTests
             , damlStartNotSharedTest
             , withResource (quickSandbox quickstartDir) (interruptProcessGroupOf . quickSandboxPh) $
               quickstartTests quickstartDir mvnDir
@@ -502,6 +501,60 @@ damlStartTests getDamlStart =
                             ("http://localhost:" <> show navigatorPort)
                             []
 
+        subtest "hot reload" $ do
+            DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
+            stdoutReadChan <- atomically $ dupTChan stdoutChan
+            writeFileUTF8 (projDir </> "daml/Main.daml") $
+                unlines
+                    [ "module Main where"
+                    , "import Daml.Script"
+                    , "template S with newFieldName : Party where signatory newFieldName"
+                    , "init : Script Party"
+                    , "init = do"
+                    , "  let isAlice x = displayName x == Some \"Alice\""
+                    , "  Some aliceDetails <- find isAlice <$> listKnownParties"
+                    , "  let alice = party aliceDetails"
+                    , "  alice `submit` createCmd (S alice)"
+                    , "  pure alice"
+                    ]
+            hPutChar startStdin 'r'
+            hFlush startStdin
+            untilM_ (pure ()) $ do
+                line <- atomically $ readTChan stdoutReadChan
+                pure ("Rebuild complete" `isInfixOf` line)
+            initialRequest <-
+                parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
+            manager <- newManager defaultManagerSettings
+            let queryRequestT =
+                    initialRequest
+                        { method = "POST"
+                        , requestHeaders = aliceHeaders
+                        , requestBody =
+                            RequestBodyLBS $
+                            Aeson.encode $
+                            Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:T"]]
+                        }
+            let queryRequestS =
+                    initialRequest
+                        { method = "POST"
+                        , requestHeaders = aliceHeaders
+                        , requestBody =
+                            RequestBodyLBS $
+                            Aeson.encode $
+                            Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:S"]]
+                        }
+            queryResponseT <- httpLbs queryRequestT manager
+            queryResponseS <- httpLbs queryRequestS manager
+            -- check that there are no more active contracts of template T
+            statusCode (responseStatus queryResponseT) @?= 200
+            preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
+            -- check that a new contract of template S was created
+            statusCode (responseStatus queryResponseS) @?= 200
+            preview
+                (key "result" . nth 0 . key "payload" . key "newFieldName")
+                (responseBody queryResponseS) @?=
+                Just (fromString alice)
+
         subtest "run a daml deploy without project parties" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             copyFile (projDir </> "daml.yaml") (projDir </> "daml.yaml.back")
@@ -558,84 +611,6 @@ damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
                 assertBool ("result is unexpected: " <> show body) $
                     ("{\"result\":{\"displayName\":\"Alice\",\"identifier\":\"Alice::" `LBS.isPrefixOf` body) &&
                     ("\",\"isLocal\":true},\"status\":200}" `LBS.isSuffixOf` body)
-
-damlStartKVTests :: IO DamlStartResource -> TestTree
-damlStartKVTests getDamlStart = testCaseSteps "daml start --sandbox-kv" $ \step -> do
-    let subtest :: forall t. String -> IO t -> IO t
-        subtest m p = step m >> p
-
-    subtest "sandbox and json-api come up" $ do
-        DamlStartResource {jsonApiPort, alice, aliceHeaders} <- getDamlStart
-        manager <- newManager defaultManagerSettings
-        initialRequest <-
-            parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/create"
-        let createRequest =
-                initialRequest
-                    { method = "POST"
-                    , requestHeaders = aliceHeaders
-                    , requestBody =
-                        RequestBodyLBS $
-                        Aeson.encode $
-                        Aeson.object
-                            [ "templateId" Aeson..= Aeson.String "Main:T"
-                            , "payload" Aeson..= [alice]
-                            ]
-                    }
-        createResponse <- httpLbs createRequest manager
-        statusCode (responseStatus createResponse) @?= 200
-
-    subtest "hot reload" $ do
-        DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
-        stdoutReadChan <- atomically $ dupTChan stdoutChan
-        writeFileUTF8 (projDir </> "daml/Main.daml") $
-            unlines
-                [ "module Main where"
-                , "import Daml.Script"
-                , "template S with newFieldName : Party where signatory newFieldName"
-                , "init : Script Party"
-                , "init = do"
-                , "  [aliceDetails] <- listKnownParties"
-                , "  let alice = party aliceDetails"
-                , "  alice `submit` createCmd (S alice)"
-                , "  pure alice"
-                ]
-        hPutChar startStdin 'r'
-        hFlush startStdin
-        untilM_ (pure ()) $ do
-            line <- atomically $ readTChan stdoutReadChan
-            pure ("Rebuild complete" `isInfixOf` line)
-        initialRequest <-
-            parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
-        manager <- newManager defaultManagerSettings
-        let queryRequestT =
-                initialRequest
-                    { method = "POST"
-                    , requestHeaders = aliceHeaders
-                    , requestBody =
-                        RequestBodyLBS $
-                        Aeson.encode $
-                        Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:T"]]
-                    }
-        let queryRequestS =
-                initialRequest
-                    { method = "POST"
-                    , requestHeaders = aliceHeaders
-                    , requestBody =
-                        RequestBodyLBS $
-                        Aeson.encode $
-                        Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:S"]]
-                    }
-        queryResponseT <- httpLbs queryRequestT manager
-        queryResponseS <- httpLbs queryRequestS manager
-        -- check that there are no more active contracts of template T
-        statusCode (responseStatus queryResponseT) @?= 200
-        preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
-        -- check that a new contract of template S was created
-        statusCode (responseStatus queryResponseS) @?= 200
-        preview
-            (key "result" . nth 0 . key "payload" . key "newFieldName")
-            (responseBody queryResponseS) @?=
-            Just (fromString alice)
 
 quickstartTests :: FilePath -> FilePath -> IO QuickSandboxResource -> TestTree
 quickstartTests quickstartDir mvnDir getSandbox =
