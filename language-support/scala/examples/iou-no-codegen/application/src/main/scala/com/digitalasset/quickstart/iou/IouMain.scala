@@ -14,6 +14,7 @@ import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
+  LedgerClientChannelConfiguration,
 }
 import com.daml.quickstart.iou.ClientUtil.workflowIdFromParty
 import com.daml.quickstart.iou.DecodeUtil.decodeCreatedEvent
@@ -59,11 +60,12 @@ object IouMain extends App with StrictLogging {
     applicationId = ApplicationId.unwrap(applicationId),
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
   )
 
+  private val clientChannelConfig = LedgerClientChannelConfiguration.InsecureDefaults
+
   private val clientF: Future[LedgerClient] =
-    LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf)
+    LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig, clientChannelConfig)(ec, aesf)
 
   private val clientUtilF: Future[ClientUtil] =
     clientF.map(client => new ClientUtil(client, applicationId))

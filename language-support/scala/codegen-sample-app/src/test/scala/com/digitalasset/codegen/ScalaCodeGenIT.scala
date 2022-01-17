@@ -90,7 +90,6 @@ class ScalaCodeGenIT
     applicationId = applicationId,
     ledgerIdRequirement = LedgerIdRequirement.matching(ledgerId),
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
   )
 
   private var ledger: LedgerClient = _
