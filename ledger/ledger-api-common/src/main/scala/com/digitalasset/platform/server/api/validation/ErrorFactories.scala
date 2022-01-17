@@ -316,7 +316,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
-  def invalidDeduplicationDuration(
+  def invalidDeduplicationPeriod(
       fieldName: String,
       message: String,
       definiteAnswer: Option[Boolean],

@@ -574,7 +574,7 @@ class ErrorFactoriesSpec
       val msg =
         s"INVALID_DEDUPLICATION_PERIOD(9,$truncatedCorrelationId): The submitted command had an invalid deduplication period: $errorDetailMessage"
       assertVersionedError(
-        _.invalidDeduplicationDuration(
+        _.invalidDeduplicationPeriod(
           fieldName = field,
           message = errorDetailMessage,
           definiteAnswer = None,

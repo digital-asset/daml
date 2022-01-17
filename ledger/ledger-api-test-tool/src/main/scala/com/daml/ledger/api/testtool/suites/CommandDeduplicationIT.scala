@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import java.{time, util}
+import java.time
 
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
@@ -723,10 +723,10 @@ final class CommandDeduplicationIT(
   }
 
   private def assertExistingSubmissionIdOnMetadata(
-      metadata: util.Map[String, String],
+      metadata: Map[String, String],
       acceptedSubmissionId: SubmissionId,
   ): Unit =
-    Option(metadata.get("existing_submission_id")).foreach { metadataExistingSubmissionId =>
+    metadata.get("existing_submission_id").foreach { metadataExistingSubmissionId =>
       assertEquals(
         "submission ID mismatch",
         metadataExistingSubmissionId,
@@ -735,10 +735,10 @@ final class CommandDeduplicationIT(
     }
 
   private def assertExistingCompletionOffsetOnMetadata(
-      metadata: util.Map[String, String],
+      metadata: Map[String, String],
       acceptedCompletionOffset: LedgerOffset,
   ): Unit =
-    Option(metadata.get("completion_offset")).foreach { offset =>
+    metadata.get("completion_offset").foreach { offset =>
       assertEquals(
         "completion offset mismatch",
         absoluteLedgerOffset(offset),

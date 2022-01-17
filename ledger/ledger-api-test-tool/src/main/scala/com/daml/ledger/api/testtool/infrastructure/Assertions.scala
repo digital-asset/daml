@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.util
 import java.util.regex.Pattern
 
 import com.daml.error.ErrorCode
@@ -123,29 +122,35 @@ object Assertions {
     }
 
   private def assertDefiniteAnswer(exception: Exception): Unit = {
-    val metadata: java.util.Map[String, String] = extractErrorInfoMetadata(exception)
-    val value = metadata.get("definite_answer")
-    if (value == null) {
-      fail(s"The error did not contain a definite answer. Metadata was: [$metadata]")
-    }
-    if (!Set("true", "false").contains(value.toLowerCase)) {
-      fail(s"The error contained an invalid definite answer: [$value]")
+    val definitiveAnswer = extractErrorInfoMetadataValue(exception, "definite_answer")
+    if (!Set("true", "false").contains(definitiveAnswer.toLowerCase)) {
+      fail(s"The error contained an invalid definite answer: [$definitiveAnswer]")
     }
   }
 
-  def extractErrorInfoMetadata(exception: Exception): java.util.Map[String, String] =
+  def extractErrorInfoMetadataValue(exception: Throwable, key: String): String = {
+    val metadata = extractErrorInfoMetadata(exception)
+    metadata.get(key) match {
+      case Some(value) =>
+        value
+      case None =>
+        fail(s"The error metadata did not contain the key $key. Metadata was: [$metadata]")
+    }
+  }
+
+  def extractErrorInfoMetadata(exception: Throwable): Map[String, String] =
     extractErrorInfoMetadata(StatusProto.fromThrowable(exception))
 
-  def extractErrorInfoMetadata(status: com.google.rpc.Status): java.util.Map[String, String] = {
+  def extractErrorInfoMetadata(status: com.google.rpc.Status): Map[String, String] = {
     val details = status.getDetailsList.asScala
     details
       .find(_.is(classOf[ErrorInfo]))
       .map { any =>
         val errorInfo = any.unpack(classOf[ErrorInfo])
-        errorInfo.getMetadataMap
+        errorInfo.getMetadataMap.asScala.toMap
       }
       .getOrElse {
-        new util.HashMap()
+        Map.empty
       }
   }
 
