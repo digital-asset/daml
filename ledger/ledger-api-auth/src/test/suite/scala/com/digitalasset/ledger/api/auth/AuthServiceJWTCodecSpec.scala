@@ -167,7 +167,7 @@ class AuthServiceJWTCodecSpec
             |  "aud": "someParticipantId",
             |  "sub": "someUserId",
             |  "exp": 100,
-            |  "scope": "https://daml.com/ledger-api"
+            |  "scope": "https://daml.com/ledger-api.full_control"
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
@@ -184,7 +184,7 @@ class AuthServiceJWTCodecSpec
             |  "aud": "someParticipantId",
             |  "sub": "someUserId",
             |  "exp": 100,
-            |  "scope": "dummy-scope1 https://daml.com/ledger-api dummy-scope2"
+            |  "scope": "dummy-scope1 https://daml.com/ledger-api.full_control dummy-scope2"
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
