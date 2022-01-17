@@ -17,7 +17,12 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+}
 import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
@@ -63,15 +68,10 @@ class JsonLedgerClient(
     case -\/(e) => throw new IllegalArgumentException(e.toString)
     case \/-(a) => a
   }
-  private[script] val tokenPayload: CustomDamlJWTPayload =
+  private[script] val tokenPayload: AuthServiceJWTPayload =
     AuthServiceJWTCodec.readFromString(decodedJwt.payload) match {
       case Failure(e) => throw e
-      case Success(s: CustomDamlJWTPayload) => s
-      case Success(_: StandardJWTPayload) =>
-        // TODO https://github.com/digital-asset/daml/issues/12349
-        throw new UnsupportedOperationException(
-          "Daml Script over JSON API does not support standard JWT tokens"
-        )
+      case Success(s) => s
     }
 
   implicit val system = actorSystem
@@ -79,6 +79,15 @@ class JsonLedgerClient(
 
   private def damlLfTypeLookup(id: Identifier) =
     envIface.typeDecls.get(id).map(_.`type`)
+
+  val applicationId: Option[String] =
+    tokenPayload match {
+      case t: CustomDamlJWTPayload => t.applicationId
+      case t: StandardJWTPayload =>
+        // For standard jwts, the JSON API uses the user id
+        // as the application id on command submissions.
+        Some(t.userId)
+    }
 
   def request[A, B](path: Path, a: A)(implicit
       wa: JsonWriter[A],
@@ -579,30 +588,37 @@ object JsonLedgerClient {
   def validateTokenParties(
       parties: OneAnd[Set, Ref.Party],
       what: String,
-      tokenPayload: CustomDamlJWTPayload,
-  ): Either[String, Option[QueryParties]] = {
-    val tokenParties = tokenPayload.readAs.toSet union tokenPayload.actAs.toSet
-    val partiesSet = parties.toSet.toSet[String]
-    val missingParties = partiesSet diff tokenParties
-    // First check is just for a nicer error message and would be covered by the second
-    if (tokenParties.isEmpty) {
-      Left(
-        s"Tried to $what as ${parties.toList.mkString(" ")} but token contains no parties."
-      )
-    } else if (missingParties.nonEmpty) {
-      Left(s"Tried to $what as [${parties.toList
-        .mkString(", ")}] but token provides claims for [${tokenParties
-        .mkString(", ")}]. Missing claims: [${missingParties.mkString(", ")}]")
-    } else {
-      import scalaz.std.string._
-      if (partiesSet === tokenParties) {
-        // For backwards-compatibility we only set the party set flags when needed
-        Right(None)
-      } else {
+      tokenPayload: AuthServiceJWTPayload,
+  ): Either[String, Option[QueryParties]] =
+    tokenPayload match {
+      case tokenPayload: CustomDamlJWTPayload =>
+        val tokenParties = tokenPayload.readAs.toSet union tokenPayload.actAs.toSet
+        val partiesSet = parties.toSet.toSet[String]
+        val missingParties = partiesSet diff tokenParties
+        // First check is just for a nicer error message and would be covered by the second
+        if (tokenParties.isEmpty) {
+          Left(
+            s"Tried to $what as ${parties.toList.mkString(" ")} but token contains no parties."
+          )
+        } else if (missingParties.nonEmpty) {
+          Left(s"Tried to $what as [${parties.toList
+            .mkString(", ")}] but token provides claims for [${tokenParties
+            .mkString(", ")}]. Missing claims: [${missingParties.mkString(", ")}]")
+        } else {
+          import scalaz.std.string._
+          if (partiesSet === tokenParties) {
+            // For backwards-compatibility we only set the party set flags when needed
+            Right(None)
+          } else {
+            Right(Some(QueryParties(parties)))
+          }
+        }
+      case _: StandardJWTPayload =>
+        // A JSON API that understands standard JWTs also understands explicit party
+        // specifications so rather than validating this client side, we just always set
+        // the explicit party specification and leave it to the JSON API to validate this.
         Right(Some(QueryParties(parties)))
-      }
     }
-  }
 
   // Validate that the token has the required claims and return
   // SubmitParties we need to pass to the JSON API
@@ -610,39 +626,47 @@ object JsonLedgerClient {
   def validateSubmitParties(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      tokenPayload: CustomDamlJWTPayload,
+      tokenPayload: AuthServiceJWTPayload,
   ): Either[String, Option[SubmitParties]] = {
-    val actAsSet = actAs.toList.toSet[String]
-    val readAsSet = readAs.toSet[String]
-    val tokenActAs = tokenPayload.actAs.toSet
-    val tokenReadAs = tokenPayload.readAs.toSet
-    val missingActAs = actAs.toSet.toSet[String] diff tokenActAs
-    val missingReadAs = readAs.toSet[String] diff (tokenReadAs union tokenActAs)
-    if (tokenPayload.actAs.isEmpty) {
-      Left(
-        s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token contains no actAs parties."
-      )
+    tokenPayload match {
+      case tokenPayload: CustomDamlJWTPayload =>
+        val actAsSet = actAs.toList.toSet[String]
+        val readAsSet = readAs.toSet[String]
+        val tokenActAs = tokenPayload.actAs.toSet
+        val tokenReadAs = tokenPayload.readAs.toSet
+        val missingActAs = actAs.toSet.toSet[String] diff tokenActAs
+        val missingReadAs = readAs.toSet[String] diff (tokenReadAs union tokenActAs)
+        if (tokenPayload.actAs.isEmpty) {
+          Left(
+            s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token contains no actAs parties."
+          )
 
-    } else if (missingActAs.nonEmpty) {
-      Left(
-        s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token provides claims for actAs = [${tokenPayload.actAs
-          .mkString(", ")}]. Missing claims: [${missingActAs.mkString(", ")}]"
-      )
-    } else if (missingReadAs.nonEmpty) {
-      Left(
-        s"Tried to submit a command with readAs = [${readAs.mkString(", ")}] but token provides claims for readAs = [${tokenPayload.readAs
-          .mkString(", ")}]. Missing claims: [${missingReadAs.mkString(", ")}]"
-      )
-    } else {
-      import scalaz.std.string._
-      val onlyReadAs = readAsSet diff actAsSet
-      val tokenOnlyReadAs = tokenReadAs diff tokenActAs
-      if (onlyReadAs === tokenOnlyReadAs && actAsSet === tokenActAs) {
-        // For backwards-compatibility we only set the party set flags when needed
-        Right(None)
-      } else {
+        } else if (missingActAs.nonEmpty) {
+          Left(
+            s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token provides claims for actAs = [${tokenPayload.actAs
+              .mkString(", ")}]. Missing claims: [${missingActAs.mkString(", ")}]"
+          )
+        } else if (missingReadAs.nonEmpty) {
+          Left(
+            s"Tried to submit a command with readAs = [${readAs.mkString(", ")}] but token provides claims for readAs = [${tokenPayload.readAs
+              .mkString(", ")}]. Missing claims: [${missingReadAs.mkString(", ")}]"
+          )
+        } else {
+          import scalaz.std.string._
+          val onlyReadAs = readAsSet diff actAsSet
+          val tokenOnlyReadAs = tokenReadAs diff tokenActAs
+          if (onlyReadAs === tokenOnlyReadAs && actAsSet === tokenActAs) {
+            // For backwards-compatibility we only set the party set flags when needed
+            Right(None)
+          } else {
+            Right(Some(SubmitParties(actAs, readAs)))
+          }
+        }
+      case _: StandardJWTPayload =>
+        // A JSON API that understands standard JWTs also understands explicit party
+        // specifications so rather than validating this client side, we just always set
+        // the explicit party specification and leave it to the JSON API to validate this.
         Right(Some(SubmitParties(actAs, readAs)))
-      }
     }
   }
 

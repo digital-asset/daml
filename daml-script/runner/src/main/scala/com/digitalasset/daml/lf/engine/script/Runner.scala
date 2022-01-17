@@ -268,12 +268,10 @@ object Runner {
           Future.failed(new RuntimeException(s"The JSON API always requires access tokens"))
         case Some(token) =>
           val client = new JsonLedgerClient(uri, Jwt(token), envIface, system)
-          if (
-            params.application_id.isDefined && params.application_id != client.tokenPayload.applicationId
-          ) {
+          if (params.application_id.isDefined && params.application_id != client.applicationId) {
             Future.failed(
               new RuntimeException(
-                s"ApplicationId specified in token ${client.tokenPayload.applicationId} must match ${params.application_id}"
+                s"ApplicationId specified in token ${client.applicationId} must match ${params.application_id}"
               )
             )
           } else {
