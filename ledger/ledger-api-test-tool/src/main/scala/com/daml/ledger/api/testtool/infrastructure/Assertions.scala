@@ -189,6 +189,11 @@ object Assertions {
     )
   }
 
+  def assertDefined[T](option: Option[T], errorMessage: String): T = {
+    assert(option.isDefined, errorMessage)
+    option.get
+  }
+
   /** Allows for assertions with more information in the error messages. */
   implicit def futureAssertions[T](future: Future[T]): FutureAssertions[T] =
     new FutureAssertions[T](future)
