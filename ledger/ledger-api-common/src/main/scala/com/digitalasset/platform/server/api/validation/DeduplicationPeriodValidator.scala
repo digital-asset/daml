@@ -33,7 +33,7 @@ class DeduplicationPeriodValidator(
     validateNonNegativeDuration(duration).flatMap { duration =>
       if (duration.compareTo(maxDeduplicationDuration) > 0)
         Left(
-          errorFactories.invalidDeduplicationDuration(
+          errorFactories.invalidDeduplicationPeriod(
             fieldName,
             s"The given deduplication duration of $duration exceeds the maximum deduplication time of $maxDeduplicationDuration",
             definiteAnswer = Some(false),
@@ -48,7 +48,11 @@ class DeduplicationPeriodValidator(
   ): Either[StatusRuntimeException, Duration] = if (duration.isNegative)
     Left(
       errorFactories
-        .invalidField(fieldName, "Duration must be positive", definiteAnswer = Some(false))
+        .invalidField(
+          fieldName,
+          "Duration must be positive",
+          definiteAnswer = Some(false),
+        )
     )
   else Right(duration)
 }

@@ -78,6 +78,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.client.binding.{Primitive, Template}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
@@ -87,6 +88,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Failure
 import scala.util.control.NonFatal
 
 private[testtool] object ParticipantTestContext {
@@ -117,7 +119,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     val clientTlsConfiguration: Option[TlsConfiguration],
     val features: Features,
 )(implicit ec: ExecutionContext) {
-
+  private val logger = ContextualizedLogger.get(getClass)
   import ParticipantTestContext._
 
   val begin: LedgerOffset =
@@ -766,9 +768,13 @@ private[testtool] final class ParticipantTestContext private[participant] (
     eventually(
       attempts = attempts,
       runAssertion = {
-        services.participantPruning.prune(
-          PruneRequest(pruneUpTo, nextSubmissionId(), pruneAllDivulgedContracts)
-        )
+        services.participantPruning
+          .prune(
+            PruneRequest(pruneUpTo, nextSubmissionId(), pruneAllDivulgedContracts)
+          )
+          .andThen { case Failure(exception) =>
+            logger.error("Failed to prune", exception)(LoggingContext.ForTesting)
+          }
       },
     )
 

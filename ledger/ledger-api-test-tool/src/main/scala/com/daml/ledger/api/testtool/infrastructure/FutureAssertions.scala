@@ -125,7 +125,7 @@ object FutureAssertions {
       data: Seq[T]
   )(
       testCase: T => Future[Unit]
-  )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[Seq[Unit]] = Future
+  )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[Unit] = Future
     .traverse(data)(input =>
       testCase(input).map(Right(_)).recover { case NonFatal(ex) =>
         Left(input -> ex)
@@ -142,7 +142,7 @@ object FutureAssertions {
             .mkString("[", ",", "]")}",
           failures.last._2,
         )
-      } else successes
+      }
     }
 
   def optionalAssertion(runs: Boolean, description: String)(
