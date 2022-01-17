@@ -940,7 +940,7 @@ main =
                   , "expectUserNotFound script = try do _ <- script; undefined catch UserNotFound _ -> pure ()"
                   , "testUserManagement = do"
                   , "  True <- isValidUserId \"good\""
-                  , "  False <- isValidUserId \".bad\""
+                  , "  False <- isValidUserId \"%bad\""
                   , "  u1 <- validateUserId \"user1\""
                   , "  u2 <- validateUserId \"user2\""
                   , "  let user1 = User u1 None"
