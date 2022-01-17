@@ -124,8 +124,9 @@ const npmExeName = process.platform == "win32" ? "npm" : "npm-cli.js";
 beforeAll(async () => {
   await removeFile(`../${SANDBOX_PORT_FILE_NAME}`);
   await removeFile(`../${JSON_API_PORT_FILE_NAME}`);
+
   const sandboxOptions = [
-    "sandbox-kv",
+    (process.env.SANDBOX_VERSION[0] == "1") ? "sandbox" : "sandbox-kv",
     `--ledgerid=${SANDBOX_LEDGER_ID}`,
     `--port=0`,
     `--port-file=${SANDBOX_PORT_FILE_NAME}`,
