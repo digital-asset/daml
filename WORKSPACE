@@ -712,7 +712,7 @@ dev_env_tool(
         ".",
     ],
     win_paths = [],
-    win_tool = "nodejs-12.17.0",
+    win_tool = "nodejs",
 )
 
 # Setup the Node.js toolchain
