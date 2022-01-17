@@ -194,7 +194,7 @@ public final class DamlLedgerClient implements LedgerClient {
 
   /** Connects this instance of the {@link DamlLedgerClient} to the Ledger. */
   public void connect() {
-    ledgerIdentityClient = new LedgerIdentityClientImpl(channel, this.accessToken);
+    ledgerIdentityClient = new LedgerIdentityClientImpl(channel, pool, this.accessToken);
 
     String reportedLedgerId = ledgerIdentityClient.getLedgerIdentity().blockingGet();
 
@@ -214,13 +214,14 @@ public final class DamlLedgerClient implements LedgerClient {
     commandCompletionClient =
         new CommandCompletionClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     commandSubmissionClient =
-        new CommandSubmissionClientImpl(reportedLedgerId, channel, this.accessToken, this.timeout);
-    commandClient = new CommandClientImpl(reportedLedgerId, channel, this.accessToken);
-    packageClient = new PackageClientImpl(reportedLedgerId, channel, this.accessToken);
+        new CommandSubmissionClientImpl(
+            reportedLedgerId, channel, pool, this.accessToken, this.timeout);
+    commandClient = new CommandClientImpl(reportedLedgerId, channel, pool, this.accessToken);
+    packageClient = new PackageClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     ledgerConfigurationClient =
         new LedgerConfigurationClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     timeClient = new TimeClientImpl(reportedLedgerId, channel, pool, this.accessToken);
-    userManagementClient = new UserManagementClientImpl(channel, this.accessToken);
+    userManagementClient = new UserManagementClientImpl(channel, pool, this.accessToken);
   }
 
   @Override
