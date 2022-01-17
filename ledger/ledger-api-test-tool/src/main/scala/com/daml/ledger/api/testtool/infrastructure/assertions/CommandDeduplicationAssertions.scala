@@ -51,6 +51,8 @@ object CommandDeduplicationAssertions {
           "No deduplication offset has been reported",
         )
         if (completionResponse.completion.getStatus.code == Code.ALREADY_EXISTS.value) {
+          // Search for the first accepting completion with the same command ID since the beginning of the test case.
+          // Multiple consecutive accepting completions are not supported.
           val completionStreamRequest = ledger.completionStreamRequest()(submittingParty)
           WithTimeout(5.seconds)(
             ledger
