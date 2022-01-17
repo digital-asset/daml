@@ -108,6 +108,7 @@ The following table summarizes what kind of rights are required to access each L
 | VersionService                      | All                        | public                                              |
 +-------------------------------------+----------------------------+-----------------------------------------------------+
 
+.. _access-token-formats:
 
 Access token formats
 ********************
