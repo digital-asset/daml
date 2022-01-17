@@ -770,7 +770,7 @@ submitTreeMulti actAs readAs cmds =
 data UserId = UserId
   with
     userName : Text
-  deriving (Eq,Show)
+  deriving (Eq, Ord, Show)
 
 -- | HIDE User as used in the user management service
 data User = User
