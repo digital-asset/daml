@@ -7,7 +7,7 @@ Authorization
 #############
 
 When developing Daml applications using SDK tools,
-your local setup will most likely not perform any ledger API request authorization -
+your local setup will most likely not perform any ledger API request authorization --
 by default, any valid ledger API request will be accepted by the sandbox.
 
 This is not the case for participant nodes of :doc:`deployed ledgers </deploy/index>`.
