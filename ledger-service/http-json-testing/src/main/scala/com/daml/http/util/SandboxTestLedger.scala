@@ -5,9 +5,11 @@ package com.daml.http.util
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.HttpServiceTestFixture.{UseTls, clientTlsConfig, serverTlsConfig}
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -19,6 +21,7 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
+import scalaz.@@
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -29,7 +32,7 @@ trait SandboxTestLedger extends SandboxNextFixture {
 
   def useTls: UseTls
 
-  def ledgerId = LedgerId(testId)
+  def ledgerId: String @@ domain.LedgerIdTag = LedgerId(testId)
 
   override protected def config: SandboxConfig = SandboxConfig.defaultConfig.copy(
     port = Port.Dynamic,
@@ -48,8 +51,12 @@ trait SandboxTestLedger extends SandboxNextFixture {
       applicationId = testName,
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = if (useTls) clientTlsConfig.client() else None,
       token = token,
+    )
+
+  private val clientChannelCfg: LedgerClientChannelConfiguration =
+    LedgerClientChannelConfiguration(
+      sslContext = if (useTls) clientTlsConfig.client() else None
     )
 
   def usingLedger[A](testName: String, token: Option[String] = None)(
@@ -65,6 +72,7 @@ trait SandboxTestLedger extends SandboxNextFixture {
       "localhost",
       ledgerPort.value,
       clientCfg(token, testName),
+      clientChannelCfg,
     )(ec, esf)
 
     val fa: Future[A] = for {
