@@ -8,7 +8,7 @@ import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
-import com.daml.ledger.sandbox.bridge.{BridgeMetrics, NoOpPreparedSubmission}
+import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.PrepareSubmissionSpec._
 import com.daml.ledger.sandbox.domain.Rejection.{
   TransactionInternallyInconsistentContract,
