@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_linux")
+load("//bazel_tools:versions.bzl", "versions")
+
+def runfiles(ver):
+    return ["@daml-sdk-{}//:daml".format(ver)] + (["@daml-sdk-{}//:sandbox-on-x".format(ver)] if versions.is_at_least("2.0.0", ver) else [])
 
 def migration_test(name, versions, tags, quick_tags, **kwargs):
     native.sh_test(
@@ -12,7 +16,7 @@ def migration_test(name, versions, tags, quick_tags, **kwargs):
             "//sandbox-migration:sandbox-migration-runner",
             "//sandbox-migration:migration-model.dar",
             "//sandbox-migration:migration-step",
-        ] + ["@daml-sdk-{}//:daml".format(ver) for ver in versions],
+        ] + [dep for ver in versions for dep in runfiles(ver)],
         args = versions,
         tags = tags + quick_tags,
         **kwargs
@@ -28,7 +32,7 @@ def migration_test(name, versions, tags, quick_tags, **kwargs):
             "//sandbox-migration:sandbox-migration-runner",
             "//sandbox-migration:migration-model.dar",
             "//sandbox-migration:migration-step",
-        ] + ["@daml-sdk-{}//:daml".format(ver) for ver in versions],
+        ] + [dep for ver in versions for dep in runfiles(ver)],
         args = ["--append-only"] + versions,
         **kwargs
     )
