@@ -10,23 +10,13 @@ option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
 
-// Experimental API to manage users and their rights for interacting with the Ledger API
+// Service to manage users and their rights for interacting with the Ledger API
 // served by a participant node.
 //
-// The API roughly follows the Google API style guidelines for resource-oriented design
-// (https://cloud.google.com/apis/design/resources) with the following simplifications to
-// ease its implementation:
-//
-// 1. List methods do not (yet) support pagination,
-//    as we expect to have fewer than 10k users and 1k rights per user.
-//
-// 2. Resources are not named as per the Google API style guide,
-//    as this would be in contrast with the other Ledger API services.
-//
-// Authorization rules for the services RPCs are specified on the `RpcNameRequest`
-// messages as boolean expressions over these facts:
-// - ``HasRight(r)``: true iff the authenticated user has right `r`
-// - ``IsAuthenticatedUser(u)``: true iff ``u`` is equal to the name of the authenticated user
+// The authorization rules for its RPCs are specified on the ``<RpcName>Request``
+// messages as boolean expressions over these two facts:
+// (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
+// (2) ``IsAuthenticatedUser(uid)`` denoting whether ``uid`` is the empty string or equal to the id of the authenticated user.
 //
 service UserManagementService {
 
@@ -39,7 +29,7 @@ service UserManagementService {
     // Delete an existing user and all its rights.
     rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse);
 
-    // List the all existing users.
+    // List all existing users.
     rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
 
     // Grant rights to a user.
@@ -56,48 +46,46 @@ service UserManagementService {
 // Users and rights
 ///////////////////
 
-// Users are are used to manage the rights given to authenticated Ledger API clients.
+// Users are used to dynamically manage the rights given to Daml applications.
 // They are stored and managed per participant node.
 //
-// TLS client certificates authenticate the user specified by the certificates common name.
-// JWT tokens authenticate the user specified by the JWT tokens 'sub' (subject) claim.
+// Read the :doc:`Authorization documentation </app-dev/authorization>` to learn more.
 message User {
-    // The user identifier, which must be a non-empty string of at most 64
-    // characters matching the regexp [a-z0-9-_.], i.e. lower-case characters, digits,
-    // dashes or dots. Double-dots, double-dashes, and double-underscores are not allowed.
+    // The user identifier, which must be a non-empty string of at most 128
+    // characters that are either lowercase alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|".
     string id = 1;
 
     // The primary party as which this user reads and acts by default on the ledger
     // _provided_ it has the corresponding ``CanReadAs(primary_party)`` or 
     // ``CanActAs(primary_party)`` rights.
-    //
     // Ledger API clients SHOULD set this field to a non-empty value for all users to
     // enable the users to act on the ledger using their own Daml party.
-    // Ledger API clients MAY set this field to empty for special users; e.g., a user
-    // that is granted ``CanReadAsAnyParty`` so that it can export the data for all parties
-    // hosted on the participant node.
+    // Users for participant administrators MAY not have an associated primary party.
     string primary_party = 2;
 }
 
 
 // A right granted to a user.
 message Right {
-    // The user is allowed to administrate the participant node.
+    // The right to administrate the participant node.
     message ParticipantAdmin {}
 
-    // The user can authorize commands for the given party.
     message CanActAs {
+        // The right authorize commands for this party.
         string party = 1;
     }
 
-    // The user can read ledger data visible to the given party.
     message CanReadAs {
+        // The right to read ledger data visible to this party.
         string party = 1;
     }
 
     oneof kind {
+        // The user can administrate the participant node.
         ParticipantAdmin participant_admin = 1;
+        // The user can act as a specific party.
         CanActAs can_act_as = 2;
+        // The user can read ledger data visible to a specific party.
         CanReadAs can_read_as = 3;
     }
 }
@@ -118,25 +106,27 @@ message CreateUserRequest {
 
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedUser(user_id)``
 message GetUserRequest {
-    // The user whose data we want to retrieve.
+    // The user whose data to retrieve.
     // If set to empty string (the default), then the data for the authenticated user will be retrieved.
     string user_id = 1;
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message DeleteUserRequest {
+    // The user to delete.
     string user_id = 1;
 }
 
+// Does not (yet) contain any data.
 message DeleteUserResponse {
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message ListUsersRequest {
-    // TODO (i12052): add pagination following https://cloud.google.com/apis/design/design_patterns#list_pagination
 }
 
 message ListUsersResponse {
+    // All users of the participant node.
     repeated User users = 1;
 }
 
@@ -144,8 +134,10 @@ message ListUsersResponse {
 //
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message GrantUserRightsRequest {
+    // The user to whom to grant rights.
     string user_id = 1;
 
+    // The rights to grant.
     repeated Right rights = 2;
 }
 
@@ -158,8 +150,10 @@ message GrantUserRightsResponse {
 //
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message RevokeUserRightsRequest {
+    // The user from whom to revoke rights.
     string user_id = 1;
 
+    // The rights to revoke.
     repeated Right rights = 2;
 }
 
@@ -178,6 +172,7 @@ message ListUserRightsRequest {
 }
 
 message ListUserRightsResponse {
+    // All rights of the user.
     repeated Right rights = 1;
 }
 
