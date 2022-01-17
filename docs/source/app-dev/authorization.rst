@@ -114,7 +114,7 @@ Applications should treat access tokens as opaque blobs.
 However as an application developer it can be helpful to understand the format of access tokens to debug problems.
 
 All Daml ledgers represent access tokens as `JSON Web Tokens (JWTs) <https://datatracker.ietf.org/doc/html/rfc7519>`_,
-and there are two formats of their JSON payload in use by Daml ledgers.
+and there are two formats of the JSON payload in use by Daml ledgers.
 
 
 Custom Daml claims access tokens
@@ -139,47 +139,50 @@ This format represents the :ref:`rights <authorization-claims>` granted by the a
 
 where all of the fields are optional, and if present,
 
-- ``ledgerId``, ``participantId``, ``applicationId`` restrict the validity of the token to the given ledger, participant, or application
+- ``ledgerId`` and ``participantId`` restrict the validity of the token to the given ledger or participant node
+- ``applicationId`` requires requests with this token to use that application id or not set an application id at all, which should be used to distinguish requests from different applications
 - ``exp`` is the standard JWT expiration date (in seconds since EPOCH)
-- ``admin``, ``actAs`` and ``readAs`` encode the rights granted by this access token
+- ``actAs``, ``readAs`` and (participant) ``admin`` encode the rights granted by this access token
 
 The ``public`` right is implicitly granted to any bearing a valid JWT issued by a trusted issuer (even without being an admin or being able to act or read on behalf of any party).
+
+.. note:: All Daml ledgers also support a deprecated legacy format of custom Daml claims
+   access tokens whose format is equal to the above expect for the custom claims
+   to be present at the same level as ``exp`` in the token above,
+   instead of being nested below ``"https://daml.com/ledger-api"``.
 
 
 
 User access tokens
 ==================
 
+Daml ledger that support participant user management also accept user access tokens.
+They are useful for scenarios where an application's rights change dynamically over the application's lifetime.
+
+User access tokens do not encode rights directly like custom Daml claims tokens.
+Instead, user access tokens encode the participant user on behalf of which the application is issuing a request.
+
+When handling such requests, participant nodes look up the participant user's current rights
+before checking request authorization per the  :ref:`table above <authorization-claims>`.
+Thus the rights granted to an application can be changed dynamically using
+the participant user management service *without* issuing new access tokens, as would be required for custom Daml claims tokens.
+
+User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ that follow the
+`OAuth 2.0 standard <https://datatracker.ietf.org/doc/html/rfc6749>`_ with a JSON payload of the following format.
+
 .. code-block:: json
 
    {
-
-      "aud": "123e4567-e89b-12d3-a456-426614174000",
-      "sub": "user1",
+      "aud": "someParticipantId",
+      "sub": "someUserId",
       "exp": 1300819380
-      "scope": "https://daml.com/ledger-api.full"
+      "scope": "https://daml.com/auth/ledger-api"
    }
 
+where
 
-
-Participant user management
-***************************
-
-
-
-
-Getting access tokens
-*********************
-
-To learn how to receive access tokens for a deployed ledger, contact your ledger operator.
-This may be a manual exchange over a secure channel,
-or your application may have to request tokens at runtime using an API such as `OAuth <https://oauth.net/2/>`__.
-
-To learn how to generate access tokens for the Sandbox,
-read the :ref:`sandbox <sandbox-authorization>` documentation.
-
-
-Access tokens may be represented differently based on the ledger implementation.
-
-To learn how these claims are represented in the Sandbox,
-read the :ref:`sandbox <sandbox-authorization>` documentation.
+- ``aud`` is an optional field, which restricts the token to participant nodes with the given id
+- ``sub`` is a required field, which specifies the participant user's id
+- ``exp`` is an optional field, which specifies the JWT expiration date (in seconds since EPOCH)
+- ``scope`` is a space-separated list of `OAuth 2.0 scopes <https://datatracker.ietf.org/doc/html/rfc6749#section-3.3>`_
+  that must contain the ``"https://daml.com/auth/ledger-api"`` scope
