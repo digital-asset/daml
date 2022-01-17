@@ -32,7 +32,7 @@ message GetActiveContractsRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 
   // Templates to include in the served snapshot, per party.

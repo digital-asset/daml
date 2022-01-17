@@ -451,7 +451,7 @@ object ApiSubmissionServiceSpec {
   private def newSubmitRequest() = {
     SubmitRequest(
       Commands(
-        ledgerId = LedgerId("ledger-id"),
+        ledgerId = Some(LedgerId("ledger-id")),
         workflowId = None,
         applicationId = DomainMocks.applicationId,
         commandId = CommandId(

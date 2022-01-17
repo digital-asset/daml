@@ -13,6 +13,7 @@ import com.daml.lf.data.logging._
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId => LfContractId}
 import com.daml.lf.value.{Value => Lf}
+import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
@@ -287,6 +288,10 @@ object domain {
   type LedgerId = String @@ LedgerIdTag
   val LedgerId: Tag.TagOf[LedgerIdTag] = Tag.of[LedgerIdTag]
 
+  def optionalLedgerId(raw: String): Option[LedgerId] = {
+    if (raw.isEmpty) None else Some(LedgerId(raw))
+  }
+
   sealed trait ParticipantIdTag
 
   type ParticipantId = Ref.ParticipantId @@ ParticipantIdTag
@@ -298,7 +303,7 @@ object domain {
   val SubmissionId: Tag.TagOf[SubmissionIdTag] = Tag.of[SubmissionIdTag]
 
   case class Commands(
-      ledgerId: LedgerId,
+      ledgerId: Option[LedgerId],
       workflowId: Option[WorkflowId],
       applicationId: Ref.ApplicationId,
       commandId: CommandId,
@@ -317,9 +322,10 @@ object domain {
     implicit val `Timestamp to LoggingValue`: ToLoggingValue[Timestamp] =
       ToLoggingValue.ToStringToLoggingValue
 
-    implicit val `Commands to LoggingValue`: ToLoggingValue[Commands] = commands =>
+    implicit val `Commands to LoggingValue`: ToLoggingValue[Commands] = commands => {
+      val maybeString: Option[String] = commands.ledgerId.map(Tag.unwrap)
       LoggingValue.Nested.fromEntries(
-        "ledgerId" -> commands.ledgerId,
+        "ledgerId" -> OfString(maybeString.getOrElse("<empty-ledger-id>")),
         "workflowId" -> commands.workflowId,
         "applicationId" -> commands.applicationId,
         "commandId" -> commands.commandId,
@@ -328,6 +334,7 @@ object domain {
         "submittedAt" -> commands.submittedAt,
         "deduplicationPeriod" -> commands.deduplicationPeriod,
       )
+    }
   }
 
   /** Represents a party with additional known information.

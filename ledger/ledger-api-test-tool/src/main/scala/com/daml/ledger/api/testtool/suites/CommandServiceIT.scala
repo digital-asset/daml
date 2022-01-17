@@ -10,6 +10,7 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.v1.commands.Command
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitForTransactionResponse
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.client.binding.Value.encode
@@ -20,7 +21,6 @@ import com.daml.ledger.test.model.Test.WithObservers._
 import com.daml.ledger.test.model.Test._
 import io.grpc.Status
 import scalaz.syntax.tag._
-
 import java.util.regex.Pattern
 
 final class CommandServiceIT extends LedgerTestSuite {

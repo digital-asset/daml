@@ -46,9 +46,9 @@ class GrpcCommandCompletionService(
       .validateCompletionEndRequest(request)
       .fold(
         t => Future.failed[CompletionEndResponse](ValidationLogger.logFailure(request, t)),
-        req =>
+        _ =>
           service
-            .getLedgerEnd(req.ledgerId)
+            .getLedgerEnd()
             .map(abs =>
               CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value))))
             ),
