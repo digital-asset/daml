@@ -56,7 +56,7 @@ message User {
     string id = 1;
 
     // The primary party as which this user reads and acts by default on the ledger
-    // _provided_ it has the corresponding ``CanReadAs(primary_party)`` or 
+    // *provided* it has the corresponding ``CanReadAs(primary_party)`` or
     // ``CanActAs(primary_party)`` rights.
     // Ledger API clients SHOULD set this field to a non-empty value for all users to
     // enable the users to act on the ledger using their own Daml party.
@@ -71,7 +71,7 @@ message Right {
     message ParticipantAdmin {}
 
     message CanActAs {
-        // The right authorize commands for this party.
+        // The right to authorize commands for this party.
         string party = 1;
     }
 
@@ -175,4 +175,3 @@ message ListUserRightsResponse {
     // All rights of the user.
     repeated Right rights = 1;
 }
-
