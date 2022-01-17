@@ -24,6 +24,7 @@ module DA.Daml.Helper.Util
   , waitForConnectionOnPort
   , waitForHttpServer
   , tokenFor
+  , StaticTime(..)
   , CantonOptions(..)
   , decodeCantonSandboxPort
   ) where
@@ -283,19 +284,28 @@ withCantonSandbox options remainingArgs k = do
         BSL.writeFile config (cantonConfig options)
         withJar cantonJar [] ("daemon" : "-c" : config :  "--auto-connect-local" : remainingArgs) k
 
+newtype StaticTime = StaticTime Bool
+
 data CantonOptions = CantonOptions
   { ledgerApi :: Int
   , adminApi :: Int
   , domainPublicApi :: Int
   , domainAdminApi :: Int
   , portFileM :: Maybe FilePath
+  , staticTime :: StaticTime
   }
 
 cantonConfig :: CantonOptions -> BSL.ByteString
 cantonConfig CantonOptions{..} =
     Aeson.encode $ Aeson.object
-        [ "canton" Aeson..= Aeson.object (
-            [ "participants" Aeson..= Aeson.object
+        [ "canton" Aeson..= Aeson.object
+            [ "parameters" Aeson..= Aeson.object ( concat
+                [ [ "ports-file" Aeson..= portFile | Just portFile <- [portFileM] ]
+                , [ "clock" Aeson..= Aeson.object
+                        [ "type" Aeson..= ("sim-clock" :: T.Text) ]
+                  | StaticTime True <- [] ]
+                ] )
+            , "participants" Aeson..= Aeson.object
                 [ "sandbox" Aeson..= Aeson.object
                     [ storage
                     , "admin-api" Aeson..= port adminApi
@@ -309,11 +319,7 @@ cantonConfig CantonOptions{..} =
                     , "admin-api" Aeson..= port domainAdminApi
                     ]
                 ]
-            ] ++
-            [ "parameters" Aeson..= Aeson.object
-                [ "ports-file" Aeson..= portFile ]
-            | Just portFile <- [portFileM]
-            ] )
+            ]
         ]
   where
     port p = Aeson.object [ "port" Aeson..= p ]

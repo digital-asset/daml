@@ -95,7 +95,6 @@ beforeAll(async () => {
   // Getting Started Guide.
   const startArgs = [
     'start',
-    '--sandbox-kv',
     `--json-api-option=--port-file=${JSON_API_PORT_FILE_NAME}`,
   ];
 

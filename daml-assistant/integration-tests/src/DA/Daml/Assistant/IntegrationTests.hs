@@ -11,6 +11,7 @@ import Control.Monad.Loops (untilM_)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Data.List.Extra
 import Data.String (fromString)
@@ -137,20 +138,12 @@ damlStart tmpDir withCantonSandbox = do
     jsonApiPort <- getFreePort
     env <- subprocessEnv []
     let startProc =
-            (shell $ unwords $ concat
-                [ [ "daml start" ]
-                , if withCantonSandbox then
-                    [ "--sandbox-canton"
-                    , "--canton-admin-api-port=0"
-                    , "--canton-domain-public-port=0"
-                    , "--canton-domain-admin-port=0"
-                    ]
-                  else
-                    [ "--sandbox-kv"]
-                , [ "--start-navigator=no"
-                  , "--sandbox-port", show sandboxPort
-                  , "--json-api-port", show jsonApiPort
-                  ]
+            (shell $ unwords
+                [ "daml start"
+                , if withCantonSandbox then "--sandbox-canton" else "--sandbox-kv"
+                , "--start-navigator=no"
+                , "--sandbox-port", show sandboxPort
+                , "--json-api-port", show jsonApiPort
                 ]
             ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
     (Just startStdin, Just startStdout, _, startPh) <- createProcess startProc
@@ -192,27 +185,38 @@ quickSandbox projDir = do
         callCommandSilent $ unwords ["daml", "new", projDir, "--template=quickstart-java"]
         callCommandSilentIn projDir "daml build"
         sandboxPort <- getFreePort
+        adminApiPort <- getFreePort
+        domainPublicApiPort <- getFreePort
+        domainAdminApiPort <- getFreePort
+        let portFile = "portfile.json"
+        let darFile = ".daml" </> "dist" </> "quickstart-0.0.1.dar"
         let sandboxProc =
                 (shell $
                     unwords
                         [ "daml"
-                        , "sandbox-kv"
-                        , "--"
-                        , "--port"
-                        , show sandboxPort
-                        , "--"
+                        , "sandbox"
+                        , "--port" , show sandboxPort
+                        , "--admin-api-port", show adminApiPort
+                        , "--domain-public-port", show domainPublicApiPort
+                        , "--domain-admin-port", show domainAdminApiPort
+                        , "--port-file", portFile
                         , "--static-time"
-                        , ".daml/dist/quickstart-0.0.1.dar"
                         ])
                     {std_out = UseHandle devNull, create_group = True, cwd = Just projDir}
         (_, _, _, sandboxPh) <- createProcess sandboxProc
-        waitForConnectionOnPort 240 sandboxPh (threadDelay 500000) $ fromIntegral sandboxPort
+        _ <- readPortFileWith decodeCantonSandboxPort sandboxPh maxRetries (projDir </> portFile)
+        callCommandSilentIn projDir $ unwords
+             [ "daml ledger upload-dar"
+             , "--host=localhost"
+             , "--port=" <> show sandboxPort
+             , darFile
+             ]
         pure $
             QuickSandboxResource
                 { quickProjDir = projDir
                 , quickSandboxPort = sandboxPort
                 , quickSandboxPh = sandboxPh
-                , quickDar = projDir </> ".daml" </> "dist" </> "quickstart-0.0.1.dar"
+                , quickDar = projDir </> darFile
                 }
 
 tests :: FilePath -> TestTree
@@ -534,9 +538,6 @@ damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
             , "--sandbox-port=0"
             , "--json-api-port=0"
             , "--json-api-option=--port-file=jsonapi.port"
-            , "--canton-admin-api-port=0"
-            , "--canton-domain-public-port=0"
-            , "--canton-domain-admin-port=0"
             ] $ \ ph -> do
                 jsonApiPort <- readPortFile ph maxRetries (tmpDir </> "jsonapi.port")
                 initialRequest <-
@@ -671,13 +672,17 @@ quickstartTests quickstartDir mvnDir getSandbox =
                         , "--ledger-host localhost"
                         , "--ledger-port"
                         , show quickSandboxPort
+                        , "--output-file", "output.json"
                         ]
+                scriptOutput <- readFileUTF8 (quickProjDir </> "output.json")
+                [alice, eurBank] <- pure (read scriptOutput :: [String])
                 restPort :: Int <- fromIntegral <$> getFreePort
                 let mavenProc = (shell $ unwords
                         [ "mvn"
                         , mvnRepoFlag
                         , "-Dledgerport=" <> show quickSandboxPort
                         , "-Drestport=" <> show restPort
+                        , "-Dparty=" <> alice
                         , "exec:java@run-quickstart"
                         ])
                         { std_out = UseHandle devNull
@@ -691,8 +696,11 @@ quickstartTests quickstartDir mvnDir getSandbox =
                     req <-
                         pure req {requestHeaders = [(hContentType, "application/json")]}
                     resp <- httpLbs req manager
+                    statusCode (responseStatus resp) @?= 200
                     responseBody resp @?=
-                        "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0000000000,\"observers\":[]}}"
+                        "{\"0\":{\"issuer\":" <> LBS8.pack (show eurBank)
+                        <> ",\"owner\":"<> LBS8.pack (show alice)
+                        <> ",\"currency\":\"EUR\",\"amount\":100.0000000000,\"observers\":[]}}"
                     -- Note (MK) You might be tempted to suggest using
                     -- create_group and interruptProcessGroupOf
                     -- or alternatively use_process_jobs here.
@@ -802,7 +810,7 @@ codegenTests codegenDir = testGroup "daml codegen" (
                 assertBool "bindings were written" (not $ null contents)
 
 cantonTests :: TestTree
-cantonTests = testGroup "daml sandbox-canton"
+cantonTests = testGroup "daml sandbox"
   [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
       step "Creating project"
       callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
@@ -815,7 +823,7 @@ cantonTests = testGroup "daml sandbox-canton"
       domainAdminApiPort <- getFreePort
       step "Staring Canton sandbox"
       let portFile = dir </> "canton-portfile.json"
-      withDamlServiceIn (dir </> "skeleton") "sandbox-canton"
+      withDamlServiceIn (dir </> "skeleton") "sandbox"
         [ "--port", show ledgerApiPort
         , "--admin-api-port", show adminApiPort
         , "--domain-public-port", show domainPublicApiPort
