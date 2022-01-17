@@ -350,15 +350,16 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[Unit]] =
-    //NICK: recover already exists
-    grpcClient.userManagementClient.createUser(user, rights).map(_ => Some(()))
+    grpcClient.userManagementClient.createUser(user, rights).map(_ => Some(())).recover {
+      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.ALREADY_EXISTS => None
+    }
 
   override def getUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[User]] =
-    grpcClient.userManagementClient.getUser(id).map(Some(_)).recover { //NICK: where is this tested?
+    grpcClient.userManagementClient.getUser(id).map(Some(_)).recover {
       case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
     }
 
