@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _ledger-api-services:
-   
+
 The Ledger API services
 #######################
 
@@ -41,7 +41,7 @@ Glossary
 - A ``completion`` indicates the success or failure of a ``submission``.
 
 .. _ledger-api-submission-services:
-  
+
 Submitting commands to the ledger
 *********************************
 
@@ -91,7 +91,7 @@ The command submission service deduplicates submitted commands based on their :r
 - Command deduplication is only *guaranteed* to work if all commands are submitted to the same participant. Ledgers are free to perform additional command deduplication across participants. Consult the respective ledger's manual for more details.
 
 For details on how to use command deduplication, see the :doc:`Command Deduplication Guide <command-deduplication>`.
-  
+
 .. _command-completion-service:
 
 Command completion service
@@ -193,7 +193,25 @@ Party management service
 
 Use the **party management service** to allocate parties on the ledger and retrieve information about allocated parties.
 
-Allocating parties is necessary to interact with the ledger. For more information, refer to the pages on :doc:`Identity Management</concepts/identity-and-package-management>` and :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
+Parties serve to govern on-ledger access control as per :ref:`Daml's privacy model <da-model-privacy>`
+and :ref:`Daml's authorization rules <da-ledgers-authorization-rules>`.
+Applications and their operators are expected allocate and use parties to manage on-ledger access control as per their business requirements.
+
+For more information, refer to the pages on :doc:`Identity Management</concepts/identity-and-package-management>` and :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
+
+.. _user-service:
+
+User management service
+=======================
+
+Use the **user management service** to manage the set of users on a participant node and their :ref:`access rights <authorization-claims>` to that node's ledger API services.
+
+In contrast to parties, users are local to a participant node.
+The relation between a participant node's users and Daml parties is best understood by analogy to classical databases:
+a participant node's users are analogous to database users while Daml parties are analogous to database roles; and further, the rights granted to a user are analogous to the user's assigned database roles.
+
+For more information, refer to :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, and delete users and their rights.
+Read the :doc:`Authorization documentation </app-dev/authorization>` to understand how ledger API requests are authorized, and how to use user management to dynamically change an application's rights.
 
 .. _package-service:
 
