@@ -89,7 +89,6 @@ determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile = do
 withSandbox :: StartOptions -> FilePath -> [String] -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
 withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
     case sandboxChoice of
-      SandboxClassic -> oldSandbox "sandbox-classic"
       SandboxKV -> oldSandbox "sandbox-kv"
       SandboxCanton cantonPortSpec -> cantonSandbox cantonPortSpec
 
@@ -188,8 +187,7 @@ data StartOptions = StartOptions
     }
 
 data SandboxChoice
-  = SandboxClassic
-  | SandboxKV
+  = SandboxKV
   | SandboxCanton !SandboxCantonPortSpec
 
 data SandboxCantonPortSpec = SandboxCantonPortSpec

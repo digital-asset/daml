@@ -165,8 +165,7 @@ commandParser = subparser $ fold
             (long name <> metavar "PORT_NUM" <> help desc))
 
     sandboxChoiceOpt =
-            flag' SandboxClassic (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic.")
-        <|> flag' SandboxKV (long "sandbox-kv" <> help "Deprecated. Run with Sandbox KV.")
+            flag' SandboxKV (long "sandbox-kv" <> help "Deprecated. Run with Sandbox KV.")
         <|> flag' SandboxCanton (long "sandbox-canton" <> help "Run with Canton Sandbox. The 2.0 default.")
                 <*> sandboxCantonPortSpecOpt
 
