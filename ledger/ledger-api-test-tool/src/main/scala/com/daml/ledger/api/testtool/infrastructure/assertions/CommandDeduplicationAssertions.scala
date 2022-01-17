@@ -35,16 +35,17 @@ object CommandDeduplicationAssertions {
     val requestedDuration = DurationConversion.fromProto(requestedDeduplicationDuration)
     ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.durationSupport match {
       case DurationSupport.DURATION_NATIVE_SUPPORT =>
-        val reportedDurationProto = assertDefined(
-          completionResponse.completion.deduplicationPeriod.deduplicationDuration,
-          "No deduplication duration has been reported",
-        )
-        val reportedDuration = DurationConversion.fromProto(reportedDurationProto)
-        assert(
-          reportedDuration >= requestedDuration,
-          s"The reported deduplication duration $reportedDuration was smaller than the requested deduplication duration $requestedDuration.",
-        )
-        Future.unit
+        Future {
+          val reportedDurationProto = assertDefined(
+            completionResponse.completion.deduplicationPeriod.deduplicationDuration,
+            "No deduplication duration has been reported",
+          )
+          val reportedDuration = DurationConversion.fromProto(reportedDurationProto)
+          assert(
+            reportedDuration >= requestedDuration,
+            s"The reported deduplication duration $reportedDuration was smaller than the requested deduplication duration $requestedDuration.",
+          )
+        }
       case DurationSupport.DURATION_CONVERT_TO_OFFSET =>
         val reportedOffset = assertDefined(
           completionResponse.completion.deduplicationPeriod.deduplicationOffset,
