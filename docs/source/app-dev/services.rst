@@ -194,7 +194,7 @@ Party management service
 Use the **party management service** to allocate parties on the ledger and retrieve information about allocated parties.
 
 Parties serve to govern on-ledger access control as per :ref:`Daml's privacy model <da-model-privacy>`
-and :ref:`Daml's authorization rules <da-ledgers-authorization-rules>`.
+and :ref:`authorization rules <da-ledgers-authorization-rules>`.
 Applications and their operators are expected allocate and use parties to manage on-ledger access control as per their business requirements.
 
 For more information, refer to the pages on :doc:`Identity Management</concepts/identity-and-package-management>` and :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
