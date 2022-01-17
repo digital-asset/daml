@@ -60,7 +60,6 @@ trait ReproducesTransactions
     applicationId = appId,
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
     token = None,
   )
   val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")

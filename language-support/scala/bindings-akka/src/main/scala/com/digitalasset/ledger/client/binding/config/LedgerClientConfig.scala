@@ -7,7 +7,6 @@ import java.io.File
 import java.time.Duration
 
 import com.daml.ledger.client.binding.LedgerClientConfigurationError.MalformedTypesafeConfig
-import com.daml.ledger.client.binding.config.LedgerClientConfig.ClientSslConfig
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
@@ -25,14 +24,12 @@ case class LedgerClientConfig(
     ledgerId: Option[String],
     commandClient: CommandClientConfiguration,
     maxRetryTime: Duration,
-    ssl: Option[ClientSslConfig],
 ) {
   def toBindingConfig(applicationId: String) =
     LedgerClientConfiguration(
       applicationId,
       ledgerIdRequirement,
       commandClient,
-      ssl.map(_.sslContext),
     )
 
   private val ledgerIdRequirement = LedgerIdRequirement(ledgerId)

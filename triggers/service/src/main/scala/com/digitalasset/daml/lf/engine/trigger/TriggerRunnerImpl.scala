@@ -14,6 +14,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -22,8 +23,8 @@ import com.daml.lf.engine.trigger.TriggerRunner.{QueryingACS, Running, TriggerSt
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import io.grpc.Status.Code
 import scalaz.syntax.tag._
-
 import java.util.UUID
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -73,8 +74,11 @@ object TriggerRunnerImpl {
         commandClient = CommandClientConfiguration.default.copy(
           defaultDeduplicationTime = config.ledgerConfig.commandTtl
         ),
-        sslContext = None,
         token = AccessToken.unsubst(config.accessToken),
+      )
+
+      val channelConfig = LedgerClientChannelConfiguration(
+        sslContext = None,
         maxInboundMessageSize = config.ledgerConfig.maxInboundMessageSize,
       )
 
@@ -181,6 +185,7 @@ object TriggerRunnerImpl {
           config.ledgerConfig.host,
           config.ledgerConfig.port,
           clientConfig,
+          channelConfig,
         )
         runner = new Runner(
           config.compiledPackages,

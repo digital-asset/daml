@@ -9,6 +9,7 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -53,6 +54,7 @@ object Main {
             config.ledgerHost,
             config.ledgerPort,
             clientConfig(config),
+            clientChannelConfig(config),
           )
           parties <- LedgerUtils.getAllParties(client, config.accessToken, config.partyConfig)
           acs <- LedgerUtils.getACS(client, parties, config.start)
@@ -82,8 +84,12 @@ object Main {
     applicationId = "script-export",
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = config.tlsConfig.client(),
     token = config.accessToken.flatMap(_.token),
-    maxInboundMessageSize = config.maxInboundMessageSize,
   )
+
+  private def clientChannelConfig(config: Config): LedgerClientChannelConfiguration =
+    LedgerClientChannelConfiguration(
+      sslContext = config.tlsConfig.client(),
+      maxInboundMessageSize = config.maxInboundMessageSize,
+    )
 }

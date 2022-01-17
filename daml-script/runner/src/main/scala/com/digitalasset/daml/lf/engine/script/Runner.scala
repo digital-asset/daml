@@ -15,6 +15,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -230,12 +231,14 @@ object Runner {
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = tlsConfig.client(),
       token = params.access_token,
+    )
+    val clientChannelConfig = LedgerClientChannelConfiguration(
+      sslContext = tlsConfig.client(),
       maxInboundMessageSize = maxInboundMessageSize,
     )
     LedgerClient
-      .singleHost(params.host, params.port, clientConfig)
+      .singleHost(params.host, params.port, clientConfig, clientChannelConfig)
       .map(new GrpcLedgerClient(_, applicationId))
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.

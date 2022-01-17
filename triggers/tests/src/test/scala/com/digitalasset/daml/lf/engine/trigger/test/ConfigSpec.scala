@@ -36,7 +36,6 @@ class ConfigSpec
     applicationId = "myappid",
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
     token = None,
   )
 
