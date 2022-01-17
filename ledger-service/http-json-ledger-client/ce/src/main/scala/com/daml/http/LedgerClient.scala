@@ -16,6 +16,6 @@ object LedgerClient extends LedgerClientBase {
       clientChannelConfig: LedgerClientChannelConfiguration,
       nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit executionContext: ExecutionContext): Future[NettyChannelBuilder] =
-    Future(NettyChannelBuilder.forAddress(ledgerHost, ledgerPort))
+    Future(clientChannelConfig.builderFor(ledgerHost, ledgerPort))
 
 }
