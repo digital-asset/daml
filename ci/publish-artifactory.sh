@@ -61,4 +61,12 @@ if [[ "$#" -lt 3 || $3 != "split" ]]; then
    EE_INSTALLER=daml-sdk-$RELEASE_TAG-windows-ee.exe
    push sdk-ee $EE_INSTALLER
    push sdk-ee $EE_INSTALLER.asc
+else
+    # For the split release process, we publish intermediate artifacts to the
+    # assembly repo, under the daml folder.
+    SPLIT_DIR=$STAGING_DIR/split-release
+    cd $SPLIT_DIR
+    for file in $(find . -type f); do
+        push assembly/daml $file
+    done
 fi

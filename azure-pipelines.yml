@@ -217,16 +217,6 @@ jobs:
         mkdir -p $(Build.StagingDirectory)/split-release
         ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
     - bash: |
-        set -eou pipefail
-
-        source $(bash-lib)
-        cd $(Build.StagingDirectory)/split-release
-        gcs "$GCRED" -m cp -r github gs://daml-data/split-releases/$(release_tag)/
-        gcs "$GCRED" -m cp -r split-release gs://daml-data/split-releases/$(release_tag)/
-      name: upload_to_gcs
-      env:
-        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-    - bash: |
         set -euo pipefail
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
       env:
