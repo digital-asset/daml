@@ -95,31 +95,25 @@ damlStart tmpDir = do
     createDirectoryIfMissing True (projDir </> "daml")
     let scriptOutputFile = "script-output.json"
     writeFileUTF8 (projDir </> "daml.yaml") $
-        unlines $ concat
-            [   [ "sdk-version: " <> sdkVersion
-                , "name: assistant-integration-tests"
-                , "version: \"1.0\""
-                , "source: daml"
-                , "dependencies:"
-                , "  - daml-prim"
-                , "  - daml-stdlib"
-                , "  - daml-script"
-                , "init-script: Main:init"
-                , "script-options:"
-                , "  - --output-file"
-                , "  - " <> scriptOutputFile
-                , "codegen:"
-                , "  js:"
-                , "    output-directory: ui/daml.js"
-                , "    npm-scope: daml.js"
-                , "  java:"
-                , "    output-directory: ui/java"
-                ]
-            , if withCantonSandbox then [] else
-                [ "sandbox-options:"
-                , "  - --ledgerid=sandbox"
-                , "  - --wall-clock-time"
-                ]
+        unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: assistant-integration-tests"
+            , "version: \"1.0\""
+            , "source: daml"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            , "  - daml-script"
+            , "init-script: Main:init"
+            , "script-options:"
+            , "  - --output-file"
+            , "  - " <> scriptOutputFile
+            , "codegen:"
+            , "  js:"
+            , "    output-directory: ui/daml.js"
+            , "    npm-scope: daml.js"
+            , "  java:"
+            , "    output-directory: ui/java"
             ]
     writeFileUTF8 (projDir </> "daml/Main.daml") $
         unlines
