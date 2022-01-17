@@ -166,7 +166,7 @@ commandParser = subparser $ fold
 
     sandboxChoiceOpt =
             flag' SandboxKV (long "sandbox-kv" <> help "Deprecated. Run with Sandbox KV.")
-        <|> (flag' SandboxCanton (long "sandbox-canton" <> help "Run with Canton Sandbox. The 2.0 default.") <|> pure SandboxCanton)
+        <|> flag SandboxCanton SandboxCanton (long "sandbox-canton" <> help "Run with Canton Sandbox. The 2.0 default.")
                 <*> sandboxCantonPortSpecOpt
 
     sandboxCantonPortSpecOpt = do
@@ -415,7 +415,7 @@ commandParser = subparser $ fold
              <*> option auto (long "domain-public-port" <> value 6867)
              <*> option auto (long "domain-admin-port" <> value 6868)
              <*> optional (option str (long "port-file" <> metavar "PATH"))
-             <*> (StaticTime <$> switch (long "static-time"))
+             <*> (StaticTime <$> switch (long "static-time")))
       <*> many (argument str (metavar "ARG"))
 
     cantonSandboxCmdInfo =

@@ -21,7 +21,6 @@ module DA.Daml.Helper.Util
   , runCantonSandbox
   , withCantonSandbox
   , getLogbackArg
-  , waitForConnectionOnPort
   , waitForHttpServer
   , tokenFor
   , StaticTime(..)
@@ -39,7 +38,6 @@ import Data.Maybe
 import qualified Data.Text as T
 import qualified Network.HTTP.Simple as HTTP
 import qualified Network.HTTP.Types as HTTP
-import Network.Socket
 import System.Directory
 import System.FilePath
 import System.IO
@@ -196,34 +194,6 @@ damlSdkJarFolder = "daml-sdk"
 
 damlSdkJar :: FilePath
 damlSdkJar = damlSdkJarFolder </> "daml-sdk.jar"
-
--- | `waitForConnectionOnPort numTries processHandle sleep port` tries to establish a TCP connection
--- on the given port, in a given number of tries. Between each connection request it checks that a
--- certain process is still alive and calls `sleep`.
-waitForConnectionOnPort :: Int -> ProcessHandle -> IO () -> Int -> IO ()
-waitForConnectionOnPort 0 _processHandle _sleep port = do
-    hPutStrLn stderr ("Failed to connect to port " <> show port <> " in time.")
-    exitFailure
-waitForConnectionOnPort numTries processHandle sleep port = do
-    let hints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV], addrSocketType = Stream }
-    addr : _ <- getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
-    r <- tryIO $ checkConnection addr
-    case r of
-        Right _ -> pure ()
-        Left _ -> do
-            sleep
-            status <- getProcessExitCode processHandle
-            case status of
-                Nothing -> waitForConnectionOnPort (numTries-1) processHandle sleep port
-                Just exitCode -> do
-                    hPutStrLn stderr ("Failed to connect to port " <> show port
-                        <> " before process exited with " <> show exitCode)
-                    exitFailure
-    where
-        checkConnection addr = bracket
-              (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
-              close
-              (\s -> connect s (addrAddress addr))
 
 -- | `waitForHttpServer numTries processHandle sleep url headers` tries to establish an HTTP connection on
 -- the given URL with the given headers, in a given number of tries. Between each connection request
