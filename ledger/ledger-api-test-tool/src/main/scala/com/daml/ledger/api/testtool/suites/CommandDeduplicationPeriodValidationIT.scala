@@ -116,7 +116,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
         ),
       )
       metadataLongestDuration = extractErrorInfoMetadataValue(failure, "longest_duration")
-      // request accepted and the metadata value is valid
+      // we expect that the request is accepted and the metadata value is valid
       _ <- ledger.submit(
         request.update(
           _.commands.deduplicationDuration := DurationConversion.toProto(
@@ -134,7 +134,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     // Canton accepts the given offsets
     enabled =
       _.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport.isOffsetConvertToDuration,
-    disabledReason = "Only ledgers than convert offsets to durations fail",
+    disabledReason = "Only ledgers that convert offsets to durations fail",
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       end <- ledger.offsetBeyondLedgerEnd()
