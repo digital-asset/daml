@@ -48,11 +48,10 @@ class DeduplicationPeriodValidator(
   ): Either[StatusRuntimeException, Duration] = if (duration.isNegative)
     Left(
       errorFactories
-        .invalidDeduplicationPeriod(
+        .invalidField(
           fieldName,
           "Duration must be positive",
           definiteAnswer = Some(false),
-          None,
         )
     )
   else Right(duration)
