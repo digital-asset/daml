@@ -150,6 +150,17 @@ The ``public`` right is implicitly granted to any bearing a valid JWT issued by 
 User access tokens
 ==================
 
+.. code-block:: json
+
+   {
+
+      "aud": "123e4567-e89b-12d3-a456-426614174000",
+      "sub": "user1",
+      "exp": 1300819380
+      "scope": "https://daml.com/ledger-api.full"
+   }
+
+
 
 Participant user management
 ***************************
