@@ -68,22 +68,18 @@ class IntegrationTest
     } yield a
     fa.transformWith { ta =>
       partyRefresh.foreach(_.cancel())
-      Future
-        .sequence(
-          Seq[Future[Unit]](
-            clientF.map(_.close()),
-            bindingF.flatMap(_.unbind()).map(_ => ()),
-            sys.terminate().map(_ => ()),
-          )
-        )
+      // Don't close the LedgerClient because all it does is close the channel,
+      // which then causes a subsequent test to fail when creating a LedgerClient using a closed channel
+      // ("io.grpc.StatusRuntimeException: UNAVAILABLE: Channel shutdown invoked")
+      bindingF
+        .flatMap(_.unbind())
+        .flatMap(_ => sys.terminate())
         .transform(_ => ta)
     }
   }
 
-  def getResponseDataBytes(resp: HttpResponse): Future[String] = {
-    val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
-    fb
-  }
+  def getResponseDataBytes(resp: HttpResponse): Future[String] =
+    resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
 
   "Navigator (parties)" - {
     "picks up newly allocated parties" in withNavigator(disableUserManagement = true) {
@@ -109,7 +105,6 @@ class IntegrationTest
     }
   }
 
-  // TODO: fix test cross talk (they pass when the other one is commented out..)
   "Navigator (users)" - {
     "picks up newly created users" in withNavigator(disableUserManagement = false) {
       case (uri, client) =>
