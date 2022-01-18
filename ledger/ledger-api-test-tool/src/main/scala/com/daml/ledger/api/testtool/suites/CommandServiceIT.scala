@@ -105,7 +105,7 @@ final class CommandServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "CSsubmitAndWaitForTransactionBasicEmptyLedgerId",
+    "CSsubmitAndWaitForTransactionEmptyLedgerId",
     "SubmitAndWaitForTransaction should accept requests with empty ledgerId",
     allocate(SingleParty),
     enabled = _.optionalLedgerId,
