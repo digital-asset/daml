@@ -56,7 +56,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
 import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
@@ -513,7 +512,7 @@ class Endpoints(
           userManagementClient.listUserRights(userId, Some(jwt.value))
         )
       } yield domain
-        .OkResponse(domain.UserRights.fromListUserRights(rights)): domain.SyncResponse[
+        .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[
         domain.UserRights
       ]
     }(req)
@@ -527,44 +526,40 @@ class Endpoints(
       rights <- EitherT.rightT(
         userManagementClient.listUserRights(userId, Some(jwt.value))
       )
-    } yield domain.OkResponse(domain.UserRights.fromListUserRights(rights))
+    } yield domain.OkResponse(domain.UserRights.fromLedgerUserRights(rights))
 
   def grantUserRights(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[Boolean]] =
+  ): ET[domain.SyncResponse[domain.UserRights]] =
     proxyWithCommandET { (jwt, grantUserRightsRequest: domain.GrantUserRightsRequest) =>
       for {
         userId <- parseUserId(grantUserRightsRequest.userId)
         rights <- either(
-          toUserRightsList(
-            grantUserRightsRequest.canActAs,
-            grantUserRightsRequest.canReadAs,
-            grantUserRightsRequest.isAdmin,
-          )
+          domain.UserRights.toLedgerUserRights(grantUserRightsRequest.rights)
         ).leftMap(InvalidUserInput): ET[List[UserRight]]
-        _ <- EitherT.rightT(
+        grantedUserRights <- EitherT.rightT(
           userManagementClient.grantUserRights(userId, rights, Some(jwt.value))
         )
-      } yield domain.OkResponse(true): domain.SyncResponse[Boolean]
+      } yield domain.OkResponse(
+        domain.UserRights.fromLedgerUserRights(grantedUserRights)
+      ): domain.SyncResponse[domain.UserRights]
     }(req)
 
   def revokeUserRights(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[Boolean]] =
+  ): ET[domain.SyncResponse[domain.UserRights]] =
     proxyWithCommandET { (jwt, revokeUserRightsRequest: domain.RevokeUserRightsRequest) =>
       for {
         userId <- parseUserId(revokeUserRightsRequest.userId)
         rights <- either(
-          toUserRightsList(
-            revokeUserRightsRequest.canActAs,
-            revokeUserRightsRequest.canReadAs,
-            revokeUserRightsRequest.isAdmin,
-          )
+          domain.UserRights.toLedgerUserRights(revokeUserRightsRequest.rights)
         ).leftMap(InvalidUserInput): ET[List[UserRight]]
-        _ <- EitherT.rightT(
+        revokedUserRights <- EitherT.rightT(
           userManagementClient.revokeUserRights(userId, rights, Some(jwt.value))
         )
-      } yield domain.OkResponse(true): domain.SyncResponse[Boolean]
+      } yield domain.OkResponse(
+        domain.UserRights.fromLedgerUserRights(revokedUserRights)
+      ): domain.SyncResponse[domain.UserRights]
     }(req)
 
   def getUser(req: HttpRequest)(implicit
@@ -611,11 +606,7 @@ class Endpoints(
             primaryParty <- createUserRequest.primaryParty.traverse(it =>
               Ref.Party.fromString(it).disjunction
             )
-            rights <- toUserRightsList(
-              createUserRequest.canActAs,
-              createUserRequest.canReadAs,
-              createUserRequest.isAdmin,
-            )
+            rights <- domain.UserRights.toLedgerUserRights(createUserRequest.rights)
           } yield (username, primaryParty, rights)
         for {
           info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
@@ -931,35 +922,6 @@ class Endpoints(
     either(
       UserId.fromString(rawUserId).disjunction.leftMap(InvalidUserInput)
     )
-  }
-
-  private def toUserRightsList(
-      canActAs: List[domain.Party],
-      canReadAs: List[domain.Party],
-      isAdmin: Boolean,
-  ): String \/ List[UserRight] = {
-    import scalaz.std.list._
-    import scalaz.syntax.traverse._
-    import scalaz.syntax.std.either._
-    import com.daml.lf.data.Ref
-    for {
-      canActAs <-
-        domain.Party
-          .unsubst(canActAs)
-          .traverse(it =>
-            Ref.Party
-              .fromString(it)
-              .map(CanActAs(_): UserRight)
-              .disjunction
-          )
-      canReadAs <-
-        domain.Party
-          .unsubst(canReadAs)
-          .traverse(it => Ref.Party.fromString(it).map(CanReadAs(_): UserRight).disjunction)
-      isAdminLs =
-        if (isAdmin) List(ParticipantAdmin)
-        else List.empty
-    } yield canActAs ++ canReadAs ++ isAdminLs
   }
 }
 

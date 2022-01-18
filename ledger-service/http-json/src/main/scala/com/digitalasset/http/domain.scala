@@ -4,8 +4,7 @@
 package com.daml.http
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
-import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
+import com.daml.ledger.api.domain.User
 import com.daml.lf.iface
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
@@ -134,24 +133,38 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
 
-  final case class UserRights(canActAs: List[Party], canReadAs: List[Party], isAdmin: Boolean)
+  sealed trait UserRight
+  final case object ParticipantAdmin extends UserRight
+  final case class CanActAs(party: Party) extends UserRight
+  final case class CanReadAs(party: Party) extends UserRight
+
+  final case class UserRights(rights: List[domain.UserRight])
 
   object UserRights {
-    def fromListUserRights(input: Vector[UserRight]): UserRights = {
-      val (canActAs, remaining1) = input.partitionMap {
-        case CanActAs(party) => Left(party)
-        case other => Right(other)
+    import com.daml.ledger.api.domain.{UserRight => LedgerUserRight}, com.daml.lf.data.Ref
+    import scalaz.syntax.traverse._
+    import scalaz.syntax.std.either._
+
+    def toLedgerUserRights(input: List[UserRight]): String \/ List[LedgerUserRight] =
+      input.traverse {
+        case ParticipantAdmin => \/.right(LedgerUserRight.ParticipantAdmin)
+        case CanActAs(party) =>
+          Ref.Party.fromString(Party.unwrap(party)).map(LedgerUserRight.CanActAs).disjunction
+        case CanReadAs(party) =>
+          Ref.Party.fromString(Party.unwrap(party)).map(LedgerUserRight.CanReadAs).disjunction
       }
-      val (canReadAs, remaining2) = remaining1.partitionMap {
-        case CanReadAs(party) => Left(party)
-        case other => Right(other)
-      }
-      val isAdmin = remaining2.exists {
-        case ParticipantAdmin =>
-          true
-        case _ => false
-      }
-      UserRights(Party.subst(canActAs.toList), Party.subst(canReadAs.toList), isAdmin)
+
+    def fromLedgerUserRights(input: Vector[LedgerUserRight]): UserRights = {
+      val rights: List[domain.UserRight] = input
+        .map[domain.UserRight] {
+          case LedgerUserRight.ParticipantAdmin => ParticipantAdmin
+          case LedgerUserRight.CanActAs(party) =>
+            CanActAs(Party(party.toString: String))
+          case LedgerUserRight.CanReadAs(party) =>
+            CanReadAs(Party(party.toString: String))
+        }
+        .toList
+      UserRights(rights)
     }
   }
 
@@ -165,25 +178,19 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   final case class CreateUserRequest(
       userId: String,
       primaryParty: Option[String],
-      canActAs: List[Party],
-      canReadAs: List[Party],
-      isAdmin: Boolean,
+      rights: List[UserRight],
   )
 
   final case class ListUserRightsRequest(userId: String)
 
   final case class GrantUserRightsRequest(
       userId: String,
-      canActAs: List[Party],
-      canReadAs: List[Party],
-      isAdmin: Boolean,
+      rights: List[UserRight],
   )
 
   final case class RevokeUserRightsRequest(
       userId: String,
-      canActAs: List[Party],
-      canReadAs: List[Party],
-      isAdmin: Boolean,
+      rights: List[UserRight],
   )
 
   final case class GetUserRequest(userId: String)

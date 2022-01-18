@@ -202,11 +202,13 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       assertion <- {
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
-        getResult(output).convertTo[UserRights] shouldEqual UserRights(
-          canActAs = List(alice, bob),
-          canReadAs = List.empty,
-          isAdmin = false,
-        )
+        getResult(output).convertTo[UserRights] shouldEqual
+          UserRights(
+            List[domain.UserRight](
+              domain.CanActAs(alice),
+              domain.CanActAs(bob),
+            )
+          )
       }
     } yield assertion
   }
@@ -231,11 +233,13 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       assertion <- {
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
-        getResult(output).convertTo[UserRights] shouldEqual UserRights(
-          canActAs = List(alice, bob),
-          canReadAs = List.empty,
-          isAdmin = false,
-        )
+        getResult(output).convertTo[UserRights] shouldEqual
+          UserRights(
+            List[domain.UserRight](
+              domain.CanActAs(alice),
+              domain.CanActAs(bob),
+            )
+          )
       }
     } yield assertion
   }
@@ -249,9 +253,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     val createUserRequest = domain.CreateUserRequest(
       "nice.user2",
       Some(alice.unwrap),
-      List(alice),
-      List.empty,
-      isAdmin = true,
+      List[domain.UserRight](
+        domain.CanActAs(alice),
+        domain.ParticipantAdmin,
+      ),
     )
     for {
       (status, output) <- postRequest(
@@ -279,9 +284,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       domain.CreateUserRequest(
         name,
         Some(alice.unwrap),
-        List(alice),
-        List.empty,
-        isAdmin = true,
+        List[domain.UserRight](
+          domain.CanActAs(alice),
+          domain.ParticipantAdmin,
+        ),
       )
     )
     for {
@@ -313,9 +319,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     val createUserRequest = domain.CreateUserRequest(
       getUniqueUserName("nice.user"),
       Some(alice.unwrap),
-      List(alice),
-      List.empty,
-      isAdmin = true,
+      List[domain.UserRight](
+        domain.CanActAs(alice),
+        domain.ParticipantAdmin,
+      ),
     )
     for {
       (status1, output1) <- postRequest(
@@ -350,9 +357,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     val createUserRequest = domain.CreateUserRequest(
       getUniqueUserName("nice.user"),
       Some(alice.unwrap),
-      List(alice),
-      List.empty,
-      isAdmin = true,
+      List[domain.UserRight](
+        domain.CanActAs(alice),
+        domain.ParticipantAdmin,
+      ),
     )
     for {
       (status1, output1) <- postRequest(
@@ -386,9 +394,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     val createUserRequest = domain.CreateUserRequest(
       getUniqueUserName("nice.user"),
       Some(alice.unwrap),
-      List(alice),
-      List.empty,
-      isAdmin = true,
+      List[domain.UserRight](
+        domain.CanActAs(alice),
+        domain.ParticipantAdmin,
+      ),
     )
     for {
       (status1, output1) <- postRequest(
@@ -429,12 +438,27 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           CanActAs(Ref.Party.assertFromString(alice.toString))
         ),
       )
-      (status, _) <- postRequest(
+      (status, output) <- postRequest(
         uri.withPath(Uri.Path("/v1/user/rights/grant")),
-        domain.GrantUserRightsRequest(user.id, List(bob), List.empty, isAdmin = true).toJson,
+        domain
+          .GrantUserRightsRequest(
+            user.id,
+            List[domain.UserRight](
+              domain.CanActAs(alice),
+              domain.CanActAs(bob),
+              domain.ParticipantAdmin,
+            ),
+          )
+          .toJson,
         headers = authorizationHeader(participantAdminJwt),
       )
-      _ = status shouldBe StatusCodes.OK
+      _ <- {
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        getResult(output).convertTo[UserRights] shouldEqual UserRights(
+          List[domain.UserRight](domain.CanActAs(bob), domain.ParticipantAdmin)
+        )
+      }
       (status2, output2) <- postRequest(
         uri.withPath(Uri.Path("/v1/user/rights")),
         domain.ListUserRightsRequest(user.id).toJson,
@@ -444,9 +468,11 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         status2 shouldBe StatusCodes.OK
         assertStatus(output2, StatusCodes.OK)
         getResult(output2).convertTo[UserRights] shouldEqual UserRights(
-          canActAs = List(alice, bob),
-          canReadAs = List.empty,
-          isAdmin = true,
+          List[domain.UserRight](
+            domain.CanActAs(alice),
+            domain.CanActAs(bob),
+            domain.ParticipantAdmin,
+          )
         )
       }
     } yield assertion
@@ -458,6 +484,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     import spray.json._
     val alice = getUniqueParty("Alice")
     val bob = getUniqueParty("Bob")
+    val charlie = getUniqueParty("Charlie")
     for {
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
@@ -467,12 +494,27 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           ParticipantAdmin,
         ),
       )
-      (status, _) <- postRequest(
+      (status, output) <- postRequest(
         uri.withPath(Uri.Path("/v1/user/rights/revoke")),
-        domain.RevokeUserRightsRequest(user.id, List(bob), List.empty, isAdmin = true).toJson,
+        domain
+          .RevokeUserRightsRequest(
+            user.id,
+            List[domain.UserRight](
+              domain.CanActAs(bob),
+              domain.CanActAs(charlie),
+              domain.ParticipantAdmin,
+            ),
+          )
+          .toJson,
         headers = authorizationHeader(participantAdminJwt),
       )
-      _ = status shouldBe StatusCodes.OK
+      _ <- {
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        getResult(output).convertTo[UserRights] shouldEqual UserRights(
+          List[domain.UserRight](domain.CanActAs(bob), domain.ParticipantAdmin)
+        )
+      }
       (status2, output2) <- postRequest(
         uri.withPath(Uri.Path("/v1/user/rights")),
         domain.ListUserRightsRequest(user.id).toJson,
@@ -482,9 +524,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         status2 shouldBe StatusCodes.OK
         assertStatus(output2, StatusCodes.OK)
         getResult(output2).convertTo[UserRights] shouldEqual UserRights(
-          canActAs = List(alice),
-          canReadAs = List.empty,
-          isAdmin = false,
+          List[domain.UserRight](domain.CanActAs(alice))
         )
       }
     } yield assertion
