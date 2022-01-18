@@ -7,15 +7,19 @@ import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationFeatures
 import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionResponse
 
 final case class Features(
-    selfServiceErrorCodes: Boolean = false,
-    userManagement: Boolean = false,
+    selfServiceErrorCodes: Boolean,
+    userManagement: Boolean,
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
-    staticTime: Boolean = false,
+    staticTime: Boolean,
 )
 
 object Features {
-  val defaultFeatures =
-    Features(commandDeduplicationFeatures = CommandDeduplicationFeatures.defaultInstance)
+  val defaultFeatures: Features = Features(
+    selfServiceErrorCodes = false,
+    userManagement = false,
+    commandDeduplicationFeatures = CommandDeduplicationFeatures.defaultInstance,
+    staticTime = false,
+  )
 
   def fromApiVersionResponse(response: GetLedgerApiVersionResponse): Features = {
     val features = response.getFeatures
