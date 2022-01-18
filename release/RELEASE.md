@@ -209,8 +209,8 @@ patches we backport to the 1.0 release branch).
 1. Run through the following test plan on Windows. This is slightly shortened to
    make testing faster and since most issues are not platform specific.
 
-   1. Run `daml new quickstart` to create a new project and switch to it using
-      `cd quickstart`.
+   1. Run `daml new myproject` to create a new project and switch to it using
+      `cd myproject`.
    1. Run `daml start`.
    1. Open your browser at `http://localhost:7500`, verify that you can login as
       Alice and there is one template and one contract.
