@@ -108,6 +108,8 @@ final class CommandServiceIT extends LedgerTestSuite {
     "CSsubmitAndWaitForTransactionBasicEmptyLedgerId",
     "SubmitAndWaitForTransaction should accept requests with empty ledgerId",
     allocate(SingleParty),
+    enabled = _.optionalLedgerId,
+    disabledReason = "Optional ledger id must be enabled",
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger
       .submitAndWaitRequest(party, Dummy(party).create.command)

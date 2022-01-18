@@ -11,6 +11,7 @@ final case class Features(
     userManagement: Boolean = false,
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
     staticTime: Boolean = false,
+    optionalLedgerId: Boolean = false,
 )
 
 object Features {
@@ -26,6 +27,7 @@ object Features {
       userManagement = features.getUserManagement.supported,
       staticTime = experimental.getStaticTime.supported,
       commandDeduplicationFeatures = experimental.getCommandDeduplication,
+      optionalLedgerId = experimental.optionalLedgerId.isDefined,
     )
   }
 }
