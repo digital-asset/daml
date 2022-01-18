@@ -81,7 +81,7 @@ object JsonProtocol extends JsonProtocolLow {
   implicit def annotationFix[T]: shapeless.Annotation[Option[Discriminator], T] =
     shapeless.Annotation.mkAnnotation(None)
 
-  implicit val userRight: JF[domain.UserRight] = deriveFormat[domain.UserRight]
+  implicit val userRight: JsonFormat[domain.UserRight] = deriveFormat[domain.UserRight]
 
   // If one uses the uppercase name then the implicit resolution will fail
   implicit val userRights: RootJsonFormat[domain.UserRights] = jsonFormat1(domain.UserRights.apply)
