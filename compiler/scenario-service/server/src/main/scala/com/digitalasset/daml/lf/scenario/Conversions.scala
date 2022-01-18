@@ -251,12 +251,7 @@ final class Conversions(
         builder.setScenarioPartyAlreadyExists(party)
 
       case Error.UserManagement(err) =>
-        err match {
-          case Error.UserManagementError.UserNotFound(userId) =>
-            builder.setScenarioUserNotFound(userId)
-          case Error.UserManagementError.UserExists(userId) =>
-            builder.setScenarioUserAlreadyExists(userId)
-        }
+        builder.setCrash(s"UserManagement error unhandled in scenario service: $err")
     }
     builder.build
   }
