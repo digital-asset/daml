@@ -27,12 +27,13 @@ main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-    defaultMain (tests damlc)
+    scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
+    defaultMain (tests damlc scriptDar)
 
-tests :: FilePath -> TestTree
-tests damlc = testGroup "damlc" $ map (\f -> f damlc)
-  [ testsForDamlcValidate
-  , testsForDamlcTest
+tests :: FilePath -> FilePath -> TestTree
+tests damlc scriptDar = testGroup "damlc"
+  [ testsForDamlcValidate damlc
+  , testsForDamlcTest damlc scriptDar
   ]
 
 testsForDamlcValidate :: FilePath -> TestTree
@@ -152,8 +153,8 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
 
   ]
 
-testsForDamlcTest :: FilePath -> TestTree
-testsForDamlcTest damlc = testGroup "damlc test" $
+testsForDamlcTest :: FilePath -> FilePath -> TestTree
+testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     [ testCase "Non-existent file" $ do
           (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", "foobar"] ""
           stdout @?= ""
@@ -172,55 +173,69 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             exitCode @?= ExitFailure 1
     , testCase "Test coverage report" $ do
         withTempDir $ \dir -> do
+            writeFileUTF8 (dir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: test-coverage-report"
+              , "version: 0.0.1"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+              ]
             let file = dir </> "Foo.daml"
             T.writeFileUtf8 file $ T.unlines
               [ "module Foo where"
+              , "import Daml.Script"
               , "template S with p : Party where"
               , "  signatory p"
               , "template T with p : Party where"
               , "  signatory p"
               , "  choice X : () with controller p"
               , "    do pure ()"
-              , "x = scenario do"
-              , "      alice <- getParty \"Alice\""
-              , "      c <- submit alice $ create T with p = alice"
-              , "      submit alice $ exercise c X with"
+              , "x = script do"
+              , "      alice <- allocateParty \"Alice\""
+              , "      c <- submit alice $ createCmd T with p = alice"
+              , "      submit alice $ exerciseCmd c X"
               ]
             (exitCode, stdout, _stderr) <-
               readProcessWithExitCode
                 damlc
                 [ "test"
-                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
-                , "--files"
-                , file ]
+                , "--project-root"
+                , dir ]
                 ""
             exitCode @?= ExitSuccess
             assertBool ("test coverage is reported correctly: " <> stdout)
                        ("test coverage: templates 50%, choices 33%\n" `isSuffixOf` stdout)
     , testCase "Full test coverage report" $ do
         withTempDir $ \dir -> do
+            writeFileUTF8 (dir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: full-test-coverage-report"
+              , "version: 0.0.1"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+              ]
             let file = dir </> "Foo.daml"
             T.writeFileUtf8 file $ T.unlines
               [ "module Foo where"
+              , "import Daml.Script"
               , "template S with p : Party where"
               , "  signatory p"
               , "template T with p : Party where"
               , "  signatory p"
               , "  choice X : () with controller p"
               , "    do pure ()"
-              , "x = scenario do"
-              , "      alice <- getParty \"Alice\""
-              , "      c <- submit alice $ create T with p = alice"
-              , "      submit alice $ exercise c X with"
+              , "x = script do"
+              , "      alice <- allocateParty \"Alice\""
+              , "      c <- submit alice $ createCmd T with p = alice"
+              , "      submit alice $ exerciseCmd c X"
               ]
             (exitCode, stdout, _stderr) <-
               readProcessWithExitCode
                 damlc
                   [ "test"
-                  , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
                   , "--show-coverage"
-                  , "--files"
-                  , file ]
+                  , "--project-root"
+                  , dir ]
                   ""
             exitCode @?= ExitSuccess
             assertBool
@@ -240,23 +255,23 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib]"
+            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
             ]
           writeFileUTF8 (projDir </> "a" </> "A.daml") $ unlines
             [ "module A where"
+            , "import Daml.Script"
             , "template U with p : Party where"
             , "  signatory p"
             , "  choice Y : () with controller p"
             , "    do pure ()"
-            , "testA = scenario do"
-            , "  alice <- getParty \"Alice\""
-            , "  c <- submit alice $ create U with p = alice"
-            , "  submit alice $ exercise c Y with"
+            , "testA = script do"
+            , "  alice <- allocateParty \"Alice\""
+            , "  c <- submit alice $ createCmd U with p = alice"
+            , "  submit alice $ exerciseCmd c Y"
             ]
           callProcessSilent
             damlc
             [ "build"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root"
             , projDir </> "a"
             ]
@@ -266,11 +281,12 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "name: b"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> "]"
+            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> ", " <> show scriptDar <> "]"
             ]
           let bFilePath = projDir </> "b" </> "B.daml"
           writeFileUTF8 bFilePath $ unlines
             [ "module B where"
+            , "import Daml.Script"
             , "import A"
             , "type C = ContractId U"
             , "template S with p : Party where"
@@ -279,16 +295,15 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "  signatory p"
             , "  choice X : () with controller p"
             , "    do pure ()"
-            , "x = scenario do"
-            , "      alice <- getParty \"Alice\""
-            , "      c <- submit alice $ create T with p = alice"
-            , "      submit alice $ exercise c X with"
+            , "x = script do"
+            , "      alice <- allocateParty \"Alice\""
+            , "      c <- submit alice $ createCmd T with p = alice"
+            , "      submit alice $ exerciseCmd c X"
             ]
           (exitCode, stdout, stderr) <-
             readProcessWithExitCode
               damlc
                 [ "test"
-                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
                 , "--show-coverage"
                 , "--all"
                 , "--project-root"
@@ -318,23 +333,23 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib]"
+            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
             ]
           writeFileUTF8 (projDir </> "a" </> "A.daml") $ unlines
             [ "module A where"
+            , "import Daml.Script"
             , "template U with p : Party where"
             , "  signatory p"
             , "  choice Y : () with controller p"
             , "    do pure ()"
-            , "testA = scenario do"
-            , "  alice <- getParty \"Alice\""
-            , "  c <- submit alice $ create U with p = alice"
-            , "  submit alice $ exercise c Y with"
+            , "testA = script do"
+            , "  alice <- allocateParty \"Alice\""
+            , "  c <- submit alice $ createCmd U with p = alice"
+            , "  submit alice $ exerciseCmd c Y with"
             ]
           callProcessSilent
             damlc
             [ "build"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root"
             , projDir </> "a" ]
           createDirectoryIfMissing True (projDir </> "b")
@@ -343,11 +358,12 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "name: b"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> "]"
+            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> ", " <> show scriptDar <> "]"
             ]
           let bFilePath = projDir </> "b" </> "B.daml"
           writeFileUTF8 bFilePath $ unlines
             [ "module B where"
+            , "import Daml.Script"
             , "import A"
             , "type C = ContractId U"
             , "template S with p : Party where"
@@ -356,16 +372,15 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "  signatory p"
             , "  choice X : () with controller p"
             , "    do pure ()"
-            , "x = scenario do"
-            , "      alice <- getParty \"Alice\""
-            , "      c <- submit alice $ create T with p = alice"
-            , "      submit alice $ exercise c X with"
+            , "x = script do"
+            , "      alice <- allocateParty \"Alice\""
+            , "      c <- submit alice $ createCmd T with p = alice"
+            , "      submit alice $ exerciseCmd c X"
             ]
           (exitCode, stdout, stderr) <-
             readProcessWithExitCode
               damlc
               ["test"
-              , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
               , "--show-coverage"
               , "--project-root"
               , projDir </> "b"
@@ -385,46 +400,67 @@ testsForDamlcTest damlc = testGroup "damlc test" $
                  ] `isSuffixOf`
              stdout)
           exitCode @?= ExitSuccess
-    , testCase "File with failing scenario" $ do
+    , testCase "File with failing script" $ do
         withTempDir $ \dir -> do
+            writeFileUTF8 (dir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: test-failing-script"
+              , "version: 0.0.1"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+              ]
             let file = dir </> "Foo.daml"
             T.writeFileUtf8 file $ T.unlines
               [ "module Foo where"
-              , "x = scenario $ assert False"
+              , "import Daml.Script"
+              , "x = script $ assert False"
               ]
             (exitCode, stdout, stderr) <-
               readProcessWithExitCode
                 damlc
                 ["test"
-                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                , "--project-root"
+                , dir
                 , "--files"
                 , file ]
                 ""
             stdout @?= ""
             assertInfixOf "Scenario execution failed" stderr
             exitCode @?= ExitFailure 1
-    , testCase "damlc test --files outside of project" $ withTempDir $ \projDir -> do
+    , testCase "damlc test --files outside of project" $
+        -- TODO: does this test make sense with a daml.yaml file?
+        withTempDir $ \projDir -> do
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: test-files-outside-project"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            ]
           writeFileUTF8 (projDir </> "Main.daml") $ unlines
             [ "module Main where"
-            , "test = scenario do"
+            , "import Daml.Script"
+            , "test = script do"
             , "  assert True"
             ]
           (exitCode, stdout, stderr) <-
             readProcessWithExitCode
               damlc
                 [ "test"
-                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                , "--project-root"
+                , projDir
                 , "--files"
                 , projDir </> "Main.daml" ]
                 ""
           exitCode @?= ExitSuccess
-          assertBool ("Succeeding scenario in " <> stdout) ("Main.daml:test: ok" `isInfixOf` stdout)
+          assertBool ("Succeeding script in " <> stdout) ("Main.daml:test: ok" `isInfixOf` stdout)
           stderr @?= ""
     , testCase "damlc test --project-root relative" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "relative")
           writeFileUTF8 (projDir </> "relative" </> "Main.daml") $ unlines
             [ "module Main where"
-            , "test = scenario do"
+            , "import Daml.Script"
+            , "test = script do"
             , "  assert True"
             ]
           writeFileUTF8 (projDir </> "relative" </> "daml.yaml") $ unlines
@@ -432,19 +468,19 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "name: relative"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib]"
+            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
             ]
           withCurrentDirectory projDir $
             callProcessSilent
               damlc
               [ "test"
-              , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
               , "--project-root=relative" ]
     , testCase "damlc test --project-root proj --junit a.xml" $ withTempDir $ \tempDir -> do
           createDirectoryIfMissing True (tempDir </> "proj")
           writeFileUTF8 (tempDir </> "proj" </> "Main.daml") $ unlines
             [ "module Main where"
-            , "test = scenario do"
+            , "import Daml.Script"
+            , "test = script do"
             , "  assert True"
             ]
           writeFileUTF8 (tempDir </> "proj" </> "daml.yaml") $ unlines
@@ -452,13 +488,12 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "name: relative"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib]"
+            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
             ]
           withCurrentDirectory tempDir $
             callProcessSilent
               damlc
                 [ "test"
-                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
                 , "--project-root=proj"
                 , "--junit=a.xml"
                 ]
@@ -468,7 +503,8 @@ testsForDamlcTest damlc = testGroup "damlc test" $
     , testCase "grpc-max-message-size applies to service results" $ withTempDir $ \tempDir -> do
         writeFileUTF8 (tempDir </> "Main.daml") $ unlines
           [ "module Main where"
-          , "test = scenario do"
+          , "import Daml.Script"
+          , "test = script do"
           , "  pure $ replicate 500000 \"hello world\""
           ]
         writeFileUTF8 (tempDir </> "daml.yaml") $ unlines
@@ -476,14 +512,13 @@ testsForDamlcTest damlc = testGroup "damlc test" $
           , "name: foobar"
           , "version: 0.0.1"
           , "source: ."
-          , "dependencies: [daml-prim, daml-stdlib]"
+          , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
           , "scenario-service:"
           , "  grpc-max-message-size: 10000000"
           ]
         callProcessSilent
           damlc
             [ "test"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root"
             , tempDir ]
     ] <>
@@ -507,26 +542,26 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             , "name: b"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> "]"
+            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> ", " <> show scriptDar <> "]"
             ]
           writeFileUTF8 (projDir </> "b" </> "B.daml") $ unlines
             [ "module B where"
+            , "import Daml.Script"
             , "import A"
             , "b = a"
-            , "test = scenario do"
+            , "test = script do"
             , "  assert True"
             ]
           (exitCode, stdout, stderr) <-
             readProcessWithExitCode
               damlc
               ( "test"
-              : "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
               : "--project-root"
               : (projDir </> "b")
               : args projDir )
               ""
           stderr @?= ""
-          assertBool ("Succeeding scenario in " <> stdout) ("B.daml:test: ok" `isInfixOf` stdout)
+          assertBool ("Succeeding script in " <> stdout) ("B.daml:test: ok" `isInfixOf` stdout)
           exitCode @?= ExitSuccess
     | args <- [\projDir -> ["--files", projDir </> "b" </> "B.daml"], const []]
     ]
