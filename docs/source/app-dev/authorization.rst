@@ -125,6 +125,42 @@ All Daml ledgers represent access tokens as `JSON Web Tokens (JWTs) <https://dat
 and there are two formats of the JSON payload in use by Daml ledgers.
 
 
+User access tokens
+==================
+
+Daml ledger that support participant user management also accept user access tokens.
+They are useful for scenarios where an application's rights change dynamically over the application's lifetime.
+
+User access tokens do not encode rights directly like custom Daml claims tokens.
+Instead, user access tokens encode the participant user on behalf of which the application is issuing a request.
+
+When handling such requests, participant nodes look up the participant user's current rights
+before checking request authorization per the  :ref:`table above <authorization-claims>`.
+Thus the rights granted to an application can be changed dynamically using
+the participant user management service *without* issuing new access tokens,
+as would be required for the custom Daml claims tokens explained below.
+
+User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ that follow the
+`OAuth 2.0 standard <https://datatracker.ietf.org/doc/html/rfc6749>`_ with a JSON payload of the following format.
+
+.. code-block:: json
+
+   {
+      "aud": "someParticipantId",
+      "sub": "someUserId",
+      "exp": 1300819380
+      "scope": "daml_ledger_api"
+   }
+
+where
+
+- ``aud`` is an optional field, which restricts the token to participant nodes with the given id
+- ``sub`` is a required field, which specifies the participant user's id
+- ``exp`` is an optional field, which specifies the JWT expiration date (in seconds since EPOCH)
+- ``scope`` is a space-separated list of `OAuth 2.0 scopes <https://datatracker.ietf.org/doc/html/rfc6749#section-3.3>`_
+  that must contain the ``"daml_ledger_api"`` scope
+
+
 Custom Daml claims access tokens
 ================================
 
@@ -158,38 +194,3 @@ The ``public`` right is implicitly granted to any bearing a valid JWT issued by 
    access tokens whose format is equal to the above expect for the custom claims
    to be present at the same level as ``exp`` in the token above,
    instead of being nested below ``"https://daml.com/ledger-api"``.
-
-
-User access tokens
-==================
-
-Daml ledger that support participant user management also accept user access tokens.
-They are useful for scenarios where an application's rights change dynamically over the application's lifetime.
-
-User access tokens do not encode rights directly like custom Daml claims tokens.
-Instead, user access tokens encode the participant user on behalf of which the application is issuing a request.
-
-When handling such requests, participant nodes look up the participant user's current rights
-before checking request authorization per the  :ref:`table above <authorization-claims>`.
-Thus the rights granted to an application can be changed dynamically using
-the participant user management service *without* issuing new access tokens, as would be required for custom Daml claims tokens.
-
-User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ that follow the
-`OAuth 2.0 standard <https://datatracker.ietf.org/doc/html/rfc6749>`_ with a JSON payload of the following format.
-
-.. code-block:: json
-
-   {
-      "aud": "someParticipantId",
-      "sub": "someUserId",
-      "exp": 1300819380
-      "scope": "daml_ledger_api"
-   }
-
-where
-
-- ``aud`` is an optional field, which restricts the token to participant nodes with the given id
-- ``sub`` is a required field, which specifies the participant user's id
-- ``exp`` is an optional field, which specifies the JWT expiration date (in seconds since EPOCH)
-- ``scope`` is a space-separated list of `OAuth 2.0 scopes <https://datatracker.ietf.org/doc/html/rfc6749#section-3.3>`_
-  that must contain the ``"daml_ledger_api"`` scope
