@@ -220,7 +220,7 @@ class Endpoints(
           path("query") & withTimer(queryMatchingTimer) apply toRoute(query(req)),
           path("fetch") & withFetchTimer apply toRoute(fetch(req)),
           path("user") apply toRoute(getUser(req)),
-          path("user" / "create") apply toRoute(allocateUser(req)),
+          path("user" / "create") apply toRoute(createUser(req)),
           path("user" / "delete") apply toRoute(deleteUser(req)),
           path("user" / "rights") apply toRoute(listUserRights(req)),
           path("user" / "rights" / "grant") apply toRoute(grantUserRights(req)),
@@ -591,7 +591,7 @@ class Endpoints(
     )(req)
       .map(ps => partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList))
 
-  def allocateUser(req: HttpRequest)(implicit
+  def createUser(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[Boolean]] =
     proxyWithCommand { (jwt, createUserRequest: domain.CreateUserRequest) =>
