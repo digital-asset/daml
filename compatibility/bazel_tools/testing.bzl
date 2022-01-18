@@ -675,6 +675,17 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # Contract ID tests are governed by feature descriptors.
+        "platform_ranges": [
+            {
+                "end": "2.0.0-snapshot.20220110.8812.1",
+                "exclusions": [
+                    "ContractIdIT",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
