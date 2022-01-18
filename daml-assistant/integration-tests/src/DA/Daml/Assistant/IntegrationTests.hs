@@ -645,6 +645,10 @@ quickstartTests quickstartDir mvnDir getSandbox =
                         ]
                 scriptOutput <- readFileUTF8 (quickProjDir </> "output.json")
                 [alice, eurBank] <- pure (read scriptOutput :: [String])
+                take 7 alice @?= "Alice::"
+                take 10 eurBank @?= "EUR_Bank::"
+                drop 7 alice @?= drop 10 eurBank -- assert that namespaces are equal
+
                 restPort :: Int <- fromIntegral <$> getFreePort
                 let mavenProc = (shell $ unwords
                         [ "mvn"
