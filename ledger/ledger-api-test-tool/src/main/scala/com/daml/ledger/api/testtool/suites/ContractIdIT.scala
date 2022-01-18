@@ -26,8 +26,6 @@ import scala.util.{Failure, Success, Try}
 // - Central committer ledger implementations (sandboxes, KV...) may accept non-suffixed CID
 // - Distributed ledger implementations (e.g. Canton) must reject non-suffixed CID
 final class ContractIdIT extends LedgerTestSuite {
-
-  private[this] val v0Cid = "#V0 Contract ID"
   private[this] val nonSuffixedV1Cid = (0 to 32).map("%02x".format(_)).mkString
   private[this] val suffixedV1Cid = (0 to 48).map("%02x".format(_)).mkString
 
@@ -36,34 +34,33 @@ final class ContractIdIT extends LedgerTestSuite {
 
   List[(String, String, Boolean, Features => Boolean, String)](
     (
-      v0Cid,
-      "V0",
-      true,
-      features => features.contractIds.v0Supported,
-      "V0 contract IDs are not supported",
-    ),
-    (
-      v0Cid,
-      "V0",
-      false,
-      features => !features.contractIds.v0Supported,
-      "V0 contract IDs are supported",
-    ),
-    (
       nonSuffixedV1Cid,
       "non-suffixed V1",
       true,
-      features => features.contractIds.v1NonSuffixedSupported,
+      features => features.contractIds.v1.isNonSuffixed || features.contractIds.v1.isBoth,
       "non-suffixed V1 contract IDs are not supported",
     ),
     (
       nonSuffixedV1Cid,
       "non-suffixed V1",
       false,
-      features => !features.contractIds.v1NonSuffixedSupported,
+      features => !(features.contractIds.v1.isNonSuffixed || features.contractIds.v1.isBoth),
       "non-suffixed V1 contract IDs are supported",
     ),
-    (suffixedV1Cid, "suffixed V1", true, _ => true, ""),
+    (
+      suffixedV1Cid,
+      "suffixed V1",
+      true,
+      features => features.contractIds.v1.isSuffixed || features.contractIds.v1.isBoth,
+      "suffixed V1 contract IDs are not supported",
+    ),
+    (
+      suffixedV1Cid,
+      "suffixed V1",
+      false,
+      features => !(features.contractIds.v1.isSuffixed || features.contractIds.v1.isBoth),
+      "suffixed V1 contract IDs are supported",
+    ),
   ).foreach { case (testedCid, cidDescription, accepted, isSupported, disabledReason) =>
     val result = if (accepted) "Accept" else "Reject"
 

@@ -69,12 +69,18 @@ enum CommandDeduplicationType {
   SYNC_ONLY = 2;
 }
 
+// See `daml-lf/spec/contract-id.rst` for more information on contract ID formats.
 message ContractIdFeatures {
-  // v0 contract IDs are supported.
-  // It is highly unlikely that any ledger except for Sandbox Classic needs to support these.
-  bool v0_supported = 1;
-  // v1 contract IDs do not need to be suffixed.
-  // This can be useful for shorter contract IDs in centralized committer implementations.
-  // Distributed ledger implementations must reject non-suffixed contract IDs.
-  bool v1_non_suffixed_supported = 2;
+  ContractIdV1Support v1 = 1;
+
+  enum ContractIdV1Support {
+    // Contract IDs must be suffixed.
+    // Distributed ledger implementations must reject non-suffixed contract IDs.
+    SUFFIXED = 0;
+    // Contract IDs do not need to be suffixed.
+    // This can be useful for shorter contract IDs in centralized committer implementations.
+    NON_SUFFIXED = 1;
+    // Either contract ID format is supported.
+    BOTH = 2;
+  }
 }

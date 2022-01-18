@@ -331,8 +331,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   maxDeduplicationDurationEnforced = true,
                 ),
                 contractIdFeatures = ContractIdFeatures.of(
-                  v0Supported = false,
-                  v1NonSuffixedSupported = true,
+                  v1 = ContractIdFeatures.ContractIdV1Support.BOTH
                 ),
               )
               _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())

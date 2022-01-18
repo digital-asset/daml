@@ -439,8 +439,7 @@ final class SandboxServer(
           maxDeduplicationDurationEnforced = false,
         ),
         contractIdFeatures = ContractIdFeatures.of(
-          v0Supported = true,
-          v1NonSuffixedSupported = true,
+          v1 = ContractIdFeatures.ContractIdV1Support.BOTH
         ),
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
