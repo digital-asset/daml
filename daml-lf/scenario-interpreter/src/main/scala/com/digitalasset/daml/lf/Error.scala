@@ -4,7 +4,7 @@
 package com.daml.lf
 package scenario
 
-import com.daml.lf.data.Ref.{Identifier, Party, UserId}
+import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
 import com.daml.lf.speedy.SError.SError
@@ -74,11 +74,4 @@ object Error {
 
   /** Tried to allocate a party that already exists. */
   final case class PartyAlreadyExists(name: String) extends Error
-
-  sealed abstract class UserManagementError extends Product with Serializable
-
-  object UserManagementError {
-    final case class UserNotFound(userId: UserId) extends UserManagementError
-    final case class UserExists(userId: UserId) extends UserManagementError
-  }
 }

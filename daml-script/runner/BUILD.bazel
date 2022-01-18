@@ -69,7 +69,6 @@ da_scala_test(
     deps = [
         ":script-runner-lib",
         "//daml-lf/data",
-        "//daml-lf/scenario-interpreter",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
     ],

@@ -5,7 +5,6 @@ package com.daml.lf.engine.script.ledgerinteraction.ide
 
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.Ref.{Party, UserId}
-import com.daml.lf.scenario.Error.UserManagementError._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 import scala.language.implicitConversions
@@ -34,7 +33,7 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
       val mgmt = new UserManagementStore()
       val user = User("user1", None)
       mgmt.createUser(user, Set.empty) shouldBe Right(())
-      mgmt.createUser(user, Set.empty) shouldBe Left(UserExists("user1"))
+      mgmt.createUser(user, Set.empty) shouldBe Left(())
     }
 
     "find a freshly created user" in {
@@ -46,7 +45,7 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
 
     "not find a non-existent user" in {
       val mgmt = new UserManagementStore()
-      mgmt.getUser("user1") shouldBe Left(UserNotFound("user1"))
+      mgmt.getUser("user1") shouldBe Left(())
     }
     "not find a deleted user" in {
       val mgmt = new UserManagementStore()
@@ -54,7 +53,7 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
       mgmt.createUser(user, Set.empty) shouldBe Right(())
       mgmt.getUser("user1") shouldBe Right(user)
       mgmt.deleteUser("user1") shouldBe Right(())
-      mgmt.getUser("user1") shouldBe Left(UserNotFound("user1"))
+      mgmt.getUser("user1") shouldBe Left(())
     }
     "allow recreating a deleted user" in {
       val mgmt = new UserManagementStore()
@@ -65,7 +64,7 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
     }
     "fail to delete a non-existent user" in {
       val mgmt = new UserManagementStore()
-      mgmt.deleteUser("user1") shouldBe Left(UserNotFound("user1"))
+      mgmt.deleteUser("user1") shouldBe Left(())
     }
     "list created users" in {
       val mgmt = new UserManagementStore()
@@ -103,7 +102,7 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
     }
     "listUserRights should fail on non-existent user" in {
       val mgmt = new UserManagementStore()
-      mgmt.listUserRights("user1") shouldBe Left(UserNotFound("user1"))
+      mgmt.listUserRights("user1") shouldBe Left(())
     }
     "grantUserRights should add new rights" in {
       val mgmt = new UserManagementStore()
@@ -119,7 +118,7 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
     }
     "grantRights should fail on non-existent user" in {
       val mgmt = new UserManagementStore()
-      mgmt.grantRights("user1", Set.empty) shouldBe Left(UserNotFound("user1"))
+      mgmt.grantRights("user1", Set.empty) shouldBe Left(())
     }
     "revokeRights should revoke rights" in {
       val mgmt = new UserManagementStore()
@@ -140,7 +139,7 @@ final class InMemoryUserManagementStoreSpec extends AnyFreeSpec with Matchers {
     }
     "revokeRights should fail on non-existent user" in {
       val mgmt = new UserManagementStore()
-      mgmt.revokeRights("user1", Set.empty) shouldBe Left(UserNotFound("user1"))
+      mgmt.revokeRights("user1", Set.empty) shouldBe Left(())
     }
   }
 }
