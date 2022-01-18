@@ -29,6 +29,7 @@ import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString.Lazy.UTF8 as LBS
+import Data.Either (isRight)
 import qualified Data.Foldable
 import Data.Function ((&))
 import qualified Data.HashMap.Strict as H
@@ -93,22 +94,27 @@ s3Path :: DocOptions -> FilePath -> String
 s3Path DocOptions{s3Subdir} file =
     "s3://docs-daml-com" </> fromMaybe "" s3Subdir </> file
 
+-- We use a check for the versions.json file to check if the docs for a given version exist or not.
+-- This is technically slightly racy if the upload happens concurrently and we end up with a partial upload
+-- but the window seems small enough to make this acceptable.
+doesVersionExist :: DocOptions -> Version -> IO Bool
+doesVersionExist opts version = do
+    r <- tryIO $ IO.withTempFile $ \file -> proc_ ["aws", "s3", "cp", s3Path opts (show version </> "versions.json"), file]
+    pure (isRight r)
+
 build_and_push :: DocOptions -> FilePath -> [Version] -> IO ()
 build_and_push opts@DocOptions{build} temp versions = do
     restore_sha $ do
         Data.Foldable.for_ versions (\version -> do
             putStrLn $ "Check if version  " <> show version <> " exists ..."
-            -- We use a check for the versions.json file to check if the docs exists or not.
-            -- This is technically slightly racy if the upload happens concurrently and we end up with a partial upload
-            -- but the window seems small enough to make this acceptable.
-            r <- tryIO $ IO.withTempFile $ \file -> proc_ ["aws", "s3", "cp", s3Path opts (show version </> "versions.json"), file]
-            case r of
-                Left _ -> do
+            exists <- doesVersionExist opts version
+            if exists
+                then putStrLn $ "Version " <> show version <> " already exists (split-release)"
+                else do
                     putStrLn $ "Building " <> show version <> "..."
                     build temp version
                     putStrLn $ "Pushing " <> show version <> " to S3 (as subfolder)..."
                     push version
-                Right _ -> putStrLn $ "Version " <> show version <> " already exists (split-release)"
             putStrLn "Done.")
     where
         restore_sha io =
