@@ -153,8 +153,8 @@ conformance_test(
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
         "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
-        # Disable tests targeting only append-only schema functionality
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 

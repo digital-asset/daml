@@ -250,8 +250,8 @@ da_scala_test_suite(
             tags = db.get("conformance_test_tags", []),
             test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--verbose",
-                # Disable tests targeting only append-only schema functionality
-                "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+                # Disable tests targeting only multi-participant setups
+                "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
             ],
         ),
         conformance_test(
