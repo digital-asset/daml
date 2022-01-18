@@ -46,7 +46,7 @@ export const withUserManagement: UserManagement = {
   tokenPayload: (loginName: string, ledgerId: string) =>
   ({
     "sub": loginName,
-    "scope": "https://daml.com/ledger-api.full_control"
+    "scope": "daml_ledger_api"
   }),
   primaryParty: async (loginName, ledger: Ledger) => {
     const user = await ledger.getUser();

@@ -91,7 +91,7 @@ object AuthServiceJWTCodec {
   // OpenID Connect (OIDC) namespace for custom JWT claims
   final val oidcNamespace: String = "https://daml.com/ledger-api"
   // Unique scope for standard tokens, following the pattern of https://developers.google.com/identity/protocols/oauth2/scopes
-  final val scopeLedgerApiFull: String = "https://daml.com/ledger-api.full_control"
+  final val scopeLedgerApiFull: String = "daml_ledger_api"
 
   private[this] final val propLedgerId: String = "ledgerId"
   private[this] final val propParticipantId: String = "participantId"
