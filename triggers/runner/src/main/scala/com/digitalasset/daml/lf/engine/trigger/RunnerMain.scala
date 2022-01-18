@@ -13,6 +13,7 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -25,7 +26,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 object RunnerMain {
 
-  def listTriggers(darPath: File, dar: Dar[(PackageId, Package)]) = {
+  private def listTriggers(darPath: File, dar: Dar[(PackageId, Package)]): Unit = {
     println(s"Listing triggers in $darPath:")
     for ((modName, mod) <- dar.main._2.modules) {
       for ((defName, defVal) <- mod.definitions) {
@@ -77,8 +78,11 @@ object RunnerMain {
           ledgerIdRequirement = LedgerIdRequirement.none,
           commandClient =
             CommandClientConfiguration.default.copy(defaultDeduplicationTime = config.commandTtl),
-          sslContext = config.tlsConfig.client(),
           token = tokenHolder.flatMap(_.token),
+        )
+
+        val channelConfig = LedgerClientChannelConfiguration(
+          sslContext = config.tlsConfig.client(),
           maxInboundMessageSize = config.maxInboundMessageSize,
         )
 
@@ -87,6 +91,7 @@ object RunnerMain {
             config.ledgerHost,
             config.ledgerPort,
             clientConfig,
+            channelConfig,
           )(ec, sequencer)
 
           parties <- config.ledgerClaims.resolveClaims(client)

@@ -8,6 +8,7 @@ import java.security.{KeyFactory, PrivateKey}
 import java.security.cert.{CertificateFactory, X509Certificate}
 import java.security.spec.PKCS8EncodedKeySpec
 
+import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.nonrepudiation.client.SigningInterceptor
 import io.grpc.netty.NettyChannelBuilder
 
@@ -44,9 +45,10 @@ object LedgerClient extends LedgerClientBase {
   def channelBuilder(
       ledgerHost: String,
       ledgerPort: Int,
+      clientChannelConfig: LedgerClientChannelConfiguration,
       nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit executionContext: ExecutionContext): Future[NettyChannelBuilder] = {
-    val base = NettyChannelBuilder.forAddress(ledgerHost, ledgerPort)
+    val base = clientChannelConfig.builderFor(ledgerHost, ledgerPort)
     Future
       .fromTry(nonRepudiationConfig.validated)
       .map(_.fold(base) { config =>

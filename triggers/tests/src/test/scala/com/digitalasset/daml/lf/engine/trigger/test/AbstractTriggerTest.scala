@@ -19,6 +19,7 @@ import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -61,9 +62,11 @@ trait AbstractTriggerTest
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = None,
       token = None,
     )
+
+  protected def ledgerClientChannelConfiguration =
+    LedgerClientChannelConfiguration.InsecureDefaults
 
   protected def ledgerClient(
       maxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
@@ -73,7 +76,8 @@ trait AbstractTriggerTest
         .singleHost(
           "localhost",
           serverPort.value,
-          ledgerClientConfiguration.copy(maxInboundMessageSize = maxInboundMessageSize),
+          ledgerClientConfiguration,
+          ledgerClientChannelConfiguration.copy(maxInboundMessageSize = maxInboundMessageSize),
         )
     } yield client
 

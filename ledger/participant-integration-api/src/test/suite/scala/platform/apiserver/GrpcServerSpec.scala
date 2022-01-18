@@ -10,11 +10,7 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.client.GrpcChannel
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
+import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -99,13 +95,6 @@ object GrpcServerSpec {
 
   private val maxInboundMessageSize = 4 * 1024 * 1024 /* copied from the Sandbox configuration */
 
-  private val clientConfiguration = LedgerClientConfiguration(
-    applicationId = classOf[GrpcServerSpec].getSimpleName,
-    ledgerIdRequirement = LedgerIdRequirement.none,
-    commandClient = CommandClientConfiguration.default,
-    sslContext = None,
-  )
-
   class TestedHelloService extends HelloServiceReferenceImplementation {
     override def fails(request: HelloRequest): Future[HelloResponse] = {
       val errorLogger =
@@ -129,7 +118,10 @@ object GrpcServerSpec {
         servicesExecutor = executor,
         services = Seq(new TestedHelloService),
       )
-      channel <- new GrpcChannel.Owner(Port(server.getPort), clientConfiguration)
+      channel <- new GrpcChannel.Owner(
+        Port(server.getPort),
+        LedgerClientChannelConfiguration.InsecureDefaults,
+      )
     } yield channel
 
 }

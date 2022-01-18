@@ -12,6 +12,7 @@ import com.daml.ledger.api.v1.transaction_service.GetLedgerEndResponse
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -40,11 +41,12 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
       "appId",
       LedgerIdRequirement.none,
       CommandClientConfiguration.default,
-      None,
     )
 
-  private def tlsEnabledConfig(minimumProtocolVersion: TlsVersion): LedgerClientConfiguration =
-    baseConfig.copy(sslContext =
+  private def tlsEnabledConfig(
+      minimumProtocolVersion: TlsVersion
+  ): LedgerClientChannelConfiguration =
+    LedgerClientChannelConfiguration(
       TlsConfiguration(
         enabled = true,
         Some(clientCertChainFilePath),
@@ -68,13 +70,13 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
     )
 
   private def clientF(protocol: TlsVersion) =
-    LedgerClient.singleHost(serverHost, serverPort.value, tlsEnabledConfig(protocol))
+    LedgerClient.singleHost(serverHost, serverPort.value, baseConfig, tlsEnabledConfig(protocol))
 
   "A TLS-enabled server" should {
     "reject ledger queries when the client connects without tls" in {
       recoverToSucceededIf[io.grpc.StatusRuntimeException] {
         LedgerClient
-          .singleHost(serverHost, serverPort.value, baseConfig)
+          .insecureSingleHost(serverHost, serverPort.value, baseConfig)
           .flatMap(_.transactionClient.getLedgerEnd())
       }
     }

@@ -69,7 +69,6 @@ final class MinVersionTest
     applicationId = "minversiontest",
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
   )
   // This is an integration test to make sure that the version restrictions for stable packages
   // apply across the whole stack.
@@ -77,7 +76,7 @@ final class MinVersionTest
   "MinVersionTest" - {
     "can upload an LF 1.14 package and use it in a transaction" in {
       for {
-        client <- LedgerClient.singleHost(
+        client <- LedgerClient.insecureSingleHost(
           "localhost",
           suiteResource.value.value,
           ledgerClientConfig,

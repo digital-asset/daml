@@ -52,11 +52,10 @@ trait SandboxFixture extends SandboxNextFixture {
     seeding = Some(Seeding.Weak),
   )
 
-  protected val ClientConfiguration = LedgerClientConfiguration(
+  protected val ClientConfiguration: LedgerClientConfiguration = LedgerClientConfiguration(
     applicationId = TestUtil.LedgerID,
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
     token = None,
   )
 
