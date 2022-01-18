@@ -112,7 +112,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     val endpointId: String,
     val applicationId: String,
     val identifierSuffix: String,
-    referenceOffset: LedgerOffset,
+    val referenceOffset: LedgerOffset,
     services: LedgerServices,
     partyAllocation: PartyAllocationConfiguration,
     val ledgerEndpoint: Endpoint,

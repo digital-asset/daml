@@ -82,7 +82,7 @@ final class CommandDeduplicationIT(
         updateSubmissionId(request, firstAcceptedSubmissionId),
         party,
       )
-      optCompletionResponse <- submitRequestAndAssertDeduplication(
+      _ <- submitRequestAndAssertDeduplication(
         ledger,
         updateWithFreshSubmissionId(request),
         firstAcceptedSubmissionId,
@@ -95,16 +95,6 @@ final class CommandDeduplicationIT(
         party,
         noOfActiveContracts = 1,
       )
-      _ <-
-        if (!ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly) {
-          val completion = assertDefined(optCompletionResponse, "No completion has been produced")
-          assertDeduplicationDuration(
-            deduplicationDuration.asProtobuf,
-            completion,
-            party,
-            ledger,
-          )
-        } else Future.unit
     } yield {
       assert(
         response.completion.commandId == request.commands.get.commandId,
@@ -467,6 +457,89 @@ final class CommandDeduplicationIT(
       )
     } yield {}
   })
+
+  testGivenAllParticipants(
+    s"DeduplicateUsingDurations",
+    "Deduplicate commands within the deduplication period defined by a duration",
+    allocate(SingleParty),
+  )(implicit ec =>
+    configuredParticipants => { case Participants(Participant(ledger, party)) =>
+      val request = ledger
+        .submitRequest(party, DummyWithAnnotation(party, "Duplicate command").create.command)
+        .update(
+          _.commands.deduplicationPeriod :=
+            DeduplicationPeriod.DeduplicationDuration(deduplicationDuration.asProtobuf)
+        )
+      val firstAcceptedSubmissionId = newSubmissionId()
+      runWithTimeModel(configuredParticipants) { delay =>
+        for {
+          completionResponse <- submitRequestAndAssertCompletionAccepted(
+            ledger,
+            updateSubmissionId(request, firstAcceptedSubmissionId),
+            party,
+          )
+          optDeduplicationCompletionResponse <- submitRequestAndAssertDeduplication(
+            ledger,
+            updateWithFreshSubmissionId(request),
+            firstAcceptedSubmissionId,
+            completionResponse.offset,
+            party,
+          )
+          deduplicationDurationFromPeriod = optDeduplicationCompletionResponse
+            .map(_.completion.deduplicationPeriod)
+            .map {
+              case CompletionDeduplicationPeriod.Empty =>
+                throw new IllegalStateException("received empty completion")
+              case CompletionDeduplicationPeriod.DeduplicationOffset(_) =>
+                deduplicationDuration
+              case CompletionDeduplicationPeriod.DeduplicationDuration(value) =>
+                value.asScala
+            }
+            .getOrElse(deduplicationDuration + delay.skews)
+            .asInstanceOf[FiniteDuration]
+          eventuallyAcceptedCompletionResponse <- succeedsEventually(
+            maxRetryDuration = deduplicationDurationFromPeriod + delay.skews + 10.seconds,
+            description =
+              s"The deduplication period expires and the request is accepted for the commands ${request.getCommands}.",
+          ) {
+            submitRequestAndAssertCompletionAccepted(
+              ledger,
+              updateSubmissionId(request, firstAcceptedSubmissionId),
+              party,
+            )
+          }
+          _ <- assertPartyHasActiveContracts(
+            ledger,
+            party,
+            noOfActiveContracts = 2,
+          )
+          _ <-
+            if (!ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly) {
+              val deduplicationCompletionResponse =
+                assertDefined(optDeduplicationCompletionResponse, "No completion has been produced")
+              assertDeduplicationDuration(
+                deduplicationDuration.asProtobuf,
+                deduplicationCompletionResponse,
+                party,
+                ledger,
+              )
+
+              assertDeduplicationDuration(
+                deduplicationDuration.asProtobuf,
+                eventuallyAcceptedCompletionResponse,
+                party,
+                ledger,
+              )
+            } else Future.unit
+        } yield {
+          assert(
+            completionResponse.completion.commandId == request.commands.get.commandId,
+            "The command ID of the first completion does not match the command ID of the submission",
+          )
+        }
+      }
+    }
+  )
 
   testGivenAllParticipants(
     "DeduplicateUsingOffsets",
