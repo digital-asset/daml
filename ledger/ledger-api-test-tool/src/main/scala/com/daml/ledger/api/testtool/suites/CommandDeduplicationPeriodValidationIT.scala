@@ -11,8 +11,8 @@ import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.infrastructure.{FutureAssertions, LedgerTestSuite}
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy
@@ -21,7 +21,6 @@ import com.daml.logging.LoggingContext
 import io.grpc.Status
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.DurationInt
 
 class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
