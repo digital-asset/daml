@@ -351,10 +351,7 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    userManagementStore.grantRights(id, rights.toSet) match {
-      case None => Future.successful(None)
-      case Some(a) => Future.successful(a).map(_.toList).map(Some(_))
-    }
+    Future.successful(userManagementStore.grantRights(id, rights.toSet).map(_.toList))
 
   override def revokeUserRights(
       id: UserId,
@@ -364,18 +361,12 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    userManagementStore.revokeRights(id, rights.toSet) match {
-      case None => Future.successful(None)
-      case Some(a) => Future.successful(a).map(_.toList).map(Some(_))
-    }
+    Future.successful(userManagementStore.revokeRights(id, rights.toSet).map(_.toList))
 
   override def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    userManagementStore.listUserRights(id) match {
-      case None => Future.successful(None)
-      case Some(a) => Future.successful(a).map(_.toList).map(Some(_))
-    }
+    Future.successful(userManagementStore.listUserRights(id).map(_.toList))
 }
