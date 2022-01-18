@@ -6,14 +6,14 @@ package com.daml.platform.store.backend
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 private[backend] trait StorageBackendTestsContracts
     extends Matchers
     with Inside
     with StorageBackendSpec {
-  this: AsyncFlatSpec =>
+  this: AnyFlatSpec =>
 
   behavior of "StorageBackend (contracts)"
 
@@ -30,24 +30,22 @@ private[backend] trait StorageBackendTestsContracts
       dtoCompletion(offset(1)),
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(1), 1L)
-      )
-      rawContractO <- executeSql(
-        backend.contract.activeContractWithArgument(Set(signatory), contractId)
-      )
-      templateIdO <- executeSql(
-        backend.contract.activeContractWithoutArgument(Set(signatory), contractId)
-      )
-    } yield {
-      templateIdO shouldBe Some(someTemplateId.toString)
-      inside(rawContractO) { case Some(rawContract) =>
-        rawContract.templateId shouldBe someTemplateId.toString
-        rawContract.createArgumentCompression shouldBe None
-      }
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(
+      updateLedgerEnd(offset(1), 1L)
+    )
+    val rawContractO = executeSql(
+      backend.contract.activeContractWithArgument(Set(signatory), contractId)
+    )
+    val templateIdO = executeSql(
+      backend.contract.activeContractWithoutArgument(Set(signatory), contractId)
+    )
+
+    templateIdO shouldBe Some(someTemplateId.toString)
+    inside(rawContractO) { case Some(rawContract) =>
+      rawContract.templateId shouldBe someTemplateId.toString
+      rawContract.createArgumentCompression shouldBe None
     }
   }
 
@@ -65,22 +63,20 @@ private[backend] trait StorageBackendTestsContracts
       dtoCompletion(offset(2)),
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(2), 2L)
-      )
-      rawContractO <- executeSql(
-        backend.contract.activeContractWithArgument(Set(signatory), contractId)
-      )
-      templateIdO <- executeSql(
-        backend.contract.activeContractWithoutArgument(Set(signatory), contractId)
-      )
-    } yield {
-      templateIdO shouldBe None
-      rawContractO shouldBe None
-    }
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(
+      updateLedgerEnd(offset(2), 2L)
+    )
+    val rawContractO = executeSql(
+      backend.contract.activeContractWithArgument(Set(signatory), contractId)
+    )
+    val templateIdO = executeSql(
+      backend.contract.activeContractWithoutArgument(Set(signatory), contractId)
+    )
+
+    templateIdO shouldBe None
+    rawContractO shouldBe None
   }
 
   it should "correctly find a divulged contract" in {
@@ -94,24 +90,22 @@ private[backend] trait StorageBackendTestsContracts
       dtoCompletion(offset(1)),
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(1), 1L)
-      )
-      rawContractO <- executeSql(
-        backend.contract.activeContractWithArgument(Set(divulgee), contractId)
-      )
-      templateIdO <- executeSql(
-        backend.contract.activeContractWithoutArgument(Set(divulgee), contractId)
-      )
-    } yield {
-      templateIdO shouldBe Some(someTemplateId.toString)
-      inside(rawContractO) { case Some(rawContract) =>
-        rawContract.templateId shouldBe someTemplateId.toString
-        rawContract.createArgumentCompression shouldBe None
-      }
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(
+      updateLedgerEnd(offset(1), 1L)
+    )
+    val rawContractO = executeSql(
+      backend.contract.activeContractWithArgument(Set(divulgee), contractId)
+    )
+    val templateIdO = executeSql(
+      backend.contract.activeContractWithoutArgument(Set(divulgee), contractId)
+    )
+
+    templateIdO shouldBe Some(someTemplateId.toString)
+    inside(rawContractO) { case Some(rawContract) =>
+      rawContract.templateId shouldBe someTemplateId.toString
+      rawContract.createArgumentCompression shouldBe None
     }
   }
 
@@ -132,24 +126,22 @@ private[backend] trait StorageBackendTestsContracts
       dtoCompletion(offset(2)),
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(2), 2L)
-      )
-      rawContractO <- executeSql(
-        backend.contract.activeContractWithArgument(Set(divulgee), contractId)
-      )
-      templateIdO <- executeSql(
-        backend.contract.activeContractWithoutArgument(Set(divulgee), contractId)
-      )
-    } yield {
-      templateIdO shouldBe Some(someTemplateId.toString)
-      inside(rawContractO) { case Some(rawContract) =>
-        rawContract.templateId shouldBe someTemplateId.toString
-        rawContract.createArgumentCompression shouldBe None
-      }
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(
+      updateLedgerEnd(offset(2), 2L)
+    )
+    val rawContractO = executeSql(
+      backend.contract.activeContractWithArgument(Set(divulgee), contractId)
+    )
+    val templateIdO = executeSql(
+      backend.contract.activeContractWithoutArgument(Set(divulgee), contractId)
+    )
+
+    templateIdO shouldBe Some(someTemplateId.toString)
+    inside(rawContractO) { case Some(rawContract) =>
+      rawContract.templateId shouldBe someTemplateId.toString
+      rawContract.createArgumentCompression shouldBe None
     }
   }
 
@@ -172,34 +164,33 @@ private[backend] trait StorageBackendTestsContracts
       dtoCompletion(offset(3)),
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(3), 3L)
-      )
-      rawContractDivulgeeO <- executeSql(
-        backend.contract.activeContractWithArgument(Set(divulgee), contractId)
-      )
-      templateIdDivulgeeO <- executeSql(
-        backend.contract.activeContractWithoutArgument(Set(divulgee), contractId)
-      )
-      rawContractSignatoryO <- executeSql(
-        backend.contract.activeContractWithArgument(Set(signatory), contractId)
-      )
-      templateIdSignatoryO <- executeSql(
-        backend.contract.activeContractWithoutArgument(Set(signatory), contractId)
-      )
-    } yield {
-      // The divulgee still sees the contract
-      templateIdDivulgeeO shouldBe Some(someTemplateId.toString)
-      inside(rawContractDivulgeeO) { case Some(rawContract) =>
-        rawContract.templateId shouldBe someTemplateId.toString
-        rawContract.createArgumentCompression shouldBe None
-      }
-      // The signatory knows it's archived
-      templateIdSignatoryO shouldBe None
-      rawContractSignatoryO shouldBe None
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(
+      updateLedgerEnd(offset(3), 3L)
+    )
+    val rawContractDivulgeeO = executeSql(
+      backend.contract.activeContractWithArgument(Set(divulgee), contractId)
+    )
+    val templateIdDivulgeeO = executeSql(
+      backend.contract.activeContractWithoutArgument(Set(divulgee), contractId)
+    )
+    val rawContractSignatoryO = executeSql(
+      backend.contract.activeContractWithArgument(Set(signatory), contractId)
+    )
+    val templateIdSignatoryO = executeSql(
+      backend.contract.activeContractWithoutArgument(Set(signatory), contractId)
+    )
+
+    // The divulgee still sees the contract
+    templateIdDivulgeeO shouldBe Some(someTemplateId.toString)
+    inside(rawContractDivulgeeO) { case Some(rawContract) =>
+      rawContract.templateId shouldBe someTemplateId.toString
+      rawContract.createArgumentCompression shouldBe None
     }
+    // The signatory knows it's archived
+    templateIdSignatoryO shouldBe None
+    rawContractSignatoryO shouldBe None
   }
+
 }
