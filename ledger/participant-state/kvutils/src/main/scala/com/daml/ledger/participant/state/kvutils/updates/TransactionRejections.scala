@@ -43,7 +43,7 @@ private[kvutils] object TransactionRejections {
       errorVersionSwitch: ValueSwitch,
   )(implicit loggingContext: ContextualizedErrorLogger): Update.CommandRejected = {
     Update.CommandRejected(
-      recordTime = recordTime,
+      recordTime = Some(recordTime),
       completionInfo = parseCompletionInfo(
         recordTime,
         rejectionEntry.getSubmitterInfo,
@@ -75,7 +75,7 @@ private[kvutils] object TransactionRejections {
   )(implicit loggingContext: ContextualizedErrorLogger): Update.CommandRejected = {
     val definiteAnswer = rejectionEntry.getDefiniteAnswer
     Update.CommandRejected(
-      recordTime = recordTime,
+      recordTime = Some(recordTime),
       completionInfo = parseCompletionInfo(
         recordTime,
         rejectionEntry.getSubmitterInfo,

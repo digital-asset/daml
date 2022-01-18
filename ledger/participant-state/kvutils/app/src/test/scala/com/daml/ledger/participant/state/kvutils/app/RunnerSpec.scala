@@ -276,7 +276,7 @@ object RunnerSpec {
                 telemetryContext: TelemetryContext,
             ): CompletionStage[SubmissionResult] = {
               val configurationUpdate = Update.ConfigurationChanged(
-                recordTime = Timestamp.now(),
+                recordTime = Some(Timestamp.now()),
                 submissionId = submissionId,
                 participantId = participantConfig.participantId,
                 newConfiguration = config,

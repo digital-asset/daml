@@ -191,7 +191,7 @@ private class JdbcLedgerDao(
         val update = finalRejectionReason match {
           case None =>
             state.Update.ConfigurationChanged(
-              recordTime = recordedAt,
+              recordTime = Some(recordedAt),
               submissionId = Ref.SubmissionId.assertFromString(submissionId),
               participantId =
                 Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
@@ -200,7 +200,7 @@ private class JdbcLedgerDao(
 
           case Some(reason) =>
             state.Update.ConfigurationChangeRejected(
-              recordTime = recordedAt,
+              recordTime = Some(recordedAt),
               submissionId = Ref.SubmissionId.assertFromString(submissionId),
               participantId =
                 Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
@@ -238,7 +238,7 @@ private class JdbcLedgerDao(
                 //
                 // This will be properly resolved once we move away from the `sandbox-classic` codebase.
                 participantId = if (partyDetails.isLocal) participantId else NonLocalParticipantId,
-                recordTime = recordTime,
+                recordTime = Some(recordTime),
                 submissionId = submissionIdOpt,
               )
             ),
@@ -253,7 +253,7 @@ private class JdbcLedgerDao(
               state.Update.PartyAllocationRejected(
                 submissionId = submissionId,
                 participantId = participantId,
-                recordTime = recordTime,
+                recordTime = Some(recordTime),
                 rejectionReason = reason,
               )
             ),
@@ -308,7 +308,7 @@ private class JdbcLedgerDao(
           offset,
           completionInfo.map(info =>
             state.Update.CommandRejected(
-              recordTime = recordTime,
+              recordTime = Some(recordTime),
               completionInfo = info,
               reasonTemplate = reason,
             )
@@ -358,7 +358,7 @@ private class JdbcLedgerDao(
                     ),
                     transaction = tx.transaction,
                     transactionId = tx.transactionId,
-                    recordTime = tx.recordedAt,
+                    recordTime = Some(tx.recordedAt),
                     divulgedContracts = Nil,
                     blindingInfo = None,
                   )
@@ -377,7 +377,7 @@ private class JdbcLedgerDao(
                 offset,
                 Some(
                   state.Update.CommandRejected(
-                    recordTime = recordTime,
+                    recordTime = Some(recordTime),
                     completionInfo = state
                       .CompletionInfo(
                         actAs,
@@ -471,7 +471,7 @@ private class JdbcLedgerDao(
                 .map(
                   _._2.knownSince
                 )
-                .getOrElse(Timestamp.Epoch),
+                .orElse(Some(Timestamp.Epoch)),
               submissionId =
                 None, // If the submission ID is missing, this update will not insert a row in the package_entries table
             )
@@ -482,14 +482,14 @@ private class JdbcLedgerDao(
               sourceDescription = packages.headOption.flatMap(
                 _._2.sourceDescription
               ),
-              recordTime = recordTime,
+              recordTime = Some(recordTime),
               submissionId = Some(submissionId),
             )
 
           case Some(PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason)) =>
             state.Update.PublicPackageUploadRejected(
               submissionId = submissionId,
-              recordTime = recordTime,
+              recordTime = Some(recordTime),
               rejectionReason = reason,
             )
         }
@@ -747,7 +747,7 @@ private class JdbcLedgerDao(
                   ),
                   transaction = transaction,
                   transactionId = transactionId,
-                  recordTime = recordTime,
+                  recordTime = Some(recordTime),
                   divulgedContracts = divulgedContracts.toList,
                   blindingInfo = blindingInfo,
                 )
@@ -756,7 +756,7 @@ private class JdbcLedgerDao(
             case Some(reason) =>
               completionInfo.map(info =>
                 state.Update.CommandRejected(
-                  recordTime = recordTime,
+                  recordTime = Some(recordTime),
                   completionInfo = info,
                   reasonTemplate = reason.toStateV2RejectionReason(errorFactories)(
                     new DamlContextualizedErrorLogger(

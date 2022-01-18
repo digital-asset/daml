@@ -77,7 +77,7 @@ final class StateUpdateComparisonSpec
 
   private lazy val aRecordTime = Time.Timestamp.now()
   private lazy val aConfigurationChangeRejected = ConfigurationChangeRejected(
-    recordTime = Time.Timestamp.now(),
+    recordTime = Some(Time.Timestamp.now()),
     submissionId = Ref.SubmissionId.assertFromString("a submission ID"),
     participantId = Ref.ParticipantId.assertFromString("a participant ID"),
     proposedConfiguration =
@@ -98,7 +98,7 @@ final class StateUpdateComparisonSpec
       ),
       transaction = TransactionBuilder.EmptyCommitted,
       transactionId = Ref.TransactionId.assertFromString("anID"),
-      recordTime = aRecordTime,
+      recordTime = Some(aRecordTime),
       divulgedContracts = List.empty,
       blindingInfo = None,
     )

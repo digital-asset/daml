@@ -99,7 +99,7 @@ object StateUpdateExporterSpec extends MockitoSugar {
           Update.PublicPackageUpload(
             List.empty,
             None,
-            Time.Timestamp.MinValue,
+            Some(Time.Timestamp.MinValue),
             None,
           ),
         )

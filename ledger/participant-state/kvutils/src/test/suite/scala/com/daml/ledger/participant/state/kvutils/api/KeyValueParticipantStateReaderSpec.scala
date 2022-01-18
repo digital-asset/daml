@@ -265,7 +265,7 @@ object KeyValueParticipantStateReaderSpec {
             Ref.Party.assertFromString("aParty"),
             "a party",
             Ref.ParticipantId.assertFromString("aParticipant"),
-            Timestamp.now(),
+            Some(Timestamp.now()),
             submissionId = None,
           )
         )

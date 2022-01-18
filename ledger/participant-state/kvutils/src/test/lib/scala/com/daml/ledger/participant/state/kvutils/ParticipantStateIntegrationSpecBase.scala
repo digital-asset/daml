@@ -142,7 +142,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
             .runWith(Sink.head)
         } yield {
           offset should be(offsetBuilder.of(1))
-          update.recordTime should be >= rt
+          update.recordTime.get should be >= rt
           matchPackageUpload(update, submissionId, List(anArchive))
         }
       }
@@ -158,7 +158,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
             .runWith(Sink.head)
         } yield {
           offset should be(offsetBuilder.of(1))
-          update.recordTime should be >= rt
+          update.recordTime.get should be >= rt
           matchPackageUpload(update, submissionId, archives)
         }
       }
@@ -178,7 +178,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           _ = all(results) should be(SubmissionResult.Acknowledged)
           updates = Seq(update1, update2, update3)
         } yield {
-          all(updates.map(_.recordTime)) should be >= rt
+          all(updates.map(_.recordTime.get)) should be >= rt
           // first upload arrives as head update:
           offset1 should be(offsetBuilder.of(1))
           matchPackageUpload(update1, subId1, List(anArchive))
@@ -205,7 +205,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
             .runWith(Sink.head)
         } yield {
           offset should be(offsetBuilder.of(1))
-          update.recordTime should be >= rt
+          update.recordTime.get should be >= rt
           inside(update) { case PublicPackageUploadRejected(actualSubmissionId, _, _) =>
             actualSubmissionId should be(submissionId)
           }
@@ -228,7 +228,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           _ = all(results) should be(SubmissionResult.Acknowledged)
         } yield {
           offset2 should be(offsetBuilder.of(3))
-          update2.recordTime should be >= rt
+          update2.recordTime.get should be >= rt
           inside(update2) { case PublicPackageUpload(_, _, _, Some(submissionId)) =>
             submissionId should be(submissionIds._2)
           }
@@ -249,7 +249,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           (offset, update) <- waitForNextUpdate(ps, None)
         } yield {
           offset should be(offsetBuilder.of(1))
-          update.recordTime should be >= rt
+          update.recordTime.get should be >= rt
           inside(update) {
             case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
               party should be(partyHint)
@@ -268,7 +268,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           (offset, update) <- waitForNextUpdate(ps, None)
         } yield {
           offset should be(offsetBuilder.of(1))
-          update.recordTime should be >= rt
+          update.recordTime.get should be >= rt
           inside(update) {
             case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
               party should not be empty
@@ -295,7 +295,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           _ = all(results) should be(SubmissionResult.Acknowledged)
         } yield {
           offset2 should be(offsetBuilder.of(3))
-          update2.recordTime should be >= rt
+          update2.recordTime.get should be >= rt
           inside(update2) {
             case PartyAddedToParticipant(_, displayName, _, _, Some(submissionId)) =>
               displayName should be(displayNames._2)
@@ -316,7 +316,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           _ = all(results) should be(SubmissionResult.Acknowledged)
         } yield {
           offset2 should be(offsetBuilder.of(2))
-          update2.recordTime should be >= rt
+          update2.recordTime.get should be >= rt
           inside(update2) { case PartyAllocationRejected(_, _, _, rejectionReason) =>
             rejectionReason should be("Party already exists")
           }
@@ -381,7 +381,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           _ = all(results) should be(SubmissionResult.Acknowledged)
           updates = Seq(update1, update2, update3, update4)
         } yield {
-          all(updates.map(_.recordTime)) should be >= rt
+          all(updates.map(_.recordTime.get)) should be >= rt
 
           offset1 should be(offsetBuilder.of(1))
           update1 should be(a[PartyAddedToParticipant])
@@ -427,7 +427,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           _ = all(results) should be(SubmissionResult.Acknowledged)
         } yield {
           offset3 should be(offsetBuilder.of(3))
-          update3.recordTime should be >= rt
+          update3.recordTime.get should be >= rt
           update3 should be(a[TransactionAccepted])
         }
       }
@@ -487,7 +487,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
 
           updates = Seq(update1, update2, update3, update4)
         } yield {
-          all(updates.map(_.recordTime)) should be >= rt
+          all(updates.map(_.recordTime.get)) should be >= rt
 
           offset1 should be(offsetBuilder.of(1))
           update1 should be(a[ConfigurationChanged])
@@ -591,7 +591,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           _ = all(results) should be(SubmissionResult.Acknowledged)
         } yield {
           offset2 should be(offsetBuilder.of(3))
-          update2.recordTime should be >= rt
+          update2.recordTime.get should be >= rt
           inside(update2) { case ConfigurationChanged(_, submissionId, _, _) =>
             submissionId should be(submissionIds._2)
           }

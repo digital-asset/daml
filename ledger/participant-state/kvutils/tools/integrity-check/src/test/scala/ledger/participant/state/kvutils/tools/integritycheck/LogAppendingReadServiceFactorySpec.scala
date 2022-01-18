@@ -98,7 +98,7 @@ object LogAppendingReadServiceFactorySpec {
     Ref.Party.assertFromString(aPartyName),
     "",
     Ref.ParticipantId.assertFromString(aParticipantId),
-    Timestamp.assertFromLong(Duration(aTimestampInSeconds, TimeUnit.SECONDS).toMicros),
+    Some(Timestamp.assertFromLong(Duration(aTimestampInSeconds, TimeUnit.SECONDS).toMicros)),
     None,
   )
 

@@ -29,14 +29,14 @@ sealed trait Update extends Product with Serializable {
   def description: String
 
   /** The record time at which the state change was committed. */
-  def recordTime: Timestamp
+  def recordTime: Option[Timestamp]
 }
 
 object Update {
 
   /** Signal that the current [[Configuration]] has changed. */
   final case class ConfigurationChanged(
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       submissionId: Ref.SubmissionId,
       participantId: Ref.ParticipantId,
       newConfiguration: Configuration,
@@ -60,7 +60,7 @@ object Update {
 
   /** Signal that a configuration change submitted by this participant was rejected. */
   final case class ConfigurationChangeRejected(
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       submissionId: Ref.SubmissionId,
       participantId: Ref.ParticipantId,
       proposedConfiguration: Configuration,
@@ -101,7 +101,7 @@ object Update {
     *
     * @param party         The party identifier.
     * @param displayName   The user readable description of the party. May not be unique.
-    * @param participantId The participant that this party was added to.
+    * @param participantId The participantmain that this party was added to.
     * @param recordTime    The ledger-provided timestamp at which the party was allocated.
     * @param submissionId  The submissionId of the command which requested party to be added.
     */
@@ -109,7 +109,7 @@ object Update {
       party: Ref.Party,
       displayName: String,
       participantId: Ref.ParticipantId,
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       submissionId: Option[Ref.SubmissionId],
   ) extends Update {
     override def description: String =
@@ -141,7 +141,7 @@ object Update {
   final case class PartyAllocationRejected(
       submissionId: Ref.SubmissionId,
       participantId: Ref.ParticipantId,
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       rejectionReason: String,
   ) extends Update {
     override val description: String =
@@ -173,7 +173,7 @@ object Update {
   final case class PublicPackageUpload(
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       submissionId: Option[Ref.SubmissionId],
   ) extends Update {
     override def description: String =
@@ -200,7 +200,7 @@ object Update {
     */
   final case class PublicPackageUploadRejected(
       submissionId: Ref.SubmissionId,
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       rejectionReason: String,
   ) extends Update {
     override def description: String =
@@ -251,7 +251,7 @@ object Update {
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
       transactionId: Ref.TransactionId,
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       divulgedContracts: List[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ) extends Update {
@@ -288,7 +288,7 @@ object Update {
     *                       See ``error.proto`` for the status codes of common rejection reasons.
     */
   final case class CommandRejected(
-      recordTime: Timestamp,
+      recordTime: Option[Timestamp],
       completionInfo: CompletionInfo,
       reasonTemplate: CommandRejected.RejectionReasonTemplate,
   ) extends Update {
@@ -381,8 +381,8 @@ object Update {
   }
 
   private object Logging {
-    def recordTime(timestamp: Timestamp): LoggingEntry =
-      "recordTime" -> timestamp.toInstant
+    def recordTime(timestamp: Option[Timestamp]): LoggingEntry =
+      "recordTime" -> timestamp.map(_.toInstant)
 
     def submissionId(id: Ref.SubmissionId): LoggingEntry =
       "submissionId" -> id

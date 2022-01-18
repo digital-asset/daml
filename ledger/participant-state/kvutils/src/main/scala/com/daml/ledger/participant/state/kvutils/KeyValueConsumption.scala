@@ -79,7 +79,7 @@ object KeyValueConsumption {
             if (entry.getPackageUploadEntry.getSourceDescription.nonEmpty)
               Some(entry.getPackageUploadEntry.getSourceDescription)
             else None,
-            recordTime,
+            Some(recordTime),
             if (pue.getSubmissionId.nonEmpty)
               Some(parseLedgerString("SubmissionId")(pue.getSubmissionId))
             else None,
@@ -92,7 +92,7 @@ object KeyValueConsumption {
           List(
             Update.PublicPackageUploadRejected(
               parseLedgerString("SubmissionId")(pur.getSubmissionId),
-              recordTime,
+              Some(recordTime),
               reason,
             )
           )
@@ -122,7 +122,7 @@ object KeyValueConsumption {
             party,
             pae.getDisplayName,
             participantId,
-            recordTime,
+            Some(recordTime),
             submissionId,
           )
         )
@@ -132,7 +132,9 @@ object KeyValueConsumption {
         val participantId = parseParticipantId("ParticipantId")(rejection.getParticipantId)
         val submissionId = parseLedgerString("SubmissionId")(rejection.getSubmissionId)
         def wrap(reason: String) =
-          List(Update.PartyAllocationRejected(submissionId, participantId, recordTime, reason))
+          List(
+            Update.PartyAllocationRejected(submissionId, participantId, Some(recordTime), reason)
+          )
 
         // TODO(BH): only send for matching participant who sent request
         // if (participantId == entry.getPartyAllocationRejectionEntry.getParticipantId)
@@ -164,7 +166,7 @@ object KeyValueConsumption {
           parseLedgerString("SubmissionId")(configEntry.getSubmissionId)
         List(
           Update.ConfigurationChanged(
-            recordTime,
+            Some(recordTime),
             submissionId,
             participantId,
             newConfig,
@@ -183,7 +185,7 @@ object KeyValueConsumption {
         def wrap(reason: String) =
           List(
             Update.ConfigurationChangeRejected(
-              recordTime = recordTime,
+              recordTime = Some(recordTime),
               submissionId = submissionId,
               participantId = participantId,
               proposedConfiguration = proposedConfig,
@@ -255,7 +257,7 @@ object KeyValueConsumption {
   )(implicit loggingContext: ContextualizedErrorLogger): Update = {
     val reason = Conversions.decodeTransactionRejectionEntry(rejEntry, errorVersionSwitch)
     Update.CommandRejected(
-      recordTime = recordTime,
+      recordTime = Some(recordTime),
       completionInfo = parseCompletionInfo(recordTime, rejEntry.getSubmitterInfo),
       reasonTemplate = reason,
     )
@@ -301,7 +303,7 @@ object KeyValueConsumption {
       ),
       transaction = CommittedTransaction(transaction),
       transactionId = hexTxId,
-      recordTime = recordTime,
+      recordTime = Some(recordTime),
       divulgedContracts = divulgedContracts,
       blindingInfo = maybeBlindingInfo,
     )
@@ -396,7 +398,7 @@ object KeyValueConsumption {
           .getOrElse("Configuration change timed out")
         Some(
           Update.ConfigurationChangeRejected(
-            recordTime,
+            Some(recordTime),
             Ref.SubmissionId.assertFromString(configurationRejectionEntry.getSubmissionId),
             Ref.ParticipantId.assertFromString(configurationRejectionEntry.getParticipantId),
             Configuration.decode(configurationRejectionEntry.getConfiguration).toOption.get,

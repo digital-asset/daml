@@ -4,12 +4,14 @@
 package com.daml.platform.store.backend
 
 import java.util.UUID
+
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.CompletionInfo
 import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
@@ -47,7 +49,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.micros,
+            recorded_at = u.recordTime.map(_.micros).getOrElse(Timestamp.Epoch.micros),
             submission_id = u.submissionId,
             typ = JdbcLedgerDao.acceptType,
             configuration = Configuration.encode(u.newConfiguration).toByteArray,
@@ -59,7 +61,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.micros,
+            recorded_at = u.recordTime.map(_.micros).getOrElse(Timestamp.Epoch.micros),
             submission_id = u.submissionId,
             typ = JdbcLedgerDao.rejectType,
             configuration = Configuration.encode(u.proposedConfiguration).toByteArray,
@@ -71,7 +73,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.micros,
+            recorded_at = u.recordTime.map(_.micros).getOrElse(Timestamp.Epoch.micros),
             submission_id = u.submissionId,
             party = Some(u.party),
             display_name = Option(u.displayName),
@@ -85,7 +87,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.micros,
+            recorded_at = u.recordTime.map(_.micros).getOrElse(Timestamp.Epoch.micros),
             submission_id = Some(u.submissionId),
             party = None,
             display_name = None,
@@ -103,7 +105,7 @@ object UpdateToDbDto {
             upload_id = uploadId,
             source_description = u.sourceDescription,
             package_size = archive.getPayload.size.toLong,
-            known_since = u.recordTime.micros,
+            known_since = u.recordTime.map(_.micros).getOrElse(Timestamp.Epoch.micros),
             ledger_offset = offset.toHexString,
             _package = archive.toByteArray,
           )
@@ -111,7 +113,7 @@ object UpdateToDbDto {
         val packageEntries = u.submissionId.iterator.map(submissionId =>
           DbDto.PackageEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.micros,
+            recorded_at = u.recordTime.map(_.micros).getOrElse(Timestamp.Epoch.micros),
             submission_id = Some(submissionId),
             typ = JdbcLedgerDao.acceptType,
             rejection_reason = None,
@@ -123,7 +125,7 @@ object UpdateToDbDto {
         Iterator(
           DbDto.PackageEntry(
             ledger_offset = offset.toHexString,
-            recorded_at = u.recordTime.micros,
+            recorded_at = u.recordTime.map(_.micros).getOrElse(Timestamp.Epoch.micros),
             submission_id = Some(u.submissionId),
             typ = JdbcLedgerDao.rejectType,
             rejection_reason = Some(u.rejectionReason),
@@ -279,7 +281,7 @@ object UpdateToDbDto {
 
   private def commandCompletion(
       offset: Offset,
-      recordTime: Time.Timestamp,
+      recordTime: Option[Time.Timestamp],
       transactionId: Option[Ref.TransactionId],
       completionInfo: CompletionInfo,
   ): DbDto.CommandCompletion = {
@@ -295,7 +297,7 @@ object UpdateToDbDto {
 
     DbDto.CommandCompletion(
       completion_offset = offset.toHexString,
-      record_time = recordTime.micros,
+      record_time = recordTime.map(_.micros).getOrElse(Timestamp.Epoch.micros),
       application_id = completionInfo.applicationId,
       submitters = completionInfo.actAs.toSet,
       command_id = completionInfo.commandId,

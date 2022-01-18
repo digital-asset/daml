@@ -57,14 +57,14 @@ object RecordTimeNormalizer extends UpdateNormalizer {
   private val RecordTime = Timestamp.MinValue
 
   override def normalize(update: Update): Update = update match {
-    case u: Update.ConfigurationChanged => u.copy(recordTime = RecordTime)
-    case u: Update.ConfigurationChangeRejected => u.copy(recordTime = RecordTime)
-    case u: Update.PartyAddedToParticipant => u.copy(recordTime = RecordTime)
-    case u: Update.PartyAllocationRejected => u.copy(recordTime = RecordTime)
-    case u: Update.PublicPackageUpload => u.copy(recordTime = RecordTime)
-    case u: Update.PublicPackageUploadRejected => u.copy(recordTime = RecordTime)
-    case u: Update.TransactionAccepted => u.copy(recordTime = RecordTime)
-    case u: Update.CommandRejected => u.copy(recordTime = RecordTime)
+    case u: Update.ConfigurationChanged => u.copy(recordTime = Some(RecordTime))
+    case u: Update.ConfigurationChangeRejected => u.copy(recordTime = Some(RecordTime))
+    case u: Update.PartyAddedToParticipant => u.copy(recordTime = Some(RecordTime))
+    case u: Update.PartyAllocationRejected => u.copy(recordTime = Some(RecordTime))
+    case u: Update.PublicPackageUpload => u.copy(recordTime = Some(RecordTime))
+    case u: Update.PublicPackageUploadRejected => u.copy(recordTime = Some(RecordTime))
+    case u: Update.TransactionAccepted => u.copy(recordTime = Some(RecordTime))
+    case u: Update.CommandRejected => u.copy(recordTime = Some(RecordTime))
   }
 }
 

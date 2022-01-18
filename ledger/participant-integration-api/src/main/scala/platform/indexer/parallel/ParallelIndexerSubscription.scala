@@ -148,7 +148,7 @@ object ParallelIndexerSubscription {
       lastOffset = input.last._1._1,
       lastSeqEventId = 0, // will be filled later in the sequential step
       lastStringInterningId = 0, // will be filled later in the sequential step
-      lastRecordTime = input.last._1._2.recordTime.toInstant.toEpochMilli,
+      lastRecordTime = input.last._1._2.recordTime.map(_.toInstant.toEpochMilli).getOrElse(0L),
       batch = batch,
       batchSize = input.size,
       averageStartTime = input.view.map(_._2 / input.size).sum,
