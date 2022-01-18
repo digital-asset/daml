@@ -85,6 +85,8 @@ conformance_test(
             "CommandDeduplicationIT:SimpleDeduplicationBasic",  # sync vs async error (part of canton #6301)
             "CommandDeduplicationIT:DeduplicateSubmitterBasic",
             "CommandDeduplicationIT:DeduplicateUsingOffsets",  # temporary disabled until we adapt it for canton
+            "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",  # Enable once error parsing more permissive
+            "MultiPartySubmissionIT:MPSCreateInsufficientAuthorization",  # canton returns INTERNAL instead of INVALID_ARGUMENT
             "RaceConditionIT:RWArchiveVsFailedLookupByKey",  # finding a lookup failure after contract creation
             # dynamic config management not supported by Canton
             "ConfigManagementServiceIT",
@@ -107,7 +109,6 @@ conformance_test(
             "CompletionDeduplicationInfoITCommandService",
             "CompletionDeduplicationInfoITCommandSubmissionService",
             "CommandDeduplicationParallelIT",
-            "MultiPartySubmissionIT",
             "ParticipantPruningIT",
             "TLSOnePointThreeIT",
             "TLSAtLeastOnePointTwoIT",
@@ -182,13 +183,10 @@ conformance_test(
             "CompletionDeduplicationInfoITCommandSubmissionService",
             # ",CommandDeduplicationParallelIT", - can be re-enabled once canton exposes the feature descriptors
             "CommandDeduplicationPeriodValidationIT",
-            "MultiPartySubmissionIT",
         ]),
         "--exclude=" + ",".join([
             "CommandDeduplicationPeriodValidationIT:InvalidOffset",  # Needs SDK upgrade
             "ContractIdIT:AcceptSuffixedV1CidExerciseTarget",  # Racy with: ABORTED: CONTRACT_NOT_FOUND(14,0): Contract could not be found with id
-            "MultiPartySubmissionIT:MPSCreateInsufficientAuthorization",  # Canton returns INTERNAL instead of INVALID_ARGUMENT
-            "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",  # Enable once error parsing more permissive
         ]),
     ],
 ) if not is_windows else None

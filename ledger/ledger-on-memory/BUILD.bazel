@@ -146,7 +146,6 @@ conformance_test(
         "--mutable-contract-state-cache",
     ],
     test_tool_args = [
-        "--additional=MultiPartySubmissionIT",
         # Notoriously times-out
         #"--additional=ParticipantPruningIT",
         "--additional=CommandDeduplicationParallelIT",
@@ -171,7 +170,6 @@ conformance_test(
         "--use-pre-1.18-error-codes",
     ],
     test_tool_args = [
-        "--additional=MultiPartySubmissionIT",
         # Notoriously times-out
         #"--additional=ParticipantPruningIT",
         "--additional=CommandDeduplicationParallelIT",
