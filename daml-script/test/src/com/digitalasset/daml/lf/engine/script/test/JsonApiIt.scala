@@ -557,7 +557,6 @@ final class JsonApiIt
             applicationId = "appid",
             ledgerIdRequirement = LedgerIdRequirement.none,
             commandClient = CommandClientConfiguration.default,
-            sslContext = None,
             token = Some(getUserToken(UserId.assertFromString("participant_admin"))),
           ),
         )
