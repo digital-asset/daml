@@ -1234,6 +1234,424 @@ HTTP Response
       "status": 200
     }
 
+
+Creating a new User
+********************
+
+This endpoint is a JSON API proxy for the Ledger API's :ref:`CreateUserRequest <com.daml.ledger.api.v1.admin.user_management_service.CreateUserRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/create``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol",
+      "primaryParty": "Carol",
+      "rights": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ]
+    }
+
+Please refer to :ref:`CreateUserRequest <com.daml.ledger.api.v1.admin.user_management_service.CreateUserRequest>` documentation for information about the meaning of the fields.
+
+All fields in the request are required, this means that an empty JSON object is not a valid request to allocate a new user.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": true,
+      "status": 200
+    }
+
+
+Get Authenticated User Information
+**********************************
+
+This endpoint is a JSON API proxy for the Ledger API's :ref:`GetUserRequest <com.daml.ledger.api.v1.admin.user_management_service.GetUserRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+
+The user id will always be filled out with the user specified via the currently used User Token.
+
+HTTP Request
+============
+
+- URL: ``/v1/user``
+- Method: ``GET``
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": {
+        "userId": "Carol",
+        "primaryParty": "Carol",
+      },
+      "status": 200
+    }
+
+
+Get Specific User Information
+*****************************
+
+This endpoint is a JSON API proxy for the Ledger API's :ref:`GetUserRequest <com.daml.ledger.api.v1.admin.user_management_service.GetUserRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+
+HTTP Request
+============
+
+- URL: ``/v1/user``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol"
+    }
+
+
+Please refer to :ref:`GetUserRequest <com.daml.ledger.api.v1.admin.user_management_service.GetUserRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": {
+        "userId": "Carol",
+        "primaryParty": "Carol",
+      },
+      "status": 200
+    }
+
+Delete Current User
+*******************
+
+This endpoint is a JSON API proxy for the Ledger API's :ref:`DeleteUserRequest <com.daml.ledger.api.v1.admin.user_management_service.DeleteUserRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+
+The user id will always be filled out with the user specified via the currently used User Token.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/delete``
+- Method: ``GET``
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": true,
+      "status": 200
+    }
+
+Delete Specific User
+********************
+
+This endpoint is a JSON API proxy for the Ledger API's :ref:`DeleteUserRequest <com.daml.ledger.api.v1.admin.user_management_service.DeleteUserRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/delete``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol"
+    }
+
+
+Please refer to :ref:`DeleteUserRequest <com.daml.ledger.api.v1.admin.user_management_service.DeleteUserRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": true,
+      "status": 200
+    }
+
+List users
+**********
+
+This endpoint is a JSON API proxy for the Ledger API's :ref:`ListUsersRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUsersRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+
+HTTP Request
+============
+
+- URL: ``/v1/users``
+- Method: ``GET``
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+            "userId": "Carol",
+            "primaryParty": "Carol",
+        },
+        {
+            "userId": "Bob",
+            "primaryParty": "Bob",
+        }
+      ],
+      "status": 200
+    }
+
+Grant User Rights
+*****************
+
+This endpoint is a JSON API proxy for the Ledger API's :ref:`GrantUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.GrantUserRightsRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/rights/grant``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol",
+      "rights": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ]
+    }
+
+Please refer to :ref:`GrantUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.GrantUserRightsRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ],
+      "status": 200
+    }
+
+Returns back the rights which were actually applied as existing rights are ignored.
+
+Revoke User Rights
+*****************
+
+This endpoint is a JSON API proxy for the Ledger API's :ref:`RevokeUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.RevokeUserRightsRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/rights/revoke``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol",
+      "rights": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ]
+    }
+
+Please refer to :ref:`RevokeUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.RevokeUserRightsRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ],
+      "status": 200
+    }
+
+Returns back the rights which were actually revoked as non-existing rights are ignored.
+
+List Authenticated User Rights
+******************************
+
+This endpoint is a JSON API proxy for the Ledger API's :ref:`ListUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUserRightsRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+
+The user id will always be filled out with the user specified via the currently used User Token.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/rights``
+- Method: ``GET``
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ],
+      "status": 200
+    }
+
+List Specific User Rights
+*****************
+
+This endpoint is a JSON API proxy for the Ledger API's :ref:`ListUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUserRightsRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/rights``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol"
+    }
+
+Please refer to :ref:`ListUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUserRightsRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ],
+      "status": 200
+    }
+
 List All DALF Packages
 **********************
 
