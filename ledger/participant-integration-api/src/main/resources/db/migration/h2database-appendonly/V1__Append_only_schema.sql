@@ -37,6 +37,30 @@ CREATE TABLE configuration_entries (
 CREATE INDEX idx_configuration_submission ON configuration_entries (submission_id);
 
 ---------------------------------------------------------------------------------------------------
+-- User management tables
+---------------------------------------------------------------------------------------------------
+CREATE TABLE participant_users (
+    internal_id         INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id             VARCHAR(256)        NOT NULL UNIQUE,
+    primary_party       VARCHAR(512)        NOT NULL,
+    created_at          BIGINT              NOT NULL DEFAULT CAST((1000 * 1000 * EXTRACT(epoch FROM CURRENT_TIMESTAMP)) AS BIGINT)
+);
+
+CREATE TABLE participant_user_rights (
+    user_internal_id    INTEGER         NOT NULL REFERENCES participant_users (internal_id) ON DELETE CASCADE,
+    user_right          INTEGER         NOT NULL,
+    for_party           VARCHAR(512)    NOT NULL,
+    granted_at          BIGINT          NOT NULL DEFAULT CAST((1000 * 1000 * EXTRACT(epoch FROM CURRENT_TIMESTAMP)) AS BIGINT),
+    UNIQUE (user_internal_id, user_right, for_party)
+);
+
+INSERT INTO participant_users(user_id, primary_party) VALUES ('participant_admin', '!');
+INSERT INTO participant_user_rights(user_internal_id, user_right, for_party)
+    SELECT internal_id, 1, '!'
+    FROM participant_users
+    WHERE user_id = 'participant_admin';
+
+---------------------------------------------------------------------------------------------------
 -- Packages table
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE packages (

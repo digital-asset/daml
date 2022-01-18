@@ -54,6 +54,7 @@ import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndex
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{DbSupport, DbType, FlywayMigrations, LfValueTranslationCache}
+import com.daml.platform.usermanagement.PersistentUserManagementStore
 import com.daml.ports.Port
 import scalaz.syntax.tag._
 
@@ -334,7 +335,17 @@ final class SandboxServer(
 
         case None => Resource.successful(None)
       }
-      userManagementStore = new InMemoryUserManagementStore // TODO persistence wiring comes here
+      userManagementStore = dbSupportOption match {
+        case Some(dbSupport) =>
+          PersistentUserManagementStore.cached(
+            dbDispatcher = dbSupport.dbDispatcher,
+            metrics = metrics,
+            cacheExpiryAfterWriteInSeconds =
+              config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
+            maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+          )(servicesExecutionContext)
+        case None => new InMemoryUserManagementStore
+      }
       indexAndWriteService <- (dbSupportOption match {
         case Some(dbSupport: DbSupport) =>
           SandboxIndexAndWriteService.postgres(
