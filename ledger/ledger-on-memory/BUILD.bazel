@@ -177,7 +177,6 @@ conformance_test(
         # Notoriously times-out
         #"--additional=ParticipantPruningIT",
         "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         # Disable tests targeting only multi-participant setups
