@@ -140,7 +140,7 @@ trait ScriptLedgerClient {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[User]
+  ): Future[Option[Unit]]
 
   def getUser(id: UserId)(implicit
       ec: ExecutionContext,
@@ -152,7 +152,7 @@ trait ScriptLedgerClient {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit]
+  ): Future[Option[Unit]]
 
   def listUsers()(implicit
       ec: ExecutionContext,
@@ -164,17 +164,17 @@ trait ScriptLedgerClient {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]]
+  ): Future[Option[List[UserRight]]]
 
   def revokeUserRights(id: UserId, rights: List[UserRight])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]]
+  ): Future[Option[List[UserRight]]]
 
   def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]]
+  ): Future[Option[List[UserRight]]]
 }

@@ -7,19 +7,24 @@ import Daml.Script
 
 setup : Script ()
 setup = do
+
   let displayNames = ["Alice", "Bob", "Charlie"]
   forA_ displayNames $ \displayName -> do
-    let userId = toUserId displayName
-    u <- getUser userId
-    case u of
-      Some _ ->
+    userId <- validateUserId $ toUserId displayName
+    userExists userId >>= \case
+      True ->
         -- user already exists do nothing
         pure ()
-      None -> do
+      False -> do
         let partyIdHint = toPartyIdHint displayName
         p <- allocatePartyWithHint displayName (PartyIdHint partyIdHint)
         createUser (User userId (Some p)) [CanActAs p]
         pure ()
+
+userExists : UserId -> Script Bool
+userExists u = do
+  try do _ <- getUser u; pure True
+  catch UserNotFound _ -> pure False
 
 toUserId : Text -> Text
 toUserId = T.asciiToLower
