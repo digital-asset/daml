@@ -24,19 +24,17 @@ Your application might send these requests via a middleware like the :doc:`JSON 
 
 Whether a participant node *can* serve such a request depends on whether the participant node hosts the respective parties, and
 whether the request is valid according to the :ref:`Daml Ledger Model <da-ledgers>`.
-Whether a participant node *will* serve such a request to a Daml application depends on whether the application accompanied the
-request with an access token that is valid and sufficient to authorize the request for this participant node.
+Whether a participant node *will* serve such a request to a Daml application depends on whether the
+request includes an access token that is valid and sufficient to authorize the request for this participant node.
 
 Acquiring and using access tokens
 *********************************
 
 How an application should acquire access tokens depends on the participant node it talks to and is ultimately setup by the participant node operator.
-However most setups share the following pattern:
+Many setups use a flow in the style of `OAuth 2.0 <https://oauth.net/2/>`_:
 
 First, the Daml application contacts a token issuer to get an access token.
-The token issuer verifies the identity of the requesting application
-(e.g., by checking the `OAuth 2.0 client credentials <https://datatracker.ietf.org/doc/html/rfc6749#section-2.2>`_ sent with the request),
-looks up the privileges of the application,
+The token issuer verifies the identity of the requesting application looks up the privileges of the application,
 and generates a signed access token describing those privileges.
 
 Then, the Daml application sends the access token along with every ledger API request.
