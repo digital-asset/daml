@@ -825,7 +825,7 @@ checkUserNotFound userId script = do
     None -> throw (UserNotFound userId)
     Some x -> pure x
 
--- | HIDE Validate some text as a user-id
+-- | HIDE Convert the text to a user id or fail if it does not conform to the format restriction.
 validateUserId : HasCallStack => Text -> Script UserId
 validateUserId name = mkUserId name $ lift $ Free $ ValidateUserId ValidateUserIdPayload with
   continue = pure
