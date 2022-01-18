@@ -4,6 +4,7 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@build_bazel_rules_nodejs//:index.bzl", "js_library")
 load("@language_support_ts_deps//@bazel/typescript:index.bzl", "ts_project")
+load("//language-support/ts:typedoc.bzl", "ts_docs")
 
 def da_ts_library(
         name,
@@ -40,4 +41,10 @@ def da_ts_library(
         package_name = module_name,
         deps = ["_%s_ts" % name],
         **kwargs
+    )
+
+    ts_docs(
+        name,
+        srcs,
+        deps,
     )

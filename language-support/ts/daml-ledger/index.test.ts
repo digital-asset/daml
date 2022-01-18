@@ -94,6 +94,7 @@ const Foo: Template<Foo, string, "foo-id"> = {
   keyEncode: (s: string): unknown => s,
   decoder: jtv.object({key: jtv.string()}),
   encode: (o) => o,
+  // eslint-disable-next-line @typescript-eslint/ban-types
   Archive: {} as unknown as Choice<Foo, {}, {}, string>,
 };
 
@@ -461,7 +462,7 @@ describe("streamFetchByKeys", () => {
     const create = (cid: number, key: string): Event<Foo> => ({created: fooCreateEvent(cid, key), matchedQueries: [0]});
     const archive = fooArchiveEvent;
     const send = (events: Event<Foo>[]): void => mockInstance.serverSend({events});
-    const expectCids = (expected: (number | null)[]): void => expect(mockChange) .toHaveBeenCalledWith( expected.map((cid: number | null, idx) => cid ? fooCreateEvent(cid, 'key' + (idx + 1)) : null));
+    const expectCids = (expected: (number | null)[]): void => expect(mockChange) .toHaveBeenCalledWith( expected.map((cid: number | null, idx) => cid ? fooCreateEvent(cid, `key${idx + 1}`) : null));
 
     const ledger = new Ledger(mockOptions);
     const stream = ledger.streamFetchByKeys(Foo, ['key1', 'key2']);

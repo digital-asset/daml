@@ -159,6 +159,7 @@ const decodeEventUnknown: jtv.Decoder<Event<object>> = jtv.oneOf<Event<object>>(
 async function decodeArchiveResponse<T extends object, K, I extends string>(
   template: Template<T, K, I>,
   archiveMethod: 'archive' | 'archiveByKey',
+  // eslint-disable-next-line @typescript-eslint/ban-types
   archiveCommand: () => Promise<[{}, Event<object>[]]>,
 ): Promise<ArchiveEvent<T, I>> {
   // eslint-disable-next-line no-empty-pattern
