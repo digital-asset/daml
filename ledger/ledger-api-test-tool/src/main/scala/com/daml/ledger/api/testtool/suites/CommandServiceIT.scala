@@ -22,6 +22,8 @@ import io.grpc.Status
 import scalaz.syntax.tag._
 import java.util.regex.Pattern
 
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitForTransactionResponse
+
 final class CommandServiceIT extends LedgerTestSuite {
   test(
     "CSsubmitAndWaitBasic",
@@ -98,22 +100,44 @@ final class CommandServiceIT extends LedgerTestSuite {
     for {
       transactionResponse <- ledger.submitAndWaitForTransaction(request)
     } yield {
-      val transaction = transactionResponse.getTransaction
-      assert(
-        transaction.transactionId.nonEmpty,
-        "The transaction identifier was empty but shouldn't.",
-      )
-      val event = transaction.events.head
-      assert(
-        event.event.isCreated,
-        s"The returned transaction should contain a created-event, but was ${event.event}",
-      )
-      assert(
-        event.getCreated.getTemplateId == Dummy.id.unwrap,
-        s"The template ID of the created-event should by ${Dummy.id.unwrap}, but was ${event.getCreated.getTemplateId}",
-      )
+      assertOnTransactionResponse(transactionResponse)
     }
   })
+
+  test(
+    "CSsubmitAndWaitForTransactionBasicEmptyLedgerId",
+    "SubmitAndWaitForTransaction should accept requests with empty ledgerId",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val request = ledger
+      .submitAndWaitRequest(party, Dummy(party).create.command)
+      .update(_.commands.ledgerId := "")
+    for {
+      transactionResponse <- ledger
+        .submitAndWaitForTransaction(request)
+    } yield {
+      assertOnTransactionResponse(transactionResponse)
+    }
+  })
+
+  private def assertOnTransactionResponse(
+      transactionResponse: SubmitAndWaitForTransactionResponse
+  ): Unit = {
+    val transaction = transactionResponse.getTransaction
+    assert(
+      transaction.transactionId.nonEmpty,
+      "The transaction identifier was empty but shouldn't.",
+    )
+    val event = transaction.events.head
+    assert(
+      event.event.isCreated,
+      s"The returned transaction should contain a created-event, but was ${event.event}",
+    )
+    assert(
+      event.getCreated.getTemplateId == Dummy.id.unwrap,
+      s"The template ID of the created-event should by ${Dummy.id.unwrap}, but was ${event.getCreated.getTemplateId}",
+    )
+  }
 
   test(
     "CSsubmitAndWaitForTransactionTreeBasic",
