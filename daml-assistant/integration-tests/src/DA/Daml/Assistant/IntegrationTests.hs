@@ -11,6 +11,7 @@ import Control.Monad.Loops (untilM_)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Data.List.Extra
 import Data.String (fromString)
@@ -32,7 +33,7 @@ import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer, tokenFor, decodeCantonSandboxPort)
+import DA.Daml.Helper.Util (waitForHttpServer, tokenFor, decodeCantonSandboxPort)
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent, callCommandSilentIn, callCommandSilentWithEnvIn, subprocessEnv)
 import DA.Test.Util
@@ -55,7 +56,7 @@ main = do
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
             [ ("PATH", Just $ intercalate [searchPathSeparator] $ (tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
-            , ("TASTY_NUM_THREADS", Just "2")
+            , ("TASTY_NUM_THREADS", Just "1")
             ] $ defaultMain (tests tmpDir))
 
 hardcodedToken :: String -> T.Text
@@ -88,37 +89,31 @@ data DamlStartResource = DamlStartResource
     , jsonApiPort :: PortNumber
     }
 
-damlStart :: FilePath -> Bool -> IO DamlStartResource
-damlStart tmpDir withCantonSandbox = do
+damlStart :: FilePath -> IO DamlStartResource
+damlStart tmpDir = do
     let projDir = tmpDir </> "assistant-integration-tests"
     createDirectoryIfMissing True (projDir </> "daml")
     let scriptOutputFile = "script-output.json"
     writeFileUTF8 (projDir </> "daml.yaml") $
-        unlines $ concat
-            [   [ "sdk-version: " <> sdkVersion
-                , "name: assistant-integration-tests"
-                , "version: \"1.0\""
-                , "source: daml"
-                , "dependencies:"
-                , "  - daml-prim"
-                , "  - daml-stdlib"
-                , "  - daml-script"
-                , "init-script: Main:init"
-                , "script-options:"
-                , "  - --output-file"
-                , "  - " <> scriptOutputFile
-                , "codegen:"
-                , "  js:"
-                , "    output-directory: ui/daml.js"
-                , "    npm-scope: daml.js"
-                , "  java:"
-                , "    output-directory: ui/java"
-                ]
-            , if withCantonSandbox then [] else
-                [ "sandbox-options:"
-                , "  - --ledgerid=sandbox"
-                , "  - --wall-clock-time"
-                ]
+        unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: assistant-integration-tests"
+            , "version: \"1.0\""
+            , "source: daml"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            , "  - daml-script"
+            , "init-script: Main:init"
+            , "script-options:"
+            , "  - --output-file"
+            , "  - " <> scriptOutputFile
+            , "codegen:"
+            , "  js:"
+            , "    output-directory: ui/daml.js"
+            , "    npm-scope: daml.js"
+            , "  java:"
+            , "    output-directory: ui/java"
             ]
     writeFileUTF8 (projDir </> "daml/Main.daml") $
         unlines
@@ -137,20 +132,12 @@ damlStart tmpDir withCantonSandbox = do
     jsonApiPort <- getFreePort
     env <- subprocessEnv []
     let startProc =
-            (shell $ unwords $ concat
-                [ [ "daml start" ]
-                , if withCantonSandbox then
-                    [ "--sandbox-canton"
-                    , "--canton-admin-api-port=0"
-                    , "--canton-domain-public-port=0"
-                    , "--canton-domain-admin-port=0"
-                    ]
-                  else
-                    [ "--sandbox-kv"]
-                , [ "--start-navigator=no"
-                  , "--sandbox-port", show sandboxPort
-                  , "--json-api-port", show jsonApiPort
-                  ]
+            (shell $ unwords
+                [ "daml start"
+                , "--sandbox-canton"
+                , "--start-navigator=no"
+                , "--sandbox-port", show sandboxPort
+                , "--json-api-port", show jsonApiPort
                 ]
             ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
     (Just startStdin, Just startStdout, _, startPh) <- createProcess startProc
@@ -192,27 +179,38 @@ quickSandbox projDir = do
         callCommandSilent $ unwords ["daml", "new", projDir, "--template=quickstart-java"]
         callCommandSilentIn projDir "daml build"
         sandboxPort <- getFreePort
+        adminApiPort <- getFreePort
+        domainPublicApiPort <- getFreePort
+        domainAdminApiPort <- getFreePort
+        let portFile = "portfile.json"
+        let darFile = ".daml" </> "dist" </> "quickstart-0.0.1.dar"
         let sandboxProc =
                 (shell $
                     unwords
                         [ "daml"
-                        , "sandbox-kv"
-                        , "--"
-                        , "--port"
-                        , show sandboxPort
-                        , "--"
+                        , "sandbox"
+                        , "--port" , show sandboxPort
+                        , "--admin-api-port", show adminApiPort
+                        , "--domain-public-port", show domainPublicApiPort
+                        , "--domain-admin-port", show domainAdminApiPort
+                        , "--port-file", portFile
                         , "--static-time"
-                        , ".daml/dist/quickstart-0.0.1.dar"
                         ])
                     {std_out = UseHandle devNull, create_group = True, cwd = Just projDir}
         (_, _, _, sandboxPh) <- createProcess sandboxProc
-        waitForConnectionOnPort 240 sandboxPh (threadDelay 500000) $ fromIntegral sandboxPort
+        _ <- readPortFileWith decodeCantonSandboxPort sandboxPh maxRetries (projDir </> portFile)
+        callCommandSilentIn projDir $ unwords
+             [ "daml ledger upload-dar"
+             , "--host=localhost"
+             , "--port=" <> show sandboxPort
+             , darFile
+             ]
         pure $
             QuickSandboxResource
                 { quickProjDir = projDir
                 , quickSandboxPort = sandboxPort
                 , quickSandboxPh = sandboxPh
-                , quickDar = projDir </> ".daml" </> "dist" </> "quickstart-0.0.1.dar"
+                , quickDar = projDir </> darFile
                 }
 
 tests :: FilePath -> TestTree
@@ -228,8 +226,7 @@ tests tmpDir =
                 callCommandSilentIn tmpDir "daml new --list"
             , packagingTests tmpDir
             , damlToolTests
-            , withResource (damlStart (tmpDir </> "sandbox-canton") True) stop damlStartTests
-            , withResource (damlStart (tmpDir </> "sandbox-kv") False) stop damlStartKVTests
+            , withResource (damlStart (tmpDir </> "sandbox-canton")) stop damlStartTests
             , damlStartNotSharedTest
             , withResource (quickSandbox quickstartDir) (interruptProcessGroupOf . quickSandboxPh) $
               quickstartTests quickstartDir mvnDir
@@ -498,6 +495,60 @@ damlStartTests getDamlStart =
                             ("http://localhost:" <> show navigatorPort)
                             []
 
+        subtest "hot reload" $ do
+            DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
+            stdoutReadChan <- atomically $ dupTChan stdoutChan
+            writeFileUTF8 (projDir </> "daml/Main.daml") $
+                unlines
+                    [ "module Main where"
+                    , "import Daml.Script"
+                    , "template S with newFieldName : Party where signatory newFieldName"
+                    , "init : Script Party"
+                    , "init = do"
+                    , "  let isAlice x = displayName x == Some \"Alice\""
+                    , "  Some aliceDetails <- find isAlice <$> listKnownParties"
+                    , "  let alice = party aliceDetails"
+                    , "  alice `submit` createCmd (S alice)"
+                    , "  pure alice"
+                    ]
+            hPutChar startStdin 'r'
+            hFlush startStdin
+            untilM_ (pure ()) $ do
+                line <- atomically $ readTChan stdoutReadChan
+                pure ("Rebuild complete" `isInfixOf` line)
+            initialRequest <-
+                parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
+            manager <- newManager defaultManagerSettings
+            let queryRequestT =
+                    initialRequest
+                        { method = "POST"
+                        , requestHeaders = aliceHeaders
+                        , requestBody =
+                            RequestBodyLBS $
+                            Aeson.encode $
+                            Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:T"]]
+                        }
+            let queryRequestS =
+                    initialRequest
+                        { method = "POST"
+                        , requestHeaders = aliceHeaders
+                        , requestBody =
+                            RequestBodyLBS $
+                            Aeson.encode $
+                            Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:S"]]
+                        }
+            queryResponseT <- httpLbs queryRequestT manager
+            queryResponseS <- httpLbs queryRequestS manager
+            -- check that there are no more active contracts of template T
+            statusCode (responseStatus queryResponseT) @?= 200
+            preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
+            -- check that a new contract of template S was created
+            statusCode (responseStatus queryResponseS) @?= 200
+            preview
+                (key "result" . nth 0 . key "payload" . key "newFieldName")
+                (responseBody queryResponseS) @?=
+                Just (fromString alice)
+
         subtest "run a daml deploy without project parties" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             copyFile (projDir </> "daml.yaml") (projDir </> "daml.yaml.back")
@@ -534,9 +585,6 @@ damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
             , "--sandbox-port=0"
             , "--json-api-port=0"
             , "--json-api-option=--port-file=jsonapi.port"
-            , "--canton-admin-api-port=0"
-            , "--canton-domain-public-port=0"
-            , "--canton-domain-admin-port=0"
             ] $ \ ph -> do
                 jsonApiPort <- readPortFile ph maxRetries (tmpDir </> "jsonapi.port")
                 initialRequest <-
@@ -557,84 +605,6 @@ damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
                 assertBool ("result is unexpected: " <> show body) $
                     ("{\"result\":{\"displayName\":\"Alice\",\"identifier\":\"Alice::" `LBS.isPrefixOf` body) &&
                     ("\",\"isLocal\":true},\"status\":200}" `LBS.isSuffixOf` body)
-
-damlStartKVTests :: IO DamlStartResource -> TestTree
-damlStartKVTests getDamlStart = testCaseSteps "daml start --sandbox-kv" $ \step -> do
-    let subtest :: forall t. String -> IO t -> IO t
-        subtest m p = step m >> p
-
-    subtest "sandbox and json-api come up" $ do
-        DamlStartResource {jsonApiPort, alice, aliceHeaders} <- getDamlStart
-        manager <- newManager defaultManagerSettings
-        initialRequest <-
-            parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/create"
-        let createRequest =
-                initialRequest
-                    { method = "POST"
-                    , requestHeaders = aliceHeaders
-                    , requestBody =
-                        RequestBodyLBS $
-                        Aeson.encode $
-                        Aeson.object
-                            [ "templateId" Aeson..= Aeson.String "Main:T"
-                            , "payload" Aeson..= [alice]
-                            ]
-                    }
-        createResponse <- httpLbs createRequest manager
-        statusCode (responseStatus createResponse) @?= 200
-
-    subtest "hot reload" $ do
-        DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
-        stdoutReadChan <- atomically $ dupTChan stdoutChan
-        writeFileUTF8 (projDir </> "daml/Main.daml") $
-            unlines
-                [ "module Main where"
-                , "import Daml.Script"
-                , "template S with newFieldName : Party where signatory newFieldName"
-                , "init : Script Party"
-                , "init = do"
-                , "  [aliceDetails] <- listKnownParties"
-                , "  let alice = party aliceDetails"
-                , "  alice `submit` createCmd (S alice)"
-                , "  pure alice"
-                ]
-        hPutChar startStdin 'r'
-        hFlush startStdin
-        untilM_ (pure ()) $ do
-            line <- atomically $ readTChan stdoutReadChan
-            pure ("Rebuild complete" `isInfixOf` line)
-        initialRequest <-
-            parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
-        manager <- newManager defaultManagerSettings
-        let queryRequestT =
-                initialRequest
-                    { method = "POST"
-                    , requestHeaders = aliceHeaders
-                    , requestBody =
-                        RequestBodyLBS $
-                        Aeson.encode $
-                        Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:T"]]
-                    }
-        let queryRequestS =
-                initialRequest
-                    { method = "POST"
-                    , requestHeaders = aliceHeaders
-                    , requestBody =
-                        RequestBodyLBS $
-                        Aeson.encode $
-                        Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:S"]]
-                    }
-        queryResponseT <- httpLbs queryRequestT manager
-        queryResponseS <- httpLbs queryRequestS manager
-        -- check that there are no more active contracts of template T
-        statusCode (responseStatus queryResponseT) @?= 200
-        preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
-        -- check that a new contract of template S was created
-        statusCode (responseStatus queryResponseS) @?= 200
-        preview
-            (key "result" . nth 0 . key "payload" . key "newFieldName")
-            (responseBody queryResponseS) @?=
-            Just (fromString alice)
 
 quickstartTests :: FilePath -> FilePath -> IO QuickSandboxResource -> TestTree
 quickstartTests quickstartDir mvnDir getSandbox =
@@ -671,13 +641,17 @@ quickstartTests quickstartDir mvnDir getSandbox =
                         , "--ledger-host localhost"
                         , "--ledger-port"
                         , show quickSandboxPort
+                        , "--output-file", "output.json"
                         ]
+                scriptOutput <- readFileUTF8 (quickProjDir </> "output.json")
+                [alice, eurBank] <- pure (read scriptOutput :: [String])
                 restPort :: Int <- fromIntegral <$> getFreePort
                 let mavenProc = (shell $ unwords
                         [ "mvn"
                         , mvnRepoFlag
                         , "-Dledgerport=" <> show quickSandboxPort
                         , "-Drestport=" <> show restPort
+                        , "-Dparty=" <> alice
                         , "exec:java@run-quickstart"
                         ])
                         { std_out = UseHandle devNull
@@ -691,8 +665,11 @@ quickstartTests quickstartDir mvnDir getSandbox =
                     req <-
                         pure req {requestHeaders = [(hContentType, "application/json")]}
                     resp <- httpLbs req manager
+                    statusCode (responseStatus resp) @?= 200
                     responseBody resp @?=
-                        "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0000000000,\"observers\":[]}}"
+                        "{\"0\":{\"issuer\":" <> LBS8.pack (show eurBank)
+                        <> ",\"owner\":"<> LBS8.pack (show alice)
+                        <> ",\"currency\":\"EUR\",\"amount\":100.0000000000,\"observers\":[]}}"
                     -- Note (MK) You might be tempted to suggest using
                     -- create_group and interruptProcessGroupOf
                     -- or alternatively use_process_jobs here.
@@ -802,7 +779,7 @@ codegenTests codegenDir = testGroup "daml codegen" (
                 assertBool "bindings were written" (not $ null contents)
 
 cantonTests :: TestTree
-cantonTests = testGroup "daml sandbox-canton"
+cantonTests = testGroup "daml sandbox"
   [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
       step "Creating project"
       callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
@@ -815,7 +792,7 @@ cantonTests = testGroup "daml sandbox-canton"
       domainAdminApiPort <- getFreePort
       step "Staring Canton sandbox"
       let portFile = dir </> "canton-portfile.json"
-      withDamlServiceIn (dir </> "skeleton") "sandbox-canton"
+      withDamlServiceIn (dir </> "skeleton") "sandbox"
         [ "--port", show ledgerApiPort
         , "--admin-api-port", show adminApiPort
         , "--domain-public-port", show domainPublicApiPort
