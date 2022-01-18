@@ -26,7 +26,6 @@ import com.daml.ledger.api.v1.experimental_features.{
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantStateReader,
   KeyValueParticipantStateWriter,
@@ -56,6 +55,7 @@ import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.usermanagement.PersistentUserManagementStore
 import com.daml.ports.Port
 import com.daml.resources.ResettableResourceOwner
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
@@ -283,8 +283,13 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 connectionTimeout = apiServerConfig.databaseConnectionTimeout,
                 metrics = metrics,
               )
-              userManagementStore =
-                new InMemoryUserManagementStore // TODO persistence wiring comes here
+              userManagementStore = PersistentUserManagementStore.cached(
+                dbDispatcher = dbSupport.dbDispatcher,
+                metrics = metrics,
+                cacheExpiryAfterWriteInSeconds =
+                  config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
+                maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+              )(servicesExecutionContext)
               indexService <- StandaloneIndexService(
                 dbSupport = dbSupport,
                 ledgerId = ledgerId,

@@ -10,6 +10,7 @@ import com.daml.platform.store.backend.{
   ParameterStorageBackend,
   StorageBackendFactory,
   StringInterningStorageBackend,
+  UserManagementStorageBackend,
 }
 import com.daml.platform.store.cache.LedgerEndCache
 
@@ -31,4 +32,8 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
 
   override val createStringInterningStorageBackend: StringInterningStorageBackend =
     StringInterningStorageBackendTemplate
+
+  override val createUserManagementStorageBackend: UserManagementStorageBackend =
+    UserManagementStorageBackendTemplate
+
 }

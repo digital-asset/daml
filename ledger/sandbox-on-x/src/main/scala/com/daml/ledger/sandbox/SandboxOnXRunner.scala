@@ -20,7 +20,6 @@ import com.daml.ledger.api.v1.experimental_features.{
   ContractIdFeatures,
 }
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
@@ -48,6 +47,7 @@ import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.usermanagement.PersistentUserManagementStore
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
@@ -167,13 +167,23 @@ object SandboxOnXRunner {
             translationCache,
           )
 
-          indexService <- standaloneIndexService(
-            sharedEngine,
-            config,
-            apiServerConfig,
-            metrics,
-            translationCache,
-            servicesExecutionContext,
+          dbSupport: DbSupport <- DbSupport
+            .owner(
+              jdbcUrl = apiServerConfig.jdbcUrl,
+              serverRole = ServerRole.ApiServer,
+              connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
+              connectionTimeout = apiServerConfig.databaseConnectionTimeout,
+              metrics = metrics,
+            )
+
+          indexService <- StandaloneIndexService(
+            ledgerId = config.ledgerId,
+            config = apiServerConfig,
+            metrics = metrics,
+            engine = sharedEngine,
+            servicesExecutionContext = servicesExecutionContext,
+            lfValueTranslationCache = translationCache,
+            dbSupport = dbSupport,
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
@@ -195,41 +205,11 @@ object SandboxOnXRunner {
             new TimedWriteService(writeService, metrics),
             indexerHealthChecks,
             timeServiceBackend,
+            dbSupport,
           )
         } yield ()
     }
   }
-
-  private def standaloneIndexService(
-      sharedEngine: Engine,
-      config: Config[BridgeConfig],
-      apiServerConfig: ApiServerConfig,
-      metrics: Metrics,
-      translationCache: LfValueTranslationCache.Cache,
-      servicesExecutionContext: ExecutionContextExecutorService,
-  )(implicit
-      loggingContext: LoggingContext,
-      materializer: Materializer,
-  ): ResourceOwner[IndexService] =
-    for {
-      dbSupport <- DbSupport
-        .owner(
-          jdbcUrl = apiServerConfig.jdbcUrl,
-          serverRole = ServerRole.ApiServer,
-          connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
-          connectionTimeout = apiServerConfig.databaseConnectionTimeout,
-          metrics = metrics,
-        )
-      indexService <- StandaloneIndexService(
-        ledgerId = config.ledgerId,
-        config = apiServerConfig,
-        metrics = metrics,
-        engine = sharedEngine,
-        servicesExecutionContext = servicesExecutionContext,
-        lfValueTranslationCache = translationCache,
-        dbSupport = dbSupport,
-      )
-    } yield indexService
 
   private def buildStandaloneApiServer(
       sharedEngine: Engine,
@@ -239,6 +219,7 @@ object SandboxOnXRunner {
       writeService: WriteService,
       healthChecksWithIndexer: HealthChecks,
       timeServiceBackend: Option[TimeServiceBackend],
+      dbSupport: DbSupport,
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
@@ -260,7 +241,12 @@ object SandboxOnXRunner {
       otherInterceptors = BridgeConfigProvider.interceptors(config),
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
-      userManagementStore = new InMemoryUserManagementStore, // TODO persistence wiring comes here
+      userManagementStore = PersistentUserManagementStore.cached(
+        dbDispatcher = dbSupport.dbDispatcher,
+        metrics = metrics,
+        cacheExpiryAfterWriteInSeconds = config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
+        maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+      )(servicesExecutionContext),
       commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
         deduplicationPeriodSupport = Some(
           CommandDeduplicationPeriodSupport.of(

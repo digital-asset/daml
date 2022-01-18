@@ -145,7 +145,8 @@ class AuthServiceJWTCodecSpec
             |  "participantId": "someLegacyParticipantId",
             |  "aud": "someParticipantId",
             |  "sub": "someUserId",
-            |  "exp": 100
+            |  "exp": 100,
+            |  "scope": "dummy-scope1 dummy-scope2"
             |}
           """.stripMargin
         val expected = CustomDamlJWTPayload(
@@ -160,12 +161,30 @@ class AuthServiceJWTCodecSpec
         parse(serialized) shouldBe Success(expected)
       }
 
-      "support standard JWT claims" in {
+      "support standard JWT claims with just the one scope" in {
         val serialized =
           """{
             |  "aud": "someParticipantId",
             |  "sub": "someUserId",
-            |  "exp": 100
+            |  "exp": 100,
+            |  "scope": "daml_ledger_api"
+            |}
+          """.stripMargin
+        val expected = StandardJWTPayload(
+          participantId = Some("someParticipantId"),
+          userId = "someUserId",
+          exp = Some(Instant.ofEpochSecond(100)),
+        )
+        parse(serialized) shouldBe Success(expected)
+      }
+
+      "support standard JWT claims with extra scopes" in {
+        val serialized =
+          """{
+            |  "aud": "someParticipantId",
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "dummy-scope1 daml_ledger_api dummy-scope2"
             |}
           """.stripMargin
         val expected = StandardJWTPayload(

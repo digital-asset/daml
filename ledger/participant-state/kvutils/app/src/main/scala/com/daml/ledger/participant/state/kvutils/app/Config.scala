@@ -23,6 +23,7 @@ import com.daml.platform.configuration.{
   IndexConfiguration,
   SubmissionConfiguration,
 }
+import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
@@ -57,9 +58,15 @@ final case class Config[Extra](
     enableInMemoryFanOutForLedgerApi: Boolean,
     extra: Extra,
     enableSelfServiceErrorCodes: Boolean,
+    userManagementConfig: UserManagementConfig,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
+
+  def withUserManagementConfig(
+      modify: UserManagementConfig => UserManagementConfig
+  ): Config[Extra] =
+    copy(userManagementConfig = modify(userManagementConfig))
 }
 
 object Config {
@@ -96,6 +103,7 @@ object Config {
       maxDeduplicationDuration = None,
       extra = extra,
       enableSelfServiceErrorCodes = true,
+      userManagementConfig = UserManagementConfig.default,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
@@ -643,6 +651,27 @@ object Config {
             "Enables gRPC error code compatibility mode to the pre-1.18 behaviour. This option is deprecated and will be removed in a future release."
           )
           .action((_, config: Config[Extra]) => config.copy(enableSelfServiceErrorCodes = false))
+
+        opt[Int]("user-management-cache-expiry")
+          .optional()
+          .text(
+            s"Defaults to ${UserManagementConfig.default.cacheExpiryAfterWriteInSeconds} seconds. " +
+              // TODO participant user management: Update max delay to 2x the configured value when made use of in throttled stream authorization.
+              "Determines the maximum delay for propagating user management state changes."
+          )
+          .action((value, config: Config[Extra]) =>
+            config.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = value))
+          )
+
+        opt[Int]("user-management-max-cache-size")
+          .optional()
+          .text(
+            s"Defaults to ${UserManagementConfig.default.maximumCacheSize} entries. " +
+              "Determines the maximum in-memory cache size for user management state."
+          )
+          .action((value, config: Config[Extra]) =>
+            config.withUserManagementConfig(_.copy(maximumCacheSize = value))
+          )
       }
     extraOptions(parser)
     parser

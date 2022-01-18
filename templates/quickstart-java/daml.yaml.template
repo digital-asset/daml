@@ -2,18 +2,11 @@ sdk-version: __VERSION__
 name: quickstart
 source: daml
 init-script: Main:initialize
-parties:
-  - Alice
-  - Bob
-  - USD_Bank
-  - EUR_Bank
 version: 0.0.1
 dependencies:
   - daml-prim
   - daml-stdlib
   - daml-script
-sandbox-options:
-  - --wall-clock-time
 codegen:
   java:
     package-prefix: com.daml.quickstart.model

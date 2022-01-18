@@ -96,6 +96,7 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
     const ledger = useMemo(() => new Ledger({token, httpBaseUrl, wsBaseUrl, reconnectThreshold}), [token, httpBaseUrl, wsBaseUrl, reconnectThreshold]);
     const state: DamlLedgerState = useMemo(() => ({
       reloadToken,
+      // eslint-disable-next-line @typescript-eslint/restrict-plus-operands
       triggerReload: (): void => setReloadToken(x => x + 1),
       party,
       ledger,

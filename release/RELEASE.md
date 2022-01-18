@@ -237,45 +237,65 @@ patches we backport to the 1.0 release branch).
 
     1. Run `daml start`. Your browser should be opened automatically at
        `http://localhost:7500`. Login as `Alice` and verify that there is
-       1 contract and 3 templates. Close the tab and kill `daml start` using
-       `Ctrl-C`.
+       1 contract, and that the templates list contains `Iou:Iou`, `Iou:IouTransfer`,
+       and `IouTrade:IouTrade` among other templates.
+
+    1. Close the tab and kill `daml start` using `Ctrl-C`.
 
     1. Run `daml build`.
 
-    1. In 3 separate terminals (since each command blocks), run:
+    1. In 3 separate terminals, run:
 
-       1. `daml sandbox-kv --wall-clock-time --port 6865 .daml/dist/quickstart-0.0.1.dar`
-       1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time && daml navigator server localhost 6865 --port 7500`
-       1. `daml codegen java && mvn compile exec:java@run-quickstart`
+       1. `daml sandbox --port 6865`
 
-       > Note: It takes some time (typically around half-an-hour) for our artifacts
-       > to be available on Maven Central. If you try running the last command before
-       > the artifacts are available, you will get a "not found" error. Trying to
-       > build again _in the next 24 hours_ will result in:
-       >
-       > ```
-       > Failure to find ... was cached in the local repository, resolution will not be reattempted until the update interval of digitalasset-releases has elapsed or updates are forced
-       > ```
-       >
-       > This is Maven telling you it has locally cached that "not found" result
-       > and will consider it valid for 24h. To bypass that and force Maven to
-       > try the network call again, add a `-U` option, as in
-       > `mvn compile exec:java@run-quickstart -U`. Note that this is required to
-       > bypass your local cache of the failure; it will not be required for a
-       > user trying to run the quickstart after the artifacts have been
-       > published.
-       >
-       > Another common problem is that artifacts fail to resolve because of custom
-       > Maven settings. Check your `~/.m2/settings.xml` configuration and try
-       > disabling them temporarily.
+       1. Each of the following:
+
+          1. `daml ledger upload-dar --host localhost --port 6865 .daml/dist/quickstart-0.0.1.dar`
+
+          1. `daml script --ledger-host localhost --ledger-port 6865 --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --script-output output.json`
+
+          1. `cat output.json` and verify that the output looks like this:
+             ```
+             ["Alice::NAMESPACE", "EUR_Bank::NAMESPACE"]
+             ```
+             where `NAMESPACE` is some randomly generated series of hex digits.
+
+          1. `daml navigator server localhost 6865 --port 7500`
+
+       1. `daml codegen java && mvn compile exec:java@run-quickstart -Dparty=$(cat output.json | sed 's/\[\"//' | sed 's/".*//')`
+
+           Note that this step scrapes the `Alice::NAMESPACE` party name from the `output.json` produced in the previous steps.
+
+           > Note: It takes some time (typically around half-an-hour) for our artifacts
+           > to be available on Maven Central. If you try running the last command before
+           > the artifacts are available, you will get a "not found" error. Trying to
+           > build again _in the next 24 hours_ will result in:
+           >
+           > ```
+           > Failure to find ... was cached in the local repository, resolution will not be reattempted until the update interval of digitalasset-releases has elapsed or updates are forced
+           > ```
+           >
+           > This is Maven telling you it has locally cached that "not found" result
+           > and will consider it valid for 24h. To bypass that and force Maven to
+           > try the network call again, add a `-U` option, as in
+           > `mvn compile exec:java@run-quickstart -U`. Note that this is required to
+           > bypass your local cache of the failure; it will not be required for a
+           > user trying to run the quickstart after the artifacts have been
+           > published.
+           >
+           > Another common problem is that artifacts fail to resolve because of custom
+           > Maven settings. Check your `~/.m2/settings.xml` configuration and try
+           > disabling them temporarily.
 
     1. Point your browser to `http://localhost:7500`, login as `Alice` and verify
-       that there is 1 contract, 3 templates and 1 owned IOU.
+       that there is 1 contract, 1 owned IOU, and the templates list contains `Iou:Iou`, `Iou:IouTransfer`,
+       and `IouTrade:IouTrade` among other templates.
 
     1. Check that `curl http://localhost:8080/iou` returns:
        ```
-       {"0":{"issuer":"EUR_Bank","owner":"Alice","currency":"EUR","amount":100.0000000000,"observers":[]}}
+       {"0":{"issuer":"EUR_Bank::NAMESPACE","owner":"Alice::NAMESPACE","currency":"EUR","amount":100.0000000000,"observers":[]}}
        ```
+       where NAMESPACE is again the series of hex digits that you saw before.
 
     1. Kill all processes.
 

@@ -7,7 +7,6 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//language-support/ts:defs.bzl", "da_ts_library")
 load("//language-support/ts:eslint.bzl", "eslint_test")
 load("//language-support/ts:jest.bzl", "jest_test")
-load("//language-support/ts:typedoc.bzl", "ts_docs")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 sources = [
@@ -38,8 +37,6 @@ genrule(
       cp $(location //:LICENSE) $@
     """,
 )
-
-ts_docs("daml-react")
 
 eslint_test(
     name = "lint",

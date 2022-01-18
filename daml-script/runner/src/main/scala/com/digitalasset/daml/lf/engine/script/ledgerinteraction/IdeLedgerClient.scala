@@ -322,8 +322,11 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[User] =
-    handleUserManagement(userManagementStore.createUser(user, rights.toSet)).map(_ => user)
+  ): Future[Option[Unit]] =
+    userManagementStore.createUser(user, rights.toSet) match {
+      case Left(scenario.Error.UserManagementError.UserExists(_)) => Future.successful(None)
+      case a => handleUserManagement(a).map(Some(_))
+    }
 
   override def getUser(id: UserId)(implicit
       ec: ExecutionContext,
@@ -339,8 +342,11 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] =
-    handleUserManagement(userManagementStore.deleteUser(id))
+  ): Future[Option[Unit]] =
+    userManagementStore.deleteUser(id) match {
+      case Left(scenario.Error.UserManagementError.UserNotFound(_)) => Future.successful(None)
+      case a => handleUserManagement(a).map(Some(_))
+    }
 
   override def listUsers()(implicit
       ec: ExecutionContext,
@@ -356,8 +362,11 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    handleUserManagement(userManagementStore.grantRights(id, rights.toSet)).map(_.toList)
+  ): Future[Option[List[UserRight]]] =
+    userManagementStore.grantRights(id, rights.toSet) match {
+      case Left(scenario.Error.UserManagementError.UserNotFound(_)) => Future.successful(None)
+      case a => handleUserManagement(a).map(_.toList).map(Some(_))
+    }
 
   override def revokeUserRights(
       id: UserId,
@@ -366,13 +375,19 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    handleUserManagement(userManagementStore.revokeRights(id, rights.toSet)).map(_.toList)
+  ): Future[Option[List[UserRight]]] =
+    userManagementStore.revokeRights(id, rights.toSet) match {
+      case Left(scenario.Error.UserManagementError.UserNotFound(_)) => Future.successful(None)
+      case a => handleUserManagement(a).map(_.toList).map(Some(_))
+    }
 
   override def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[UserRight]] =
-    handleUserManagement(userManagementStore.listUserRights(id)).map(_.toList)
+  ): Future[Option[List[UserRight]]] =
+    userManagementStore.listUserRights(id) match {
+      case Left(scenario.Error.UserManagementError.UserNotFound(_)) => Future.successful(None)
+      case a => handleUserManagement(a).map(_.toList).map(Some(_))
+    }
 }

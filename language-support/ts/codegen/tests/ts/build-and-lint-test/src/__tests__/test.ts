@@ -26,6 +26,7 @@ const computeToken = (party: string) => encode({
 
 const computeUserToken = (name: string) => encode({
     sub: name,
+    scope: "daml_ledger_api"
 }, SECRET_KEY, 'HS256');
 
 const ALICE_PARTY = 'Alice';
