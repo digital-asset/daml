@@ -20,12 +20,12 @@ class FieldValidations private (errorFactories: ErrorFactories) {
       ledgerId: LedgerId
   )(receivedO: Option[LedgerId])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[LedgerId]] =
-    receivedO.fold[Either[StatusRuntimeException, Option[LedgerId]]](Right(None)) {
-      received: LedgerId =>
-        if (received == ledgerId) Right(Some(received))
-        else Left(ledgerIdMismatch(ledgerId, received, definiteAnswer = Some(false)))
-    }
+  ): Either[StatusRuntimeException, Option[LedgerId]] = receivedO match {
+    case None => Right(None)
+    case Some(`ledgerId`) => Right(Some(ledgerId))
+    case Some(mismatching) =>
+      Left(ledgerIdMismatch(ledgerId, mismatching, definiteAnswer = Some(false)))
+  }
 
   def requireNonEmptyString(s: String, fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

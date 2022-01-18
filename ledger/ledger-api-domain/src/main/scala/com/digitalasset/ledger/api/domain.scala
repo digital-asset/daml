@@ -288,9 +288,8 @@ object domain {
   type LedgerId = String @@ LedgerIdTag
   val LedgerId: Tag.TagOf[LedgerIdTag] = Tag.of[LedgerIdTag]
 
-  def optionalLedgerId(raw: String): Option[LedgerId] = {
+  def optionalLedgerId(raw: String): Option[LedgerId] =
     if (raw.isEmpty) None else Some(LedgerId(raw))
-  }
 
   sealed trait ParticipantIdTag
 
