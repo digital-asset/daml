@@ -249,9 +249,6 @@ final class Conversions(
 
       case Error.PartyAlreadyExists(party) =>
         builder.setScenarioPartyAlreadyExists(party)
-
-      case Error.UserManagement(err) =>
-        builder.setCrash(s"UserManagement error unhandled in scenario service: $err")
     }
     builder.build
   }

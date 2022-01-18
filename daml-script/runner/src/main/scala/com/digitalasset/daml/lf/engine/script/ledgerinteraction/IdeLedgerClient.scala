@@ -59,7 +59,7 @@ class IdeLedgerClient(
   private val userManagementStore = new ide.UserManagementStore()
 
   private def handleUserManagement[T](r: ide.UserManagementStore.Result[T]): Future[T] =
-    r.fold(err => Future.failed(scenario.Error.UserManagement(err)), Future.successful(_))
+    r.fold(err => sys.error(s"handleUserManagement, unexpected: $err"), Future.successful(_))
 
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,

@@ -75,8 +75,6 @@ object Error {
   /** Tried to allocate a party that already exists. */
   final case class PartyAlreadyExists(name: String) extends Error
 
-  final case class UserManagement(error: UserManagementError) extends Error
-
   sealed abstract class UserManagementError extends Product with Serializable
 
   object UserManagementError {
