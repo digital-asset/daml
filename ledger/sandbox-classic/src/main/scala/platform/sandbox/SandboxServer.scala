@@ -121,7 +121,7 @@ object SandboxServer {
 
   final class SandboxState(
       // nested resource so we can release it independently when restarting
-      apiServerResource: Resource[ApiServer],
+      apiServerResource: Resource[ApiServer]
   ) {
     def port(implicit executionContext: ExecutionContext): Future[Port] =
       apiServer.map(_.port)
@@ -409,7 +409,7 @@ final class SandboxServer(
             userManagementStore,
             servicesExecutionContext,
             errorCodesVersionSwitcher,
-          ),
+          )
         ),
         servicesExecutionContext,
         metrics,

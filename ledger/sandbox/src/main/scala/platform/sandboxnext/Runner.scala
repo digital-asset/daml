@@ -154,8 +154,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           jdbcUrl = ledgerJdbcUrl,
           resetOnStartup = false,
           offsetVersion = 0,
-          logEntryIdAllocator =
-            new SeedServiceLogEntryIdAllocator(SeedService(config.seeding.get)),
+          logEntryIdAllocator = new SeedServiceLogEntryIdAllocator(SeedService(config.seeding.get)),
           stateValueCache = caching.WeightedCache.from(
             caching.WeightedCache.Configuration(
               maximumWeight = MaximumStateValueCacheSize
@@ -178,9 +177,9 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           ),
           metrics,
         )
-        _ <- ResourceOwner.forFuture(() =>
-            Future.sequence(config.damlPackages.map(uploadDar(_, writeService)))
-          ).map(_ => ())
+        _ <- ResourceOwner
+          .forFuture(() => Future.sequence(config.damlPackages.map(uploadDar(_, writeService))))
+          .map(_ => ())
 
         indexer <- new StandaloneIndexerServer(
           readService = readService,
