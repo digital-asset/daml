@@ -74,6 +74,22 @@ class HttpServiceIntegrationTestUserManagementNoAuth
 
   import scalaz.syntax.tag._
 
+  "Json format of UserRight should be stable" in Future {
+    import spray.json._
+    val ham = getUniqueParty("ham")
+    val spam = getUniqueParty("spam")
+    List[domain.UserRight](
+      domain.CanActAs(ham),
+      domain.CanReadAs(spam),
+      domain.ParticipantAdmin,
+    ).toJson shouldBe
+      JsArray(
+        JsObject("type" -> JsString("CanActAs"), "party" -> JsString(ham.unwrap)),
+        JsObject("type" -> JsString("CanReadAs"), "party" -> JsString(spam.unwrap)),
+        JsObject("type" -> JsString("ParticipantAdmin")),
+      )
+  }
+
   "create IOU should work with correct user rights" in withHttpServiceAndClient(
     participantAdminJwt
   ) { (uri, encoder, _, ledgerClient, _) =>
