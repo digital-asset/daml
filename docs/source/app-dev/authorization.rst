@@ -183,7 +183,7 @@ User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ t
       "aud": "someParticipantId",
       "sub": "someUserId",
       "exp": 1300819380
-      "scope": "https://daml.com/auth/ledger-api"
+      "scope": "daml_ledger_api"
    }
 
 where
@@ -192,4 +192,4 @@ where
 - ``sub`` is a required field, which specifies the participant user's id
 - ``exp`` is an optional field, which specifies the JWT expiration date (in seconds since EPOCH)
 - ``scope`` is a space-separated list of `OAuth 2.0 scopes <https://datatracker.ietf.org/doc/html/rfc6749#section-3.3>`_
-  that must contain the ``"https://daml.com/auth/ledger-api"`` scope
+  that must contain the ``"daml_ledger_api"`` scope
