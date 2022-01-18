@@ -159,7 +159,6 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     "OffsetPruned",
     "Submission with deduplication periods represented by offsets which are pruned are rejected",
     allocate(SingleParty),
-    // Canton accepts the given offsets
     enabled =
       !_.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport.isOffsetNotSupported,
     disabledReason = "The ledger does not support deduplication periods represented by offsets",
@@ -172,9 +171,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       secondCreate <- ledger.create(party, Dummy(party))
       _ <- ledger.exercise(party, secondCreate.exerciseDummyChoice1)
       _ <- ledger.create(party, Dummy(party)) // move ledger end
-      _ <- FutureAssertions.succeedsEventually(1.second, 60.seconds, "Pruning") {
-        ledger.prune(pruneUpTo = end)
-      }
+      _ <- ledger.prune(pruneUpTo = end)
       deduplicationPeriod = DeduplicationPeriod.DeduplicationOffset(
         Ref.HexString.assertFromString(firstExercise.offset)
       )
