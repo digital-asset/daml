@@ -255,14 +255,12 @@ patches we backport to the 1.0 release branch).
           1. `daml script --ledger-host localhost --ledger-port 6865 --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --script-output output.json`
 
           1. `cat output.json` and verify that the output looks like this:
-
              ```
              ["Alice::NAMESPACE", "EUR_Bank::NAMESPACE"]
              ```
-
              where `NAMESPACE` is some randomly generated series of hex digits.
 
-         1. `daml navigator server localhost 6865 --port 7500`
+          1. `daml navigator server localhost 6865 --port 7500`
 
        1. `daml codegen java && mvn compile exec:java@run-quickstart -Dparty=$(cat output.json | sed 's/\[\"//' | sed 's/".*//')`
 
@@ -297,7 +295,7 @@ patches we backport to the 1.0 release branch).
        ```
        {"0":{"issuer":"EUR_Bank::NAMESPACE","owner":"Alice::NAMESPACE","currency":"EUR","amount":100.0000000000,"observers":[]}}
        ```
-       Where NAMESPACE is again the series of hex digits that you saw before.
+       where NAMESPACE is again the series of hex digits that you saw before.
 
     1. Kill all processes.
 
