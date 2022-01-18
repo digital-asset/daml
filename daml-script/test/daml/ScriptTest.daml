@@ -463,10 +463,10 @@ testUserManagement = do
   nonexistent <- validateUserId "nonexistent"
   try do _ <- getUser nonexistent; undefined catch UserNotFound _ -> pure ()
   users <- listUsers
-  users === [user1, user2, participantAdmin]
+  sort users === [participantAdmin, user1, user2]
   deleteUser u1
   users <- listUsers
-  users === [user2, participantAdmin]
+  sort users === [participantAdmin, user2]
   deleteUser u2
   users <- listUsers
   users === [participantAdmin]
