@@ -513,7 +513,7 @@ instance CanAssert Script where
 data LedgerValue = LedgerValue {}
 
 fromLedgerValue : LedgerValue -> a
-fromLedgerValue = error "foobar" --NICK: what?
+fromLedgerValue = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
 
 -- | HIDE A version of 'createCmd' without constraints.
 --
