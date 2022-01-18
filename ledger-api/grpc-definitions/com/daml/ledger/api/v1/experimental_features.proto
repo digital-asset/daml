@@ -70,6 +70,11 @@ enum CommandDeduplicationType {
 }
 
 message ContractIdFeatures {
+  // v0 contract IDs are supported.
+  // It is highly unlikely that any ledger except for Sandbox Classic needs to support these.
   bool v0_supported = 1;
+  // v1 contract IDs do not need to be suffixed.
+  // This can be useful for shorter contract IDs in centralized committer implementations.
+  // Distributed ledger implementations must reject non-suffixed contract IDs.
   bool v1_non_suffixed_supported = 2;
 }
