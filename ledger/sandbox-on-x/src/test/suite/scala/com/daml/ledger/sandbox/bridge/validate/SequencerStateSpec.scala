@@ -7,6 +7,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.LedgerBridge.toOffset
 import com.daml.ledger.sandbox.bridge.validate.SequencerState.SequencerQueue
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
@@ -117,5 +118,5 @@ class SequencerStateSpec extends AnyFlatSpec with Matchers {
     GlobalKey(templateId, Value.ValueInt64(i))
   }
 
-  private def cid(i: Int) = ContractId.assertFromString(s"#$i")
+  private def cid(i: Int): ContractId = ContractId.V1(Hash.hashPrivateKey(i.toString))
 }

@@ -483,7 +483,11 @@ final class CommandClientIT
       }
 
       "not accept exercises with bad contract IDs, return ABORTED" in {
-        val contractId = "#deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef-123"
+        val contractId = ContractId.V1(
+          Hash.hashPrivateKey(
+            "#deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef-123"
+          )
+        )
         val command =
           submitRequest(
             "Exercise_contract_not_found",

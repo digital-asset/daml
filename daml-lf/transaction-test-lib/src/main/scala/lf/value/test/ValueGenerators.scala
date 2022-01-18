@@ -167,8 +167,6 @@ object ValueGenerators {
     ab <- Gen.containerOfN[Array, Byte](sz, arbitrary[Byte])
   } yield Bytes fromByteArray ab
 
-  val cidV0Gen: Gen[ContractId.V0] =
-    Gen.alphaStr.map(t => Value.ContractId.V0.assertFromString('#' +: t.take(254)))
   private val cidV1Gen: Gen[ContractId.V1] =
     Gen.zip(genHash, genSuffixes) map { case (h, b) =>
       ContractId.V1.assertBuild(h, b)
@@ -176,21 +174,19 @@ object ValueGenerators {
 
   /** Universes of totally-ordered ContractIds. */
   def comparableCoidsGen: Seq[Gen[ContractId]] =
-    Seq(
-      Gen.oneOf(
-        cidV0Gen,
-        Gen.zip(cidV1Gen, arbitrary[Byte]) map { case (b1, b) =>
-          ContractId.V1
-            .assertBuild(
-              b1.discriminator,
-              if (b1.suffix.nonEmpty) b1.suffix else Bytes fromByteArray Array(b),
-            )
-        },
-      ),
-      Gen.oneOf(cidV0Gen, cidV1Gen map (cid => ContractId.V1(cid.discriminator))),
-    )
+    Seq(suffixedV1CidGen, nonSuffixedCidV1Gen)
 
-  def coidGen: Gen[ContractId] = Gen.oneOf(cidV0Gen, cidV1Gen)
+  def suffixedV1CidGen: Gen[ContractId] = Gen.zip(cidV1Gen, arbitrary[Byte]) map { case (b1, b) =>
+    ContractId.V1
+      .assertBuild(
+        b1.discriminator,
+        if (b1.suffix.nonEmpty) b1.suffix else Bytes fromByteArray Array(b),
+      )
+  }
+
+  def nonSuffixedCidV1Gen: Gen[ContractId] = cidV1Gen map (cid => ContractId.V1(cid.discriminator))
+
+  def coidGen: Gen[ContractId] = cidV1Gen
 
   def coidValueGen: Gen[ValueContractId] =
     coidGen.map(ValueContractId(_))

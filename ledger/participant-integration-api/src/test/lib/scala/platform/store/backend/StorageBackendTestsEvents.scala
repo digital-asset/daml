@@ -24,10 +24,22 @@ private[backend] trait StorageBackendTestsEvents
     val partyObserver2 = Ref.Party.assertFromString("observer2")
 
     val dtos = Vector(
-      dtoCreate(offset(1), 1L, "#1", signatory = partySignatory, observer = partyObserver1),
+      dtoCreate(
+        offset(1),
+        1L,
+        hashCid("#1"),
+        signatory = partySignatory,
+        observer = partyObserver1,
+      ),
       dtoCreateFilter(1L, someTemplateId, partySignatory),
       dtoCreateFilter(1L, someTemplateId, partyObserver1),
-      dtoCreate(offset(2), 2L, "#2", signatory = partySignatory, observer = partyObserver2),
+      dtoCreate(
+        offset(2),
+        2L,
+        hashCid("#2"),
+        signatory = partySignatory,
+        observer = partyObserver2,
+      ),
       dtoCreateFilter(2L, someTemplateId, partySignatory),
       dtoCreateFilter(2L, someTemplateId, partyObserver2),
     )
@@ -74,10 +86,22 @@ private[backend] trait StorageBackendTestsEvents
     val partyObserver2 = Ref.Party.assertFromString("observer2")
 
     val dtos = Vector(
-      dtoCreate(offset(1), 1L, "#1", signatory = partySignatory, observer = partyObserver1),
+      dtoCreate(
+        offset(1),
+        1L,
+        hashCid("#1"),
+        signatory = partySignatory,
+        observer = partyObserver1,
+      ),
       dtoCreateFilter(1L, someTemplateId, partySignatory),
       dtoCreateFilter(1L, someTemplateId, partyObserver1),
-      dtoCreate(offset(2), 2L, "#2", signatory = partySignatory, observer = partyObserver2),
+      dtoCreate(
+        offset(2),
+        2L,
+        hashCid("#2"),
+        signatory = partySignatory,
+        observer = partyObserver2,
+      ),
       dtoCreateFilter(2L, someTemplateId, partySignatory),
       dtoCreateFilter(2L, someTemplateId, partyObserver2),
     )
@@ -125,10 +149,22 @@ private[backend] trait StorageBackendTestsEvents
     val otherTemplate = Ref.Identifier.assertFromString("pkg:Mod:Template2")
 
     val dtos = Vector(
-      dtoCreate(offset(1), 1L, "#1", signatory = partySignatory, observer = partyObserver1),
+      dtoCreate(
+        offset(1),
+        1L,
+        hashCid("#1"),
+        signatory = partySignatory,
+        observer = partyObserver1,
+      ),
       dtoCreateFilter(1L, someTemplateId, partySignatory),
       dtoCreateFilter(1L, someTemplateId, partyObserver1),
-      dtoCreate(offset(2), 2L, "#2", signatory = partySignatory, observer = partyObserver2),
+      dtoCreate(
+        offset(2),
+        2L,
+        hashCid("#2"),
+        signatory = partySignatory,
+        observer = partyObserver2,
+      ),
       dtoCreateFilter(2L, someTemplateId, partySignatory),
       dtoCreateFilter(2L, someTemplateId, partyObserver2),
     )
@@ -176,7 +212,7 @@ private[backend] trait StorageBackendTestsEvents
     val unknownTemplate = Ref.Identifier.assertFromString("unknown:unknown:unknown")
 
     val dtos = Vector(
-      dtoCreate(offset(1), 1L, "#1", signatory = partySignatory, observer = partyObserver),
+      dtoCreate(offset(1), 1L, hashCid("#1"), signatory = partySignatory, observer = partyObserver),
       dtoCreateFilter(1L, someTemplateId, partySignatory),
       dtoCreateFilter(1L, someTemplateId, partyObserver),
     )
@@ -223,10 +259,22 @@ private[backend] trait StorageBackendTestsEvents
     val partyObserver2 = Ref.Party.assertFromString("observer2")
 
     val dtos = Vector(
-      dtoCreate(offset(1), 1L, "#1", signatory = partySignatory, observer = partyObserver1),
+      dtoCreate(
+        offset(1),
+        1L,
+        hashCid("#1"),
+        signatory = partySignatory,
+        observer = partyObserver1,
+      ),
       dtoCreateFilter(1L, someTemplateId, partySignatory),
       dtoCreateFilter(1L, someTemplateId, partyObserver1),
-      dtoCreate(offset(2), 2L, "#2", signatory = partySignatory, observer = partyObserver2),
+      dtoCreate(
+        offset(2),
+        2L,
+        hashCid("#2"),
+        signatory = partySignatory,
+        observer = partyObserver2,
+      ),
       dtoCreateFilter(2L, someTemplateId, partySignatory),
       dtoCreateFilter(2L, someTemplateId, partyObserver2),
     )

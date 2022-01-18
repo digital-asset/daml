@@ -16,8 +16,6 @@ import scala.annotation.tailrec
 
 private[lf] final class ValueTranslator(
     interface: language.PackageInterface,
-    // See Preprocessor scala doc for more details about the following flags.
-    forbidV0ContractId: Boolean,
     requireV1ContractIdSuffix: Boolean,
 ) {
 
@@ -53,17 +51,10 @@ private[lf] final class ValueTranslator(
     else
       SValue.SContractId(_)
 
-  private[this] val unsafeTranslateV0Cid: ContractId.V0 => SValue.SContractId =
-    if (forbidV0ContractId)
-      cid => throw Error.Preprocessing.IllegalContractId.V0ContractId(cid)
-    else
-      SValue.SContractId(_)
-
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafeTranslateCid(cid: ContractId): SValue.SContractId =
     cid match {
       case cid1: ContractId.V1 => unsafeTranslateV1Cid(cid1)
-      case cid0: ContractId.V0 => unsafeTranslateV0Cid(cid0)
     }
 
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw

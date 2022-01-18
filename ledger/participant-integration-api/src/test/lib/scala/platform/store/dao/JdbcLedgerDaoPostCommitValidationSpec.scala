@@ -7,6 +7,7 @@ import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.value.Value.ContractId
@@ -191,8 +192,8 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
 
   it should "be able to use divulged contract in later transaction" in {
 
-    val divulgedContractId =
-      ContractId.assertFromString(s"#${UUID.randomUUID}")
+    val divulgedContractId: ContractId =
+      ContractId.V1(Hash.hashPrivateKey(UUID.randomUUID.toString))
     val divulgedContracts =
       Map((divulgedContractId, someVersionedContractInstance) -> Set(alice))
 

@@ -4,7 +4,6 @@
 package com.daml.platform.store.backend
 
 import com.daml.lf.data.Ref
-import com.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -29,12 +28,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoPackage(offset(3)),
       dtoPackageEntry(offset(3)),
       // 4: transaction with create node
-      dtoCreate(offset(4), 1L, "#4"),
+      dtoCreate(offset(4), 1L, hashCid("#4")),
       DbDto.CreateFilter(1L, someTemplateId.toString, someParty.toString),
       dtoCompletion(offset(4)),
       // 5: transaction with exercise node and retroactive divulgence
-      dtoExercise(offset(5), 2L, false, "#4"),
-      dtoDivulgence(Some(offset(5)), 3L, "#4"),
+      dtoExercise(offset(5), 2L, false, hashCid("#4")),
+      dtoDivulgence(Some(offset(5)), 3L, hashCid("#4")),
       dtoCompletion(offset(5)),
     )
 
@@ -47,12 +46,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoPackage(offset(8)),
       dtoPackageEntry(offset(8)),
       // 9: transaction with create node
-      dtoCreate(offset(9), 4L, "#9"),
+      dtoCreate(offset(9), 4L, hashCid("#9")),
       DbDto.CreateFilter(4L, someTemplateId.toString, someParty.toString),
       dtoCompletion(offset(9)),
       // 10: transaction with exercise node and retroactive divulgence
-      dtoExercise(offset(10), 5L, false, "#9"),
-      dtoDivulgence(Some(offset(10)), 6L, "#9"),
+      dtoExercise(offset(10), 5L, false, hashCid("#9")),
+      dtoDivulgence(Some(offset(10)), 6L, hashCid("#9")),
       dtoCompletion(offset(10)),
     )
 
@@ -80,13 +79,13 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     val contract41 = executeSql(
       backend.contract.activeContractWithoutArgument(
         readers,
-        ContractId.V0.assertFromString("#4"),
+        hashCid("#4"),
       )
     )
     val contract91 = executeSql(
       backend.contract.activeContractWithoutArgument(
         readers,
-        ContractId.V0.assertFromString("#9"),
+        hashCid("#9"),
       )
     )
     val filterIds1 = executeSql(
@@ -113,13 +112,13 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     val contract42 = executeSql(
       backend.contract.activeContractWithoutArgument(
         readers,
-        ContractId.V0.assertFromString("#4"),
+        hashCid("#4"),
       )
     )
     val contract92 = executeSql(
       backend.contract.activeContractWithoutArgument(
         readers,
-        ContractId.V0.assertFromString("#9"),
+        hashCid("#9"),
       )
     )
     val filterIds2 = executeSql(

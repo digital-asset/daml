@@ -60,7 +60,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   private[engine] val preprocessor =
     new preprocessing.Preprocessor(
       compiledPackages = compiledPackages,
-      forbidV0ContractId = config.forbidV0ContractId,
       requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
     )
 
