@@ -222,8 +222,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Array(SParty(alice), SParty(bob)),
           alice,
         )
-        inside(res) { case Success(Right(_)) => }
-        msgs shouldBe createTraces
+        inside(res) { case Success(Right(_)) =>
+          msgs shouldBe createTraces
+        }
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of create with failed precondition
@@ -240,10 +241,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(T, _, _)))) =>
+            msgs shouldBe Seq("precondition")
         }
-        msgs shouldBe Seq(
-          "precondition"
-        )
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of create with duplicate contract key
@@ -258,8 +257,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Array(SParty(alice), SParty(bob)),
           alice,
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.DuplicateContractKey(_)))) => }
-        msgs shouldBe createTraces :++ createTraces
+        inside(res) { case Success(Left(SErrorDamlException(IE.DuplicateContractKey(_)))) =>
+          msgs shouldBe createTraces :++ createTraces
+        }
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of create with empty contract key maintainers
@@ -276,8 +276,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           case Success(
                 Left(SErrorDamlException(IE.CreateEmptyContractKeyMaintainers(T, _, _)))
               ) =>
+            msgs shouldBe createTraces
         }
-        msgs shouldBe createTraces
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of create with authorization failure
@@ -291,8 +291,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           bob,
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+          msgs shouldBe createTraces
         }
-        msgs shouldBe createTraces
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of create with contract ID in contract key
@@ -309,12 +309,13 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           ),
           alice,
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.ContractIdInContractKey(_)))) => }
-        msgs shouldBe createTraces
+        inside(res) { case Success(Left(SErrorDamlException(IE.ContractIdInContractKey(_)))) =>
+          msgs shouldBe createTraces
+        }
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of create with create argument exceeding max nesting
-      "payload exceeds max nesting" in {
+      "create argument exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(sig : Party) (obs : Party) -> create @M:T
@@ -324,8 +325,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           alice,
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
+          msgs shouldBe createTraces
         }
-        msgs shouldBe createTraces
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of create with contract key exceeding max nesting
@@ -340,8 +341,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           alice,
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
+          msgs shouldBe createTraces
         }
-        msgs shouldBe createTraces
       }
     }
 
@@ -358,8 +359,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             alice,
             getContract = getContract,
           )
-          inside(res) { case Success(Right(_)) => }
-          msgs shouldBe globalFetchByIdTraces
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe globalFetchByIdTraces
+          }
         }
 
         // TEST_EVIDENCE: Semantics: Evaluation order of fetch of an inactive global contract
@@ -373,12 +375,13 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             alice,
             getContract = getContract,
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) => }
-          msgs shouldBe globalFetchByIdTraces :+ "archive"
+          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
+            msgs shouldBe globalFetchByIdTraces :+ "archive"
+          }
         }
 
         // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly type global contract
-        "wrongly type contract" in {
+        "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(cId: ContractId M:T) -> fetch @M:T cId""",
@@ -397,8 +400,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
+              msgs shouldBe Seq("getContract")
           }
-          msgs shouldBe Seq("getContract")
         }
 
         // TEST_EVIDENCE: Semantics: Evaluation order of fetch of global contract with failure authorization
@@ -411,8 +414,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getContract = getContract,
           )
 
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) => }
-          msgs shouldBe globalFetchByIdTraces
+          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+            msgs shouldBe globalFetchByIdTraces
+          }
         }
       }
 
@@ -428,8 +432,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Array(SParty(alice), SParty(bob)),
             alice,
           )
-          inside(res) { case Success(Right(_)) => }
-          msgs shouldBe createTraces :++ localFetchByIdTraces
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe createTraces :++ localFetchByIdTraces
+          }
         }
 
         // TEST_EVIDENCE: Semantics: Evaluation order of fetch of an inactive local contract
@@ -444,8 +449,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Array(SParty(alice), SParty(bob)),
             alice,
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) => }
-          msgs shouldBe createTraces :+ "archive"
+          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
+            msgs shouldBe createTraces :+ "archive"
+          }
         }
 
         // TEST_EVIDENCE: Semantics: Evaluation order of fetch of an wrongly typed local contract
@@ -461,8 +467,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
+              msgs shouldBe Seq.empty
           }
-          msgs shouldBe Seq.empty
         }
       }
 
@@ -475,8 +481,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           alice,
           getContract = PartialFunction.empty,
         )
-        inside(res) { case Failure(SpeedyTestLib.UnknownContract(`cId`)) => }
-        msgs shouldBe Seq("getContract")
+        inside(res) { case Failure(SpeedyTestLib.UnknownContract(`cId`)) =>
+          msgs shouldBe Seq("getContract")
+        }
       }
 
     }
@@ -495,8 +502,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getContract = getContract,
             getKey = getKey,
           )
-          inside(res) { case Success(Right(_)) => }
-          msgs shouldBe globalFetchByKeyTraces
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe globalFetchByKeyTraces
+          }
         }
 
         // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key of an inactive global contract
@@ -514,8 +522,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(key)))) =>
             key.templateId shouldBe T
+            msgs shouldBe globalFetchByIdTraces :++ Set("archive", "maintainers", "getKey")
           }
-          msgs shouldBe globalFetchByIdTraces :++ Set("archive", "maintainers", "getKey")
         }
 
         // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a global contract with authorization failure
@@ -528,8 +536,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getContract = getContract,
             getKey = getKey,
           )
-          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) => }
-          msgs shouldBe globalFetchByKeyTraces
+          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+            msgs shouldBe globalFetchByKeyTraces
+          }
         }
       }
 
@@ -546,8 +555,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Array(SParty(alice), SParty(bob)),
             alice,
           )
-          inside(res) { case Success(Right(_)) => }
-          msgs shouldBe createTraces :++ localFetchByKeyTraces
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe createTraces :++ localFetchByKeyTraces
+          }
         }
 
         // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key of an inactive global contract
@@ -564,8 +574,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(key)))) =>
             key.templateId shouldBe T
+            msgs shouldBe createTraces :+ "archive" :++ localFetchByKeyTraces
           }
-          msgs shouldBe createTraces :+ "archive" :++ localFetchByKeyTraces
         }
       }
 
@@ -581,8 +591,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(key)))) =>
           key.templateId shouldBe T
+          msgs shouldBe Seq("maintainers", "getKey")
         }
-        msgs shouldBe Seq("maintainers", "getKey")
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key with empty contract key maintainers
@@ -595,8 +605,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _)))) =>
+            msgs shouldBe localFetchByKeyTraces
         }
-        msgs shouldBe localFetchByKeyTraces
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key with contract ID in contract key
@@ -607,8 +617,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Array(SParty(alice), SContractId(cId)),
           alice,
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.ContractIdInContractKey(_)))) => }
-        msgs shouldBe localFetchByKeyTraces
+        inside(res) { case Success(Left(SErrorDamlException(IE.ContractIdInContractKey(_)))) =>
+          msgs shouldBe localFetchByKeyTraces
+        }
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key with contract key exceeding max nesting
@@ -622,8 +633,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           alice,
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
+          msgs shouldBe localFetchByKeyTraces
         }
-        msgs shouldBe localFetchByKeyTraces
       }
     }
   }
