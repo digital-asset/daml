@@ -4,7 +4,7 @@
 package com.daml.platform.sandboxnext
 
 import java.io.File
-import java.time.{Clock, Instant}
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.Executors
 
@@ -13,9 +13,7 @@ import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.caching
-import com.daml.error.ErrorCodesVersionSwitcher
-import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
-import com.daml.ledger.api.domain
+import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
@@ -49,14 +47,11 @@ import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneI
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
-import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandboxnext.Runner._
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.usermanagement.PersistentUserManagementStore
 import com.daml.ports.Port
-import com.daml.resources.ResettableResourceOwner
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 import scalaz.syntax.tag._
 
@@ -93,27 +88,26 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     new Engine(engineConfig)
   }
 
-  private val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, startupMode): (
+  private val (ledgerType, ledgerJdbcUrl, indexJdbcUrl): (
       String,
       String,
       String,
-      StartupMode,
   ) =
     config.jdbcUrl match {
       case Some(url) if url.startsWith("jdbc:postgresql:") =>
-        ("PostgreSQL", url, url, StartupMode.MigrateAndStart)
+        ("PostgreSQL", url, url)
       case Some(url) if url.startsWith("jdbc:h2:mem:") =>
-        ("in-memory", InMemoryLedgerJdbcUrl, url, StartupMode.MigrateAndStart)
+        ("in-memory", InMemoryLedgerJdbcUrl, url)
       case Some(url) if url.startsWith("jdbc:h2:") =>
         throw new InvalidDatabaseException(
           "This version of Sandbox does not support file-based H2 databases. Please use SQLite instead."
         )
       case Some(url) if url.startsWith("jdbc:sqlite:") =>
-        ("SQLite", url, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
+        ("SQLite", url, InMemoryIndexJdbcUrl)
       case Some(_) =>
         throw new InvalidDatabaseException(s"Unknown database")
       case None =>
-        ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
+        ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl)
     }
 
   private val timeProviderType =
@@ -145,223 +139,174 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         servicesExecutionContext <- ResourceOwner.forExecutorService(() =>
           ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
         )
-        apiServer <- ResettableResourceOwner[
-          ResourceContext,
-          ApiServer,
-          (Option[Port], StartupMode),
-        ](
-          initialValue = (None, startupMode),
-          owner = reset => { case (currentPort, startupMode) =>
-            val isReset = startupMode == StartupMode.ResetAndStart
-            val ledgerId = specifiedLedgerId.getOrElse(UUID.randomUUID().toString)
-            val timeServiceBackend = timeProviderType match {
-              case TimeProviderType.Static =>
-                Some(TimeServiceBackend.simple(Instant.EPOCH))
-              case TimeProviderType.WallClock =>
-                None
-            }
-            for {
-              readerWriter <- new SqlLedgerReaderWriter.Owner(
-                ledgerId = ledgerId,
-                participantId = config.participantId,
-                metrics = metrics,
-                engine = engine,
-                jdbcUrl = ledgerJdbcUrl,
-                resetOnStartup = isReset,
-                offsetVersion = 0,
-                logEntryIdAllocator =
-                  new SeedServiceLogEntryIdAllocator(SeedService(config.seeding.get)),
-                stateValueCache = caching.WeightedCache.from(
-                  caching.WeightedCache.Configuration(
-                    maximumWeight = MaximumStateValueCacheSize
-                  )
-                ),
-                timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
-              )
-              readService = new TimedReadService(
-                KeyValueParticipantStateReader(
-                  readerWriter,
-                  metrics,
-                  enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
-                ),
-                metrics,
-              )
-              writeService = new TimedWriteService(
-                new KeyValueParticipantStateWriter(
-                  new TimedLedgerWriter(readerWriter, metrics),
-                  metrics,
-                ),
-                metrics,
-              )
-              _ <-
-                if (isReset) {
-                  ResourceOwner.unit
-                } else {
-                  ResourceOwner
-                    .forFuture(() =>
-                      Future.sequence(config.damlPackages.map(uploadDar(_, writeService)))
-                    )
-                    .map(_ => ())
-                }
-              indexer <- new StandaloneIndexerServer(
-                readService = readService,
-                config = IndexerConfig(
-                  participantId = config.participantId,
-                  jdbcUrl = indexJdbcUrl,
-                  startupMode =
-                    if (isReset) IndexerStartupMode.ResetAndStart
-                    else IndexerStartupMode.MigrateAndStart,
-                  eventsPageSize = config.eventsPageSize,
-                  allowExistingSchema = true,
-                  enableCompression = config.enableCompression,
-                ),
-                servicesExecutionContext = servicesExecutionContext,
-                metrics = metrics,
-                lfValueTranslationCache = lfValueTranslationCache,
-              )
-              healthChecks = new HealthChecks(
-                "read" -> readService,
-                "write" -> writeService,
-                "indexer" -> indexer,
-              )
-              // Required to tie the loop between the API server and the reset service.
-              apiServerServicesClosed = Promise[Unit]()
-              resetService = {
-                val clock = Clock.systemUTC()
-                val authorizer =
-                  new Authorizer(
-                    () => clock.instant(),
-                    ledgerId,
-                    config.participantId,
-                    new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes),
-                  )
-                new SandboxResetService(
-                  domain.LedgerId(ledgerId),
-                  () => {
-                    // Don't block the reset request; just wait until the services are closed.
-                    // Otherwise we end up in deadlock, because the server won't shut down until
-                    // all requests are completed.
-                    reset()
-                    apiServerServicesClosed.future
-                  },
-                  authorizer,
-                  errorFactories = ErrorFactories(
-                    new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
-                  ),
-                )
-              }
-              apiServerConfig = ApiServerConfig(
-                participantId = config.participantId,
-                archiveFiles = if (isReset) List.empty else config.damlPackages,
-                // Re-use the same port when resetting the server.
-                port = currentPort.getOrElse(config.port),
-                address = config.address,
-                jdbcUrl = indexJdbcUrl,
-                databaseConnectionPoolSize = config.databaseConnectionPoolSize,
-                databaseConnectionTimeout = config.databaseConnectionTimeout,
-                tlsConfig = config.tlsConfig,
-                maxInboundMessageSize = config.maxInboundMessageSize,
-                initialLedgerConfiguration = Some(config.initialLedgerConfiguration),
-                configurationLoadTimeout = config.configurationLoadTimeout,
-                eventsPageSize = config.eventsPageSize,
-                portFile = config.portFile,
-                // TODO append-only: augment the following defaults for enabling the features for sandbox next
-                seeding = config.seeding.get,
-                managementServiceTimeout = config.managementServiceTimeout,
-                maxContractStateCacheSize = 0L,
-                maxContractKeyStateCacheSize = 0L,
-                enableMutableContractStateCache = false,
-                maxTransactionsInMemoryFanOutBufferSize = 0L,
-                enableInMemoryFanOutForLedgerApi = false,
-                enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
-              )
-              dbSupport <- DbSupport.owner(
-                jdbcUrl = apiServerConfig.jdbcUrl,
-                serverRole = ServerRole.ApiServer,
-                connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
-                connectionTimeout = apiServerConfig.databaseConnectionTimeout,
-                metrics = metrics,
-              )
-              userManagementStore = PersistentUserManagementStore.cached(
-                dbDispatcher = dbSupport.dbDispatcher,
-                metrics = metrics,
-                cacheExpiryAfterWriteInSeconds =
-                  config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-                maximumCacheSize = config.userManagementConfig.maximumCacheSize,
-              )(servicesExecutionContext)
-              indexService <- StandaloneIndexService(
-                dbSupport = dbSupport,
-                ledgerId = ledgerId,
-                config = apiServerConfig,
-                metrics = metrics,
-                engine = engine,
-                servicesExecutionContext = servicesExecutionContext,
-                lfValueTranslationCache = lfValueTranslationCache,
-              )
-              writeServiceWithDeduplicationSupport = WriteServiceWithDeduplicationSupport(
-                writeService,
-                indexService,
-                config.enableSelfServiceErrorCodes,
-              )
-              apiServer <- StandaloneApiServer(
-                indexService = indexService,
-                userManagementStore = userManagementStore,
-                ledgerId = ledgerId,
-                config = apiServerConfig,
-                engine = engine,
-                commandConfig = config.commandConfig,
-                partyConfig = PartyConfiguration.default.copy(
-                  implicitPartyAllocation = config.implicitPartyAllocation
-                ),
-                submissionConfig = SubmissionConfiguration.default,
-                optWriteService = Some(writeServiceWithDeduplicationSupport),
-                authService = authService,
-                healthChecks = healthChecks,
-                metrics = metrics,
-                timeServiceBackend = timeServiceBackend,
-                otherServices = List(resetService),
-                otherInterceptors = List(resetService),
-                servicesExecutionContext = servicesExecutionContext,
-                commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
-                  deduplicationPeriodSupport = Some(
-                    CommandDeduplicationPeriodSupport.of(
-                      offsetSupport =
-                        CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
-                      durationSupport =
-                        CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
-                    )
-                  ),
-                  deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
-                  maxDeduplicationDurationEnforced = true,
-                ),
-              )
-              _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
-            } yield {
-              Banner.show(Console.out)
-              logger.withoutContext.info(
-                "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
-                BuildInfo.Version,
-                ledgerId,
-                apiServer.port.toString,
-                config.damlPackages,
-                timeProviderType.description,
-                ledgerType,
-                authService.getClass.getSimpleName,
-                config.seeding.get.name,
-                if (config.stackTraces) "" else ", stack traces = no",
-                config.profileDir match {
-                  case None => ""
-                  case Some(profileDir) => s", profile directory = $profileDir"
-                },
-              )
-              apiServer
-            }
-          },
-          resetOperation =
-            apiServer => Future.successful((Some(apiServer.port), StartupMode.ResetAndStart)),
+        ledgerId = specifiedLedgerId.getOrElse(UUID.randomUUID().toString)
+        timeServiceBackend = timeProviderType match {
+          case TimeProviderType.Static =>
+            Some(TimeServiceBackend.simple(Instant.EPOCH))
+          case TimeProviderType.WallClock =>
+            None
+        }
+        readerWriter <- new SqlLedgerReaderWriter.Owner(
+          ledgerId = ledgerId,
+          participantId = config.participantId,
+          metrics = metrics,
+          engine = engine,
+          jdbcUrl = ledgerJdbcUrl,
+          resetOnStartup = false,
+          offsetVersion = 0,
+          logEntryIdAllocator =
+            new SeedServiceLogEntryIdAllocator(SeedService(config.seeding.get)),
+          stateValueCache = caching.WeightedCache.from(
+            caching.WeightedCache.Configuration(
+              maximumWeight = MaximumStateValueCacheSize
+            )
+          ),
+          timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
         )
-      } yield apiServer.port
+        readService = new TimedReadService(
+          KeyValueParticipantStateReader(
+            readerWriter,
+            metrics,
+            enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+          ),
+          metrics,
+        )
+        writeService = new TimedWriteService(
+          new KeyValueParticipantStateWriter(
+            new TimedLedgerWriter(readerWriter, metrics),
+            metrics,
+          ),
+          metrics,
+        )
+        _ <- ResourceOwner.forFuture(() =>
+            Future.sequence(config.damlPackages.map(uploadDar(_, writeService)))
+          ).map(_ => ())
 
+        indexer <- new StandaloneIndexerServer(
+          readService = readService,
+          config = IndexerConfig(
+            participantId = config.participantId,
+            jdbcUrl = indexJdbcUrl,
+            startupMode = IndexerStartupMode.MigrateAndStart,
+            eventsPageSize = config.eventsPageSize,
+            allowExistingSchema = true,
+            enableCompression = config.enableCompression,
+          ),
+          servicesExecutionContext = servicesExecutionContext,
+          metrics = metrics,
+          lfValueTranslationCache = lfValueTranslationCache,
+        )
+        healthChecks = new HealthChecks(
+          "read" -> readService,
+          "write" -> writeService,
+          "indexer" -> indexer,
+        )
+        // Required to tie the loop between the API server and the reset service.
+        apiServerServicesClosed = Promise[Unit]()
+        apiServerConfig = ApiServerConfig(
+          participantId = config.participantId,
+          archiveFiles = config.damlPackages,
+          // Re-use the same port when resetting the server.
+          port = config.port,
+          address = config.address,
+          jdbcUrl = indexJdbcUrl,
+          databaseConnectionPoolSize = config.databaseConnectionPoolSize,
+          databaseConnectionTimeout = config.databaseConnectionTimeout,
+          tlsConfig = config.tlsConfig,
+          maxInboundMessageSize = config.maxInboundMessageSize,
+          initialLedgerConfiguration = Some(config.initialLedgerConfiguration),
+          configurationLoadTimeout = config.configurationLoadTimeout,
+          eventsPageSize = config.eventsPageSize,
+          portFile = config.portFile,
+          // TODO append-only: augment the following defaults for enabling the features for sandbox next
+          seeding = config.seeding.get,
+          managementServiceTimeout = config.managementServiceTimeout,
+          maxContractStateCacheSize = 0L,
+          maxContractKeyStateCacheSize = 0L,
+          enableMutableContractStateCache = false,
+          maxTransactionsInMemoryFanOutBufferSize = 0L,
+          enableInMemoryFanOutForLedgerApi = false,
+          enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+        )
+        dbSupport <- DbSupport.owner(
+          jdbcUrl = apiServerConfig.jdbcUrl,
+          serverRole = ServerRole.ApiServer,
+          connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
+          connectionTimeout = apiServerConfig.databaseConnectionTimeout,
+          metrics = metrics,
+        )
+        userManagementStore = PersistentUserManagementStore.cached(
+          dbDispatcher = dbSupport.dbDispatcher,
+          metrics = metrics,
+          cacheExpiryAfterWriteInSeconds =
+            config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
+          maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+        )(servicesExecutionContext)
+        indexService <- StandaloneIndexService(
+          dbSupport = dbSupport,
+          ledgerId = ledgerId,
+          config = apiServerConfig,
+          metrics = metrics,
+          engine = engine,
+          servicesExecutionContext = servicesExecutionContext,
+          lfValueTranslationCache = lfValueTranslationCache,
+        )
+        writeServiceWithDeduplicationSupport = WriteServiceWithDeduplicationSupport(
+          writeService,
+          indexService,
+          config.enableSelfServiceErrorCodes,
+        )
+        apiServer <- StandaloneApiServer(
+          indexService = indexService,
+          userManagementStore = userManagementStore,
+          ledgerId = ledgerId,
+          config = apiServerConfig,
+          engine = engine,
+          commandConfig = config.commandConfig,
+          partyConfig = PartyConfiguration.default.copy(
+            implicitPartyAllocation = config.implicitPartyAllocation
+          ),
+          submissionConfig = SubmissionConfiguration.default,
+          optWriteService = Some(writeServiceWithDeduplicationSupport),
+          authService = authService,
+          healthChecks = healthChecks,
+          metrics = metrics,
+          timeServiceBackend = timeServiceBackend,
+          servicesExecutionContext = servicesExecutionContext,
+          commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+            deduplicationPeriodSupport = Some(
+              CommandDeduplicationPeriodSupport.of(
+                offsetSupport =
+                  CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
+                durationSupport =
+                  CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+              )
+            ),
+            deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
+            maxDeduplicationDurationEnforced = true,
+          ),
+        )
+        _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
+      } yield {
+        Banner.show(Console.out)
+        logger.withoutContext.info(
+          "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
+          BuildInfo.Version,
+          ledgerId,
+          apiServer.port.toString,
+          config.damlPackages,
+          timeProviderType.description,
+          ledgerType,
+          authService.getClass.getSimpleName,
+          config.seeding.get.name,
+          if (config.stackTraces) "" else ", stack traces = no",
+          config.profileDir match {
+            case None => ""
+            case Some(profileDir) => s", profile directory = $profileDir"
+          },
+        )
+        apiServer.port
+      }
       owner.acquire()
     }
 

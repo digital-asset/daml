@@ -73,7 +73,6 @@ object ClaimSet {
     * | PackageService                      | *                          | isPublic                                 |
     * | PackageManagementService            | *                          | isAdmin                                  |
     * | PartyManagementService              | *                          | isAdmin                                  |
-    * | ResetService                        | *                          | isAdmin                                  |
     * | ServerReflection                    | *                          | N/A (authentication not required)        |
     * | TimeService                         | GetTime                    | isPublic                                 |
     * | TimeService                         | SetTime                    | isAdmin                                  |
