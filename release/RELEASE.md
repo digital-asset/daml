@@ -130,7 +130,7 @@ patches we backport to the 1.0 release branch).
 
     1. `cd create-daml-app`
 
-       1. `daml start`
+       1. `daml start --sandbox-kv`
 
     1. In a new terminal, from the `ui` folder:
 
