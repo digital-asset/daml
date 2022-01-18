@@ -23,9 +23,9 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
   /** Marker value for absence of party in a db table (`primary_party` and `for_party` columns).
     *
     * Oracle doesn't distinguish between empty strings and NULLs.
-    * If we used NULL/empty string in Oracle then in Postgres we would have to:
-    * a) If chose to use NULL value in Postgres then we would have to use partial index to ensure multi-column uniqueness constrains (`UNIQUE (user_internal_id, user_right, for_party)` index).
-    * b) If chose to use empty string value in Postgres, we would end up with DB aware backends having ot use 1) `... is NULL` in Oracle vs. 2) `... = ''` in Postgres
+    * When we use NULL/empty string in Oracle then in Postgres we have two choices:
+    * a) Choosing NULL: we would have to use partial index to ensure multi-column uniqueness constrains (`UNIQUE (user_internal_id, user_right, for_party)` index).
+    * b) Choosing empty string: we would end up with DB aware backends having ot use `... is NULL` in Oracle vs. `... = ''` in Postgres
     */
   private val AbsenceOfPartyMarker = "!"
 
