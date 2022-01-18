@@ -17,13 +17,11 @@ import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext
 import io.grpc.Status
 
 import scala.concurrent.ExecutionContext
 
 class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
-  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   test(
     "ValidDeduplicationDuration",
