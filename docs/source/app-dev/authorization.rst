@@ -45,6 +45,13 @@ and then checks that the token has not yet expired and that the privileges descr
 
 .. image:: ./images/Authentication.svg
 
+As shown above, using access tokens requires your application to attach them to every request.
+How to do that depends on the tool or library you use to interact with the ledger API.
+See the tool's or library's documentation for more information.
+Here is for example the relevant documentation for
+the :ref:`Java bindings <ledger-api-java-bindings-authorization>`
+and the :ref:`JSON API <json-api-access-tokens>`.
+
 
 .. _authorization-claims:
 

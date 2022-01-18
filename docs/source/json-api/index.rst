@@ -254,6 +254,8 @@ you can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), an exa
 
 .. note:: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
 
+.. _json-api-access-tokens:
+
 Access Tokens
 =============
 
