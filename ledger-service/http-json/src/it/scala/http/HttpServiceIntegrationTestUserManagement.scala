@@ -9,7 +9,7 @@ import com.daml.fetchcontracts.domain.TemplateId.OptionalPkg
 import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, getResult, postRequest}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
-import com.daml.http.domain.{UserDetails, UserRights}
+import com.daml.http.domain.UserDetails
 import com.daml.http.json.JsonProtocol._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.domain.{User, UserRight}
@@ -202,12 +202,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       assertion <- {
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
-        getResult(output).convertTo[UserRights] shouldEqual
-          UserRights(
-            List[domain.UserRight](
-              domain.CanActAs(alice),
-              domain.CanActAs(bob),
-            )
+        getResult(output).convertTo[List[domain.UserRight]] should contain theSameElementsAs
+          List[domain.UserRight](
+            domain.CanActAs(alice),
+            domain.CanActAs(bob),
           )
       }
     } yield assertion
@@ -233,12 +231,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       assertion <- {
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
-        getResult(output).convertTo[UserRights] shouldEqual
-          UserRights(
-            List[domain.UserRight](
-              domain.CanActAs(alice),
-              domain.CanActAs(bob),
-            )
+        getResult(output).convertTo[List[domain.UserRight]] should contain theSameElementsAs
+          List[domain.UserRight](
+            domain.CanActAs(alice),
+            domain.CanActAs(bob),
           )
       }
     } yield assertion
@@ -455,9 +451,9 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       _ <- {
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
-        getResult(output).convertTo[UserRights] shouldEqual UserRights(
-          List[domain.UserRight](domain.CanActAs(bob), domain.ParticipantAdmin)
-        )
+        getResult(output).convertTo[List[domain.UserRight]] should contain theSameElementsAs List[
+          domain.UserRight
+        ](domain.CanActAs(bob), domain.ParticipantAdmin)
       }
       (status2, output2) <- postRequest(
         uri.withPath(Uri.Path("/v1/user/rights")),
@@ -467,13 +463,12 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       assertion <- {
         status2 shouldBe StatusCodes.OK
         assertStatus(output2, StatusCodes.OK)
-        getResult(output2).convertTo[UserRights] shouldEqual UserRights(
+        getResult(output2).convertTo[List[domain.UserRight]] should contain theSameElementsAs
           List[domain.UserRight](
             domain.CanActAs(alice),
             domain.CanActAs(bob),
             domain.ParticipantAdmin,
           )
-        )
       }
     } yield assertion
   }
@@ -511,8 +506,12 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       _ <- {
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
-        getResult(output).convertTo[UserRights] shouldEqual UserRights(
-          List[domain.UserRight](domain.CanActAs(bob), domain.ParticipantAdmin)
+        getResult(output)
+          .convertTo[List[domain.UserRight]] should contain theSameElementsAs List[
+          domain.UserRight
+        ](
+          domain.CanActAs(bob),
+          domain.ParticipantAdmin,
         )
       }
       (status2, output2) <- postRequest(
@@ -523,9 +522,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       assertion <- {
         status2 shouldBe StatusCodes.OK
         assertStatus(output2, StatusCodes.OK)
-        getResult(output2).convertTo[UserRights] shouldEqual UserRights(
-          List[domain.UserRight](domain.CanActAs(alice))
-        )
+        getResult(output2).convertTo[List[domain.UserRight]] should contain theSameElementsAs
+          List[domain.UserRight](
+            domain.CanActAs(alice)
+          )
       }
     } yield assertion
   }

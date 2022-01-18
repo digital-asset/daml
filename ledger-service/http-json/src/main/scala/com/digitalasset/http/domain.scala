@@ -138,8 +138,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   final case class CanActAs(party: Party) extends UserRight
   final case class CanReadAs(party: Party) extends UserRight
 
-  final case class UserRights(rights: List[domain.UserRight])
-
   object UserRights {
     import com.daml.ledger.api.domain.{UserRight => LedgerUserRight}, com.daml.lf.data.Ref
     import scalaz.syntax.traverse._
@@ -154,18 +152,15 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
           Ref.Party.fromString(Party.unwrap(party)).map(LedgerUserRight.CanReadAs).disjunction
       }
 
-    def fromLedgerUserRights(input: Vector[LedgerUserRight]): UserRights = {
-      val rights: List[domain.UserRight] = input
-        .map[domain.UserRight] {
-          case LedgerUserRight.ParticipantAdmin => ParticipantAdmin
-          case LedgerUserRight.CanActAs(party) =>
-            CanActAs(Party(party.toString: String))
-          case LedgerUserRight.CanReadAs(party) =>
-            CanReadAs(Party(party.toString: String))
-        }
-        .toList
-      UserRights(rights)
-    }
+    def fromLedgerUserRights(input: Vector[LedgerUserRight]): List[UserRight] = input
+      .map[domain.UserRight] {
+        case LedgerUserRight.ParticipantAdmin => ParticipantAdmin
+        case LedgerUserRight.CanActAs(party) =>
+          CanActAs(Party(party.toString: String))
+        case LedgerUserRight.CanReadAs(party) =>
+          CanReadAs(Party(party.toString: String))
+      }
+      .toList
   }
 
   final case class UserDetails(userId: String, primaryParty: Option[String])

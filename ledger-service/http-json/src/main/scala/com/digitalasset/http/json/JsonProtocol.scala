@@ -83,37 +83,8 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit val userRight: JsonFormat[domain.UserRight] = deriveFormat[domain.UserRight]
 
-  // If one uses the uppercase name then the implicit resolution will fail
-  implicit val userRights: RootJsonFormat[domain.UserRights] = jsonFormat1(domain.UserRights.apply)
-
   implicit val PartyDetails: JsonFormat[domain.PartyDetails] =
     jsonFormat3(domain.PartyDetails.apply)
-
-//  implicit val CreateUserRequest: JsonFormat[domain.UserRight] =
-//    new RootJsonFormat[domain.UserRight] {
-//      override def write(a: domain.UserRight): JsValue = {
-//        val (kind, value) =
-//          a match {
-//            case domain.ParticipantAdmin => ("ParticipantAdmin", None)
-//            case domain.CanActAs(canActAs) => ("CanActAs", Some(Map("party" -> canActAs.toJson)))
-//            case domain.CanReadAs(canReadAs) =>
-//              ("CanReadAs", Some(Map("party" -> canReadAs.toJson)))
-//          }
-//        JsObject(Map("kind" -> JsString(kind)) ++ value.getOrElse(Map.empty))
-//      }
-//
-//      override def read(json: JsValue): domain.UserRight = json match {
-//        case JsObject(fields) =>
-//          for {
-//            kind <- fields.find {
-//              case ("kind", kind) => true
-//              case _ => false
-//            }
-//            res <-
-//          } yield ()
-//        case _ => error(json)
-//      }
-//    }
 
   implicit val CreateUserRequest: JsonFormat[domain.CreateUserRequest] =
     jsonFormat3(domain.CreateUserRequest)
