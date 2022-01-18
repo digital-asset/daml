@@ -52,7 +52,7 @@ def install_java_deps():
             "com.google.code.findbugs:jsr305:3.0.2",
             "com.google.code.gson:gson:2.8.2",
             "com.google.guava:guava:29.0-jre",
-            "com.h2database:h2:2.0.206",
+            "com.h2database:h2:2.1.210",
             "com.lihaoyi:pprint_{}:0.6.0".format(scala_major_version),
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
             "commons-io:commons-io:2.5",
