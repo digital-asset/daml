@@ -1153,15 +1153,15 @@
                 "url": "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.17.3/protobuf-java-3.17.3-sources.jar"
             },
             {
-                "coord": "com.h2database:h2:2.0.206",
+                "coord": "com.h2database:h2:2.1.210",
                 "dependencies": [],
                 "directDependencies": [],
-                "file": "v1/https/repo1.maven.org/maven2/com/h2database/h2/2.0.206/h2-2.0.206.jar",
+                "file": "v1/https/repo1.maven.org/maven2/com/h2database/h2/2.1.210/h2-2.1.210.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/h2database/h2/2.0.206/h2-2.0.206.jar"
+                    "https://repo1.maven.org/maven2/com/h2database/h2/2.1.210/h2-2.1.210.jar"
                 ],
                 "sha256": "3b9607c5673fd8b87e49e3ac46bd88fd3561e863dce673a35234e8b5708f3deb",
-                "url": "https://repo1.maven.org/maven2/com/h2database/h2/2.0.206/h2-2.0.206.jar"
+                "url": "https://repo1.maven.org/maven2/com/h2database/h2/2.1.210/h2-2.1.210.jar"
             },
             {
                 "coord": "com.h2database:h2:jar:sources:2.0.206",
