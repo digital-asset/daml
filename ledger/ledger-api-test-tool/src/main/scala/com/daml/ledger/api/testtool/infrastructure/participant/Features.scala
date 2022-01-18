@@ -3,22 +3,27 @@
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
-import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationFeatures
+import com.daml.ledger.api.v1.experimental_features.{
+  CommandDeduplicationFeatures,
+  ContractIdFeatures,
+}
 import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionResponse
 
 final case class Features(
-    selfServiceErrorCodes: Boolean,
     userManagement: Boolean,
-    commandDeduplicationFeatures: CommandDeduplicationFeatures,
+    selfServiceErrorCodes: Boolean,
     staticTime: Boolean,
+    commandDeduplicationFeatures: CommandDeduplicationFeatures,
+    contractIds: ContractIdFeatures,
 )
 
 object Features {
   val defaultFeatures: Features = Features(
-    selfServiceErrorCodes = false,
     userManagement = false,
-    commandDeduplicationFeatures = CommandDeduplicationFeatures.defaultInstance,
+    selfServiceErrorCodes = false,
     staticTime = false,
+    commandDeduplicationFeatures = CommandDeduplicationFeatures.defaultInstance,
+    contractIds = ContractIdFeatures.defaultInstance,
   )
 
   def fromApiVersionResponse(response: GetLedgerApiVersionResponse): Features = {
@@ -26,10 +31,11 @@ object Features {
     val experimental = features.getExperimental
 
     Features(
-      selfServiceErrorCodes = experimental.selfServiceErrorCodes.isDefined,
       userManagement = features.getUserManagement.supported,
+      selfServiceErrorCodes = experimental.selfServiceErrorCodes.isDefined,
       staticTime = experimental.getStaticTime.supported,
       commandDeduplicationFeatures = experimental.getCommandDeduplication,
+      contractIds = experimental.getContractIds,
     )
   }
 }

@@ -13,7 +13,7 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions.{
   fail,
 }
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive.ContractId
 import com.daml.ledger.test.semantic.ContractIdTests._
@@ -34,13 +34,37 @@ final class ContractIdIT extends LedgerTestSuite {
   private[this] def camlCase(s: String) =
     s.split("[ -]").iterator.map(_.capitalize).mkString("")
 
-  List(
-    (v0Cid, "V0", true),
-    (v0Cid, "V0", false),
-    (nonSuffixedV1Cid, "non-suffixed V1", true),
-    (nonSuffixedV1Cid, "non-suffixed V1", false),
-    (suffixedV1Cid, "suffixed V1", true),
-  ).foreach { case (testedCid, cidDescription, accepted) =>
+  List[(String, String, Boolean, Features => Boolean, String)](
+    (
+      v0Cid,
+      "V0",
+      true,
+      features => features.contractIds.v0Supported,
+      "V0 contract IDs are not supported",
+    ),
+    (
+      v0Cid,
+      "V0",
+      false,
+      features => !features.contractIds.v0Supported,
+      "V0 contract IDs are supported",
+    ),
+    (
+      nonSuffixedV1Cid,
+      "non-suffixed V1",
+      true,
+      features => features.contractIds.v1NonSuffixedSupported,
+      "non-suffixed V1 contract IDs are not supported",
+    ),
+    (
+      nonSuffixedV1Cid,
+      "non-suffixed V1",
+      false,
+      features => !features.contractIds.v1NonSuffixedSupported,
+      "non-suffixed V1 contract IDs are supported",
+    ),
+    (suffixedV1Cid, "suffixed V1", true, _ => true, ""),
+  ).foreach { case (testedCid, cidDescription, accepted, isSupported, disabledReason) =>
     val result = if (accepted) "Accept" else "Reject"
 
     def test(description: String)(
@@ -48,11 +72,13 @@ final class ContractIdIT extends LedgerTestSuite {
             ParticipantTestContext,
             Party,
         ) => Future[Try[_]]
-    ): Unit =
+    ): Unit = {
       super.test(
-        result + camlCase(cidDescription) + "Cid" + camlCase(description),
-        result + "s " + cidDescription + " Contract Id in " + description,
-        allocate(SingleParty),
+        shortIdentifier = result + camlCase(cidDescription) + "Cid" + camlCase(description),
+        description = result + "s " + cidDescription + " Contract Id in " + description,
+        participants = allocate(SingleParty),
+        enabled = isSupported,
+        disabledReason = disabledReason,
       )(implicit ec => { case Participants(Participant(alpha, party)) =>
         update(ec)(alpha, party).map {
           case Success(_) if accepted => ()
@@ -70,6 +96,7 @@ final class ContractIdIT extends LedgerTestSuite {
             fail("Unexpected " + otherwise.fold(err => s"failure: $err", _ => "success"))
         }
       })
+    }
 
     test("create payload") { implicit ec => (alpha, party) =>
       alpha

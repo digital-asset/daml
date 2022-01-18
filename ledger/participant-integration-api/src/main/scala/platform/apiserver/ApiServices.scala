@@ -13,7 +13,10 @@ import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services._
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationFeatures
+import com.daml.ledger.api.v1.experimental_features.{
+  CommandDeduplicationFeatures,
+  ContractIdFeatures,
+}
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
@@ -97,6 +100,7 @@ private[daml] object ApiServices {
       enableSelfServiceErrorCodes: Boolean,
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       commandDeduplicationFeatures: CommandDeduplicationFeatures,
+      contractIdFeatures: ContractIdFeatures,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -164,6 +168,7 @@ private[daml] object ApiServices {
         ApiVersionService.create(
           enableSelfServiceErrorCodes,
           commandDeduplicationFeatures,
+          contractIdFeatures,
           optTimeServiceBackend.isDefined,
         )
 

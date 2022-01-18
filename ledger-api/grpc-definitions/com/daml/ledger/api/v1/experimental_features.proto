@@ -19,6 +19,7 @@ message ExperimentalFeatures {
   ExperimentalSelfServiceErrorCodes self_service_error_codes = 1;
   ExperimentalStaticTime static_time = 2;
   CommandDeduplicationFeatures command_deduplication = 3;
+  ContractIdFeatures contract_ids = 4;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
@@ -66,4 +67,9 @@ enum CommandDeduplicationType {
   ASYNC_AND_CONCURRENT_SYNC = 1;
   // Duplicate commands are always reported synchronously via a synchronous gRPC error on the command submission.
   SYNC_ONLY = 2;
+}
+
+message ContractIdFeatures {
+  bool v0_supported = 1;
+  bool v1_non_suffixed_supported = 2;
 }

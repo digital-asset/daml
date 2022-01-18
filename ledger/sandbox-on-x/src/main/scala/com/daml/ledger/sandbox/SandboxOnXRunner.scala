@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ContractIdFeatures,
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
@@ -269,6 +270,10 @@ object SandboxOnXRunner {
         ),
         deduplicationType = CommandDeduplicationType.SYNC_ONLY,
         maxDeduplicationDurationEnforced = false,
+      ),
+      contractIdFeatures = ContractIdFeatures.of(
+        v0Supported = true,
+        v1NonSuffixedSupported = true,
       ),
     )
 

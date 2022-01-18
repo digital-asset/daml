@@ -14,6 +14,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ContractIdFeatures,
 }
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
@@ -210,6 +211,10 @@ final class Runner[T <: ReadWriteService, Extra](
                     ),
                     deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
                     maxDeduplicationDurationEnforced = true,
+                  ),
+                  contractIdFeatures = ContractIdFeatures.of(
+                    v0Supported = false,
+                    v1NonSuffixedSupported = true,
                   ),
                 ).acquire()
               } yield Some(apiServer.port)

@@ -22,6 +22,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ContractIdFeatures,
 }
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.metrics.TimedWriteService
@@ -436,6 +437,10 @@ final class SandboxServer(
           ),
           CommandDeduplicationType.SYNC_ONLY,
           maxDeduplicationDurationEnforced = false,
+        ),
+        contractIdFeatures = ContractIdFeatures.of(
+          v0Supported = true,
+          v1NonSuffixedSupported = true,
         ),
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))

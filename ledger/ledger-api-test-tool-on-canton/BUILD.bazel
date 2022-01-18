@@ -95,7 +95,6 @@ conformance_test(
         ",CompletionDeduplicationInfoITCommandService" +
         ",CompletionDeduplicationInfoITCommandSubmissionService" +
         ",CommandDeduplicationParallelIT" +
-        ",ContractIdIT" +
         ",MultiPartySubmissionIT" +
         ",ParticipantPruningIT" +
         ",TLSOnePointThreeIT" +
@@ -163,13 +162,17 @@ conformance_test(
     server = ":canton-test-runner-with-dependencies",
     test_tool_args = [
         "--verbose",
-        "--include=ContractIdIT:RejectV0,ContractIdIT:RejectNonSuffixedV1Cid,ContractIdIT:AcceptSuffixedV1Cid" +
-        ",MultiPartySubmissionIT" +
-        #",CommandDeduplicationParallelIT" + - can be re-enabled once canton exposes the feature descriptors
-        ",CompletionDeduplicationInfoITCommandService,CompletionDeduplicationInfoITCommandSubmissionService",
-        "--exclude=MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible" +  # Enable once error parsing more permissive
-        ",MultiPartySubmissionIT:MPSCreateInsufficientAuthorization" +  # canton returns INTERNAL instead of INVALID_ARGUMENT
-        ",ContractIdIT:AcceptSuffixedV1CidExerciseTarget",  # Racy with: ABORTED: CONTRACT_NOT_FOUND(14,0): Contract could not be found with id
+        "--include=" + ",".join([
+            "MultiPartySubmissionIT",
+            # ",CommandDeduplicationParallelIT", - can be re-enabled once canton exposes the feature descriptors
+            "CompletionDeduplicationInfoITCommandService",
+            "CompletionDeduplicationInfoITCommandSubmissionService",
+        ]),
+        "--exclude=" + ",".join([
+            "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",  # Enable once error parsing more permissive
+            "MultiPartySubmissionIT:MPSCreateInsufficientAuthorization",  # canton returns INTERNAL instead of INVALID_ARGUMENT
+            "ContractIdIT:AcceptSuffixedV1CidExerciseTarget",  # Racy with: ABORTED: CONTRACT_NOT_FOUND(14,0): Contract could not be found with id
+        ]),
     ],
 ) if not is_windows else None
 
