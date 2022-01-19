@@ -5,7 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
-  ContractIdFeatures,
+  ExperimentalContractIds,
 }
 import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionResponse
 
@@ -14,7 +14,8 @@ final case class Features(
     selfServiceErrorCodes: Boolean,
     staticTime: Boolean,
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
-    contractIds: ContractIdFeatures,
+    optionalLedgerId: Boolean = false,
+    contractIds: ExperimentalContractIds,
 )
 
 object Features {
@@ -23,7 +24,7 @@ object Features {
     selfServiceErrorCodes = false,
     staticTime = false,
     commandDeduplicationFeatures = CommandDeduplicationFeatures.defaultInstance,
-    contractIds = ContractIdFeatures.defaultInstance,
+    contractIds = ExperimentalContractIds.defaultInstance,
   )
 
   def fromApiVersionResponse(response: GetLedgerApiVersionResponse): Features = {
@@ -35,6 +36,7 @@ object Features {
       selfServiceErrorCodes = experimental.selfServiceErrorCodes.isDefined,
       staticTime = experimental.getStaticTime.supported,
       commandDeduplicationFeatures = experimental.getCommandDeduplication,
+      optionalLedgerId = experimental.optionalLedgerId.isDefined,
       contractIds = experimental.getContractIds,
     )
   }

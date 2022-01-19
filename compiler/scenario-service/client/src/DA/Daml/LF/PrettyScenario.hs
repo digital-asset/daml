@@ -354,11 +354,6 @@ prettyScenarioErrorError (Just err) =  do
     ScenarioErrorErrorScenarioPartyAlreadyExists name ->
       pure $ "Tried to allocate a party that already exists: " <-> ltext name
 
-    ScenarioErrorErrorScenarioUserNotFound userId ->
-      pure $ "User not found: " <-> ltext userId
-    ScenarioErrorErrorScenarioUserAlreadyExists userId ->
-      pure $ "User already exists: " <-> ltext userId
-
     ScenarioErrorErrorScenarioContractNotVisible ScenarioError_ContractNotVisible{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise a contract not visible to the reading parties."

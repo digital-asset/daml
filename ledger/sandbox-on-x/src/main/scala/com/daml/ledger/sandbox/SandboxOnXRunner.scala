@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
-  ContractIdFeatures,
+  ExperimentalContractIds,
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -257,9 +257,9 @@ object SandboxOnXRunner {
         deduplicationType = CommandDeduplicationType.SYNC_ONLY,
         maxDeduplicationDurationEnforced = false,
       ),
-      contractIdFeatures = ContractIdFeatures.of(
-        v0 = ContractIdFeatures.ContractIdV0Support.SUPPORTED,
-        v1 = ContractIdFeatures.ContractIdV1Support.BOTH,
+      contractIdFeatures = ExperimentalContractIds.of(
+        v0 = ExperimentalContractIds.ContractIdV0Support.SUPPORTED,
+        v1 = ExperimentalContractIds.ContractIdV1Support.BOTH,
       ),
     )
 

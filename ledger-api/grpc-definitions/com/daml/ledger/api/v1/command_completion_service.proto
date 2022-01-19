@@ -51,7 +51,7 @@ service CommandCompletionService {
 message CompletionStreamRequest {
   // Must correspond to the ledger id reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 
   // Only completions of commands submitted with the same application_id will be visible in the stream.
@@ -104,7 +104,7 @@ message Checkpoint {
 message CompletionEndRequest {
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 }
 

@@ -6,7 +6,7 @@ package com.daml.ledger.api.messages.transaction
 import com.daml.ledger.api.domain.{LedgerId, LedgerOffset, TransactionFilter}
 
 final case class GetTransactionsRequest(
-    ledgerId: LedgerId,
+    ledgerId: Option[LedgerId],
     startExclusive: LedgerOffset,
     endInclusive: Option[LedgerOffset],
     filter: TransactionFilter,

@@ -46,10 +46,6 @@ type SandboxTest = WithSandbox -> TestTree
 sharedSandboxTests :: FilePath -> TestTree
 sharedSandboxTests testDar = testGroupWithSandbox testDar Nothing "shared sandbox"
     [ tGetLedgerIdentity
-    -- The reset service causes a bunch of issues so for now
-    -- we disable these tests.
-    -- , tReset
-    -- , tMultipleResets
     , tListPackages
     , tGetPackage
     , tGetPackageBad
@@ -102,24 +98,6 @@ tGetLedgerIdentity :: SandboxTest
 tGetLedgerIdentity withSandbox = testCase "getLedgerIdentity" $ run withSandbox $ \_darMetadata _testId -> do
     lid <- getLedgerIdentity
     liftIO $ assertEqual "ledger-id" lid (LedgerId "my-ledger-id")
-
-{-
-tReset :: SandboxTest
-tReset withSandbox = testCase "reset" $ run withSandbox $ \_ _ -> do
-    lid1 <- getLedgerIdentity
-    Ledger.reset lid1
-    lid2 <- getLedgerIdentity
-    liftIO $ assertBool "lid1 /= lid2" (lid1 /= lid2)
-
-tMultipleResets :: SandboxTest
-tMultipleResets withSandbox = testCase "multipleResets" $ run withSandbox $ \_pid _testId -> do
-    let resetsCount = 20
-    lids <- forM [1 .. resetsCount] $ \_ -> do
-        lid <- getLedgerIdentity
-        Ledger.reset lid
-        pure lid
-    liftIO $ assertEqual "Ledger IDs are unique" resetsCount (Set.size $ Set.fromList lids)
--}
 
 tListPackages :: SandboxTest
 tListPackages withSandbox = testCase "listPackages" $ run withSandbox $ \DarMetadata{mainPackageId,manifest} _testId -> do
@@ -681,14 +659,6 @@ runWithSandbox port mbSecret tid ls = runLedgerService ls' timeout (configOfPort
 makeSignedJwt' :: Secret -> TestId -> String
 makeSignedJwt' secret tid =
     makeSignedJwt (getSecret secret) [TL.unpack $ unParty $ p tid | p <- [alice, bob]]
-
-
--- resetSandbox :: Sandbox-> IO ()
--- resetSandbox sandbox = runWithSandbox sandbox $ do
---     lid <- getLedgerIdentity
---     Ledger.reset lid
---     lid2 <- getLedgerIdentity
---     unless (lid /= lid2) $ fail "resetSandbox: reset did not change the ledger-id"
 
 ----------------------------------------------------------------------
 -- misc expectation combinators

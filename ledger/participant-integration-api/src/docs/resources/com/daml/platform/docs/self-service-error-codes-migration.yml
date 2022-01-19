@@ -50,8 +50,6 @@ ledgerIdMismatch:
   changeExplanation: "The ledger id from the request does match the participant's ledger id."
   selfServiceErrorCodeId: LEDGER_ID_MISMATCH
   services:
-    SandboxResetService:
-      - reset
     TimeService:
       - getTimeSource
       - setTime

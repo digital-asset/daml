@@ -15,7 +15,7 @@ import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
-  ContractIdFeatures,
+  ExperimentalContractIds,
 }
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.index.v2.{IndexService, UserManagementStore}
@@ -63,7 +63,7 @@ object StandaloneApiServer {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
       commandDeduplicationFeatures: CommandDeduplicationFeatures,
-      contractIdFeatures: ContractIdFeatures,
+      contractIdFeatures: ExperimentalContractIds,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,

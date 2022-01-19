@@ -23,11 +23,11 @@ import io.grpc.{Status, StatusRuntimeException}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
+// See `daml-lf/spec/contract-id.rst` for more information on contract ID formats.
 // Check the Ledger API accepts or rejects non-suffixed contract ID.
 // - Central committer ledger implementations (sandboxes, KV...) may accept non-suffixed CID
 // - Distributed ledger implementations (e.g. Canton) must reject non-suffixed CID
 final class ContractIdIT extends LedgerTestSuite {
-
   List(
     TestConfiguration(
       description = "v0",

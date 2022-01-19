@@ -3,6 +3,4 @@
 
 package com.daml.ledger.api.messages.transaction
 
-import com.daml.ledger.api.domain.LedgerId
-
-final case class GetLedgerEndRequest(ledgerId: LedgerId)
+final case class GetLedgerEndRequest()

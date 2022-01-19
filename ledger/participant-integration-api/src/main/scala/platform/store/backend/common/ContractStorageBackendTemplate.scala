@@ -335,7 +335,7 @@ class ContractStorageBackendTemplate(
         )
       val coalescedColumns: String = resultColumns
         .map(columnName =>
-          s"COALESCE(divulgence_events.$columnName, create_event_unrestricted.$columnName)"
+          s"COALESCE(divulgence_events.$columnName, create_event_unrestricted.$columnName) as $columnName"
         )
         .mkString(", ")
       activeContractSqlLiteral(

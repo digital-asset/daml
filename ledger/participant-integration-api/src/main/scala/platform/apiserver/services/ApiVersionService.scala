@@ -10,8 +10,9 @@ import com.daml.error.{
 }
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
-  ContractIdFeatures,
+  ExperimentalContractIds,
   ExperimentalFeatures,
+  ExperimentalOptionalLedgerId,
   ExperimentalSelfServiceErrorCodes,
   ExperimentalStaticTime,
 }
@@ -36,7 +37,7 @@ import scala.util.control.NonFatal
 private[apiserver] final class ApiVersionService private (
     enableSelfServiceErrorCodes: Boolean,
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
-    contractIdFeatures: ContractIdFeatures,
+    contractIdFeatures: ExperimentalContractIds,
     enableStaticTime: Boolean,
 )(implicit
     loggingContext: LoggingContext,
@@ -62,6 +63,7 @@ private[apiserver] final class ApiVersionService private (
             Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes()),
           staticTime = Some(ExperimentalStaticTime(supported = enableStaticTime)),
           commandDeduplication = Some(commandDeduplicationFeatures),
+          optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
           contractIds = Some(contractIdFeatures),
         )
       ),
@@ -106,7 +108,7 @@ private[apiserver] object ApiVersionService {
   def create(
       enableSelfServiceErrorCodes: Boolean,
       commandDeduplicationFeatures: CommandDeduplicationFeatures,
-      contractIdFeatures: ContractIdFeatures,
+      contractIdFeatures: ExperimentalContractIds,
       enableStaticTime: Boolean,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
     new ApiVersionService(
