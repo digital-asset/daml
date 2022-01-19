@@ -769,6 +769,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       pruneUpTo: String,
       attempts: Int,
       pruneAllDivulgedContracts: Boolean,
+      failureExpected: Boolean,
   ): Future[PruneResponse] =
     // Distributed ledger participants need to reach global consensus prior to pruning. Hence the "eventually" here:
     eventually(
@@ -778,8 +779,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
           .prune(
             PruneRequest(pruneUpTo, nextSubmissionId(), pruneAllDivulgedContracts)
           )
-          .andThen { case Failure(exception) =>
-            logger.error("Failed to prune", exception)(LoggingContext.ForTesting)
+          .andThen {
+            case Failure(exception) if !failureExpected =>
+              logger.error("Failed to prune", exception)(LoggingContext.ForTesting)
           }
       },
     )
@@ -788,8 +790,14 @@ private[testtool] final class ParticipantTestContext private[participant] (
       pruneUpTo: LedgerOffset,
       attempts: Int = 10,
       pruneAllDivulgedContracts: Boolean = false,
+      failureExpected: Boolean = false,
   ): Future[PruneResponse] =
-    prune(pruneUpTo.getAbsolute, attempts, pruneAllDivulgedContracts)
+    prune(
+      pruneUpTo = pruneUpTo.getAbsolute,
+      attempts = attempts,
+      pruneAllDivulgedContracts = pruneAllDivulgedContracts,
+      failureExpected = failureExpected,
+    )
 
   private[infrastructure] def preallocateParties(
       n: Int,
