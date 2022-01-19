@@ -58,7 +58,7 @@ module Daml.Script
   , UserNotFound(..)
   , User(..)
   , UserRight(..)
-  , getTextOfUserId
+  , userIdToText
   , validateUserId
   , createUser
   , createUserOn
@@ -771,8 +771,8 @@ newtype UserId = UserId Text deriving (Eq, Ord)
 
 instance Show UserId where show (UserId text) = "'" <> text <> "'"
 
-getTextOfUserId : UserId -> Text
-getTextOfUserId (UserId text) = text
+userIdToText : UserId -> Text
+userIdToText (UserId text) = text
 
 -- | HIDE User as used in the user management service
 data User = User
@@ -806,7 +806,7 @@ exception UserAlreadyExists
   with
     userId : UserId
   where
-    message (getTextOfUserId userId)
+    message (userIdToText userId)
 
 checkUserAlreadyExists : UserId -> Script (Optional ()) -> Script ()
 checkUserAlreadyExists userId script = do
@@ -819,7 +819,7 @@ exception UserNotFound
   with
     userId : UserId
   where
-    message (getTextOfUserId userId)
+    message (userIdToText userId)
 
 checkUserNotFound : UserId -> Script (Optional a) -> Script a
 checkUserNotFound userId script = do
