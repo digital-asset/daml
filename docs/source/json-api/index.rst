@@ -1606,7 +1606,7 @@ HTTP Response
     }
 
 List Specific User Rights
-*****************
+*************************
 
 This endpoint is a JSON API proxy for the Ledger API's :ref:`ListUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUserRightsRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
 
