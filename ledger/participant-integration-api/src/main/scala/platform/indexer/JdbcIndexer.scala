@@ -20,9 +20,7 @@ import com.daml.platform.store.DbType.{
 }
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
-import com.daml.platform.store.backend.{
-  StorageBackendFactory,
-}
+import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
