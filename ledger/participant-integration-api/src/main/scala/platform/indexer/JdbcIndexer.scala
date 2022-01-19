@@ -34,7 +34,7 @@ object JdbcIndexer {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
   )(implicit materializer: Materializer) {
 
-    def initialized(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
+    def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
       val factory = StorageBackendFactory.of(DbType.jdbcType(config.jdbcUrl))
       val dataSourceStorageBackend = factory.createDataSourceStorageBackend
       val ingestionStorageBackend = factory.createIngestionStorageBackend

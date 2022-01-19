@@ -264,7 +264,7 @@ class IntegrityChecker[LogResult](
           .migrateOnly(
             jdbcUrl = config.jdbcUrl
           )
-          .map(_ => indexerFactory.initialized(loggingContext))(materializer.executionContext)
+          .map(_ => indexerFactory.initialized())(materializer.executionContext)
       )
       migrated <- migrating
     } yield migrated

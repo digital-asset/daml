@@ -89,7 +89,7 @@ class IndexerBenchmark() {
               .migrateOnly(
                 jdbcUrl = config.indexerConfig.jdbcUrl
               )
-              .map(_ => indexerFactory.initialized(loggingContext))(indexerEC),
+              .map(_ => indexerFactory.initialized())(indexerEC),
             Duration(5, "minute"),
           )
           .acquire()

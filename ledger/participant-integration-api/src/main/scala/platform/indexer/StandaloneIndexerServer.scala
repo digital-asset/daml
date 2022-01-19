@@ -48,7 +48,7 @@ final class StandaloneIndexerServer(
     ): Resource[ReportsHealth] =
       Resource
         .fromFuture(migration)
-        .flatMap(_ => indexerFactory.initialized.acquire())
+        .flatMap(_ => indexerFactory.initialized().acquire())
         .flatMap(indexer.start)
         .map { case (healthReporter, _) =>
           logger.debug(initializedDebugLogMessage)
