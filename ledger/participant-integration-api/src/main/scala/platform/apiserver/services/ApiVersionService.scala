@@ -55,7 +55,6 @@ private[apiserver] final class ApiVersionService private (
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
-//      userManagement = if (enableUserManagement) Some(UserManagementFeature()) else None,
       userManagement = Some(UserManagementFeature(supported = enableUserManagement)),
       experimental = Some(
         ExperimentalFeatures(
