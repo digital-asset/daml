@@ -237,41 +237,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
   // relative to other catchable errors and other non-catchable errors but we don’t
   // need to check ordering of non-catchable errors relative to other non-cachable errors.
 
-  val createTraces = Seq(
-    "starts test",
-    "precondition",
-    "agreement",
-    "contract signatories",
-    "contract observers",
-    "key",
-    "maintainers",
-    "ends test",
-  )
-
-  val localFetchByIdTraces = Seq("starts test", "ends test")
-
-  val globalFetchByIdTraces = Seq(
-    "starts test",
-    "queries contract",
-    "contract signatories",
-    "contract observers",
-    "key",
-    "maintainers",
-    "ends test",
-  )
-
-  val localFetchByKeyTraces = Seq("starts test", "maintainers", "ends test")
-
-  val globalFetchByKeyTraces = Seq(
-    "starts test",
-    "maintainers",
-    "queries key",
-    "queries contract",
-    "contract signatories",
-    "contract observers",
-    "ends test",
-  )
-
   "evaluation order" - {
 
     "create" - {
@@ -286,7 +251,18 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Array(SParty(alice), SParty(bob)),
           Set(alice),
         )
-        inside(res) { case Success(Right(_)) => msgs shouldBe createTraces }
+        inside(res) { case Success(Right(_)) =>
+          msgs shouldBe Seq(
+            "starts test",
+            "precondition",
+            "agreement",
+            "contract signatories",
+            "contract observers",
+            "key",
+            "maintainers",
+            "ends test",
+          )
+        }
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of create with failed precondition
@@ -320,7 +296,15 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.DuplicateContractKey(_)))) =>
-          msgs shouldBe createTraces.dropRight(1)
+          msgs shouldBe Seq(
+            "starts test",
+            "precondition",
+            "agreement",
+            "contract signatories",
+            "contract observers",
+            "key",
+            "maintainers",
+          )
         }
       }
 
@@ -338,7 +322,15 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           case Success(
                 Left(SErrorDamlException(IE.CreateEmptyContractKeyMaintainers(T, _, _)))
               ) =>
-            msgs shouldBe createTraces.dropRight(1)
+            msgs shouldBe Seq(
+              "starts test",
+              "precondition",
+              "agreement",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+            )
         }
       }
 
@@ -353,7 +345,15 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Set(bob),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-          msgs shouldBe createTraces.dropRight(1)
+          msgs shouldBe Seq(
+            "starts test",
+            "precondition",
+            "agreement",
+            "contract signatories",
+            "contract observers",
+            "key",
+            "maintainers",
+          )
         }
       }
 
@@ -372,7 +372,15 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.ContractIdInContractKey(_)))) =>
-          msgs shouldBe createTraces.dropRight(1)
+          msgs shouldBe Seq(
+            "starts test",
+            "precondition",
+            "agreement",
+            "contract signatories",
+            "contract observers",
+            "key",
+            "maintainers",
+          )
         }
       }
 
@@ -387,7 +395,15 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe createTraces.dropRight(1)
+          msgs shouldBe Seq(
+            "starts test",
+            "precondition",
+            "agreement",
+            "contract signatories",
+            "contract observers",
+            "key",
+            "maintainers",
+          )
         }
       }
 
@@ -403,7 +419,15 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe createTraces.dropRight(1)
+          msgs shouldBe Seq(
+            "starts test",
+            "precondition",
+            "agreement",
+            "contract signatories",
+            "contract observers",
+            "key",
+            "maintainers",
+          )
         }
       }
     }
@@ -421,7 +445,17 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Set(alice),
             getContract = getContract,
           )
-          inside(res) { case Success(Right(_)) => msgs shouldBe globalFetchByIdTraces }
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "queries contract",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+              "ends test",
+            )
+          }
         }
 
         // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly type non-cached global contract
@@ -459,7 +493,14 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
 
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe globalFetchByIdTraces.dropRight(1)
+            msgs shouldBe Seq(
+              "starts test",
+              "queries contract",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+            )
           }
         }
       }
@@ -556,7 +597,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe localFetchByIdTraces
+            msgs shouldBe Seq("starts test", "ends test")
           }
         }
 
@@ -641,7 +682,17 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getContract = getContract,
             getKey = getKey,
           )
-          inside(res) { case Success(Right(_)) => msgs shouldBe globalFetchByKeyTraces }
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "maintainers",
+              "queries key",
+              "queries contract",
+              "contract signatories",
+              "contract observers",
+              "ends test",
+            )
+          }
         }
 
         // This case may happen only if there is a bug in the ledger.
@@ -685,7 +736,14 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getKey = getKey,
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe globalFetchByKeyTraces.dropRight(1)
+            msgs shouldBe Seq(
+              "starts test",
+              "maintainers",
+              "queries key",
+              "queries contract",
+              "contract signatories",
+              "contract observers",
+            )
           }
         }
       }
@@ -760,7 +818,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe localFetchByKeyTraces
+            msgs shouldBe Seq("starts test", "maintainers", "ends test")
           }
         }
 
@@ -778,7 +836,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(key)))) =>
             key.templateId shouldBe T
-            msgs shouldBe localFetchByKeyTraces.dropRight(1)
+            msgs shouldBe Seq("starts test", "maintainers")
           }
         }
       }
@@ -809,7 +867,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         )
         inside(res) {
           case Success(Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _)))) =>
-            msgs shouldBe localFetchByKeyTraces.dropRight(1)
+            msgs shouldBe Seq("starts test", "maintainers")
         }
       }
 
@@ -823,7 +881,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.ContractIdInContractKey(_)))) =>
-          msgs shouldBe localFetchByKeyTraces.dropRight(1)
+          msgs shouldBe Seq("starts test", "maintainers")
         }
       }
 
@@ -836,7 +894,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe localFetchByKeyTraces.dropRight(1)
+          msgs shouldBe Seq("starts test", "maintainers")
         }
       }
     }
