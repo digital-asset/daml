@@ -49,7 +49,7 @@ object PlatformStore {
       timeProviderType: TimeProviderType,
       applicationInfo: ApplicationInfo,
       ledgerMaxInbound: Int,
-      disableUserManagement: Boolean,
+      enableUserManagement: Boolean,
   ): Props =
     Props(
       classOf[PlatformStore],
@@ -60,7 +60,7 @@ object PlatformStore {
       timeProviderType,
       applicationInfo,
       ledgerMaxInbound,
-      disableUserManagement,
+      enableUserManagement,
     )
 
   type PlatformTime = Instant
@@ -94,7 +94,7 @@ class PlatformStore(
     timeProviderType: TimeProviderType,
     applicationInfo: ApplicationInfo,
     ledgerMaxInbound: Int,
-    disableUserManagement: Boolean,
+    enableUserManagement: Boolean,
 ) extends Actor
     with ActorLogging
     with Stash {
@@ -174,7 +174,7 @@ class PlatformStore(
       state.ledgerClient.versionClient
         .getApiFeatures(state.ledgerClient.ledgerId)
         .filter(features => // if we have user management (and it's not disabled)....
-          !disableUserManagement && features.contains(Feature.UserManagement)
+          enableUserManagement && features.contains(Feature.UserManagement)
         )
         .andThen {
           case Success(_) => // .. then only list users on the login screen

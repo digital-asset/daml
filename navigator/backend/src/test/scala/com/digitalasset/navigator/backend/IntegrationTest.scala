@@ -35,12 +35,12 @@ class IntegrationTest
   self: Suite =>
 
   private def withNavigator[A](
-      disableUserManagement: Boolean
+      enableUserManagement: Boolean
   )(testFn: (Uri, LedgerClient) => Future[A]): Future[A] = {
     val args = Arguments(
       port = 0,
       participantPort = serverPort.value,
-      disableUserManagement = disableUserManagement,
+      enableUserManagement = enableUserManagement,
     )
     val sys = ActorSystem("navigator")
     val (graphQL, info, _, getAppState, partyRefresh) = NavigatorBackend.setup(args, Config())(sys)
@@ -82,7 +82,7 @@ class IntegrationTest
     resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
 
   "Navigator (parties)" - {
-    "picks up newly allocated parties" in withNavigator(disableUserManagement = true) {
+    "picks up newly allocated parties" in withNavigator(enableUserManagement = false) {
       case (uri, client) =>
         for {
           resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
@@ -106,7 +106,7 @@ class IntegrationTest
   }
 
   "Navigator (users)" - {
-    "picks up newly created users" in withNavigator(disableUserManagement = false) {
+    "picks up newly created users" in withNavigator(enableUserManagement = true) {
       case (uri, client) =>
         for {
           resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))

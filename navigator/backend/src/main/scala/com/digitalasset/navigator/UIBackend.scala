@@ -251,7 +251,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         arguments.time,
         applicationInfo,
         arguments.ledgerInboundMessageSizeMax,
-        arguments.disableUserManagement,
+        arguments.enableUserManagement,
       )
     )
     // TODO: usermgmt switching: for now we just poll both user and party mgmt
