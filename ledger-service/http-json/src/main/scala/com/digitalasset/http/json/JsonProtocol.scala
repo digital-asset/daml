@@ -78,7 +78,7 @@ object JsonProtocol extends JsonProtocolLow {
 
   // For whatever reason the annotation detection for the deriveFormat is not working correctly.
   // This fixes it.
-  implicit def annotationFix[T]: shapeless.Annotation[Option[Discriminator], T] =
+  private implicit def annotationFix[T]: shapeless.Annotation[Option[Discriminator], T] =
     shapeless.Annotation.mkAnnotation(None)
 
   implicit val userRight: JsonFormat[domain.UserRight] = deriveFormat[domain.UserRight]

@@ -133,7 +133,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
 
-  sealed trait UserRight
+  sealed abstract class UserRight extends Product with Serializable
   final case object ParticipantAdmin extends UserRight
   final case class CanActAs(party: Party) extends UserRight
   final case class CanReadAs(party: Party) extends UserRight

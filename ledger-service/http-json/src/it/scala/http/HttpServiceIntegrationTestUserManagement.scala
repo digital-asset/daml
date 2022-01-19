@@ -83,11 +83,11 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       domain.CanReadAs(spam),
       domain.ParticipantAdmin,
     ).toJson shouldBe
-      JsArray(
-        JsObject("type" -> JsString("CanActAs"), "party" -> JsString(ham.unwrap)),
-        JsObject("type" -> JsString("CanReadAs"), "party" -> JsString(spam.unwrap)),
-        JsObject("type" -> JsString("ParticipantAdmin")),
-      )
+      List(
+        Map("type" -> "CanActAs", "party" -> ham.unwrap),
+        Map("type" -> "CanReadAs", "party" -> spam.unwrap),
+        Map("type" -> "ParticipantAdmin"),
+      ).toJson
   }
 
   "create IOU should work with correct user rights" in withHttpServiceAndClient(
@@ -447,7 +447,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
         initialRights = List(
-          CanActAs(Ref.Party.assertFromString(alice.toString))
+          CanActAs(Ref.Party.assertFromString(alice))
         ),
       )
       (status, output) <- postRequest(
