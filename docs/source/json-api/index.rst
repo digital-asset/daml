@@ -1235,10 +1235,10 @@ HTTP Response
     }
 
 
-Creating a new User
+Creating A New User
 ********************
 
-This endpoint is a JSON API proxy for the Ledger API's :ref:`CreateUserRequest <com.daml.ledger.api.v1.admin.user_management_service.CreateUserRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+This endpoint exposes the Ledger API's :ref:`CreateUserRequest <com.daml.ledger.api.v1.admin.user_management_service.CreateUserRequest>`.
 
 HTTP Request
 ============
@@ -1290,9 +1290,9 @@ HTTP Response
 Get Authenticated User Information
 **********************************
 
-This endpoint is a JSON API proxy for the Ledger API's :ref:`GetUserRequest <com.daml.ledger.api.v1.admin.user_management_service.GetUserRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+This endpoint exposes the Ledger API's :ref:`GetUserRequest <com.daml.ledger.api.v1.admin.user_management_service.GetUserRequest>`.
 
-The user id will always be filled out with the user specified via the currently used User Token.
+The user id will always be filled out with the user specified via the currently used user token.
 
 HTTP Request
 ============
@@ -1317,7 +1317,7 @@ HTTP Response
 Get Specific User Information
 *****************************
 
-This endpoint is a JSON API proxy for the Ledger API's :ref:`GetUserRequest <com.daml.ledger.api.v1.admin.user_management_service.GetUserRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+This endpoint exposes the Ledger API's :ref:`GetUserRequest <com.daml.ledger.api.v1.admin.user_management_service.GetUserRequest>`.
 
 HTTP Request
 ============
@@ -1349,33 +1349,10 @@ HTTP Response
       "status": 200
     }
 
-Delete Current User
-*******************
-
-This endpoint is a JSON API proxy for the Ledger API's :ref:`DeleteUserRequest <com.daml.ledger.api.v1.admin.user_management_service.DeleteUserRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
-
-The user id will always be filled out with the user specified via the currently used User Token.
-
-HTTP Request
-============
-
-- URL: ``/v1/user/delete``
-- Method: ``GET``
-
-HTTP Response
-=============
-
-.. code-block:: json
-
-    {
-      "result": true,
-      "status": 200
-    }
-
 Delete Specific User
 ********************
 
-This endpoint is a JSON API proxy for the Ledger API's :ref:`DeleteUserRequest <com.daml.ledger.api.v1.admin.user_management_service.DeleteUserRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+This endpoint exposes the Ledger API's :ref:`DeleteUserRequest <com.daml.ledger.api.v1.admin.user_management_service.DeleteUserRequest>`.
 
 HTTP Request
 ============
@@ -1407,7 +1384,7 @@ HTTP Response
 List users
 **********
 
-This endpoint is a JSON API proxy for the Ledger API's :ref:`ListUsersRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUsersRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+This endpoint exposes the Ledger API's :ref:`ListUsersRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUsersRequest>`.
 
 HTTP Request
 ============
@@ -1437,7 +1414,7 @@ HTTP Response
 Grant User Rights
 *****************
 
-This endpoint is a JSON API proxy for the Ledger API's :ref:`GrantUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.GrantUserRightsRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+This endpoint exposes the Ledger API's :ref:`GrantUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.GrantUserRightsRequest>`.
 
 HTTP Request
 ============
@@ -1503,7 +1480,7 @@ Returns back the rights which were actually applied as existing rights are ignor
 Revoke User Rights
 ******************
 
-This endpoint is a JSON API proxy for the Ledger API's :ref:`RevokeUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.RevokeUserRightsRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+This endpoint exposes the Ledger API's :ref:`RevokeUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.RevokeUserRightsRequest>`.
 
 HTTP Request
 ============
@@ -1569,9 +1546,9 @@ Returns back the rights which were actually revoked as non-existing rights are i
 List Authenticated User Rights
 ******************************
 
-This endpoint is a JSON API proxy for the Ledger API's :ref:`ListUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUserRightsRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+This endpoint exposes the Ledger API's :ref:`ListUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUserRightsRequest>`.
 
-The user id will always be filled out with the user specified via the currently used User Token.
+The user id will always be filled out with the user specified via the currently used user token.
 
 HTTP Request
 ============
@@ -1608,7 +1585,7 @@ HTTP Response
 List Specific User Rights
 *************************
 
-This endpoint is a JSON API proxy for the Ledger API's :ref:`ListUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUserRightsRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+This endpoint exposes the Ledger API's :ref:`ListUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUserRightsRequest>`.
 
 HTTP Request
 ============
