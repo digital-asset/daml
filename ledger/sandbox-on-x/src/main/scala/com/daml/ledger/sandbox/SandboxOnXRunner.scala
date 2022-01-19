@@ -161,7 +161,6 @@ object SandboxOnXRunner {
 
           indexerHealthChecks <- buildIndexerServer(
             metrics,
-            servicesExecutionContext,
             new TimedReadService(readServiceWithSubscriber, metrics),
             translationCache,
           )
@@ -260,7 +259,6 @@ object SandboxOnXRunner {
 
   private def buildIndexerServer(
       metrics: Metrics,
-      servicesExecutionContext: ExecutionContextExecutorService,
       readService: ReadService,
       translationCache: LfValueTranslationCache.Cache,
   )(implicit
@@ -273,7 +271,6 @@ object SandboxOnXRunner {
       indexerHealth <- new StandaloneIndexerServer(
         readService = readService,
         config = BridgeConfigProvider.indexerConfig(participantConfig, config),
-        servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         lfValueTranslationCache = translationCache,
       )

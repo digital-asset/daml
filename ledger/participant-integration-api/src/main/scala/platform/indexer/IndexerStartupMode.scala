@@ -11,8 +11,6 @@ object IndexerStartupMode {
 
   case object MigrateAndStart extends IndexerStartupMode
 
-  case object ResetAndStart extends IndexerStartupMode
-
   case object ValidateAndWaitOnly extends IndexerStartupMode
 
   case object MigrateOnEmptySchemaAndStart extends IndexerStartupMode

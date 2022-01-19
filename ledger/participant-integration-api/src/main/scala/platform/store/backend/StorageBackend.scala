@@ -37,14 +37,6 @@ import scala.util.Try
 
 trait ResetStorageBackend {
 
-  /** Truncates all storage backend tables, EXCEPT the packages table.
-    * Does not touch other tables, like the Flyway history table.
-    * Reason: the reset() call is used by the ledger API reset service,
-    * which is mainly used for application tests in another big project,
-    * and re-uploading packages after each test significantly slows down their test time.
-    */
-  def reset(connection: Connection): Unit
-
   /** Truncates ALL storage backend tables.
     * Does not touch other tables, like the Flyway history table.
     * The result is a database that looks the same as a freshly created database with Flyway migrations applied.

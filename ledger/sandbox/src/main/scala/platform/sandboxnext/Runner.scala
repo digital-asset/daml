@@ -191,7 +191,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
             allowExistingSchema = true,
             enableCompression = config.enableCompression,
           ),
-          servicesExecutionContext = servicesExecutionContext,
           metrics = metrics,
           lfValueTranslationCache = lfValueTranslationCache,
         )
