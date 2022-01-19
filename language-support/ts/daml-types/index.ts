@@ -43,6 +43,7 @@ export interface Template<T extends object, K = unknown, I extends string = stri
    * @internal
    */
   keyEncode: (k: K) => unknown;
+  // eslint-disable-next-line @typescript-eslint/ban-types
   Archive: Choice<T, {}, {}, K>;
 }
 

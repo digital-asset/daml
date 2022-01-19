@@ -336,6 +336,20 @@ final class Metrics(val registry: MetricRegistry) {
       }
     }
 
+    object userManagement {
+      private val Prefix = daml.Prefix :+ "user_management"
+
+      val cache = new CacheMetrics(registry, Prefix :+ "cache")
+
+      private def createDbMetrics(name: String): DatabaseMetrics =
+        new DatabaseMetrics(registry, Prefix, name)
+      val getUserInfo: DatabaseMetrics = createDbMetrics("get_user_info")
+      val createUser: DatabaseMetrics = createDbMetrics("create_user")
+      val deleteUser: DatabaseMetrics = createDbMetrics("delete_user")
+      val grantRights: DatabaseMetrics = createDbMetrics("grant_rights")
+      val revokeRights: DatabaseMetrics = createDbMetrics("revoke_rights")
+      val listUsers: DatabaseMetrics = createDbMetrics("list_users")
+    }
     object index {
       private val Prefix = daml.Prefix :+ "index"
 

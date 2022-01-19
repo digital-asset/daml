@@ -38,8 +38,6 @@ genrule(
     """,
 )
 
-ts_docs("daml-types")
-
 eslint_test(
     name = "lint",
     srcs = sources,

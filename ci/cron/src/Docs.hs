@@ -1,6 +1,27 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+
+-- | The docs cronjob runs through the following steps
+--
+-- 1. Download the list of available releases from GH releases.
+-- 2. Download the list of available releases from S3 based on the contents of
+--    `/versions.json` and `/snapshots.json`.
+-- 3. For each version that is in GH but not in S3 run through those steps:
+--    3.1. Check if the release has already been uploaded under `/$version/`. If so do nothing.
+--         We hit this for the split release process for 2.0 and newer.
+--    3.2. If not, build it in the Daml repository and upload.
+--         We hit this for the non-split release process.
+-- 4. At this point, all releases have been uploaded. What remains to be done is
+--    updating the top-level release to the latest stable release that has
+--    been marked stable on GH.
+-- 5. Finally we update the versions.json and snapshots.json on S3 to match GH.
+--
+-- This assumes that:
+--
+-- 1. The assembly repo uploads a release to `/version/` but leaves
+--    moving it to the top-level to this cron job.
+-- 2. The assembly repo uploads to S3 before creating a GH release.
 module Docs (docs, sdkDocOpts, damlOnSqlDocOpts) where
 
 import Control.Exception.Safe
@@ -8,6 +29,7 @@ import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString.Lazy.UTF8 as LBS
+import Data.Either (isRight)
 import qualified Data.Foldable
 import Data.Function ((&))
 import qualified Data.HashMap.Strict as H
@@ -72,14 +94,27 @@ s3Path :: DocOptions -> FilePath -> String
 s3Path DocOptions{s3Subdir} file =
     "s3://docs-daml-com" </> fromMaybe "" s3Subdir </> file
 
+-- We use a check for the versions.json file to check if the docs for a given version exist or not.
+-- This is technically slightly racy if the upload happens concurrently and we end up with a partial upload
+-- but the window seems small enough to make this acceptable.
+doesVersionExist :: DocOptions -> Version -> IO Bool
+doesVersionExist opts version = do
+    r <- tryIO $ IO.withTempFile $ \file -> proc_ ["aws", "s3", "cp", s3Path opts (show version </> "versions.json"), file]
+    pure (isRight r)
+
 build_and_push :: DocOptions -> FilePath -> [Version] -> IO ()
 build_and_push opts@DocOptions{build} temp versions = do
     restore_sha $ do
         Data.Foldable.for_ versions (\version -> do
-            putStrLn $ "Building " <> show version <> "..."
-            build temp version
-            putStrLn $ "Pushing " <> show version <> " to S3 (as subfolder)..."
-            push version
+            putStrLn $ "Check if version  " <> show version <> " exists ..."
+            exists <- doesVersionExist opts version
+            if exists
+                then putStrLn $ "Version " <> show version <> " already exists (split-release)"
+                else do
+                    putStrLn $ "Building " <> show version <> "..."
+                    build temp version
+                    putStrLn $ "Pushing " <> show version <> " to S3 (as subfolder)..."
+                    push version
             putStrLn "Done.")
     where
         restore_sha io =
@@ -96,6 +131,8 @@ fetch_if_missing :: DocOptions -> FilePath -> Version -> IO ()
 fetch_if_missing opts temp v = do
     missing <- not <$> Directory.doesDirectoryExist (temp </> show v)
     if missing then do
+        -- We hit this for all split releases as well as non-split releases that
+        -- have been built before being marked stable.
         putStrLn $ "Downloading " <> show v <> "..."
         proc_ ["aws", "s3", "cp", s3Path opts (show v), temp </> show v, "--recursive"]
         putStrLn "Done."

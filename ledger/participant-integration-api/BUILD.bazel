@@ -84,6 +84,7 @@ compile_deps = [
     "@maven//:org_postgresql_postgresql",
     "@maven//:com_oracle_database_jdbc_ojdbc8",
     "@maven//:com_google_api_grpc_proto_google_common_protos",
+    "@maven//:com_github_ben_manes_caffeine_caffeine",
 ]
 
 scala_compile_deps = [

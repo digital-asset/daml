@@ -166,10 +166,13 @@ conformance_test(
         "--include=ContractIdIT:RejectV0,ContractIdIT:RejectNonSuffixedV1Cid,ContractIdIT:AcceptSuffixedV1Cid" +
         ",MultiPartySubmissionIT" +
         #",CommandDeduplicationParallelIT" + - can be re-enabled once canton exposes the feature descriptors
-        ",CompletionDeduplicationInfoITCommandService,CompletionDeduplicationInfoITCommandSubmissionService",
+        ",CompletionDeduplicationInfoITCommandService,CompletionDeduplicationInfoITCommandSubmissionService" +
+        ",CommandDeduplicationPeriodValidationIT",
         "--exclude=MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible" +  # Enable once error parsing more permissive
         ",MultiPartySubmissionIT:MPSCreateInsufficientAuthorization" +  # canton returns INTERNAL instead of INVALID_ARGUMENT
         ",ContractIdIT:AcceptSuffixedV1CidExerciseTarget",  # Racy with: ABORTED: CONTRACT_NOT_FOUND(14,0): Contract could not be found with id
+        # Needs SDK upgrade
+        "--exclude=CommandDeduplicationPeriodValidationIT:InvalidOffset",
     ],
 ) if not is_windows else None
 
