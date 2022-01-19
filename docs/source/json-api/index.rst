@@ -1501,7 +1501,7 @@ HTTP Response
 Returns back the rights which were actually applied as existing rights are ignored.
 
 Revoke User Rights
-*****************
+******************
 
 This endpoint is a JSON API proxy for the Ledger API's :ref:`RevokeUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.RevokeUserRightsRequest>`. For more information about user management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
 
