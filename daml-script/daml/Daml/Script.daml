@@ -58,7 +58,7 @@ module Daml.Script
   , UserNotFound(..)
   , User(..)
   , UserRight(..)
-  , userName
+  , userIdToText
   , validateUserId
   , createUser
   , createUserOn
@@ -767,10 +767,12 @@ submitTreeMulti actAs readAs cmds =
 
 
 -- | HIDE Identifier for a user in the user management service
-data UserId = UserId
-  with
-    userName : Text
-  deriving (Eq, Ord, Show)
+newtype UserId = UserId Text deriving (Eq, Ord)
+
+instance Show UserId where show (UserId text) = "'" <> text <> "'"
+
+userIdToText : UserId -> Text
+userIdToText (UserId text) = text
 
 -- | HIDE User as used in the user management service
 data User = User
@@ -804,7 +806,7 @@ exception UserAlreadyExists
   with
     userId : UserId
   where
-    message (userName userId)
+    message (userIdToText userId)
 
 checkUserAlreadyExists : UserId -> Script (Optional ()) -> Script ()
 checkUserAlreadyExists userId script = do
@@ -817,7 +819,7 @@ exception UserNotFound
   with
     userId : UserId
   where
-    message (userName userId)
+    message (userIdToText userId)
 
 checkUserNotFound : UserId -> Script (Optional a) -> Script a
 checkUserNotFound userId script = do
