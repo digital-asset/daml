@@ -232,7 +232,6 @@ class Endpoints(
           path("query") & withTimer(queryAllTimer) apply
             toRoute(retrieveAll(req)),
           path("user") apply toRoute(getAuthenticatedUser(req)),
-          path("user" / "delete") apply toRoute(deleteAuthenticatedUser(req)),
           path("user" / "rights") apply toRoute(
             listAuthenticatedUserRights(req)
           ),
@@ -495,15 +494,6 @@ class Endpoints(
         _ <- EitherT.rightT(userManagementClient.deleteUser(userId, Some(jwt.value)))
       } yield domain.OkResponse(true): domain.SyncResponse[Boolean]
     }(req)
-
-  def deleteAuthenticatedUser(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[Boolean]] =
-    for {
-      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
-      userId <- decodeAndParseUserIdFromToken(jwt, decodeJwt).leftMap(identity[Error])
-      _ <- EitherT.rightT(userManagementClient.deleteUser(userId, Some(jwt.value)))
-    } yield domain.OkResponse(true)
 
   def listUsers(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
