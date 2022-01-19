@@ -11,7 +11,7 @@ locals {
   w = [
     {
       name             = "ci-w1",
-      size             = 0,
+      size             = 6,
       assignment       = "default",
       disk_size        = 400,
       service_accounts = [{}],
