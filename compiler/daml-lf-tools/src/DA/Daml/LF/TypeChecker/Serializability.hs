@@ -161,6 +161,15 @@ checkTemplate mod0 tpl = do
   for_ (tplKey tpl) $ \key -> withContext (ContextTemplate mod0 tpl TPKey) $ do
     checkType SRKey (tplKeyType key)
 
+-- | Check whether a template satisfies all serializability constraints.
+checkInterface :: MonadGamma m => Module -> DefInterface -> m ()
+checkInterface _mod0 iface = do
+  -- TODO https://github.com/digital-asset/daml/issues/12051
+  -- Add per interface choice context.
+  for_ (intFixedChoices iface) $ \ch -> do
+      checkType SRChoiceArg (snd (chcArgBinder ch))
+      checkType SRChoiceRes (chcReturnType ch)
+
 -- | Check whether exception is serializable.
 checkException :: MonadGamma m => Module -> DefException -> m ()
 checkException mod0 exn = do
@@ -179,3 +188,6 @@ checkModule mod0 = do
   for_ (moduleExceptions mod0) $ \exn ->
     withContext (ContextDefException mod0 exn) $
       checkException mod0 exn
+  for_ (moduleInterfaces mod0) $ \iface ->
+    withContext (ContextDefInterface mod0 iface) $
+      checkInterface mod0 iface
