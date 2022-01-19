@@ -767,7 +767,9 @@ submitTreeMulti actAs readAs cmds =
 
 
 -- | HIDE Identifier for a user in the user management service
-newtype UserId = UserId Text deriving (Eq, Ord, Show)
+newtype UserId = UserId Text deriving (Eq, Ord)
+
+instance Show UserId where show (UserId text) = "'" <> text <> "'"
 
 getTextOfUserId : UserId -> Text
 getTextOfUserId (UserId text) = text
