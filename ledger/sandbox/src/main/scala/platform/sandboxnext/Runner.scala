@@ -287,7 +287,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           ),
           contractIdFeatures = ExperimentalContractIds.of(
             v0 = ExperimentalContractIds.ContractIdV0Support.NOT_SUPPORTED,
-            v1 = ExperimentalContractIds.ContractIdV1Support.BOTH,
+            v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
           ),
         )
         _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())

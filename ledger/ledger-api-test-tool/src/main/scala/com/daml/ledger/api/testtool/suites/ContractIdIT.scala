@@ -47,33 +47,20 @@ final class ContractIdIT extends LedgerTestSuite {
       description = "non-suffixed v1",
       example = nonSuffixedV1Cid,
       accepted = true,
-      isSupported =
-        features => features.contractIds.v1.isNonSuffixed || features.contractIds.v1.isBoth,
+      isSupported = features => features.contractIds.v1.isNonSuffixed,
       disabledReason = "non-suffixed V1 contract IDs are not supported",
     ),
     TestConfiguration(
       description = "non-suffixed v1",
       example = nonSuffixedV1Cid,
       accepted = false,
-      isSupported =
-        features => !(features.contractIds.v1.isNonSuffixed || features.contractIds.v1.isBoth),
+      isSupported = features => !features.contractIds.v1.isNonSuffixed,
       disabledReason = "non-suffixed V1 contract IDs are supported",
     ),
     TestConfiguration(
       description = "suffixed v1",
       example = suffixedV1Cid,
       accepted = true,
-      isSupported =
-        features => features.contractIds.v1.isSuffixed || features.contractIds.v1.isBoth,
-      disabledReason = "suffixed V1 contract IDs are not supported",
-    ),
-    TestConfiguration(
-      description = "suffixed v1",
-      example = suffixedV1Cid,
-      accepted = false,
-      isSupported =
-        features => !(features.contractIds.v1.isSuffixed || features.contractIds.v1.isBoth),
-      disabledReason = "suffixed V1 contract IDs are supported",
     ),
   ).foreach {
     case TestConfiguration(cidDescription, example, accepted, isSupported, disabledReason) =>
@@ -222,7 +209,7 @@ object ContractIdIT {
       description: String,
       example: String,
       accepted: Boolean,
-      isSupported: Features => Boolean,
-      disabledReason: String,
+      isSupported: Features => Boolean = _ => true,
+      disabledReason: String = "",
   )
 }

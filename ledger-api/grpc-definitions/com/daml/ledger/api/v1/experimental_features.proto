@@ -90,8 +90,7 @@ message ExperimentalContractIds {
     SUFFIXED = 0;
     // Contract IDs do not need to be suffixed.
     // This can be useful for shorter contract IDs in centralized committer implementations.
+    // Suffixed contract IDs must also be supported.
     NON_SUFFIXED = 1;
-    // Either contract ID format is supported.
-    BOTH = 2;
   }
 }

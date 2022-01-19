@@ -219,7 +219,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   ),
                   contractIdFeatures = ExperimentalContractIds.of(
                     v0 = ExperimentalContractIds.ContractIdV0Support.NOT_SUPPORTED,
-                    v1 = ExperimentalContractIds.ContractIdV1Support.BOTH,
+                    v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
                   ),
                 ).acquire()
               } yield Some(apiServer.port)

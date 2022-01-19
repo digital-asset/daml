@@ -259,7 +259,7 @@ object SandboxOnXRunner {
       ),
       contractIdFeatures = ExperimentalContractIds.of(
         v0 = ExperimentalContractIds.ContractIdV0Support.SUPPORTED,
-        v1 = ExperimentalContractIds.ContractIdV1Support.BOTH,
+        v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
       ),
     )
 
