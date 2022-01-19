@@ -26,6 +26,8 @@ import scala.util.{Failure, Success, Try}
 // - Central committer ledger implementations (sandboxes, KV...) may accept non-suffixed CID
 // - Distributed ledger implementations (e.g. Canton) must reject non-suffixed CID
 final class ContractIdIT extends LedgerTestSuite {
+
+  private[this] val v0Cid = "#V0 Contract ID"
   private[this] val nonSuffixedV1Cid = (0 to 32).map("%02x".format(_)).mkString
   private[this] val suffixedV1Cid = (0 to 48).map("%02x".format(_)).mkString
 
@@ -33,6 +35,20 @@ final class ContractIdIT extends LedgerTestSuite {
     s.split("[ -]").iterator.map(_.capitalize).mkString("")
 
   List[(String, String, Boolean, Features => Boolean, String)](
+    (
+      v0Cid,
+      "V0",
+      true,
+      features => features.contractIds.v0.isSupported,
+      "V0 contract IDs are not supported",
+    ),
+    (
+      v0Cid,
+      "V0",
+      false,
+      features => features.contractIds.v0.isNotSupported,
+      "V0 contract IDs are supported",
+    ),
     (
       nonSuffixedV1Cid,
       "non-suffixed V1",

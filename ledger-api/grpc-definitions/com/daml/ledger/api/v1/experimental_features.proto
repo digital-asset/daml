@@ -71,7 +71,13 @@ enum CommandDeduplicationType {
 
 // See `daml-lf/spec/contract-id.rst` for more information on contract ID formats.
 message ContractIdFeatures {
-  ContractIdV1Support v1 = 1;
+  ContractIdV0Support v0 = 1;
+  ContractIdV1Support v1 = 2;
+
+  enum ContractIdV0Support {
+    NOT_SUPPORTED = 0;
+    SUPPORTED = 1;
+  }
 
   enum ContractIdV1Support {
     // Contract IDs must be suffixed.

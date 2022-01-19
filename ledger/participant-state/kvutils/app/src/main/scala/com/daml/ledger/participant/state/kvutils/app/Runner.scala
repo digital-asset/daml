@@ -218,7 +218,8 @@ final class Runner[T <: ReadWriteService, Extra](
                     maxDeduplicationDurationEnforced = true,
                   ),
                   contractIdFeatures = ContractIdFeatures.of(
-                    v1 = ContractIdFeatures.ContractIdV1Support.BOTH
+                    v0 = ContractIdFeatures.ContractIdV0Support.NOT_SUPPORTED,
+                    v1 = ContractIdFeatures.ContractIdV1Support.BOTH,
                   ),
                 ).acquire()
               } yield Some(apiServer.port)
