@@ -975,34 +975,35 @@ def sdk_platform_test(sdk_version, platform_version):
     exclusions = ["--exclude=" + test for test in get_excluded_tests(test_tool_version = sdk_version, sandbox_version = platform_version)]
 
     if versions.is_stable(sdk_version) and versions.is_stable(platform_version):
-        # Ledger API test tool < 1.5 do not upload the DAR which doesn’t work on Sandbox on X
-        if versions.is_at_least("2.0.0", platform_version) and versions.is_at_least("1.5.0", sdk_version):
-            client_server_test(
-                name = name + "-on-x",
-                client = ledger_api_test_tool,
-                client_args = [
-                    "localhost:6865",
-                ] + exclusions,
-                data = [dar_files],
-                runner = "@//bazel_tools/client_server:runner",
-                runner_args = ["6865"],
-                server = sandbox_on_x,
-                server_args = ["--participant participant-id=example,port=6865"] + sandbox_on_x_args + extra_sandbox_on_x_args,
-                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-            )
-            client_server_test(
-                name = name + "-on-x-postgresql",
-                client = ledger_api_test_tool,
-                client_args = [
-                    "localhost:6865",
-                ] + exclusions,
-                data = [dar_files],
-                runner = "@//bazel_tools/client_server:runner",
-                runner_args = ["6865"],
-                server = ":sandbox-with-postgres-{}".format(platform_version),
-                server_args = [platform_version, "sandbox-on-x", "--participant participant-id=example,port=6865,server-jdbc-url=__jdbcurl__"] + sandbox_on_x_args + extra_sandbox_on_x_args,
-                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-            ) if is_linux else None
+        if versions.is_at_least("2.0.0", platform_version):
+            # Ledger API test tool < 1.5 do not upload the DAR which doesn’t work on Sandbox on X
+            if versions.is_at_least("1.5.0", sdk_version):
+                client_server_test(
+                    name = name + "-on-x",
+                    client = ledger_api_test_tool,
+                    client_args = [
+                        "localhost:6865",
+                    ] + exclusions,
+                    data = [dar_files],
+                    runner = "@//bazel_tools/client_server:runner",
+                    runner_args = ["6865"],
+                    server = sandbox_on_x,
+                    server_args = ["--participant participant-id=example,port=6865"] + sandbox_on_x_args + extra_sandbox_on_x_args,
+                    tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+                )
+                client_server_test(
+                    name = name + "-on-x-postgresql",
+                    client = ledger_api_test_tool,
+                    client_args = [
+                        "localhost:6865",
+                    ] + exclusions,
+                    data = [dar_files],
+                    runner = "@//bazel_tools/client_server:runner",
+                    runner_args = ["6865"],
+                    server = ":sandbox-with-postgres-{}".format(platform_version),
+                    server_args = [platform_version, "sandbox-on-x", "--participant participant-id=example,port=6865,server-jdbc-url=__jdbcurl__"] + sandbox_on_x_args + extra_sandbox_on_x_args,
+                    tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+                ) if is_linux else None
         else:
             client_server_test(
                 name = name,
