@@ -1292,7 +1292,7 @@ Get Authenticated User Information
 
 This endpoint exposes the Ledger API's :ref:`GetUserRequest <com.daml.ledger.api.v1.admin.user_management_service.GetUserRequest>`.
 
-The user id will always be filled out with the user specified via the currently used user token.
+The user ID will always be filled out with the user specified via the currently used user token.
 
 HTTP Request
 ============
@@ -1548,7 +1548,7 @@ List Authenticated User Rights
 
 This endpoint exposes the Ledger API's :ref:`ListUserRightsRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUserRightsRequest>`.
 
-The user id will always be filled out with the user specified via the currently used user token.
+The user ID will always be filled out with the user specified via the currently used user token.
 
 HTTP Request
 ============
