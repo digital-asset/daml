@@ -590,6 +590,12 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
           case (_, _) => Nil
         }
         assert(errors == Nil, s"$hint ACS mismatch: ${errors.mkString(", ")}")
+        val expectedContracts = expected.view.flatMap(allContracts).toSet
+        // This extra, redundant test is to safeguard the above, more fine grained approach
+        assert(
+          expectedContracts == actualSet,
+          s"$hint ACS mismatch\n Extra contracts: ${actualSet -- expectedContracts}\n Missing contracts: ${expectedContracts -- actualSet}",
+        )
       }
 
       val testFs = fixtures.map { case (filter, expectedResultCoords) =>
