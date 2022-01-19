@@ -767,10 +767,10 @@ submitTreeMulti actAs readAs cmds =
 
 
 -- | HIDE Identifier for a user in the user management service
-data UserId = UserId
-  with
-    userName : Text
-  deriving (Eq, Ord, Show)
+newtype UserId = UserId Text deriving (Eq, Ord, Show)
+
+userName : UserId -> Text
+userName (UserId text) = text
 
 -- | HIDE User as used in the user management service
 data User = User
