@@ -24,7 +24,7 @@ object OracleResetStorageBackend extends ResetStorageBackend {
       "party_entries",
       "string_interning",
       "participant_events_create_filter",
-      "truncate table participant_users cascade",
-      "truncate table participant_user_rights cascade",
+      "participant_users",
+      "participant_user_rights",
     ).map(table => SQL"truncate table #$table cascade").foreach(_.execute()(connection))
 }
