@@ -21,7 +21,7 @@ locals {
       size             = 0,
       assignment       = "default",
       disk_size        = 400,
-      service_accounts = [],
+      service_accounts = [{}],
     },
   ]
 }
