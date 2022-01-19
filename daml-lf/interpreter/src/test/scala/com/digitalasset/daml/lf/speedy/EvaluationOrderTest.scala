@@ -84,6 +84,64 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         agreement "";
       };   
     }
+    
+    module Test{
+      val noParty: Option Party = None @Party;
+      val someParty: Party -> Option Party = \(p: Party) -> Some @Party p;
+      val noCid: Option (ContractId Unit) = None @(ContractId Unit);
+      val someCid: ContractId Unit -> Option (ContractId Unit) = \(cid: ContractId Unit) -> Some @(ContractId Unit) cid;
+    
+      val run: forall (t: *). Update t -> Update Unit = 
+        /\(t: *). \(u: Update t) -> 
+          ubind x:Unit <- upure @Unit (TRACE @Unit "starts test" ())
+          in ubind y:t <- u 
+          in upure @Unit (TRACE @Unit "ends test" ());
+
+      val create: M:T -> Update Unit = 
+        \(arg: M:T) -> Test:run @(ContractId M:T) (create @M:T arg);
+
+      val fetch_by_id: Party -> ContractId M:T -> Update Unit =
+        \(fetcher: Party) (cId: ContractId M:T) -> 
+          ubind bridgeId: ContractId Test:Bridge <- create @Test:Bridge Test:Bridge { party = fetcher } 
+          in exercise @Test:Bridge FetchByIdT bridgeId cId;
+
+      val fetch_by_key: Party -> Option Party -> Option (ContractId Unit) -> Int64 -> Update Unit = 
+        \(fetcher: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) -> 
+           ubind bridgeId: ContractId Test:Bridge <- create @Test:Bridge Test:Bridge { party = fetcher } 
+           in exercise @Test:Bridge FetchByKeyT bridgeId (Test:TKeyParams {maintainers = Test:optToList @Party maintainers, optCid = optCid, nesting = nesting});
+
+      val optToList: forall(t:*). Option t -> List t  = 
+        /\(t:*). \(opt: Option t) -> 
+          case opt of 
+             None -> Nil @t
+           | Some x -> Cons @t [x] (Nil @t);
+
+      record @serializable TKeyParams = { maintainers : List Party, optCid : Option (ContractId Unit), nesting: Int64 };
+      val buildTKey: (Test:TKeyParams) -> M:TKey = 
+        \(params: Test:TKeyParams) -> M:TKey { 
+            maintainers = Test:TKeyParams {maintainers} params,
+            optCid = Test:TKeyParams {optCid} params,
+            nested = M:buildNested (Test:TKeyParams {nesting} params)
+          };
+       
+      record @serializable Bridge = { party: Party };
+      template (this: Bridge) = {
+        precondition True;
+        signatories Cons @Party [Test:Bridge {party} this] (Nil @Party);
+        observers Nil @Party;
+        agreement "";
+        choice FetchByIdT (self) (cId: ContractId M:T): Unit,
+          controllers Cons @Party [Test:Bridge {party} this] (Nil @Party),
+          observers Nil @Party
+          to Test:run @M:T (fetch @M:T cId);
+        choice FetchByKeyT (self) (params: Test:TKeyParams): Unit,
+          controllers Cons @Party [Test:Bridge {party} this] (Nil @Party),
+          observers Nil @Party
+          to let key: M:TKey = Test:buildTKey params 
+             in Test:run @<contract: M:T, contractId: ContractId M:T> (fetch_by_key @M:T key);
+      };   
+     
+    }
   """)
 
   private[this] val List(alice, bob, charlie) =
@@ -142,7 +200,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       pkgs: CompiledPackages,
       e: Expr,
       args: Array[SValue],
-      party: Party,
+      parties: Set[Party],
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -156,14 +214,14 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             pkgs,
             seed,
             if (args.isEmpty) se else SEApp(se, args.map(SEValue(_))),
-            Set(party),
+            parties,
             traceLog = traceLog,
           ),
-        getContract = traceLog.tracePF("getContract", getContract),
-        getKey = traceLog.tracePF("getKey", getKey),
+        getContract = traceLog.tracePF("queries contract", getContract),
+        getKey = traceLog.tracePF("queries key", getKey),
       )
     )
-    val msgs = traceLog.getMessages
+    val msgs = traceLog.getMessages.dropWhile(_ != "starts test")
     (res, msgs)
   }
 
@@ -180,32 +238,38 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
   // need to check ordering of non-catchable errors relative to other non-cachable errors.
 
   val createTraces = Seq(
+    "starts test",
     "precondition",
     "agreement",
     "contract signatories",
     "contract observers",
     "key",
     "maintainers",
+    "ends test",
   )
 
-  val localFetchByIdTraces = Seq.empty
+  val localFetchByIdTraces = Seq("starts test", "ends test")
 
   val globalFetchByIdTraces = Seq(
-    "getContract",
+    "starts test",
+    "queries contract",
     "contract signatories",
     "contract observers",
     "key",
     "maintainers",
+    "ends test",
   )
 
-  val localFetchByKeyTraces = Seq("maintainers")
+  val localFetchByKeyTraces = Seq("starts test", "maintainers", "ends test")
 
   val globalFetchByKeyTraces = Seq(
+    "starts test",
     "maintainers",
-    "getKey",
-    "getContract",
+    "queries key",
+    "queries contract",
     "contract signatories",
     "contract observers",
+    "ends test",
   )
 
   "evaluation order" - {
@@ -217,14 +281,12 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(sig : Party) (obs : Party) -> 
-                 create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
+                 Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
            """,
           Array(SParty(alice), SParty(bob)),
-          alice,
+          Set(alice),
         )
-        inside(res) { case Success(Right(_)) =>
-          msgs shouldBe createTraces
-        }
+        inside(res) { case Success(Right(_)) => msgs shouldBe createTraces }
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of create with failed precondition
@@ -234,14 +296,14 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(sig : Party) (obs : Party) -> 
-                create @M:T M:T { signatory = sig, observer = obs, precondition = False, key = M:toKey sig, nested = M:buildNested 0 }
+                Test:create M:T { signatory = sig, observer = obs, precondition = False, key = M:toKey sig, nested = M:buildNested 0 }
            """,
           Array(SParty(alice), SParty(bob)),
-          alice,
+          Set(alice),
         )
         inside(res) {
           case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(T, _, _)))) =>
-            msgs shouldBe Seq("precondition")
+            msgs shouldBe Seq("starts test", "precondition")
         }
       }
 
@@ -252,13 +314,13 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           e"""\(sig : Party) (obs : Party) ->
                 let c: M:T = M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
                 in ubind x : ContractId M:T <- create @M:T c
-                  in create @M:T c
+                  in Test:create c
            """,
           Array(SParty(alice), SParty(bob)),
-          alice,
+          Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.DuplicateContractKey(_)))) =>
-          msgs shouldBe createTraces :++ createTraces
+          msgs shouldBe createTraces.dropRight(1)
         }
       }
 
@@ -266,17 +328,17 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "empty contract key maintainers" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) (obs : Party) -> create @M:T
-              M:T { signatory = sig, observer = obs, precondition = True, key = M:keyNoMaintainers, nested = M:buildNested 0 }
+          e"""\(sig : Party) (obs : Party) -> 
+                Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:keyNoMaintainers, nested = M:buildNested 0 }
            """,
           Array(SParty(alice), SParty(bob)),
-          alice,
+          Set(alice),
         )
         inside(res) {
           case Success(
                 Left(SErrorDamlException(IE.CreateEmptyContractKeyMaintainers(T, _, _)))
               ) =>
-            msgs shouldBe createTraces
+            msgs shouldBe createTraces.dropRight(1)
         }
       }
 
@@ -284,14 +346,14 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "authorization failure" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) (obs : Party) -> create @M:T
-              M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
+          e"""\(sig : Party) (obs : Party) -> 
+                Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
            """,
           Array(SParty(alice), SParty(bob)),
-          bob,
+          Set(bob),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-          msgs shouldBe createTraces
+          msgs shouldBe createTraces.dropRight(1)
         }
       }
 
@@ -299,18 +361,18 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "contract ID in contract key" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) (obs : Party) (cid : ContractId Unit) -> create @M:T
-              M:T { signatory = sig, observer = obs, precondition = True, key = M:toKeyWithCid sig cid, nested = M:buildNested 0 }
+          e"""\(sig : Party) (obs : Party) (cid : ContractId Unit) -> 
+                Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:toKeyWithCid sig cid, nested = M:buildNested 0 }
            """,
           Array(
             SParty(alice),
             SParty(bob),
             SContractId(Value.ContractId.V1.assertFromString("00" * 32 + "0000")),
           ),
-          alice,
+          Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.ContractIdInContractKey(_)))) =>
-          msgs shouldBe createTraces
+          msgs shouldBe createTraces.dropRight(1)
         }
       }
 
@@ -318,14 +380,14 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "create argument exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) (obs : Party) -> create @M:T
-              M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 100 }
+          e"""\(sig : Party) (obs : Party) -> 
+                Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 100 }
            """,
           Array(SParty(alice), SParty(bob)),
-          alice,
+          Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe createTraces
+          msgs shouldBe createTraces.dropRight(1)
         }
       }
 
@@ -333,60 +395,42 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "key exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) (obs : Party) -> create @M:T
+          e"""\(sig : Party) (obs : Party) -> 
               let key: M:TKey = M:TKey { maintainers = Cons @Party [sig] (Nil @Party), optCid = None @(ContractId Unit), nested = M:buildNested 100 }
-              in M:T { signatory = sig, observer = obs, precondition = True, key = key, nested = M:buildNested 0 }
+              in Test:create M:T { signatory = sig, observer = obs, precondition = True, key = key, nested = M:buildNested 0 }
            """,
           Array(SParty(alice), SParty(bob)),
-          alice,
+          Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe createTraces
+          msgs shouldBe createTraces.dropRight(1)
         }
       }
     }
 
     "fetch" - {
 
-      "a global contract" - {
+      "a non-cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch of a global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch of a non-cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(cId: ContractId M:T) -> fetch @M:T cId""",
-            Array(SContractId(cId)),
-            alice,
+            e"""Test:fetch_by_id""",
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
             getContract = getContract,
           )
-          inside(res) { case Success(Right(_)) =>
-            msgs shouldBe globalFetchByIdTraces
-          }
+          inside(res) { case Success(Right(_)) => msgs shouldBe globalFetchByIdTraces }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of an inactive global contract
-        "inactive contract" in {
-          val (res, msgs) = evalUpdateApp(
-            pkgs,
-            e"""\(cId: ContractId M:T) (sig: Party) -> 
-             ubind x: Unit <- exercise @M:T Archive cId sig
-             in fetch @M:T cId""",
-            Array(SContractId(cId), SParty(alice)),
-            alice,
-            getContract = getContract,
-          )
-          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
-            msgs shouldBe globalFetchByIdTraces :+ "archive"
-          }
-        }
-
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly type global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly type non-cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(cId: ContractId M:T) -> fetch @M:T cId""",
-            Array(SContractId(cId)),
-            alice,
+            e"""Test:fetch_by_id""",
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
             getContract = Map(
               cId -> Versioned(
                 TransactionVersion.StableVersions.max,
@@ -400,22 +444,101 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
-              msgs shouldBe Seq("getContract")
+              msgs shouldBe Seq("starts test", "queries contract")
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of global contract with failure authorization
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a non-cached global contract with failure authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(cId: ContractId M:T) -> fetch @M:T cId""",
-            Array(SContractId(cId)),
-            charlie,
+            e"""Test:fetch_by_id""",
+            Array(SParty(charlie), SContractId(cId)),
+            Set(alice, charlie),
             getContract = getContract,
           )
 
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe globalFetchByIdTraces
+            msgs shouldBe globalFetchByIdTraces.dropRight(1)
+          }
+        }
+      }
+
+      "a cached global contract" - {
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch of a cached global contract
+        "success" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetcher: Party) (cId: ContractId M:T) -> 
+               ubind x: M:T <- fetch @M:T cId in 
+               Test:fetch_by_id fetcher cId
+               """,
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getContract,
+          )
+          inside(res) { case Success(Right(_)) =>
+            msgs shouldBe Seq("starts test", "ends test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of an inactive global contract
+        "inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(sig: Party) (fetcher: Party) (cId: ContractId M:T)  -> 
+             ubind x: Unit <- exercise @M:T Archive cId sig
+             in Test:fetch_by_id fetcher cId""",
+            Array(SParty(alice), SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getContract,
+          )
+          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
+            msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly type cached global contract
+        "wrongly typed contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetcher: Party) (cId: ContractId M:T) -> 
+               ubind x: M:Dummy <- fetch @M:Dummy cId
+               in Test:fetch_by_id fetcher cId""",
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = Map(
+              cId -> Versioned(
+                TransactionVersion.StableVersions.max,
+                Value.ContractInstance(
+                  Dummy,
+                  ValueRecord(None, ImmArray(None -> ValueParty(alice))),
+                  "",
+                ),
+              )
+            ),
+          )
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of cached global contract with failure authorization
+        "authorization failures" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetcher: Party) (cId: ContractId M:T) -> 
+               ubind x: M:T <- fetch @M:T cId
+               in Test:fetch_by_id fetcher cId""",
+            Array(SParty(charlie), SContractId(cId)),
+            Set(alice, charlie),
+            getContract = getContract,
+          )
+
+          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+            msgs shouldBe Seq("starts test")
           }
         }
       }
@@ -426,14 +549,14 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(sig : Party) (obs : Party) ->
+            e"""\(sig: Party) (obs : Party) (fetcher: Party) ->
              ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
-             in fetch @M:T cId""",
-            Array(SParty(alice), SParty(bob)),
-            alice,
+             in Test:fetch_by_id fetcher cId""",
+            Array(SParty(alice), SParty(bob), SParty(alice)),
+            Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe createTraces :++ localFetchByIdTraces
+            msgs shouldBe localFetchByIdTraces
           }
         }
 
@@ -441,16 +564,16 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(sig : Party) (obs : Party) ->
+            e"""\(sig : Party) (obs : Party) (fetcher: Party) ->
              ubind 
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } ;
                x: Unit <- exercise @M:T Archive cId sig
-             in fetch @M:T cId""",
-            Array(SParty(alice), SParty(bob)),
-            alice,
+             in Test:fetch_by_id fetcher cId""",
+            Array(SParty(alice), SParty(bob), SParty(alice)),
+            Set(alice),
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
-            msgs shouldBe createTraces :+ "archive"
+            msgs shouldBe Seq("starts test")
           }
         }
 
@@ -458,16 +581,33 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(sig : Party) ->
+            e"""\(sig : Party) (fetcher: Party) ->
              ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig } 
              in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
-             in fetch @M:T cId2""",
-            Array(SParty(alice)),
-            alice,
+             in Test:fetch_by_id fetcher cId2""",
+            Array(SParty(alice), SParty(alice)),
+            Set(alice),
           )
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
-              msgs shouldBe Seq.empty
+              msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a cached global contract with failure authorization
+        "authorization failures" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(sig: Party) (obs : Party) (fetcher: Party) ->
+                  ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
+                  in Test:fetch_by_id fetcher cId""",
+            Array(SParty(alice), SParty(bob), SParty(charlie)),
+            Set(alice, charlie),
+            getContract = getContract,
+          )
+
+          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+            msgs shouldBe Seq("starts test")
           }
         }
       }
@@ -476,34 +616,96 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "unknown contract" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(cId: ContractId M:T) -> fetch @M:T cId""",
-          Array(SContractId(cId)),
-          alice,
+          e"""\(fetcher: Party) (cId: ContractId M:T) -> Test:fetch_by_id fetcher cId""",
+          Array(SParty(alice), SContractId(cId)),
+          Set(alice),
           getContract = PartialFunction.empty,
         )
         inside(res) { case Failure(SpeedyTestLib.UnknownContract(`cId`)) =>
-          msgs shouldBe Seq("getContract")
+          msgs shouldBe Seq("starts test", "queries contract")
         }
       }
-
     }
 
     "fetch_by_key" - {
 
-      "a global contract" - {
+      "a non-cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch_by_key of a global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch_by_key of a non-cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(sig: Party) -> fetch_by_key @M:T (M:toKey sig)""",
-            Array(SParty(alice)),
-            alice,
+            e"""\(fetcher:Party) (sig: Party) -> Test:fetch_by_key fetcher (Test:someParty sig) Test:noCid 0""",
+            Array(SParty(alice), SParty(alice)),
+            Set(alice),
+            getContract = getContract,
+            getKey = getKey,
+          )
+          inside(res) { case Success(Right(_)) => msgs shouldBe globalFetchByKeyTraces }
+        }
+
+        // This case may happen only if there is a bug in the ledger.
+        "wrongly typed contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetcher:Party) (sig: Party) -> Test:fetch_by_key fetcher (Test:someParty sig) Test:noCid 0""",
+            Array(SParty(alice), SParty(alice)),
+            Set(alice),
+            getContract = Map(
+              cId -> Versioned(
+                TransactionVersion.StableVersions.max,
+                Value.ContractInstance(
+                  Dummy,
+                  ValueRecord(None, ImmArray(None -> ValueParty(alice))),
+                  "",
+                ),
+              )
+            ),
+            getKey = getKey,
+          )
+          inside(res) {
+            case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
+              msgs shouldBe Seq(
+                "starts test",
+                "maintainers",
+                "queries key",
+                "queries contract",
+              )
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a non-cached global contract with authorization failure
+        "authorization failures" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetcher:Party) (sig: Party) -> Test:fetch_by_key fetcher (Test:someParty sig) Test:noCid 0""",
+            Array(SParty(charlie), SParty(alice)),
+            Set(alice, charlie),
+            getContract = getContract,
+            getKey = getKey,
+          )
+          inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
+            msgs shouldBe globalFetchByKeyTraces.dropRight(1)
+          }
+        }
+      }
+
+      "a cached global contract" - {
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch_by_key of a cached global contract
+        "success" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetcher:Party) (sig: Party) (cId: ContractId M:T) -> 
+                 ubind x: M:T <- fetch @M:T cId 
+                 in Test:fetch_by_key fetcher (Test:someParty sig) Test:noCid 0""",
+            Array(SParty(alice), SParty(alice), SContractId(cId)),
+            Set(alice),
             getContract = getContract,
             getKey = getKey,
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe globalFetchByKeyTraces
+            msgs shouldBe Seq("starts test", "maintainers", "queries key", "ends test")
           }
         }
 
@@ -512,32 +714,34 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(cId: ContractId M:T) (sig: Party) -> 
+            e"""\(cId: ContractId M:T) (fetcher: Party) (sig: Party) -> 
              ubind x: Unit <- exercise @M:T Archive cId sig
-             in fetch_by_key @M:T (M:toKey sig)""",
-            Array(SContractId(cId), SParty(alice)),
-            alice,
+             in Test:fetch_by_key fetcher (Test:someParty sig) Test:noCid 0""",
+            Array(SContractId(cId), SParty(alice), SParty(alice)),
+            Set(alice),
             getContract = getContract,
             getKey = getKey,
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(key)))) =>
             key.templateId shouldBe T
-            msgs shouldBe globalFetchByIdTraces :++ Set("archive", "maintainers", "getKey")
+            msgs shouldBe Seq("starts test", "maintainers", "queries key")
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a global contract with authorization failure
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a cached global contract with authorization failure
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(sig: Party) -> fetch_by_key @M:T (M:toKey sig)""",
-            Array(SParty(alice)),
-            charlie,
+            e"""\(fetcher:Party) (sig: Party) (cId: ContractId M:T) ->                 
+               ubind x: M:T <- fetch @M:T cId                                        
+               in Test:fetch_by_key fetcher (Test:someParty sig) Test:noCid 0""",
+            Array(SParty(charlie), SParty(alice), SContractId(cId)),
+            Set(alice, charlie),
             getContract = getContract,
             getKey = getKey,
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe globalFetchByKeyTraces
+            msgs shouldBe Seq("starts test", "maintainers", "queries key")
           }
         }
       }
@@ -548,15 +752,15 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(sig : Party) (obs : Party) ->
+            e"""\(sig : Party) (obs : Party) (fetcher: Party)  ->
              ubind 
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } 
-             in fetch_by_key @M:T (M:toKey sig)""",
-            Array(SParty(alice), SParty(bob)),
-            alice,
+             in Test:fetch_by_key fetcher (Test:someParty sig) Test:noCid 0""",
+            Array(SParty(alice), SParty(bob), SParty(alice)),
+            Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe createTraces :++ localFetchByKeyTraces
+            msgs shouldBe localFetchByKeyTraces
           }
         }
 
@@ -564,17 +768,17 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(sig : Party) (obs : Party) ->
+            e"""\(sig : Party) (obs : Party) (fetcher: Party) ->
              ubind 
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 };
                x: Unit <- exercise @M:T Archive cId sig
-             in fetch_by_key @M:T (M:toKey sig)""",
-            Array(SParty(alice), SParty(bob)),
-            alice,
+             in Test:fetch_by_key fetcher (Test:someParty sig) Test:noCid 0""",
+            Array(SParty(alice), SParty(bob), SParty(alice)),
+            Set(alice),
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(key)))) =>
             key.templateId shouldBe T
-            msgs shouldBe createTraces :+ "archive" :++ localFetchByKeyTraces
+            msgs shouldBe localFetchByKeyTraces.dropRight(1)
           }
         }
       }
@@ -583,15 +787,15 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "unknown contract key" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig: Party) -> fetch_by_key @M:T (M:toKey sig)""",
-          Array(SParty(alice)),
-          alice,
+          e"""\(fetcher:Party) (sig: Party) -> Test:fetch_by_key fetcher (Some @Party sig) None @(ContractId Unit) 0""",
+          Array(SParty(alice), SParty(alice)),
+          Set(alice),
           getContract = getContract,
           getKey = PartialFunction.empty,
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(key)))) =>
           key.templateId shouldBe T
-          msgs shouldBe Seq("maintainers", "getKey")
+          msgs shouldBe Seq("starts test", "maintainers", "queries key")
         }
       }
 
@@ -599,13 +803,13 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "empty contract key maintainers" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""fetch_by_key @M:T M:keyNoMaintainers""",
-          Array.empty,
-          alice,
+          e"""\(fetcher: Party) -> Test:fetch_by_key fetcher Test:noParty Test:noCid 0""",
+          Array(SParty(alice)),
+          Set(alice),
         )
         inside(res) {
           case Success(Left(SErrorDamlException(IE.FetchEmptyContractKeyMaintainers(T, _)))) =>
-            msgs shouldBe localFetchByKeyTraces
+            msgs shouldBe localFetchByKeyTraces.dropRight(1)
         }
       }
 
@@ -613,12 +817,13 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "contract ID in contract key " in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig: Party) (cId: ContractId M:T) -> fetch_by_key @M:T (M:toKeyWithCid sig cId)""",
-          Array(SParty(alice), SContractId(cId)),
-          alice,
+          e"""\(fetcher: Party) (sig: Party) (cId: ContractId M:T) -> 
+                 Test:fetch_by_key fetcher (Test:someParty sig) (Test:someCid cId) 0""",
+          Array(SParty(alice), SParty(alice), SContractId(cId)),
+          Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.ContractIdInContractKey(_)))) =>
-          msgs shouldBe localFetchByKeyTraces
+          msgs shouldBe localFetchByKeyTraces.dropRight(1)
         }
       }
 
@@ -626,14 +831,12 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "key exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) -> 
-              fetch_by_key @M:T (M:TKey { maintainers = Cons @Party [sig] (Nil @Party), optCid = None @(ContractId Unit), nested = M:buildNested 100 })
-           """,
-          Array(SParty(alice)),
-          alice,
+          e"""\(sig : Party) (fetcher: Party) -> Test:fetch_by_key fetcher (Test:someParty sig) Test:noCid 100""",
+          Array(SParty(alice), SParty(alice)),
+          Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe localFetchByKeyTraces
+          msgs shouldBe localFetchByKeyTraces.dropRight(1)
         }
       }
     }
