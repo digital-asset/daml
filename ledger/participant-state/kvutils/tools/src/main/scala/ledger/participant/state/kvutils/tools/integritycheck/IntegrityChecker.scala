@@ -251,27 +251,24 @@ class IntegrityChecker[LogResult](
       resourceContext: ResourceContext,
       materializer: Materializer,
       loggingContext: LoggingContext,
-  ): ResourceOwner[Indexer] =
+  ): ResourceOwner[Indexer] = {
+    val indexerFactory = new JdbcIndexer.Factory(
+      config,
+      readService,
+      metrics,
+      lfValueTranslationCache,
+    )
     for {
-      servicesExecutionContext <- ResourceOwner
-        .forExecutorService(() => Executors.newWorkStealingPool())
-        .map(ExecutionContext.fromExecutorService)
-      indexerFactory = new JdbcIndexer.Factory(
-        config,
-        readService,
-        servicesExecutionContext,
-        metrics,
-        lfValueTranslationCache,
-      )
       migrating <- ResourceOwner.forFuture(() =>
         StandaloneIndexerServer
           .migrateOnly(
             jdbcUrl = config.jdbcUrl
           )
-          .map(_ => indexerFactory.initialized())(materializer.executionContext)
+          .map(_ => indexerFactory.initialized(loggingContext))(materializer.executionContext)
       )
       migrated <- migrating
     } yield migrated
+  }
 }
 
 object IntegrityChecker {

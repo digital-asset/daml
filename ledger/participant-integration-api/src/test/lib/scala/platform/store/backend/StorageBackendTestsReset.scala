@@ -44,67 +44,6 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     config shouldBe None
   }
 
-  it should "reset everything except packages when using reset" in {
-    val dtos: Vector[DbDto] = Vector(
-      // 1: config change
-      dtoConfiguration(offset(1)),
-      // 2: party allocation
-      dtoPartyEntry(offset(2)),
-      // 3: package upload
-      dtoPackage(offset(3)),
-      dtoPackageEntry(offset(3)),
-      // 4: transaction with create node
-      dtoCreate(offset(4), 1L, "#4"),
-      DbDto.CreateFilter(1L, someTemplateId.toString, someParty.toString),
-      dtoCompletion(offset(4)),
-      // 5: transaction with exercise node and retroactive divulgence
-      dtoExercise(offset(5), 2L, true, "#4"),
-      dtoDivulgence(Some(offset(5)), 3L, "#4"),
-      dtoCompletion(offset(5)),
-      DbDto.StringInterningDto(2, "2"),
-    )
-
-    // Initialize and insert some data
-    executeSql(backend.parameter.initializeParameters(someIdentityParams))
-    executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(ledgerEnd(5, 3L)))
-
-    // Reset
-    executeSql(backend.reset.reset)
-
-    // Check the contents
-    val identity = executeSql(backend.parameter.ledgerIdentity)
-    val end = executeSql(backend.parameter.ledgerEnd)
-    val events = executeSql(backend.contract.contractStateEvents(0, Long.MaxValue))
-
-    // Check the contents (queries that don't read beyond ledger end)
-    advanceLedgerEndToMakeOldDataVisible()
-    val parties = executeSql(backend.party.knownParties)
-    val config = executeSql(backend.configuration.ledgerConfiguration)
-    val packages = executeSql(backend.packageBackend.lfPackages)
-    val stringInterningEntries = executeSql(
-      backend.stringInterning.loadStringInterningEntries(0, 1000)
-    )
-    val filterIds = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = someParty,
-        templateIdFilter = None,
-        startExclusive = 0,
-        endInclusive = 1000,
-        limit = 1000,
-      )
-    )
-
-    identity shouldBe None
-    end shouldBe None
-    parties shouldBe empty
-    packages should not be empty // Note: reset() does not delete packages
-    events shouldBe empty
-    config shouldBe None
-    stringInterningEntries shouldBe empty
-    filterIds shouldBe empty
-  }
-
   it should "reset everything when using resetAll" in {
     val dtos: Vector[DbDto] = Vector(
       // 1: config change

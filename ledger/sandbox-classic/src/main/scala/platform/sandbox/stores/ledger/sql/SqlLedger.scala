@@ -78,7 +78,6 @@ private[sandbox] object SqlLedger {
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
       transactionCommitter: TransactionCommitter,
-      startMode: SqlStartMode,
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
       acsIdPageSize: Int,
@@ -117,12 +116,6 @@ private[sandbox] object SqlLedger {
         errorFactories,
       )
       for {
-        _ <- startMode match {
-          case SqlStartMode.ResetAndStart =>
-            Resource.fromFuture(dao.reset())
-          case SqlStartMode.MigrateAndStart =>
-            Resource.unit
-        }
         existingLedgerId <- Resource.fromFuture(dao.lookupLedgerId())
         existingParticipantId <- Resource.fromFuture(dao.lookupParticipantId())
         ledgerId <- Resource.fromFuture(initialize(dao, existingLedgerId, existingParticipantId))

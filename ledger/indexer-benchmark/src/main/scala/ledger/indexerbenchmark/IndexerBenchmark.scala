@@ -70,7 +70,6 @@ class IndexerBenchmark() {
       val indexerFactory = new JdbcIndexer.Factory(
         config.indexerConfig,
         readService,
-        indexerEC,
         metrics,
         LfValueTranslationCache.Cache.none,
       )
@@ -90,7 +89,7 @@ class IndexerBenchmark() {
               .migrateOnly(
                 jdbcUrl = config.indexerConfig.jdbcUrl
               )
-              .map(_ => indexerFactory.initialized())(indexerEC),
+              .map(_ => indexerFactory.initialized(loggingContext))(indexerEC),
             Duration(5, "minute"),
           )
           .acquire()

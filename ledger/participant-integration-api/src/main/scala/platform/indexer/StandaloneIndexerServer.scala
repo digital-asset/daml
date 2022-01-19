@@ -11,12 +11,11 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 final class StandaloneIndexerServer(
     readService: state.ReadService,
     config: IndexerConfig,
-    servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     additionalMigrationPaths: Seq[String] = Seq.empty,
@@ -34,7 +33,6 @@ final class StandaloneIndexerServer(
     val indexerFactory = new JdbcIndexer.Factory(
       config,
       readService,
-      servicesExecutionContext,
       metrics,
       lfValueTranslationCache,
     )
@@ -47,11 +45,10 @@ final class StandaloneIndexerServer(
     def startIndexer(
         migration: Future[Unit],
         initializedDebugLogMessage: String = "Waiting for the indexer to initialize the database.",
-        resetSchema: Boolean = false,
     ): Resource[ReportsHealth] =
       Resource
         .fromFuture(migration)
-        .flatMap(_ => indexerFactory.initialized(resetSchema).acquire())
+        .flatMap(_ => indexerFactory.initialized.acquire())
         .flatMap(indexer.start)
         .map { case (healthReporter, _) =>
           logger.debug(initializedDebugLogMessage)
@@ -62,12 +59,6 @@ final class StandaloneIndexerServer(
       case IndexerStartupMode.MigrateAndStart =>
         startIndexer(
           migration = flywayMigrations.migrate(config.allowExistingSchema)
-        )
-
-      case IndexerStartupMode.ResetAndStart =>
-        startIndexer(
-          migration = Future.unit,
-          resetSchema = true,
         )
 
       case IndexerStartupMode.ValidateAndStart =>

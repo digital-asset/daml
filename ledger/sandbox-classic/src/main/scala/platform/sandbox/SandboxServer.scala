@@ -48,7 +48,6 @@ import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger._
-import com.daml.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndexAndWriteService}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{DbSupport, DbType, FlywayMigrations, LfValueTranslationCache}
@@ -234,7 +233,6 @@ final class SandboxServer(
       materializer: Materializer,
       metrics: Metrics,
       packageStore: InMemoryPackageStore,
-      startMode: SqlStartMode,
       currentPort: Option[Port],
   )(implicit loggingContext: LoggingContext): Resource[ApiServer] = {
     implicit val _materializer: Materializer = materializer
@@ -311,7 +309,6 @@ final class SandboxServer(
             dbSupport = dbSupport,
             timeProvider = timeProvider,
             ledgerEntries = ledgerEntries,
-            startMode = startMode,
             queueDepth = config.maxParallelSubmissions,
             transactionCommitter = transactionCommitter,
             templateStore = packageStore,
@@ -464,9 +461,6 @@ final class SandboxServer(
         materializer,
         metrics,
         packageStore,
-        SqlStartMode
-          .fromString(config.sqlStartMode.toString)
-          .getOrElse(SqlStartMode.MigrateAndStart),
         currentPort = None,
       )
       Future.successful(new SandboxState(apiServerResource))

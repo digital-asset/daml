@@ -450,7 +450,6 @@ final class SqlLedgerSpec
           initialLedgerEntries = ImmArray.Empty,
           queueDepth = queueDepth,
           transactionCommitter = LegacyTransactionCommitter,
-          startMode = SqlStartMode.MigrateAndStart,
           eventsPageSize = 100,
           eventsProcessingParallelism = 8,
           acsIdPageSize = 2000,
