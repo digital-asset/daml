@@ -17,18 +17,19 @@
 #
 
 set -eu
-readonly SWD="$PWD"
 readonly INSTALL_MINSIZE=1000000
-if [ -z $TEMPDIR ]; then
+if [ -z "${TEMPDIR:-}" ]; then
   readonly TMPDIR="$(mktemp -d)"
 else
   readonly TMPDIR=$TEMPDIR
+  if [ ! -d "$TEMPDIR" ] ; then
+    mkdir $TEMPDIR
+  fi
 fi
-cd $TMPDIR
 
 # Don't remove user specified temporary directory on cleanup.
 rmTmpDir() {
-  if [ -z $TEMPDIR ]; then
+  if [ -z "${TEMPDIR:-}" ]; then
     rm -rf $TMPDIR
   else
     echo "You may now remove the Daml installation files from $TEMPDIR"
@@ -37,7 +38,6 @@ rmTmpDir() {
 
 cleanup() {
   echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
-  cd $SWD
   rmTmpDir
 }
 trap cleanup EXIT
@@ -46,14 +46,15 @@ trap cleanup EXIT
 #
 # Check that the temporary directory has enough space for the installation
 #
-if [ "$(df $TMPDIR | tail -1 | awk '{print $4}')" -lt $INSTALL_MINSIZE ]; then
-    echo "Not enough disk space available to extract Daml SDK in $TMPDIR."
-    echo ""
-    echo "You can specify an alternative extraction directory by"
-    echo "setting the TEMPDIR environment variable."
-    exit 1
+if [ -x "$(command -v df)" -a -x "$(command -v awk)" ]; then
+  if [ "$(df $TMPDIR | tail -1 | awk '{print $4}')" -lt "$INSTALL_MINSIZE" ]; then
+      echo "Not enough disk space available to extract Daml SDK in $TMPDIR."
+      echo ""
+      echo "You can specify an alternative extraction directory by"
+      echo "setting the TEMPDIR environment variable."
+      exit 1
+  fi
 fi
-
 
 #
 # Check if curl and tar are available.
@@ -111,8 +112,8 @@ readonly TARBALL="daml-sdk-$VERSION-$OS.tar.gz"
 readonly URL="https://github.com/digital-asset/daml/releases/download/v$VERSION/$TARBALL"
 
 echo "$(tput setaf 3)Downloading SDK $VERSION. This may take a while.$(tput sgr 0)"
-curl -SLf $URL --output $TARBALL --progress-bar
-if [ ! -f $TARBALL ] ; then
+curl -SLf $URL --output $TMPDIR/$TARBALL --progress-bar
+if [ ! -f $TMPDIR/$TARBALL ] ; then
   echo "Failed to download SDK tarball."
   exit 1
 fi
@@ -122,9 +123,18 @@ fi
 #
 readonly DAML_HOME="$HOME/.daml"
 if [ -d $DAML_HOME ] ; then
-  echo "Removing existing installation."
+  echo "Removing existing installation: $DAML_HOME"
   chmod -R u+w $DAML_HOME
   rm -rf $DAML_HOME
+fi
+
+#
+# Remove existing cache.
+#
+readonly DAML_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/daml"
+if [ -d $DAML_CACHE ] ; then
+  echo "Removing existing cache: $DAML_CACHE"
+  rm -rf $DAML_CACHE
 fi
 
 #
@@ -132,7 +142,7 @@ fi
 #
 echo "Extracting SDK release tarball."
 mkdir -p $TMPDIR/sdk
-tar xzf $TARBALL -C $TMPDIR/sdk --strip-components 1
+tar xzf $TMPDIR/$TARBALL -C $TMPDIR/sdk --strip-components 1
 $TMPDIR/sdk/install.sh
 if [ ! -d $DAML_HOME ] ; then
   exit 1
@@ -143,5 +153,4 @@ fi
 #
 trap - EXIT
 echo "$(tput setaf 3)Successfully installed Daml.$(tput sgr 0)"
-cd $SWD
 rmTmpDir
