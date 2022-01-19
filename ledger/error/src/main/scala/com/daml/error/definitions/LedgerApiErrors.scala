@@ -284,15 +284,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       override def context: Map[String, String] =
         super.context ++ Map("service_name" -> _serviceName)
     }
-
-    case class ServiceReset(_serviceName: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(
-          cause = s"${_serviceName} is currently being reset."
-        ) {
-      override def context: Map[String, String] =
-        super.context ++ Map("service_name" -> _serviceName)
-    }
   }
 
   @Explanation("Authentication errors.")
