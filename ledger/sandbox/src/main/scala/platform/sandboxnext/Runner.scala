@@ -19,6 +19,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ExperimentalContractIds,
 }
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
@@ -282,6 +283,10 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
             ),
             deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
             maxDeduplicationDurationEnforced = true,
+          ),
+          contractIdFeatures = ExperimentalContractIds.of(
+            v0 = ExperimentalContractIds.ContractIdV0Support.NOT_SUPPORTED,
+            v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
           ),
         )
         _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())

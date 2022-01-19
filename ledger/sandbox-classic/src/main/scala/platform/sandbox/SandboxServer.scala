@@ -22,6 +22,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ExperimentalContractIds,
 }
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.metrics.TimedWriteService
@@ -391,6 +392,10 @@ final class SandboxServer(
           ),
           CommandDeduplicationType.SYNC_ONLY,
           maxDeduplicationDurationEnforced = false,
+        ),
+        contractIdFeatures = ExperimentalContractIds.of(
+          v0 = ExperimentalContractIds.ContractIdV0Support.SUPPORTED,
+          v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
         ),
       )(materializer, executionSequencerFactory, loggingContext)
       apiServer <- new LedgerApiServer(
