@@ -14,6 +14,7 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions.{
 }
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
+import com.daml.ledger.api.testtool.suites.ContractIdIT._
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive.ContractId
 import com.daml.ledger.test.semantic.ContractIdTests._
@@ -27,186 +28,201 @@ import scala.util.{Failure, Success, Try}
 // - Distributed ledger implementations (e.g. Canton) must reject non-suffixed CID
 final class ContractIdIT extends LedgerTestSuite {
 
-  private[this] val v0Cid = "#V0 Contract ID"
-  private[this] val nonSuffixedV1Cid = (0 to 32).map("%02x".format(_)).mkString
-  private[this] val suffixedV1Cid = (0 to 48).map("%02x".format(_)).mkString
+  List(
+    TestConfiguration(
+      description = "v0",
+      example = v0Cid,
+      accepted = true,
+      isSupported = features => features.contractIds.v0.isSupported,
+      disabledReason = "V0 contract IDs are not supported",
+    ),
+    TestConfiguration(
+      description = "v0",
+      example = v0Cid,
+      accepted = false,
+      isSupported = features => features.contractIds.v0.isNotSupported,
+      disabledReason = "V0 contract IDs are supported",
+    ),
+    TestConfiguration(
+      description = "non-suffixed v1",
+      example = nonSuffixedV1Cid,
+      accepted = true,
+      isSupported =
+        features => features.contractIds.v1.isNonSuffixed || features.contractIds.v1.isBoth,
+      disabledReason = "non-suffixed V1 contract IDs are not supported",
+    ),
+    TestConfiguration(
+      description = "non-suffixed v1",
+      example = nonSuffixedV1Cid,
+      accepted = false,
+      isSupported =
+        features => !(features.contractIds.v1.isNonSuffixed || features.contractIds.v1.isBoth),
+      disabledReason = "non-suffixed V1 contract IDs are supported",
+    ),
+    TestConfiguration(
+      description = "suffixed v1",
+      example = suffixedV1Cid,
+      accepted = true,
+      isSupported =
+        features => features.contractIds.v1.isSuffixed || features.contractIds.v1.isBoth,
+      disabledReason = "suffixed V1 contract IDs are not supported",
+    ),
+    TestConfiguration(
+      description = "suffixed v1",
+      example = suffixedV1Cid,
+      accepted = false,
+      isSupported =
+        features => !(features.contractIds.v1.isSuffixed || features.contractIds.v1.isBoth),
+      disabledReason = "suffixed V1 contract IDs are supported",
+    ),
+  ).foreach {
+    case TestConfiguration(cidDescription, example, accepted, isSupported, disabledReason) =>
+      val result = if (accepted) "Accept" else "Reject"
 
-  private[this] def camlCase(s: String) =
-    s.split("[ -]").iterator.map(_.capitalize).mkString("")
+      def test(description: String)(
+          update: ExecutionContext => (
+              ParticipantTestContext,
+              Party,
+          ) => Future[Try[_]]
+      ): Unit = {
+        super.test(
+          shortIdentifier = result + camelCase(cidDescription) + "Cid" + camelCase(description),
+          description = result + "s " + cidDescription + " Contract Id in " + description,
+          participants = allocate(SingleParty),
+          enabled = isSupported,
+          disabledReason = disabledReason,
+        )(implicit ec => { case Participants(Participant(alpha, party)) =>
+          update(ec)(alpha, party).map {
+            case Success(_) if accepted => ()
+            case Failure(err: Throwable) if !accepted =>
+              assertGrpcError(
+                alpha,
+                err,
+                Status.Code.INVALID_ARGUMENT,
+                LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
+                Some(s"""Illegal Contract ID "$example""""),
+                checkDefiniteAnswerMetadata = true,
+              )
+              ()
+            case otherwise =>
+              fail("Unexpected " + otherwise.fold(err => s"failure: $err", _ => "success"))
+          }
+        })
+      }
 
-  List[(String, String, Boolean, Features => Boolean, String)](
-    (
-      v0Cid,
-      "V0",
-      true,
-      features => features.contractIds.v0.isSupported,
-      "V0 contract IDs are not supported",
-    ),
-    (
-      v0Cid,
-      "V0",
-      false,
-      features => features.contractIds.v0.isNotSupported,
-      "V0 contract IDs are supported",
-    ),
-    (
-      nonSuffixedV1Cid,
-      "non-suffixed V1",
-      true,
-      features => features.contractIds.v1.isNonSuffixed || features.contractIds.v1.isBoth,
-      "non-suffixed V1 contract IDs are not supported",
-    ),
-    (
-      nonSuffixedV1Cid,
-      "non-suffixed V1",
-      false,
-      features => !(features.contractIds.v1.isNonSuffixed || features.contractIds.v1.isBoth),
-      "non-suffixed V1 contract IDs are supported",
-    ),
-    (
-      suffixedV1Cid,
-      "suffixed V1",
-      true,
-      features => features.contractIds.v1.isSuffixed || features.contractIds.v1.isBoth,
-      "suffixed V1 contract IDs are not supported",
-    ),
-    (
-      suffixedV1Cid,
-      "suffixed V1",
-      false,
-      features => !(features.contractIds.v1.isSuffixed || features.contractIds.v1.isBoth),
-      "suffixed V1 contract IDs are supported",
-    ),
-  ).foreach { case (testedCid, cidDescription, accepted, isSupported, disabledReason) =>
-    val result = if (accepted) "Accept" else "Reject"
+      test("create payload") { implicit ec => (alpha, party) =>
+        alpha
+          .create(party, ContractRef(party, ContractId(example)))
+          .transformWith(Future.successful)
+      }
 
-    def test(description: String)(
-        update: ExecutionContext => (
-            ParticipantTestContext,
-            Party,
-        ) => Future[Try[_]]
-    ): Unit = {
-      super.test(
-        shortIdentifier = result + camlCase(cidDescription) + "Cid" + camlCase(description),
-        description = result + "s " + cidDescription + " Contract Id in " + description,
-        participants = allocate(SingleParty),
-        enabled = isSupported,
-        disabledReason = disabledReason,
-      )(implicit ec => { case Participants(Participant(alpha, party)) =>
-        update(ec)(alpha, party).map {
-          case Success(_) if accepted => ()
-          case Failure(err: Throwable) if !accepted =>
-            assertGrpcError(
-              alpha,
-              err,
-              Status.Code.INVALID_ARGUMENT,
-              LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
-              Some(s"""Illegal Contract ID "$testedCid""""),
-              checkDefiniteAnswerMetadata = true,
-            )
-            ()
-          case otherwise =>
-            fail("Unexpected " + otherwise.fold(err => s"failure: $err", _ => "success"))
+      test("exercise target") { implicit ec => (alpha, party) =>
+        for {
+          contractCid <- alpha.create(party, Contract(party))
+          result <-
+            alpha
+              .exercise(
+                party,
+                ContractId[ContractRef](example).exerciseChange(_, contractCid),
+              )
+              .transformWith(Future.successful)
+        } yield result match {
+          // Assert V1 error code
+          case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
+              if !alpha.features.selfServiceErrorCodes && msg.contains(
+                s"Contract could not be found with id $example"
+              ) =>
+            Success(())
+
+          // Assert self-service error code
+          case Failure(exception: StatusRuntimeException)
+              if alpha.features.selfServiceErrorCodes &&
+                Try(
+                  assertSelfServiceErrorCode(
+                    statusRuntimeException = exception,
+                    expectedErrorCode = LedgerApiErrors.ConsistencyErrors.ContractNotFound,
+                  )
+                ).isSuccess =>
+            Success(())
+
+          case Success(_) => Failure(new UnknownError("Unexpected Success"))
+          case otherwise => otherwise.map(_ => ())
         }
-      })
-    }
+      }
 
-    test("create payload") { implicit ec => (alpha, party) =>
-      alpha
-        .create(party, ContractRef(party, ContractId(testedCid)))
-        .transformWith(Future.successful)
-    }
+      test("choice argument") { implicit ec => (alpha, party) =>
+        for {
+          contractCid <- alpha.create(party, Contract(party))
+          contractRefCid <- alpha.create(party, ContractRef(party = party, ref = contractCid))
+          result <- alpha
+            .exercise(party, contractRefCid.exerciseChange(_, ContractId(example)))
+            .transformWith(Future.successful)
+        } yield result
+      }
 
-    test("exercise target") { implicit ec => (alpha, party) =>
-      for {
-        contractCid <- alpha.create(party, Contract(party))
-        result <-
-          alpha
+      test("create-and-exercise payload") { implicit ec => (alpha, party) =>
+        for {
+          contractCid <- alpha.create(party, Contract(party))
+          result <- alpha
             .exercise(
               party,
-              ContractId[ContractRef](testedCid).exerciseChange(_, contractCid),
+              p =>
+                ContractRef(party = p, ref = ContractId(example)).createAnd
+                  .exerciseChange(p, contractCid),
             )
             .transformWith(Future.successful)
-      } yield result match {
-        // Assert V1 error code
-        case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
-            if !alpha.features.selfServiceErrorCodes && msg.contains(
-              s"Contract could not be found with id $testedCid"
-            ) =>
-          Success(())
-
-        // Assert self-service error code
-        case Failure(exception: StatusRuntimeException)
-            if alpha.features.selfServiceErrorCodes &&
-              Try(
-                assertSelfServiceErrorCode(
-                  statusRuntimeException = exception,
-                  expectedErrorCode = LedgerApiErrors.ConsistencyErrors.ContractNotFound,
-                )
-              ).isSuccess =>
-          Success(())
-
-        case Success(_) => Failure(new UnknownError("Unexpected Success"))
-        case otherwise => otherwise.map(_ => ())
+        } yield result
       }
-    }
 
-    test("choice argument") { implicit ec => (alpha, party) =>
-      for {
-        contractCid <- alpha.create(party, Contract(party))
-        contractRefCid <- alpha.create(party, ContractRef(party = party, ref = contractCid))
-        result <- alpha
-          .exercise(party, contractRefCid.exerciseChange(_, ContractId(testedCid)))
-          .transformWith(Future.successful)
-      } yield result
-    }
+      test("create-and-exercise choice argument") { implicit ec => (alpha, party) =>
+        for {
+          contractCid <- alpha.create(party, Contract(party))
+          result <- alpha
+            .exercise(
+              party,
+              p =>
+                ContractRef(party = p, ref = contractCid).createAnd
+                  .exerciseChange(p, ContractId(example)),
+            )
+            .transformWith(Future.successful)
+        } yield result
+      }
 
-    test("create-and-exercise payload") { implicit ec => (alpha, party) =>
-      for {
-        contractCid <- alpha.create(party, Contract(party))
-        result <- alpha
-          .exercise(
-            party,
-            p =>
-              ContractRef(party = p, ref = ContractId(testedCid)).createAnd
-                .exerciseChange(p, contractCid),
-          )
-          .transformWith(Future.successful)
-      } yield result
-    }
-
-    test("create-and-exercise choice argument") { implicit ec => (alpha, party) =>
-      for {
-        contractCid <- alpha.create(party, Contract(party))
-        result <- alpha
-          .exercise(
-            party,
-            p =>
-              ContractRef(party = p, ref = contractCid).createAnd
-                .exerciseChange(p, ContractId(testedCid)),
-          )
-          .transformWith(Future.successful)
-      } yield result
-    }
-
-    test("exercise by key") { implicit ec => (alpha, party) =>
-      for {
-        contractCid <- alpha.create(party, Contract(party))
-        _ <- alpha.create(party, ContractRef(party = party, ref = contractCid))
-        result <- alpha
-          .exerciseByKey(
-            party,
-            ContractRef.id,
-            Value(Value.Sum.Party(Party.unwrap(party))),
-            "Change",
-            Value(
-              Value.Sum.Record(
-                Record(None, List(RecordField("", Some(Value(Value.Sum.ContractId(testedCid))))))
-              )
-            ),
-          )
-          .transformWith(Future.successful)
-      } yield result
-    }
+      test("exercise by key") { implicit ec => (alpha, party) =>
+        for {
+          contractCid <- alpha.create(party, Contract(party))
+          _ <- alpha.create(party, ContractRef(party = party, ref = contractCid))
+          result <- alpha
+            .exerciseByKey(
+              party,
+              ContractRef.id,
+              Value(Value.Sum.Party(Party.unwrap(party))),
+              "Change",
+              Value(
+                Value.Sum.Record(
+                  Record(None, List(RecordField("", Some(Value(Value.Sum.ContractId(example))))))
+                )
+              ),
+            )
+            .transformWith(Future.successful)
+        } yield result
+      }
   }
+}
+
+object ContractIdIT {
+  private val v0Cid = "#V0 Contract ID"
+  private val nonSuffixedV1Cid = (0 to 32).map("%02x".format(_)).mkString
+  private val suffixedV1Cid = (0 to 48).map("%02x".format(_)).mkString
+
+  private def camelCase(s: String): String =
+    s.split("[ -]").iterator.map(_.capitalize).mkString("")
+
+  final private case class TestConfiguration(
+      description: String,
+      example: String,
+      accepted: Boolean,
+      isSupported: Features => Boolean,
+      disabledReason: String,
+  )
 }
