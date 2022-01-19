@@ -26,6 +26,7 @@ import scalaz.syntax.show._
 import spray.json.JsValue
 
 import scala.concurrent.Future
+import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait HttpServiceIntegrationTestUserManagementFuns
@@ -52,7 +53,7 @@ trait HttpServiceIntegrationTestUserManagementFuns
   def headersWithUserAuth(userId: String): List[Authorization] =
     authorizationHeader(jwtForUser(userId))
 
-  def getUniqueUserName(name: String): String = getUniqueParty(name).toString
+  def getUniqueUserName(name: String): String = getUniqueParty(name).unwrap
 
 }
 
@@ -71,8 +72,6 @@ class HttpServiceIntegrationTestUserManagementNoAuth
   override def useTls: UseTls = UseTls.Tls
 
   override def wsConfig: Option[WebsocketConfig] = None
-
-  import scalaz.syntax.tag._
 
   "Json format of UserRight should be stable" in Future {
     import spray.json._
@@ -100,7 +99,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
         initialRights = List(
-          CanActAs(Ref.Party.assertFromString(alice.toString))
+          CanActAs(Ref.Party.assertFromString(alice.unwrap))
         ),
       )
       (status, output) <- postJsonRequest(
@@ -128,7 +127,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
         initialRights = List(
-          CanActAs(Ref.Party.assertFromString(bob.toString))
+          CanActAs(Ref.Party.assertFromString(bob.unwrap))
         ),
       )
       (status, output) <- postJsonRequest(
@@ -156,8 +155,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
         initialRights = List(
-          CanActAs(Ref.Party.assertFromString(alice.toString)),
-          CanActAs(Ref.Party.assertFromString(bob.toString)),
+          CanActAs(Ref.Party.assertFromString(alice.unwrap)),
+          CanActAs(Ref.Party.assertFromString(bob.unwrap)),
         ),
       )
       (status, output) <- postJsonRequest(
@@ -190,7 +189,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         assertStatus(output, StatusCodes.OK)
         getResult(output).convertTo[UserDetails] shouldEqual UserDetails(
           user.id,
-          user.primaryParty.map(_.toString),
+          user.primaryParty: Option[String],
         )
       }
     } yield assertion
@@ -206,8 +205,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
         initialRights = List(
-          CanActAs(Ref.Party.assertFromString(alice.toString)),
-          CanActAs(Ref.Party.assertFromString(bob.toString)),
+          CanActAs(Ref.Party.assertFromString(alice.unwrap)),
+          CanActAs(Ref.Party.assertFromString(bob.unwrap)),
         ),
       )
       (status, output) <- postRequest(
@@ -236,8 +235,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
         initialRights = List(
-          CanActAs(Ref.Party.assertFromString(alice.toString)),
-          CanActAs(Ref.Party.assertFromString(bob.toString)),
+          CanActAs(Ref.Party.assertFromString(alice.unwrap)),
+          CanActAs(Ref.Party.assertFromString(bob.unwrap)),
         ),
       )
       (status, output) <- getRequest(
@@ -447,7 +446,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
         initialRights = List(
-          CanActAs(Ref.Party.assertFromString(alice))
+          CanActAs(Ref.Party.assertFromString(alice.unwrap))
         ),
       )
       (status, output) <- postRequest(
@@ -500,8 +499,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       user <- createUser(ledgerClient)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
         initialRights = List(
-          CanActAs(Ref.Party.assertFromString(alice.toString)),
-          CanActAs(Ref.Party.assertFromString(bob.toString)),
+          CanActAs(Ref.Party.assertFromString(alice.unwrap)),
+          CanActAs(Ref.Party.assertFromString(bob.unwrap)),
           ParticipantAdmin,
         ),
       )

@@ -142,23 +142,24 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
     import com.daml.ledger.api.domain.{UserRight => LedgerUserRight}, com.daml.lf.data.Ref
     import scalaz.syntax.traverse._
     import scalaz.syntax.std.either._
+    import scalaz.syntax.tag._
 
     def toLedgerUserRights(input: List[UserRight]): String \/ List[LedgerUserRight] =
       input.traverse {
         case ParticipantAdmin => \/.right(LedgerUserRight.ParticipantAdmin)
         case CanActAs(party) =>
-          Ref.Party.fromString(Party.unwrap(party)).map(LedgerUserRight.CanActAs).disjunction
+          Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanActAs).disjunction
         case CanReadAs(party) =>
-          Ref.Party.fromString(Party.unwrap(party)).map(LedgerUserRight.CanReadAs).disjunction
+          Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanReadAs).disjunction
       }
 
     def fromLedgerUserRights(input: Vector[LedgerUserRight]): List[UserRight] = input
       .map[domain.UserRight] {
         case LedgerUserRight.ParticipantAdmin => ParticipantAdmin
         case LedgerUserRight.CanActAs(party) =>
-          CanActAs(Party(party.toString: String))
+          CanActAs(Party(party: String))
         case LedgerUserRight.CanReadAs(party) =>
-          CanReadAs(Party(party.toString: String))
+          CanReadAs(Party(party: String))
       }
       .toList
   }
