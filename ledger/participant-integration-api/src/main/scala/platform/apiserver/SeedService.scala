@@ -20,8 +20,6 @@ object SeedService {
 
   object Seeding {
 
-    val NoSeedingModeName = "no"
-
     case object Strong extends Seeding("strong")
 
     case object Weak extends Seeding("testing-weak")

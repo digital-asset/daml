@@ -412,22 +412,6 @@ server_conformance_test(
     ],
 )
 
-# Feature test: --contract-id-seeding=no (legacy contract ids)
-server_conformance_test(
-    name = "conformance-test-legacy-cid",
-    lf_versions = ["legacy"],
-    server_args = [
-        "--contract-id-seeding=no",
-    ],
-    servers = APPEND_ONLY_SCHEMA_SERVERS,
-    test_tool_args = [
-        "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
-        "--timeout-scale-factor=2",  # sandbox classic is slow in general
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
 # =============================================================================
 # Conformance tests: deprecated ledger backends (in-memory ledger)
 # =============================================================================
