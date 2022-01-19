@@ -1,0 +1,19 @@
+-- @ERROR expected serializable type
+module InterfaceSerializabilityResult where
+
+data NonSerializable = NonSerializable (() -> ())
+
+-- Dummy Eq and Show instances so we blow up in the serializability checker rather than
+-- the GHC typechecker.
+
+instance Eq NonSerializable where
+  (==) = error "undefined"
+instance Show NonSerializable where
+  show = error "undefined"
+
+interface I where
+   p : Party
+
+   choice NonSerializableResult : NonSerializable
+     controller p this
+     do pure (NonSerializable identity)
