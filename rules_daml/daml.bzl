@@ -442,7 +442,7 @@ $$DAMLC doctest {flags} --cpp $$CPP --package-name {package_name}-{version} "$${
             cpp = cpp,
             damlc = damlc,
             package_name = package_name,
-            flags = " ".join(flags + ["--enable-scenarios=yes"]),  # TODO: https://github.com/digital-asset/daml/issues/11316
+            flags = " ".join(flags),
             version = ghc_version,
             files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
             ignored = " ".join(ignored_srcs),
