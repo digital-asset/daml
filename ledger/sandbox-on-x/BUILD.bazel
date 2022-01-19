@@ -145,7 +145,6 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--additional=ParticipantPruningIT",
         "--exclude=ClosedWorldIT",
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
@@ -175,7 +174,6 @@ conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=ParticipantPruningIT",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
@@ -195,7 +193,6 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--static-time",
-        "--additional=ParticipantPruningIT",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
