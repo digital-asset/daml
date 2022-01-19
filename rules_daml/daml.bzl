@@ -359,7 +359,6 @@ def daml_test(
         data_deps = [],
         damlc = "//compiler/damlc:damlc",
         target = None,
-        enable_scenarios = False,
         **kwargs):
     sh_inline_test(
         name = name,
@@ -386,7 +385,7 @@ EOF
 cat $$tmpdir/daml.yaml
 {cp_srcs}
 cd $$tmpdir
-$$DAMLC test {enable_scenarios} --files {files}
+$$DAMLC test --files {files}
 """.format(
             damlc = damlc,
             files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
@@ -401,7 +400,6 @@ $$DAMLC test {enable_scenarios} --files {files}
                 for src in srcs
             ]),
             target = "--target=" + target if (target) else "",
-            enable_scenarios = "--enable-scenarios=yes" if enable_scenarios else "",
         ),
         **kwargs
     )
