@@ -18,7 +18,7 @@ import com.github.benmanes.caffeine.cache.AsyncCacheLoader
 import com.github.benmanes.caffeine.{cache => caffeine}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 class CachedUserManagementStore(
     delegate: UserManagementStore,
@@ -28,8 +28,8 @@ class CachedUserManagementStore(
 )(implicit val executionContext: ExecutionContext)
     extends UserManagementStore {
 
-  private val cache: CaffeineCache.AsyncLoadingCacheScala[Ref.UserId, Result[UserInfo]] =
-    new CaffeineCache.AsyncLoadingCacheScala(
+  private val cache: CaffeineCache.AsyncLoadingCaffeineCache[Ref.UserId, Result[UserInfo]] =
+    new CaffeineCache.AsyncLoadingCaffeineCache(
       caffeine.Caffeine
         .newBuilder()
         .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
@@ -62,7 +62,7 @@ class CachedUserManagementStore(
   override def deleteUser(id: UserId): Future[Result[Unit]] = {
     delegate
       .deleteUser(id)
-      .map(tapInvalidateOnSuccess(id))
+      .andThen(invalidateOnSuccess(id))
   }
 
   override def grantRights(
@@ -71,7 +71,7 @@ class CachedUserManagementStore(
   ): Future[Result[Set[domain.UserRight]]] = {
     delegate
       .grantRights(id, rights)
-      .map(tapInvalidateOnSuccess(id))
+      .andThen(invalidateOnSuccess(id))
   }
 
   override def revokeRights(
@@ -80,19 +80,15 @@ class CachedUserManagementStore(
   ): Future[Result[Set[domain.UserRight]]] = {
     delegate
       .revokeRights(id, rights)
-      .map(tapInvalidateOnSuccess(id))
+      .andThen(invalidateOnSuccess(id))
   }
 
   override def listUsers(): Future[Result[Users]] = {
     delegate.listUsers()
   }
 
-  private def tapInvalidateOnSuccess[T](id: UserId)(r: Result[T]): Result[T] = {
-    r match {
-      case Right(_) => cache.invalidate(id)
-      case Left(_) =>
-    }
-    r
+  private def invalidateOnSuccess[_](id: UserId): PartialFunction[Try[Result[Any]], Unit] = {
+    case Success(Right(_)) => cache.invalidate(id)
   }
 
 }
