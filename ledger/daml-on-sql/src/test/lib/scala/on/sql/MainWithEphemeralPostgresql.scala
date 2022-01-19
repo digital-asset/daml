@@ -15,7 +15,7 @@ object MainWithEphemeralPostgresql extends PostgresAround {
     sys.addShutdownHook(disconnectFromPostgresqlServer())
     val defaultConfig: SandboxConfig =
       DefaultConfig.copy(
-        seeding = Some(Seeding.Weak),
+        seeding = Seeding.Weak,
         jdbcUrl = Some(database.url),
       )
     val config = new Cli(defaultConfig).parse(args).getOrElse(sys.exit(1))
