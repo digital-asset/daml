@@ -5,7 +5,7 @@ load(
     "@daml//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
-load("//bazel_tools:versions.bzl", "version_to_name")
+load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 
 def daml_script_dar(sdk_version):
     daml = "@daml-sdk-{sdk_version}//:daml".format(
@@ -83,7 +83,7 @@ def daml_script_test(compiler_version, runner_version):
         runner = "//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = daml_runner,
-        server_args = ["sandbox-kv"],
+        server_args = ["sandbox-kv" if versions.is_at_least("2.0.0", runner_version) else "sandbox"],
         server_files = [
             "$(rootpath {})".format(compiled_dar),
         ],
