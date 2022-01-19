@@ -1,3 +1,4 @@
+-- @SINCE-LF-FEATURE DAML_INTERFACE
 -- @ERROR expected serializable type
 module InterfaceSerializabilityArgument where
 
