@@ -1235,7 +1235,7 @@ HTTP Response
     }
 
 
-Creating A New User
+Creating a New User
 ********************
 
 This endpoint exposes the Ledger API's :ref:`CreateUserRequest <com.daml.ledger.api.v1.admin.user_management_service.CreateUserRequest>`.
