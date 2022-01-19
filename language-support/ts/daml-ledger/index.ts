@@ -5,7 +5,7 @@ import * as jtv from '@mojotech/json-type-validation';
 import fetch from 'cross-fetch';
 import { EventEmitter } from 'events';
 import WebSocket from 'isomorphic-ws';
-import _ from 'lodash';
+import _, { isUndefined } from 'lodash';
 
 /**
  * The result of a ``query`` against the ledger.
@@ -50,6 +50,36 @@ const userDecoder: jtv.Decoder<User> =
     userId: jtv.string(),
     primaryParty: jtv.optional(jtv.string()),
   });
+
+export type CanActAs = {
+  type: "CanActAs"
+  userId: string
+}
+
+export type CanReadAs = {
+  type: "CanReadAs"
+  userId: string
+}
+
+export type ParticipantAdmin = {
+  type: "ParticipantAdmin"
+}
+
+export type UserRight = CanActAs | CanReadAs | ParticipantAdmin;
+
+const userRightDecoder: jtv.Decoder<UserRight> =
+  jtv.oneOf<UserRight>(
+    jtv.object<CanActAs>({
+      type: jtv.constant("CanActAs"),
+      userId: jtv.string()
+    }),
+    jtv.object<CanReadAs>({
+      type: jtv.constant("CanReadAs"),
+      userId: jtv.string()
+    }),
+    jtv.object<ParticipantAdmin>({
+      type: jtv.constant("ParticipantAdmin")
+    }))
 
 export type PackageId = string;
 
@@ -1393,12 +1423,87 @@ class Ledger {
   /**
    * Get the current user details obtained by the currently used JWT.
    *
+   * @param userId The user id 
+   * 
    * @returns User details
    *
    */
-  async getUser(): Promise<User> {
-    const json = await this.submit('v1/user', undefined, 'get');
+  async getUser(userId?: string): Promise<User> {
+    var json
+    if (isUndefined(userId)) {
+      json = await this.submit('v1/user', undefined, 'get');
+    } else {
+      json = await this.submit('v1/user', { 'userId': userId }, 'post')
+    }
     return decode(userDecoder, json);
+  }
+
+  /**
+   * Lists the users on the ledger
+   * 
+   * @returns user list
+   *
+   */
+  async listUsers(): Promise<User[]> {
+    const json = await this.submit('v1/users', undefined, 'get');
+    return decode(jtv.array(userDecoder), json);
+  }
+
+  /**
+   * Lists the rights associated with the given user id
+   * 
+   * @param userId, if empty then the user id will obtained by the currently used JWT.
+   *
+   * @returns list of user rights
+   */
+  async listUserRights(userId?: string): Promise<UserRight[]> {
+    var json
+    if (isUndefined(userId)) {
+      json = await this.submit('v1/user/rights/list', undefined, 'get');
+    } else {
+      json = await this.submit('v1/user/rights/list', { 'userId': userId })
+    }
+    return decode(jtv.array(userRightDecoder), json);
+  }
+  
+  /**
+   * Grants rights to a user
+   * 
+   * @param userId The user to which rights shall be granted
+   * 
+   * @param rights The rights which shall be granted
+   *
+   * @returns The rights which actually were granted (if a right was already granted, then it will not be in the return list)
+   */
+  async grantUserRights(userId: string, rights: UserRight[]): Promise<UserRight[]> {
+    const json = await this.submit('v1/user/rights/grant', { 'userId': userId, 'rights': rights })
+    return decode(jtv.array(userRightDecoder), json);
+  }
+
+  /**
+   * Revokes rights from a user
+   * 
+   * @param userId The user from which rights shall be revoked
+   * 
+   * @param rights The rights which shall be revoked
+   *
+   * @returns The rights which actually were revoked (if a right was already revoked, then it will not be in the return list)
+   */
+  async revokeUserRights(userId: string, rights: UserRight[]): Promise<UserRight[]> {
+    const json = await this.submit('v1/user/rights/revoke', { 'userId': userId, 'rights': rights })
+    return decode(jtv.array(userRightDecoder), json);
+  }
+
+  /**
+   * Creates a user
+   * 
+   * @param userId The user ID
+   * @param rights The initial rights the user should have
+   * @param primaryParty The primary party the user should have
+   *
+   */
+   async createUser(userId: string, rights: UserRight[], primaryParty?: string): Promise<void> {
+    await this.submit('v1/user/create', { 'userId': userId,  'rights': rights, 'primaryParty': primaryParty }) 
   }
 
   /**
@@ -1409,7 +1514,7 @@ class Ledger {
    * @returns PartyInfo for the newly created party.
    *
    */
-  async allocateParty(partyOpt: {identifierHint?: string; displayName?: string}): Promise<PartyInfo> {
+  async allocateParty(partyOpt: { identifierHint?: string; displayName?: string }): Promise<PartyInfo> {
     const json = await this.submit('v1/parties/allocate', partyOpt);
     return decode(partyInfoDecoder, json);
   }
