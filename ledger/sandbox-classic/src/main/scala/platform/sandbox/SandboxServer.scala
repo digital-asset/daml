@@ -294,7 +294,7 @@ final class SandboxServer(
       userManagementStore = dbSupportOption match {
         case Some(dbSupport) =>
           PersistentUserManagementStore.cached(
-            dbDispatcher = dbSupport.dbDispatcher,
+            dbSupport = dbSupport,
             metrics = metrics,
             cacheExpiryAfterWriteInSeconds =
               config.userManagementConfig.cacheExpiryAfterWriteInSeconds,

@@ -235,7 +235,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           metrics = metrics,
         )
         userManagementStore = PersistentUserManagementStore.cached(
-          dbDispatcher = dbSupport.dbDispatcher,
+          dbSupport = dbSupport,
           metrics = metrics,
           cacheExpiryAfterWriteInSeconds =
             config.userManagementConfig.cacheExpiryAfterWriteInSeconds,

@@ -167,7 +167,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   )
                   .acquire()
                 userManagementStore = PersistentUserManagementStore.cached(
-                  dbDispatcher = dbSupport.dbDispatcher,
+                  dbSupport = dbSupport,
                   metrics = metrics,
                   cacheExpiryAfterWriteInSeconds =
                     config.userManagementConfig.cacheExpiryAfterWriteInSeconds,

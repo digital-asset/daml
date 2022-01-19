@@ -18,9 +18,8 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
-import com.daml.platform.store.appendonlydao.DbDispatcher
+import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.UserManagementStorageBackend
-import com.daml.platform.store.backend.common.UserManagementStorageBackendTemplate
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -38,14 +37,14 @@ final case class UserManagementConfig(
 
 object PersistentUserManagementStore {
   def cached(
-      dbDispatcher: DbDispatcher,
+      dbSupport: DbSupport,
       metrics: Metrics,
       cacheExpiryAfterWriteInSeconds: Int,
       maximumCacheSize: Int,
   )(implicit executionContext: ExecutionContext): UserManagementStore = {
     new CachedUserManagementStore(
       delegate = new PersistentUserManagementStore(
-        dbDispatcher = dbDispatcher,
+        dbSupport = dbSupport,
         metrics = metrics,
       ),
       expiryAfterWriteInSeconds = cacheExpiryAfterWriteInSeconds,
@@ -56,11 +55,13 @@ object PersistentUserManagementStore {
 }
 
 class PersistentUserManagementStore(
-    dbDispatcher: DbDispatcher,
+    dbSupport: DbSupport,
     metrics: Metrics,
 ) extends UserManagementStore {
 
-  private val backend: UserManagementStorageBackend = UserManagementStorageBackendTemplate
+  private val backend = dbSupport.storageBackendFactory.createUserManagementStorageBackend
+  private val dbDispatcher = dbSupport.dbDispatcher
+
   private val logger = ContextualizedLogger.get(getClass)
 
   implicit private val loggingContext: LoggingContext = LoggingContext.newLoggingContext(identity)
@@ -97,7 +98,7 @@ class PersistentUserManagementStore(
 
   override def deleteUser(id: UserId): Future[Result[Unit]] = {
     inTransaction(_.deleteUser) { implicit connection =>
-      if (!backend.deleteUser(id = id)(connection = connection)) {
+      if (!backend.deleteUser(id = id)(connection)) {
         Left(UserNotFound(userId = id))
       } else {
         Right(())
@@ -186,10 +187,8 @@ class PersistentUserManagementStore(
   }
 
   private def tapSuccess[T](f: T => Unit)(r: Result[T]): Result[T] = {
-    r.map { v =>
-      f(v)
-      v
-    }
+    r.foreach(f)
+    r
   }
 
   private def rightsDigestText(rights: Iterable[domain.UserRight]): String = {

@@ -9,6 +9,4 @@ final class NoCache[Key, Value] private[caching] extends ConcurrentCache[Key, Va
   override def getIfPresent(key: Key): Option[Value] = None
 
   override def getOrAcquire(key: Key, acquire: Key => Value): Value = acquire(key)
-
-  override def invalidate(key: Key): Unit = ()
 }

@@ -44,7 +44,6 @@ private[backend] trait StorageBackendTestsUserManagement
     val internalId2 = executeSql(tested.createUser(user2))
     val _ = executeSql(tested.createUser(newUniqueUser(emptyPrimaryParty = true)))
     internalId1 should not equal internalId2
-    internalId1 should not equal internalId2
   }
 
   it should "handle user ops (getUser, deleteUser)" in {

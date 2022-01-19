@@ -241,7 +241,7 @@ object SandboxOnXRunner {
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
       userManagementStore = PersistentUserManagementStore.cached(
-        dbDispatcher = dbSupport.dbDispatcher,
+        dbSupport = dbSupport,
         metrics = metrics,
         cacheExpiryAfterWriteInSeconds = config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
         maximumCacheSize = config.userManagementConfig.maximumCacheSize,
