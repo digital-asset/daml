@@ -483,6 +483,7 @@ final class CommandDeduplicationIT(
       val acceptedSubmissionId = newSubmissionId()
       runWithTimeModel(configuredParticipants) { delay =>
         for {
+          offsetBeforeFirstCompletion <- ledger.currentEnd()
           response <- submitRequestAndAssertCompletionAccepted(
             ledger,
             updateSubmissionId(request, acceptedSubmissionId),
@@ -497,7 +498,7 @@ final class CommandDeduplicationIT(
             updateWithFreshSubmissionId(
               request.update(
                 _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationOffset(
-                  Ref.HexString.assertFromString(response.offset.getAbsolute)
+                  Ref.HexString.assertFromString(offsetBeforeFirstCompletion.getAbsolute)
                 )
               )
             ),

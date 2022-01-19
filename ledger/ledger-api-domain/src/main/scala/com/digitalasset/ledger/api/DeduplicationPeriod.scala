@@ -73,7 +73,9 @@ object DeduplicationPeriod {
     )
   }
 
-  /** The `offset` defines the start of the deduplication period. */
+  /** The `offset` defines the start of the deduplication period.
+    * The `offset` itself is not within the deduplication period.
+    */
   final case class DeduplicationOffset(offset: Offset) extends DeduplicationPeriod
 
   implicit val `DeduplicationPeriod to LoggingValue`: ToLoggingValue[DeduplicationPeriod] = {
