@@ -1381,7 +1381,7 @@ HTTP Response
       "status": 200
     }
 
-List users
+List Users
 **********
 
 This endpoint exposes the Ledger API's :ref:`ListUsersRequest <com.daml.ledger.api.v1.admin.user_management_service.ListUsersRequest>`.
