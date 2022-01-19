@@ -85,6 +85,15 @@ class LegacyServiceIT
     }
   }
 
+  private def expectUnimplemented[A](block: => A): Assertion = {
+    inside(Try(block)) {
+      case Success(_) => fail()
+      case Failure(exc: StatusRuntimeException) =>
+        exc.getStatus.getCode shouldBe Status.Code.UNIMPLEMENTED
+      case Failure(otherwise) => fail(otherwise)
+    }
+  }
+
   "Ledger API Server" should {
     "offer com.digitalasset.ledger.api.v1.ActiveContractsService" in {
       expectNotUnimplemented {
@@ -151,7 +160,7 @@ class LegacyServiceIT
     }
 
     "offer com.digitalasset.ledger.api.v1.testing.ResetService" in {
-      expectNotUnimplemented {
+      expectUnimplemented {
         val testingReset =
           ResetServiceGrpc.blockingStub(channel).withInterceptors(legacyCallInterceptor)
         testingReset.reset(ResetRequest(randomLedgerId))

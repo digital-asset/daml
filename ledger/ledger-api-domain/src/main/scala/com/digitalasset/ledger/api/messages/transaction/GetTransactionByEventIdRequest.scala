@@ -7,7 +7,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.ledger.api.domain.{EventId, LedgerId}
 
 final case class GetTransactionByEventIdRequest(
-    ledgerId: LedgerId,
+    ledgerId: Option[LedgerId],
     eventId: EventId,
     requestingParties: Set[Party],
 )

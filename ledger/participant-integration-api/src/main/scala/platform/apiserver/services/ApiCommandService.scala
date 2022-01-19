@@ -294,7 +294,7 @@ private[apiserver] object ApiCommandService {
       implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
         new DamlContextualizedErrorLogger(logger, loggingContext, None)
       for {
-        ledgerEnd <- completionServices.getLedgerEnd(configuration.ledgerId)
+        ledgerEnd <- completionServices.getLedgerEnd()
       } yield {
         val commandTrackerFlow =
           CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
@@ -308,7 +308,7 @@ private[apiserver] object ApiCommandService {
                     completionServices
                       .completionStreamSource(
                         CompletionStreamRequest(
-                          configuration.ledgerId,
+                          Some(configuration.ledgerId),
                           key.applicationId,
                           key.parties,
                           Some(offset),

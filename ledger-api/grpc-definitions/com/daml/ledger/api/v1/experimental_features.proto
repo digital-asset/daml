@@ -19,6 +19,7 @@ message ExperimentalFeatures {
   ExperimentalSelfServiceErrorCodes self_service_error_codes = 1;
   ExperimentalStaticTime static_time = 2;
   CommandDeduplicationFeatures command_deduplication = 3;
+  ExperimentalOptionalLedgerId optional_ledger_id = 4;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
@@ -37,6 +38,10 @@ message CommandDeduplicationFeatures {
   // The ledger will reject any requests which specify a deduplication period which exceeds the specified max deduplication duration.
   // This is also enforced for ledgers that convert deduplication periods specified as offsets to durations.
   bool max_deduplication_duration_enforced = 3;
+}
+
+// Ledger API does not require ledgerId to be set in the requests.
+message ExperimentalOptionalLedgerId {
 }
 
 // Feature descriptor specifying how deduplication periods can be specified and how they are handled by the participant

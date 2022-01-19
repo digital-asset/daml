@@ -7,7 +7,7 @@ import java.time.{Duration, Instant}
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
-import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.daml.ledger.api.v1.commands
 import com.daml.ledger.api.v1.commands.Command.Command.{
   Create => ProtoCreate,
@@ -57,8 +57,7 @@ final class CommandsValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.Commands] =
     for {
-      cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
-      ledgerId <- matchLedgerId(ledgerId)(LedgerId(cmdLegerId))
+      ledgerId <- matchLedgerId(ledgerId)(optionalLedgerId(commands.ledgerId))
       workflowId <-
         if (commands.workflowId.isEmpty) Right(None)
         else requireLedgerString(commands.workflowId).map(x => Some(domain.WorkflowId(x)))

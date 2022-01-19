@@ -229,7 +229,6 @@ da_scala_test_suite(
     srcs = glob(
         ["src/test/suite/**/*.scala"],
         exclude = [
-            "src/test/suite/**/ResetService*IT.scala",
             "**/*Oracle*",
         ],
     ),

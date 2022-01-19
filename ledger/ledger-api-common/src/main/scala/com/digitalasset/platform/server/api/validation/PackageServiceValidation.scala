@@ -4,7 +4,7 @@
 package com.daml.platform.server.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -30,7 +30,7 @@ class PackageServiceValidation(
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
     fieldValidations
-      .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      .matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       .map(const(request))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(request, t)),
@@ -39,7 +39,7 @@ class PackageServiceValidation(
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
     fieldValidations
-      .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      .matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       .map(const(request))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(request, t)),
@@ -50,7 +50,7 @@ class PackageServiceValidation(
       request: GetPackageStatusRequest
   ): Future[GetPackageStatusResponse] =
     fieldValidations
-      .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      .matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       .map(const(request))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(request, t)),
