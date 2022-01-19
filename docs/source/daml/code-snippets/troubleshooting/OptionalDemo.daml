@@ -4,9 +4,10 @@
 
 module OptionalDemo where
 
+import Daml.Script
 import DA.Optional
 
-optionalDemo = scenario do
+optionalDemo = script do
   let
     j =
       Some "Some text"    -- Optional value exists.

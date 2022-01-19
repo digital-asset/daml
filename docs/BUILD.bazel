@@ -566,7 +566,7 @@ java_binary(
 daml_test(
     name = "ledger-api-daml-test",
     srcs = glob(["source/app-dev/code-snippets/**/*.daml"]),
-    enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
@@ -577,7 +577,7 @@ daml_test(
 daml_test(
     name = "patterns-daml-test",
     srcs = glob(["source/daml/patterns/daml/**/*.daml"]),
-    enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 pkg_tar(
@@ -590,14 +590,14 @@ pkg_tar(
 daml_test(
     name = "daml-studio-daml-test",
     srcs = glob(["source/daml/daml-studio/daml/**/*.daml"]),
-    enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
     name = "daml-ref-daml-test",
     timeout = "long",
     srcs = glob(["source/daml/code-snippets/**/*.daml"]),
-    enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
