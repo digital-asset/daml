@@ -743,7 +743,7 @@ templateTests = testGroup "templates" $
             , ("gsg-trigger", [])
             -- daml-intro-1 - daml-intro-6 are not full projects.
             , ("daml-intro-7", [])
-            , ("daml-patterns", ["--enable-scenarios=yes"]) -- TODO: https://github.com/digital-asset/daml/issues/11316
+            , ("daml-patterns", [])
             , ("quickstart-java", [])
             , ("script-example", [])
             , ("skeleton", [])
