@@ -3,11 +3,9 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.time.Instant
-
 import com.daml.ledger.api.testtool.infrastructure.FutureAssertions.ExpectedFailureException
+import com.daml.ledger.api.testtool.infrastructure.time.DelayMechanism
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.timer.Delayed
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -50,9 +48,10 @@ object FutureAssertions {
   /** Runs the test case after the specified delay
     */
   def assertAfter[V](
-      delay: FiniteDuration
-  )(test: => Future[V]): Future[V] =
-    Delayed.Future.by(delay)(test)
+      delay: FiniteDuration,
+      delayMechanism: DelayMechanism,
+  )(test: => Future[V])(implicit executionContext: ExecutionContext): Future[V] =
+    delayMechanism.delayBy(delay).flatMap(_ => test)
 
   /** Run the test every [[retryDelay]] up to [[maxRetryDuration]].
     * The test case will run up to [[ceil(maxRetryDuration / retryDelay)]] times.
@@ -62,6 +61,7 @@ object FutureAssertions {
   def succeedsEventually[V](
       retryDelay: FiniteDuration = 100.millis,
       maxRetryDuration: FiniteDuration,
+      delayMechanism: DelayMechanism,
       description: String,
   )(
       test: => Future[V]
@@ -75,7 +75,7 @@ object FutureAssertions {
         )
       }
       else
-        assertAfter(retryDelay)(test).recoverWith { case NonFatal(ex) =>
+        assertAfter(retryDelay, delayMechanism)(test).recoverWith { case NonFatal(ex) =>
           logger.debug(
             s"Failed assertion: $description. Running again with new max duration $nextRetryRemainingDuration",
             ex,
@@ -85,40 +85,6 @@ object FutureAssertions {
     }
 
     internalSucceedsEventually(maxRetryDuration)
-  }
-
-  /** Run the test every [[rerunDelay]] for a duration of [[succeedDuration]] or until the current time exceeds [[succeedDeadline]].
-    * The assertion will succeed if all of the test case runs are successful and [[succeedDuration]] is exceeded or [[succeedDeadline]] is exceeded.
-    * The assertion will fail if any test case runs fail.
-    */
-  def succeedsUntil[V](
-      rerunDelay: FiniteDuration = 100.millis,
-      succeedDuration: FiniteDuration,
-      succeedDeadline: Option[Instant] = None,
-  )(
-      test: => Future[V]
-  )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[V] = {
-    def internalSucceedsUntil(remainingDuration: FiniteDuration): Future[V] = {
-      val nextRerunRemainingDuration = remainingDuration - rerunDelay
-      if (
-        succeedDeadline.exists(
-          _.isBefore(Instant.now().plusSeconds(rerunDelay.toSeconds))
-        ) || nextRerunRemainingDuration < Duration.Zero
-      ) test
-      else
-        assertAfter(rerunDelay)(test)
-          .flatMap { _ =>
-            internalSucceedsUntil(nextRerunRemainingDuration)
-          }
-    }
-
-    internalSucceedsUntil(succeedDuration)
-      .andThen { case Failure(exception) =>
-        logger.error(
-          s"Repeated assertion failed with a succeed duration of $succeedDuration.",
-          exception,
-        )
-      }
   }
 
   def forAllParallel[T](

@@ -23,7 +23,7 @@ import com.daml.ledger.api.testtool.infrastructure.participant.{
   Features,
   ParticipantTestContext,
 }
-import com.daml.ledger.api.testtool.suites.CommandDeduplicationIT.{
+import com.daml.ledger.api.testtool.infrastructure.time.{
   DelayMechanism,
   StaticTimeDelayMechanism,
   TimeDelayMechanism,
@@ -43,7 +43,6 @@ import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, Tex
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{LedgerString, SubmissionId}
 import com.daml.logging.LoggingContext
-import com.daml.timer.Delayed
 import io.grpc.Status.Code
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -327,6 +326,7 @@ final class CommandDeduplicationIT(
         maxRetryDuration = deduplicationDurationFromPeriod + delay.skews + 10.seconds,
         description =
           s"Deduplication period expires and request is accepted for command ${submitRequest.getCommands}.",
+        delayMechanism = delay,
       ) {
         submitAndAssertAccepted(thirdCall)
       }
@@ -459,9 +459,11 @@ final class CommandDeduplicationIT(
   })
 
   testGivenAllParticipants(
-    s"DeduplicateUsingDurations",
-    "Deduplicate commands within the deduplication period defined by a duration",
-    allocate(SingleParty),
+    shortIdentifier = s"DeduplicateUsingDurations",
+    description = "Deduplicate commands within the deduplication period defined by a duration",
+    participants = allocate(SingleParty),
+    timeoutScale = 2, // has to wait for the deduplication period to expire
+    runConcurrently = false, // updates the time model
   )(implicit ec =>
     configuredParticipants => { case Participants(Participant(ledger, party)) =>
       val request = ledger
@@ -501,6 +503,7 @@ final class CommandDeduplicationIT(
             maxRetryDuration = deduplicationDurationFromPeriod + delay.skews + 10.seconds,
             description =
               s"The deduplication period expires and the request is accepted for the commands ${request.getCommands}.",
+            delayMechanism = delay,
           ) {
             submitRequestAndAssertCompletionAccepted(
               ledger,
@@ -1068,30 +1071,5 @@ final class CommandDeduplicationIT(
         timeModelUpdate(participant).map(_ -> participant)
       }
     }
-  }
-}
-
-object CommandDeduplicationIT {
-
-  trait DelayMechanism {
-    val skews: FiniteDuration
-    def delayBy(duration: Duration): Future[Unit]
-
-  }
-
-  class TimeDelayMechanism(val skews: FiniteDuration)(implicit ec: ExecutionContext)
-      extends DelayMechanism {
-    override def delayBy(duration: Duration): Future[Unit] = Delayed.by(duration)(())
-  }
-
-  class StaticTimeDelayMechanism(ledger: ParticipantTestContext, val skews: FiniteDuration)(implicit
-      ec: ExecutionContext
-  ) extends DelayMechanism {
-    override def delayBy(duration: Duration): Future[Unit] =
-      ledger
-        .time()
-        .flatMap { currentTime =>
-          ledger.setTime(currentTime, currentTime.plusMillis(duration.toMillis))
-        }
   }
 }
