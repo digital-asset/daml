@@ -218,7 +218,9 @@ private[daml] object ApiServices {
           val authorized =
             new UserManagementServiceAuthorization(apiUserManagementService, authorizer)
           Some(authorized)
-        } else None
+        } else {
+          None
+        }
 
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
