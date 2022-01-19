@@ -107,20 +107,36 @@ To use ``Optional``, include ``Optional.daml`` from the standard library:
 
 .. literalinclude:: code-snippets/troubleshooting/OptionalDemo.daml
   :language: daml
-  :lines: 7
+  :start-after: -- start snippet: import Optional
+  :end-before: -- end snippet: import Optional
 
 Then, you can create ``Optional`` values like this:
 
 .. literalinclude:: code-snippets/troubleshooting/OptionalDemo.daml
   :language: daml
-  :lines: 12,14
+  :start-after: -- start snippet: create some
+  :end-before: -- end snippet: create some
+  :dedent: 6
+
+.. literalinclude:: code-snippets/troubleshooting/OptionalDemo.daml
+  :language: daml
+  :start-after: -- start snippet: create none
+  :end-before: -- end snippet: create none
   :dedent: 6
 
 You can test for existence in various ways:
 
+
 .. literalinclude:: code-snippets/troubleshooting/OptionalDemo.daml
   :language: daml
-  :lines: 16-19,21-24
+  :start-after: -- start snippet: test some
+  :end-before: -- end snippet: test some
+  :dedent: 6
+
+.. literalinclude:: code-snippets/troubleshooting/OptionalDemo.daml
+  :language: daml
+  :start-after: -- start snippet: test none
+  :end-before: -- end snippet: test none
   :dedent: 6
 
 If you need to extract the value, use the ``optional`` function.
@@ -129,7 +145,8 @@ It returns a value of a defined type, and takes a ``Optional`` value and a funct
 
 .. literalinclude:: code-snippets/troubleshooting/OptionalDemo.daml
   :language: daml
-  :lines: 27-28
+  :start-after: -- start snippet: optional
+  :end-before: -- end snippet: optional
   :dedent: 2
 
 If ``optionalValue`` is ``Some 5``, the value of ``t`` would be ``"The number is 5"``. If it was ``None``, ``t`` would be ``"No number"``. Note that with ``optional``, it is possible to return a different type from that contained in the ``Optional`` value. This makes the ``Optional`` type very flexible.
