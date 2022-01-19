@@ -7,7 +7,7 @@ import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
 import com.daml.lf.data.Ref
 
 case class CompletionStreamRequest(
-    ledgerId: LedgerId,
+    ledgerId: Option[LedgerId],
     applicationId: Ref.ApplicationId,
     parties: Set[Ref.Party],
     offset: Option[LedgerOffset],

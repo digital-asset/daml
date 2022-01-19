@@ -10,7 +10,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
 import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.daml.ledger.api.v1.command_completion_service._
@@ -51,7 +50,7 @@ private[apiserver] final class ApiCommandCompletionService private (
   override def completionStreamSource(
       request: CompletionStreamRequest
   ): Source[CompletionStreamResponse, NotUsed] =
-    Source.future(getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
+    Source.future(getLedgerEnd()).flatMapConcat { ledgerEnd =>
       validator
         .validateCompletionStreamRequest(request, ledgerEnd)
         .fold(
@@ -80,7 +79,7 @@ private[apiserver] final class ApiCommandCompletionService private (
         )
     }
 
-  override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
+  override def getLedgerEnd(): Future[LedgerOffset.Absolute] =
     completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 }
 

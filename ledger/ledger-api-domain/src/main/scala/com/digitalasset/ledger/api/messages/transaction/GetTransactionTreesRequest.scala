@@ -7,7 +7,7 @@ import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
 import com.daml.lf.data.Ref.Party
 
 final case class GetTransactionTreesRequest(
-    ledgerId: LedgerId,
+    ledgerId: Option[LedgerId],
     startExclusive: LedgerOffset,
     endInclusive: Option[LedgerOffset],
     parties: Set[Party],
