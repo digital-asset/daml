@@ -7,20 +7,21 @@ package sandbox
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
-import bazeltools.BazelRunfiles.rlocation
-import grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
-import ledger.api.domain.LedgerId
-import ledger.api.refinements.ApiTypes.ApplicationId
-import ledger.api.v1.command_service.SubmitAndWaitRequest
-import ledger.api.v1.commands.{Command, Commands, CreateCommand}
-import ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import ledger.resources.TestResourceContext
-import lf.language.LanguageVersion
-import platform.apiserver.SeedService.Seeding
-import platform.apiserver.services.GrpcClientResource
-import platform.sandbox.config.SandboxConfig
-import platform.sandbox.services.SandboxFixture
-import ports.Port
+
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.resources.TestResourceContext
+import com.daml.lf.language.LanguageVersion
+import com.daml.platform.apiserver.SeedService.Seeding
+import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.SandboxFixture
+import com.daml.ports.Port
 import com.google.protobuf
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers

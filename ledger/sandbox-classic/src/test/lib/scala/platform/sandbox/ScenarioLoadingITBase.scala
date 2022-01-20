@@ -29,7 +29,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 
-@Ignore
 @SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
 abstract class ScenarioLoadingITBase
     extends AsyncWordSpec
