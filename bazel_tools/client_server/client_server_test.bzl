@@ -19,6 +19,7 @@ def client_server_test(
         server = None,
         server_args = [],
         server_files = [],
+        server_files_prefix = "",
         data = [],
         **kwargs):
     """Create a client-server test.
@@ -65,7 +66,7 @@ client=$$(canonicalize_rlocation $$(get_exe $(rootpaths {client})))
 server=$$(canonicalize_rlocation $$(get_exe $(rootpaths {server})))
 server_args="{server_args}"
 for file in {server_files}; do
-    server_args+=" $$(canonicalize_rlocation $$file)"
+    server_args+=" {server_files_prefix}$$(canonicalize_rlocation $$file)"
 done
 
 client_args="$$@"
@@ -86,6 +87,7 @@ $$runner $$client "$$client_args" $$server "$$server_args" "$$runner_args"
             server = server,
             server_args = _escape_args(server_args),
             server_files = _escape_args(server_files),
+            server_files_prefix = server_files_prefix,
         ),
         **kwargs
     )
