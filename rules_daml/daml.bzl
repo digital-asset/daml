@@ -330,7 +330,6 @@ def daml_build_test(
         daml_yaml = None,
         dar_dict = {},
         ghc_options = default_damlc_opts,
-        enable_scenarios = False,
         **kwargs):
     "Build a DAML project and validate the resulting .dar file."
     if not daml_yaml:
@@ -342,9 +341,7 @@ def daml_build_test(
         srcs = srcs,
         dar_dict = dar_dict,
         dar = name + ".dar",
-        ghc_options =
-            ghc_options +
-            (["--enable-scenarios=yes"] if enable_scenarios else []),
+        ghc_options = ghc_options,
         **kwargs
     )
     _daml_validate_test(
