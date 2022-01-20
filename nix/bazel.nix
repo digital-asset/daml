@@ -45,7 +45,12 @@ let shared = rec {
         stack
         stdenv.cc  # ghc-lib needs `gcc` or `clang`, but Bazel provides `cc`.
         xz
-      ];
+      ] ++ (
+        if stdenv.isDarwin
+        # ghc-lib needs `ar`, but Bazel provides `libtool`. See https://github.com/bazelbuild/bazel/issues/5127.
+        then [(runCommand "bazel-ar" { buildInputs = []; } "mkdir -p $out/bin; ln -s ${binutils.bintools}/bin/ar $out/bin/ar")]
+        else []
+      );
     };
 
     postgresql_10 = if pkgs.buildPlatform.libc == "glibc"
