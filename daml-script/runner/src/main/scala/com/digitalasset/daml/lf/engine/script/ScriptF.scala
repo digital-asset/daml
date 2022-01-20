@@ -29,7 +29,7 @@ import scalaz.syntax.traverse._
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
-import com.daml.script.converter.Converter.{toContractId, toText}
+import com.daml.script.converter.Converter.toContractId
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -409,26 +409,6 @@ object ScriptF {
         val t1 = System.nanoTime
         nanosLeft = totalNanos - (t1 - t0)
       }
-    }
-  }
-
-  final case class ValidateUserId(
-      userName: String,
-      stackTrace: StackTrace,
-      continue: SValue,
-  ) extends Cmd {
-    override def description = "ValidateUserId"
-    override def execute(env: Env)(implicit
-        ec: ExecutionContext,
-        mat: Materializer,
-        esf: ExecutionSequencerFactory,
-    ): Future[SExpr] = {
-      val errorOption =
-        UserId.fromString(userName) match {
-          case Right(_) => None // valid
-          case Left(message) => Some(SText(message)) // invalid; with error message
-        }
-      Future.successful(SEApp(SEValue(continue), Array(SEValue(SOptional(errorOption)))))
     }
   }
 
@@ -830,16 +810,6 @@ object ScriptF {
 
   }
 
-  private def parseValidateUserId(ctx: Ctx, v: SValue): Either[String, ValidateUserId] =
-    v match {
-      case SRecord(_, _, JavaList(userName, continue, stackTrace)) =>
-        for {
-          userName <- toText(userName)
-          stackTrace <- toStackTrace(ctx, Some(stackTrace))
-        } yield ValidateUserId(userName, stackTrace, continue)
-      case _ => Left(s"Expected ValidateUserId payload but got $v")
-    }
-
   private def parseCreateUser(ctx: Ctx, v: SValue): Either[String, CreateUser] =
     v match {
       case SRecord(_, _, JavaList(user, rights, participant, continue, stackTrace)) =>
@@ -934,7 +904,6 @@ object ScriptF {
       case "Sleep" => parseSleep(ctx, v)
       case "Catch" => parseCatch(v)
       case "Throw" => parseThrow(v)
-      case "ValidateUserId" => parseValidateUserId(ctx, v)
       case "CreateUser" => parseCreateUser(ctx, v)
       case "GetUser" => parseGetUser(ctx, v)
       case "DeleteUser" => parseDeleteUser(ctx, v)

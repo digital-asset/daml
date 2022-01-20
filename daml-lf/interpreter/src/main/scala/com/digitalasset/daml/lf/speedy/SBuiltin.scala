@@ -463,6 +463,19 @@ private[lf] object SBuiltin {
     }
   }
 
+  // Check if the supplied text is valid as a UserId.
+  // Returns None if the text is valid, or Some(msg) if the text is invalid,
+  // where msg is a human readable message explaining why the text is not valid.
+  final case object SBValidateTextAsUserId extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+      val s = getSText(args, 0)
+      SOptional(UserId.fromString(s) match {
+        case Right(_) => None // valid
+        case Left(message) => Some(SText(message)) // invalid; with error message
+      })
+    }
+  }
+
   final case object SBTextToInt64 extends SBuiltinPure(1) {
     private val pattern = """[+-]?\d+""".r.pattern
 

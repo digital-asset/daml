@@ -33,7 +33,7 @@ import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{PackageInterface, LanguageVersion}
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.speedy.SBuiltin.SBToAny
+import com.daml.lf.speedy.SBuiltin.{SBToAny, SBValidateTextAsUserId}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -340,23 +340,27 @@ private[lf] class Runner(
     timeMode: ScriptTimeMode,
 ) extends StrictLogging {
 
-  // We overwrite the definition of fromLedgerValue with an identity function.
-  // This is a type error but Speedy doesn’t care about the types and the only thing we do
-  // with the result is convert it to ledger values/record so this is safe.
   private val extendedCompiledPackages = {
-    val fromLedgerValue: PartialFunction[SDefinitionRef, SDefinition] = {
+    val replacements: PartialFunction[SDefinitionRef, SDefinition] = {
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
+        // We overwrite the definition of fromLedgerValue with an identity function.
+        // This is a type error but Speedy doesn’t care about the types and the only thing we do
+        // with the result is convert it to ledger values/record so this is safe.
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
+      case LfDefRef(id) if id == script.scriptIds.damlScript("validateUserIdBuiltin") =>
+        // We overwrite the definition of validateUserIdBuiltin with the corresponding speedy builtin
+        val builtin = SEBuiltin(SBValidateTextAsUserId)
+        SDefinition(SEMakeClo(Array(), 1, SEApp(builtin, Array(SELocA(0)))))
     }
     new CompiledPackages(Runner.compilerConfig) {
       override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
-        fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
+        replacements.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
       // FIXME: avoid override of non abstract method
       override def interface: PackageInterface = compiledPackages.interface
       override def packageIds: collection.Set[PackageId] = compiledPackages.packageIds
       // FIXME: avoid override of non abstract method
       override def definitions: PartialFunction[SDefinitionRef, SDefinition] =
-        fromLedgerValue.orElse(compiledPackages.definitions)
+        replacements.orElse(compiledPackages.definitions)
     }
   }
 

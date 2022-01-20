@@ -133,7 +133,6 @@ data ScriptF a
   | GetTime (GetTimePayload a)
   | SetTime (SetTimePayload a)
   | Sleep (SleepRec a)
-  | ValidateUserId (ValidateUserIdPayload a)
   | CreateUser (CreateUserPayload a)
   | GetUser (GetUserPayload a)
   | DeleteUser (DeleteUserPayload a)
@@ -795,12 +794,6 @@ exception InvalidUserId
   where
     message m
 
-mkUserId : Text -> Script (Optional Text) -> Script UserId
-mkUserId name validateScript = do
-  validateScript >>= \case
-    None -> pure (UserId name)
-    Some msg -> throw (InvalidUserId msg)
-
 -- | HIDE May be thrown by createUser
 exception UserAlreadyExists
   with
@@ -829,10 +822,13 @@ checkUserNotFound userId script = do
 
 -- | HIDE Convert the text to a user id or fail if it does not conform to the format restriction.
 validateUserId : HasCallStack => Text -> Script UserId
-validateUserId name = mkUserId name $ lift $ Free $ ValidateUserId ValidateUserIdPayload with
-  continue = pure
-  locations = getCallStack callStack
-  name
+validateUserId name =
+  case validateUserIdBuiltin name of
+    None -> pure (UserId name)
+    Some msg -> throw (InvalidUserId msg)
+
+validateUserIdBuiltin : Text -> Optional Text
+validateUserIdBuiltin = error "expecting: validateUserIdBuiltin to be replaced"
 
 -- | HIDE Create a user with the given rights
 createUser : HasCallStack => User -> [UserRight] -> Script ()
@@ -955,13 +951,6 @@ submitUser' userId participant cmds = do
   let actAs = [ p | CanActAs p <- rights ]
   let readAs = [ p | CanReadAs p <- rights ]
   submitMulti actAs readAs cmds
-
-data ValidateUserIdPayload a = ValidateUserIdPayload
-  with
-    name : Text
-    continue : Optional Text -> a -- text indicates reason for invalid name
-    locations : [(Text, SrcLoc)]
-  deriving Functor
 
 data CreateUserPayload a = CreateUserPayload
   with
