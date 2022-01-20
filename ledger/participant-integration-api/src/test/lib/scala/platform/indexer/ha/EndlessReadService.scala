@@ -74,7 +74,7 @@ case class EndlessReadService(
         .map {
           case i @ 1 =>
             offset(i) -> Update.ConfigurationChanged(
-              recordTime(i),
+              Some(recordTime(i)),
               submissionId(i),
               participantId,
               configuration,
@@ -84,14 +84,14 @@ case class EndlessReadService(
               party,
               "Operator",
               participantId,
-              recordTime(i),
+              Some(recordTime(i)),
               Some(submissionId(i)),
             )
           case i @ 3 =>
             offset(i) -> Update.PublicPackageUpload(
               List(archive),
               Some("Package"),
-              recordTime(i),
+              Some(recordTime(i)),
               Some(submissionId(i)),
             )
           case i if i % 2 == 0 =>
@@ -100,7 +100,7 @@ case class EndlessReadService(
               transactionMeta = transactionMeta(i),
               transaction = createTransaction(i),
               transactionId = transactionId(i),
-              recordTime = recordTime(i),
+              Some(recordTime(i)),
               divulgedContracts = List.empty,
               blindingInfo = None,
             )
@@ -110,7 +110,7 @@ case class EndlessReadService(
               transactionMeta = transactionMeta(i),
               transaction = exerciseTransaction(i),
               transactionId = transactionId(i),
-              recordTime = recordTime(i),
+              Some(recordTime(i)),
               divulgedContracts = List.empty,
               blindingInfo = None,
             )
