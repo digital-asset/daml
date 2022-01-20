@@ -34,7 +34,7 @@ How an application should acquire access tokens depends on the participant node 
 Many setups use a flow in the style of `OAuth 2.0 <https://oauth.net/2/>`_:
 
 First, the Daml application contacts a token issuer to get an access token.
-The token issuer verifies the identity of the requesting application looks up the privileges of the application,
+The token issuer verifies the identity of the requesting application, looks up the privileges of the application,
 and generates a signed access token describing those privileges.
 
 Then, the Daml application sends the access token along with every ledger API request.
