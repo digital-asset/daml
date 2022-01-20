@@ -22,7 +22,7 @@ The API is structured as two separate data streams:
 
 Commands are the only way an application can cause the state of the ledger to change, and events are the only mechanism to read those changes.
 
-For an application, the most important consequence of these architectural decisions and implementation is that the ledger API is asynchronous. This means:
+For an application, the most important consequence of these architectural decisions and implementation is that the Ledger API is asynchronous. This means:
 
 -  The outcome of commands is only known some time after they are submitted.
 -  The application must deal with successful and erroneous command completions separately from command submission.
@@ -86,7 +86,7 @@ Command deduplication
 The command submission service deduplicates submitted commands based on their :ref:`change ID <change-id>`.
 
 - Applications can provide a deduplication period for each command. If this parameter is not set, the default maximum deduplication time is used.
-- A command submission is considered a duplicate submission if the ledger API server is aware of another command within the deduplication period and with the same :ref:`change ID <change-id>`.
+- A command submission is considered a duplicate submission if the Ledger API server is aware of another command within the deduplication period and with the same :ref:`change ID <change-id>`.
 - A command resubmission will generate a rejection until the original submission was rejected (i.e. the command failed and resulted in a rejected transaction) or until the effective deduplication period has elapsed since the completion of the original command, whichever comes first.
 - Command deduplication is only *guaranteed* to work if all commands are submitted to the same participant. Ledgers are free to perform additional command deduplication across participants. Consult the respective ledger's manual for more details.
 
@@ -195,7 +195,7 @@ Use the **party management service** to allocate parties on the ledger and retri
 
 Parties govern on-ledger access control as per :ref:`Daml's privacy model <da-model-privacy>`
 and :ref:`authorization rules <da-ledgers-authorization-rules>`.
-Applications and their operators are expected allocate and use parties to manage on-ledger access control as per their business requirements.
+Applications and their operators are expected to allocate and use parties to manage on-ledger access control as per their business requirements.
 
 For more information, refer to the pages on :doc:`Identity Management</concepts/identity-and-package-management>` and :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
 
@@ -204,14 +204,14 @@ For more information, refer to the pages on :doc:`Identity Management</concepts/
 User management service
 =======================
 
-Use the **user management service** to manage the set of users on a participant node and their :ref:`access rights <authorization-claims>` to that node's ledger API services.
+Use the **user management service** to manage the set of users on a participant node and their :ref:`access rights <authorization-claims>` to that node's Ledger API services.
 
 In contrast to parties, users are local to a participant node.
 The relation between a participant node's users and Daml parties is best understood by analogy to classical databases:
 a participant node's users are analogous to database users while Daml parties are analogous to database roles; and further, the rights granted to a user are analogous to the user's assigned database roles.
 
 For more information, refer to :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, and delete users and their rights.
-Read the :doc:`Authorization documentation </app-dev/authorization>` to understand how ledger API requests are authorized, and how to use user management to dynamically change an application's rights.
+Read the :doc:`Authorization documentation </app-dev/authorization>` to understand how Ledger API requests are authorized, and how to use user management to dynamically change an application's rights.
 
 .. _package-service:
 

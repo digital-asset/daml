@@ -7,11 +7,11 @@ Authorization
 #############
 
 When developing Daml applications using SDK tools,
-your local setup will most likely not perform any ledger API request authorization --
-by default, any valid ledger API request will be accepted by the sandbox.
+your local setup will most likely not perform any Ledger API request authorization --
+by default, any valid Ledger API request will be accepted by the sandbox.
 
 This is not the case for participant nodes of :doc:`deployed ledgers </deploy/index>`.
-They check for every ledger API request whether the request contains an access token that is valid and sufficient to authorize the request.
+They check for every Ledger API request whether the request contains an access token that is valid and sufficient to authorize the request.
 You thus need to add support for authorization using access token to your application to run it against a deployed ledger.
 
 Introduction
@@ -37,14 +37,14 @@ First, the Daml application contacts a token issuer to get an access token.
 The token issuer verifies the identity of the requesting application, looks up the privileges of the application,
 and generates a signed access token describing those privileges.
 
-Then, the Daml application sends the access token along with every ledger API request.
+Then, the Daml application sends the access token along with every Ledger API request.
 The Daml ledger verifies the signature of the token to make sure it has not been tampered with and was issued by one of its trusted token issuers,
 and then checks that the token has not yet expired and that the privileges described in the token authorize the given Ledger API request.
 
 .. image:: ./images/Authentication.svg
 
 As shown above, using access tokens requires your application to attach them to every request.
-How to do that depends on the tool or library you use to interact with the ledger API.
+How to do that depends on the tool or library you use to interact with the Ledger API.
 See the tool's or library's documentation for more information.
 Here is for example the relevant documentation for
 the :ref:`Java bindings <ledger-api-java-bindings-authorization>`
@@ -58,7 +58,7 @@ Access tokens and rights
 
 Access tokens contain information about the rights granted to the bearer of the token. These rights are specific to the API being accessed.
 
-The Daml ledger API uses the following rights to govern request authorization:
+The Daml Ledger API uses the following rights to govern request authorization:
 
 - ``public``: the right to retrieve publicly available information, such as the ledger identity
 - ``participant_admin``: the right to adminstrate the participant node
@@ -126,6 +126,8 @@ However as an application developer it can be helpful to understand the format o
 
 All Daml ledgers represent access tokens as `JSON Web Tokens (JWTs) <https://datatracker.ietf.org/doc/html/rfc7519>`_,
 and there are two formats of the JSON payload in use by Daml ledgers.
+
+.. note:: To generate access tokens for testing purposes, you can use the `jwt.io <https://jwt.io/>`__ web site.
 
 
 User access tokens
