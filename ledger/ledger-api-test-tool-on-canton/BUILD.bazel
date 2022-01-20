@@ -84,7 +84,7 @@ conformance_test(
             "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
             "CommandDeduplicationIT:SimpleDeduplicationBasic",  # sync vs async error (part of canton #6301)
             "CommandDeduplicationIT:DeduplicateSubmitterBasic",
-            "CommandDeduplicationIT:DeduplicateUsingDurations", # temporary disabled until we adapt it for canton
+            "CommandDeduplicationIT:DeduplicateUsingDurations",  # temporary disabled until we adapt it for canton
             "CommandDeduplicationIT:DeduplicateUsingOffsets",  # temporary disabled until we adapt it for canton
             "RaceConditionIT:RWArchiveVsFailedLookupByKey",  # finding a lookup failure after contract creation
             # dynamic config management not supported by Canton
