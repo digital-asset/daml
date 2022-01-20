@@ -157,7 +157,7 @@ object BridgeWriteService {
           )
           SubmissionResult.SynchronousError(
             Status(
-              Code.RESOURCE_EXHAUSTED.value
+              Code.ABORTED.value // TODO SoX: Use error codes
             )
           )
         case QueueOfferResult.Failure(throwable) =>

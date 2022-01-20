@@ -3,8 +3,6 @@
 
 package com.daml.ledger.sandbox
 
-import java.util.concurrent.{Executors, TimeUnit}
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -12,6 +10,7 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCodesVersionSwitcher
+import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
@@ -21,13 +20,7 @@ import com.daml.ledger.api.v1.experimental_features.{
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.kvutils.app.{
-  Config,
-  DumpIndexMetadata,
-  Mode,
-  ParticipantConfig,
-  ParticipantRunMode,
-}
+import com.daml.ledger.participant.state.kvutils.app._
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -44,12 +37,14 @@ import com.daml.platform.apiserver.{
   StandaloneIndexService,
   TimeServiceBackend,
 }
+import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.platform.usermanagement.PersistentUserManagementStore
 
+import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 
@@ -91,10 +86,6 @@ object SandboxOnXRunner {
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    val sharedEngine = new Engine(
-      EngineConfig(config.allowedLanguageVersions, forbidV0ContractId = false)
-    )
-
     for {
       // Take ownership of the actor system and materializer so they're cleaned up properly.
       // This is necessary because we can't declare them as implicits in a `for` comprehension.
@@ -103,7 +94,7 @@ object SandboxOnXRunner {
 
       // Start the ledger
       participantConfig <- validateCombinedParticipantMode(config)
-      _ <- buildLedger(sharedEngine)(
+      _ <- buildLedger(
         config,
         participantConfig,
         materializer,
@@ -112,7 +103,7 @@ object SandboxOnXRunner {
     } yield ()
   }
 
-  private def validateCombinedParticipantMode(
+  def validateCombinedParticipantMode(
       config: Config[BridgeConfig]
   ): Resource[ParticipantConfig] =
     config.participants.toList match {
@@ -126,21 +117,23 @@ object SandboxOnXRunner {
         }
     }
 
-  private def buildLedger(
-      sharedEngine: Engine
-  )(implicit
+  def buildLedger(implicit
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       materializer: Materializer,
       actorSystem: ActorSystem,
-  ): ResourceOwner[Unit] = {
+      metrics: Option[Metrics] = None,
+  ): ResourceOwner[(ApiServer, WriteService)] = {
     implicit val apiServerConfig: ApiServerConfig =
       BridgeConfigProvider.apiServerConfig(participantConfig, config)
+    val sharedEngine = new Engine(
+      EngineConfig(config.allowedLanguageVersions, forbidV0ContractId = false)
+    )
 
     newLoggingContextWith("participantId" -> participantConfig.participantId) {
       implicit loggingContext =>
         for {
-          metrics <- buildMetrics
+          metrics <- metrics.map(ResourceOwner.successful).getOrElse(buildMetrics)
           translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
             eventConfiguration = config.lfValueTranslationEventCache,
             contractConfiguration = config.lfValueTranslationContractCache,
@@ -167,7 +160,7 @@ object SandboxOnXRunner {
             translationCache,
           )
 
-          dbSupport: DbSupport <- DbSupport
+          dbSupport <- DbSupport
             .owner(
               jdbcUrl = apiServerConfig.jdbcUrl,
               serverRole = ServerRole.ApiServer,
@@ -197,7 +190,7 @@ object SandboxOnXRunner {
             timeServiceBackend,
           )
 
-          _ <- buildStandaloneApiServer(
+          apiServer <- buildStandaloneApiServer(
             sharedEngine,
             indexService,
             metrics,
@@ -207,11 +200,11 @@ object SandboxOnXRunner {
             timeServiceBackend,
             dbSupport,
           )
-        } yield ()
+        } yield apiServer -> writeService
     }
   }
 
-  private def buildStandaloneApiServer(
+  def buildStandaloneApiServer(
       sharedEngine: Engine,
       indexService: IndexService,
       metrics: Metrics,
@@ -234,7 +227,7 @@ object SandboxOnXRunner {
       submissionConfig = config.submissionConfig,
       partyConfig = PartyConfiguration(config.extra.implicitPartyAllocation),
       optWriteService = Some(writeService),
-      authService = BridgeConfigProvider.authService(config),
+      authService = config.extra.authService.getOrElse(AuthServiceWildcard),
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
       metrics = metrics,
       timeServiceBackend = timeServiceBackend,

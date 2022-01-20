@@ -56,8 +56,10 @@ trait ServiceCallAuthTests
 
   protected def expectFailure(f: Future[Any], code: Status.Code): Future[Assertion] =
     f.failed.collect {
-      case GrpcException(GrpcStatus(`code`, _), _) => succeed
-      case NonFatal(e) => fail(e)
+      case GrpcException(GrpcStatus(`code`, _), _) =>
+        succeed
+      case NonFatal(e) =>
+        fail(e)
     }
 
   protected def txFilterFor(party: String): Option[TransactionFilter] =

@@ -4,7 +4,6 @@
 package com.daml.platform.sandbox.services.identity
 
 import java.util.UUID
-
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundEach
 import com.daml.lf.data.Ref
@@ -13,6 +12,7 @@ import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.testing.postgresql.PostgresAroundAll
+import org.scalatest.Ignore
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
@@ -42,9 +42,9 @@ sealed trait LedgerIdentityServiceITBaseGiven
       }
     }
   }
-
 }
 
+@Ignore // TODO SoX: InMemory representations not supported
 final class LedgerIdentityServiceInMemoryGivenIT extends LedgerIdentityServiceITBaseGiven
 
 final class LedgerIdentityServicePostgresGivenIT
@@ -76,13 +76,11 @@ sealed trait LedgerIdentityServiceITBaseDynamic
       "have different identifiers across restarts" in {
         firstRunLedgerId should not equal ledgerId().unwrap
       }
-
     }
-
   }
-
 }
 
+@Ignore // TODO SoX: InMemory representations not supported
 final class LedgerIdentityServiceInMemoryDynamicIT extends LedgerIdentityServiceITBaseDynamic
 
 final class LedgerIdentityServicePostgresDynamicIT

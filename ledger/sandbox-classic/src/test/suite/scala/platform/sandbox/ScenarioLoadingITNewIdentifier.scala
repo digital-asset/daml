@@ -3,4 +3,7 @@
 
 package com.daml.platform.sandbox
 
+import org.scalatest.Ignore
+
+@Ignore
 class ScenarioLoadingITNewIdentifier extends ScenarioLoadingITBase
