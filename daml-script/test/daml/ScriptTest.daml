@@ -447,6 +447,8 @@ getParticipantAdmin () = do
   pure $ User participant_admin None
 
 testUserManagement = do
+  try do validateUserId "BAD"; error "validateUserId call should throw"
+  catch InvalidUserId m -> m === "User ID \"BAD\" does not match regex \"[a-z0-9@^$.!`\\-#+'~_|]{1,128}\""
   participantAdmin <- getParticipantAdmin ()
   users <- listUsers
   users === [participantAdmin]
