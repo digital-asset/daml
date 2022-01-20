@@ -155,7 +155,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           jdbcUrl = ledgerJdbcUrl,
           resetOnStartup = false,
           offsetVersion = 0,
-          logEntryIdAllocator = new SeedServiceLogEntryIdAllocator(SeedService(config.seeding.get)),
+          logEntryIdAllocator = new SeedServiceLogEntryIdAllocator(SeedService(config.seeding)),
           stateValueCache = caching.WeightedCache.from(
             caching.WeightedCache.Configuration(
               maximumWeight = MaximumStateValueCacheSize
@@ -218,7 +218,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           eventsPageSize = config.eventsPageSize,
           portFile = config.portFile,
           // TODO append-only: augment the following defaults for enabling the features for sandbox next
-          seeding = config.seeding.get,
+          seeding = config.seeding,
           managementServiceTimeout = config.managementServiceTimeout,
           maxContractStateCacheSize = 0L,
           maxContractKeyStateCacheSize = 0L,
@@ -301,7 +301,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           timeProviderType.description,
           ledgerType,
           authService.getClass.getSimpleName,
-          config.seeding.get.name,
+          config.seeding.name,
           if (config.stackTraces) "" else ", stack traces = no",
           config.profileDir match {
             case None => ""

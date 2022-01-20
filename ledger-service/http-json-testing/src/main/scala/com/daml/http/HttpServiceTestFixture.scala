@@ -229,7 +229,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       tlsConfig = if (useTls) Some(serverTlsConfig) else None,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
       authService = authService,
-      seeding = Some(Seeding.Weak),
+      seeding = Seeding.Weak,
     )
 
   private def clientConfig(

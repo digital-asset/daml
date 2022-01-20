@@ -53,7 +53,7 @@ final case class SandboxConfig(
     eagerPackageLoading: Boolean,
     logLevel: Option[Level],
     authService: Option[AuthService],
-    seeding: Option[Seeding],
+    seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: FiniteDuration,
     maxParallelSubmissions: Int, // only used by Sandbox Classic
@@ -156,7 +156,7 @@ object SandboxConfig {
       eagerPackageLoading = false,
       logLevel = None, // the default is in logback.xml
       authService = None,
-      seeding = Some(Seeding.Strong),
+      seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = 10.seconds,
       maxParallelSubmissions = 512,
