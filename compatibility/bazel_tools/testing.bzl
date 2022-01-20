@@ -536,7 +536,7 @@ excluded_test_tool_tests = [
         "start": "1.18.0",
         "platform_ranges": [
             {
-                "end": "1.18.0",
+                "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     "CommandDeduplicationIT",  # Latest version of the test is dependent on having the submission id populated
                 ],
@@ -548,7 +548,7 @@ excluded_test_tool_tests = [
         "end": "2.0.0-snapshot.20220105.8777.1",  # was removed in 2.0
         "platform_ranges": [
             {
-                "end": "1.18.0",
+                "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     # Exclude dedup tests due to large number of changes (removed participant deduplication, switch to append-only schema, changes in deduplication duration)
                     "KVCommandDeduplicationIT",
@@ -573,7 +573,7 @@ excluded_test_tool_tests = [
         "start": "1.18.0",
         "platform_ranges": [
             {
-                "end": "1.18.0",
+                "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     "CommandServiceIT:CSsubmitAndWaitCompletionOffset",
                 ],
@@ -584,7 +584,7 @@ excluded_test_tool_tests = [
         "start": "2.0.0",
         "platform_ranges": [
             {
-                "end": "1.18.0",
+                "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     # Unexpected failure (StatusRuntimeException) ALREADY_EXISTS: DUPLICATE_COMMAND(10,KVComman):
                     "CommandDeduplicationIT:DeduplicationMixedClients",
@@ -601,7 +601,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.18.0",
-        "end": "1.18.0",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20211123.8463.0.bd2a6852",
@@ -640,7 +640,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.3.0",
-        "end": "1.18.0",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
@@ -652,7 +652,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.16.0",
-        "end": "1.18.0",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
@@ -664,13 +664,25 @@ excluded_test_tool_tests = [
     },
     {
         "start": first_granular_test_tool,
-        "end": "1.18.0",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     # Error message did not contain [\QParty not known on ledger\E], but was [Parties not known on ledger: [unallocated]].
                     "ClosedWorldIT:ClosedWorldObserver",
+                ],
+            },
+        ],
+    },
+    {
+        # Contract ID tests are governed by feature descriptors.
+        "start": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+        "platform_ranges": [
+            {
+                "end": "2.0.0-snapshot.20220110.8812.1",
+                "exclusions": [
+                    "ContractIdIT",
                 ],
             },
         ],

@@ -202,7 +202,6 @@ runCommand env@Env{..} = \case
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
             envVersions = catMaybes
                 [ envSdkVersion
-                , envLatestStableSdkVersion
                 , guard vAssistant >> asstVersion
                 , projectVersionM
                 , defaultVersionM
@@ -241,6 +240,7 @@ runCommand env@Env{..} = \case
 
             versions = nubSort . concat $
                 [ envVersions
+                , maybeToList latestVersionM
                 , fromRight [] installedVersionsE
                 , if vAll then fromRight [] availableVersionsE else []
                 , fromRight [] snapshotVersionsE

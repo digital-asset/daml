@@ -433,13 +433,12 @@ class CommonCliBase(name: LedgerName) {
 
   def withContractIdSeeding(
       defaultConfig: SandboxConfig,
-      seedingModes: Option[Seeding]*
+      seedingModes: Seeding*
   ): CommonCliBase = {
     val seedingModesMap =
-      seedingModes.map(mode => (mode.map(_.name).getOrElse(Seeding.NoSeedingModeName), mode)).toMap
+      seedingModes.map(mode => (mode.name, mode)).toMap
     val allSeedingModeNames = seedingModesMap.keys.mkString(", ")
-    val defaultSeedingModeName =
-      defaultConfig.seeding.map(_.name).getOrElse(Seeding.NoSeedingModeName)
+    val defaultSeedingModeName = defaultConfig.seeding.name
     parser
       .opt[String]("contract-id-seeding")
       .optional()

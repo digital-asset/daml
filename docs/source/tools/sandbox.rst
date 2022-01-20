@@ -101,9 +101,10 @@ If you're not familiar with JDBC URLs, see the JDBC docs for more information: h
 Running with authentication
 ***************************
 
-By default, Sandbox does not use any authentication and accepts all valid ledger API requests.
+By default, Sandbox accepts all valid ledger API requests without performing any request authorization.
 
-To start Sandbox with authentication based on `JWT <https://jwt.io/>`__ tokens,
+To start Sandbox with authorization using `JWT-based <https://jwt.io/>`__ access tokens
+as described in the :doc:`Authorization documentation </app-dev/authorization>`,
 use one of the following command line options:
 
 - ``--auth-jwt-rs256-crt=<filename>``.
@@ -132,39 +133,11 @@ use one of the following command line options:
   - ``--auth-jwt-hs256-unsafe=<secret>``.
     The sandbox will expect all tokens to be signed with HMAC256 with the given plaintext secret.
 
-Token payload
-=============
-
-JWTs express claims which are documented in the :ref:`authorization <authorization-claims>` documentation.
-
-The following is an example of a valid JWT payload:
-
-.. code-block:: json
-
-   {
-      "https://daml.com/ledger-api": {
-        "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-        "participantId": null,
-        "applicationId": null,
-        "admin": true,
-        "actAs": ["Alice"],
-        "readAs": ["Bob"]
-      },
-      "exp": 1300819380
-   }
-
-where
-
-- ``ledgerId``, ``participantId``, ``applicationId`` restricts the validity of the token to the given ledger, participant, or application
-- ``exp`` is the standard JWT expiration date (in seconds since EPOCH)
-- ``admin``, ``actAs`` and ``readAs`` bear the same meaning as in the :ref:`authorization <authorization-claims>` documentation
-
-The ``public`` claim is implicitly held by anyone bearing a valid JWT (even without being an admin or being able to act or read on behalf of any party).
 
 Generating JSON Web Tokens (JWT)
 ================================
 
-To generate tokens for testing purposes, use the `jwt.io <https://jwt.io/>`__ web site.
+To generate access tokens for testing purposes, use the `jwt.io <https://jwt.io/>`__ web site.
 
 
 Generating RSA keys

@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ExperimentalContractIds,
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -38,6 +39,7 @@ import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.apiserver.{
   ApiServer,
   ApiServerConfig,
+  LedgerFeatures,
   StandaloneApiServer,
   StandaloneIndexService,
   TimeServiceBackend,
@@ -245,15 +247,22 @@ object SandboxOnXRunner {
         cacheExpiryAfterWriteInSeconds = config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
         maximumCacheSize = config.userManagementConfig.maximumCacheSize,
       )(servicesExecutionContext),
-      commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
-        deduplicationPeriodSupport = Some(
-          CommandDeduplicationPeriodSupport.of(
-            CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
-            CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
-          )
+      ledgerFeatures = LedgerFeatures(
+        staticTime = timeServiceBackend.isDefined,
+        commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+          deduplicationPeriodSupport = Some(
+            CommandDeduplicationPeriodSupport.of(
+              CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
+              CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+            )
+          ),
+          deduplicationType = CommandDeduplicationType.SYNC_ONLY,
+          maxDeduplicationDurationEnforced = false,
         ),
-        deduplicationType = CommandDeduplicationType.SYNC_ONLY,
-        maxDeduplicationDurationEnforced = false,
+        contractIdFeatures = ExperimentalContractIds.of(
+          v0 = ExperimentalContractIds.ContractIdV0Support.SUPPORTED,
+          v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+        ),
       ),
     )
 

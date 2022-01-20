@@ -14,6 +14,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ExperimentalContractIds,
 }
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -21,7 +22,7 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.JvmMetricSet
-import com.daml.platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
+import com.daml.platform.apiserver.{LedgerFeatures, StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -187,6 +188,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   indexService,
                 )(implicitly, servicesExecutionContext)
                 writeService = new TimedWriteService(factory.writeService(), metrics)
+                timeServiceBackend = configProvider.timeServiceBackend(config)
                 apiServer <- StandaloneApiServer(
                   indexService = indexService,
                   userManagementStore = userManagementStore,
@@ -199,21 +201,28 @@ final class Runner[T <: ReadWriteService, Extra](
                   authService = configProvider.authService(config),
                   healthChecks = healthChecksWithIndexer + ("write" -> writeService),
                   metrics = metrics,
-                  timeServiceBackend = configProvider.timeServiceBackend(config),
+                  timeServiceBackend = timeServiceBackend,
                   otherInterceptors = configProvider.interceptors(config),
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
-                  commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
-                    deduplicationPeriodSupport = Some(
-                      CommandDeduplicationPeriodSupport.of(
-                        offsetSupport =
-                          CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
-                        durationSupport =
-                          CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
-                      )
+                  ledgerFeatures = LedgerFeatures(
+                    staticTime = timeServiceBackend.isDefined,
+                    commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+                      deduplicationPeriodSupport = Some(
+                        CommandDeduplicationPeriodSupport.of(
+                          offsetSupport =
+                            CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
+                          durationSupport =
+                            CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+                        )
+                      ),
+                      deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
+                      maxDeduplicationDurationEnforced = true,
                     ),
-                    deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
-                    maxDeduplicationDurationEnforced = true,
+                    contractIdFeatures = ExperimentalContractIds.of(
+                      v0 = ExperimentalContractIds.ContractIdV0Support.NOT_SUPPORTED,
+                      v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+                    ),
                   ),
                 ).acquire()
               } yield Some(apiServer.port)

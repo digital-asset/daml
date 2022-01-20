@@ -5,6 +5,7 @@
 module DA.Daml.Assistant.Cache
     ( cacheAvailableSdkVersions
     , saveAvailableSdkVersions
+    , CacheAge (..)
     ) where
 
 import DA.Daml.Assistant.Types
@@ -53,7 +54,7 @@ cacheAvailableSdkVersions
     :: DamlPath
     -> CachePath
     -> IO [SdkVersion]
-    -> IO [SdkVersion]
+    -> IO ([SdkVersion], CacheAge)
 cacheAvailableSdkVersions damlPath cachePath getVersions = do
     damlConfigE <- tryConfig $ readDamlConfig damlPath
     let updateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
@@ -61,7 +62,7 @@ cacheAvailableSdkVersions damlPath cachePath getVersions = do
     case fromMaybe defaultUpdateCheck updateCheckM of
         UpdateCheckNever -> do
             valueAgeM <- loadFromCacheWith cachePath versionsKey (CacheTimeout 0) deserializeVersions
-            pure (maybe [] fst valueAgeM)
+            pure $ fromMaybe ([], Stale) valueAgeM
 
         UpdateCheckEvery timeout ->
             cacheWith cachePath versionsKey timeout
@@ -86,22 +87,22 @@ cacheWith
     -> Serialize t
     -> Deserialize t
     -> IO t
-    -> IO t
+    -> IO (t, CacheAge)
 cacheWith cachePath key timeout serialize deserialize getFresh = do
     valueAgeM <- loadFromCacheWith cachePath key timeout deserialize
     case valueAgeM of
-        Just (value, Fresh) -> pure value
+        Just (value, Fresh) -> pure (value, Fresh)
         Just (value, Stale) -> do
             valueE <- tryAny getFresh
             case valueE of
-                Left _ -> pure value
+                Left _ -> pure (value, Stale)
                 Right value' -> do
                     saveToCacheWith cachePath key serialize value'
-                    pure value'
+                    pure (value', Fresh)
         Nothing -> do
             value <- getFresh
             saveToCacheWith cachePath key serialize value
-            pure value
+            pure (value, Fresh)
 
 -- | A representation of the age of a cache value. We only care if the value is stale or fresh.
 data CacheAge
@@ -141,4 +142,3 @@ loadFromCacheWith cachePath key timeout deserialize = do
         (valueStr, age) <- valueAgeM
         value <- deserialize valueStr
         Just (value, age)
-

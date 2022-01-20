@@ -423,7 +423,7 @@ Guava InternalFutureFailureAccess and InternalFutures 1.0.1 : Apache License 2.0
 Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava : Apache License 2.0
 Guava: Google Core Libraries for Java v29.0 : Apache License 2.0
 gzip-size 3.0.0 : MIT License
-H2 Database Engine 2.0.206 : (Mozilla Public License 2.0 OR Eclipse Public License 1.0)
+H2 Database Engine 2.1.210 : (Mozilla Public License 2.0 OR Eclipse Public License 1.0)
 haddock-library 1.10.0 : BSD 2-clause "Simplified" License
 Hamcrest 1.3 : BSD 3-clause "New" or "Revised" License
 harthur/color 3.1.3 : MIT License
@@ -821,7 +821,6 @@ parse-passwd 1.0.0 : MIT License
 parse5 6.0.1 : MIT License
 parser 1.0.0 : MIT License
 parser-combinators 1.2.1 : BSD 3-clause "New" or "Revised" License
-parseurl 1.3.3 : MIT License
 path 0.8.0 : BSD 3-clause "New" or "Revised" License
 path-browserify 1.0.1 : MIT License
 path-exists 4.0.0 : MIT License
@@ -840,6 +839,7 @@ performance-now 2.1.0 : MIT License
 phadej/cabal-doctest 1.0.8 : BSD 3-clause "New" or "Revised" License
 picomatch 2.2.3 : MIT License
 picomatch 2.3.0 : MIT License
+pillarjs/parseurl 1.3.3 : MIT License
 pip 21.2.4 : MIT License
 pip 21.3.1 : MIT License
 polyparse 1.13 : GNU Lesser General Public License v3.0 or later
@@ -4133,7 +4133,7 @@ TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
 ---
 
 Eclipse Public License 1.0
-(H2 Database Engine 2.0.206, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.27.v20200227, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, JUnit 4.12, Logback 1.2.8, org.junit.platform:junit-platform-commons 1.0.0, org.junit.platform:junit-platform-engine 1.0.0, org.junit.platform:junit-platform-launcher 1.0.0, org.junit.platform:junit-platform-runner 1.0.0, org.junit.platform:junit-platform-suite-api 1.0.0)
+(H2 Database Engine 2.1.210, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.27.v20200227, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, JUnit 4.12, Logback 1.2.8, org.junit.platform:junit-platform-commons 1.0.0, org.junit.platform:junit-platform-engine 1.0.0, org.junit.platform:junit-platform-launcher 1.0.0, org.junit.platform:junit-platform-runner 1.0.0, org.junit.platform:junit-platform-suite-api 1.0.0)
 
 Eclipse Public License - v 1.0
 ==============================
@@ -7187,7 +7187,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(parseurl 1.3.3)
+(pillarjs/parseurl 1.3.3)
 
 (The MIT License)
 
@@ -17242,7 +17242,7 @@ EXHIBIT A -Mozilla Public License.
 ---
 
 Mozilla Public License 2.0
-(H2 Database Engine 2.0.206, HtmlUnit Core JS 2.39.0, pureconfig-core 0.14.0, pureconfig-generic 0.14.0, pureconfig-generic-base 0.14.0, pureconfig-macros 0.14.0, Saxon XSLT and XQuery Processor 10.3, semver 0.4.0.1)
+(H2 Database Engine 2.1.210, HtmlUnit Core JS 2.39.0, pureconfig-core 0.14.0, pureconfig-generic 0.14.0, pureconfig-generic-base 0.14.0, pureconfig-macros 0.14.0, Saxon XSLT and XQuery Processor 10.3, semver 0.4.0.1)
 
 Mozilla Public License
 Version 2.0

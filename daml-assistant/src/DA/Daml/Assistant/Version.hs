@@ -172,7 +172,7 @@ refreshAvailableSdkVersions cachePath = do
 
 -- | Same as getAvailableSdkVersions, but result is cached based on the duration
 -- of the update-check value in daml-config.yaml (defaults to 1 day).
-getAvailableSdkVersionsCached :: DamlPath -> CachePath -> IO [SdkVersion]
+getAvailableSdkVersionsCached :: DamlPath -> CachePath -> IO ([SdkVersion], CacheAge)
 getAvailableSdkVersionsCached damlPath cachePath =
     cacheAvailableSdkVersions damlPath cachePath getAvailableSdkVersions
 
@@ -181,8 +181,10 @@ getLatestSdkVersionCached :: DamlPath -> CachePath -> IO (Maybe SdkVersion)
 getLatestSdkVersionCached damlPath cachePath = do
     versionsE <- tryAssistant $ getAvailableSdkVersionsCached damlPath cachePath
     pure $ do
-        versions <- eitherToMaybe versionsE
-        maximumMay versions
+        (versions, age) <- eitherToMaybe versionsE
+        case age of
+            Stale -> Nothing
+            Fresh -> maximumMay versions
 
 -- | Get the latest snapshot SDK version.
 getLatestSdkSnapshotVersion :: IO (Maybe SdkVersion)
