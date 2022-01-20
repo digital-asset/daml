@@ -277,13 +277,6 @@ da_scala_test_suite(
 )
 
 SERVERS = {
-    "memory": {
-        "binary": ":sandbox-classic-binary",
-        "server_args": [
-            "--port=6865",
-            "--eager-package-loading",
-        ],
-    },
     "h2database": {
         "binary": ":sandbox-classic-binary",
         "server_args": [
@@ -333,7 +326,7 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ParticipantPruningIT",
         # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -358,8 +351,7 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ParticipantPruningIT",
-        # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -401,41 +393,6 @@ server_conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
-# =============================================================================
-# Conformance tests: deprecated ledger backends (in-memory ledger)
-# =============================================================================
-
-DEPRECATED_SERVERS = {
-    "memory": SERVERS["memory"],
-}
-
-# Full conformance test (in-memory ledger)
-server_conformance_test(
-    name = "conformance-test-deprecated",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-    ],
-    servers = DEPRECATED_SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
-# Feature test: --static-time (in-memory ledger)
-server_conformance_test(
-    name = "conformance-test-deprecated-static-time",
-    server_args = [
-        "--static-time",
-        "--contract-id-seeding=testing-weak",
-    ],
-    servers = DEPRECATED_SERVERS,
-    test_tool_args = [
-        "--open-world",
         "--exclude=ClosedWorldIT",
     ],
 )
