@@ -101,7 +101,7 @@ object Update {
     *
     * @param party         The party identifier.
     * @param displayName   The user readable description of the party. May not be unique.
-    * @param participantId The participantmain that this party was added to.
+    * @param participantId The participant that this party was added to.
     * @param recordTime    The ledger-provided timestamp at which the party was allocated.
     * @param submissionId  The submissionId of the command which requested party to be added.
     */
