@@ -118,7 +118,11 @@ object SandboxOnXRunner {
     implicit val apiServerConfig: ApiServerConfig =
       BridgeConfigProvider.apiServerConfig(participantConfig, config)
     val sharedEngine = new Engine(
-      EngineConfig(config.allowedLanguageVersions, forbidV0ContractId = false)
+      EngineConfig(
+        allowedLanguageVersions = config.allowedLanguageVersions,
+        profileDir = config.extra.profileDir,
+        stackTraceMode = config.extra.stackTraces,
+      )
     )
 
     newLoggingContextWith("participantId" -> participantConfig.participantId) {

@@ -10,8 +10,12 @@ import com.daml.platform.apiserver.TimeServiceBackend
 import com.daml.platform.services.time.TimeProviderType
 import scopt.OptionParser
 
+import java.io.File
+import java.nio.file.Path
 import java.time.Instant
 
+// TODO SoX: Keep only ledger-bridge-related configurations in this class
+//           and extract the participant-specific configs in the main config file.
 case class BridgeConfig(
     conflictCheckingEnabled: Boolean,
     maxDedupSeconds: Int,
@@ -19,6 +23,8 @@ case class BridgeConfig(
     implicitPartyAllocation: Boolean,
     timeProviderType: TimeProviderType,
     authService: AuthService,
+    profileDir: Option[Path],
+    stackTraces: Boolean,
 )
 
 object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
@@ -53,6 +59,21 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
       .action((_, c) => c.copy(extra = c.extra.copy(timeProviderType = TimeProviderType.Static)))
       .text("Use static time. When not specified, wall-clock-time is used.")
 
+    parser
+      .opt[File]("profile-dir")
+      .optional()
+      .action((dir, config) =>
+        config.copy(extra = config.extra.copy(profileDir = Some(dir.toPath)))
+      )
+      .text("Enable profiling and write the profiles into the given directory.")
+
+    parser
+      .opt[Boolean]("stack-traces")
+      .hidden()
+      .optional()
+      .action((enabled, config) => config.copy(extra = config.extra.copy(stackTraces = enabled)))
+      .text("Enable/disable stack traces. Default is to enable them.")
+
     JwtVerifierConfigurationCli.parse(parser)((v, c) =>
       c.copy(extra = c.extra.copy(authService = AuthServiceJWT(v)))
     )
@@ -73,5 +94,7 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     implicitPartyAllocation = false,
     timeProviderType = TimeProviderType.WallClock,
     authService = AuthServiceWildcard,
+    profileDir = None,
+    stackTraces = true,
   )
 }

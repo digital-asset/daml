@@ -44,7 +44,10 @@ object ConfigConverter {
       indexerConfig = ParticipantIndexerConfig(
         allowExistingSchema = true,
         inputMappingParallelism = sandboxConfig.maxParallelSubmissions,
+        enableCompression = sandboxConfig.enableCompression,
+        databaseConnectionTimeout = sandboxConfig.databaseConnectionTimeout,
       ),
+      apiServerDatabaseConnectionPoolSize = sandboxConfig.databaseConnectionPoolSize,
     )
 
     val extraBridgeConfig = BridgeConfig(
@@ -58,6 +61,8 @@ object ConfigConverter {
       submissionBufferSize = sandboxConfig.maxParallelSubmissions,
       // TODO SoX-to-sandbox-classic: Dedicated submissionBufferSize CLI param for sanbox-classic
       maxDedupSeconds = BridgeConfigProvider.defaultExtraConfig.maxDedupSeconds,
+      profileDir = sandboxConfig.profileDir,
+      stackTraces = sandboxConfig.stackTraces,
     )
 
     val allowedLanguageVersions = sandboxConfig.engineMode match {
