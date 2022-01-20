@@ -5,7 +5,6 @@ package com.daml
 package platform.sandbox
 
 import platform.sandbox.config.SandboxConfig
-
 import ledger.participant.state.kvutils.app.{
   Config,
   Mode,
@@ -17,9 +16,10 @@ import ledger.sandbox.{BridgeConfig, BridgeConfigProvider}
 import lf.language.LanguageVersion
 import platform.common.LedgerIdMode
 import platform.sandbox.config.SandboxConfig.EngineMode
-import scalaz.syntax.tag._
-import scala.jdk.DurationConverters._
 
+import scalaz.syntax.tag._
+
+import scala.jdk.DurationConverters._
 import java.util.UUID
 
 object ConfigConverter {
@@ -42,7 +42,7 @@ object ConfigConverter {
       managementServiceTimeout = sandboxConfig.managementServiceTimeout,
       // TODO SoX-to-sandbox-classic: Wire up all indexer configurations
       indexerConfig = ParticipantIndexerConfig(
-        allowExistingSchema = false,
+        allowExistingSchema = true,
         inputMappingParallelism = sandboxConfig.maxParallelSubmissions,
       ),
     )
@@ -50,7 +50,8 @@ object ConfigConverter {
     val extraBridgeConfig = BridgeConfig(
       conflictCheckingEnabled = true,
       implicitPartyAllocation = sandboxConfig.implicitPartyAllocation,
-      authService = sandboxConfig.authService,
+      authService =
+        sandboxConfig.authService.getOrElse(BridgeConfigProvider.defaultExtraConfig.authService),
       timeProviderType =
         sandboxConfig.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType),
       // TODO SoX-to-sandbox-classic: Dedicated submissionBufferSize CLI param for sanbox-classic

@@ -4,7 +4,7 @@
 package com.daml.ledger.sandbox
 
 import com.daml.jwt.JwtVerifierConfigurationCli
-import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT}
+import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard}
 import com.daml.ledger.participant.state.kvutils.app.{Config, ConfigProvider}
 import com.daml.platform.apiserver.TimeServiceBackend
 import com.daml.platform.services.time.TimeProviderType
@@ -18,7 +18,7 @@ case class BridgeConfig(
     submissionBufferSize: Int,
     implicitPartyAllocation: Boolean,
     timeProviderType: TimeProviderType,
-    authService: Option[AuthService] = None,
+    authService: AuthService,
 )
 
 object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
@@ -54,7 +54,7 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
       .text("Use static time. When not specified, wall-clock-time is used.")
 
     JwtVerifierConfigurationCli.parse(parser)((v, c) =>
-      c.copy(extra = c.extra.copy(authService = Some(AuthServiceJWT(v))))
+      c.copy(extra = c.extra.copy(authService = AuthServiceJWT(v)))
     )
     ()
   }
@@ -72,6 +72,6 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     submissionBufferSize = 500,
     implicitPartyAllocation = false,
     timeProviderType = TimeProviderType.WallClock,
-    authService = None,
+    authService = AuthServiceWildcard,
   )
 }

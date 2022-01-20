@@ -10,7 +10,6 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCodesVersionSwitcher
-import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
@@ -219,7 +218,7 @@ object SandboxOnXRunner {
       submissionConfig = config.submissionConfig,
       partyConfig = PartyConfiguration(config.extra.implicitPartyAllocation),
       optWriteService = Some(writeService),
-      authService = config.extra.authService.getOrElse(AuthServiceWildcard),
+      authService = config.extra.authService,
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
       metrics = metrics,
       timeServiceBackend = timeServiceBackend,

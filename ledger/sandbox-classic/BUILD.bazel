@@ -78,6 +78,7 @@ alias(
             "//ledger/sandbox-common:sandbox-common-{}".format(edition),
             "//ledger-service/cli-opts",
             "//ledger/sandbox-on-x",
+            "//libs-scala/build-info",
             "//libs-scala/concurrent",
             "//libs-scala/contextualized-logging",
             "//libs-scala/grpc-utils",
