@@ -270,7 +270,6 @@ da_scala_test_suite(
         "//ledger/test-common:model-tests-default.dar",
         "//ledger/test-common/test-certificates",
     ],
-    flaky = False,
     resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     scala_deps = scala_test_deps,
     deps = test_deps,

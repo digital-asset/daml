@@ -3,6 +3,11 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.io.File
+import java.time.Duration
+import java.util.UUID
+import java.util.concurrent.TimeUnit
+
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
@@ -23,10 +28,6 @@ import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
 
-import java.io.File
-import java.time.Duration
-import java.util.UUID
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 final case class Config[Extra](

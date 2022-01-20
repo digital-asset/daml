@@ -4,6 +4,7 @@
 package com.daml.platform.sandbox.services.identity
 
 import java.util.UUID
+
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundEach
 import com.daml.lf.data.Ref
@@ -44,7 +45,7 @@ sealed trait LedgerIdentityServiceITBaseGiven
   }
 }
 
-@Ignore // TODO SoX: InMemory representations not supported
+@Ignore // TODO SoX: in-memory targeted tests are not supported
 final class LedgerIdentityServiceInMemoryGivenIT extends LedgerIdentityServiceITBaseGiven
 
 final class LedgerIdentityServicePostgresGivenIT
