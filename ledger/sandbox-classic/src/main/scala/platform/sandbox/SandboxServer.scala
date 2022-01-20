@@ -16,7 +16,6 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
-import com.daml.platform.apiserver._
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -59,9 +58,7 @@ object SandboxServer {
       // Wait for the API server to start.
       _ <- new ResourceOwner[Unit] {
         override def acquire()(implicit context: ResourceContext): Resource[Unit] =
-          // We use the Future rather than the Resource to avoid holding onto the API server.
-          // Otherwise, we cause a memory leak upon reset.
-          Resource.fromFuture(server.apiServer.map(_ => ()))
+          server.apiServerResource.map(_ => ())
       }
     } yield server
 
@@ -76,21 +73,6 @@ object SandboxServer {
         .migrate()
     }
   }
-
-  final class SandboxState(
-      apiServerResource: Resource[ApiServer]
-  ) {
-
-    def port(implicit executionContext: ExecutionContext): Future[Port] =
-      apiServer.map(_.port)
-
-    private[SandboxServer] def apiServer: Future[ApiServer] =
-      apiServerResource.asFuture
-
-    def release(): Future[Unit] =
-      apiServerResource.release()
-  }
-
 }
 
 final class SandboxServer(
@@ -102,29 +84,23 @@ final class SandboxServer(
   def this(config: SandboxConfig, materializer: Materializer) =
     this(config, materializer, new Metrics(new MetricRegistry))
 
-  // We store a Future rather than a Resource to avoid keeping old resources around after a reset.
-  // It's package-private so we can test that we drop the reference properly in ResetServiceIT.
-  @volatile
-  private[sandbox] var sandboxState: Future[SandboxState] = start(
+  private val apiServerResource = start(
     ResourceContext(materializer.executionContext),
     materializer.executionContext,
   )
-
-  private def apiServer(implicit executionContext: ExecutionContext): Future[ApiServer] =
-    sandboxState.flatMap(_.apiServer)
 
   // Only used in testing; hopefully we can get rid of it soon.
   def port: Port =
     Await.result(portF(ExecutionContext.parasitic), AsyncTolerance)
 
   def portF(implicit executionContext: ExecutionContext): Future[Port] =
-    apiServer.map(_.port)
+    apiServerResource.asFuture.map(_.port)
 
   private def start(implicit
       resourceContext: ResourceContext,
       executionContext: ExecutionContext,
-  ): Future[SandboxState] = {
-    val apiServerResource = for {
+  ) =
+    for {
       maybeLedgerId <- config.jdbcUrl
         .map(url => Utils.getLedgerId(url))
         .getOrElse(Resource.successful(None))
@@ -132,9 +108,6 @@ final class SandboxServer(
       participantConfig <- SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
       api <- apiServer(genericConfig, participantConfig)
     } yield api
-
-    Future.successful(new SandboxState(apiServerResource))
-  }
 
   private def apiServer(genericConfig: Config[BridgeConfig], participantConfig: ParticipantConfig)(
       implicit
@@ -155,9 +128,7 @@ final class SandboxServer(
       _ <- loadPackages(writeService).acquire()
     } yield apiServer
 
-  override def close(): Unit = {
-    Await.result(sandboxState.flatMap(_.release())(ExecutionContext.parasitic), AsyncTolerance)
-  }
+  override def close(): Unit = Await.result(apiServerResource.release(), AsyncTolerance)
 
   private def writePortFile(port: Port)(implicit executionContext: ExecutionContext): Future[Unit] =
     config.portFile
@@ -186,7 +157,8 @@ final class SandboxServer(
 }
 
 object Utils {
-  // TODO SoX-to-sandbox-classic: Ugly work-around to emulate the ledgerIdMode used in sandbox-classic
+  // TODO SoX-to-sandbox-classic: Work-around to emulate the ledgerIdMode used in sandbox-classic
+  //                              This is needed for the Dynamic ledger id mode, when the index should be initialized with the existing ledger id (only used in testing).
   def getLedgerId(
       jdbcUrl: String
   )(implicit resourceContext: ResourceContext): resources.Resource[Option[String]] = {

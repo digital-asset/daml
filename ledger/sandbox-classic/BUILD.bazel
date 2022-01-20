@@ -325,8 +325,8 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ParticipantPruningIT",
-        # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -351,7 +351,8 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ParticipantPruningIT",
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
         "--exclude=ClosedWorldIT",
     ],
 )
