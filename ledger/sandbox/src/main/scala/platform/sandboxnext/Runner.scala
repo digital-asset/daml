@@ -272,21 +272,24 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           metrics = metrics,
           timeServiceBackend = timeServiceBackend,
           servicesExecutionContext = servicesExecutionContext,
-          commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
-            deduplicationPeriodSupport = Some(
-              CommandDeduplicationPeriodSupport.of(
-                offsetSupport =
-                  CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
-                durationSupport =
-                  CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
-              )
+          ledgerFeatures = LedgerFeatures(
+            staticTime = timeServiceBackend.isDefined,
+            commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+              deduplicationPeriodSupport = Some(
+                CommandDeduplicationPeriodSupport.of(
+                  offsetSupport =
+                    CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_CONVERT_TO_DURATION,
+                  durationSupport =
+                    CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+                )
+              ),
+              deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
+              maxDeduplicationDurationEnforced = true,
             ),
-            deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
-            maxDeduplicationDurationEnforced = true,
-          ),
-          contractIdFeatures = ExperimentalContractIds.of(
-            v0 = ExperimentalContractIds.ContractIdV0Support.NOT_SUPPORTED,
-            v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+            contractIdFeatures = ExperimentalContractIds.of(
+              v0 = ExperimentalContractIds.ContractIdV0Support.NOT_SUPPORTED,
+              v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+            ),
           ),
         )
         _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
