@@ -74,7 +74,7 @@ data Command
     | CantonSandbox
         { cantonOptions :: CantonOptions
         , portFileM :: Maybe FilePath
-        , darPathM :: Maybe FilePath
+        , darPaths :: [FilePath]
         , remainingArguments :: [String]
         }
 
@@ -424,7 +424,7 @@ commandParser = subparser $ fold
             pure CantonOptions{..}
         portFileM <- optional $ option str (long "port-file" <> metavar "PATH"
             <> help "File to write ledger API port when ready")
-        darPathM <- optional $ option str (long "dar" <> metavar "PATH"
+        darPaths <- many $ option str (long "dar" <> metavar "PATH"
             <> help "DAR file to upload to sandbox")
         remainingArguments <- many (argument str (metavar "ARG"))
         pure CantonSandbox {..}
@@ -476,7 +476,7 @@ runCommand = \case
                 putStrLn "Starting Canton sandbox."
                 sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries cantonPortFile
                 putStrLn ("Listening at port " <> show sandboxPort)
-                whenJust darPathM $ \darPath -> do
+                forM_ darPaths $ \darPath -> do
                     runLedgerUploadDar ((defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}) (Just darPath)
                 whenJust portFileM $ \portFile -> do
                     putStrLn ("Writing ledger API port to " <> portFile)
