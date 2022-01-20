@@ -38,6 +38,8 @@ import com.daml.ledger.client.services.commands.{
   CompletionStreamElement,
 }
 import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.lf.crypto.Hash
+import com.daml.lf.value.Value.ContractId
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -492,7 +494,12 @@ final class CommandClientIT
           submitRequest(
             "Exercise_contract_not_found",
             List(
-              ExerciseCommand(Some(templateIds.dummy), contractId, "DummyChoice1", Some(unit)).wrap
+              ExerciseCommand(
+                Some(templateIds.dummy),
+                contractId.coid,
+                "DummyChoice1",
+                Some(unit),
+              ).wrap
             ),
           )
 
