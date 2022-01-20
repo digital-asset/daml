@@ -24,8 +24,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
 
-  import TransactionBuilder.Implicits._
-
   private val metrics: Metrics = new Metrics(new MetricRegistry)
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 
@@ -64,7 +62,7 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
   private def toSubmission(builder: TransactionBuilder): DamlSubmission =
     this.toSubmission(builder.buildSubmitted())
 
-  private val contractId = "#1"
+  private val contractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey("#1"))
 
   private val dedupKey = DamlStateKey.newBuilder
     .setCommandDedup(

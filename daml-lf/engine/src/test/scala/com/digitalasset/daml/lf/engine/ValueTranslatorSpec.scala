@@ -64,7 +64,6 @@ class ValueTranslatorSpec
 
     val valueTranslator = new ValueTranslator(
       compiledPackage.interface,
-      forbidV0ContractId = true,
       requireV1ContractIdSuffix = false,
     )
     import valueTranslator.unsafeTranslateValue
@@ -246,7 +245,6 @@ class ValueTranslatorSpec
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.interface,
-        forbidV0ContractId = false,
         requireV1ContractIdSuffix = false,
       )
       val cids = List(
@@ -257,7 +255,6 @@ class ValueTranslatorSpec
           ),
         ContractId.V1
           .assertBuild(crypto.Hash.hashPrivateKey("a non-suffixed V1 Contract ID"), Bytes.Empty),
-        ContractId.V0.assertFromString("#a V0 Contract ID"),
       )
 
       cids.foreach(cid =>
@@ -267,35 +264,10 @@ class ValueTranslatorSpec
       )
     }
 
-    "reject V0 Contract IDs when requireV1ContractId flag is true" in {
-
-      val valueTranslator = new ValueTranslator(
-        compiledPackage.interface,
-        forbidV0ContractId = true,
-        requireV1ContractIdSuffix = false,
-      )
-      val legalCid =
-        ContractId.V1.assertBuild(
-          crypto.Hash.hashPrivateKey("a legal Contract ID"),
-          Bytes.assertFromString("00"),
-        )
-      val illegalCid =
-        ContractId.V0.assertFromString("#illegal Contract ID")
-      val failure = Failure(Error.Preprocessing.IllegalContractId.V0ContractId(illegalCid))
-
-      forEvery(testCasesForCid(legalCid))((typ, value) =>
-        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
-      )
-      forEvery(testCasesForCid(illegalCid))((typ, value) =>
-        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failure
-      )
-    }
-
     "reject non suffixed V1 Contract IDs when requireV1ContractIdSuffix is true" in {
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.interface,
-        forbidV0ContractId = true,
         requireV1ContractIdSuffix = true,
       )
       val legalCid =

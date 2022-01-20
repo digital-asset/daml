@@ -390,7 +390,6 @@ object ScenarioRunner {
     val valueTranslator =
       new ValueTranslator(
         interface = compiledPackages.interface,
-        forbidV0ContractId = config.forbidV0ContractId,
         requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
       )
     def translateValue(typ: Ast.Type, value: Value): Result[SValue] =

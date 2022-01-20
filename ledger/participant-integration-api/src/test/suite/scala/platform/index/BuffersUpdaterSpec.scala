@@ -10,6 +10,7 @@ import akka.stream.scaladsl.Source
 import akka.stream.{Materializer, QueueOfferResult}
 import ch.qos.logback.classic.Level
 import com.daml.ledger.offset.Offset
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{TransactionVersion, Versioned}
@@ -197,7 +198,7 @@ final class BuffersUpdaterSpec
     }
 
     "convert TransactionLogUpdate.Transaction to a series of ContractStateEvent (created/archived)" in {
-      val createdCid = ContractId.assertFromString("#createdCid")
+      val createdCid = ContractId.V1(Hash.hashPrivateKey("createdCid"))
       val createdOffset = Offset.fromByteArray(BigInt(1337L).toByteArray)
       val createdEventSeqId = 9876L
       val createdLedgerEffectiveTime = Timestamp.assertFromLong(987654321L)
@@ -208,7 +209,7 @@ final class BuffersUpdaterSpec
       val createArgument = Versioned(TransactionVersion.VDev, ValueText("arg"))
       val createAgreement = "agreement"
 
-      val exercisedCid = ContractId.assertFromString("#exercisedCid")
+      val exercisedCid = ContractId.V1(Hash.hashPrivateKey("exercisedCid"))
       val exercisedKey = Versioned(TransactionVersion.VDev, ValueInt64(8974L))
       val exercisedTemplateId = Ref.Identifier.assertFromString("exercised:template:id")
       val exercisedFlatEventWitnesses = Set("bob", "dan")

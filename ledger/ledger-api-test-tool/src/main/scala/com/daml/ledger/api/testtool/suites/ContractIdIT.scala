@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.ErrorCode
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
@@ -66,7 +67,10 @@ final class ContractIdIT extends LedgerTestSuite {
     case TestConfiguration(cidDescription, example, accepted, isSupported, disabledReason) =>
       val result = if (accepted) "Accept" else "Reject"
 
-      def test(description: String)(
+      def test(
+          description: String,
+          errorCode: ErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+      )(
           update: ExecutionContext => (
               ParticipantTestContext,
               Party,
@@ -86,8 +90,8 @@ final class ContractIdIT extends LedgerTestSuite {
                 alpha,
                 err,
                 Status.Code.INVALID_ARGUMENT,
-                LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
-                Some(s"""Illegal Contract ID "$example""""),
+                errorCode,
+                Some(s"""cannot parse ContractId "$example""""),
                 checkDefiniteAnswerMetadata = true,
               )
               ()
@@ -103,38 +107,39 @@ final class ContractIdIT extends LedgerTestSuite {
           .transformWith(Future.successful)
       }
 
-      test("exercise target") { implicit ec => (alpha, party) =>
-        for {
-          contractCid <- alpha.create(party, Contract(party))
-          result <-
-            alpha
-              .exercise(
-                party,
-                ContractId[ContractRef](example).exerciseChange(_, contractCid),
-              )
-              .transformWith(Future.successful)
-        } yield result match {
-          // Assert V1 error code
-          case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
-              if !alpha.features.selfServiceErrorCodes && msg.contains(
-                s"Contract could not be found with id $example"
-              ) =>
-            Success(())
+      test("exercise target", errorCode = LedgerApiErrors.RequestValidation.InvalidField) {
+        implicit ec => (alpha, party) =>
+          for {
+            contractCid <- alpha.create(party, Contract(party))
+            result <-
+              alpha
+                .exercise(
+                  party,
+                  ContractId[ContractRef](example).exerciseChange(_, contractCid),
+                )
+                .transformWith(Future.successful)
+          } yield result match {
+            // Assert V1 error code
+            case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
+                if !alpha.features.selfServiceErrorCodes && msg.contains(
+                  s"Contract could not be found with id $example"
+                ) =>
+              Success(())
 
-          // Assert self-service error code
-          case Failure(exception: StatusRuntimeException)
-              if alpha.features.selfServiceErrorCodes &&
-                Try(
-                  assertSelfServiceErrorCode(
-                    statusRuntimeException = exception,
-                    expectedErrorCode = LedgerApiErrors.ConsistencyErrors.ContractNotFound,
-                  )
-                ).isSuccess =>
-            Success(())
+            // Assert self-service error code
+            case Failure(exception: StatusRuntimeException)
+                if alpha.features.selfServiceErrorCodes &&
+                  Try(
+                    assertSelfServiceErrorCode(
+                      statusRuntimeException = exception,
+                      expectedErrorCode = LedgerApiErrors.ConsistencyErrors.ContractNotFound,
+                    )
+                  ).isSuccess =>
+              Success(())
 
-          case Success(_) => Failure(new UnknownError("Unexpected Success"))
-          case otherwise => otherwise.map(_ => ())
-        }
+            case Success(_) => Failure(new UnknownError("Unexpected Success"))
+            case otherwise => otherwise.map(_ => ())
+          }
       }
 
       test("choice argument") { implicit ec => (alpha, party) =>
