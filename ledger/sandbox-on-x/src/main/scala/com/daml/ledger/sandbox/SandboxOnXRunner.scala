@@ -248,7 +248,6 @@ object SandboxOnXRunner {
           maxDeduplicationDurationEnforced = false,
         ),
         contractIdFeatures = ExperimentalContractIds.of(
-          v0 = ExperimentalContractIds.ContractIdV0Support.NOT_SUPPORTED,
           v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
         ),
       ),
