@@ -127,7 +127,7 @@ object StandaloneApiServer {
         config.tlsConfig,
         AuthorizationInterceptor(
           authService,
-          userManagementStore,
+          Option.when(config.enableUserManagement)(userManagementStore),
           servicesExecutionContext,
           errorCodesVersionSwitcher,
         ) :: otherInterceptors,
