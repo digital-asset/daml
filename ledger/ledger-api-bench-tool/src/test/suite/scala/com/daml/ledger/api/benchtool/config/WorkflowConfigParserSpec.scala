@@ -361,11 +361,47 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         )
       )
     }
+
+    "parse ledger-begin and ledger-end markers" in {
+      val yaml =
+        """streams:
+          |  - type: transactions
+          |    name: stream-1
+          |    filters:
+          |      - party: Obs-2
+          |        templates:
+          |         - Foo1
+          |         - Foo3
+          |    begin_offset: ledger-begin
+          |    end_offset: ledger-end""".stripMargin
+      parseYaml(yaml) shouldBe Right(
+        WorkflowConfig(
+          submission = None,
+          streams = List(
+            WorkflowConfig.StreamConfig.TransactionsStreamConfig(
+              name = "stream-1",
+              filters = List(
+                WorkflowConfig.StreamConfig.PartyFilter(
+                  party = "Obs-2",
+                  templates = List("Foo1", "Foo3"),
+                )
+              ),
+              beginOffset = Some(ledgerBeginOffset),
+              endOffset = Some(ledgerEndOffset),
+              objectives = None,
+            )
+          ),
+        )
+      )
+    }
   }
 
   def parseYaml(yaml: String): Either[WorkflowConfigParser.ParserError, WorkflowConfig] =
     WorkflowConfigParser.parse(new StringReader(yaml))
 
   def offset(str: String): LedgerOffset = LedgerOffset.defaultInstance.withAbsolute(str)
-
+  private val ledgerBeginOffset =
+    LedgerOffset.defaultInstance.withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
+  private val ledgerEndOffset =
+    LedgerOffset.defaultInstance.withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)
 }
