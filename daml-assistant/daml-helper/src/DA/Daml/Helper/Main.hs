@@ -477,9 +477,8 @@ runCommand = \case
                 sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries cantonPortFile
                 putStrLn ("Listening at port " <> show sandboxPort)
                 whenJust darPathM $ \darPath -> do
-                    putStrLn ("Uploading DAR file " <> darPath)
                     runLedgerUploadDar ((defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}) (Just darPath)
                 whenJust portFileM $ \portFile -> do
-                    putStrLn ("Writing ledger API port file " <> portFile)
+                    putStrLn ("Writing ledger API port to " <> portFile)
                     writeFileUTF8 portFile (show sandboxPort)
                 putStrLn "Canton sandbox is ready."
