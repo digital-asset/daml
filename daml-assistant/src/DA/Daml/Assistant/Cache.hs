@@ -61,7 +61,7 @@ cacheAvailableSdkVersions damlPath cachePath getVersions = do
         defaultUpdateCheck = UpdateCheckEvery (CacheTimeout 86400)
     case fromMaybe defaultUpdateCheck updateCheckM of
         UpdateCheckNever -> do
-            valueAgeM <- loadFromCacheWith cachePath versionsKey (CacheTimeout 86400) deserializeVersions
+            valueAgeM <- loadFromCacheWith cachePath versionsKey (CacheTimeout 0) deserializeVersions
             pure $ fromMaybe ([], Stale) valueAgeM
 
         UpdateCheckEvery timeout ->
