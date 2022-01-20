@@ -3,6 +3,7 @@
 
 package com.daml.platform.store.dao
 
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import java.util.UUID
 
@@ -164,7 +165,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   }
 
   it should "prevent retrieving the maximum ledger time if some contracts are not found" in {
-    val randomContractId = ContractId.assertFromString(s"#random-${UUID.randomUUID}")
+    val randomContractId = ContractId.V1(Hash.hashPrivateKey(UUID.randomUUID.toString))
     for {
       failure <- contractsReader.lookupMaximumLedgerTime(Set(randomContractId)).failed
     } yield {
@@ -184,7 +185,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   }
 
   it should "allow the retrieval of the maximum ledger time even when there are divulged contracts" in {
-    val divulgedContractId = ContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
+    val divulgedContractId = ContractId.V1(Hash.hashPrivateKey(UUID.randomUUID.toString))
     for {
       // Some contract divulged (its create node was not witnessed by any party on this participant)
       (_, _) <- storeCommitedContractDivulgence(
@@ -221,7 +222,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   }
 
   it should "allow the retrieval of the maximum ledger time even when there are only divulged contracts" in {
-    val divulgedContractId = ContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
+    val divulgedContractId = ContractId.V1(Hash.hashPrivateKey(UUID.randomUUID.toString))
     for {
       // Some contract divulged (its create node was not witnessed by any party on this participant)
       (_, _) <- storeCommitedContractDivulgence(

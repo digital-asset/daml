@@ -445,10 +445,10 @@ class SubmitRequestValidatorTest
     "validating contractId values" should {
       "succeed" in {
 
-        val coid = Ref.ContractIdString.assertFromString("#coid")
+        val coid = Lf.ContractId.V1.assertFromString("00" + "00" * 32)
 
-        val input = Value(Sum.ContractId(coid))
-        val expected = Lf.ValueContractId(Lf.ContractId.V0(coid))
+        val input = Value(Sum.ContractId(coid.coid))
+        val expected = Lf.ValueContractId(coid)
 
         testedValueValidator.validateValue(input) shouldEqual Right(expected)
       }

@@ -7,6 +7,7 @@ import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.{value => v}
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
@@ -129,14 +130,15 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
       )
 
     "remove rollback nodes" in {
+      def cid(s: String): String = Value.ContractId.V1(Hash.hashPrivateKey(s)).coid
       val builder = TransactionBuilder()
-      builder.add(create(builder, "#1"))
-      val rollbackParent = builder.add(exercise(builder, "#0"))
+      builder.add(create(builder, cid("#1")))
+      val rollbackParent = builder.add(exercise(builder, cid("#0")))
       val rollback = builder.add(builder.rollback(), rollbackParent)
-      builder.add(create(builder, "#2"), rollback)
-      builder.add(exercise(builder, "#1"), rollback)
-      val ex = builder.add(exercise(builder, "#1"))
-      builder.add(create(builder, "#3"), ex)
+      builder.add(create(builder, cid("#2")), rollback)
+      builder.add(exercise(builder, cid("#1")), rollback)
+      val ex = builder.add(exercise(builder, cid("#1")))
+      builder.add(create(builder, cid("#3")), ex)
       val transactionEntry = toEntry(builder.buildCommitted())
       TransactionConversion
         .ledgerEntryToTransactionTree(
@@ -147,10 +149,10 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
         )
         .get
         .eventsById shouldBe Map(
-        "#transactionId:0" -> createdEv("0", "#1"),
-        "#transactionId:1" -> exercisedEv("1", "#0", Seq.empty),
-        "#transactionId:5" -> exercisedEv("5", "#1", Seq("6")),
-        "#transactionId:6" -> createdEv("6", "#3"),
+        "#transactionId:0" -> createdEv("0", cid("#1")),
+        "#transactionId:1" -> exercisedEv("1", cid("#0"), Seq.empty),
+        "#transactionId:5" -> exercisedEv("5", cid("#1"), Seq("6")),
+        "#transactionId:6" -> createdEv("6", cid("#3")),
       )
     }
   }

@@ -79,12 +79,12 @@ getPortForSandbox defaultPortSpec portSpecM =
 
 determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> FilePath -> IO CantonOptions
 determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile = do
-    ledgerApi <- getPortForSandbox (SpecifiedPort (SandboxPort 6865)) ledgerApiSpec
-    adminApi <- getPortForSandbox FreePort adminApiSpec
-    domainPublicApi <- getPortForSandbox FreePort domainPublicApiSpec
-    domainAdminApi <- getPortForSandbox FreePort domainAdminApiSpec
-    let portFileM = Just portFile -- TODO allow canton port file to be passed in from command line?
-    let staticTime = StaticTime False
+    cantonLedgerApi <- getPortForSandbox (SpecifiedPort (SandboxPort 6865)) ledgerApiSpec
+    cantonAdminApi <- getPortForSandbox FreePort adminApiSpec
+    cantonDomainPublicApi <- getPortForSandbox FreePort domainPublicApiSpec
+    cantonDomainAdminApi <- getPortForSandbox FreePort domainAdminApiSpec
+    let cantonPortFileM = Just portFile -- TODO allow canton port file to be passed in from command line?
+    let cantonStaticTime = StaticTime False
     pure CantonOptions {..}
 
 withSandbox :: StartOptions -> FilePath -> [String] -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a

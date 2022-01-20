@@ -31,7 +31,8 @@ import scala.jdk.CollectionConverters._
 class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
   import TransactionConversionsSpec._
-  import TransactionBuilder.Implicits._
+
+  private val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id"))
 
   "TransactionUtilsSpec" should {
     "encodeTransaction" in {
@@ -98,7 +99,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
   "extractTransactionOutputs" should {
     "return a single output for a create without a key" in {
       val builder = TransactionBuilder()
-      val createNode = create(builder, "#id")
+      val createNode = create(builder, cid)
       builder.add(createNode)
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
@@ -110,7 +111,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return two outputs for a create with a key" in {
       val builder = TransactionBuilder()
-      val createNode = create(builder, "#id", hasKey = true)
+      val createNode = create(builder, cid, hasKey = true)
       builder.add(createNode)
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
@@ -127,9 +128,9 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return a single output for a transient contract" in {
       val builder = TransactionBuilder()
-      val createNode = create(builder, "#id", hasKey = true)
+      val createNode = create(builder, cid, hasKey = true)
       builder.add(createNode)
-      builder.add(exercise(builder, "#id"))
+      builder.add(exercise(builder, cid))
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
           .encodeTransaction(builder.build())
@@ -145,7 +146,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return a single output for an exercise without a key" in {
       val builder = TransactionBuilder()
-      val exerciseNode = exercise(builder, "#id")
+      val exerciseNode = exercise(builder, cid)
       builder.add(exerciseNode)
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
@@ -157,7 +158,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return two outputs for a consuming exercise with a key" in {
       val builder = TransactionBuilder()
-      val exerciseNode = exercise(builder, "#id", hasKey = true)
+      val exerciseNode = exercise(builder, cid, hasKey = true)
       builder.add(exerciseNode)
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
@@ -174,7 +175,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return two outputs for a non-consuming exercise with a key" in {
       val builder = TransactionBuilder()
-      val exerciseNode = exercise(builder, "#id", hasKey = true, consuming = false)
+      val exerciseNode = exercise(builder, cid, hasKey = true, consuming = false)
       builder.add(exerciseNode)
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
@@ -191,8 +192,10 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return one output per fetch and fetch-by-key" in {
       val builder = TransactionBuilder()
-      val fetchNode1 = fetch(builder, "#id1", byKey = true)
-      val fetchNode2 = fetch(builder, "#id2", byKey = false)
+      val fetchNode1 =
+        fetch(builder, Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id1")), byKey = true)
+      val fetchNode2 =
+        fetch(builder, Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id2")), byKey = false)
       builder.add(fetchNode1)
       builder.add(fetchNode2)
       val result = TransactionConversions.extractTransactionOutputs(
@@ -210,7 +213,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return no output for a failing lookup-by-key" in {
       val builder = TransactionBuilder()
-      builder.add(lookup(builder, "#id", found = false))
+      builder.add(lookup(builder, cid, found = false))
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
           .encodeTransaction(builder.build())
@@ -221,7 +224,7 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
     "return no output for a successful lookup-by-key" in {
       val builder = TransactionBuilder()
-      builder.add(lookup(builder, "#id", found = true))
+      builder.add(lookup(builder, cid, found = true))
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
           .encodeTransaction(builder.build())
@@ -233,11 +236,14 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     "return outputs for nodes under a rollback node" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
-      val createNode = create(builder, "#id1", hasKey = true)
+      val createNode =
+        create(builder, Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id1")), hasKey = true)
       builder.add(createNode, rollback)
-      val exerciseNode = exercise(builder, "#id2", hasKey = true)
+      val exerciseNode =
+        exercise(builder, Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id2")), hasKey = true)
       builder.add(exerciseNode, rollback)
-      val fetchNode = fetch(builder, "#id3", byKey = true)
+      val fetchNode =
+        fetch(builder, Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id3")), byKey = true)
       builder.add(fetchNode, rollback)
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions

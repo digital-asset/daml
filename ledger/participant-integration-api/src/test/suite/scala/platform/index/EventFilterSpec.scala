@@ -3,6 +3,7 @@
 
 package com.daml.platform.index
 
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
 import com.daml.ledger.api.domain.{Filters, InclusiveFilters, TransactionFilter}
@@ -19,7 +20,7 @@ final class EventFilterSpec extends AnyWordSpec with Matchers with ScalaFutures 
   private val otherPartyWhoSeesEvents = Ref.Party.assertFromString("otherParty")
   private val packageId = "myPackage"
   private val eventId = Ref.LedgerString.assertFromString("someEventId")
-  private val contractId = Value.ContractId.assertFromString("#someContractId")
+  private val contractId = Value.ContractId.V1(Hash.hashPrivateKey("someContractId"))
   private val party1 = Ref.Party.assertFromString("party1")
   private val party2 = Ref.Party.assertFromString("party2")
   private val module1 = "module1"

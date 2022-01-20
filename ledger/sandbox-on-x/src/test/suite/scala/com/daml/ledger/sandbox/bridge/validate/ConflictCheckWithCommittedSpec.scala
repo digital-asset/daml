@@ -227,7 +227,7 @@ object ConflictCheckWithCommittedSpec {
   private val offsetString = Ref.HexString.assertFromString("ab")
   private val offset = Offset.fromHexString(offsetString)
 
-  private def cid(i: Int): Value.ContractId = Value.ContractId.V0.assertFromString(s"#$i")
+  private def cid(i: Int): Value.ContractId = Value.ContractId.V1(Hash.hashPrivateKey(i.toString))
   private def contractKey(idx: Long) = GlobalKey.assertBuild(
     templateId = templateId,
     key = Value.ValueInt64(idx),

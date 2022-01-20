@@ -21,11 +21,11 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
 
   it should "correctly read ledger effective time using maximumLedgerTime" in {
     val let = timestampFromInstant(Instant.now)
-    val cid = com.daml.lf.value.Value.ContractId.V0.assertFromString("#1")
+    val cid = hashCid("#1")
     val create = dtoCreate(
       offset = offset(1),
       eventSequentialId = 1L,
-      contractId = cid.coid,
+      contractId = cid,
       ledgerEffectiveTime = Some(let),
     )
 
@@ -49,11 +49,11 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
 
   it should "correctly read ledger effective time using rawEvents" in {
     val let = timestampFromInstant(Instant.now)
-    val cid = com.daml.lf.value.Value.ContractId.V0.assertFromString("#1")
+    val cid = hashCid("#1")
     val create = dtoCreate(
       offset = offset(1),
       eventSequentialId = 1L,
-      contractId = cid.coid,
+      contractId = cid,
       ledgerEffectiveTime = Some(let),
     )
 

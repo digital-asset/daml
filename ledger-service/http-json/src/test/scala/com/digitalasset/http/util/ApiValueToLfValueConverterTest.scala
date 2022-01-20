@@ -43,10 +43,6 @@ class ApiValueToLfValueConverterTest
 }
 
 object ApiValueToLfValueConverterTest {
-
-  type Cid = V.ContractId
-  type CidSrc = V.ContractId.V0
-
   // Numeric are normalized when converting from api to lf,
   // them we have to relax numeric equality
   private implicit def eqValue: Equal[V] = { (l, r) =>

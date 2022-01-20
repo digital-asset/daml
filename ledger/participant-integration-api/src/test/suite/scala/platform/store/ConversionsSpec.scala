@@ -10,10 +10,10 @@ import com.daml.error.{
 }
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.RejectionReason
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ValueText
+import com.daml.lf.value.Value.{ContractId, ValueText}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.Conversions._
@@ -32,6 +32,8 @@ class ConversionsSpec extends AsyncWordSpec with Matchers {
       LoggingContext.ForTesting,
       None,
     )
+
+  private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
 
   "converting rejection reasons" should {
     "convert an 'Inconsistent' rejection reason" in {
@@ -53,17 +55,17 @@ class ConversionsSpec extends AsyncWordSpec with Matchers {
     }
 
     "convert an 'InconsistentContractKeys' rejection reason" in {
-      val cId = "#cId1"
+      val cId = cid("#cId1")
       assertConversion(
         domain.RejectionReason
-          .InconsistentContractKeys(Some(Value.ContractId.assertFromString(cId)), None)
+          .InconsistentContractKeys(Some(cId), None)
       )(
         v1expectedCode = Status.Code.ABORTED.value(),
         v1expectedMessage =
-          s"Inconsistent: Contract key lookup with different results: expected [Some(ContractId($cId))], actual [$None]",
+          s"Inconsistent: Contract key lookup with different results: expected [Some($cId)], actual [$None]",
         v2expectedCode = Status.Code.FAILED_PRECONDITION.value(),
         v2expectedMessage =
-          s"INCONSISTENT_CONTRACT_KEY(9,0): Contract key lookup with different results: expected [Some(ContractId($cId))], actual [$None]",
+          s"INCONSISTENT_CONTRACT_KEY(9,0): Contract key lookup with different results: expected [Some($cId)], actual [$None]",
       )
     }
 

@@ -6,7 +6,6 @@ package com.daml.platform.store.backend
 import java.sql.Connection
 
 import com.daml.lf.data.Ref
-import com.daml.platform.store.appendonlydao.events.ContractId
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -17,13 +16,15 @@ private[backend] trait StorageBackendTestsMigrationPruning
 
   import StorageBackendTestValues._
 
+  private val cid = hashCid("#1")
+
   it should "prune all divulgence events if pruning offset is after migration offset" in {
     val divulgee = Ref.Party.assertFromString("divulgee")
     val submitter = Ref.Party.assertFromString("submitter")
 
-    val create = dtoCreate(offset(1), 1L, "#1", submitter)
-    val divulgence = dtoDivulgence(None, 2L, "#1", submitter, divulgee)
-    val archive = dtoExercise(offset(2), 3L, consuming = true, "#1", submitter)
+    val create = dtoCreate(offset(1), 1L, cid, submitter)
+    val divulgence = dtoDivulgence(None, 2L, cid, submitter, divulgee)
+    val archive = dtoExercise(offset(2), 3L, consuming = true, cid, submitter)
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
     executeSql(ingest(Vector(create, divulgence, archive), _))
@@ -34,7 +35,7 @@ private[backend] trait StorageBackendTestsMigrationPruning
     val beforePruning = executeSql(
       backend.contract.activeContractWithoutArgument(
         Set(divulgee),
-        ContractId.assertFromString("#1"),
+        cid,
       )
     )
 
@@ -70,7 +71,7 @@ private[backend] trait StorageBackendTestsMigrationPruning
     val afterPruning = executeSql(
       backend.contract.activeContractWithoutArgument(
         Set(divulgee),
-        ContractId.assertFromString("#1"),
+        cid,
       )
     )
 
