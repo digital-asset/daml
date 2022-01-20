@@ -6,11 +6,10 @@ package com.daml.platform.sandbox
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.kvutils.app._
 import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
+import com.daml.ledger.sandbox.SandboxOnXRunner
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
@@ -33,48 +32,6 @@ import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Futu
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
-object SandboxServer {
-  private val DefaultName = LedgerName("Sandbox")
-
-  private val AsyncTolerance = 30.seconds
-
-  private val logger = ContextualizedLogger.get(this.getClass)
-
-  // Only used for testing.
-  def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
-    owner(DefaultName, config)
-
-  def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[SandboxServer] =
-    for {
-      metrics <- new MetricsReporting(
-        classOf[SandboxServer].getName,
-        config.metricsReporter,
-        config.metricsReportingInterval,
-      )
-      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
-      materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
-      server <- ResourceOwner
-        .forTryCloseable(() => Try(new SandboxServer(config, materializer, metrics)))
-      // Wait for the API server to start.
-      _ <- new ResourceOwner[Unit] {
-        override def acquire()(implicit context: ResourceContext): Resource[Unit] =
-          server.apiServerResource.map(_ => ())
-      }
-    } yield server
-
-  // Run only the flyway migrations but do not initialize any of the ledger api or indexer services
-  def migrateOnly(
-      config: SandboxConfig
-  )(implicit resourceContext: ResourceContext): Future[Unit] = {
-
-    newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
-      logger.info("Running only schema migration scripts")
-      new FlywayMigrations(config.jdbcUrl.get)
-        .migrate()
-    }
-  }
-}
-
 final class SandboxServer(
     config: SandboxConfig,
     materializer: Materializer,
@@ -90,11 +47,10 @@ final class SandboxServer(
   )
 
   // Only used in testing; hopefully we can get rid of it soon.
-  def port: Port =
-    Await.result(portF(ExecutionContext.parasitic), AsyncTolerance)
+  private[sandbox] val port =
+    Await.result(apiServerResource.asFuture.map(_.port)(ExecutionContext.parasitic), AsyncTolerance)
 
-  def portF(implicit executionContext: ExecutionContext): Future[Port] =
-    apiServerResource.asFuture.map(_.port)
+  override def close(): Unit = Await.result(apiServerResource.release(), AsyncTolerance)
 
   private def start(implicit
       resourceContext: ResourceContext,
@@ -102,40 +58,32 @@ final class SandboxServer(
   ) =
     for {
       maybeLedgerId <- config.jdbcUrl
-        .map(url => Utils.getLedgerId(url))
+        .map(url => getLedgerId(url))
         .getOrElse(Resource.successful(None))
-      genericConfig = ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId)
-      participantConfig <- SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
-      api <- apiServer(genericConfig, participantConfig)
-    } yield api
-
-  private def apiServer(genericConfig: Config[BridgeConfig], participantConfig: ParticipantConfig)(
-      implicit
-      resourceContext: ResourceContext,
-      executionContext: ExecutionContext,
-  ) =
-    for {
-      (apiServer, writeService) <- SandboxOnXRunner
-        .buildLedger(
-          genericConfig,
-          participantConfig,
-          materializer,
-          materializer.system,
-          Some(metrics),
-        )
-        .acquire()
+      genericConfig =
+        ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId)
+      participantConfig <-
+        SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
+      (apiServer, writeService) <-
+        SandboxOnXRunner
+          .buildLedger(
+            genericConfig,
+            participantConfig,
+            materializer,
+            materializer.system,
+            Some(metrics),
+          )
+          .acquire()
       _ <- Resource.fromFuture(writePortFile(apiServer.port))
       _ <- loadPackages(writeService).acquire()
     } yield apiServer
-
-  override def close(): Unit = Await.result(apiServerResource.release(), AsyncTolerance)
 
   private def writePortFile(port: Port)(implicit executionContext: ExecutionContext): Future[Unit] =
     config.portFile
       .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
       .getOrElse(Future.unit)
 
-  def loadPackages(writeService: WriteService)(implicit
+  private def loadPackages(writeService: WriteService)(implicit
       executionContext: ExecutionContext
   ): AbstractResourceOwner[ResourceContext, List[Unit]] =
     ResourceOwner.forFuture(() =>
@@ -156,10 +104,46 @@ final class SandboxServer(
     )
 }
 
-object Utils {
-  // TODO SoX-to-sandbox-classic: Work-around to emulate the ledgerIdMode used in sandbox-classic
+object SandboxServer {
+  private val DefaultName = LedgerName("Sandbox")
+  private val AsyncTolerance = 30.seconds
+  private val logger = ContextualizedLogger.get(this.getClass)
+
+  def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
+    owner(DefaultName, config)
+
+  def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[SandboxServer] =
+    for {
+      metrics <- new MetricsReporting(
+        classOf[SandboxServer].getName,
+        config.metricsReporter,
+        config.metricsReportingInterval,
+      )
+      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
+      materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
+      server <- ResourceOwner.forTryCloseable(() =>
+        Try(new SandboxServer(config, materializer, metrics))
+      )
+      // Wait for the API server to start.
+      _ <- new ResourceOwner[Unit] {
+        override def acquire()(implicit context: ResourceContext): Resource[Unit] =
+          server.apiServerResource.map(_ => ())
+      }
+    } yield server
+
+  // Run only the flyway migrations but do not initialize any of the ledger api or indexer services
+  def migrateOnly(
+      config: SandboxConfig
+  )(implicit resourceContext: ResourceContext): Future[Unit] =
+    newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
+      logger.info("Running only schema migration scripts")
+      new FlywayMigrations(config.jdbcUrl.get)
+        .migrate()
+    }
+
+  // TODO SoX-to-sandbox-classic: Work-around to emulate the ledgerIdMode used in sandbox-classic.
   //                              This is needed for the Dynamic ledger id mode, when the index should be initialized with the existing ledger id (only used in testing).
-  def getLedgerId(
+  private def getLedgerId(
       jdbcUrl: String
   )(implicit resourceContext: ResourceContext): resources.Resource[Option[String]] = {
     implicit val actorSystem: ActorSystem = ActorSystem()

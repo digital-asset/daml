@@ -47,7 +47,7 @@ object ConfigConverter {
       ),
     )
 
-    val extraBridgeConfig = BridgeConfigProvider.defaultExtraConfig.copy(
+    val extraBridgeConfig = BridgeConfig(
       conflictCheckingEnabled = true,
       implicitPartyAllocation = sandboxConfig.implicitPartyAllocation,
       authService = sandboxConfig.authService,
@@ -55,6 +55,8 @@ object ConfigConverter {
         sandboxConfig.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType),
       // TODO SoX-to-sandbox-classic: Dedicated submissionBufferSize CLI param for sanbox-classic
       submissionBufferSize = sandboxConfig.maxParallelSubmissions,
+      // TODO SoX-to-sandbox-classic: Dedicated submissionBufferSize CLI param for sanbox-classic
+      maxDedupSeconds = BridgeConfigProvider.defaultExtraConfig.maxDedupSeconds,
     )
 
     val allowedLanguageVersions = sandboxConfig.engineMode match {
