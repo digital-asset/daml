@@ -5,7 +5,7 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 
-import anorm.{RowParser, SQL, ~}
+import anorm.{RowParser, ~}
 import anorm.SqlParser.{bool, flatten, str}
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
@@ -20,14 +20,6 @@ import com.daml.platform.store.entries.PartyLedgerEntry
 
 class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: LedgerEndCache)
     extends PartyStorageBackend {
-
-  private val SQL_GET_PARTY_ENTRIES = SQL(
-    """select * from party_entries
-      |where ({startExclusive} is null or ledger_offset>{startExclusive}) and ledger_offset<={endInclusive}
-      |order by ledger_offset asc
-      |offset {queryOffset} rows
-      |fetch next {pageSize} rows only""".stripMargin
-  )
 
   private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
     import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
@@ -84,13 +76,12 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL_GET_PARTY_ENTRIES
-      .on(
-        "startExclusive" -> startExclusive,
-        "endInclusive" -> endInclusive,
-        "pageSize" -> pageSize,
-        "queryOffset" -> queryOffset,
-      )
+    SQL"""select * from party_entries
+      where ($startExclusive is null or ledger_offset>$startExclusive) and ledger_offset<=$endInclusive
+      order by ledger_offset asc
+      offset $queryOffset rows
+      fetch next $pageSize rows only
+      """
       .asVectorOf(partyEntryParser)(connection)
   }
 
@@ -111,10 +102,12 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
       parties: Option[Set[String]],
       connection: Connection,
   ): Vector[PartyDetails] = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
     val partyFilter = parties match {
       case Some(requestedParties) => cSQL"party_entries.party in ($requestedParties) AND"
       case None => cSQL""
     }
+    val ledgerEndOffset = ledgerEndCache()._1
     SQL"""
         WITH relevant_offsets AS (
           SELECT
@@ -123,7 +116,7 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
             #${queryStrategy.booleanOrAggregationFunction}(is_local) is_local
           FROM party_entries
           WHERE
-            ledger_offset <= ${ledgerEndCache()._1.toHexString.toString} AND
+            ledger_offset <= $ledgerEndOffset AND
             $partyFilter
             typ = 'accept'
           GROUP BY party
