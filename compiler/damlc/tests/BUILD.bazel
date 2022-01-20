@@ -4,7 +4,7 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "damlc_compile_test")
-load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf")
+load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_compile_with_dalf", "daml_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_configuration")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
@@ -1000,4 +1000,18 @@ daml_compile_with_dalf(
     # don't turn warnings into errors, we have a missing pattern on purpose in
     # PlatformIndependence.daml.
     ghc_options = [],
+)
+
+# Test for interfaces + data-dependencies
+daml_build_test(
+    name = "interface-definition",
+    project_dir = "interfaces-data-deps/interface-definition",
+)
+
+daml_test(
+    name = "interface-implementation",
+    srcs = glob(["interfaces-data-deps/interface-implementation/**/*.daml"]),
+    data_deps = [":interface-definition.dar"],
+    deps = ["//daml-script/daml:daml-script-1.dev.dar"],
+    target = "1.dev",
 )
