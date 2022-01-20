@@ -6,6 +6,8 @@ parties:
 - Alice
 - Bob
 - Charlie
+- alice
+- simon
 dependencies:
 - daml-prim
 - daml-stdlib

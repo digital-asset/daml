@@ -8,6 +8,8 @@ import { User } from '@daml.js/yellow-pages';
 import { useParty, useLedger, useStreamFetchByKeys, useStreamQueries } from '@daml/react';
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';
+import MessageEdit from './MessageEdit';
+import MessageList from './MessageList';
 
 // USERS_BEGIN
 const MainView: React.FC = () => {
@@ -80,6 +82,20 @@ const MainView: React.FC = () => {
                 }}
               />
               {/* USERLIST_END */}
+            </Segment>
+            <Segment>
+              <Header as='h2'>
+                <Icon name='pencil square' />
+                <Header.Content>
+                  Messages
+                  <Header.Subheader>Send a message to a follower</Header.Subheader>
+                </Header.Content>
+              </Header>
+              <MessageEdit
+                followers={followers.map(follower => follower.username)}
+              />
+              <Divider />
+              <MessageList />
             </Segment>
           </Grid.Column>
         </Grid.Row>
