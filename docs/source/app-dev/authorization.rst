@@ -38,7 +38,7 @@ The token issuer verifies the identity of the requesting application, looks up t
 and generates a signed access token describing those privileges.
 
 Then, the Daml application sends the access token along with every ledger API request.
-The Daml ledger verifies the signature of the token (to make sure it has not been tampered with and was issued by one of its trusted token issuers),
+The Daml ledger verifies the signature of the token to make sure it has not been tampered with and was issued by one of its trusted token issuers,
 and then checks that the token has not yet expired and that the privileges described in the token authorize the given ledger API request.
 
 .. image:: ./images/Authentication.svg
