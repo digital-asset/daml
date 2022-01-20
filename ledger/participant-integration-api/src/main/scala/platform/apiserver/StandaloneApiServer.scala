@@ -13,7 +13,10 @@ import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationFeatures
+import com.daml.ledger.api.v1.experimental_features.{
+  CommandDeduplicationFeatures,
+  ExperimentalContractIds,
+}
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.index.v2.{IndexService, UserManagementStore}
 import com.daml.ledger.participant.state.{v2 => state}
@@ -60,6 +63,7 @@ object StandaloneApiServer {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
       commandDeduplicationFeatures: CommandDeduplicationFeatures,
+      contractIdFeatures: ExperimentalContractIds,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -118,6 +122,7 @@ object StandaloneApiServer {
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
         commandDeduplicationFeatures = commandDeduplicationFeatures,
+        contractIdFeatures = contractIdFeatures,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(

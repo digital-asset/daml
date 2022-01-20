@@ -33,11 +33,9 @@ object CaffeineCache {
 
     override def getOrAcquire(key: Key, acquire: Key => Value): Value =
       cache.get(key, key => acquire(key))
-
-    override def invalidate(key: Key): Unit = cache.invalidate(key)
   }
 
-  final class AsyncLoadingCacheScala[Key <: AnyRef, Value <: AnyRef](
+  final class AsyncLoadingCaffeineCache[Key <: AnyRef, Value <: AnyRef](
       cache: caffeine.AsyncLoadingCache[Key, Value],
       cacheMetrics: CacheMetrics,
   ) {
@@ -46,7 +44,6 @@ object CaffeineCache {
     def get(key: Key): Future[Value] = FutureConverters.toScala(cache.get(key))
 
     def invalidate(key: Key): Unit = cache.synchronous().invalidate(key)
-
   }
 
   private final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef](
@@ -65,9 +62,6 @@ object CaffeineCache {
 
     override def getOrAcquire(key: Key, acquire: Key => Value): Value =
       delegate.getOrAcquire(key, acquire)
-
-    override def invalidate(key: Key): Unit =
-      delegate.invalidate(key)
   }
 
   private def installMetrics[Key <: AnyRef, Value <: AnyRef](

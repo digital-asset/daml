@@ -8,9 +8,13 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRequest
 import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.client.binding.Primitive.{Party, TemplateId}
+import com.daml.ledger.client.binding.Template
 import com.daml.ledger.test.model.Test.Divulgence2._
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.Witnesses._
@@ -20,6 +24,8 @@ import com.daml.ledger.test.model.Test.{
   Dummy,
   DummyFactory,
   DummyWithParam,
+  TriAgreement,
+  TriProposal,
   WithObservers,
   Witnesses => TestWitnesses,
 }
@@ -27,7 +33,8 @@ import io.grpc.Status
 import scalaz.syntax.tag._
 
 import scala.collection.immutable.Seq
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Random
 
 class ActiveContractsServiceIT extends LedgerTestSuite {
   test(
@@ -427,6 +434,182 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       assertWitnesses(aliceBobContracts, Set(alice, bob))
       assertWitnesses(bobCharlieContracts, Set(bob, charlie))
     }
+  })
+
+  test(
+    "ACSFilterCombinations",
+    "Testing ACS filter combinations",
+    allocate(Parties(3)),
+  )(implicit ec => { case Participants(Participant(ledger, p1, p2, p3)) =>
+    // Let us have 3 templates
+    val templateIds: Vector[Identifier] =
+      Vector(TriAgreement.id.unwrap, TriProposal.id.unwrap, WithObservers.id.unwrap)
+    // Let us have 3 parties
+    val parties: Vector[Party] = Vector(p1, p2, p3)
+    // Let us have all combinations for the 3 parties
+    val partyCombinations =
+      Vector(Set(0), Set(1), Set(2), Set(0, 1), Set(1, 2), Set(0, 2), Set(0, 1, 2))
+    // Let us populate 3 contracts for each template/partyCombination pair (see createContracts below)
+    // Then we require the following Filter - Expectations to be upheld
+
+    // Key is the index of a test party (see parties)
+    // Value is
+    //   either empty, meaning a wildcard party filter
+    //   or the Set of indices of a test template (see templateIds)
+    val * = Set.empty[Int]
+    type ACSFilter = Map[Int, Set[Int]]
+
+    /** A templateId / stakeholders combination, which for 3 contracts are generated each
+      *
+      * @param templateId index of the template ID (see templateIds)
+      * @param stakeholders index of the party (see parties)
+      */
+    case class FilterCoord(templateId: Int, stakeholders: Set[Int])
+
+    def filterCoordsForFilter(filter: ACSFilter): Set[FilterCoord] = {
+      (for {
+        (party, templates) <- filter
+        templateId <- if (templates.isEmpty) templateIds.indices.toSet else templates
+        allowedPartyCombination <- partyCombinations.filter(_(party))
+      } yield FilterCoord(templateId, allowedPartyCombination)).toSet
+    }
+
+    val fixtures: Vector[(ACSFilter, Set[FilterCoord])] = Vector(
+      Map(0 -> *),
+      Map(0 -> Set(0)),
+      Map(0 -> Set(1)),
+      Map(0 -> Set(2)),
+      Map(0 -> Set(0, 1)),
+      Map(0 -> Set(0, 2)),
+      Map(0 -> Set(1, 2)),
+      Map(0 -> Set(0, 1, 2)),
+      // multi filter
+      Map(0 -> *, 1 -> *),
+      Map(0 -> *, 2 -> *),
+      Map(0 -> *, 1 -> *, 2 -> *),
+      Map(0 -> Set(0), 1 -> Set(1)),
+      Map(0 -> Set(0), 1 -> Set(1), 2 -> Set(2)),
+      Map(0 -> Set(0, 1), 1 -> Set(0, 2)),
+      Map(0 -> Set(0, 1), 1 -> Set(0, 2), 2 -> Set(1, 2)),
+      Map(0 -> *, 1 -> Set(0)),
+      Map(0 -> *, 1 -> Set(0), 2 -> Set(1, 2)),
+    ).map(filter => filter -> filterCoordsForFilter(filter))
+
+    def createContracts: Future[Map[FilterCoord, Set[String]]] = {
+      def withThreeParties[T](f: (Party, Party, Party) => T)(partySet: Set[Party]): T =
+        partySet.toList match {
+          case a :: b :: c :: Nil => f(a, b, c)
+          case a :: b :: Nil => f(a, b, b)
+          case a :: Nil => f(a, a, a)
+          case invalid =>
+            throw new Exception(s"Invalid partySet, length must be 1 or 2 or 3 but it was $invalid")
+        }
+      val templateFactories: Vector[Set[Party] => Template[Template[Any]]] = Vector(
+        withThreeParties(TriAgreement(_, _, _)),
+        withThreeParties(TriProposal(_, _, _)),
+        parties => WithObservers(parties.head, parties.toList),
+      )
+      def createContractFor(template: Int, partyCombination: Int) =
+        ledger.create(
+          partyCombinations(partyCombination).map(parties).toList,
+          partyCombinations(partyCombination).map(parties).toList,
+          templateFactories(template)(partyCombinations(partyCombination).map(parties)),
+        )
+
+      val createFs = for {
+        partyCombinationIndex <- partyCombinations.indices
+        templateIndex <- templateFactories.indices
+        _ <- 1 to 3
+      } yield createContractFor(templateIndex, partyCombinationIndex)
+        .map((partyCombinationIndex, templateIndex) -> _)
+
+      Future
+        .sequence(createFs)
+        .map(_.groupBy(_._1).map { case ((partyCombinationIndex, templateIndex), contractId) =>
+          (
+            FilterCoord(templateIndex, partyCombinations(partyCombinationIndex)),
+            contractId.view.map(_._2.toString).toSet,
+          )
+        })
+    }
+
+    val random = new Random(System.nanoTime())
+    def testForFixtures(
+        fixtures: Vector[(ACSFilter, Set[FilterCoord])],
+        allContracts: Map[FilterCoord, Set[String]],
+    ) = {
+      def activeContractIdsFor(filter: ACSFilter): Future[Vector[String]] =
+        ledger
+          .activeContracts(
+            new GetActiveContractsRequest(
+              ledgerId = ledger.ledgerId,
+              filter = Some(
+                new TransactionFilter(
+                  filter.map {
+                    case (party, templates) if templates.isEmpty =>
+                      (parties(party).toString, new Filters(None))
+                    case (party, templates) =>
+                      (
+                        parties(party).toString,
+                        new Filters(
+                          Some(
+                            new InclusiveFilters(random.shuffle(templates.toSeq.map(templateIds)))
+                          )
+                        ),
+                      )
+                  }
+                )
+              ),
+              verbose = true,
+            )
+          )
+          .map(_._2.map(_.contractId))
+
+      def testForFixture(actual: Vector[String], expected: Set[FilterCoord], hint: String): Unit = {
+        val actualSet = actual.toSet
+        assert(
+          expected.forall(allContracts.contains),
+          s"$hint expected FilterCoord(s) which do not exist(s): ${expected.filterNot(allContracts.contains)}",
+        )
+        assert(
+          actualSet.size == actual.size,
+          s"$hint ACS returned redundant entries ${actual.groupBy(identity).toList.filter(_._2.size > 1).map(_._1).mkString("\n")}",
+        )
+        val errors = allContracts.toList.flatMap {
+          case (filterCoord, contracts) if expected(filterCoord) && contracts.forall(actualSet) =>
+            Nil
+          case (filterCoord, contracts)
+              if expected(filterCoord) && contracts.forall(x => !actualSet(x)) =>
+            List(s"$filterCoord is missing from result")
+          case (filterCoord, _) if expected(filterCoord) =>
+            List(s"$filterCoord is partially missing from result")
+          case (filterCoord, contracts) if contracts.forall(actualSet) =>
+            List(s"$filterCoord is present (too many contracts in result)")
+          case (filterCoord, contracts) if contracts.exists(actualSet) =>
+            List(s"$filterCoord is partially present (too many contracts in result)")
+          case (_, _) => Nil
+        }
+        assert(errors == Nil, s"$hint ACS mismatch: ${errors.mkString(", ")}")
+        val expectedContracts = expected.view.flatMap(allContracts).toSet
+        // This extra, redundant test is to safeguard the above, more fine grained approach
+        assert(
+          expectedContracts == actualSet,
+          s"$hint ACS mismatch\n Extra contracts: ${actualSet -- expectedContracts}\n Missing contracts: ${expectedContracts -- actualSet}",
+        )
+      }
+
+      val testFs = fixtures.map { case (filter, expectedResultCoords) =>
+        activeContractIdsFor(filter).map(
+          testForFixture(_, expectedResultCoords, s"Filter: $filter")
+        )
+      }
+      Future.sequence(testFs)
+    }
+
+    for {
+      allContracts <- createContracts
+      _ <- testForFixtures(fixtures, allContracts)
+    } yield ()
   })
 
   private def createDummyContracts(party: Party, ledger: ParticipantTestContext)(implicit

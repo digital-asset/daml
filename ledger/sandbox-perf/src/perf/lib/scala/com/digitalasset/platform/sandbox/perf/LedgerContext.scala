@@ -16,11 +16,8 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc,
 }
-import com.daml.ledger.api.v1.testing.reset_service.ResetServiceGrpc.ResetService
-import com.daml.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
 import io.grpc.{Channel, StatusRuntimeException}
 import org.slf4j.LoggerFactory
-import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -63,7 +60,6 @@ final class LedgerContext(channel: Channel, packageIds: Iterable[PackageId])(imp
           }
       }
     for {
-      _ <- resetService.reset(ResetRequest(ledgerId.unwrap))
       _ <- waitForNewLedger(10)
     } yield new LedgerContext(channel, packageIds)
   }
@@ -76,8 +72,5 @@ final class LedgerContext(channel: Channel, packageIds: Iterable[PackageId])(imp
 
   def acsService: ActiveContractsServiceStub =
     ActiveContractsServiceGrpc.stub(channel)
-
-  def resetService: ResetService =
-    ResetServiceGrpc.stub(channel)
 
 }

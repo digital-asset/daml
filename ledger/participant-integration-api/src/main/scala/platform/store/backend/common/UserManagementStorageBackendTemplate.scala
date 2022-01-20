@@ -97,7 +97,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
   override def deleteUser(userId: Ref.UserId)(connection: Connection): Boolean = {
     val updatedRowsCount =
       SQL"""
-         DELETE FROM  participant_users WHERE user_id = ${userId: String}
+         DELETE FROM participant_users WHERE user_id = ${userId: String}
          """.executeUpdate()(connection)
     updatedRowsCount == 1
   }
@@ -176,7 +176,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
       case (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party)) => CanActAs(party)
       case (Right.CAN_READ_AS_FIELD_NUMBER, Some(party)) => CanReadAs(party)
       case _ =>
-        throw new RuntimeException(s"Could not convert ${(value, partyO)} to a user right!")
+        throw new RuntimeException(s"Could not convert ${(value, partyO)} to a user right.")
     }
   }
 
@@ -186,7 +186,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
       case CanActAs(party) => (Right.CAN_ACT_AS_FIELD_NUMBER, party: String)
       case CanReadAs(party) => (Right.CAN_READ_AS_FIELD_NUMBER, party: String)
       case _ =>
-        throw new RuntimeException(s"Could not recognize user right: $right!")
+        throw new RuntimeException(s"Could not recognize user right: $right.")
     }
   }
 

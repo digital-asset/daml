@@ -12,8 +12,7 @@ package object sandbox {
   private[sandbox] val Name = LedgerName("Sandbox")
 
   val DefaultConfig: SandboxConfig = SandboxConfig.defaultConfig.copy(
-    seeding = None,
-    delayBeforeSubmittingLedgerConfiguration = Duration.ZERO,
+    delayBeforeSubmittingLedgerConfiguration = Duration.ZERO
   )
 
 }

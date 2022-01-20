@@ -25,7 +25,7 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.Engine
-import com.daml.lf.transaction.LegacyTransactionCommitter
+import com.daml.lf.transaction.StandardTransactionCommitter
 import com.daml.lf.transaction.test.TransactionBuilder.EmptySubmitted
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -449,8 +449,7 @@ final class SqlLedgerSpec
             .fold(sys.error, identity),
           initialLedgerEntries = ImmArray.Empty,
           queueDepth = queueDepth,
-          transactionCommitter = LegacyTransactionCommitter,
-          startMode = SqlStartMode.MigrateAndStart,
+          transactionCommitter = StandardTransactionCommitter,
           eventsPageSize = 100,
           eventsProcessingParallelism = 8,
           acsIdPageSize = 2000,

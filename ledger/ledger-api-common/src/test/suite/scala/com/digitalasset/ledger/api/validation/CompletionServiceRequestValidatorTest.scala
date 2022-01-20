@@ -29,7 +29,7 @@ class CompletionServiceRequestValidatorTest
     Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
   )
   private val completionReq = CompletionStreamRequest(
-    domain.LedgerId(expectedLedgerId),
+    Some(domain.LedgerId(expectedLedgerId)),
     Ref.ApplicationId.assertFromString(expectedApplicationId),
     List(party).toSet,
     Some(domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(absoluteOffset))),
@@ -56,17 +56,13 @@ class CompletionServiceRequestValidatorTest
 
     "validating gRPC completion requests" should {
 
-      "reject requests with empty ledger ID" in {
-        fixture.testRequestFailure(
-          testedRequest = _.validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.withLedgerId("")
-          ),
-          expectedCodeV1 = NOT_FOUND,
-          expectedDescriptionV1 = "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
-          expectedCodeV2 = NOT_FOUND,
-          expectedDescriptionV2 =
-            "LEDGER_ID_MISMATCH(11,0): Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
-        )
+      "accept requests with empty ledger ID" in {
+        inside(
+          validator.validateGrpcCompletionStreamRequest(grpcCompletionReq.withLedgerId(""))
+        ) { case Right(req) =>
+          req shouldBe completionReq.copy(ledgerId = None)
+          verifyZeroInteractions(errorCodesVersionSwitcher_mock)
+        }
       }
 
       "return the correct error on missing application ID" in {
@@ -110,18 +106,14 @@ class CompletionServiceRequestValidatorTest
 
     "validate domain completion requests" should {
 
-      "reject requests with empty ledger ID" in {
-        fixture.testRequestFailure(
-          testedRequest = _.validateCompletionStreamRequest(
-            completionReq.copy(ledgerId = domain.LedgerId("")),
-            ledgerEnd,
-          ),
-          expectedCodeV1 = NOT_FOUND,
-          expectedDescriptionV1 = "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
-          expectedCodeV2 = NOT_FOUND,
-          expectedDescriptionV2 =
-            "LEDGER_ID_MISMATCH(11,0): Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
-        )
+      "accept requests with empty ledger ID" in {
+        inside(
+          validator.validateCompletionStreamRequest(completionReq.copy(ledgerId = None), ledgerEnd)
+        ) { case Right(req) =>
+          req shouldBe completionReq.copy(ledgerId = None)
+          verifyZeroInteractions(errorCodesVersionSwitcher_mock)
+        }
+
       }
 
       "return the correct error on missing party" in {
@@ -165,7 +157,7 @@ class CompletionServiceRequestValidatorTest
             ledgerEnd,
           )
         ) { case Right(req) =>
-          req.ledgerId shouldEqual expectedLedgerId
+          req.ledgerId shouldEqual Some(expectedLedgerId)
           req.applicationId shouldEqual expectedApplicationId
           req.parties shouldEqual Set(party)
           req.offset shouldEqual None
@@ -178,20 +170,20 @@ class CompletionServiceRequestValidatorTest
 
       "fail on ledger ID mismatch" in {
         fixture.testRequestFailure(
-          testedRequest = _.validateCompletionEndRequest(endReq.withLedgerId("")),
+          testedRequest = _.validateCompletionEndRequest(endReq.withLedgerId("mismatchedLedgerId")),
           expectedCodeV1 = NOT_FOUND,
-          expectedDescriptionV1 = "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+          expectedDescriptionV1 =
+            "Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
           expectedCodeV2 = NOT_FOUND,
           expectedDescriptionV2 =
-            "LEDGER_ID_MISMATCH(11,0): Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+            "LEDGER_ID_MISMATCH(11,0): Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
         )
       }
 
       "return passed ledger ID" in {
         inside(
           validator.validateCompletionEndRequest(endReq)
-        ) { case Right(out) =>
-          out should have(Symbol("ledgerId")(expectedLedgerId))
+        ) { case Right(_) =>
           verifyZeroInteractions(errorCodesVersionSwitcher_mock)
         }
       }

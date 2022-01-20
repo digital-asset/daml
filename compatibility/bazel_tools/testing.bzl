@@ -536,7 +536,7 @@ excluded_test_tool_tests = [
         "start": "1.18.0",
         "platform_ranges": [
             {
-                "end": "1.18.0",
+                "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     "CommandDeduplicationIT",  # Latest version of the test is dependent on having the submission id populated
                 ],
@@ -548,7 +548,7 @@ excluded_test_tool_tests = [
         "end": "2.0.0-snapshot.20220105.8777.1",  # was removed in 2.0
         "platform_ranges": [
             {
-                "end": "1.18.0",
+                "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     # Exclude dedup tests due to large number of changes (removed participant deduplication, switch to append-only schema, changes in deduplication duration)
                     "KVCommandDeduplicationIT",
@@ -573,7 +573,7 @@ excluded_test_tool_tests = [
         "start": "1.18.0",
         "platform_ranges": [
             {
-                "end": "1.18.0",
+                "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     "CommandServiceIT:CSsubmitAndWaitCompletionOffset",
                 ],
@@ -584,7 +584,7 @@ excluded_test_tool_tests = [
         "start": "2.0.0",
         "platform_ranges": [
             {
-                "end": "1.18.0",
+                "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     # Unexpected failure (StatusRuntimeException) ALREADY_EXISTS: DUPLICATE_COMMAND(10,KVComman):
                     "CommandDeduplicationIT:DeduplicationMixedClients",
@@ -601,7 +601,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.18.0",
-        "end": "1.18.0",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20211123.8463.0.bd2a6852",
@@ -640,7 +640,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.3.0",
-        "end": "1.18.0",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
@@ -652,7 +652,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.16.0",
-        "end": "1.18.0",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
@@ -664,13 +664,25 @@ excluded_test_tool_tests = [
     },
     {
         "start": first_granular_test_tool,
-        "end": "1.18.0",
+        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20220110.8812.0.3a08380b",
                 "exclusions": [
                     # Error message did not contain [\QParty not known on ledger\E], but was [Parties not known on ledger: [unallocated]].
                     "ClosedWorldIT:ClosedWorldObserver",
+                ],
+            },
+        ],
+    },
+    {
+        # Contract ID tests are governed by feature descriptors.
+        "start": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+        "platform_ranges": [
+            {
+                "end": "2.0.0-snapshot.20220110.8812.1",
+                "exclusions": [
+                    "ContractIdIT",
                 ],
             },
         ],
@@ -975,34 +987,35 @@ def sdk_platform_test(sdk_version, platform_version):
     exclusions = ["--exclude=" + test for test in get_excluded_tests(test_tool_version = sdk_version, sandbox_version = platform_version)]
 
     if versions.is_stable(sdk_version) and versions.is_stable(platform_version):
-        # Ledger API test tool < 1.5 do not upload the DAR which doesn’t work on Sandbox on X
-        if versions.is_at_least("2.0.0", platform_version) and versions.is_at_least("1.5.0", sdk_version):
-            client_server_test(
-                name = name + "-on-x",
-                client = ledger_api_test_tool,
-                client_args = [
-                    "localhost:6865",
-                ] + exclusions,
-                data = [dar_files],
-                runner = "@//bazel_tools/client_server:runner",
-                runner_args = ["6865"],
-                server = sandbox_on_x,
-                server_args = ["--participant participant-id=example,port=6865"] + sandbox_on_x_args + extra_sandbox_on_x_args,
-                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-            )
-            client_server_test(
-                name = name + "-on-x-postgresql",
-                client = ledger_api_test_tool,
-                client_args = [
-                    "localhost:6865",
-                ] + exclusions,
-                data = [dar_files],
-                runner = "@//bazel_tools/client_server:runner",
-                runner_args = ["6865"],
-                server = ":sandbox-with-postgres-{}".format(platform_version),
-                server_args = [platform_version, "sandbox-on-x", "--participant participant-id=example,port=6865,server-jdbc-url=__jdbcurl__"] + sandbox_on_x_args + extra_sandbox_on_x_args,
-                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-            ) if is_linux else None
+        if versions.is_at_least("2.0.0", platform_version):
+            # Ledger API test tool < 1.5 do not upload the DAR which doesn’t work on Sandbox on X
+            if versions.is_at_least("1.5.0", sdk_version):
+                client_server_test(
+                    name = name + "-on-x",
+                    client = ledger_api_test_tool,
+                    client_args = [
+                        "localhost:6865",
+                    ] + exclusions,
+                    data = [dar_files],
+                    runner = "@//bazel_tools/client_server:runner",
+                    runner_args = ["6865"],
+                    server = sandbox_on_x,
+                    server_args = ["--participant participant-id=example,port=6865"] + sandbox_on_x_args + extra_sandbox_on_x_args,
+                    tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+                )
+                client_server_test(
+                    name = name + "-on-x-postgresql",
+                    client = ledger_api_test_tool,
+                    client_args = [
+                        "localhost:6865",
+                    ] + exclusions,
+                    data = [dar_files],
+                    runner = "@//bazel_tools/client_server:runner",
+                    runner_args = ["6865"],
+                    server = ":sandbox-with-postgres-{}".format(platform_version),
+                    server_args = [platform_version, "sandbox-on-x", "--participant participant-id=example,port=6865,server-jdbc-url=__jdbcurl__"] + sandbox_on_x_args + extra_sandbox_on_x_args,
+                    tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+                ) if is_linux else None
         else:
             client_server_test(
                 name = name,

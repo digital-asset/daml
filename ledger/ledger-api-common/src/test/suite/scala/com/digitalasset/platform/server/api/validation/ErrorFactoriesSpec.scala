@@ -753,34 +753,6 @@ class ErrorFactoriesSpec
       }
     }
 
-    "return a serviceIsBeingReset error" in {
-      val serviceName = "Some API Service"
-      val someLegacyStatusCode = Code.CANCELLED
-
-      val msg =
-        s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName is currently being reset."
-      assertVersionedError(_.serviceIsBeingReset(someLegacyStatusCode.value())(serviceName))(
-        v1_code = someLegacyStatusCode,
-        v1_message = s"$serviceName is currently being reset.",
-        v1_details = Seq.empty,
-        v2_code = Code.UNAVAILABLE,
-        v2_message = msg,
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail(
-            "SERVICE_NOT_RUNNING",
-            Map("category" -> "1", "definite_answer" -> "false", "service_name" -> serviceName),
-          ),
-          expectedCorrelationIdRequestInfo,
-          ErrorDetails.RetryInfoDetail(1),
-        ),
-        v2_logEntry = ExpectedLogEntry(
-          Level.INFO,
-          msg,
-          expectedMarkerRegex("service_name=Some API Service"),
-        ),
-      )
-    }
-
     "return a missingField error" in {
       val fieldName = "my field"
 
@@ -952,7 +924,7 @@ class ErrorFactoriesSpec
       expectedDetails: Seq[ErrorDetails.ErrorDetail],
       expectedLogEntry: ExpectedLogEntry,
   ): Unit = {
-    val _ = assertError[this.type, this.type](
+    assertError[this.type, this.type](
       actual = statusRuntimeException,
       expectedCode,
       expectedMessage,

@@ -3,29 +3,41 @@
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
-import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationFeatures
+import com.daml.ledger.api.v1.experimental_features.{
+  CommandDeduplicationFeatures,
+  ExperimentalContractIds,
+}
 import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionResponse
 
 final case class Features(
-    selfServiceErrorCodes: Boolean = false,
-    userManagement: Boolean = false,
+    userManagement: Boolean,
+    selfServiceErrorCodes: Boolean,
+    staticTime: Boolean,
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
-    staticTime: Boolean = false,
+    optionalLedgerId: Boolean = false,
+    contractIds: ExperimentalContractIds,
 )
 
 object Features {
-  val defaultFeatures =
-    Features(commandDeduplicationFeatures = CommandDeduplicationFeatures.defaultInstance)
+  val defaultFeatures: Features = Features(
+    userManagement = false,
+    selfServiceErrorCodes = false,
+    staticTime = false,
+    commandDeduplicationFeatures = CommandDeduplicationFeatures.defaultInstance,
+    contractIds = ExperimentalContractIds.defaultInstance,
+  )
 
   def fromApiVersionResponse(response: GetLedgerApiVersionResponse): Features = {
     val features = response.getFeatures
     val experimental = features.getExperimental
 
     Features(
-      selfServiceErrorCodes = experimental.selfServiceErrorCodes.isDefined,
       userManagement = features.getUserManagement.supported,
+      selfServiceErrorCodes = experimental.selfServiceErrorCodes.isDefined,
       staticTime = experimental.getStaticTime.supported,
       commandDeduplicationFeatures = experimental.getCommandDeduplication,
+      optionalLedgerId = experimental.optionalLedgerId.isDefined,
+      contractIds = experimental.getContractIds,
     )
   }
 }

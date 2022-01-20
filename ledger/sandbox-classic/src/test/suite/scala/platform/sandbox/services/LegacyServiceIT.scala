@@ -40,7 +40,6 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
   LedgerIdentityServiceGrpc,
 }
 import com.daml.ledger.api.v1.package_service.{ListPackagesRequest, PackageServiceGrpc}
-import com.daml.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
 import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v1.transaction_service.{GetLedgerEndRequest, TransactionServiceGrpc}
 import io.grpc
@@ -147,14 +146,6 @@ class LegacyServiceIT
         val transaction =
           TransactionServiceGrpc.blockingStub(channel).withInterceptors(legacyCallInterceptor)
         transaction.getLedgerEnd(GetLedgerEndRequest(randomLedgerId))
-      }
-    }
-
-    "offer com.digitalasset.ledger.api.v1.testing.ResetService" in {
-      expectNotUnimplemented {
-        val testingReset =
-          ResetServiceGrpc.blockingStub(channel).withInterceptors(legacyCallInterceptor)
-        testingReset.reset(ResetRequest(randomLedgerId))
       }
     }
 

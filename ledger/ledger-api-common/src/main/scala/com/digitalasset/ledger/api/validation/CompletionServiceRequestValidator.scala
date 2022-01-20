@@ -4,7 +4,7 @@
 package com.daml.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
-import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
+import com.daml.ledger.api.domain.{LedgerId, LedgerOffset, optionalLedgerId}
 import com.daml.ledger.api.messages.command.completion
 import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -34,7 +34,7 @@ class CompletionServiceRequestValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
-      validLedgerId <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      validLedgerId <- matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       appId <- requireApplicationId(request.applicationId, "application_id")
       parties <- requireParties(request.parties.toSet)
       convertedOffset <- ledgerOffsetValidator.validateOptional(request.offset, "offset")
@@ -68,7 +68,7 @@ class CompletionServiceRequestValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, completion.CompletionEndRequest] =
     for {
-      ledgerId <- matchLedgerId(ledgerId)(LedgerId(req.ledgerId))
-    } yield completion.CompletionEndRequest(ledgerId)
+      _ <- matchLedgerId(ledgerId)(optionalLedgerId(req.ledgerId))
+    } yield completion.CompletionEndRequest()
 
 }

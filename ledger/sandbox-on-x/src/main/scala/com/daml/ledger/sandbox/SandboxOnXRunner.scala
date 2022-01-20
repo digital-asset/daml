@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ExperimentalContractIds,
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -161,7 +162,6 @@ object SandboxOnXRunner {
 
           indexerHealthChecks <- buildIndexerServer(
             metrics,
-            servicesExecutionContext,
             new TimedReadService(readServiceWithSubscriber, metrics),
             translationCache,
           )
@@ -241,7 +241,7 @@ object SandboxOnXRunner {
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
       userManagementStore = PersistentUserManagementStore.cached(
-        dbDispatcher = dbSupport.dbDispatcher,
+        dbSupport = dbSupport,
         metrics = metrics,
         cacheExpiryAfterWriteInSeconds = config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
         maximumCacheSize = config.userManagementConfig.maximumCacheSize,
@@ -256,11 +256,14 @@ object SandboxOnXRunner {
         deduplicationType = CommandDeduplicationType.SYNC_ONLY,
         maxDeduplicationDurationEnforced = false,
       ),
+      contractIdFeatures = ExperimentalContractIds.of(
+        v0 = ExperimentalContractIds.ContractIdV0Support.SUPPORTED,
+        v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+      ),
     )
 
   private def buildIndexerServer(
       metrics: Metrics,
-      servicesExecutionContext: ExecutionContextExecutorService,
       readService: ReadService,
       translationCache: LfValueTranslationCache.Cache,
   )(implicit
@@ -273,7 +276,6 @@ object SandboxOnXRunner {
       indexerHealth <- new StandaloneIndexerServer(
         readService = readService,
         config = BridgeConfigProvider.indexerConfig(participantConfig, config),
-        servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         lfValueTranslationCache = translationCache,
       )

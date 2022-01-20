@@ -114,7 +114,7 @@ class EngineModeIT
         DefaultConfig.copy(
           port = Port.Dynamic,
           engineMode = mode,
-          seeding = Some(Seeding.Weak),
+          seeding = Seeding.Weak,
         )
       )
 

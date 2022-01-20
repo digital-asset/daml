@@ -42,13 +42,7 @@ class CliSpec extends CommonCliSpecBase(Cli) {
     }
 
     "parse the contract-id-seeding mode when given" in {
-      checkOption(Array("--contract-id-seeding", "strong"), _.copy(seeding = Some(Seeding.Strong)))
-    }
-
-    "use no seeding by default" in {
-      // do not change the default seeding of sandbox classic without
-      // formal agreement of Bernhard Elsner.
-      cli.defaultConfig.seeding shouldBe None
+      checkOption(Array("--contract-id-seeding", "strong"), _.copy(seeding = Seeding.Strong))
     }
   }
 

@@ -19,6 +19,8 @@ message ExperimentalFeatures {
   ExperimentalSelfServiceErrorCodes self_service_error_codes = 1;
   ExperimentalStaticTime static_time = 2;
   CommandDeduplicationFeatures command_deduplication = 3;
+  ExperimentalOptionalLedgerId optional_ledger_id = 4;
+  ExperimentalContractIds contract_ids = 5;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
@@ -37,6 +39,10 @@ message CommandDeduplicationFeatures {
   // The ledger will reject any requests which specify a deduplication period which exceeds the specified max deduplication duration.
   // This is also enforced for ledgers that convert deduplication periods specified as offsets to durations.
   bool max_deduplication_duration_enforced = 3;
+}
+
+// Ledger API does not require ledgerId to be set in the requests.
+message ExperimentalOptionalLedgerId {
 }
 
 // Feature descriptor specifying how deduplication periods can be specified and how they are handled by the participant
@@ -66,4 +72,25 @@ enum CommandDeduplicationType {
   ASYNC_AND_CONCURRENT_SYNC = 1;
   // Duplicate commands are always reported synchronously via a synchronous gRPC error on the command submission.
   SYNC_ONLY = 2;
+}
+
+// See `daml-lf/spec/contract-id.rst` for more information on contract ID formats.
+message ExperimentalContractIds {
+  ContractIdV0Support v0 = 1;
+  ContractIdV1Support v1 = 2;
+
+  enum ContractIdV0Support {
+    NOT_SUPPORTED = 0;
+    SUPPORTED = 1;
+  }
+
+  enum ContractIdV1Support {
+    // Contract IDs must be suffixed.
+    // Distributed ledger implementations must reject non-suffixed contract IDs.
+    SUFFIXED = 0;
+    // Contract IDs do not need to be suffixed.
+    // This can be useful for shorter contract IDs in centralized committer implementations.
+    // Suffixed contract IDs must also be supported.
+    NON_SUFFIXED = 1;
+  }
 }
