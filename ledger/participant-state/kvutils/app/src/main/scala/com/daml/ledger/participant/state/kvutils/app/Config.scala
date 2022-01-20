@@ -652,7 +652,7 @@ object Config {
           )
           .action((_, config: Config[Extra]) => config.copy(enableSelfServiceErrorCodes = false))
 
-        opt[Boolean]("feature-user-management")
+        opt[Boolean]("enable-user-management")
           .optional()
           .text(
             "Whether to enable participant user management."

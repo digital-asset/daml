@@ -364,16 +364,16 @@ abstract class CommonCliSpecBase(
       )
     }
 
-    "handle '--feature-user-management' flag correctly" in {
+    "handle '--enable-user-management' flag correctly" in {
       checkOptionFail(
-        Array("--feature-user-management")
+        Array("--enable-user-management")
       )
       checkOption(
-        Array("--feature-user-management", "false"),
+        Array("--enable-user-management", "false"),
         _.withUserManagementConfig(_.copy(enabled = false)),
       )
       checkOption(
-        Array("--feature-user-management", "true"),
+        Array("--enable-user-management", "true"),
         _.withUserManagementConfig(_.copy(enabled = true)),
       )
       checkOption(

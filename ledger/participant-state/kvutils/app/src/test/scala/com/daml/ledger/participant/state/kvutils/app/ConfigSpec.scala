@@ -259,12 +259,12 @@ final class ConfigSpec
     }
   }
 
-  it should "handle '--feature-user-management' flag correctly" in {
+  it should "handle '--enable-user-management' flag correctly" in {
     configParser(
       Seq(
         dumpIndexMetadataCommand,
         "some-jdbc-url",
-        "--feature-user-management",
+        "--enable-user-management",
       )
     ) shouldBe None
 
@@ -272,7 +272,7 @@ final class ConfigSpec
       Seq(
         dumpIndexMetadataCommand,
         "some-jdbc-url",
-        "--feature-user-management",
+        "--enable-user-management",
         "false",
       )
     ).value.userManagementConfig.enabled shouldBe false
@@ -281,7 +281,7 @@ final class ConfigSpec
       Seq(
         dumpIndexMetadataCommand,
         "some-jdbc-url",
-        "--feature-user-management",
+        "--enable-user-management",
         "true",
       )
     ).value.userManagementConfig.enabled shouldBe true
