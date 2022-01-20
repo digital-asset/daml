@@ -213,7 +213,8 @@ patches we backport to the 1.0 release branch).
       `cd myproject`.
    1. Run `daml start`.
    1. Open your browser at `http://localhost:7500`, verify that you can login as
-      Alice and there is one template and one contract.
+      Alice and there is one contract, and that the template list contains
+      `Main:Asset` among other templates.
    1. Kill `daml start` with `Ctrl-C`.
    1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
       the script result appears within 30 seconds.
