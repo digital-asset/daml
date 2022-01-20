@@ -43,7 +43,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           GrpcStatus.buildStatus(Map.empty, statusBuilder)
         },
         v2 = LedgerApiErrors.InternalError
-          .CommandTrackerInternalError(
+          .Generic(
             message = s"$message: ${t.getClass.getSimpleName}: ${t.getMessage}",
             throwableO = Some(t),
           )
@@ -93,7 +93,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
             .build()
         },
         v2 = LedgerApiErrors.InternalError
-          .CommandTrackerInternalError(
+          .Generic(
             "Missing status in completion response.",
             throwableO = None,
           )
@@ -535,7 +535,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .setMessage(msg)
         grpcError(builder.build())
       },
-      v2 = LedgerApiErrors.InternalError.CommandTrackerInternalError(msg).asGrpcError,
+      v2 = LedgerApiErrors.InternalError.Generic(msg).asGrpcError,
     )
 
   private def invalidArgumentV1(

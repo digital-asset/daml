@@ -585,7 +585,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           throwableO = Some(t),
         )
 
-    case class CommandTrackerInternalError(
+    case class Generic(
         message: String,
         override val throwableO: Option[Throwable] = None,
     )(implicit
