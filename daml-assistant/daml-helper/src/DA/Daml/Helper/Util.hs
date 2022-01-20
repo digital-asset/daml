@@ -20,6 +20,7 @@ module DA.Daml.Helper.Util
   , runJar
   , runCantonSandbox
   , withCantonSandbox
+  , withCantonPortFile
   , getLogbackArg
   , waitForHttpServer
   , tokenFor
@@ -41,7 +42,7 @@ import qualified Network.HTTP.Types as HTTP
 import System.Directory
 import System.FilePath
 import System.IO
-import System.IO.Extra (withTempFile)
+import System.IO.Extra (withTempDir, withTempFile)
 import System.Info.Extra
 import System.Exit (exitFailure)
 import System.Process (ProcessHandle, getProcessExitCode, showCommandForUser, terminateProcess)
@@ -254,15 +255,26 @@ withCantonSandbox options remainingArgs k = do
         BSL.writeFile config (cantonConfig options)
         withJar cantonJar [] ("daemon" : "-c" : config :  "--auto-connect-local" : remainingArgs) k
 
+-- | Obtain a path to use as canton portfile, and give updated options.
+withCantonPortFile :: CantonOptions -> (CantonOptions -> FilePath -> IO a) -> IO a
+withCantonPortFile options kont =
+    case cantonPortFileM options of
+        Nothing ->
+            withTempDir $ \ tempDir -> do
+                let portFile = tempDir </> "canton-portfile.json"
+                kont options { cantonPortFileM = Just portFile } portFile
+        Just portFile ->
+            kont options portFile
+
 newtype StaticTime = StaticTime Bool
 
 data CantonOptions = CantonOptions
-  { ledgerApi :: Int
-  , adminApi :: Int
-  , domainPublicApi :: Int
-  , domainAdminApi :: Int
-  , portFileM :: Maybe FilePath
-  , staticTime :: StaticTime
+  { cantonLedgerApi :: Int
+  , cantonAdminApi :: Int
+  , cantonDomainPublicApi :: Int
+  , cantonDomainAdminApi :: Int
+  , cantonPortFileM :: Maybe FilePath
+  , cantonStaticTime :: StaticTime
   }
 
 cantonConfig :: CantonOptions -> BSL.ByteString
@@ -270,23 +282,23 @@ cantonConfig CantonOptions{..} =
     Aeson.encode $ Aeson.object
         [ "canton" Aeson..= Aeson.object
             [ "parameters" Aeson..= Aeson.object ( concat
-                [ [ "ports-file" Aeson..= portFile | Just portFile <- [portFileM] ]
+                [ [ "ports-file" Aeson..= portFile | Just portFile <- [cantonPortFileM] ]
                 , [ "clock" Aeson..= Aeson.object
                         [ "type" Aeson..= ("sim-clock" :: T.Text) ]
-                  | StaticTime True <- [] ]
+                  | StaticTime True <- [cantonStaticTime] ]
                 ] )
             , "participants" Aeson..= Aeson.object
                 [ "sandbox" Aeson..= Aeson.object
                     [ storage
-                    , "admin-api" Aeson..= port adminApi
-                    , "ledger-api" Aeson..= port ledgerApi
+                    , "admin-api" Aeson..= port cantonAdminApi
+                    , "ledger-api" Aeson..= port cantonLedgerApi
                     ]
                 ]
             , "domains" Aeson..= Aeson.object
                 [ "local" Aeson..= Aeson.object
                     [ storage
-                    , "public-api" Aeson..= port domainPublicApi
-                    , "admin-api" Aeson..= port domainAdminApi
+                    , "public-api" Aeson..= port cantonDomainPublicApi
+                    , "admin-api" Aeson..= port cantonDomainAdminApi
                     ]
                 ]
             ]
