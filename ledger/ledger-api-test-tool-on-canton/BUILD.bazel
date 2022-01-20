@@ -85,8 +85,6 @@ conformance_test(
             "CommandDeduplicationIT:SimpleDeduplicationBasic",  # sync vs async error (part of canton #6301)
             "CommandDeduplicationIT:DeduplicateSubmitterBasic",
             "CommandDeduplicationIT:DeduplicateUsingOffsets",  # temporary disabled until we adapt it for canton
-            "MultiPartySubmissionIT:MPSLookupOtherByKeyInvisible",  # Enable once error parsing more permissive
-            "MultiPartySubmissionIT:MPSCreateInsufficientAuthorization",  # canton returns INTERNAL instead of INVALID_ARGUMENT
             "RaceConditionIT:RWArchiveVsFailedLookupByKey",  # finding a lookup failure after contract creation
             # dynamic config management not supported by Canton
             "ConfigManagementServiceIT",
