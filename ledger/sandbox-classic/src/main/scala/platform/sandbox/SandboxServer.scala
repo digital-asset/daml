@@ -26,9 +26,10 @@ import scalaz.syntax.tag._
 
 import java.nio.file.Files
 import java.util.UUID
+import java.util.concurrent.Executors
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -37,13 +38,16 @@ final class SandboxServer(
     materializer: Materializer,
     metrics: Metrics,
 ) extends AutoCloseable {
+  private val resourceManagementExecutionContext =
+    ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+
   // Only used for testing.
   def this(config: SandboxConfig, materializer: Materializer) =
     this(config, materializer, new Metrics(new MetricRegistry))
 
   private val apiServerResource = start(
-    ResourceContext(materializer.executionContext),
-    materializer.executionContext,
+    ResourceContext(resourceManagementExecutionContext),
+    materializer,
   )
 
   // Only used in testing; hopefully we can get rid of it soon.
@@ -54,11 +58,11 @@ final class SandboxServer(
 
   private def start(implicit
       resourceContext: ResourceContext,
-      executionContext: ExecutionContext,
+      materializer: Materializer,
   ) =
     for {
       maybeLedgerId <- config.jdbcUrl
-        .map(url => getLedgerId(url))
+        .map(getLedgerId(_)(resourceContext, resourceManagementExecutionContext, materializer))
         .getOrElse(Resource.successful(None))
       genericConfig =
         ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId)
@@ -74,8 +78,8 @@ final class SandboxServer(
             Some(metrics),
           )
           .acquire()
-      _ <- Resource.fromFuture(writePortFile(apiServer.port))
-      _ <- loadPackages(writeService).acquire()
+      _ <- Resource.fromFuture(writePortFile(apiServer.port)(resourceManagementExecutionContext))
+      _ <- loadPackages(writeService)(resourceManagementExecutionContext).acquire()
     } yield apiServer
 
   private def writePortFile(port: Port)(implicit executionContext: ExecutionContext): Future[Unit] =
@@ -145,11 +149,11 @@ object SandboxServer {
   //                              This is needed for the Dynamic ledger id mode, when the index should be initialized with the existing ledger id (only used in testing).
   private def getLedgerId(
       jdbcUrl: String
-  )(implicit resourceContext: ResourceContext): resources.Resource[Option[String]] = {
-    implicit val actorSystem: ActorSystem = ActorSystem()
-    implicit val materializer: Materializer = Materializer(actorSystem)
-    implicit val ec: ExecutionContextExecutor = materializer.executionContext
-
+  )(implicit
+      resourceContext: ResourceContext,
+      executionContext: ExecutionContext,
+      materializer: Materializer,
+  ): resources.Resource[Option[String]] =
     newLoggingContext { implicit loggingContext: LoggingContext =>
       Resource
         .fromFuture(IndexMetadata.read(jdbcUrl, ErrorFactories(true)).transform {
@@ -159,5 +163,4 @@ object SandboxServer {
             else Success(Some(indexMetadata.ledgerId))
         })
     }
-  }
 }
