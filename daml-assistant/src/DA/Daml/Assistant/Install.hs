@@ -503,7 +503,7 @@ uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
     if exists then do
         when (Just (DamlAssistantSdkVersion sdkVersion) == envDamlAssistantSdkVersion) $ do
             hPutStr stderr . unlines $
-                [ "Cannot uninstall SDK version of daml assistant."
+                [ "Cannot uninstall SDK version of current daml assistant."
                 , "Please switch to a different version of daml assistant and try again."
                 , "To switch to a different version of daml assistant, use:"
                 , ""
