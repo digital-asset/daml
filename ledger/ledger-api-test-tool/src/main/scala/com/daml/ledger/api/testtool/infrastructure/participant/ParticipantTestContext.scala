@@ -779,7 +779,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
             PruneRequest(pruneUpTo, nextSubmissionId(), pruneAllDivulgedContracts)
           )
           .andThen { case Failure(exception) =>
-            logger.error("Failed to prune", exception)(LoggingContext.ForTesting)
+            logger.warn("Failed to prune", exception)(LoggingContext.ForTesting)
           }
       },
     )

@@ -16,9 +16,9 @@ private[sandboxnext] object Cli extends SandboxCli {
     val parser = new CommonCli(Name).withEarlyAccess.withDevEngine
       .withContractIdSeeding(
         defaultConfig,
-        Some(Seeding.Strong),
-        Some(Seeding.Weak),
-        Some(Seeding.Static),
+        Seeding.Strong,
+        Seeding.Weak,
+        Seeding.Static,
       )
       .parser
 

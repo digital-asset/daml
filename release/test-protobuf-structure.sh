@@ -55,7 +55,6 @@ com/daml/ledger/api/v1/ledger_configuration_service.proto
 com/daml/ledger/api/v1/ledger_identity_service.proto
 com/daml/ledger/api/v1/ledger_offset.proto
 com/daml/ledger/api/v1/package_service.proto
-com/daml/ledger/api/v1/testing/reset_service.proto
 com/daml/ledger/api/v1/testing/time_service.proto
 com/daml/ledger/api/v1/transaction.proto
 com/daml/ledger/api/v1/transaction_filter.proto

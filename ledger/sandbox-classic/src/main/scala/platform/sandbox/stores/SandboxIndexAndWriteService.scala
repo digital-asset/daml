@@ -26,7 +26,7 @@ import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
-import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
+import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger
 import com.daml.platform.sandbox.stores.ledger.{Ledger, MeteredLedger}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
@@ -52,7 +52,6 @@ private[sandbox] object SandboxIndexAndWriteService {
       dbSupport: DbSupport,
       timeProvider: TimeProvider,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
-      startMode: SqlStartMode,
       queueDepth: Int,
       transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
@@ -84,7 +83,6 @@ private[sandbox] object SandboxIndexAndWriteService {
       initialLedgerEntries = ledgerEntries,
       queueDepth = queueDepth,
       transactionCommitter = transactionCommitter,
-      startMode = startMode,
       eventsPageSize = eventsPageSize,
       eventsProcessingParallelism = eventsProcessingParallelism,
       acsIdPageSize = acsIdPageSize,

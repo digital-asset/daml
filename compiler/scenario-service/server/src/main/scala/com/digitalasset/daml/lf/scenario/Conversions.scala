@@ -249,14 +249,6 @@ final class Conversions(
 
       case Error.PartyAlreadyExists(party) =>
         builder.setScenarioPartyAlreadyExists(party)
-
-      case Error.UserManagement(err) =>
-        err match {
-          case Error.UserManagementError.UserNotFound(userId) =>
-            builder.setScenarioUserNotFound(userId)
-          case Error.UserManagementError.UserExists(userId) =>
-            builder.setScenarioUserAlreadyExists(userId)
-        }
     }
     builder.build
   }

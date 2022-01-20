@@ -266,7 +266,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     timeProviderType = Some(TimeProviderType.Static),
     delayBeforeSubmittingLedgerConfiguration = JDuration.ZERO,
     authService = authService,
-    seeding = Some(Seeding.Weak),
+    seeding = Seeding.Weak,
   )
 
   protected lazy val sandboxPort: Port = resource.value._1

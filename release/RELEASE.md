@@ -252,7 +252,7 @@ patches we backport to the 1.0 release branch).
 
           1. `daml ledger upload-dar --host localhost --port 6865 .daml/dist/quickstart-0.0.1.dar`
 
-          1. `daml script --ledger-host localhost --ledger-port 6865 --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --script-output output.json`
+          1. `daml script --ledger-host localhost --ledger-port 6865 --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --output-file output.json`
 
           1. `cat output.json` and verify that the output looks like this:
              ```

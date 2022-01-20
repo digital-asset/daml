@@ -43,7 +43,7 @@ trait SandboxTestLedger extends SandboxNextFixture {
     authService = authService,
     scenario = scenario,
     engineMode = SandboxConfig.EngineMode.Dev,
-    seeding = Some(Seeding.Weak),
+    seeding = Seeding.Weak,
   )
 
   def clientCfg(token: Option[String], testName: String): LedgerClientConfiguration =

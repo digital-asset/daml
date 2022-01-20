@@ -17,7 +17,7 @@ private[sql] final class Cli(
   override protected val parser: OptionParser[SandboxConfig] = {
     val parser =
       new CommonCli(Name)
-        .withContractIdSeeding(defaultConfig, Some(Seeding.Strong), Some(Seeding.Weak))
+        .withContractIdSeeding(defaultConfig, Seeding.Strong, Seeding.Weak)
         .parser
 
     parser

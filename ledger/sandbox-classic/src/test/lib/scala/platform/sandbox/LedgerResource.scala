@@ -24,7 +24,7 @@ import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
-import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
+import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.testing.postgresql.PostgresResource
@@ -97,7 +97,6 @@ private[sandbox] object LedgerResource {
           initialLedgerEntries = ImmArray.Empty,
           queueDepth = 128,
           transactionCommitter = StandardTransactionCommitter,
-          startMode = SqlStartMode.ResetAndStart,
           eventsPageSize = 100,
           eventsProcessingParallelism = 8,
           acsIdPageSize = 2000,

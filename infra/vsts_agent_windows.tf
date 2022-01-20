@@ -11,13 +11,13 @@ locals {
   w = [
     {
       name       = "ci-w1",
-      size       = 0,
+      size       = 6,
       assignment = "default",
       disk_size  = 400,
     },
     {
       name       = "ci-w2"
-      size       = 6,
+      size       = 0,
       assignment = "default",
       disk_size  = 400,
     },
@@ -177,6 +177,11 @@ SYSPREP_SPECIALIZE
 
     // Ephemeral IP to get access to the Internet
     access_config {}
+  }
+
+  service_account {
+    scopes = ["cloud-platform"]
+    email  = "log-writer@da-dev-gcp-daml-language.iam.gserviceaccount.com"
   }
 
   scheduling {

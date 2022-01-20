@@ -22,6 +22,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ExperimentalContractIds,
 }
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.metrics.TimedWriteService
@@ -30,17 +31,12 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.{
-  LegacyTransactionCommitter,
-  StandardTransactionCommitter,
-  TransactionCommitter,
-}
+import com.daml.lf.transaction.StandardTransactionCommitter
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
-import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver._
-import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration, ServerRole}
+import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
@@ -48,7 +44,6 @@ import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger._
-import com.daml.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndexAndWriteService}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{DbSupport, DbType, FlywayMigrations, LfValueTranslationCache}
@@ -146,18 +141,12 @@ final class SandboxServer(
     val engineConfig = {
       val allowedLanguageVersions =
         config.engineMode match {
-          case EngineMode.Stable if config.seeding.nonEmpty =>
-            LanguageVersion.StableVersions
           case EngineMode.Stable =>
-            LanguageVersion.LegacyVersions
-          case EngineMode.EarlyAccess if config.seeding.nonEmpty =>
+            LanguageVersion.StableVersions
+          case EngineMode.EarlyAccess =>
             LanguageVersion.EarlyAccessVersions
-          case EngineMode.Dev if config.seeding.nonEmpty =>
+          case EngineMode.Dev =>
             LanguageVersion.DevVersions
-          case mode =>
-            throw new InvalidConfigException(
-              s""""${Seeding.NoSeedingModeName}" contract IDs seeding mode is not compatible with $mode mode"""
-            )
         }
       EngineConfig(
         allowedLanguageVersions = allowedLanguageVersions,
@@ -174,7 +163,7 @@ final class SandboxServer(
     this(DefaultName, config, materializer, new Metrics(new MetricRegistry))
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
-  private val seedingService = SeedService(config.seeding.getOrElse(Seeding.Weak))
+  private val seedingService = SeedService(config.seeding)
 
   // We store a Future rather than a Resource to avoid keeping old resources around after a reset.
   // It's package-private so we can test that we drop the reference properly in ResetServiceIT.
@@ -234,7 +223,6 @@ final class SandboxServer(
       materializer: Materializer,
       metrics: Metrics,
       packageStore: InMemoryPackageStore,
-      startMode: SqlStartMode,
       currentPort: Option[Port],
   )(implicit loggingContext: LoggingContext): Resource[ApiServer] = {
     implicit val _materializer: Materializer = materializer
@@ -253,9 +241,7 @@ final class SandboxServer(
           (ts, Some(ts))
       }
 
-    val transactionCommitter =
-      config.seeding
-        .fold[TransactionCommitter](LegacyTransactionCommitter)(_ => StandardTransactionCommitter)
+    val transactionCommitter = StandardTransactionCommitter
 
     val lfValueTranslationCache =
       LfValueTranslationCache.Cache.newInstrumentedInstance(
@@ -294,7 +280,7 @@ final class SandboxServer(
       userManagementStore = dbSupportOption match {
         case Some(dbSupport) =>
           PersistentUserManagementStore.cached(
-            dbDispatcher = dbSupport.dbDispatcher,
+            dbSupport = dbSupport,
             metrics = metrics,
             cacheExpiryAfterWriteInSeconds =
               config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
@@ -311,7 +297,6 @@ final class SandboxServer(
             dbSupport = dbSupport,
             timeProvider = timeProvider,
             ledgerEntries = ledgerEntries,
-            startMode = startMode,
             queueDepth = config.maxParallelSubmissions,
             transactionCommitter = transactionCommitter,
             templateStore = packageStore,
@@ -395,6 +380,10 @@ final class SandboxServer(
           CommandDeduplicationType.SYNC_ONLY,
           maxDeduplicationDurationEnforced = false,
         ),
+        contractIdFeatures = ExperimentalContractIds.of(
+          v0 = ExperimentalContractIds.ContractIdV0Support.SUPPORTED,
+          v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+        ),
         enableUserManagement = config.userManagementConfig.enabled,
       )(materializer, executionSequencerFactory, loggingContext)
       apiServer <- new LedgerApiServer(
@@ -428,7 +417,7 @@ final class SandboxServer(
         timeProviderType.description,
         ledgerType,
         authService.getClass.getSimpleName,
-        config.seeding.fold(Seeding.NoSeedingModeName)(_.name),
+        config.seeding.name,
         if (config.stackTraces) "" else ", stack traces = no",
         config.profileDir match {
           case None => ""
@@ -447,13 +436,6 @@ final class SandboxServer(
              |Should be used for testing purpose only.""".stripMargin
         )
       }
-      if (config.seeding.isEmpty) {
-        logger.withoutContext.warn(
-          s"""|'${Seeding.NoSeedingModeName}' contract IDs seeding mode is not compatible with the LF 1.11 languages or later.
-              |A ledger stared with ${Seeding.NoSeedingModeName} contract IDs seeding will refuse to load LF 1.11 language or later.
-              |To make sure you can load LF 1.11, use the option '--contract-id-seeding=strong' to set up the contract IDs seeding mode.""".stripMargin
-        )
-      }
       apiServer
     }
   }
@@ -465,9 +447,6 @@ final class SandboxServer(
         materializer,
         metrics,
         packageStore,
-        SqlStartMode
-          .fromString(config.sqlStartMode.toString)
-          .getOrElse(SqlStartMode.MigrateAndStart),
         currentPort = None,
       )
       Future.successful(new SandboxState(apiServerResource))

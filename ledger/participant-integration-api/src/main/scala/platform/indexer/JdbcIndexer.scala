@@ -20,35 +20,26 @@ import com.daml.platform.store.DbType.{
 }
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
-import com.daml.platform.store.backend.{
-  DataSourceStorageBackend,
-  ResetStorageBackend,
-  StorageBackendFactory,
-}
+import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Using
+import scala.concurrent.Future
 
 object JdbcIndexer {
   private[daml] final class Factory(
       config: IndexerConfig,
       readService: state.ReadService,
-      servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
   )(implicit materializer: Materializer) {
 
-    def initialized(
-        resetSchema: Boolean = false
-    )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
+    def initialized()(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
       val factory = StorageBackendFactory.of(DbType.jdbcType(config.jdbcUrl))
       val dataSourceStorageBackend = factory.createDataSourceStorageBackend
       val ingestionStorageBackend = factory.createIngestionStorageBackend
       val parameterStorageBackend = factory.createParameterStorageBackend
       val DBLockStorageBackend = factory.createDBLockStorageBackend
-      val resetStorageBackend = factory.createResetStorageBackend
       val stringInterningStorageBackend = factory.createStringInterningStorageBackend
       val indexer = ParallelIndexerFactory(
         jdbcUrl = config.jdbcUrl,
@@ -104,24 +95,8 @@ object JdbcIndexer {
         mat = materializer,
         readService = readService,
       )
-      if (resetSchema) {
-        reset(resetStorageBackend, dataSourceStorageBackend).flatMap(_ => indexer)
-      } else {
-        indexer
-      }
+      indexer
     }
-
-    private def reset(
-        resetStorageBackend: ResetStorageBackend,
-        dataSourceStorageBackend: DataSourceStorageBackend,
-    )(implicit loggingContext: LoggingContext): ResourceOwner[Unit] =
-      ResourceOwner.forFuture(() =>
-        Future(
-          Using.resource(dataSourceStorageBackend.createDataSource(config.jdbcUrl).getConnection)(
-            resetStorageBackend.reset
-          )
-        )(servicesExecutionContext)
-      )
 
   }
 }

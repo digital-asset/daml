@@ -19,6 +19,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ExperimentalContractIds,
 }
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
@@ -154,7 +155,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           jdbcUrl = ledgerJdbcUrl,
           resetOnStartup = false,
           offsetVersion = 0,
-          logEntryIdAllocator = new SeedServiceLogEntryIdAllocator(SeedService(config.seeding.get)),
+          logEntryIdAllocator = new SeedServiceLogEntryIdAllocator(SeedService(config.seeding)),
           stateValueCache = caching.WeightedCache.from(
             caching.WeightedCache.Configuration(
               maximumWeight = MaximumStateValueCacheSize
@@ -191,7 +192,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
             allowExistingSchema = true,
             enableCompression = config.enableCompression,
           ),
-          servicesExecutionContext = servicesExecutionContext,
           metrics = metrics,
           lfValueTranslationCache = lfValueTranslationCache,
         )
@@ -218,7 +218,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           eventsPageSize = config.eventsPageSize,
           portFile = config.portFile,
           // TODO append-only: augment the following defaults for enabling the features for sandbox next
-          seeding = config.seeding.get,
+          seeding = config.seeding,
           managementServiceTimeout = config.managementServiceTimeout,
           maxContractStateCacheSize = 0L,
           maxContractKeyStateCacheSize = 0L,
@@ -236,7 +236,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           metrics = metrics,
         )
         userManagementStore = PersistentUserManagementStore.cached(
-          dbDispatcher = dbSupport.dbDispatcher,
+          dbSupport = dbSupport,
           metrics = metrics,
           cacheExpiryAfterWriteInSeconds =
             config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
@@ -285,6 +285,10 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
             deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
             maxDeduplicationDurationEnforced = true,
           ),
+          contractIdFeatures = ExperimentalContractIds.of(
+            v0 = ExperimentalContractIds.ContractIdV0Support.NOT_SUPPORTED,
+            v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+          ),
         )
         _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
       } yield {
@@ -298,7 +302,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           timeProviderType.description,
           ledgerType,
           authService.getClass.getSimpleName,
-          config.seeding.get.name,
+          config.seeding.name,
           if (config.stackTraces) "" else ", stack traces = no",
           config.profileDir match {
             case None => ""

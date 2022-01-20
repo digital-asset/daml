@@ -173,7 +173,6 @@ conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=ContractIdIT:Accept",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
         # Disable tests targeting only multi-participant setups

@@ -924,7 +924,7 @@ class ErrorFactoriesSpec
       expectedDetails: Seq[ErrorDetails.ErrorDetail],
       expectedLogEntry: ExpectedLogEntry,
   ): Unit = {
-    val _ = assertError[this.type, this.type](
+    assertError[this.type, this.type](
       actual = statusRuntimeException,
       expectedCode,
       expectedMessage,
