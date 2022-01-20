@@ -102,20 +102,22 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       val fetch_by_id: Party -> ContractId M:T -> Update Unit =
         \(fetchingParty: Party) (cId: ContractId M:T) -> 
-          ubind bridgeId: ContractId Test:Bridge <- create @Test:Bridge Test:Bridge { party = fetchingParty } 
+          ubind bridgeId: ContractId Test:Bridge <- Test:createBridge fetchingParty  
           in exercise @Test:Bridge FetchById bridgeId cId;
 
       val fetch_by_key: Party -> Option Party -> Option (ContractId Unit) -> Int64 -> Update Unit = 
         \(fetchingParty: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) -> 
-           ubind bridgeId: ContractId Test:Bridge <- create @Test:Bridge Test:Bridge { party = fetchingParty } 
+           ubind bridgeId: ContractId Test:Bridge <- Test:createBridge fetchingParty  
            in exercise @Test:Bridge FetchByKey bridgeId (Test:TKeyParams {maintainers = Test:optToList @Party maintainers, optCid = optCid, nesting = nesting});
       
       val lookup_by_key: Party -> Option Party -> Option (ContractId Unit) -> Int64 -> Update Unit = 
         \(lookingParty: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) -> 
-           ubind bridgeId: ContractId Test:Bridge <- create @Test:Bridge Test:Bridge { party = lookingParty } 
+           ubind bridgeId: ContractId Test:Bridge <- Test:createBridge lookingParty  
            in exercise @Test:Bridge LookupByKey bridgeId (Test:TKeyParams {maintainers = Test:optToList @Party maintainers, optCid = optCid, nesting = nesting});
       
-
+      val createBridge: Party -> Update (ContractId Test:Bridge) = 
+        \(party: Party) -> create @Test:Bridge Test:Bridge { sig = party, obs = party }; 
+      
       val optToList: forall(t:*). Option t -> List t  = 
         /\(t:*). \(opt: Option t) -> 
           case opt of 
@@ -130,23 +132,28 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             nested = M:buildNested (Test:TKeyParams {nesting} params)
           };
        
-      record @serializable Bridge = { party: Party };
+      record @serializable Bridge = { sig: Party, obs: Party };
       template (this: Bridge) = {
         precondition True;
-        signatories Cons @Party [Test:Bridge {party} this] (Nil @Party);
+        signatories Cons @Party [Test:Bridge {sig} this] (Nil @Party);
         observers Nil @Party;
         agreement "";
+        choice CreateNonvisibleKey (self) (arg: Unit): ContractId M:T,
+          controllers Cons @Party [Test:Bridge {obs} this] (Nil @Party),
+          observers Nil @Party
+           to let sig: Party = Test:Bridge {sig} this 
+           in create @M:T M:T { signatory = sig, observer = sig, precondition = True, key = M:toKey sig, nested = M:buildNested 0 };              
         choice FetchById (self) (cId: ContractId M:T): Unit,
-          controllers Cons @Party [Test:Bridge {party} this] (Nil @Party),
+          controllers Cons @Party [Test:Bridge {sig} this] (Nil @Party),
           observers Nil @Party
           to Test:run @M:T (fetch @M:T cId);
         choice FetchByKey (self) (params: Test:TKeyParams): Unit,
-          controllers Cons @Party [Test:Bridge {party} this] (Nil @Party),
+          controllers Cons @Party [Test:Bridge {sig} this] (Nil @Party),
           observers Nil @Party
           to let key: M:TKey = Test:buildTKey params 
              in Test:run @<contract: M:T, contractId: ContractId M:T> (fetch_by_key @M:T key);
         choice LookupByKey (self) (params: Test:TKeyParams): Unit,
-          controllers Cons @Party [Test:Bridge {party} this] (Nil @Party),
+          controllers Cons @Party [Test:Bridge {sig} this] (Nil @Party),
           observers Nil @Party
           to let key: M:TKey = Test:buildTKey params 
              in Test:run @(Option (ContractId M:T)) (lookup_by_key @M:T key);
@@ -164,6 +171,11 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
   }
 
   private[this] val Dummy = t"M:Dummy" match {
+    case TTyCon(tycon) => tycon
+    case _ => sys.error("unexpect error")
+  }
+
+  private[this] val Bridge = t"Test:Bridge" match {
     case TTyCon(tycon) => tycon
     case _ => sys.error("unexpect error")
   }
@@ -850,6 +862,38 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq("starts test", "maintainers")
           }
         }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key of a local contract with authorization failure
+        "visibility failure" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(cId: Test:Bridge) (sig : Party) (fetchingParty: Party) ->
+             ubind x: ContractId M:T <- exercise @Test:Bridge CreateNonvisibleKey cId ()
+             in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
+            Array(SContractId(cId), SParty(alice), SParty(charlie)),
+            Set(charlie),
+            getContract = Map(
+              cId -> Versioned(
+                TransactionVersion.StableVersions.max,
+                Value.ContractInstance(
+                  Bridge,
+                  ValueRecord(
+                    None,
+                    ImmArray(None -> ValueParty(alice), None -> ValueParty(charlie)),
+                  ),
+                  "",
+                ),
+              )
+            ),
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.LocalContractKeyNotVisible(_, key, _, _, _)))
+                ) =>
+              key.templateId shouldBe T
+              msgs shouldBe Seq("starts test", "maintainers")
+          }
+        }
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key of an unknown contract key
@@ -935,7 +979,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         // TEST_EVIDENCE: Semantics: Evaluation order of lookup of a non-cached global contract with authorization failure
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(lookingParty:Party) (sig: Party) -> Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
@@ -992,7 +1036,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
 
         // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a cached global contract with authorization failure
-        "authorization failures" in {
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(lookingParty:Party) (sig: Party) (cId: ContractId M:T) ->                 
@@ -1027,7 +1071,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key of an inactive global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key of an inactive local contract
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1044,8 +1088,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key of a cached global contract with failure authorization
-        "authorization failures" in {
+        // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key of a local contract with failure authorization
+        "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig: Party) (obs : Party) (lookingParty: Party) ->
@@ -1053,11 +1097,42 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                  in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
             Array(SParty(alice), SParty(bob), SParty(charlie)),
             Set(alice, charlie),
-            getContract = getContract,
           )
 
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
             msgs shouldBe Seq("starts test", "maintainers")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of lookup of a local contract with authorization failure
+        "visibility failure" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(cId: Test:Bridge) (sig : Party) (lookingParty: Party) ->
+             ubind x: ContractId M:T <- exercise @Test:Bridge CreateNonvisibleKey cId ()
+             in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
+            Array(SContractId(cId), SParty(alice), SParty(charlie)),
+            Set(charlie),
+            getContract = Map(
+              cId -> Versioned(
+                TransactionVersion.StableVersions.max,
+                Value.ContractInstance(
+                  Bridge,
+                  ValueRecord(
+                    None,
+                    ImmArray(None -> ValueParty(alice), None -> ValueParty(charlie)),
+                  ),
+                  "",
+                ),
+              )
+            ),
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.LocalContractKeyNotVisible(_, key, _, _, _)))
+                ) =>
+              key.templateId shouldBe T
+              msgs shouldBe Seq("starts test", "maintainers")
           }
         }
       }
