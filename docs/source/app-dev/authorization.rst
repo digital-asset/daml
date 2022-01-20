@@ -65,7 +65,7 @@ The Daml ledger API uses the following rights to govern request authorization:
 - ``canReadAs(p)``: the right to read information off the ledger (like the active contracts) visible to the party ``p``
 - ``canActsAs(p)``: same as ``canReadAs(p)``, with the added right of issuing commands on behalf of the party ``p``
 
-The following table summarizes what kind of rights are required to access each Ledger API endpoint:
+The following table summarizes the rights required to access each Ledger API endpoint:
 
 +-------------------------------------+----------------------------+--------------------------------------------------------+
 | Ledger API service                  | Endpoint                   | Required right                                         |
@@ -135,7 +135,7 @@ Daml ledger that support participant user management also accept user access tok
 They are useful for scenarios where an application's rights change dynamically over the application's lifetime.
 
 User access tokens do not encode rights directly like custom Daml claims tokens.
-Instead, user access tokens encode the participant user on behalf of which the application is issuing a request.
+Instead, these tokens encode the participant user whose behalf the request is issued.
 
 When handling such requests, participant nodes look up the participant user's current rights
 before checking request authorization per the  :ref:`table above <authorization-claims>`.

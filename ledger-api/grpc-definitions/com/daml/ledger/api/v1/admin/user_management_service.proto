@@ -60,7 +60,7 @@ message User {
     // ``CanActAs(primary_party)`` rights.
     // Ledger API clients SHOULD set this field to a non-empty value for all users to
     // enable the users to act on the ledger using their own Daml party.
-    // Users for participant administrators MAY not have an associated primary party.
+    // Users for participant administrators may or may not have an associated primary party.
     string primary_party = 2;
 }
 
