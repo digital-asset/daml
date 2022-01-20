@@ -13,8 +13,8 @@ import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
+  ErrorAssertionsWithLogCollectorAssertions,
   ErrorCodesVersionSwitcher,
-  ErrorsAssertions,
 }
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.lf.data.Ref
@@ -43,7 +43,7 @@ class ErrorFactoriesSpec
     with MockitoSugar
     with BeforeAndAfter
     with LogCollectorAssertions
-    with ErrorsAssertions {
+    with ErrorAssertionsWithLogCollectorAssertions {
 
   private val logger = ContextualizedLogger.get(getClass)
   private val loggingContext = LoggingContext.ForTesting

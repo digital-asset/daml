@@ -286,8 +286,30 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
   }
 
-  @Explanation("Authentication errors.")
+  @Explanation("Authentication and authorization errors.")
   object AuthorizationChecks extends ErrorGroup() {
+
+    @Explanation("""This rejection is given when a stream, which has been successfully started,
+        |is aborted after some time due to inability to verify that the authorization claims
+        |are still valid.
+        |For example, if authorization depends on user management state,
+        |a change in user management state might have been detected;
+        |or such a change state check reached a internal time-out.
+        |""".stripMargin)
+    @Resolution(
+      "After retry stream will start if authorized, or a more detailed error will be signalled."
+    )
+    object StaleUserManagementBasedStreamClaims
+        extends ErrorCode(
+          id = "STALE_STREAM_CLAIMS",
+          ErrorCategory.ContentionOnSharedResources,
+        ) {
+      case class Reject()(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl("Authentication claims out of date. Retry quickly.")
+
+    }
+
     @Explanation(
       """This rejection is given if the submitted command does not contain a JWT token on a participant enforcing JWT authentication."""
     )

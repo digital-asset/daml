@@ -4,9 +4,10 @@
 package com.daml.ledger
 
 import com.daml.error.ErrorCodesVersionSwitcher
-
 import java.time.Clock
 import java.util.UUID
+
+import scala.concurrent.ExecutionContext
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.auth.{
   AuthServiceStatic,
@@ -18,6 +19,7 @@ import com.daml.ledger.api.auth.{
   ClaimReadAsParty,
   ClaimSet,
 }
+import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 
 package object rxjava {
 
@@ -30,6 +32,9 @@ package object rxjava {
       "testLedgerId",
       "testParticipantId",
       new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
+      new InMemoryUserManagementStore(),
+      ExecutionContext.parasitic,
+      streamClaimsFreshnessCheckDelayInSeconds = 1,
     )
 
   private[rxjava] val emptyToken = "empty"

@@ -21,7 +21,7 @@ class ErrorCodeSpec
     with Matchers
     with BeforeAndAfter
     with LogCollectorAssertions
-    with ErrorsAssertions {
+    with ErrorAssertionsWithLogCollectorAssertions {
 
   implicit private val testLoggingContext: LoggingContext = LoggingContext.ForTesting
   private val logger = ContextualizedLogger.get(getClass)

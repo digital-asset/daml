@@ -6,20 +6,29 @@ package com.daml.platform.sandbox.services
 import java.util.UUID
 
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
-import com.daml.platform.sandbox.auth.ServiceCallWithMainActorAuthTests
+import com.daml.platform.sandbox.auth.{ServiceCallAuthTests, ServiceCallWithMainActorAuthTests}
 import com.google.protobuf.empty.Empty
 
 import scala.concurrent.Future
 
-trait SubmitAndWaitDummyCommand extends TestCommands { self: ServiceCallWithMainActorAuthTests =>
+trait SubmitAndWaitDummyCommand extends TestCommands with SubmitAndWaitDummyCommandHelpers {
+  self: ServiceCallWithMainActorAuthTests =>
 
   protected def submitAndWait(): Future[Empty] =
     submitAndWait(Option(toHeader(readWriteToken(mainActor))))
 
-  protected def dummySubmitAndWaitRequest(applicationId: String): SubmitAndWaitRequest =
+}
+
+trait SubmitAndWaitDummyCommandHelpers extends TestCommands {
+  self: ServiceCallAuthTests =>
+
+  protected def dummySubmitAndWaitRequest(
+      applicationId: String,
+      party: String = "",
+  ): SubmitAndWaitRequest =
     SubmitAndWaitRequest(
-      dummyCommands(wrappedLedgerId, s"$serviceCallName-${UUID.randomUUID}", mainActor)
-        .update(_.commands.applicationId := applicationId, _.commands.party := mainActor)
+      dummyCommands(wrappedLedgerId, s"$serviceCallName-${UUID.randomUUID}", party)
+        .update(_.commands.applicationId := applicationId, _.commands.party := party)
         .commands
     )
 
@@ -29,31 +38,35 @@ trait SubmitAndWaitDummyCommand extends TestCommands { self: ServiceCallWithMain
   protected def submitAndWait(
       token: Option[String],
       applicationId: String = serviceCallName,
+      party: String = "",
   ): Future[Empty] =
-    service(token).submitAndWait(dummySubmitAndWaitRequest(applicationId))
+    service(token).submitAndWait(dummySubmitAndWaitRequest(applicationId, party = party))
 
   protected def submitAndWaitForTransaction(
       token: Option[String],
       applicationId: String = serviceCallName,
+      party: String = "",
   ): Future[Empty] =
     service(token)
-      .submitAndWaitForTransaction(dummySubmitAndWaitRequest(applicationId))
+      .submitAndWaitForTransaction(dummySubmitAndWaitRequest(applicationId, party = party))
       .map(_ => Empty())
 
   protected def submitAndWaitForTransactionId(
       token: Option[String],
       applicationId: String = serviceCallName,
+      party: String = "",
   ): Future[Empty] =
     service(token)
-      .submitAndWaitForTransactionId(dummySubmitAndWaitRequest(applicationId))
+      .submitAndWaitForTransactionId(dummySubmitAndWaitRequest(applicationId, party = party))
       .map(_ => Empty())
 
   protected def submitAndWaitForTransactionTree(
       token: Option[String],
       applicationId: String = serviceCallName,
+      party: String = "",
   ): Future[Empty] =
     service(token)
-      .submitAndWaitForTransactionTree(dummySubmitAndWaitRequest(applicationId))
+      .submitAndWaitForTransactionTree(dummySubmitAndWaitRequest(applicationId, party = party))
       .map(_ => Empty())
 
 }

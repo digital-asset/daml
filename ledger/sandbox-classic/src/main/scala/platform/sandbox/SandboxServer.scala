@@ -339,6 +339,10 @@ final class SandboxServer(
         LedgerId.unwrap(ledgerId),
         config.participantId,
         errorCodesVersionSwitcher,
+        userManagementStore,
+        executionContext,
+        streamClaimsFreshnessCheckDelayInSeconds =
+          config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
       )
       healthChecks = new HealthChecks(
         "index" -> indexAndWriteService.indexService,

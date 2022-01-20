@@ -224,6 +224,7 @@ final class Runner[T <: ReadWriteService, Extra](
                       v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
                     ),
                   ),
+                  userManagementConfig = config.userManagementConfig,
                 ).acquire()
               } yield Some(apiServer.port)
             case ParticipantRunMode.Indexer =>

@@ -53,6 +53,9 @@ final class LedgerServices(val ledgerId: String) {
       ledgerId,
       participantId,
       new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
+      new InMemoryUserManagementStore(),
+      executionContext,
+      streamClaimsFreshnessCheckDelayInSeconds = 1,
     )
 
   def newServerBuilder(): NettyServerBuilder = NettyServerBuilder.forAddress(nextAddress())

@@ -15,7 +15,7 @@ import scala.jdk.CollectionConverters._
 import scala.reflect.ClassTag
 
 trait ErrorsAssertions {
-  self: Matchers with LogCollectorAssertions =>
+  self: Matchers =>
 
   def assertError(
       actual: StatusRuntimeException,
@@ -23,8 +23,19 @@ trait ErrorsAssertions {
       expectedMessage: String,
       expectedDetails: Seq[ErrorDetails.ErrorDetail],
   ): Unit = {
-    doAssertError(actual, expectedCode, expectedMessage, expectedDetails, None)
+    val status = StatusProto.fromThrowable(actual)
+    status.getCode shouldBe expectedCode.value()
+    status.getMessage shouldBe expectedMessage
+    val details = status.getDetailsList.asScala.toSeq
+    val _ = ErrorDetails.from(details) should contain theSameElementsAs expectedDetails
   }
+
+}
+
+trait ErrorAssertionsWithLogCollectorAssertions
+    extends ErrorsAssertions
+    with LogCollectorAssertions {
+  self: Matchers =>
 
   def assertError[Test, Logger](
       actual: StatusRuntimeException,
@@ -36,32 +47,15 @@ trait ErrorsAssertions {
       test: ClassTag[Test],
       logger: ClassTag[Logger],
   ): Unit = {
-    doAssertError(actual, expectedCode, expectedMessage, expectedDetails, Some(expectedLogEntry))(
-      test,
-      logger,
+    assertError(
+      actual = actual,
+      expectedCode = expectedCode,
+      expectedMessage = expectedMessage,
+      expectedDetails = expectedDetails,
     )
-  }
-
-  private def doAssertError[Test, Logger](
-      actual: StatusRuntimeException,
-      expectedCode: Code,
-      expectedMessage: String,
-      expectedDetails: Seq[ErrorDetails.ErrorDetail],
-      expectedLogEntry: Option[ExpectedLogEntry],
-  )(implicit
-      test: ClassTag[Test],
-      logger: ClassTag[Logger],
-  ): Unit = {
-    val status = StatusProto.fromThrowable(actual)
-    status.getCode shouldBe expectedCode.value()
-    status.getMessage shouldBe expectedMessage
-    val details = status.getDetailsList.asScala.toSeq
-    val _ = ErrorDetails.from(details) should contain theSameElementsAs expectedDetails
-    if (expectedLogEntry.isDefined) {
-      val actualLogs: Seq[LogCollector.Entry] = LogCollector.readAsEntries(test, logger)
-      actualLogs should have size 1
-      assertLogEntry(actualLogs.head, expectedLogEntry.get)
-    }
+    val actualLogs: Seq[LogCollector.Entry] = LogCollector.readAsEntries(test, logger)
+    actualLogs should have size 1
+    assertLogEntry(actualLogs.head, expectedLogEntry)
   }
 
 }

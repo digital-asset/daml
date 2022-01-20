@@ -91,10 +91,10 @@ final class AuthorizationInterceptor(
                       s"Could not resolve rights for user '$userId' due to '$msg'"
                     )(errorLogger)
                   )
-                case Right(userClaims) =>
+                case Right(userRights: Set[UserRight]) =>
                   Future.successful(
                     ClaimSet.Claims(
-                      claims = userClaims.view.map(userRightToClaim).toList.prepended(ClaimPublic),
+                      claims = AuthorizationInterceptor.convertUserRightsToClaims(userRights),
                       ledgerId = None,
                       participantId = participantId,
                       applicationId = Some(userId),
@@ -107,11 +107,6 @@ final class AuthorizationInterceptor(
       case _ => Future.successful(claimSet)
     }
 
-  private[this] def userRightToClaim(r: UserRight): Claim = r match {
-    case UserRight.CanActAs(p) => ClaimActAsParty(Ref.Party.assertFromString(p))
-    case UserRight.CanReadAs(p) => ClaimReadAsParty(Ref.Party.assertFromString(p))
-    case UserRight.ParticipantAdmin => ClaimAdmin
-  }
 }
 
 object AuthorizationInterceptor {
@@ -139,4 +134,14 @@ object AuthorizationInterceptor {
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
       new AuthorizationInterceptor(authService, userManagementStore, ec, errorCodesStatusSwitcher)
     }
+
+  def convertUserRightsToClaims(userRights: Set[UserRight]): Seq[Claim] = {
+    userRights.view.map(userRightToClaim).toList.prepended(ClaimPublic)
+  }
+
+  private[this] def userRightToClaim(r: UserRight): Claim = r match {
+    case UserRight.CanActAs(p) => ClaimActAsParty(Ref.Party.assertFromString(p))
+    case UserRight.CanReadAs(p) => ClaimReadAsParty(Ref.Party.assertFromString(p))
+    case UserRight.ParticipantAdmin => ClaimAdmin
+  }
 }
