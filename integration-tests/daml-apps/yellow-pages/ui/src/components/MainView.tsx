@@ -78,7 +78,7 @@ const MainView: React.FC = () => {
                 users={followers}
                 onFollow={follow}
                 canFollow={function(userToFollow: Party): boolean { 
-                  return myUser?.username != userToFollow && !(myUser?.following.includes(userToFollow)); 
+                  return myUser?.username !== userToFollow && !(myUser?.following.includes(userToFollow)); 
                 }}
               />
               {/* USERLIST_END */}

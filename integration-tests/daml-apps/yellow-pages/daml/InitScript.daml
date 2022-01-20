@@ -1,0 +1,30 @@
+module InitScript where
+
+import Daml.Script
+import User
+
+data LedgerParties = LedgerParties with
+  bank : Party
+  alice : Party
+  bob : Party
+  charlie : Party
+
+
+initialize : LedgerParties -> Script ()
+initialize parties = do
+  submit parties.alice $ do
+    createCmd (User parties.alice [parties.bob, parties.charlie])
+  submit parties.bob $ do
+    createCmd (User parties.bob [parties.alice, parties.charlie])
+  submit parties.charlie $ do
+    createCmd (User parties.charlie [])
+  pure ()
+
+bootstrap : Script ()
+bootstrap = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  charlie <- allocateParty "charlie"
+  bank <- allocateParty "bank"
+  let parties = LedgerParties with bank; alice; bob; charlie
+  initialize parties

@@ -1,0 +1,39 @@
+module Directory where
+
+import DA.Set as Set
+
+type Parties = Set Party
+
+template Entry with
+    provider : Party
+    subject : Party
+    verifiedEmail : Text  -- the subject's email address that was verified by the provider
+    observers : Parties
+  where
+    signatory provider, subject
+    observer observers
+
+    key (provider, subject) : (Party, Party)
+    maintainer key._1
+
+
+template EntryRequest with
+    entry : Entry
+  where
+    signatory entry.subject
+    observer entry.provider
+
+    choice EntryRequest_Accept : ContractId Entry
+      controller entry.provider
+      do create entry
+                  
+    choice EntryRequest_Reject : ()
+      controller entry.provider
+      do return ()
+
+    choice EntryRequest_Withdraw : ()
+      controller entry.subject
+      do return ()
+
+    
+              

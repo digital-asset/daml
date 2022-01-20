@@ -3,9 +3,9 @@ name: yellow-pages
 version: 0.1.0
 source: daml
 parties:
-- Alice
-- Bob
-- Charlie
+- alice
+- bob
+- charlie
 - alice
 - simon
 dependencies:
@@ -15,7 +15,10 @@ dependencies:
 sandbox-options:
 - --wall-clock-time
 - --ledgerid=yellow-pages-sandbox
+- --log-level=INFO
+- --jdbcurl=jdbc:postgresql://localhost/sandbox_db?user=sandbox_user&password=sandbox_pw
 start-navigator: false
+init-script: InitScript:bootstrap
 codegen:
   js:
     output-directory: ui/daml.js
