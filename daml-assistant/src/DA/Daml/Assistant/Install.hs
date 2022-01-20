@@ -507,7 +507,7 @@ uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
                 , "Please activate a different SDK version and try again."
                 , "To activate a different version, run:"
                 , ""
-                , "    daml install VERSION --activate"
+                , "    daml install VERSION --install-assistant=yes"
                 ] -- TODO (FAFM): suggest a version that will work.
             exitFailure
 
