@@ -464,6 +464,9 @@ final class CommandDeduplicationIT(
     participants = allocate(SingleParty),
     timeoutScale = 2, // has to wait for the deduplication period to expire
     runConcurrently = false, // updates the time model
+    enabled = !_.commandDeduplicationFeatures.deduplicationType.isSyncOnly,
+    disabledReason =
+      "Most of the assertions run on async responses. Also, ledgers with the sync-only deduplication support use the wall clock for deduplication.",
   )(implicit ec =>
     configuredParticipants => { case Participants(Participant(ledger, party)) =>
       val request = ledger
@@ -516,24 +519,22 @@ final class CommandDeduplicationIT(
             party,
             noOfActiveContracts = 2,
           )
-          _ <-
-            if (!ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly) {
-              val deduplicationCompletionResponse =
-                assertDefined(optDeduplicationCompletionResponse, "No completion has been produced")
-              assertDeduplicationDuration(
-                deduplicationDuration.asProtobuf,
-                deduplicationCompletionResponse,
-                party,
-                ledger,
-              )
-
-              assertDeduplicationDuration(
-                deduplicationDuration.asProtobuf,
-                eventuallyAcceptedCompletionResponse,
-                party,
-                ledger,
-              )
-            } else Future.unit
+          deduplicationCompletionResponse = assertDefined(
+            optDeduplicationCompletionResponse,
+            "No completion has been produced",
+          )
+          _ <- assertDeduplicationDuration(
+            deduplicationDuration.asProtobuf,
+            deduplicationCompletionResponse,
+            party,
+            ledger,
+          )
+          _ <- assertDeduplicationDuration(
+            deduplicationDuration.asProtobuf,
+            eventuallyAcceptedCompletionResponse,
+            party,
+            ledger,
+          )
         } yield {
           assert(
             completionResponse.completion.commandId == request.commands.get.commandId,
