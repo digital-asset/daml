@@ -171,9 +171,6 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     ledgerDao.initialize(ledgerId, participantId)
 
-  override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
-    ledgerDao.reset()
-
   override def storePartyEntry(
       offset: Offset,
       partyEntry: PartyLedgerEntry,

@@ -24,6 +24,7 @@ import com.daml.jwt.JwtDecoder
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -86,9 +87,13 @@ object HttpService {
       applicationId = ApplicationId.unwrap(DummyApplicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = tlsConfig.client(),
-      maxInboundMessageSize = maxInboundMessageSize,
     )
+
+    val clientChannelConfiguration =
+      LedgerClientChannelConfiguration(
+        sslContext = tlsConfig.client(),
+        maxInboundMessageSize = maxInboundMessageSize,
+      )
 
     import akka.http.scaladsl.server.Directives._
     val bindingEt: EitherT[Future, Error, (ServerBinding, Option[ContractDao])] = for {
@@ -98,6 +103,7 @@ object HttpService {
           ledgerHost,
           ledgerPort,
           clientConfig,
+          clientChannelConfiguration,
           startSettings.nonRepudiation,
         )
       ): ET[DamlLedgerClient]
@@ -106,8 +112,9 @@ object HttpService {
         ledgerClient(
           ledgerHost,
           ledgerPort,
-          packageMaxInboundMessageSize.fold(clientConfig)(size =>
-            clientConfig.copy(maxInboundMessageSize = size)
+          clientConfig,
+          packageMaxInboundMessageSize.fold(clientChannelConfiguration)(size =>
+            clientChannelConfiguration.copy(maxInboundMessageSize = size)
           ),
           startSettings.nonRepudiation,
         )
@@ -280,6 +287,7 @@ object HttpService {
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
+      clientChannelConfig: LedgerClientChannelConfiguration,
       nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit
       ec: ExecutionContext,
@@ -291,6 +299,7 @@ object HttpService {
         ledgerHost,
         ledgerPort,
         clientConfig,
+        clientChannelConfig,
         nonRepudiationConfig,
         MaxInitialLedgerConnectRetryAttempts,
       )

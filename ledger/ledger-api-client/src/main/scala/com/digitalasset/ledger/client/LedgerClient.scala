@@ -19,7 +19,10 @@ import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
-import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.ledger.client.configuration.{
+  LedgerClientChannelConfiguration,
+  LedgerClientConfiguration,
+}
 import com.daml.ledger.client.services.acs.ActiveContractSetClient
 import com.daml.ledger.client.services.admin.{
   PackageManagementClient,
@@ -31,9 +34,9 @@ import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.client.services.transactions.TransactionClient
 import com.daml.ledger.client.services.version.VersionClient
+import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
-import io.grpc.Channel
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -110,18 +113,26 @@ object LedgerClient {
   /** A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more
     * flexible alternative.
     */
-  def singleHost(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(implicit
+  def singleHost(
+      hostIp: String,
+      port: Int,
+      configuration: LedgerClientConfiguration,
+      channelConfig: LedgerClientChannelConfiguration,
+  )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
   ): Future[LedgerClient] =
-    fromBuilder(NettyChannelBuilder.forAddress(hostIp, port), configuration)
+    fromBuilder(channelConfig.builderFor(hostIp, port), configuration)
 
-  @deprecated("Use the safer and more flexible `fromBuilder` method", "0.13.35")
-  def forChannel(configuration: LedgerClientConfiguration, channel: Channel)(implicit
+  def insecureSingleHost(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(
+      implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
   ): Future[LedgerClient] =
-    apply(channel, configuration)
+    fromBuilder(
+      LedgerClientChannelConfiguration.InsecureDefaults.builderFor(hostIp, port),
+      configuration,
+    )
 
   /** Takes a [[NettyChannelBuilder]], possibly set up with some relevant extra options
     * that cannot be specified though the [[LedgerClientConfiguration]] (e.g. a set of
@@ -135,7 +146,7 @@ object LedgerClient {
       builder: NettyChannelBuilder,
       configuration: LedgerClientConfiguration,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
-    LedgerClient(GrpcChannel.withShutdownHook(builder, configuration), configuration)
+    LedgerClient(GrpcChannel.withShutdownHook(builder), configuration)
   }
 
 }

@@ -46,7 +46,6 @@ class IntegrationTest
         applicationId = "foobar",
         LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
-        sslContext = None,
       ),
     )
     val fa = for {

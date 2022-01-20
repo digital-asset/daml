@@ -11,12 +11,14 @@ trait StorageBackendSuite
     with StorageBackendTestsIngestion
     with StorageBackendTestsEvents
     with StorageBackendTestsCompletions
+    with StorageBackendTestsContracts
     with StorageBackendTestsReset
     with StorageBackendTestsPruning
     with StorageBackendTestsDBLockForSuite
     with StorageBackendTestsIntegrity
     with StorageBackendTestsDeduplication
     with StorageBackendTestsTimestamps
-    with StorageBackendTestsStringInterning {
+    with StorageBackendTestsStringInterning
+    with StorageBackendTestsUserManagement {
   this: AnyFlatSpec =>
 }

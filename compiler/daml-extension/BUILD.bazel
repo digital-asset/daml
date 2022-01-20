@@ -106,7 +106,6 @@ genrule(
         tar xzf $$DIR/$(location :node_deps_cache)
         sed -i "s/__VERSION__/{npm}/" package.json
         sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
-        $$DIR/$(location //:yarn)
         $$DIR/$(location //:yarn) compile
         # vsce needs Yarn or NPM in path and for some reason NPM
         # fails to find npm-cli.js so we use Yarn.

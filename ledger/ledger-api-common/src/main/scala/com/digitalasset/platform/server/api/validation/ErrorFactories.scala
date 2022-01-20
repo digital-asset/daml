@@ -316,7 +316,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
-  def invalidDeduplicationDuration(
+  def invalidDeduplicationPeriod(
       fieldName: String,
       message: String,
       definiteAnswer: Option[Boolean],
@@ -522,20 +522,6 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         grpcError(statusBuilder.build())
       },
       v2 = LedgerApiErrors.ServiceNotRunning.Reject(serviceName).asGrpcError,
-    )
-
-  def serviceIsBeingReset(legacyStatusCode: Int)(serviceName: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): StatusRuntimeException =
-    errorCodesVersionSwitcher.choose(
-      v1 = {
-        val statusBuilder = Status
-          .newBuilder()
-          .setCode(legacyStatusCode)
-          .setMessage(s"$serviceName is currently being reset.")
-        grpcError(statusBuilder.build())
-      },
-      v2 = LedgerApiErrors.ServiceNotRunning.ServiceReset(serviceName).asGrpcError,
     )
 
   def trackerFailure(msg: String)(implicit

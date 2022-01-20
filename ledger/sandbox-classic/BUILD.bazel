@@ -126,8 +126,6 @@ da_scala_library(
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_playframework_anorm_anorm",
-        "@maven//:org_playframework_anorm_anorm_tokenizer",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_flatspec",
@@ -162,7 +160,6 @@ da_scala_library(
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
-        "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
@@ -264,43 +261,24 @@ scala_test_deps = [
     "@maven//:org_scalaz_scalaz_core",
 ]
 
-# The reset service is cursed so we mark all tests involving it as flaky.
-reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
-
 [
     da_scala_test_suite(
-        name = "sandbox-classic-tests{}".format(suffix),
-        size = size,
+        name = "sandbox-classic-tests",
+        size = "medium",
         srcs = glob(
-            [pattern],
-            exclude = exclusions,
+            ["src/test/suite/**/*.scala"],
+            exclude = [],
         ),
         data = [
             "//daml-lf/encoder:testing-dars",
             "//ledger/test-common:model-tests-default.dar",
             "//ledger/test-common/test-certificates",
         ],
-        flaky = flaky,
+        flaky = False,
         resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
         scala_deps = scala_test_deps,
         deps = test_deps,
-    )
-    for (suffix, pattern, exclusions, flaky, size) in [
-        (
-            "",
-            "src/test/suite/**/*.scala",
-            [reset_service_pattern],
-            False,
-            "medium",  # Default timeout of 5min
-        ),
-        (
-            "-resetservice",
-            reset_service_pattern,
-            [],
-            True,
-            "large",  # Reset service tests have a large variance in their run time, use a timeout of 15min
-        ),
-    ]
+    ),
 ]
 
 SERVERS = {
@@ -358,7 +336,6 @@ server_conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=ContractIdIT:Accept",
         "--additional=ParticipantPruningIT",
         # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
@@ -383,10 +360,8 @@ server_conformance_test(
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
         "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=ContractIdIT:Accept",
         "--additional=ParticipantPruningIT",
         # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",

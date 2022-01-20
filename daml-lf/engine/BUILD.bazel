@@ -146,6 +146,5 @@ da_scala_test(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_netty_netty_handler",
     ],
 )

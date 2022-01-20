@@ -21,9 +21,9 @@ module DA.Daml.Helper.Util
   , runCantonSandbox
   , withCantonSandbox
   , getLogbackArg
-  , waitForConnectionOnPort
   , waitForHttpServer
   , tokenFor
+  , StaticTime(..)
   , CantonOptions(..)
   , decodeCantonSandboxPort
   ) where
@@ -38,7 +38,6 @@ import Data.Maybe
 import qualified Data.Text as T
 import qualified Network.HTTP.Simple as HTTP
 import qualified Network.HTTP.Types as HTTP
-import Network.Socket
 import System.Directory
 import System.FilePath
 import System.IO
@@ -196,34 +195,6 @@ damlSdkJarFolder = "daml-sdk"
 damlSdkJar :: FilePath
 damlSdkJar = damlSdkJarFolder </> "daml-sdk.jar"
 
--- | `waitForConnectionOnPort numTries processHandle sleep port` tries to establish a TCP connection
--- on the given port, in a given number of tries. Between each connection request it checks that a
--- certain process is still alive and calls `sleep`.
-waitForConnectionOnPort :: Int -> ProcessHandle -> IO () -> Int -> IO ()
-waitForConnectionOnPort 0 _processHandle _sleep port = do
-    hPutStrLn stderr ("Failed to connect to port " <> show port <> " in time.")
-    exitFailure
-waitForConnectionOnPort numTries processHandle sleep port = do
-    let hints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV], addrSocketType = Stream }
-    addr : _ <- getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
-    r <- tryIO $ checkConnection addr
-    case r of
-        Right _ -> pure ()
-        Left _ -> do
-            sleep
-            status <- getProcessExitCode processHandle
-            case status of
-                Nothing -> waitForConnectionOnPort (numTries-1) processHandle sleep port
-                Just exitCode -> do
-                    hPutStrLn stderr ("Failed to connect to port " <> show port
-                        <> " before process exited with " <> show exitCode)
-                    exitFailure
-    where
-        checkConnection addr = bracket
-              (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
-              close
-              (\s -> connect s (addrAddress addr))
-
 -- | `waitForHttpServer numTries processHandle sleep url headers` tries to establish an HTTP connection on
 -- the given URL with the given headers, in a given number of tries. Between each connection request
 -- it checks that a certain process is still alive and calls `sleep`.
@@ -283,19 +254,28 @@ withCantonSandbox options remainingArgs k = do
         BSL.writeFile config (cantonConfig options)
         withJar cantonJar [] ("daemon" : "-c" : config :  "--auto-connect-local" : remainingArgs) k
 
+newtype StaticTime = StaticTime Bool
+
 data CantonOptions = CantonOptions
   { ledgerApi :: Int
   , adminApi :: Int
   , domainPublicApi :: Int
   , domainAdminApi :: Int
   , portFileM :: Maybe FilePath
+  , staticTime :: StaticTime
   }
 
 cantonConfig :: CantonOptions -> BSL.ByteString
 cantonConfig CantonOptions{..} =
     Aeson.encode $ Aeson.object
-        [ "canton" Aeson..= Aeson.object (
-            [ "participants" Aeson..= Aeson.object
+        [ "canton" Aeson..= Aeson.object
+            [ "parameters" Aeson..= Aeson.object ( concat
+                [ [ "ports-file" Aeson..= portFile | Just portFile <- [portFileM] ]
+                , [ "clock" Aeson..= Aeson.object
+                        [ "type" Aeson..= ("sim-clock" :: T.Text) ]
+                  | StaticTime True <- [] ]
+                ] )
+            , "participants" Aeson..= Aeson.object
                 [ "sandbox" Aeson..= Aeson.object
                     [ storage
                     , "admin-api" Aeson..= port adminApi
@@ -309,11 +289,7 @@ cantonConfig CantonOptions{..} =
                     , "admin-api" Aeson..= port domainAdminApi
                     ]
                 ]
-            ] ++
-            [ "parameters" Aeson..= Aeson.object
-                [ "ports-file" Aeson..= portFile ]
-            | Just portFile <- [portFileM]
-            ] )
+            ]
         ]
   where
     port p = Aeson.object [ "port" Aeson..= p ]

@@ -19,10 +19,12 @@ import com.daml.platform.configuration.{
 }
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
-
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
+
+import com.daml.platform.usermanagement.UserManagementConfig
+
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 /** Defines the basic configuration for running sandbox
@@ -71,10 +73,16 @@ final case class SandboxConfig(
     sqlStartMode: Option[PostgresStartupMode],
     enableCompression: Boolean,
     enableSelfServiceErrorCodes: Boolean,
+    userManagementConfig: UserManagementConfig,
 ) {
 
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): SandboxConfig =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
+
+  def withUserManagementConfig(
+      modify: UserManagementConfig => UserManagementConfig
+  ): SandboxConfig =
+    copy(userManagementConfig = modify(userManagementConfig))
 
   lazy val initialLedgerConfiguration: InitialLedgerConfiguration =
     InitialLedgerConfiguration(
@@ -168,6 +176,7 @@ object SandboxConfig {
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableCompression = false,
       enableSelfServiceErrorCodes = true,
+      userManagementConfig = UserManagementConfig.default,
     )
 
   sealed abstract class EngineMode extends Product with Serializable

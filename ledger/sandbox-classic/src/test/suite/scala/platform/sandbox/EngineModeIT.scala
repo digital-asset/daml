@@ -52,7 +52,6 @@ class EngineModeIT
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = ledger.client.configuration.LedgerIdRequirement.none,
       commandClient = ledger.client.configuration.CommandClientConfiguration.default,
-      sslContext = None,
       token = None,
     )
 

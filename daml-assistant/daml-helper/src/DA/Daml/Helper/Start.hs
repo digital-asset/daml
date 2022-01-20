@@ -71,26 +71,26 @@ navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
 -- | Use SandboxPortSpec to determine a sandbox port number.
 -- This is racy thanks to getFreePort, but there's no good alternative at the moment.
-getPortForSandbox :: Int -> Maybe SandboxPortSpec -> IO Int
-getPortForSandbox defaultPort = \case
-    Nothing -> pure defaultPort
-    Just (SpecifiedPort port) -> pure (unSandboxPort port)
-    Just FreePort -> fromIntegral <$> getFreePort
+getPortForSandbox :: SandboxPortSpec -> Maybe SandboxPortSpec -> IO Int
+getPortForSandbox defaultPortSpec portSpecM =
+    case fromMaybe defaultPortSpec portSpecM of
+        SpecifiedPort port -> pure (unSandboxPort port)
+        FreePort -> fromIntegral <$> getFreePort
 
 determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> FilePath -> IO CantonOptions
 determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile = do
-    ledgerApi <- getPortForSandbox 6865 ledgerApiSpec
-    adminApi <- getPortForSandbox 6866 adminApiSpec
-    domainPublicApi <- getPortForSandbox 6867 domainPublicApiSpec
-    domainAdminApi <- getPortForSandbox 6868 domainAdminApiSpec
+    ledgerApi <- getPortForSandbox (SpecifiedPort (SandboxPort 6865)) ledgerApiSpec
+    adminApi <- getPortForSandbox FreePort adminApiSpec
+    domainPublicApi <- getPortForSandbox FreePort domainPublicApiSpec
+    domainAdminApi <- getPortForSandbox FreePort domainAdminApiSpec
     let portFileM = Just portFile -- TODO allow canton port file to be passed in from command line?
+    let staticTime = StaticTime False
     pure CantonOptions {..}
 
 withSandbox :: StartOptions -> FilePath -> [String] -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
 withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
     case sandboxChoice of
-      SandboxClassic -> oldSandbox "sandbox-classic"
-      SandboxKV -> oldSandbox "sandbox"
+      SandboxKV -> oldSandbox "sandbox-kv"
       SandboxCanton cantonPortSpec -> cantonSandbox cantonPortSpec
 
   where
@@ -188,8 +188,7 @@ data StartOptions = StartOptions
     }
 
 data SandboxChoice
-  = SandboxClassic
-  | SandboxKV
+  = SandboxKV
   | SandboxCanton !SandboxCantonPortSpec
 
 data SandboxCantonPortSpec = SandboxCantonPortSpec

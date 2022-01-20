@@ -91,7 +91,6 @@ object IndexerStabilityTestFixture {
                   indexing <- new StandaloneIndexerServer(
                     readService = readService,
                     config = indexerConfig,
-                    servicesExecutionContext = servicesExecutionContext,
                     metrics = metrics,
                     lfValueTranslationCache = LfValueTranslationCache.Cache.none,
                   ).acquire()

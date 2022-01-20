@@ -5,21 +5,15 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.language.Ast.{Package, Expr}
-import com.daml.lf.language.{LanguageVersion, PackageInterface}
-import com.daml.lf.speedy.Compiler.FullStackTrace
+import com.daml.lf.language.Ast.Expr
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.transaction.SubmittedTransaction
-import com.daml.lf.validation.Validation
-import com.daml.lf.value.Value.{ValueRecord, ValueInt64}
-
+import com.daml.lf.value.Value.{ValueInt64, ValueRecord}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
@@ -27,21 +21,6 @@ import org.scalatest.wordspec.AnyWordSpec
 class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   import RollbackTest._
-
-  implicit val defaultParserParameters: ParserParameters[this.type] = {
-    ParserParameters(
-      defaultPackageId = Ref.PackageId.assertFromString("pkgId"),
-      languageVersion = LanguageVersion.v1_dev,
-    )
-  }
-
-  private def typeAndCompile(pkg: Package): PureCompiledPackages = {
-    import defaultParserParameters.defaultPackageId
-    val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(PackageInterface(rawPkgs), defaultPackageId, pkg)
-    val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
-    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
-  }
 
   private def runUpdateExprGetTx(
       pkgs1: PureCompiledPackages
@@ -55,7 +34,7 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       .fold(e => fail(Pretty.prettyError(e).toString()), identity)
   }
 
-  val pkgs: PureCompiledPackages = typeAndCompile(p"""
+  val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
       module M {
 
         record @serializable MyException = { message: Text } ;

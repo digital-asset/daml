@@ -15,8 +15,10 @@ import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
-import com.daml.ledger.client.{GrpcChannel, LedgerClient => ClassicLedgerClient}
-import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.ledger.client.configuration.{
+  LedgerClientChannelConfiguration,
+  LedgerClientConfiguration,
+}
 import com.daml.ledger.client.services.acs.withoutledgerid.ActiveContractSetClient
 import com.daml.ledger.client.services.admin.{
   PackageManagementClient,
@@ -29,6 +31,7 @@ import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.ledger.client.services.pkg.withoutledgerid.PackageClient
 import com.daml.ledger.client.services.transactions.withoutledgerid.TransactionClient
 import com.daml.ledger.client.services.version.withoutledgerid.VersionClient
+import com.daml.ledger.client.{GrpcChannel, LedgerClient => ClassicLedgerClient}
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.Channel
 
@@ -100,7 +103,7 @@ object LedgerClient {
   def apply(
       channel: Channel,
       config: LedgerClientConfiguration,
-  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory) =
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClient =
     new LedgerClient(channel, config)
 
   /** Takes a [[NettyChannelBuilder]], possibly set up with some relevant extra options
@@ -115,14 +118,20 @@ object LedgerClient {
       builder: NettyChannelBuilder,
       configuration: LedgerClientConfiguration,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClient =
-    LedgerClient(GrpcChannel.withShutdownHook(builder, configuration), configuration)
+    LedgerClient(GrpcChannel.withShutdownHook(builder), configuration)
 
   /** A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more
     * flexible alternative.
     */
-  def singleHost(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(implicit
+  def singleHost(
+      hostIp: String,
+      port: Int,
+      configuration: LedgerClientConfiguration,
+      channelConfig: LedgerClientChannelConfiguration,
+  )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
   ): LedgerClient =
-    fromBuilder(NettyChannelBuilder.forAddress(hostIp, port), configuration)
+    fromBuilder(channelConfig.builderFor(hostIp, port), configuration)
+
 }

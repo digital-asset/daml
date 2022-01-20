@@ -39,7 +39,7 @@ message ListPackagesRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 }
 
@@ -55,7 +55,7 @@ message GetPackageRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 
   // The ID of the requested package.
@@ -84,7 +84,7 @@ message GetPackageStatusRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 
   // The ID of the requested package.

@@ -40,6 +40,7 @@ class DeduplicationPeriodSupport(
       case period: DeduplicationPeriod.DeduplicationDuration =>
         Future { validation.validate(period, maxDeduplicationDuration) }
       case DeduplicationPeriod.DeduplicationOffset(offset) =>
+        logger.debug(s"Converting deduplication period offset $offset to duration")
         converter
           .convertOffsetToDuration(
             offset.toHexString,
@@ -58,7 +59,7 @@ class DeduplicationPeriodSupport(
                     s"Failed to convert deduplication offset $offset to duration: $reason"
                   )
                   Left(
-                    errorFactories.invalidDeduplicationDuration(
+                    errorFactories.invalidDeduplicationPeriod(
                       "deduplication_period",
                       s"Cannot convert deduplication offset to duration because there is no completion at given offset $offset.",
                       Some(false),

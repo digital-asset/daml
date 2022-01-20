@@ -97,11 +97,12 @@ da_scala_test_suite(
 )
 
 da_scala_library(
-    name = "sandbox-on-x-app",
+    name = "sandbox-on-x-app-lib",
     srcs = glob(["src/app/scala/**/*.scala"]),
     resources = glob(["src/app/resources/**/*"]),
     scala_deps = [
     ],
+    tags = ["maven_coordinates=com.daml:sandbox-on-x-app:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-on-x",
@@ -116,7 +117,7 @@ da_scala_binary(
     main_class = "com.daml.ledger.sandbox.Main",
     tags = [
         "fat_jar",
-        "maven_coordinates=com.daml:sandbox-on-x-app:__VERSION__",
+        "maven_coordinates=com.daml:sandbox-on-x-app-jar:__VERSION__",
         "no_scala_version_suffix",
     ],
     visibility = ["//visibility:public"],
@@ -126,7 +127,7 @@ da_scala_binary(
         "@maven//:com_h2database_h2",
     ],
     deps = [
-        ":sandbox-on-x-app",
+        ":sandbox-on-x-app-lib",
     ],
 )
 
@@ -172,7 +173,6 @@ conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=ContractIdIT:Accept",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
         # Disable tests targeting only multi-participant setups

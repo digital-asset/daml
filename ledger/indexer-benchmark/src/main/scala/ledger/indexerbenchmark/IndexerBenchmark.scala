@@ -70,7 +70,6 @@ class IndexerBenchmark() {
       val indexerFactory = new JdbcIndexer.Factory(
         config.indexerConfig,
         readService,
-        indexerEC,
         metrics,
         LfValueTranslationCache.Cache.none,
       )

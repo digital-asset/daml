@@ -3,8 +3,6 @@
 
 module TimeTests where
 
-import DA.Time
-
 template TimeChecker
   with
     party: Party

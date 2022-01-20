@@ -3,6 +3,4 @@
 
 package com.daml.ledger.api.messages.command.completion
 
-import com.daml.ledger.api.domain.LedgerId
-
-case class CompletionEndRequest(ledgerId: LedgerId)
+case class CompletionEndRequest()

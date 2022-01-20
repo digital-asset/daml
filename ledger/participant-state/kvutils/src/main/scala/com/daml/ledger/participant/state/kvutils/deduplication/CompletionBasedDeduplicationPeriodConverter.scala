@@ -11,13 +11,16 @@ import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.math.Ordering.Implicits._
 
 class CompletionBasedDeduplicationPeriodConverter(
     completionService: IndexCompletionsService
 ) extends DeduplicationPeriodConverter {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def convertOffsetToDuration(
       offset: Ref.HexString,
@@ -55,18 +58,28 @@ class CompletionBasedDeduplicationPeriodConverter(
       offset: Ref.HexString,
   )(implicit
       mat: Materializer,
+      ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Option[CompletionStreamResponse]] = {
     val previousOffset = HexOffset.previous(offset)
-    completionService
-      .getCompletions(
-        startExclusive =
-          previousOffset.map(LedgerOffset.Absolute).getOrElse(LedgerOffset.LedgerBegin),
-        endInclusive = LedgerOffset.Absolute(offset),
-        applicationId = applicationId,
-        parties = readers,
-      )
-      .runWith(Sink.headOption)
+    val completionOffset = LedgerOffset.Absolute(offset)
+    completionService.currentLedgerEnd().flatMap { ledgerEnd =>
+      if (ledgerEnd < completionOffset) {
+        logger
+          .debug(s"Requested offset '$offset' for completion which is beyond current ledger end.")
+        Future.successful(None)
+      } else {
+        completionService
+          .getCompletions(
+            startExclusive =
+              previousOffset.map(LedgerOffset.Absolute).getOrElse(LedgerOffset.LedgerBegin),
+            endInclusive = completionOffset,
+            applicationId = applicationId,
+            parties = readers,
+          )
+          .runWith(Sink.headOption)
+      }
+    }
   }
 
 }

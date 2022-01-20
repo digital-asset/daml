@@ -143,7 +143,7 @@ final class LedgerServices(val ledgerId: String) {
     val (service, serviceImpl) =
       CommandSubmissionServiceImpl.createWithRef(getResponse, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new CommandSubmissionClientImpl(ledgerId, channel, accessToken, timeout), serviceImpl)
+      f(new CommandSubmissionClientImpl(ledgerId, channel, esf, accessToken, timeout), serviceImpl)
     }
   }
 
@@ -175,7 +175,7 @@ final class LedgerServices(val ledgerId: String) {
         authorizer,
       )(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new PackageClientImpl(ledgerId, channel, accessToken), impl)
+      f(new PackageClientImpl(ledgerId, channel, esf, accessToken), impl)
     }
   }
 
@@ -195,7 +195,7 @@ final class LedgerServices(val ledgerId: String) {
       authorizer,
     )(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new CommandClientImpl(ledgerId, channel, accessToken), serviceImpl)
+      f(new CommandClientImpl(ledgerId, channel, esf, accessToken), serviceImpl)
     }
   }
 
@@ -218,7 +218,7 @@ final class LedgerServices(val ledgerId: String) {
     val (service, serviceImpl) =
       LedgerIdentityServiceImpl.createWithRef(ledgerId, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new LedgerIdentityClientImpl(channel, accessToken), serviceImpl)
+      f(new LedgerIdentityClientImpl(channel, esf, accessToken), serviceImpl)
     }
   }
 
@@ -231,6 +231,17 @@ final class LedgerServices(val ledgerId: String) {
       TransactionsServiceImpl.createWithRef(ledgerContent, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new TransactionClientImpl(ledgerId, channel, esf, accessToken), serviceImpl)
+    }
+  }
+
+  def withUserManagementClient(
+      authService: AuthService = AuthServiceWildcard,
+      accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
+  )(f: (UserManagementClientImpl, UserManagementServiceImpl) => Any): Any = {
+    val (service, serviceImpl) =
+      UserManagementServiceImpl.createWithRef(authorizer)(executionContext)
+    withServerAndChannel(authService, Seq(service)) { channel =>
+      f(new UserManagementClientImpl(channel, esf, accessToken), serviceImpl)
     }
   }
 

@@ -96,8 +96,6 @@ The following table summarizes what kind of rights are required to access each L
 +-------------------------------------+----------------------------+--------------------------------------------------------+
 | ParticipantPruningService           | All                        | participant_admin                                      |
 +-------------------------------------+----------------------------+--------------------------------------------------------+
-| ResetService                        | All                        | participant_admin                                      |
-+-------------------------------------+----------------------------+--------------------------------------------------------+
 | ServerReflection                    | All                        | no access token required for gRPC service reflection   |
 +-------------------------------------+----------------------------+--------------------------------------------------------+
 | TimeService                         | GetTime                    | public                                                 |

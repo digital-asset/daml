@@ -8,7 +8,7 @@ import Daml.Script
 import Iou
 import IouTrade()
 
-initialize : Script ()
+initialize : Script [Party]
 initialize = do
   -- allocate parties
   alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
@@ -43,4 +43,4 @@ initialize = do
   submit alice do exerciseCmd iouTransferAliceCid IouTransfer_Accept
   submit bob do exerciseCmd iouTransferBobCid IouTransfer_Accept
 
-  pure ()
+  pure [alice, eurBank]

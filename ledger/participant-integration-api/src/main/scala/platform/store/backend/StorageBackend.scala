@@ -4,13 +4,15 @@
 package com.daml.platform.store.backend
 
 import java.sql.Connection
+import javax.sql.DataSource
 
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails, User, UserRight}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.UserId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
@@ -23,7 +25,6 @@ import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, 
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.platform.store.interning.StringInterning
 import com.daml.scalautil.NeverEqualsOverride
-import javax.sql.DataSource
 
 import scala.annotation.unused
 import scala.util.Try
@@ -35,14 +36,6 @@ import scala.util.Try
   */
 
 trait ResetStorageBackend {
-
-  /** Truncates all storage backend tables, EXCEPT the packages table.
-    * Does not touch other tables, like the Flyway history table.
-    * Reason: the reset() call is used by the ledger API reset service,
-    * which is mainly used for application tests in another big project,
-    * and re-uploading packages after each test significantly slows down their test time.
-    */
-  def reset(connection: Connection): Unit
 
   /** Truncates ALL storage backend tables.
     * Does not touch other tables, like the Flyway history table.
@@ -412,4 +405,34 @@ trait StringInterningStorageBackend {
   def loadStringInterningEntries(fromIdExclusive: Int, untilIdInclusive: Int)(
       connection: Connection
   ): Iterable[(Int, String)]
+}
+
+trait UserManagementStorageBackend {
+
+  def createUser(user: User)(connection: Connection): Int
+
+  def deleteUser(id: UserId)(connection: Connection): Boolean
+
+  def getUser(id: UserId)(connection: Connection): Option[UserManagementStorageBackend.DbUser]
+
+  def getUsers()(connection: Connection): Vector[User]
+
+  /** @return true if the right didn't exist and we have just added it.
+    */
+  def addUserRight(internalId: Int, right: UserRight)(
+      connection: Connection
+  ): Boolean
+
+  /** @return true if the right existed and we have just deleted it.
+    */
+  def deleteUserRight(internalId: Int, right: UserRight)(connection: Connection): Boolean
+
+  def userRightExists(internalId: Int, right: UserRight)(connection: Connection): Boolean
+
+  def getUserRights(internalId: Int)(connection: Connection): Set[UserRight]
+
+}
+
+object UserManagementStorageBackend {
+  case class DbUser(internalId: Int, domainUser: User)
 }

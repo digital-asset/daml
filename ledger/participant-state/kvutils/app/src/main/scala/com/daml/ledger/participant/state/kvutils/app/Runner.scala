@@ -14,8 +14,8 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ExperimentalContractIds,
 }
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.{Engine, EngineConfig}
@@ -26,6 +26,7 @@ import com.daml.platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.usermanagement.PersistentUserManagementStore
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
 import com.daml.ports.Port
 
@@ -140,7 +141,6 @@ final class Runner[T <: ReadWriteService, Extra](
                 indexerHealth <- new StandaloneIndexerServer(
                   readService = readService,
                   config = configProvider.indexerConfig(participantConfig, config),
-                  servicesExecutionContext = servicesExecutionContext,
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()
@@ -166,8 +166,13 @@ final class Runner[T <: ReadWriteService, Extra](
                     metrics = metrics,
                   )
                   .acquire()
-                userManagementStore =
-                  new InMemoryUserManagementStore // TODO persistence wiring comes here
+                userManagementStore = PersistentUserManagementStore.cached(
+                  dbSupport = dbSupport,
+                  metrics = metrics,
+                  cacheExpiryAfterWriteInSeconds =
+                    config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
+                  maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+                )(servicesExecutionContext)
                 indexService <- StandaloneIndexService(
                   dbSupport = dbSupport,
                   ledgerId = config.ledgerId,
@@ -210,6 +215,10 @@ final class Runner[T <: ReadWriteService, Extra](
                     ),
                     deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
                     maxDeduplicationDurationEnforced = true,
+                  ),
+                  contractIdFeatures = ExperimentalContractIds.of(
+                    v0 = ExperimentalContractIds.ContractIdV0Support.NOT_SUPPORTED,
+                    v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
                   ),
                 ).acquire()
               } yield Some(apiServer.port)

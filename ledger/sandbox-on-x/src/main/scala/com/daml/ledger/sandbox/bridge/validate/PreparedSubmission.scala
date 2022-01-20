@@ -1,14 +1,13 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.sandbox.bridge
+package com.daml.ledger.sandbox.bridge.validate
 
+import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge.{KeyInputs, UpdatedKeys}
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.BlindingInfo
-import com.daml.lf.transaction.Transaction.{KeyInput => TxKeyInput}
 import com.daml.platform.store.appendonlydao.events
-import com.daml.platform.store.appendonlydao.events.Key
 
 // A submission that has been prepared for conflict checking
 sealed trait PreparedSubmission extends Product with Serializable {
@@ -17,9 +16,9 @@ sealed trait PreparedSubmission extends Product with Serializable {
 
 // A transaction submission bundled with all its precomputed effects.
 final case class PreparedTransactionSubmission(
-    keyInputs: Map[Key, TxKeyInput],
+    keyInputs: KeyInputs,
     inputContracts: Set[events.ContractId],
-    updatedKeys: Map[Key, Option[events.ContractId]],
+    updatedKeys: UpdatedKeys,
     consumedContracts: Set[events.ContractId],
     blindingInfo: BlindingInfo,
     transactionInformees: Set[Ref.Party],

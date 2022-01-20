@@ -93,7 +93,7 @@ commandParser = subparser $ fold
     , command "run-jar" (info runJarCmd forwardOptions)
     , command "codegen" (info (codegenCmd <**> helper) forwardOptions)
     , command "packages" (info (packagesCmd <**> helper) packagesCmdInfo)
-    , command "canton-sandbox" (info (cantonSandboxCmd <**> helper) cantonSandboxCmdInfo)
+    , command "sandbox" (info (cantonSandboxCmd <**> helper) cantonSandboxCmdInfo)
     ]
   where
 
@@ -165,18 +165,14 @@ commandParser = subparser $ fold
             (long name <> metavar "PORT_NUM" <> help desc))
 
     sandboxChoiceOpt =
-            flag' SandboxClassic (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic.")
-        <|> flag' SandboxKV (long "sandbox-kv" <> help "Deprecated. Run with Sandbox KV.")
-        <|> flag' SandboxCanton (long "sandbox-canton" <> help "Run with Canton Sandbox. The 2.0 default.")
+            flag' SandboxKV (long "sandbox-kv" <> help "Deprecated. Run with Sandbox KV.")
+        <|> flag SandboxCanton SandboxCanton (long "sandbox-canton" <> help "Run with Canton Sandbox. The 2.0 default.")
                 <*> sandboxCantonPortSpecOpt
-        <|> pure SandboxKV -- pre-2.0 default
-            -- TODO https://github.com/digital-asset/daml/issues/11831
-            --   Change default to --sandbox-canton
 
     sandboxCantonPortSpecOpt = do
-        adminApiSpec <- sandboxPortOpt "canton-admin-api-port" "Port number for the canton admin API (--sandbox-canton only)"
-        domainPublicApiSpec <- sandboxPortOpt "canton-domain-public-port" "Port number for the canton domain public API (--sandbox-canton only)"
-        domainAdminApiSpec <- sandboxPortOpt "canton-domain-admin-port" "Port number for the canton domain admin API (--sandbox-canton only)"
+        adminApiSpec <- sandboxPortOpt "sandbox-admin-api-port" "Port number for the canton admin API (--sandbox-canton only)"
+        domainPublicApiSpec <- sandboxPortOpt "sandbox-domain-public-port" "Port number for the canton domain public API (--sandbox-canton only)"
+        domainAdminApiSpec <- sandboxPortOpt "sandbox-domain-admin-port" "Port number for the canton domain admin API (--sandbox-canton only)"
         pure SandboxCantonPortSpec {..}
 
     navigatorPortOption = NavigatorPort <$> option auto
@@ -419,7 +415,7 @@ commandParser = subparser $ fold
              <*> option auto (long "domain-public-port" <> value 6867)
              <*> option auto (long "domain-admin-port" <> value 6868)
              <*> optional (option str (long "port-file" <> metavar "PATH"))
-          )
+             <*> (StaticTime <$> switch (long "static-time")))
       <*> many (argument str (metavar "ARG"))
 
     cantonSandboxCmdInfo =

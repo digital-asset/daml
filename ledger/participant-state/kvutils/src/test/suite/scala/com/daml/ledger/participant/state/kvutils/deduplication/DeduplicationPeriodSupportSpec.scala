@@ -140,7 +140,7 @@ class DeduplicationPeriodSupportSpec
         Future.successful(Left(DeduplicationConversionFailure.CompletionOffsetNotMatching))
       )
       when(
-        errorFactories.invalidDeduplicationDuration(
+        errorFactories.invalidDeduplicationPeriod(
           any[String],
           any[String],
           any[Option[Boolean]],
@@ -157,7 +157,7 @@ class DeduplicationPeriodSupportSpec
             Set.empty,
             maxRecordTimeFromSubmissionTime,
           )
-          verify(errorFactories).invalidDeduplicationDuration(
+          verify(errorFactories).invalidDeduplicationPeriod(
             any[String],
             any[String],
             any[Option[Boolean]],

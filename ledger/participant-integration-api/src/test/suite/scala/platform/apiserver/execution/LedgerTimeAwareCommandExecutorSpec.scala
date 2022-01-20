@@ -104,7 +104,7 @@ class LedgerTimeAwareCommandExecutorSpec
     }
 
     val commands = Commands(
-      ledgerId = LedgerId("ledgerId"),
+      ledgerId = Some(LedgerId("ledgerId")),
       workflowId = None,
       applicationId = Ref.ApplicationId.assertFromString("applicationId"),
       commandId = CommandId(Ref.CommandId.assertFromString("commandId")),

@@ -147,7 +147,7 @@ _daml_build = rule(
         ),
         "ghc_options": attr.string_list(
             doc = "Options passed to GHC.",
-            default = ["--ghc-option=-Werror", "--ghc-option=-Wwarn", "--log-level=WARNING"],
+            default = ["--ghc-option=-Werror", "--log-level=WARNING"],
         ),
         "damlc": _damlc,
     },
@@ -256,7 +256,7 @@ _inspect_dar = rule(
 
 _default_project_version = "1.0.0"
 
-default_damlc_opts = ["--ghc-option=-Werror", "--ghc-option=-Wwarn", "--log-level=WARNING"]
+default_damlc_opts = ["--ghc-option=-Werror", "--log-level=WARNING"]
 
 def damlc_for_target(target):
     if not target or target in COMPILER_LF_VERSIONS:

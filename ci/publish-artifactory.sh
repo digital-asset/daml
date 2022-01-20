@@ -11,18 +11,17 @@ RELEASE_TAG=$2
 INPUTS=$STAGING_DIR/release-artifacts/artifactory
 
 push() {
-    local file repository local_path md5 sha1
+    local file repository md5 sha1
     repository=$1
     file=$2
-    local_path=$INPUTS/${file}
-    md5=$(md5sum ${local_path} | awk '{print $1}')
-    sha1=$(sha1sum ${local_path} | awk '{print $1}')
+    md5=$(md5sum ${file} | awk '{print $1}')
+    sha1=$(sha1sum ${file} | awk '{print $1}')
     curl -f \
          -u "$AUTH" \
          -H "X-Checksum-MD5:${md5}" \
          -H "X-Checksum-SHA1:${sha1}" \
          -X PUT \
-         -T ${local_path} \
+         -T ${file} \
          https://digitalasset.jfrog.io/artifactory/${repository}/$RELEASE_TAG/${file}
 }
 
@@ -32,6 +31,7 @@ SCRIPT_RUNNER=daml-script-$RELEASE_TAG.jar
 NON_REPUDIATION=non-repudiation-$RELEASE_TAG-ee.jar
 HTTP_JSON=http-json-$RELEASE_TAG-ee.jar
 
+cd $INPUTS
 push daml-trigger-runner $TRIGGER_RUNNER
 push daml-trigger-runner $TRIGGER_RUNNER.asc
 push daml-script-runner $SCRIPT_RUNNER
@@ -61,4 +61,11 @@ if [[ "$#" -lt 3 || $3 != "split" ]]; then
    EE_INSTALLER=daml-sdk-$RELEASE_TAG-windows-ee.exe
    push sdk-ee $EE_INSTALLER
    push sdk-ee $EE_INSTALLER.asc
+else
+    # For the split release process, we publish intermediate artifacts to the
+    # assembly repo, under the daml folder.
+    cd $STAGING_DIR/split-release
+    for file in $(find . -type f); do
+        push assembly/daml $file
+    done
 fi

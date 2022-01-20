@@ -118,7 +118,6 @@ conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=ContractIdIT:Accept",
     ],
 )
 

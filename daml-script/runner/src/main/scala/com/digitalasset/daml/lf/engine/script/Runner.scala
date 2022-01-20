@@ -15,6 +15,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -230,12 +231,14 @@ object Runner {
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = tlsConfig.client(),
       token = params.access_token,
+    )
+    val clientChannelConfig = LedgerClientChannelConfiguration(
+      sslContext = tlsConfig.client(),
       maxInboundMessageSize = maxInboundMessageSize,
     )
     LedgerClient
-      .singleHost(params.host, params.port, clientConfig)
+      .singleHost(params.host, params.port, clientConfig, clientChannelConfig)
       .map(new GrpcLedgerClient(_, applicationId))
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.
@@ -268,12 +271,10 @@ object Runner {
           Future.failed(new RuntimeException(s"The JSON API always requires access tokens"))
         case Some(token) =>
           val client = new JsonLedgerClient(uri, Jwt(token), envIface, system)
-          if (
-            params.application_id.isDefined && params.application_id != client.tokenPayload.applicationId
-          ) {
+          if (params.application_id.isDefined && params.application_id != client.applicationId) {
             Future.failed(
               new RuntimeException(
-                s"ApplicationId specified in token ${client.tokenPayload.applicationId} must match ${params.application_id}"
+                s"ApplicationId specified in token ${client.applicationId} must match ${params.application_id}"
               )
             )
           } else {

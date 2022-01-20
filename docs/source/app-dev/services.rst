@@ -279,14 +279,3 @@ Time service
 Use the **time service** to obtain the time as known by the ledger server.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.testing.TimeService>`.
-
-.. _reset-service:
-
-Reset service
-=============
-
-Use the **reset service** to reset the ledger state, as a quicker alternative to restarting the whole ledger application.
-
-This resets all state in the ledger, *including the ledger ID*, so clients will have to re-fetch the ledger ID from the identity service after hitting this endpoint.
-
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.testing.ResetService>`.

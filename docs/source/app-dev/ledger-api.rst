@@ -45,7 +45,6 @@ all cases, the Ledger API exposes the same services:
 - Testing services (on Sandbox only, *not* for production ledgers)
 
   - Use the :ref:`time service <time-service>` to obtain the time as known by the ledger.
-  - Use the :ref:`reset service <reset-service>` to reset the ledger state, as a quicker alternative to restarting the whole ledger application.
 
 For full information on the services see :doc:`/app-dev/services`.
 

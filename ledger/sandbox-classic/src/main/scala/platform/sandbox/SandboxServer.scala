@@ -22,6 +22,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ExperimentalContractIds,
 }
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.v2.metrics.TimedWriteService
@@ -46,14 +47,12 @@ import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
-import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger._
-import com.daml.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndexAndWriteService}
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{DbSupport, DbType, FlywayMigrations, LfValueTranslationCache}
+import com.daml.platform.usermanagement.PersistentUserManagementStore
 import com.daml.ports.Port
 import scalaz.syntax.tag._
 
@@ -121,32 +120,14 @@ object SandboxServer {
   }
 
   final class SandboxState(
-      materializer: Materializer,
-      metrics: Metrics,
-      packageStore: InMemoryPackageStore,
       // nested resource so we can release it independently when restarting
-      apiServerResource: Resource[ApiServer],
+      apiServerResource: Resource[ApiServer]
   ) {
     def port(implicit executionContext: ExecutionContext): Future[Port] =
       apiServer.map(_.port)
 
     private[SandboxServer] def apiServer: Future[ApiServer] =
       apiServerResource.asFuture
-
-    private[SandboxServer] def reset(
-        newApiServer: (
-            Materializer,
-            Metrics,
-            InMemoryPackageStore,
-            Port,
-        ) => Resource[ApiServer]
-    )(implicit executionContext: ExecutionContext): Future[SandboxState] =
-      for {
-        currentPort <- port
-        _ <- release()
-        replacementApiServer = newApiServer(materializer, metrics, packageStore, currentPort)
-        _ <- replacementApiServer.asFuture
-      } yield new SandboxState(materializer, metrics, packageStore, replacementApiServer)
 
     def release(): Future[Unit] =
       apiServerResource.release()
@@ -210,30 +191,6 @@ final class SandboxServer(
   def portF(implicit executionContext: ExecutionContext): Future[Port] =
     apiServer.map(_.port)
 
-  def resetAndRestartServer()(implicit
-      executionContext: ExecutionContext,
-      loggingContext: LoggingContext,
-  ): Future[Unit] = {
-    val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
-
-    // TODO: eliminate the state mutation somehow
-    sandboxState = sandboxState.flatMap(
-      _.reset((materializer, metrics, packageStore, port) =>
-        buildAndStartApiServer(
-          materializer = materializer,
-          metrics = metrics,
-          packageStore = packageStore,
-          startMode = SqlStartMode.ResetAndStart,
-          currentPort = Some(port),
-        )
-      )
-    )
-
-    // Wait for the services to be closed, so we can guarantee that future API calls after finishing
-    // the reset will never be handled by the old one.
-    apiServicesClosed
-  }
-
   // if requested, initialize the ledger state with the given scenario
   private def createInitialState(
       config: SandboxConfig,
@@ -277,7 +234,6 @@ final class SandboxServer(
       materializer: Materializer,
       metrics: Metrics,
       packageStore: InMemoryPackageStore,
-      startMode: SqlStartMode,
       currentPort: Option[Port],
   )(implicit loggingContext: LoggingContext): Resource[ApiServer] = {
     implicit val _materializer: Materializer = materializer
@@ -334,7 +290,17 @@ final class SandboxServer(
 
         case None => Resource.successful(None)
       }
-      userManagementStore = new InMemoryUserManagementStore // TODO persistence wiring comes here
+      userManagementStore = dbSupportOption match {
+        case Some(dbSupport) =>
+          PersistentUserManagementStore.cached(
+            dbSupport = dbSupport,
+            metrics = metrics,
+            cacheExpiryAfterWriteInSeconds =
+              config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
+            maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+          )(servicesExecutionContext)
+        case None => new InMemoryUserManagementStore
+      }
       indexAndWriteService <- (dbSupportOption match {
         case Some(dbSupport: DbSupport) =>
           SandboxIndexAndWriteService.postgres(
@@ -344,7 +310,6 @@ final class SandboxServer(
             dbSupport = dbSupport,
             timeProvider = timeProvider,
             ledgerEntries = ledgerEntries,
-            startMode = startMode,
             queueDepth = config.maxParallelSubmissions,
             transactionCommitter = transactionCommitter,
             templateStore = packageStore,
@@ -392,15 +357,6 @@ final class SandboxServer(
         "index" -> indexAndWriteService.indexService,
         "write" -> indexAndWriteService.writeService,
       )
-      // the reset service is special, since it triggers a server shutdown
-      resetService = new SandboxResetService(
-        ledgerId,
-        () => resetAndRestartServer(),
-        authorizer,
-        errorFactories = ErrorFactories(
-          new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
-        ),
-      )
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
       apiServicesOwner = new ApiServices.Owner(
         participantId = config.participantId,
@@ -437,8 +393,11 @@ final class SandboxServer(
           CommandDeduplicationType.SYNC_ONLY,
           maxDeduplicationDurationEnforced = false,
         ),
+        contractIdFeatures = ExperimentalContractIds.of(
+          v0 = ExperimentalContractIds.ContractIdV0Support.SUPPORTED,
+          v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+        ),
       )(materializer, executionSequencerFactory, loggingContext)
-        .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(
         apiServicesOwner,
         // NOTE: Re-use the same port after reset.
@@ -452,8 +411,7 @@ final class SandboxServer(
             userManagementStore,
             servicesExecutionContext,
             errorCodesVersionSwitcher,
-          ),
-          resetService,
+          )
         ),
         servicesExecutionContext,
         metrics,
@@ -508,12 +466,9 @@ final class SandboxServer(
         materializer,
         metrics,
         packageStore,
-        SqlStartMode
-          .fromString(config.sqlStartMode.toString)
-          .getOrElse(SqlStartMode.MigrateAndStart),
         currentPort = None,
       )
-      Future.successful(new SandboxState(materializer, metrics, packageStore, apiServerResource))
+      Future.successful(new SandboxState(apiServerResource))
     }
   }
 

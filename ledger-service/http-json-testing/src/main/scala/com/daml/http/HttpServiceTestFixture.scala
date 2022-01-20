@@ -5,6 +5,7 @@ package com.daml.http
 
 import java.io.File
 import java.time.Instant
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -37,6 +38,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -122,7 +124,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val client = DamlLedgerClient.singleHost(
       "localhost",
       ledgerPort.value,
-      clientConfig(applicationId, useTls = useTls),
+      clientConfig(applicationId),
+      clientChannelConfig(useTls),
     )
 
     val codecsF: Future[(DomainJsonEncoder, DomainJsonDecoder)] = for {
@@ -192,7 +195,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     } yield DamlLedgerClient.singleHost(
       "localhost",
       ledgerPort.value,
-      clientConfig(applicationId, token, useTls),
+      clientConfig(applicationId, token),
+      clientChannelConfig(useTls),
     )
 
     val fa: Future[A] = for {
@@ -228,18 +232,23 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       seeding = Some(Seeding.Weak),
     )
 
-  private def clientConfig[A](
+  private def clientConfig(
       applicationId: ApplicationId,
       token: Option[String] = None,
-      useTls: UseTls,
   ): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = if (useTls) clientTlsConfig.client() else None,
       token = token,
     )
+
+  private def clientChannelConfig(useTls: UseTls): LedgerClientChannelConfiguration =
+    if (useTls) {
+      LedgerClientChannelConfiguration(clientTlsConfig.client())
+    } else {
+      LedgerClientChannelConfiguration.InsecureDefaults
+    }
 
   def jsonCodecs(
       client: DamlLedgerClient,

@@ -87,15 +87,17 @@ class TransactionServiceRequestValidatorTest
 
     "validating regular requests" should {
 
-      "reject requests with empty ledger ID" in {
-        fixture.testRequestFailure(
-          _.validate(txReq.withLedgerId(""), ledgerEnd),
-          expectedCodeV1 = NOT_FOUND,
-          expectedDescriptionV1 = "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
-          expectedCodeV2 = NOT_FOUND,
-          expectedDescriptionV2 =
-            "LEDGER_ID_MISMATCH(11,0): Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
-        )
+      "accept requests with empty ledger ID" in {
+        inside(testedValidator.validate(txReq.withLedgerId(""), ledgerEnd)) { case Right(req) =>
+          req.ledgerId shouldEqual None
+          req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+          req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+          val filtersByParty = req.filter.filtersByParty
+          filtersByParty should have size 1
+          hasExpectedFilters(req)
+          req.verbose shouldEqual verbose
+        }
+
       }
 
       "return the correct error on missing filter" in {
@@ -225,7 +227,7 @@ class TransactionServiceRequestValidatorTest
       "tolerate missing end" in {
         inside(testedValidator.validate(txReq.update(_.optionalEnd := None), ledgerEnd)) {
           case Right(req) =>
-            req.ledgerId shouldEqual expectedLedgerId
+            req.ledgerId shouldEqual Some(expectedLedgerId)
             req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
             req.endInclusive shouldEqual None
             val filtersByParty = req.filter.filtersByParty
@@ -244,7 +246,7 @@ class TransactionServiceRequestValidatorTest
             ledgerEnd,
           )
         ) { case Right(req) =>
-          req.ledgerId shouldEqual expectedLedgerId
+          req.ledgerId shouldEqual Some(expectedLedgerId)
           req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
           req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
           val filtersByParty = req.filter.filtersByParty
@@ -266,7 +268,7 @@ class TransactionServiceRequestValidatorTest
             ledgerEnd,
           )
         ) { case Right(req) =>
-          req.ledgerId shouldEqual expectedLedgerId
+          req.ledgerId shouldEqual Some(expectedLedgerId)
           req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
           req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
           val filtersByParty = req.filter.filtersByParty
@@ -281,7 +283,7 @@ class TransactionServiceRequestValidatorTest
 
       "tolerate all fields filled out" in {
         inside(testedValidator.validate(txReq, ledgerEnd)) { case Right(req) =>
-          req.ledgerId shouldEqual expectedLedgerId
+          req.ledgerId shouldEqual Some(expectedLedgerId)
           req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
           req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
           hasExpectedFilters(req)
@@ -294,7 +296,7 @@ class TransactionServiceRequestValidatorTest
 
       "tolerate missing filters_inclusive" in {
         inside(testedValidator.validateTree(txTreeReq, ledgerEnd)) { case Right(req) =>
-          req.ledgerId shouldEqual expectedLedgerId
+          req.ledgerId shouldEqual Some(expectedLedgerId)
           req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
           req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
           req.parties should have size 1
@@ -357,18 +359,19 @@ class TransactionServiceRequestValidatorTest
 
       "fail on ledger ID mismatch" in {
         fixture.testRequestFailure(
-          _.validateLedgerEnd(endReq.withLedgerId("")),
+          _.validateLedgerEnd(endReq.withLedgerId("mismatchedLedgerId")),
           expectedCodeV1 = NOT_FOUND,
-          expectedDescriptionV1 = "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+          expectedDescriptionV1 =
+            "Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
           expectedCodeV2 = NOT_FOUND,
           expectedDescriptionV2 =
-            "LEDGER_ID_MISMATCH(11,0): Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+            "LEDGER_ID_MISMATCH(11,0): Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
         )
       }
 
-      "return passed ledger ID" in {
-        inside(testedValidator.validateLedgerEnd(endReq)) { case Right(out) =>
-          out should have(Symbol("ledgerId")(expectedLedgerId))
+      "succeed validating a correct request" in {
+        inside(testedValidator.validateLedgerEnd(endReq)) { case Right(_) =>
+          succeed
         }
       }
     }
@@ -377,12 +380,13 @@ class TransactionServiceRequestValidatorTest
 
       "fail on ledger ID mismatch" in {
         fixture.testRequestFailure(
-          _.validateTransactionById(txByIdReq.withLedgerId("")),
+          _.validateTransactionById(txByIdReq.withLedgerId("mismatchedLedgerId")),
           expectedCodeV1 = NOT_FOUND,
-          expectedDescriptionV1 = "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+          expectedDescriptionV1 =
+            "Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
           expectedCodeV2 = NOT_FOUND,
           expectedDescriptionV2 =
-            "LEDGER_ID_MISMATCH(11,0): Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+            "LEDGER_ID_MISMATCH(11,0): Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
         )
       }
 
@@ -410,7 +414,7 @@ class TransactionServiceRequestValidatorTest
 
       "return passed ledger ID" in {
         inside(testedValidator.validateTransactionById(txByIdReq)) { case Right(out) =>
-          out should have(Symbol("ledgerId")(expectedLedgerId))
+          out should have(Symbol("ledgerId")(Some(expectedLedgerId)))
         }
       }
 
@@ -420,12 +424,13 @@ class TransactionServiceRequestValidatorTest
 
       "fail on ledger ID mismatch" in {
         fixture.testRequestFailure(
-          _.validateTransactionByEventId(txByEvIdReq.withLedgerId("")),
+          _.validateTransactionByEventId(txByEvIdReq.withLedgerId("mismatchedLedgerId")),
           expectedCodeV1 = NOT_FOUND,
-          expectedDescriptionV1 = "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+          expectedDescriptionV1 =
+            "Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
           expectedCodeV2 = NOT_FOUND,
           expectedDescriptionV2 =
-            "LEDGER_ID_MISMATCH(11,0): Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+            "LEDGER_ID_MISMATCH(11,0): Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
         )
       }
 
@@ -455,7 +460,7 @@ class TransactionServiceRequestValidatorTest
         inside(
           testedValidator.validateTransactionByEventId(txByEvIdReq)
         ) { case Right(out) =>
-          out should have(Symbol("ledgerId")(expectedLedgerId))
+          out should have(Symbol("ledgerId")(Some(expectedLedgerId)))
         }
       }
 

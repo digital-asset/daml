@@ -283,7 +283,6 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         applicationId = ApplicationId.unwrap(applicationId),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
-        sslContext = None,
         token = authToken(
           CustomDamlJWTPayload(
             ledgerId = None,

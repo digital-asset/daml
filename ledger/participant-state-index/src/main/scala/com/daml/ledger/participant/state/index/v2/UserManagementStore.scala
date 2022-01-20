@@ -6,14 +6,20 @@ package com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.Ref
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 trait UserManagementStore {
   import UserManagementStore._
 
-  def createUser(user: User, rights: Set[UserRight]): Future[Result[Unit]]
+  // read access
 
-  def getUser(id: Ref.UserId): Future[Result[User]]
+  def getUserInfo(id: Ref.UserId): Future[Result[UserInfo]]
+
+  def listUsers(): Future[Result[Users]]
+
+  // write access
+
+  def createUser(user: User, rights: Set[UserRight]): Future[Result[Unit]]
 
   def deleteUser(id: Ref.UserId): Future[Result[Unit]]
 
@@ -21,16 +27,25 @@ trait UserManagementStore {
 
   def revokeRights(id: Ref.UserId, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
 
-  def listUserRights(id: Ref.UserId): Future[Result[Set[UserRight]]]
+  // read helpers
 
-  def listUsers(): Future[Result[Users]]
+  final def getUser(id: Ref.UserId): Future[Result[User]] = {
+    getUserInfo(id).map(_.map(_.user))(ExecutionContext.parasitic)
+  }
+
+  final def listUserRights(id: Ref.UserId): Future[Result[Set[UserRight]]] = {
+    getUserInfo(id).map(_.map(_.rights))(ExecutionContext.parasitic)
+  }
+
 }
 
 object UserManagementStore {
   type Result[T] = Either[Error, T]
   type Users = Seq[User]
 
-  sealed trait Error
+  case class UserInfo(user: User, rights: Set[UserRight])
+
+  sealed trait Error extends RuntimeException
   final case class UserNotFound(userId: Ref.UserId) extends Error
   final case class UserExists(userId: Ref.UserId) extends Error
 }

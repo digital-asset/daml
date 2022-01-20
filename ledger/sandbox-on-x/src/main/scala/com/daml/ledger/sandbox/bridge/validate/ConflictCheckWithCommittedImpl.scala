@@ -8,11 +8,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import ConflictCheckingLedgerBridge._
 import com.daml.ledger.participant.state.v2.CompletionInfo
-import com.daml.ledger.sandbox.bridge.{
-  BridgeMetrics,
-  PreparedSubmission,
-  PreparedTransactionSubmission,
-}
+import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.Transaction
 import com.daml.lf.data.Ref
