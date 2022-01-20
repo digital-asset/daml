@@ -131,7 +131,7 @@ and there are two formats of the JSON payload in use by Daml ledgers.
 User access tokens
 ==================
 
-Daml ledger that support participant user management also accept user access tokens.
+Daml ledgers that support participant user management also accept user access tokens.
 They are useful for scenarios where an application's rights change dynamically over the application's lifetime.
 
 User access tokens do not encode rights directly like custom Daml claims tokens.
