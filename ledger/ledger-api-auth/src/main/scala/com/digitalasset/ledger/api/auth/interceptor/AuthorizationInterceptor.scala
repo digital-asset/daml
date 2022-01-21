@@ -8,6 +8,7 @@ import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.participant.state.index.v2.UserManagementStore.Result
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -79,45 +80,57 @@ final class AuthorizationInterceptor(
   private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] =
     claimSet match {
       case ClaimSet.AuthenticatedUser(userIdStr, participantId, expiration) =>
-        userManagementStoreO match {
-          case None =>
-            Future.failed(
-              LedgerApiErrors.AuthorizationChecks.Unauthenticated
-                .UserBasedAuthenticationIsDisabled()(errorLogger)
-                .asGrpcError
-            )
-          case Some(userManagementStore) =>
-            Ref.UserId.fromString(userIdStr) match {
-              case Left(err) =>
-                Future.failed(
-                  errorFactories.invalidArgument(None)(s"token $err")(errorLogger)
+        for {
+          userManagementStore <- getUserManagementStore(userManagementStoreO)
+          userId <- getUserId(userIdStr)
+          userRightsResult <- userManagementStore.listUserRights(userId)
+          claimsSet <- userRightsResult match {
+            case Left(msg) =>
+              Future.failed(
+                errorFactories.permissionDenied(
+                  s"Could not resolve rights for user '$userId' due to '$msg'"
+                )(errorLogger)
+              )
+            case Right(userClaims) =>
+              Future.successful(
+                ClaimSet.Claims(
+                  claims = userClaims.view.map(userRightToClaim).toList.prepended(ClaimPublic),
+                  ledgerId = None,
+                  participantId = participantId,
+                  applicationId = Some(userId),
+                  expiration = expiration,
+                  resolvedFromUser = true,
                 )
-              case Right(userId) =>
-                userManagementStore
-                  .listUserRights(userId)
-                  .flatMap {
-                    case Left(msg) =>
-                      Future.failed(
-                        errorFactories.permissionDenied(
-                          s"Could not resolve rights for user '$userId' due to '$msg'"
-                        )(errorLogger)
-                      )
-                    case Right(userClaims) =>
-                      Future.successful(
-                        ClaimSet.Claims(
-                          claims =
-                            userClaims.view.map(userRightToClaim).toList.prepended(ClaimPublic),
-                          ledgerId = None,
-                          participantId = participantId,
-                          applicationId = Some(userId),
-                          expiration = expiration,
-                          resolvedFromUser = true,
-                        )
-                      )
-                  }
-            }
+              )
+          }
+        } yield {
+          claimsSet
         }
       case _ => Future.successful(claimSet)
+    }
+
+  private[this] def getUserManagementStore(
+      userManagementStoreO: Option[UserManagementStore]
+  ): Future[UserManagementStore] =
+    userManagementStoreO match {
+      case None =>
+        Future.failed(
+          LedgerApiErrors.AuthorizationChecks.Unauthenticated
+            .UserBasedAuthenticationIsDisabled()(errorLogger)
+            .asGrpcError
+        )
+      case Some(userManagementStore) =>
+        Future.successful(userManagementStore)
+    }
+
+  private[this] def getUserId(userIdStr: String): Future[Ref.UserId] =
+    Ref.UserId.fromString(userIdStr) match {
+      case Left(err) =>
+        Future.failed(
+          errorFactories.invalidArgument(None)(s"token $err")(errorLogger)
+        )
+      case Right(userId) =>
+        Future.successful(userId)
     }
 
   private[this] def userRightToClaim(r: UserRight): Claim = r match {
