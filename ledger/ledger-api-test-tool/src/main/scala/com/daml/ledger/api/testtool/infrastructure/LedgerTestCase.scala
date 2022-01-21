@@ -43,15 +43,14 @@ sealed class LedgerTestCase(
         .toVector
 
   def isEnabled(features: Features, participantCount: Int): Either[String, Unit] =
-    Either
-      .cond(enabled(features), (), disabledReason)
-      .flatMap(_ =>
-        Either.cond(
-          participants.minimumParticipantCount <= participantCount,
-          (),
-          "Not enough participants to run this test case.",
-        )
+    for {
+      _ <- Either.cond(enabled(features), (), disabledReason)
+      _ <- Either.cond(
+        participants.minimumParticipantCount <= participantCount,
+        (),
+        "Not enough participants to run this test case.",
       )
+    } yield ()
 }
 
 object LedgerTestCase {
