@@ -289,12 +289,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   @Explanation("Authentication and authorization errors.")
   object AuthorizationChecks extends ErrorGroup() {
 
-    @Explanation("""This rejection is given when a stream, which has been successfully started,
-        |is aborted after some time due to inability to verify that the authorization claims
-        |are still valid.
-        |For example, if authorization depends on user management state,
-        |a change in user management state might have been detected;
-        |or such a change state check reached a internal time-out.
+    @Explanation("""The stream was aborted because the authenticated user's rights changed,
+        |and the user might thus no longer be authorized to this stream.
         |""".stripMargin)
     @Resolution(
       "After retry stream will start if authorized, or a more detailed error will be signalled."
