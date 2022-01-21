@@ -66,7 +66,7 @@ object CommandDeduplicationAssertions {
               s"No accepted completion with the command ID '${completionResponse.completion.commandId}' has been found",
             )
             assert(
-              acceptedCompletionResponse.offset.getAbsolute >= reportedOffset,
+              acceptedCompletionResponse.offset.getAbsolute > reportedOffset,
               s"No accepted completion with the command ID '${completionResponse.completion.commandId}' after the reported offset $reportedOffset has been found",
             )
             assert(
