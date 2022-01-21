@@ -98,11 +98,12 @@ final class Runner[T <: ReadWriteService, Extra](
       )
       .mkString("\n")
     logger.withoutContext.info(
-      s"Initialized {} version {} with ledger-id = {}, ledger = {}, allowed language versions = {}, contract ids seeding = {} with participants: \n{},",
+      s"Initialized {} version {} with ledger-id = {}, ledger = {}, allowed language versions = {}, auth service = {}, contract ids seeding = {} with participants: \n{},",
       name,
       BuildInfo.Version,
       config.ledgerId,
       factory.ledgerType,
+      configProvider.authService(config),
       s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
       config.seeding,
       participantsInitializationText,

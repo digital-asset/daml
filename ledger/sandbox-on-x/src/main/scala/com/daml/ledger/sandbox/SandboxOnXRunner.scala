@@ -9,6 +9,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
+import com.daml.buildinfo.BuildInfo
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.experimental_features.{
@@ -195,11 +196,34 @@ object SandboxOnXRunner {
             timeServiceBackend,
             dbSupport,
           )
-        } yield apiServer -> writeService
+        } yield {
+          logInitializationHeader(config)
+          apiServer -> writeService
+        }
     }
   }
 
-  def buildStandaloneApiServer(
+  private def logInitializationHeader(config: Config[BridgeConfig]): Unit = {
+    val participantsInitializationText = config.participants
+      .map(participantConfig =>
+        s"\t- participant-id = ${participantConfig.participantId}, run-mode = ${participantConfig.mode}, port = ${participantConfig.port.toString}"
+      )
+      .mkString("\n")
+    logger.withoutContext.info(
+      s"Initialized {} version {} with ledger-id = {}, ledger = {}, allowed language versions = {}, auth service = {}, contract ids seeding = {} with participants: \n{},",
+      RunnerName,
+      BuildInfo.Version,
+      config.ledgerId,
+      if (config.extra.conflictCheckingEnabled) "conflict checking ledger bridge"
+      else "pass-through ledger bridge (no conflict checking)",
+      BridgeConfigProvider.authService(config),
+      s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
+      config.seeding,
+      participantsInitializationText,
+    )
+  }
+
+  private def buildStandaloneApiServer(
       sharedEngine: Engine,
       indexService: IndexService,
       metrics: Metrics,

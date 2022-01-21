@@ -48,6 +48,7 @@ da_scala_library(
         "//ledger/participant-state-metrics",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
+        "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
