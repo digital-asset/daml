@@ -175,10 +175,9 @@ object Arguments {
         .action((_, arguments) => arguments.copy(ignoreProjectParties = true))
 
       opt[Boolean]("feature-user-management")
-        .hidden()
         .optional()
         .text(
-          "Whether to enable user management."
+          "By default, the login screen is now populated by quering the user mgmt service. Disable to query party mgmt instead (the pre-2.0 default)."
         )
         .action((enabled, arguments) => arguments.copy(enableUserManagement = enabled))
 

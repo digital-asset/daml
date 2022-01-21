@@ -74,8 +74,7 @@ object PlatformStore {
 
   case class StateConnected(
       ledgerClient: LedgerClient,
-      // TODO: more structure? parties.keys is a mixed bag, but only used for display purposes, so probably ok as-is
-      // A key could be: a Party's displayName, a party's name, a User's id, or a name specified in our config
+      // A key in `parties` could be: a Party's displayName, a party's name, a User's id, or a name specified in our config
       parties: Map[String, PartyState],
       staticTime: Option[StaticTime],
       time: TimeProviderWithType,
