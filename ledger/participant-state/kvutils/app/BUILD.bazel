@@ -45,6 +45,7 @@ da_scala_library(
         "//ledger/participant-state-index",
         "//ledger/participant-state-metrics",
         "//ledger/participant-state/kvutils",
+        "//libs-scala/build-info",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",
@@ -53,6 +54,7 @@ da_scala_library(
         "//libs-scala/resources-grpc",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_netty_netty_handler",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
