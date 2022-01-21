@@ -5,7 +5,11 @@ package com.daml.ledger.api.auth.services
 
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportService
-import com.daml.ledger.api.v1.admin.metering_report_service.{GetMeteringReportRequest, GetMeteringReportResponse, MeteringReportServiceGrpc}
+import com.daml.ledger.api.v1.admin.metering_report_service.{
+  GetMeteringReportRequest,
+  GetMeteringReportResponse,
+  MeteringReportServiceGrpc,
+}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
@@ -20,7 +24,9 @@ private[daml] final class MeteringReportServiceAuthorization(
     with ProxyCloseable
     with GrpcApiService {
 
-  override def getMeteringReport(request: GetMeteringReportRequest): Future[GetMeteringReportResponse] = {
+  override def getMeteringReport(
+      request: GetMeteringReportRequest
+  ): Future[GetMeteringReportResponse] = {
     authorizer.requireAdminClaims(service.getMeteringReport)(request)
   }
 

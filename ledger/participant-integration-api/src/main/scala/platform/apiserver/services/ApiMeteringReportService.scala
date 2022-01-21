@@ -11,8 +11,10 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[apiserver] final class ApiMeteringReportService ()(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
-    extends MeteringReportService
+private[apiserver] final class ApiMeteringReportService()(implicit
+    executionContext: ExecutionContext,
+    loggingContext: LoggingContext,
+) extends MeteringReportService
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
@@ -22,21 +24,23 @@ private[apiserver] final class ApiMeteringReportService ()(implicit executionCon
 
   override def close(): Unit = ()
 
-  override def getMeteringReport(request: GetMeteringReportRequest): Future[GetMeteringReportResponse] = {
+  override def getMeteringReport(
+      request: GetMeteringReportRequest
+  ): Future[GetMeteringReportResponse] = {
     logger.info(s"Received metering report request: $request")
-    val generationTime = com.google.protobuf.timestamp.Timestamp.of(java.time.Instant.now().getEpochSecond, 0)
+    val generationTime =
+      com.google.protobuf.timestamp.Timestamp.of(java.time.Instant.now().getEpochSecond, 0)
     val participantReport = ParticipantMeteringReport(
       participantId = "participant1",
       request.to.orElse(Some(generationTime)),
       Seq(
         ApplicationMeteringReport("app  1", 100),
         ApplicationMeteringReport("app2", 200),
-      )
+      ),
     )
-    val response = GetMeteringReportResponse(Some(request), Some(participantReport), Some(generationTime))
+    val response =
+      GetMeteringReportResponse(Some(request), Some(participantReport), Some(generationTime))
     Future.successful(response).andThen(logger.logErrorsOnCall[GetMeteringReportResponse])
   }
 
 }
-
-

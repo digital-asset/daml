@@ -4,7 +4,10 @@
 package com.daml
 package platform.sandbox.auth
 
-import com.daml.ledger.api.v1.admin.metering_report_service.{GetMeteringReportRequest, MeteringReportServiceGrpc}
+import com.daml.ledger.api.v1.admin.metering_report_service.{
+  GetMeteringReportRequest,
+  MeteringReportServiceGrpc,
+}
 
 import scala.concurrent.Future
 
