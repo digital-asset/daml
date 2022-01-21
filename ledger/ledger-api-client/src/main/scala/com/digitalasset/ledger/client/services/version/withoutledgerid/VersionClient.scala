@@ -22,7 +22,6 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 private[daml] final class VersionClient(service: VersionServiceStub) {
   def getApiVersion(
       ledgerIdToUse: LedgerId,
@@ -44,17 +43,16 @@ private[daml] final class VersionClient(service: VersionServiceStub) {
       .getLedgerApiVersion(
         new GetLedgerApiVersionRequest(ledgerIdToUse.unwrap)
       )
-      .map(_.features.toSeq.flatMap(VersionClient.fromProto))
+      .map(_.features.toList.flatMap(VersionClient.fromProto))
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 private[daml] object VersionClient {
   // see also com.daml.platform.apiserver.services.ApiVersionService.featuresDescriptor
   def fromProto(featuresDescriptor: FeaturesDescriptor): Seq[Feature] =
     featuresDescriptor match {
       case FeaturesDescriptor(userManagement, experimentalFeatures) =>
-        (userManagement.toSeq map (_ => Feature.UserManagement)) ++
-          (experimentalFeatures.toSeq flatMap fromProto)
+        (userManagement.toList map (_ => Feature.UserManagement)) ++
+          (experimentalFeatures.toList flatMap fromProto)
     }
 
   def fromProto(experimentalFeatures: ExperimentalFeatures): Seq[Feature] =
@@ -66,9 +64,9 @@ private[daml] object VersionClient {
             optionalLedgerId,
             _, // TODO
           ) =>
-        (selfServiceErrorCodes.toSeq map (_ => Feature.SelfServiceErrorCodes)) ++
+        (selfServiceErrorCodes.toList map (_ => Feature.SelfServiceErrorCodes)) ++
           (maybeStaticTime collect { case ExperimentalStaticTime(true) => Feature.StaticTime }) ++
-          (maybeCommandDeduplicationFeatures.toSeq flatMap fromProto) ++
+          (maybeCommandDeduplicationFeatures.toList flatMap fromProto) ++
           (optionalLedgerId map { _ => Feature.ExperimentalOptionalLedgerId })
     }
 
