@@ -4,7 +4,7 @@
 package com.daml
 package platform.sandbox
 
-import platform.sandbox.config.SandboxConfig
+import platform.sandbox.config.{LedgerName, SandboxConfig}
 import ledger.participant.state.kvutils.app.{
   Config,
   Mode,
@@ -20,7 +20,6 @@ import platform.sandbox.config.SandboxConfig.EngineMode
 import scalaz.syntax.tag._
 
 import scala.jdk.DurationConverters._
-import java.util.UUID
 
 object ConfigConverter {
   private val DefaultH2SandboxJdbcUrl = "jdbc:h2:mem:sandbox;db_close_delay=-1"
@@ -28,6 +27,7 @@ object ConfigConverter {
   def toSandboxOnXConfig(
       sandboxConfig: SandboxConfig,
       maybeLedgerId: Option[String],
+      ledgerName: LedgerName,
   ): Config[BridgeConfig] = {
     val singleCombinedParticipant = ParticipantConfig(
       mode = ParticipantRunMode.Combined,
@@ -75,7 +75,8 @@ object ConfigConverter {
       mode = Mode.Run,
       ledgerId = sandboxConfig.ledgerIdMode match {
         case LedgerIdMode.Static(ledgerId) => ledgerId.unwrap
-        case LedgerIdMode.Dynamic => maybeLedgerId.getOrElse(UUID.randomUUID().toString)
+        case LedgerIdMode.Dynamic =>
+          maybeLedgerId.getOrElse(LedgerIdGenerator.generateRandomId(ledgerName).unwrap)
       },
       commandConfig = sandboxConfig.commandConfig,
       submissionConfig = sandboxConfig.submissionConfig,
