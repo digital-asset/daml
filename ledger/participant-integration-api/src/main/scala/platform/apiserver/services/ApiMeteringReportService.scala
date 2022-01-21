@@ -35,7 +35,7 @@ private[apiserver] final class ApiMeteringReportService()(implicit
       participantId = "participant1",
       request.to.orElse(Some(generationTime)),
       Seq(
-        ApplicationMeteringReport("app  1", 100),
+        ApplicationMeteringReport("app1", 100),
         ApplicationMeteringReport("app2", 200),
       ),
     )
