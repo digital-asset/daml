@@ -16,6 +16,18 @@ CREATE TABLE participant_user_rights (
     UNIQUE (user_internal_id, user_right, for_party)
 );
 
+-- On correctness of extracting number microseconds since Unix epoch independent of time zones:
+-- `sys_extract_utc(current_timestamp)` returns a TIMESTAMP (i.e. without time zone)
+-- `to_timestamp('1-1-1970 00:00:00','MM-DD-YYYY HH24:Mi:SS')` returns a TIMESTAMP (i.e. without time zone)
+-- Oracle docs states:
+-- """
+-- Oracle performs all timestamp arithmetic in UTC time. For TIMESTAMP WITH LOCAL TIME ZONE, Oracle converts
+-- the datetime value from the database time zone to UTC and converts back to the database time zone after
+-- performing the arithmetic. For TIMESTAMP WITH TIME ZONE, the datetime value is always in UTC, so no conversion is necessary.
+-- """
+-- so it isn't explicit/clear about arithmetic on plain TIMESTAMP type.
+-- However empirical tests give evidence that TIMESTAMP arithmetic is done as if TIMESTAMP values were in UTC time.
+
 CREATE OR REPLACE TRIGGER participant_users_created_at_trigger
     BEFORE INSERT ON participant_users
     FOR EACH ROW

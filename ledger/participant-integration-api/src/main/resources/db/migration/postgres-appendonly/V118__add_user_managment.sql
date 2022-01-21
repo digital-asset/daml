@@ -2,6 +2,9 @@
 --  SPDX-License-Identifier: Apache-2.0
 
 
+-- On correctness of extracting number microseconds since Unix epoch independent of time zones:
+-- `CURRENT_TIMESTAMP` delivers timestamp with time zone
+-- `EXTRACT(epoch FROM <timestamp_with_time_zone>)` delivers the number of seconds since 1970-01-01 00:00:00 UTC
 
 CREATE TABLE participant_users (
     internal_id         SERIAL          PRIMARY KEY,
