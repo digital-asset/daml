@@ -297,12 +297,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     )
     object StaleUserManagementBasedStreamClaims
         extends ErrorCode(
-          id = "STALE_STREAM_CLAIMS",
+          id = "STALE_STREAM_AUTHORIZATION",
           ErrorCategory.ContentionOnSharedResources,
         ) {
       case class Reject()(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl("Authentication claims out of date. Retry quickly.")
+      ) extends LoggingTransactionErrorImpl("Stale stream authorization. Retry quickly.")
 
     }
 

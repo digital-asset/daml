@@ -118,7 +118,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
     }
   }
 
-  private def scheduleAuthenticationRefresh(): Unit = {
+  private def checkUserRights(): Unit = {
     userManagementStore
       .listUserRights(userId)
       .onComplete {
@@ -135,7 +135,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
   }
 
   private def signalError(): Unit = {
-    // Throwing an error that has gRPC status ABORTED so that clients will restart their streams
+    // Terminate the stream, so that clients will restart their streams
     // and claims will be rechecked precisely.
     onError(
       LedgerApiErrors.AuthorizationChecks.StaleUserManagementBasedStreamClaims
