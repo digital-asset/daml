@@ -36,6 +36,7 @@ import scala.util.control.NonFatal
 private[apiserver] final class ApiVersionService private (
     enableSelfServiceErrorCodes: Boolean,
     ledgerFeatures: LedgerFeatures,
+    enableUserManagement: Boolean,
 )(implicit
     loggingContext: LoggingContext,
     executionContext: ExecutionContext,
@@ -53,7 +54,7 @@ private[apiserver] final class ApiVersionService private (
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
-      userManagement = Some(UserManagementFeature(supported = true)),
+      userManagement = Some(UserManagementFeature(supported = enableUserManagement)),
       experimental = Some(
         ExperimentalFeatures.of(
           selfServiceErrorCodes =
@@ -105,6 +106,11 @@ private[apiserver] object ApiVersionService {
   def create(
       enableSelfServiceErrorCodes: Boolean,
       ledgerFeatures: LedgerFeatures,
+      enableUserManagement: Boolean,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
-    new ApiVersionService(enableSelfServiceErrorCodes, ledgerFeatures)
+    new ApiVersionService(
+      enableSelfServiceErrorCodes,
+      ledgerFeatures,
+      enableUserManagement = enableUserManagement,
+    )
 }

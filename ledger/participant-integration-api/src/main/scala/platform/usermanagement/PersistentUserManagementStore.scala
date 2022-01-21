@@ -25,12 +25,17 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object UserManagementConfig {
 
-  val default: UserManagementConfig = UserManagementConfig(
-    maximumCacheSize = 100,
-    cacheExpiryAfterWriteInSeconds = 5,
+  val DefaultMaximumCacheSize = 100
+  val DefaultCacheExpiryAfterWriteInSeconds = 5
+
+  def default(enabled: Boolean): UserManagementConfig = UserManagementConfig(
+    enabled = enabled,
+    maximumCacheSize = DefaultMaximumCacheSize,
+    cacheExpiryAfterWriteInSeconds = DefaultCacheExpiryAfterWriteInSeconds,
   )
 }
 final case class UserManagementConfig(
+    enabled: Boolean,
     maximumCacheSize: Int,
     cacheExpiryAfterWriteInSeconds: Int,
 )
