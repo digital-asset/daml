@@ -28,8 +28,9 @@ private[apiserver] final class ApiMeteringReportService()(implicit
       request: GetMeteringReportRequest
   ): Future[GetMeteringReportResponse] = {
     logger.info(s"Received metering report request: $request")
+    val now = java.time.Instant.now()
     val generationTime =
-      com.google.protobuf.timestamp.Timestamp.of(java.time.Instant.now().getEpochSecond, 0)
+      com.google.protobuf.timestamp.Timestamp.of(now.getEpochSecond, now.getNano)
     val participantReport = ParticipantMeteringReport(
       participantId = "participant1",
       request.to.orElse(Some(generationTime)),
