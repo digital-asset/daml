@@ -57,6 +57,13 @@ public final class DamlLedgerClient implements LedgerClient {
       return this;
     }
 
+    /**
+     * @deprecated since 2.0 the ledger identifier has been deprecated as a fail-safe against
+     *     contacting an unexpected participant. You are recommended to use the participant
+     *     identifier in the access token as a way to validate that you are accessing the ledger
+     *     through the expected participant node (as well as authorize your calls).
+     */
+    @Deprecated
     public Builder withExpectedLedgerId(@NonNull String expectedLedgerId) {
       this.expectedLedgerId = Optional.of(expectedLedgerId);
       return this;
