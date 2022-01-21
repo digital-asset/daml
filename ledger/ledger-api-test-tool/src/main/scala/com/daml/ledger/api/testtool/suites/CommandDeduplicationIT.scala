@@ -482,7 +482,20 @@ final class CommandDeduplicationIT(
         .submitRequest(party, DummyWithAnnotation(party, "Duplicate command").create.command)
       val acceptedSubmissionId = newSubmissionId()
       runWithTimeModel(configuredParticipants) { delay =>
+        val dummyRequest = ledger.submitRequest(
+          party,
+          DummyWithAnnotation(party, "Dummy command to generate a completion offset").create.command,
+        )
         for {
+          // Send a dummy command to the ledger so that we obtain a recent offset
+          // We should be able to just grab the current ledger end,
+          // but the converter from offsets to durations cannot handle this yet.
+          dummyResponse <- submitRequestAndAssertCompletionAccepted(
+            ledger,
+            dummyRequest,
+            party,
+          )
+          offsetBeforeFirstCompletion = dummyResponse.offset
           response <- submitRequestAndAssertCompletionAccepted(
             ledger,
             updateSubmissionId(request, acceptedSubmissionId),
@@ -497,7 +510,7 @@ final class CommandDeduplicationIT(
             updateWithFreshSubmissionId(
               request.update(
                 _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationOffset(
-                  Ref.HexString.assertFromString(response.offset.getAbsolute)
+                  Ref.HexString.assertFromString(offsetBeforeFirstCompletion.getAbsolute)
                 )
               )
             ),

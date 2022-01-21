@@ -44,6 +44,7 @@ final case class SandboxConfig(
     commandConfig: CommandConfiguration,
     submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
+    // TODO sandbox: Remove CLI option
     scenario: Option[String],
     implicitPartyAllocation: Boolean,
     maxInboundMessageSize: Int,

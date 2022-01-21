@@ -3,4 +3,7 @@
 
 package com.daml.platform.sandbox
 
+import org.scalatest.Ignore
+
+@Ignore
 final class ScenarioLoadingITPostgres extends ScenarioLoadingITBase with SandboxBackend.Postgresql

@@ -115,6 +115,8 @@ class EngineModeIT
           port = Port.Dynamic,
           engineMode = mode,
           seeding = Seeding.Weak,
+          // Ensure separate DBs per test
+          jdbcUrl = Some(s"jdbc:h2:mem:${UUID.randomUUID().toString};db_close_delay=-1"),
         )
       )
 

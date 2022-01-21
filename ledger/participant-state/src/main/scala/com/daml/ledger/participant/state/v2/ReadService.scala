@@ -77,10 +77,13 @@ trait ReadService extends ReportsHealth {
     * of the last [[Update.ConfigurationChanged]] before the [[Update.TransactionAccepted]].
     *
     * - *command deduplication*: Let there be a [[Update.TransactionAccepted]] with [[CompletionInfo]]
-    * or a [[Update.CommandRejected]] with [[CompletionInfo]] and [[Update.CommandRejected.definiteAnswer]] at offset `off2`
-    * and let `off1` be the completion offset where the [[CompletionInfo.optDeduplicationPeriod]] starts.
-    * Then there is no other [[Update.TransactionAccepted]] with [[CompletionInfo]] for the same [[CompletionInfo.changeId]]
-    * between the offsets `off1` and `off2` inclusive.
+    *   or a [[Update.CommandRejected]] with [[CompletionInfo]] at offset `off2`.
+    *   If `off2`'s [[CompletionInfo.optDeduplicationPeriod]] is a [[api.DeduplicationPeriod.DeduplicationOffset]],
+    *   let `off1` be the first offset after the deduplication offset.
+    *   If the deduplication period is a [[api.DeduplicationPeriod.DeduplicationDuration]],
+    *   let `off1` be the first offset whose record time is at most the duration before `off2`'s record time (inclusive).
+    *   Then there is no other [[Update.TransactionAccepted]] with [[CompletionInfo]] for the same [[CompletionInfo.changeId]]
+    *   between the offsets `off1` and `off2` inclusive.
     *
     *   So if a command submission has resulted in a [[Update.TransactionAccepted]],
     *   other command submissions with the same [[SubmitterInfo.changeId]] must be deduplicated
