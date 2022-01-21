@@ -8,6 +8,12 @@ import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.buildinfo.BuildInfo
 import com.daml.error.ErrorCodesVersionSwitcher
+import com.daml.ledger.api.auth.{
+  AuthServiceJWT,
+  AuthServiceNone,
+  AuthServiceStatic,
+  AuthServiceWildcard,
+}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
@@ -87,24 +93,31 @@ final class Runner[T <: ReadWriteService, Extra](
             runParticipant(config, participantConfig, sharedEngine)
           )
         )
-      } yield initializationHeader(config)
+      } yield logInitializationHeader(config)
     }
   }
 
-  private def initializationHeader(config: Config[Extra]): Unit = {
+  private def logInitializationHeader(config: Config[Extra]): Unit = {
+    val authentication = configProvider.authService(config) match {
+      case _: AuthServiceJWT => "JWT-based authentication"
+      case AuthServiceNone => "none authenticated"
+      case _: AuthServiceStatic => "static authentication"
+      case AuthServiceWildcard => "all unauthenticated allowed"
+      case other => other.getClass.getSimpleName
+    }
     val participantsInitializationText = config.participants
       .map(participantConfig =>
-        s"\t- participant-id = ${participantConfig.participantId}, run-mode = ${participantConfig.mode}, port = ${participantConfig.port.toString}"
+        s"{participant-id = ${participantConfig.participantId}, shared-name = ${participantConfig.shardName}, run-mode = ${participantConfig.mode}, port = ${participantConfig.port.toString}}"
       )
-      .mkString("\n")
+      .mkString("[", ", ", "]")
     logger.withoutContext.info(
-      s"Initialized {} version {} with ledger-id = {}, ledger = {}, allowed language versions = {}, auth service = {}, contract ids seeding = {} with participants: \n{},",
+      s"Initialized {} version {} with ledger-id = {}, ledger = {}, allowed language versions = {}, authentication = {}, contract ids seeding = {} with participants: {}",
       name,
       BuildInfo.Version,
       config.ledgerId,
-      factory.ledgerType,
-      configProvider.authService(config),
+      factory.ledgerName,
       s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
+      authentication,
       config.seeding,
       participantsInitializationText,
     )

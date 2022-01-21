@@ -212,7 +212,7 @@ object RunnerSpec {
       Timestamp.Epoch,
     )
 
-    override def ledgerType: String = "test ledger"
+    override def ledgerName: String = "test ledger"
 
     // This is quite sophisticated because it needs to provision a configuration, and so needs a
     // basic implementation of the write->read flow, at least for configuration updates.

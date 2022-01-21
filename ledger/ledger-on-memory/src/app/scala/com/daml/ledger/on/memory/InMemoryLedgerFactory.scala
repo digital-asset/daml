@@ -27,7 +27,7 @@ import scala.concurrent.ExecutionContext
 private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
     extends LedgerFactory[Unit] {
 
-  override def ledgerType: String = "in-memory ledger"
+  override def ledgerName: String = "in-memory ledger"
 
   override def readWriteServiceFactoryOwner(
       config: Config[Unit],
