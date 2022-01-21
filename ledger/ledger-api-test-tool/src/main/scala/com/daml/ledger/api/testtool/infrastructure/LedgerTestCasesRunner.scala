@@ -206,17 +206,21 @@ final class LedgerTestCasesRunner(
       .flatMap { sessions: Vector[ParticipantSession] =>
         // All the participants should support the same features (for testing at least)
         val ledgerFeatures = sessions.head.features
-        val (enabledTestCases, disabledTestCases) = testCases
-          .partition(_.enabled(ledgerFeatures))
+        val (disabledTestCases, enabledTestCases) =
+          testCases.partitionMap(testCase =>
+            testCase
+              .isEnabled(ledgerFeatures, sessions.size)
+              .fold(disabledReason => Left(testCase -> disabledReason), _ => Right(testCase))
+          )
         val excludedTestResults = disabledTestCases
-          .map(testCase =>
+          .map { case (testCase, disabledReason) =>
             LedgerTestSummary(
               testCase.suite.name,
               testCase.name,
               testCase.description,
-              Right(Result.Excluded(testCase.disabledReason)),
+              Right(Result.Excluded(disabledReason)),
             )
-          )
+          }
         val (concurrentTestCases, sequentialTestCases) =
           enabledTestCases.partition(_.runConcurrently)
         val ledgerSession = LedgerSession(
