@@ -23,6 +23,7 @@ import scopt.OptionParser
 import scala.concurrent.ExecutionContext
 
 object SqlLedgerFactory extends LedgerFactory[ExtraConfig] {
+  override def ledgerType: String = "SQL ledger"
 
   override def readWriteServiceFactoryOwner(
       config: Config[ExtraConfig],

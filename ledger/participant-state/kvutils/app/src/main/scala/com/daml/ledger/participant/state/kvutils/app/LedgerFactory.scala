@@ -26,6 +26,7 @@ import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, Er
 import scala.concurrent.ExecutionContext
 
 trait LedgerFactory[ExtraConfig] {
+  def ledgerType: String
   def readWriteServiceFactoryOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
