@@ -11,6 +11,12 @@ import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.error.ErrorCodesVersionSwitcher
+import com.daml.ledger.api.auth.{
+  AuthServiceJWT,
+  AuthServiceNone,
+  AuthServiceStatic,
+  AuthServiceWildcard,
+}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
@@ -197,30 +203,10 @@ object SandboxOnXRunner {
             dbSupport,
           )
         } yield {
-          logInitializationHeader(config)
+          logInitializationHeader(config, participantConfig)
           apiServer -> writeService
         }
     }
-  }
-
-  private def logInitializationHeader(config: Config[BridgeConfig]): Unit = {
-    val participantsInitializationText = config.participants
-      .map(participantConfig =>
-        s"\t- participant-id = ${participantConfig.participantId}, run-mode = ${participantConfig.mode}, port = ${participantConfig.port.toString}"
-      )
-      .mkString("\n")
-    logger.withoutContext.info(
-      s"Initialized {} version {} with ledger-id = {}, ledger = {}, allowed language versions = {}, auth service = {}, contract ids seeding = {} with participants: \n{},",
-      RunnerName,
-      BuildInfo.Version,
-      config.ledgerId,
-      if (config.extra.conflictCheckingEnabled) "conflict checking ledger bridge"
-      else "pass-through ledger bridge (no conflict checking)",
-      BridgeConfigProvider.authService(config),
-      s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
-      config.seeding,
-      participantsInitializationText,
-    )
   }
 
   private def buildStandaloneApiServer(
@@ -365,5 +351,41 @@ object SandboxOnXRunner {
         )
       )
     } yield writeService
+  }
+
+  private def logInitializationHeader(
+      config: Config[BridgeConfig],
+      participantConfig: ParticipantConfig,
+  ): Unit = {
+    val authentication = BridgeConfigProvider.authService(config) match {
+      case _: AuthServiceJWT => "JWT-based authentication"
+      case AuthServiceNone => "none authenticated"
+      case _: AuthServiceStatic => "static authentication"
+      case AuthServiceWildcard => "all unauthenticated allowed"
+      case other => other.getClass.getSimpleName
+    }
+
+    val ledgerDetails =
+      Seq[(String, String)](
+        "run-mode" -> s"${participantConfig.mode} participant",
+        "participant-id" -> participantConfig.participantId,
+        "ledger-id" -> config.ledgerId,
+        "port" -> participantConfig.port.toString,
+        "time mode" -> config.extra.timeProviderType.description,
+        "allowed language versions" -> s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
+        "authentication" -> authentication,
+        "contract ids seeding" -> config.seeding.toString,
+      ).map { case (key, value) =>
+        s"$key = $value"
+      }.mkString(", ")
+
+    logger.withoutContext.info(
+      s"Initialized {} with {}, version {}, {}",
+      RunnerName,
+      if (config.extra.conflictCheckingEnabled) "conflict checking ledger bridge"
+      else "pass-through ledger bridge (no conflict checking)",
+      BuildInfo.Version,
+      ledgerDetails,
+    )
   }
 }
