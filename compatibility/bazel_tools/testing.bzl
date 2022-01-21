@@ -687,6 +687,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # The test requires the "definite_answer" gRPC error metadata entry, which is not present in old releases.
+        "start": "2.0.0-snapshot.20220118.8919.1",
+        "platform_ranges": [
+            {
+                "end": "1.16.0",
+                "exclusions": [
+                    "MultiPartySubmissionIT",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
