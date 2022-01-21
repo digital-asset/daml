@@ -55,18 +55,23 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     SubmissionId(..),
     LL.Duration(..),
     LL.Status(..),
-    DeduplicationPeriod(..)
+    DeduplicationPeriod(..),
+    ParticipantId(..),
+    IsoTime(..),
     ) where
 
 import qualified Data.Aeson as A
 import Data.Fixed
 import Data.Int (Int64)
 import Data.Map (Map)
-import Data.Text.Lazy (Text)
+import Data.Text.Lazy (Text, pack)
 import Prelude hiding(Enum)
 import qualified Data.Text.Lazy as Text(unpack)
 import qualified Google.Protobuf.Duration as LL
 import qualified Google.Rpc.Status as LL
+import qualified Data.Time.Format.ISO8601 as ISO8601
+import qualified Data.Time.Clock as Clock
+import qualified Text.ParserCombinators.ReadP as ReadP
 
 -- commands.proto
 
@@ -272,6 +277,11 @@ newtype DaysSinceEpoch = DaysSinceEpoch { unDaysSinceEpoch :: Int}
 newtype TemplateId = TemplateId Identifier deriving (Eq,Ord,Show)
 
 newtype ApplicationId = ApplicationId { unApplicationId :: Text } deriving (Eq,Ord,Show)
+
+instance Read ApplicationId where
+  readsPrec _ = \s -> [(ApplicationId (pack s),"")]
+
+newtype ParticipantId = ParticipantId { unParticipantId :: Text} deriving (Eq,Ord,Show)
 newtype CommandId = CommandId { unCommandId :: Text } deriving (Eq,Ord,Show)
 newtype ConstructorId = ConstructorId { unConstructorId :: Text } deriving (Eq,Ord,Show)
 newtype ContractId = ContractId { unContractId :: Text } deriving (Eq,Ord,Show)
@@ -294,3 +304,10 @@ instance A.FromJSON Party where
   parseJSON v = Party <$> A.parseJSON v
 
 newtype Verbosity = Verbosity { unVerbosity :: Bool } deriving (Eq,Ord,Show)
+
+-- A wrapped UTCTime the can be read in ISO8601 format
+newtype IsoTime = IsoTime { unIsoTime :: Clock.UTCTime } deriving Show
+
+instance Read IsoTime where
+  readsPrec _ = ReadP.readP_to_S $ fmap IsoTime $ ISO8601.formatReadP ISO8601.iso8601Format
+

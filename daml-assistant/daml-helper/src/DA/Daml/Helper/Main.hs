@@ -16,7 +16,6 @@ import System.IO.Extra
 import System.Process (showCommandForUser)
 import System.Process.Typed (unsafeProcessHandle)
 import Text.Read (readMaybe)
-
 import DA.Signals
 import DA.Daml.Helper.Init
 import DA.Daml.Helper.Ledger
@@ -26,6 +25,7 @@ import DA.Daml.Helper.Studio
 import DA.Daml.Helper.Util
 import DA.Daml.Helper.Codegen
 import DA.PortFile
+import DA.Ledger.Types (ApplicationId(..), IsoTime(..))
 
 main :: IO ()
 main = do
@@ -71,6 +71,7 @@ data Command
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
+    | LedgerMeteringReport { flags :: LedgerFlags, from :: IsoTime, to :: Maybe IsoTime, application :: Maybe ApplicationId, compactOutput :: Bool }
     | CantonSandbox
         { cantonOptions :: CantonOptions
         , portFileM :: Maybe FilePath
@@ -261,6 +262,9 @@ commandParser = subparser $ fold
             , command "navigator" $ info
                 (ledgerNavigatorCmd <**> helper)
                 (forwardOptions <> progDesc "Launch Navigator on ledger")
+            , command "metering-report" $ info
+                (ledgerMeteringReportCmd <**> helper)
+                (forwardOptions <> progDesc "Report on Ledger Use")                
             ]
         , subparser $ internal <> fold -- hidden subcommands
             [ command "allocate-party" $ info
@@ -334,6 +338,13 @@ commandParser = subparser $ fold
     ledgerNavigatorCmd = LedgerNavigator
         <$> ledgerFlags (ShowJsonApi False)
         <*> many (argument str (metavar "ARG" <> help "Extra arguments to navigator."))
+
+    ledgerMeteringReportCmd = LedgerMeteringReport
+        <$> ledgerFlags (ShowJsonApi True)
+        <*> option auto (long "from" <> metavar "FROM" <> help "From date of report (inclusive).")
+        <*> optional (option auto (long "to" <> metavar "TO" <> help "To date of report (exclusive)."))
+        <*> optional (option auto (long "application" <> metavar "APP" <> help "Report application identifier."))
+        <*> switch (long "compact-output" <> help "Generate compact report.")
 
     ledgerFlags showJsonApi = LedgerFlags
         <$> httpJsonFlag showJsonApi
@@ -470,6 +481,7 @@ runCommand = \case
     LedgerExport {..} -> runLedgerExport flags remainingArguments
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments
+    LedgerMeteringReport {..} -> runLedgerMeteringReport flags from to application compactOutput
     CantonSandbox {..} ->
         withCantonPortFile cantonOptions $ \cantonOptions cantonPortFile ->
             withCantonSandbox cantonOptions remainingArguments $ \ph -> do

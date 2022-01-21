@@ -20,8 +20,6 @@ import qualified Data.Aeson as A
 import Data.Aeson ((.:))
 import qualified Com.Daml.Ledger.Api.V1.Admin.PartyManagementService as LL
 
-newtype ParticipantId = ParticipantId { unParticipantId :: Text} deriving (Eq,Ord,Show)
-
 getParticipantId :: LedgerService ParticipantId
 getParticipantId =
     makeLedgerService $ \timeout config mdm -> do
