@@ -53,6 +53,7 @@ alias(
         ],
         deps = [
             "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
+            "//daml-lf/archive:daml_lf_archive_reader",
             "//daml-lf/data",
             "//daml-lf/engine",
             "//daml-lf/interpreter",
@@ -60,7 +61,6 @@ alias(
             "//daml-lf/scenario-interpreter",
             "//daml-lf/transaction",
             "//language-support/scala/bindings",
-            "//ledger-api/rs-grpc-bridge",
             "//ledger/caching",
             "//ledger/error",
             "//ledger/ledger-api-auth",
@@ -74,9 +74,10 @@ alias(
             "//ledger/participant-integration-api",
             "//ledger/participant-state",
             "//ledger/participant-state-index",
-            "//ledger/participant-state-metrics",
+            "//ledger/participant-state/kvutils/app",
             "//ledger/sandbox-common:sandbox-common-{}".format(edition),
             "//ledger-service/cli-opts",
+            "//ledger/sandbox-on-x",
             "//libs-scala/build-info",
             "//libs-scala/concurrent",
             "//libs-scala/contextualized-logging",
@@ -261,34 +262,21 @@ scala_test_deps = [
     "@maven//:org_scalaz_scalaz_core",
 ]
 
-[
-    da_scala_test_suite(
-        name = "sandbox-classic-tests",
-        size = "medium",
-        srcs = glob(
-            ["src/test/suite/**/*.scala"],
-            exclude = [],
-        ),
-        data = [
-            "//daml-lf/encoder:testing-dars",
-            "//ledger/test-common:model-tests-default.dar",
-            "//ledger/test-common/test-certificates",
-        ],
-        flaky = False,
-        resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
-        scala_deps = scala_test_deps,
-        deps = test_deps,
-    ),
-]
+da_scala_test_suite(
+    name = "sandbox-classic-tests",
+    size = "medium",
+    srcs = glob(["src/test/suite/**/*.scala"]),
+    data = [
+        "//daml-lf/encoder:testing-dars",
+        "//ledger/test-common:model-tests-default.dar",
+        "//ledger/test-common/test-certificates",
+    ],
+    resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    scala_deps = scala_test_deps,
+    deps = test_deps,
+)
 
 SERVERS = {
-    "memory": {
-        "binary": ":sandbox-classic-binary",
-        "server_args": [
-            "--port=6865",
-            "--eager-package-loading",
-        ],
-    },
     "h2database": {
         "binary": ":sandbox-classic-binary",
         "server_args": [
@@ -337,8 +325,8 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ParticipantPruningIT",
-        # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -363,8 +351,8 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ParticipantPruningIT",
-        # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -407,60 +395,5 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
-    ],
-)
-
-# =============================================================================
-# Conformance tests: deprecated ledger backends (in-memory ledger)
-# =============================================================================
-
-DEPRECATED_SERVERS = {
-    "memory": SERVERS["memory"],
-}
-
-# Full conformance test (in-memory ledger)
-server_conformance_test(
-    name = "conformance-test-deprecated",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-    ],
-    servers = DEPRECATED_SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-        "--exclude=ContractKeysIT:CKFetchOrLookup",
-        "--exclude=ContractKeysIT:CKNoFetchUndisclosed",
-        "--exclude=ContractKeysIT:CKMaintainerScoped",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
-        # Below test suites are duplicates of the above ExceptionsIT and ContractKeysIT
-        # but with more generic assertions for the in-memory ledger
-        # TODO sandbox-classic removal: Delete these tests
-        "--additional=DeprecatedSandboxClassicMemoryContractKeysIT",
-        "--additional=DeprecatedSandboxClassicMemoryExceptionsIT",
-    ],
-)
-
-# Feature test: --static-time (in-memory ledger)
-server_conformance_test(
-    name = "conformance-test-deprecated-static-time",
-    server_args = [
-        "--static-time",
-        "--contract-id-seeding=testing-weak",
-    ],
-    servers = DEPRECATED_SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-        "--exclude=ContractKeysIT:CKFetchOrLookup",
-        "--exclude=ContractKeysIT:CKNoFetchUndisclosed",
-        "--exclude=ContractKeysIT:CKMaintainerScoped",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
-        # Below test suites are duplicates of the above ExceptionsIT and ContractKeysIT
-        # but with more generic assertions for the in-memory ledger
-        # TODO sandbox-classic removal: Delete these tests
-        "--additional=DeprecatedSandboxClassicMemoryContractKeysIT",
-        "--additional=DeprecatedSandboxClassicMemoryExceptionsIT",
     ],
 )
