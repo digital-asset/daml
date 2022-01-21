@@ -99,8 +99,6 @@ object ConfigConverter {
       metricsReporter = sandboxConfig.metricsReporter,
       metricsReportingInterval = sandboxConfig.metricsReportingInterval.toJava,
       allowedLanguageVersions = allowedLanguageVersions,
-      // Enabled by default.
-      enableMutableContractStateCache = true,
       // TODO SoX-to-sandbox-classic: Add configurable flag for sandbox-classic
       enableInMemoryFanOutForLedgerApi = false,
       maxDeduplicationDuration = sandboxConfig.maxDeduplicationDuration,

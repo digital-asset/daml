@@ -54,7 +54,6 @@ final case class Config[Extra](
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
     allowedLanguageVersions: VersionRange[LanguageVersion],
-    enableMutableContractStateCache: Boolean,
     enableInMemoryFanOutForLedgerApi: Boolean,
     extra: Extra,
     enableSelfServiceErrorCodes: Boolean,
@@ -98,7 +97,6 @@ object Config {
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
       allowedLanguageVersions = LanguageVersion.StableVersions,
-      enableMutableContractStateCache = false,
       enableInMemoryFanOutForLedgerApi = false,
       maxDeduplicationDuration = None,
       extra = extra,
@@ -615,35 +613,26 @@ object Config {
             "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
           )
 
-        // TODO append-only: remove after removing support for the current (mutating) schema
+        // TODO append-only: remove
         opt[Unit]("index-append-only-schema")
           .optional()
           .text("Legacy flag with no effect")
           .action((_, config) => config)
 
+        // TODO remove
         opt[Unit]("mutable-contract-state-cache")
           .optional()
           .hidden()
-          .text(
-            "Contract state cache for command execution. Must be enabled in conjunction with index-append-only-schema."
-          )
-          .action((_, config) => config.copy(enableMutableContractStateCache = true))
+          .text("Legacy flag with no effect")
+          .action((_, config) => config)
 
         opt[Unit]("buffered-ledger-api-streams-unsafe")
           .optional()
           .hidden()
           .text(
-            "Experimental buffer for Ledger API streaming queries. Must be enabled in conjunction with index-append-only-schema and mutable-contract-state-cache. Should not be used in production."
+            "Experimental buffer for Ledger API streaming queries. Should not be used in production."
           )
           .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
-
-        checkConfig(config =>
-          if (config.enableInMemoryFanOutForLedgerApi && !config.enableMutableContractStateCache)
-            failure(
-              "buffered-ledger-api-streams-unsafe must be enabled in conjunction with mutable-contract-state-cache."
-            )
-          else success
-        )
 
         opt[Unit]("use-pre-1.18-error-codes")
           .optional()

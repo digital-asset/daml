@@ -222,7 +222,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           managementServiceTimeout = config.managementServiceTimeout,
           maxContractStateCacheSize = 0L,
           maxContractKeyStateCacheSize = 0L,
-          enableMutableContractStateCache = false,
           maxTransactionsInMemoryFanOutBufferSize = 0L,
           enableInMemoryFanOutForLedgerApi = false,
           enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,

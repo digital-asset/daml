@@ -79,7 +79,6 @@ trait ConfigProvider[ExtraConfig] {
       managementServiceTimeout = participantConfig.managementServiceTimeout,
       maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
       maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
-      enableMutableContractStateCache = config.enableMutableContractStateCache,
       maxTransactionsInMemoryFanOutBufferSize =
         participantConfig.maxTransactionsInMemoryFanOutBufferSize,
       enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
