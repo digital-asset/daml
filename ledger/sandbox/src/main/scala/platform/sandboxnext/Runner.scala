@@ -287,7 +287,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
               maxDeduplicationDurationEnforced = true,
             ),
             contractIdFeatures = ExperimentalContractIds.of(
-              v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+              v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
             ),
           ),
         )
