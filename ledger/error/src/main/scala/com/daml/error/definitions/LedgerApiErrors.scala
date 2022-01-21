@@ -293,7 +293,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         |and the user might thus no longer be authorized to this stream.
         |""".stripMargin)
     @Resolution(
-      "After retry stream will start if authorized, or a more detailed error will be signalled."
+      "The application should automatically retry fetching the stream. It will either succeed, or fail with an explicit denial of authentication or permission."
     )
     object StaleUserManagementBasedStreamClaims
         extends ErrorCode(
