@@ -219,7 +219,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
        
    - * ``FAILED_PRECONDITION`` / :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>`
      
-     * The specified deduplication period is longer than what the Daml ledger supports.
+     * The specified deduplication period is longer than what the Daml ledger supports or the ledger cannot handle the specified deduplication offset.
        ``earliest_offset`` contains the earliest deduplication offset or ``longest_duration`` contains the longest deduplication duration that can be used (at least one of the two must be provided).
 
        Options:
@@ -305,6 +305,11 @@ We recommend the following strategy for using deduplication offsets:
 #. Obtain a recent offset ``OFF0`` on the completion event stream and remember across crashes that you use ``OFF0`` with the chosen command ID. There are several ways to do so:
 
    - Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :ref:`current ledger end <com.daml.ledger.api.v1.CompletionEndRequest>`.
+
+     .. note::
+	Some ledger implementations reject deduplication offsets that do not identify a command completion visible to the submitting parties with the error code id :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>`.
+	In general, the ledger end need not identify a command completion that is visible to the submitting parties.
+	When running on such a ledger, use the Command Service approach described next.
    
    - Use the :ref:`Command Service <command-service>` to obtain a recent offset by repeatedly submitting a dummy command, e.g., a :ref:`Create-And-Exercise command <com.daml.ledger.api.v1.CreateAndExerciseCommand>` of some single-signatory template with the :ref:`Archive <function-da-internal-template-functions-archive-52202>` choice, until you get a successful response.
      The response contains the :ref:`completion offset <com.daml.ledger.api.v1.SubmitAndWaitForTransactionIdResponse.completion_offset>`.
