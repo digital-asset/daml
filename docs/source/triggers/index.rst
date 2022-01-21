@@ -380,14 +380,14 @@ optimization rather than a requirement for correctness. The Daml model should
 be designed such that duplicated commands are either rejected (e.g. using keys
 or relying on changing contract IDs) or benign.
 
-Authentication
-==============
+Authorization
+=============
 
-When using Daml triggers against a Ledger with authentication, you can
+When using Daml triggers against a Ledger with :doc:`request authorization </app-dev/authorization>`, you can
 pass ``--access-token-file token.jwt`` to ``daml trigger`` which will
 read the token from the file ``token.jwt``.
 
-If you plan to run more than one trigger at a time, or trigers for more than
+If you plan to run more than one trigger at a time, or triggers for more than
 one party at a time, you may be interested in the
 :doc:`/tools/trigger-service/index`.
 

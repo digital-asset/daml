@@ -11,7 +11,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.{SEApp, SEImportValue, SELocA, SEMakeClo}
 import com.daml.lf.value.Value
 import com.daml.lf.value.test.TypedValueGenerators.genAddend
-import com.daml.lf.value.test.ValueGenerators.{cidV0Gen, comparableCoidsGen}
+import com.daml.lf.value.test.ValueGenerators.{comparableCoidsGen, suffixedV1CidGen}
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.iface
 import com.daml.lf.interpretation.Error.ContractIdComparability
@@ -111,8 +111,7 @@ class OrderingSpec
   // The tests are here as this is difficult to test outside daml-lf/interpreter.
   "txn Value Ordering" should {
     import Value.{ContractId => Cid}
-    // SContractId V1 ordering is nontotal so arbitrary generation of them is unsafe to use
-    implicit val cidArb: Arbitrary[Cid] = Arbitrary(cidV0Gen)
+    implicit val cidArb: Arbitrary[Cid] = Arbitrary(suffixedV1CidGen)
     implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
     implicit val cidOrd: Order[Cid] = svalueOrd contramap SContractId
     val EmptyScope: Value.LookupVariantEnum = _ => None

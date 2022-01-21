@@ -83,9 +83,10 @@ def daml_script_test(compiler_version, runner_version):
         runner = "//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = daml_runner,
-        server_args = ["sandbox-kv" if versions.is_at_least("2.0.0", runner_version) else "sandbox"],
+        server_args = ["sandbox"],
         server_files = [
             "$(rootpath {})".format(compiled_dar),
         ],
+        server_files_prefix = "--dar=" if versions.is_at_least("2.0.0", runner_version) else "",
         tags = ["exclusive"],
     )

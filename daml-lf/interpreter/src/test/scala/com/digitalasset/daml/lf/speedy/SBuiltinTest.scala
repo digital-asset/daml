@@ -5,6 +5,7 @@ package com.daml.lf
 package speedy
 
 import java.util
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
@@ -730,8 +731,8 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
     "EQUAL @ContractId" - {
       "works as expected" in {
-        val cid1 = SContractId(Value.ContractId.assertFromString("#contract1"))
-        val cid2 = SContractId(Value.ContractId.assertFromString("#contract2"))
+        val cid1 = SContractId(Value.ContractId.V1(Hash.hashPrivateKey("#contract1")))
+        val cid2 = SContractId(Value.ContractId.V1(Hash.hashPrivateKey("#contract2")))
         evalApp(e"EQUAL @(ContractId Mod:T)", Array(cid1, cid1)) shouldBe Right(SBool(true))
         evalApp(e"EQUAL @(ContractId Mod:T)", Array(cid1, cid2)) shouldBe Right(SBool(false))
       }
@@ -1298,19 +1299,21 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       "CONTRACT_ID_TO_TEXT" - {
         "returns None on-ledger" in {
           val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
+          val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
           evalApp(
             e"$f",
-            Array(SContractId(Value.ContractId.assertFromString("#abc"))),
+            Array(SContractId(cid)),
             onLedger = true,
           ) shouldBe Right(SOptional(None))
         }
         "returns Some(abc) off-ledger" in {
           val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
+          val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
           evalApp(
             e"$f",
-            Array(SContractId(Value.ContractId.assertFromString("#abc"))),
+            Array(SContractId(cid)),
             onLedger = false,
-          ) shouldBe Right(SOptional(Some(SText("#abc"))))
+          ) shouldBe Right(SOptional(Some(SText(cid.coid))))
         }
       }
 

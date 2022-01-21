@@ -1,6 +1,5 @@
 module Setup where
 
-import DA.Action (unless)
 import DA.Foldable (forA_)
 import qualified DA.Text as T
 import Daml.Script

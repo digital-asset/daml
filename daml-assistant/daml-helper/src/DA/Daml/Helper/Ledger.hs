@@ -7,6 +7,7 @@ module DA.Daml.Helper.Ledger (
     LedgerFlags(..),
     RemoteDalf(..),
     defaultLedgerFlags,
+    sandboxLedgerFlags,
     getDefaultArgs,
     LedgerApi(..),
     L.ClientSSLConfig(..),
@@ -101,6 +102,12 @@ defaultLedgerFlags api = LedgerFlags
   , fPortM = Nothing
   , fTokFileM = Nothing
   , fMaxReceiveLengthM = Nothing
+  }
+
+sandboxLedgerFlags :: Int -> LedgerFlags
+sandboxLedgerFlags port = (defaultLedgerFlags Grpc)
+  { fHostM = Just "localhost"
+  , fPortM = Just port
   }
 
 data LedgerArgs = LedgerArgs

@@ -251,7 +251,6 @@ da_scala_test_suite(
             test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--verbose",
                 "--additional=ParticipantPruningIT",
-                "--additional=MultiPartySubmissionIT",
                 # Disable tests targeting only append-only schema functionality
                 "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
             ],
@@ -309,7 +308,6 @@ conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ParticipantPruningIT",
-        "--additional=MultiPartySubmissionIT",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
@@ -333,7 +331,6 @@ conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ParticipantPruningIT",
-        "--additional=MultiPartySubmissionIT",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
@@ -358,7 +355,6 @@ conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ParticipantPruningIT",
-        "--additional=MultiPartySubmissionIT",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
@@ -383,7 +379,6 @@ conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ParticipantPruningIT",
-        "--additional=MultiPartySubmissionIT",
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],

@@ -167,7 +167,7 @@ object EndlessReadService {
   def submissionId(i: Int): Ref.SubmissionId = Ref.SubmissionId.assertFromString(f"sub$i%08x")
   def transactionId(i: Int): Ref.TransactionId = Ref.TransactionId.assertFromString(f"tx$i%08x")
   def commandId(i: Int): Ref.CommandId = Ref.CommandId.assertFromString(f"cmd$i%08x")
-  def cid(i: Int): Value.ContractId = Value.ContractId.V0.assertFromString(s"#$i")
+  def cid(i: Int): Value.ContractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey(i.toString))
   def recordTime(i: Int): Timestamp =
     Timestamp.assertFromInstant(Instant.EPOCH.plusSeconds(i.toLong))
   def completionInfo(i: Int): CompletionInfo = CompletionInfo(

@@ -194,17 +194,14 @@ quickSandbox projDir = do
                         , "--domain-public-port", show domainPublicApiPort
                         , "--domain-admin-port", show domainAdminApiPort
                         , "--port-file", portFile
-                        , "--static-time"
+                        , "--dar", darFile
+                        -- , "--static-time"
+                            -- TODO https://github.com/digital-asset/daml/issues/11831
+                            --   Re-enable once sim-clock is working.
                         ])
                     {std_out = UseHandle devNull, create_group = True, cwd = Just projDir}
         (_, _, _, sandboxPh) <- createProcess sandboxProc
-        _ <- readPortFileWith decodeCantonSandboxPort sandboxPh maxRetries (projDir </> portFile)
-        callCommandSilentIn projDir $ unwords
-             [ "daml ledger upload-dar"
-             , "--host=localhost"
-             , "--port=" <> show sandboxPort
-             , darFile
-             ]
+        _ <- readPortFile sandboxPh maxRetries (projDir </> portFile)
         pure $
             QuickSandboxResource
                 { quickProjDir = projDir
@@ -801,7 +798,7 @@ cantonTests = testGroup "daml sandbox"
         , "--admin-api-port", show adminApiPort
         , "--domain-public-port", show domainPublicApiPort
         , "--domain-admin-port", show domainAdminApiPort
-        , "--port-file", portFile
+        , "--canton-port-file", portFile
         ] $ \ ph -> do
         -- wait for port file to be written
         _ <- readPortFileWith decodeCantonSandboxPort ph maxRetries portFile

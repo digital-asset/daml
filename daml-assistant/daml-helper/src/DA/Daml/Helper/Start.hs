@@ -79,12 +79,12 @@ getPortForSandbox defaultPortSpec portSpecM =
 
 determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> FilePath -> IO CantonOptions
 determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile = do
-    ledgerApi <- getPortForSandbox (SpecifiedPort (SandboxPort 6865)) ledgerApiSpec
-    adminApi <- getPortForSandbox FreePort adminApiSpec
-    domainPublicApi <- getPortForSandbox FreePort domainPublicApiSpec
-    domainAdminApi <- getPortForSandbox FreePort domainAdminApiSpec
-    let portFileM = Just portFile -- TODO allow canton port file to be passed in from command line?
-    let staticTime = StaticTime False
+    cantonLedgerApi <- getPortForSandbox (SpecifiedPort (SandboxPort 6865)) ledgerApiSpec
+    cantonAdminApi <- getPortForSandbox FreePort adminApiSpec
+    cantonDomainPublicApi <- getPortForSandbox FreePort domainPublicApiSpec
+    cantonDomainAdminApi <- getPortForSandbox FreePort domainAdminApiSpec
+    let cantonPortFileM = Just portFile -- TODO allow canton port file to be passed in from command line?
+    let cantonStaticTime = StaticTime False
     pure CantonOptions {..}
 
 withSandbox :: StartOptions -> FilePath -> [String] -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
@@ -100,7 +100,7 @@ withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
       withCantonSandbox cantonOptions sandboxArgs $ \ph -> do
         putStrLn "Waiting for canton sandbox to start."
         sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries portFile
-        runLedgerUploadDar ((defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}) (Just darPath)
+        runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
         kont ph (SandboxPort sandboxPort)
 
     oldSandbox sandbox = withTempDir $ \tempDir -> do
@@ -268,9 +268,9 @@ runStart startOptions@StartOptions{..} =
             whenJust mbOutputPath $ \_outputPath -> do
               runCodegen lang []
         doReset (SandboxPort sandboxPort) =
-          runLedgerReset $ (defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}
+          runLedgerReset (sandboxLedgerFlags sandboxPort)
         doUploadDar darPath (SandboxPort sandboxPort) =
-          runLedgerUploadDar ((defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}) (Just darPath)
+          runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
         listenForKeyPress projectConfig darPath sandboxPort runInitScript = do
           hSetBuffering stdin NoBuffering
           void $

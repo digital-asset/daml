@@ -13,10 +13,6 @@ import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services._
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  ExperimentalContractIds,
-}
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
@@ -99,8 +95,7 @@ private[daml] object ApiServices {
       managementServiceTimeout: Duration,
       enableSelfServiceErrorCodes: Boolean,
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
-      commandDeduplicationFeatures: CommandDeduplicationFeatures,
-      contractIdFeatures: ExperimentalContractIds,
+      ledgerFeatures: LedgerFeatures,
       enableUserManagement: Boolean,
   )(implicit
       materializer: Materializer,
@@ -168,9 +163,7 @@ private[daml] object ApiServices {
       val apiVersionService =
         ApiVersionService.create(
           enableSelfServiceErrorCodes,
-          commandDeduplicationFeatures,
-          contractIdFeatures,
-          optTimeServiceBackend.isDefined,
+          ledgerFeatures,
           enableUserManagement = enableUserManagement,
         )
 

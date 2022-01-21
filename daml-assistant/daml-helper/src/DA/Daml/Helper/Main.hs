@@ -4,7 +4,7 @@
 module DA.Daml.Helper.Main (main) where
 
 import Control.Exception.Safe
-import Control.Monad
+import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import Data.Foldable
 import Data.List.Extra
@@ -12,8 +12,9 @@ import Numeric.Natural
 import Options.Applicative.Extended
 import System.Environment
 import System.Exit
-import System.IO
+import System.IO.Extra
 import System.Process (showCommandForUser)
+import System.Process.Typed (unsafeProcessHandle)
 import Text.Read (readMaybe)
 
 import DA.Signals
@@ -24,6 +25,7 @@ import DA.Daml.Helper.Start
 import DA.Daml.Helper.Studio
 import DA.Daml.Helper.Util
 import DA.Daml.Helper.Codegen
+import DA.PortFile
 
 main :: IO ()
 main = do
@@ -70,9 +72,11 @@ data Command
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
     | CantonSandbox
-      { ports :: CantonOptions
-      , remainingArguments :: [String]
-      }
+        { cantonOptions :: CantonOptions
+        , portFileM :: Maybe FilePath
+        , darPaths :: [FilePath]
+        , remainingArguments :: [String]
+        }
 
 data AppTemplate
   = AppTemplateDefault
@@ -408,15 +412,22 @@ commandParser = subparser $ fold
         , help "Timeout of gRPC operations in seconds. Defaults to 60s. Must be > 0."
         ]
 
-    cantonSandboxCmd = CantonSandbox
-      <$> (CantonOptions
-             <$> option auto (long "port" <> value 6865)
-             <*> option auto (long "admin-api-port" <> value 6866)
-             <*> option auto (long "domain-public-port" <> value 6867)
-             <*> option auto (long "domain-admin-port" <> value 6868)
-             <*> optional (option str (long "port-file" <> metavar "PATH"))
-             <*> (StaticTime <$> switch (long "static-time")))
-      <*> many (argument str (metavar "ARG"))
+    cantonSandboxCmd = do
+        cantonOptions <- do
+            cantonLedgerApi <- option auto (long "port" <> value 6865)
+            cantonAdminApi <- option auto (long "admin-api-port" <> value 6866)
+            cantonDomainPublicApi <- option auto (long "domain-public-port" <> value 6867)
+            cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value 6868)
+            cantonPortFileM <- optional $ option str (long "canton-port-file" <> metavar "PATH"
+                <> help "File to write canton participant ports when ready")
+            cantonStaticTime <- StaticTime <$> switch (long "static-time")
+            pure CantonOptions{..}
+        portFileM <- optional $ option str (long "port-file" <> metavar "PATH"
+            <> help "File to write ledger API port when ready")
+        darPaths <- many $ option str (long "dar" <> metavar "PATH"
+            <> help "DAR file to upload to sandbox")
+        remainingArguments <- many (argument str (metavar "ARG"))
+        pure CantonSandbox {..}
 
     cantonSandboxCmdInfo =
         forwardOptions
@@ -459,4 +470,15 @@ runCommand = \case
     LedgerExport {..} -> runLedgerExport flags remainingArguments
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments
-    CantonSandbox {..} -> runCantonSandbox ports remainingArguments
+    CantonSandbox {..} ->
+        withCantonPortFile cantonOptions $ \cantonOptions cantonPortFile ->
+            withCantonSandbox cantonOptions remainingArguments $ \ph -> do
+                putStrLn "Starting Canton sandbox."
+                sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries cantonPortFile
+                putStrLn ("Listening at port " <> show sandboxPort)
+                forM_ darPaths $ \darPath -> do
+                    runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
+                whenJust portFileM $ \portFile -> do
+                    putStrLn ("Writing ledger API port to " <> portFile)
+                    writeFileUTF8 portFile (show sandboxPort)
+                putStrLn "Canton sandbox is ready."

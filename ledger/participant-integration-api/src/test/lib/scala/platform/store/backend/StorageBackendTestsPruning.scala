@@ -4,7 +4,6 @@
 package com.daml.platform.store.backend
 
 import com.daml.lf.data.Ref
-import com.daml.platform.store.appendonlydao.events.ContractId
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -83,7 +82,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val create = dtoCreate(
       offset = offset(1),
       eventSequentialId = 1L,
-      contractId = "#1",
+      contractId = hashCid("#1"),
       signatory = someParty,
     )
     val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, "signatory")
@@ -93,7 +92,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       offset = offset(2),
       eventSequentialId = 2L,
       consuming = true,
-      contractId = "#1",
+      contractId = hashCid("#1"),
       signatory = someParty,
     )
     val range = RangeParams(0L, 2L, None, None)
@@ -168,7 +167,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val create = dtoCreate(
       offset = offset(2),
       eventSequentialId = 1L,
-      contractId = "#1",
+      contractId = hashCid("#1"),
       signatory = someParty,
     )
     val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, "signatory")
@@ -243,8 +242,8 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
   it should "prune all retroactively and immediately divulged contracts (if pruneAllDivulgedContracts is set)" in {
     val partyName = "party"
     val divulgee = Ref.Party.assertFromString(partyName)
-    val contract1_id = "#1"
-    val contract2_id = "#2"
+    val contract1_id = hashCid("#1")
+    val contract2_id = hashCid("#2")
 
     val contract1_immediateDivulgence = dtoCreate(
       offset = offset(1),
@@ -287,13 +286,13 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val contract1_beforePruning = executeSql(
       backend.contract.activeContractWithoutArgument(
         Set(divulgee),
-        ContractId.assertFromString(contract1_id),
+        contract1_id,
       )
     )
     val contract2_beforePruning = executeSql(
       backend.contract.activeContractWithoutArgument(
         Set(divulgee),
-        ContractId.assertFromString(contract2_id),
+        contract2_id,
       )
     )
     executeSql(
@@ -305,13 +304,13 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val contract1_afterPruning = executeSql(
       backend.contract.activeContractWithoutArgument(
         Set(divulgee),
-        ContractId.assertFromString(contract1_id),
+        contract1_id,
       )
     )
     val contract2_afterPruning = executeSql(
       backend.contract.activeContractWithoutArgument(
         Set(divulgee),
-        ContractId.assertFromString(contract2_id),
+        contract2_id,
       )
     )
 
@@ -327,8 +326,8 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
   it should "only prune retroactively divulged contracts if there exists an associated consuming exercise (if pruneAllDivulgedContracts is not set)" in {
     val signatory = "signatory"
     val divulgee = Ref.Party.assertFromString("party")
-    val contract1_id = "#1"
-    val contract2_id = "#2"
+    val contract1_id = hashCid("#1")
+    val contract2_id = hashCid("#2")
 
     val contract1_create = dtoCreate(
       offset = offset(1),
@@ -376,13 +375,13 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val contract1_beforePruning = executeSql(
       backend.contract.activeContractWithoutArgument(
         Set(divulgee),
-        ContractId.assertFromString(contract1_id),
+        contract1_id,
       )
     )
     val contract2_beforePruning = executeSql(
       backend.contract.activeContractWithoutArgument(
         Set(divulgee),
-        ContractId.assertFromString(contract2_id),
+        contract2_id,
       )
     )
     executeSql(
@@ -394,13 +393,13 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val contract1_afterPruning = executeSql(
       backend.contract.activeContractWithoutArgument(
         Set(divulgee),
-        ContractId.assertFromString(contract1_id),
+        contract1_id,
       )
     )
     val contract2_afterPruning = executeSql(
       backend.contract.activeContractWithoutArgument(
         Set(divulgee),
-        ContractId.assertFromString(contract2_id),
+        contract2_id,
       )
     )
 

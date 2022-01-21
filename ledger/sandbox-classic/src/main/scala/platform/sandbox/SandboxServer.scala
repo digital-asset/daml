@@ -369,20 +369,24 @@ final class SandboxServer(
         enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         checkOverloaded = _ => None,
         userManagementStore = userManagementStore,
-        commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
-          Some(
-            CommandDeduplicationPeriodSupport.of(
-              offsetSupport = CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
-              durationSupport =
-                CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
-            )
+        ledgerFeatures = LedgerFeatures(
+          staticTime = timeServiceBackendO.isDefined,
+          commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+            Some(
+              CommandDeduplicationPeriodSupport.of(
+                offsetSupport =
+                  CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
+                durationSupport =
+                  CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+              )
+            ),
+            CommandDeduplicationType.SYNC_ONLY,
+            maxDeduplicationDurationEnforced = false,
           ),
-          CommandDeduplicationType.SYNC_ONLY,
-          maxDeduplicationDurationEnforced = false,
-        ),
-        contractIdFeatures = ExperimentalContractIds.of(
-          v0 = ExperimentalContractIds.ContractIdV0Support.SUPPORTED,
-          v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+          contractIdFeatures = ExperimentalContractIds.of(
+            v0 = ExperimentalContractIds.ContractIdV0Support.NOT_SUPPORTED,
+            v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+          ),
         ),
         enableUserManagement = config.userManagementConfig.enabled,
       )(materializer, executionSequencerFactory, loggingContext)

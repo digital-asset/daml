@@ -15,8 +15,8 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
   it should "find duplicate event ids" in {
     val updates = Vector(
-      dtoCreate(offset(7), 7L, "#7"),
-      dtoCreate(offset(7), 7L, "#7"), // duplicate id
+      dtoCreate(offset(7), 7L, hashCid("#7")),
+      dtoCreate(offset(7), 7L, hashCid("#7")), // duplicate id
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
@@ -30,8 +30,8 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
   it should "find non-consecutive event ids" in {
     val updates = Vector(
-      dtoCreate(offset(1), 1L, "#1"),
-      dtoCreate(offset(3), 3L, "#3"), // non-consecutive id
+      dtoCreate(offset(1), 1L, hashCid("#1")),
+      dtoCreate(offset(3), 3L, hashCid("#3")), // non-consecutive id
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
@@ -45,11 +45,11 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
   it should "not find errors beyond the ledger end" in {
     val updates = Vector(
-      dtoCreate(offset(1), 1L, "#1"),
-      dtoCreate(offset(2), 2L, "#2"),
-      dtoCreate(offset(7), 7L, "#7"), // beyond the ledger end
-      dtoCreate(offset(7), 7L, "#7"), // duplicate id (beyond ledger end)
-      dtoCreate(offset(9), 9L, "#9"), // non-consecutive id (beyond ledger end)
+      dtoCreate(offset(1), 1L, hashCid("#1")),
+      dtoCreate(offset(2), 2L, hashCid("#2")),
+      dtoCreate(offset(7), 7L, hashCid("#7")), // beyond the ledger end
+      dtoCreate(offset(7), 7L, hashCid("#7")), // duplicate id (beyond ledger end)
+      dtoCreate(offset(9), 9L, hashCid("#9")), // non-consecutive id (beyond ledger end)
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))

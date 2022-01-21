@@ -5,6 +5,7 @@ package com.daml
 package lf
 package transaction
 
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.transaction.{TransactionOuterClass => proto}
@@ -867,7 +868,7 @@ class TransactionCoderSpec
     }
 
   private def absCid(s: String): ContractId =
-    ContractId.assertFromString(s)
+    ContractId.V1(Hash.hashPrivateKey(s))
 
   def versionNodes(
       version: TransactionVersion,

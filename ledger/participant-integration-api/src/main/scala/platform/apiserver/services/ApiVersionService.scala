@@ -9,8 +9,6 @@ import com.daml.error.{
   ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  ExperimentalContractIds,
   ExperimentalFeatures,
   ExperimentalOptionalLedgerId,
   ExperimentalSelfServiceErrorCodes,
@@ -26,6 +24,7 @@ import com.daml.ledger.api.v1.version_service.{
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.LedgerFeatures
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
 
@@ -36,13 +35,11 @@ import scala.util.control.NonFatal
 
 private[apiserver] final class ApiVersionService private (
     enableSelfServiceErrorCodes: Boolean,
-    commandDeduplicationFeatures: CommandDeduplicationFeatures,
-    contractIdFeatures: ExperimentalContractIds,
-    enableStaticTime: Boolean,
+    ledgerFeatures: LedgerFeatures,
     enableUserManagement: Boolean,
 )(implicit
     loggingContext: LoggingContext,
-    ec: ExecutionContext,
+    executionContext: ExecutionContext,
 ) extends VersionService
     with GrpcApiService {
 
@@ -62,10 +59,10 @@ private[apiserver] final class ApiVersionService private (
         ExperimentalFeatures.of(
           selfServiceErrorCodes =
             Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes()),
-          staticTime = Some(ExperimentalStaticTime(supported = enableStaticTime)),
-          commandDeduplication = Some(commandDeduplicationFeatures),
+          staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime)),
+          commandDeduplication = Some(ledgerFeatures.commandDeduplicationFeatures),
           optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
-          contractIds = Some(contractIdFeatures),
+          contractIds = Some(ledgerFeatures.contractIdFeatures),
         )
       ),
     )
@@ -99,7 +96,7 @@ private[apiserver] final class ApiVersionService private (
     }
 
   override def bindService(): ServerServiceDefinition =
-    VersionServiceGrpc.bindService(this, ec)
+    VersionServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = ()
 
@@ -108,16 +105,12 @@ private[apiserver] final class ApiVersionService private (
 private[apiserver] object ApiVersionService {
   def create(
       enableSelfServiceErrorCodes: Boolean,
-      commandDeduplicationFeatures: CommandDeduplicationFeatures,
-      contractIdFeatures: ExperimentalContractIds,
-      enableStaticTime: Boolean,
+      ledgerFeatures: LedgerFeatures,
       enableUserManagement: Boolean,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
     new ApiVersionService(
       enableSelfServiceErrorCodes,
-      commandDeduplicationFeatures,
-      contractIdFeatures,
-      enableStaticTime,
+      ledgerFeatures,
       enableUserManagement = enableUserManagement,
     )
 }
