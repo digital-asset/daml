@@ -294,7 +294,7 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
   }
 
   "UserId" - {
-    val validCharacters = "abcdefghijklmnopqrstuvwxyz0123456789._-#!|@^$`+'~"
+    val validCharacters = "abcdefghijklmnopqrstuvwxyz0123456789._-#!|@^$`+'~:"
     val validUserIds =
       validCharacters.flatMap(c => Vector(c.toString, s"$c$c")) ++
         Vector(
@@ -318,7 +318,7 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
     }
 
     "reject invalid user ids" in {
-      val invalidCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ \\%&*()=[]{};:<>,?\""
+      val invalidCharacters = "àáABCDEFGHIJKLMNOPQRSTUVWXYZ \\%&*()=[]{};<>,?\""
       val invalidUserIds =
         invalidCharacters.map(c => c.toString) ++
           Vector(
