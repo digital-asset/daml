@@ -141,7 +141,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--verbose",
@@ -166,7 +165,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
         "--enable-conflict-checking",
     ],
     test_tool_args = [
@@ -188,7 +186,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
         "--enable-conflict-checking",
         "--static-time",
     ],
@@ -208,7 +205,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--verbose",
