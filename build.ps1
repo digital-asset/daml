@@ -8,6 +8,8 @@ Set-StrictMode -Version latest
 .\dev-env\windows\bin\dadew.ps1 sync
 .\dev-env\windows\bin\dadew.ps1 enable
 
+Get-ChildItem -Path C:\Users\u\dadew\scoop\apps\msys2\current\usr\bin
+
 if (!(Test-Path .\.bazelrc.local)) {
    Set-Content -Path .\.bazelrc.local -Value 'build --config windows'
 }
