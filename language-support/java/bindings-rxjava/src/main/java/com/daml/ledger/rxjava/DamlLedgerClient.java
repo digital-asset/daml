@@ -6,7 +6,6 @@ package com.daml.ledger.rxjava;
 import com.daml.grpc.adapter.SingleThreadExecutionSequencerPool;
 import com.daml.ledger.rxjava.grpc.*;
 import io.grpc.ManagedChannel;
-import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
 import io.netty.handler.ssl.SslContext;
 import java.time.Duration;
@@ -105,46 +104,6 @@ public final class DamlLedgerClient implements LedgerClient {
     return new Builder(channelBuilder);
   }
 
-  /**
-   * Creates a {@link DamlLedgerClient} connected to a Ledger identified by the ip and port.
-   *
-   * @param ledgerId The expected ledger-id
-   * @param hostIp The ip of the Ledger
-   * @param hostPort The port of the Ledger
-   * @param sslContext If present, it will be used to establish a TLS connection. If empty, an
-   *     unsecured plaintext connection will be used. Must be an SslContext created for client
-   *     applications via {@link GrpcSslContexts#forClient()}.
-   * @deprecated since 0.13.38, please use {@link
-   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or
-   *     even better either {@link DamlLedgerClient#newBuilder}
-   */
-  @Deprecated
-  public static DamlLedgerClient forLedgerIdAndHost(
-      @NonNull String ledgerId,
-      @NonNull String hostIp,
-      int hostPort,
-      @NonNull Optional<SslContext> sslContext) {
-    Builder builder = newBuilder(hostIp, hostPort).withExpectedLedgerId(ledgerId);
-    sslContext.ifPresent(builder::withSslContext);
-    return builder.build();
-  }
-
-  /**
-   * Like {@link DamlLedgerClient#forLedgerIdAndHost(String, String, int, Optional)} but with the
-   * ledger-id automatically discovered instead of provided.
-   *
-   * @deprecated since 0.13.38, please use {@link
-   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or
-   *     even better either {@link DamlLedgerClient#newBuilder}
-   */
-  @Deprecated
-  public static DamlLedgerClient forHostWithLedgerIdDiscovery(
-      @NonNull String hostIp, int hostPort, Optional<SslContext> sslContext) {
-    Builder builder = newBuilder(hostIp, hostPort);
-    sslContext.ifPresent(builder::withSslContext);
-    return builder.build();
-  }
-
   private ActiveContractsClient activeContractsClient;
   private TransactionsClient transactionsClient;
   private CommandCompletionClient commandCompletionClient;
@@ -168,27 +127,6 @@ public final class DamlLedgerClient implements LedgerClient {
     this.channel = channelBuilder.build();
     this.expectedLedgerId = expectedLedgerId.orElse(null);
     this.accessToken = accessToken;
-    this.timeout = timeout;
-  }
-
-  /**
-   * Creates a {@link DamlLedgerClient} with a previously created {@link ManagedChannel}. This is
-   * useful in case additional settings need to be configured for the connection to the ledger (e.g.
-   * keep alive timeout).
-   *
-   * @param expectedLedgerId If the value is present, {@link DamlLedgerClient#connect()} throws an
-   *     exception if the provided ledger id does not match the ledger id provided by the ledger.
-   * @param channel A user provided instance of @{@link ManagedChannel}.
-   * @deprecated since 0.13.38, please use {@link DamlLedgerClient#newBuilder}
-   */
-  @Deprecated
-  public DamlLedgerClient(
-      Optional<String> expectedLedgerId,
-      @NonNull ManagedChannel channel,
-      Optional<Duration> timeout) {
-    this.channel = channel;
-    this.expectedLedgerId = expectedLedgerId.orElse(null);
-    this.accessToken = Optional.empty();
     this.timeout = timeout;
   }
 
