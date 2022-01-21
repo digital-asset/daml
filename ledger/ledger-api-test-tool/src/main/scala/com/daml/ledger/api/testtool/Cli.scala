@@ -20,13 +20,6 @@ object Cli {
 
   private[this] implicit val fileRead: Read[File] = Read.reads(Paths.get(_).toFile)
 
-  private def reportUsageOfDeprecatedOption[B](option: String) = { (_: Any, config: B) =>
-    System.err.println(
-      s"WARNING: $option has been deprecated and will be removed in a future version"
-    )
-    config
-  }
-
   private def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {
     val arity = 2
     val reads: String => (String, Int) = { s: String =>
@@ -69,13 +62,6 @@ object Cli {
       .optional()
       .text("Number of connection attempts to the participants. Applied to all endpoints.")
 
-    // FIXME Make client_server_test more flexible and remove this deprecated option
-    opt[String]("target-port")
-      .optional()
-      .text("DEPRECATED: this option is no longer used and has no effect")
-      .action(reportUsageOfDeprecatedOption("--target-port"))
-      .hidden()
-
     opt[File]("pem")
       .optional()
       .text("TLS: The pem file to be used as the private key. Applied to all endpoints.")
@@ -109,12 +95,6 @@ object Cli {
           |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
           |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin
       )
-
-    opt[String](name = "load-scale-factor")
-      .optional()
-      .text("DEPRECATED: this option is no longer used and has no effect")
-      .action(reportUsageOfDeprecatedOption("--load-scale-factor"))
-      .hidden()
 
     opt[Int](name = "concurrent-test-runs")
       .optional()
@@ -187,11 +167,6 @@ object Cli {
       .text(
         "The path of the benchmark report file produced by performance tests (default: stdout)."
       )
-
-    opt[Unit]("all-tests")
-      .text("DEPRECATED: All tests are always run by default.")
-      .action(reportUsageOfDeprecatedOption("--all-tests"))
-      .hidden()
 
     opt[Unit]("shuffle-participants")
       .action((_, c) => c.copy(shuffleParticipants = true))
