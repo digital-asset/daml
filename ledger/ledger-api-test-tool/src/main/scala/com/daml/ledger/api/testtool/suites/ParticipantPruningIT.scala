@@ -685,7 +685,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
   test(
     "PRImmediateAndRetroactiveDivulgence",
     "Immediate divulgence pruning succeeds",
-    allocate(SingleParty, SingleParty).expectingActualParticipantCountOfAtLeast(2),
+    allocate(SingleParty, SingleParty).expectingMinimumActualParticipantCount(2),
     runConcurrently = false, // pruning call may interact with other tests
     // Higher timeout - The test generates a significant number of events
     timeoutScale = 8.0,

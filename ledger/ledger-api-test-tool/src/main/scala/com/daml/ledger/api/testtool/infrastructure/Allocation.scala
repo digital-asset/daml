@@ -14,7 +14,7 @@ private[testtool] object Allocation {
       partyCounts: Seq[PartyCount],
       minimumParticipantCount: Int,
   ) {
-    def expectingActualParticipantCountOfAtLeast(
+    def expectingMinimumActualParticipantCount(
         minimumParticipantCount: Int
     ): ParticipantAllocation =
       copy(minimumParticipantCount = minimumParticipantCount)
