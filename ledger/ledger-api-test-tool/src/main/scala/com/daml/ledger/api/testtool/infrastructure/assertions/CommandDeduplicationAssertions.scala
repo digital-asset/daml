@@ -93,7 +93,7 @@ object CommandDeduplicationAssertions {
       )
       assert(
         acceptedCompletionResponse.offset.getAbsolute < completionResponse.offset.getAbsolute,
-        s"No accepted completion with the command ID '${completionResponse.completion.commandId}' before the completion's offset ${completionResponse.offset} has been found",
+        s"An accepted completion with the command ID '${completionResponse.completion.commandId}' at the offset ${acceptedCompletionResponse.offset} that is not before the completion's offset ${completionResponse.offset} has been found",
       )
     }
 
