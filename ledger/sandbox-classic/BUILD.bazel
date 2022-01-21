@@ -324,9 +324,6 @@ server_conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=ParticipantPruningIT",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -350,9 +347,6 @@ server_conformance_test(
         "--additional=CommandDeduplicationParallelIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=ParticipantPruningIT",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
         "--exclude=ClosedWorldIT",
     ],
 )

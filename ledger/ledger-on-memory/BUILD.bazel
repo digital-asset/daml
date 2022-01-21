@@ -145,14 +145,10 @@ conformance_test(
         "--participant=participant-id=example,port=6865",
     ],
     test_tool_args = [
-        # Notoriously times-out
-        #"--additional=ParticipantPruningIT",
         "--additional=CommandDeduplicationParallelIT",
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -168,13 +164,9 @@ conformance_test(
         "--use-pre-1.18-error-codes",
     ],
     test_tool_args = [
-        # Notoriously times-out
-        #"--additional=ParticipantPruningIT",
         "--additional=CommandDeduplicationParallelIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -193,8 +185,6 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        # Notoriously times-out
-        #"--additional=ParticipantPruningIT",
         # The following two tests don't actually care about multi-participant but they do need append-only.
         "--additional=CommandDeduplicationParallelIT",
         "--additional=CommandDeduplicationPeriodValidationIT",
@@ -218,15 +208,11 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        # Notoriously times-out
-        #"--additional=ParticipantPruningIT",
         "--additional=CommandDeduplicationParallelIT",
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ConfigManagementServiceIT",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 

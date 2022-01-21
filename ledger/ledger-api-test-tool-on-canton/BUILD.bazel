@@ -108,7 +108,6 @@ conformance_test(
             "CompletionDeduplicationInfoITCommandService",
             "CompletionDeduplicationInfoITCommandSubmissionService",
             "CommandDeduplicationParallelIT",
-            "ParticipantPruningIT",
             "TLSOnePointThreeIT",
             "TLSAtLeastOnePointTwoIT",
             "MonotonicRecordTimeIT",  # KV-utils specific
