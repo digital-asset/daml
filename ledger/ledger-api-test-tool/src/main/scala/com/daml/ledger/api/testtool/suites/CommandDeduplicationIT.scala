@@ -310,18 +310,11 @@ final class CommandDeduplicationIT(
         LedgerString.assertFromString(firstAcceptedCommand.completion.submissionId),
         firstAcceptedCommand.offset,
       )
-      deduplicationDurationFromPeriod = duplicateResponse
-        .map(_.completion.deduplicationPeriod)
-        .map {
-          case CompletionDeduplicationPeriod.Empty =>
-            throw new IllegalStateException("received empty completion")
-          case CompletionDeduplicationPeriod.DeduplicationOffset(_) =>
-            deduplicationDuration
-          case CompletionDeduplicationPeriod.DeduplicationDuration(value) =>
-            value.asScala
-        }
-        .getOrElse(deduplicationDuration + delay.skews)
-        .asInstanceOf[FiniteDuration]
+      deduplicationDurationFromPeriod = extractDurationFromDeduplicationPeriod(
+        deduplicationCompletionResponse = duplicateResponse,
+        defaultDuration = deduplicationDuration,
+        delayMechanism = delay,
+      )
       eventuallyAccepted <- succeedsEventually(
         maxRetryDuration = deduplicationDurationFromPeriod + delay.skews + 10.seconds,
         description =
@@ -462,7 +455,6 @@ final class CommandDeduplicationIT(
     shortIdentifier = s"DeduplicateUsingDurations",
     description = "Deduplicate commands within the deduplication period defined by a duration",
     participants = allocate(SingleParty),
-    timeoutScale = 2, // has to wait for the deduplication period to expire
     runConcurrently = false, // updates the time model
     enabled = !_.commandDeduplicationFeatures.deduplicationType.isSyncOnly,
     disabledReason =
@@ -490,18 +482,11 @@ final class CommandDeduplicationIT(
             completionResponse.offset,
             party,
           )
-          deduplicationDurationFromPeriod = optDeduplicationCompletionResponse
-            .map(_.completion.deduplicationPeriod)
-            .map {
-              case CompletionDeduplicationPeriod.Empty =>
-                throw new IllegalStateException("received empty completion")
-              case CompletionDeduplicationPeriod.DeduplicationOffset(_) =>
-                deduplicationDuration
-              case CompletionDeduplicationPeriod.DeduplicationDuration(value) =>
-                value.asScala
-            }
-            .getOrElse(deduplicationDuration + delay.skews)
-            .asInstanceOf[FiniteDuration]
+          deduplicationDurationFromPeriod = extractDurationFromDeduplicationPeriod(
+            deduplicationCompletionResponse = optDeduplicationCompletionResponse,
+            defaultDuration = deduplicationDuration,
+            delayMechanism = delay,
+          )
           eventuallyAcceptedCompletionResponse <- succeedsEventually(
             maxRetryDuration = deduplicationDurationFromPeriod + delay.skews + 10.seconds,
             description =
@@ -1073,4 +1058,23 @@ final class CommandDeduplicationIT(
       }
     }
   }
+
+  private def extractDurationFromDeduplicationPeriod(
+      deduplicationCompletionResponse: Option[CompletionResponse],
+      defaultDuration: FiniteDuration,
+      delayMechanism: DelayMechanism,
+  ): FiniteDuration =
+    deduplicationCompletionResponse
+      .map(_.completion.deduplicationPeriod)
+      .map {
+        case CompletionDeduplicationPeriod.Empty =>
+          throw new IllegalStateException("received empty completion")
+        case CompletionDeduplicationPeriod.DeduplicationOffset(_) =>
+          defaultDuration
+        case CompletionDeduplicationPeriod.DeduplicationDuration(value) =>
+          value.asScala
+      }
+      .getOrElse(defaultDuration + delayMechanism.skews)
+      .asInstanceOf[FiniteDuration]
+
 }
