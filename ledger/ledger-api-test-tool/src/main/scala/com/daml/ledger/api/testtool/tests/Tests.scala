@@ -77,12 +77,6 @@ object Tests {
       new TLSAtLeastOnePointTwoIT,
     )
 
-  val retired: Vector[LedgerTestSuite] =
-    Vector(
-      new LotsOfPartiesIT,
-      new TransactionScaleIT,
-    )
-
   /** These are performance envelope tests that also provide benchmarks and are always run
     * sequentially; they also must be specified explicitly with --perf-tests and will exclude
     * all other tests.
