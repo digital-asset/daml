@@ -31,8 +31,12 @@ object Tests {
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
       new CommandDeduplicationIT(timeoutScaleFactor, staticTime),
+      new CommandDeduplicationParallelIT,
+      new CommandDeduplicationPeriodValidationIT,
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
+      new CompletionDeduplicationInfoIT(CommandService),
+      new CompletionDeduplicationInfoIT(CommandSubmissionService),
       new ConfigManagementServiceIT,
       new ContractIdIT,
       new ContractKeysIT,
@@ -68,10 +72,6 @@ object Tests {
 
   def optional(): Vector[LedgerTestSuite] =
     Vector(
-      new CompletionDeduplicationInfoIT(CommandService),
-      new CompletionDeduplicationInfoIT(CommandSubmissionService),
-      new CommandDeduplicationParallelIT,
-      new CommandDeduplicationPeriodValidationIT,
       new MonotonicRecordTimeIT,
       new TLSOnePointThreeIT,
       new TLSAtLeastOnePointTwoIT,

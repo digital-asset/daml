@@ -320,10 +320,6 @@ server_conformance_test(
         "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -344,10 +340,8 @@ server_conformance_test(
         "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
+        "--exclude=CommandDeduplicationPeriodValidationIT",  # The test expects the new error codes.
     ],
 )
 
@@ -363,10 +357,6 @@ server_conformance_test(
         "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -384,10 +374,6 @@ server_conformance_test(
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
         "--static-time",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
     ],
 )
