@@ -49,7 +49,7 @@ import org.scalatest.{Assertion, BeforeAndAfterEach}
 
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
-import scala.compat.java8.FutureConverters._
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success}
@@ -133,7 +133,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       "provide an update" in participantState.use { ps =>
         val submissionId = newSubmissionId()
         for {
-          result <- ps.uploadPackages(submissionId, List(anArchive), sourceDescription).toScala
+          result <- ps.uploadPackages(submissionId, List(anArchive), sourceDescription).asScala
           _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
             .stateUpdates(beginAfter = None)
@@ -149,7 +149,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       "provide two updates when uploading two archives" in participantState.use { ps =>
         val submissionId = newSubmissionId()
         for {
-          result <- ps.uploadPackages(submissionId, archives, sourceDescription).toScala
+          result <- ps.uploadPackages(submissionId, archives, sourceDescription).asScala
           _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
             .stateUpdates(beginAfter = None)
@@ -167,11 +167,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
           (newSubmissionId(), newSubmissionId(), newSubmissionId())
 
         for {
-          result1 <- ps.uploadPackages(subId1, List(anArchive), sourceDescription).toScala
+          result1 <- ps.uploadPackages(subId1, List(anArchive), sourceDescription).asScala
           (offset1, update1) <- waitForNextUpdate(ps, None)
-          result2 <- ps.uploadPackages(subId2, List(anArchive), sourceDescription).toScala
+          result2 <- ps.uploadPackages(subId2, List(anArchive), sourceDescription).asScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
-          result3 <- ps.uploadPackages(subId3, List(anotherArchive), sourceDescription).toScala
+          result3 <- ps.uploadPackages(subId3, List(anotherArchive), sourceDescription).asScala
           (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
@@ -196,7 +196,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         val submissionId = newSubmissionId()
 
         for {
-          result <- ps.uploadPackages(submissionId, List(badArchive), sourceDescription).toScala
+          result <- ps.uploadPackages(submissionId, List(badArchive), sourceDescription).asScala
           _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
             .stateUpdates(beginAfter = None)
@@ -215,13 +215,13 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         val submissionIds = (newSubmissionId(), newSubmissionId())
 
         for {
-          result1 <- ps.uploadPackages(submissionIds._1, List(anArchive), sourceDescription).toScala
+          result1 <- ps.uploadPackages(submissionIds._1, List(anArchive), sourceDescription).asScala
           (offset1, _) <- waitForNextUpdate(ps, None)
           // Second submission is a duplicate, it fails without an update.
-          result2 <- ps.uploadPackages(submissionIds._1, List(anArchive), sourceDescription).toScala
+          result2 <- ps.uploadPackages(submissionIds._1, List(anArchive), sourceDescription).asScala
           result3 <- ps
             .uploadPackages(submissionIds._2, List(anotherArchive), sourceDescription)
-            .toScala
+            .asScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
@@ -243,7 +243,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         for {
           result <- ps
             .allocateParty(Some(partyHint), Some(displayName), newSubmissionId())
-            .toScala
+            .asScala
           _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- waitForNextUpdate(ps, None)
         } yield {
@@ -262,7 +262,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         val displayName = "Alice Cooper"
 
         for {
-          result <- ps.allocateParty(hint = None, Some(displayName), newSubmissionId()).toScala
+          result <- ps.allocateParty(hint = None, Some(displayName), newSubmissionId()).asScala
           _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- waitForNextUpdate(ps, None)
         } yield {
@@ -284,11 +284,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         val submissionIds = (newSubmissionId(), newSubmissionId())
 
         for {
-          result1 <- ps.allocateParty(hints._1, Some(displayNames._1), submissionIds._1).toScala
+          result1 <- ps.allocateParty(hints._1, Some(displayNames._1), submissionIds._1).asScala
           (offset1, _) <- waitForNextUpdate(ps, None)
           // Second submission is a duplicate, it should not generate an update.
-          result2 <- ps.allocateParty(hints._2, Some(displayNames._2), submissionIds._1).toScala
-          result3 <- ps.allocateParty(hints._2, Some(displayNames._2), submissionIds._2).toScala
+          result2 <- ps.allocateParty(hints._2, Some(displayNames._2), submissionIds._1).asScala
+          result3 <- ps.allocateParty(hints._2, Some(displayNames._2), submissionIds._2).asScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
@@ -307,9 +307,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         val hint = Some(Ref.Party.assertFromString("Alice"))
         val displayName = Some("Alice Cooper")
         for {
-          result1 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
+          result1 <- ps.allocateParty(hint, displayName, newSubmissionId()).asScala
           (offset1, _) <- waitForNextUpdate(ps, None)
-          result2 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
+          result2 <- ps.allocateParty(hint, displayName, newSubmissionId()).asScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
           results = Seq(result1, result2)
           _ = all(results) should be(SubmissionResult.Acknowledged)
@@ -326,7 +326,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
     "submitTransaction" should {
       "provide an update after a transaction submission" in participantState.use { ps =>
         for {
-          _ <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
+          _ <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).asScala
           (offset1, _) <- waitForNextUpdate(ps, None)
           _ <- ps
             .submitTransaction(
@@ -335,7 +335,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
             )
-            .toScala
+            .asScala
           (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
         } yield {
           offset2 should be(offsetBuilder.of(2))
@@ -346,7 +346,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         val firstCommandId = "X1"
         val secondCommandId = "X2"
         for {
-          result1 <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
+          result1 <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).asScala
           (offset1, update1) <- waitForNextUpdate(ps, None)
           result2 <- ps
             .submitTransaction(
@@ -355,7 +355,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
             )
-            .toScala
+            .asScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
           // Below submission is a duplicate.
           result3 <- ps
@@ -365,7 +365,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
             )
-            .toScala
+            .asScala
           (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
           result4 <- ps
             .submitTransaction(
@@ -374,7 +374,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
             )
-            .toScala
+            .asScala
           (offset4, update4) <- waitForNextUpdate(ps, Some(offset3))
           results = Seq(result1, result2, result3, result4)
           _ = all(results) should be(SubmissionResult.Acknowledged)
@@ -402,7 +402,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         for {
           result1 <- ps
             .allocateParty(hint = Some(alice), None, newSubmissionId())
-            .toScala // offset now at [1,0]
+            .asScala // offset now at [1,0]
           (offset1, _) <- waitForNextUpdate(ps, None)
           result2 <- ps
             .submitTransaction(
@@ -411,7 +411,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
             )
-            .toScala
+            .asScala
           (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
           result3 <- ps
             .submitTransaction(
@@ -420,7 +420,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
             )
-            .toScala
+            .asScala
           (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
@@ -443,7 +443,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
                 generation = lic.config.generation + 1
               ),
             )
-            .toScala
+            .asScala
           (offset1, update1) <- waitForNextUpdate(ps, None)
 
           // Submit without allocation
@@ -454,7 +454,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
             )
-            .toScala
+            .asScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
 
           // Allocate a party and try the submission again with an allocated party.
@@ -464,7 +464,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               Some("Somebody"),
               newSubmissionId(),
             )
-            .toScala
+            .asScala
           _ = result should be(a[SubmissionResult])
           (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
 
@@ -481,7 +481,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
               TransactionBuilder.EmptySubmitted,
               DefaultInterpretationCost,
             )
-            .toScala
+            .asScala
           (offset4, update4) <- waitForNextUpdate(ps, Some(offset3))
 
           updates = Seq(update1, update2, update3, update4)
@@ -519,7 +519,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
                 generation = lic.config.generation + 1
               ),
             )
-            .toScala
+            .asScala
           (offset1, update1) <- waitForNextUpdate(ps, None)
 
           // Submit another configuration change that uses stale "current config".
@@ -536,7 +536,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
                 ).get,
               ),
             )
-            .toScala
+            .asScala
           (_, update2) <- waitForNextUpdate(ps, Some(offset1))
         } yield {
           // The first submission should change the config.
@@ -563,7 +563,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
                 generation = lic.config.generation + 1
               ),
             )
-            .toScala
+            .asScala
           (offset1, _) <- waitForNextUpdate(ps, None)
           // this is a duplicate, which fails silently
           result2 <- ps
@@ -574,7 +574,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
                 generation = lic.config.generation + 2
               ),
             )
-            .toScala
+            .asScala
           result3 <- ps
             .submitConfiguration(
               maxRecordTime = inTheFuture(10.seconds),
@@ -583,7 +583,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
                 generation = lic.config.generation + 2
               ),
             )
-            .toScala
+            .asScala
           (offset2, update2) <- waitForNextUpdate(ps, Some(offset1))
 
           results = Seq(result1, result2, result3)
@@ -622,7 +622,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
         })
       for {
         results <- Future.traverse(partyNames.toVector)(name =>
-          ps.allocateParty(Some(name), Some(name), newSubmissionId()).toScala
+          ps.allocateParty(Some(name), Some(name), newSubmissionId()).asScala
         )
         _ = all(results) should be(SubmissionResult.Acknowledged)
 
@@ -694,14 +694,14 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
             for {
               _ <- ps
                 .allocateParty(None, Some("party-1"), newSubmissionId())
-                .toScala
+                .asScala
             } yield ()
           }
           updates <- newParticipantState(ledgerId = ledgerId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-2"), newSubmissionId())
-                .toScala
+                .asScala
               updates <- ps
                 .stateUpdates(beginAfter = None)
                 .idleTimeout(IdleTimeout)

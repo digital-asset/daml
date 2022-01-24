@@ -15,7 +15,7 @@ import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
 
 import scala.annotation.nowarn
-import scala.collection.compat._
+import scala.collection.Factory
 import scala.collection.{mutable, immutable => imm}
 
 sealed abstract class Primitive extends PrimitiveInstances {

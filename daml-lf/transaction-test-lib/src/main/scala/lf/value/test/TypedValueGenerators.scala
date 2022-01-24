@@ -21,7 +21,7 @@ import iface.{
   Variant,
   PrimType => PT,
 }
-import scala.collection.compat._
+import scala.collection.Factory
 import scalaz.{@@, Order, Ordering, Tag}
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.traverse._

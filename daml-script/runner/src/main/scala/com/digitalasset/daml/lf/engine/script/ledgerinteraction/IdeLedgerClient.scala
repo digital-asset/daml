@@ -23,7 +23,6 @@ import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
-import scala.collection.compat.immutable.LazyList
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 

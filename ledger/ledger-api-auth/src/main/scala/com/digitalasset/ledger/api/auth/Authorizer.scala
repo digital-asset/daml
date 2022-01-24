@@ -19,7 +19,6 @@ import com.daml.error.definitions.LedgerApiErrors
 import io.grpc.StatusRuntimeException
 import scalapb.lenses.Lens
 
-import scala.collection.compat._
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 

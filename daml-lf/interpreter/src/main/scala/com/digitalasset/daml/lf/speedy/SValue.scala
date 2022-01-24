@@ -17,7 +17,7 @@ import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
-import scala.collection.compat._
+import scala.collection.Factory
 import scala.collection.immutable.TreeMap
 import scala.util.hashing.MurmurHash3
 

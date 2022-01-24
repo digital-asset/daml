@@ -12,7 +12,7 @@ import scalaz.std.option._
 import scalaz.syntax.traverse._
 
 import scala.annotation.tailrec
-import scala.collection.compat._
+import scala.collection.Factory
 import scala.{specialized => sp}
 
 sealed trait DamlCodecs // always include `object DamlCodecs` in implicit search

@@ -6,8 +6,8 @@ package com.daml.caching
 import com.daml.metrics.CacheMetrics
 import com.github.benmanes.caffeine.{cache => caffeine}
 
-import scala.compat.java8.FutureConverters
-import scala.compat.java8.OptionConverters._
+import scala.jdk.FutureConverters.CompletionStageOps
+import scala.jdk.OptionConverters.{RichOptional, RichOptionalLong}
 import scala.concurrent.Future
 
 object CaffeineCache {
@@ -41,7 +41,7 @@ object CaffeineCache {
   ) {
     installMetrics(cacheMetrics, cache.synchronous())
 
-    def get(key: Key): Future[Value] = FutureConverters.toScala(cache.get(key))
+    def get(key: Key): Future[Value] = cache.get(key).asScala
 
     def invalidate(key: Key): Unit = cache.synchronous().invalidate(key)
   }
@@ -70,7 +70,7 @@ object CaffeineCache {
   ): Unit = {
     metrics.registerSizeGauge(() => cache.estimatedSize())
     metrics.registerWeightGauge(() =>
-      cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0)
+      cache.policy().eviction().toScala.flatMap(_.weightedSize.toScala).getOrElse(0)
     )
   }
 

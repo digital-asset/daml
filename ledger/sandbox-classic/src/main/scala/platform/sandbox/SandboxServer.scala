@@ -31,7 +31,7 @@ import scalaz.syntax.tag._
 import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.Executors
-import scala.compat.java8.FutureConverters.CompletionStageOps
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
@@ -144,7 +144,7 @@ final class SandboxServer(
                 LoggingContext.ForTesting,
                 NoOpTelemetryContext,
               )
-              .toScala
+              .asScala
           } yield ()
         }
       )
