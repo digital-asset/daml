@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.script.exporting
+package com.daml.script.export
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
@@ -12,8 +12,8 @@ import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
-import com.daml.script.exporting.Dependencies.TemplateInstanceSpec
-import com.daml.script.exporting.TreeUtils.{
+import com.daml.script.export.Dependencies.TemplateInstanceSpec
+import com.daml.script.export.TreeUtils.{
   Action,
   CreatedContract,
   SetTime,

@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-package object exporting {
+package object `export` {
 
   val header = new Header(version = "v2")
 

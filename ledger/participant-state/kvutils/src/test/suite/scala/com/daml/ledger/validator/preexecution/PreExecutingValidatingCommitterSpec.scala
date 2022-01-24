@@ -3,7 +3,7 @@
 package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.kvutils.exporting.{
+import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataExporter,
   SubmissionAggregator,
   SubmissionInfo,
