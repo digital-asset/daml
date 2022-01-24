@@ -277,10 +277,6 @@ newtype DaysSinceEpoch = DaysSinceEpoch { unDaysSinceEpoch :: Int}
 newtype TemplateId = TemplateId Identifier deriving (Eq,Ord,Show)
 
 newtype ApplicationId = ApplicationId { unApplicationId :: Text } deriving (Eq,Ord,Show)
-
-instance Read ApplicationId where
-  readsPrec _ = \s -> [(ApplicationId (pack s),"")]
-
 newtype ParticipantId = ParticipantId { unParticipantId :: Text} deriving (Eq,Ord,Show)
 newtype CommandId = CommandId { unCommandId :: Text } deriving (Eq,Ord,Show)
 newtype ConstructorId = ConstructorId { unConstructorId :: Text } deriving (Eq,Ord,Show)

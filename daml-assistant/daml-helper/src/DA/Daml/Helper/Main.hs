@@ -26,6 +26,7 @@ import DA.Daml.Helper.Util
 import DA.Daml.Helper.Codegen
 import DA.PortFile
 import DA.Ledger.Types (ApplicationId(..), IsoTime(..))
+import Data.Text.Lazy (pack)
 
 main :: IO ()
 main = do
@@ -339,11 +340,14 @@ commandParser = subparser $ fold
         <$> ledgerFlags (ShowJsonApi False)
         <*> many (argument str (metavar "ARG" <> help "Extra arguments to navigator."))
 
+    app :: ReadM ApplicationId
+    app = fmap (ApplicationId . pack) str
+
     ledgerMeteringReportCmd = LedgerMeteringReport
         <$> ledgerFlags (ShowJsonApi True)
         <*> option auto (long "from" <> metavar "FROM" <> help "From date of report (inclusive).")
         <*> optional (option auto (long "to" <> metavar "TO" <> help "To date of report (exclusive)."))
-        <*> optional (option auto (long "application" <> metavar "APP" <> help "Report application identifier."))
+        <*> optional (option app (long "application" <> metavar "APP" <> help "Report application identifier."))
         <*> switch (long "compact-output" <> help "Generate compact report.")
 
     ledgerFlags showJsonApi = LedgerFlags
