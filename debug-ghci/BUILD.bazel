@@ -13,7 +13,7 @@ da_haskell_binary(
   ],
 )
 
-haskell_cabal_library(
+da_haskell_library(
   name = "foobar",
   version = "1.0.0",
   srcs = ["Lib.hs", "foobar.cabal"],
