@@ -111,7 +111,7 @@ def run_repl(bazel_args, ghci_args, module_name):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
         # Start GHCi.
-        subprocess.run(["bazel", "run"] + bazel_args + ["--"] + ghci_args, check=True)
+        subprocess.run(["bazel", "run", "-s"] + bazel_args + ["--"] + ghci_args, check=True)
     finally:
         if module_name:
             os.close(script_fd)
