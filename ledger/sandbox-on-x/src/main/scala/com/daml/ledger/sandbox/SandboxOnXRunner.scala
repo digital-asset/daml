@@ -9,7 +9,14 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
+import com.daml.buildinfo.BuildInfo
 import com.daml.error.ErrorCodesVersionSwitcher
+import com.daml.ledger.api.auth.{
+  AuthServiceJWT,
+  AuthServiceNone,
+  AuthServiceStatic,
+  AuthServiceWildcard,
+}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
@@ -195,11 +202,14 @@ object SandboxOnXRunner {
             timeServiceBackend,
             dbSupport,
           )
-        } yield apiServer -> writeService
+        } yield {
+          logInitializationHeader(config, participantConfig)
+          apiServer -> writeService
+        }
     }
   }
 
-  def buildStandaloneApiServer(
+  private def buildStandaloneApiServer(
       sharedEngine: Engine,
       indexService: IndexService,
       metrics: Metrics,
@@ -248,8 +258,7 @@ object SandboxOnXRunner {
           maxDeduplicationDurationEnforced = false,
         ),
         contractIdFeatures = ExperimentalContractIds.of(
-          v0 = ExperimentalContractIds.ContractIdV0Support.NOT_SUPPORTED,
-          v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+          v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
         ),
       ),
       userManagementConfig = config.userManagementConfig,
@@ -342,5 +351,41 @@ object SandboxOnXRunner {
         )
       )
     } yield writeService
+  }
+
+  private def logInitializationHeader(
+      config: Config[BridgeConfig],
+      participantConfig: ParticipantConfig,
+  ): Unit = {
+    val authentication = BridgeConfigProvider.authService(config) match {
+      case _: AuthServiceJWT => "JWT-based authentication"
+      case AuthServiceNone => "none authenticated"
+      case _: AuthServiceStatic => "static authentication"
+      case AuthServiceWildcard => "all unauthenticated allowed"
+      case other => other.getClass.getSimpleName
+    }
+
+    val ledgerDetails =
+      Seq[(String, String)](
+        "run-mode" -> s"${participantConfig.mode} participant",
+        "participant-id" -> participantConfig.participantId,
+        "ledger-id" -> config.ledgerId,
+        "port" -> participantConfig.port.toString,
+        "time mode" -> config.extra.timeProviderType.description,
+        "allowed language versions" -> s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
+        "authentication" -> authentication,
+        "contract ids seeding" -> config.seeding.toString,
+      ).map { case (key, value) =>
+        s"$key = $value"
+      }.mkString(", ")
+
+    logger.withoutContext.info(
+      s"Initialized {} with {}, version {}, {}",
+      RunnerName,
+      if (config.extra.conflictCheckingEnabled) "conflict checking ledger bridge"
+      else "pass-through ledger bridge (no conflict checking)",
+      BuildInfo.Version,
+      ledgerDetails,
+    )
   }
 }

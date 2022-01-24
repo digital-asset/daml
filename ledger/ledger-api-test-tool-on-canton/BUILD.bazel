@@ -84,7 +84,8 @@ conformance_test(
             "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
             "CommandDeduplicationIT:SimpleDeduplicationBasic",  # sync vs async error (part of canton #6301)
             "CommandDeduplicationIT:DeduplicateSubmitterBasic",
-            "CommandDeduplicationIT:DeduplicateUsingOffsets",  # temporary disabled until we adapt it for canton
+            "CommandDeduplicationIT:DeduplicateUsingDurations",  #  disabled while Canton does not support the feature descriptors
+            "CommandDeduplicationIT:DeduplicateUsingOffsets",  #  disabled while Canton does not support the feature descriptors
             "RaceConditionIT:RWArchiveVsFailedLookupByKey",  # finding a lookup failure after contract creation
             # dynamic config management not supported by Canton
             "ConfigManagementServiceIT",
@@ -107,7 +108,6 @@ conformance_test(
             "CompletionDeduplicationInfoITCommandService",
             "CompletionDeduplicationInfoITCommandSubmissionService",
             "CommandDeduplicationParallelIT",
-            "ParticipantPruningIT",
             "TLSOnePointThreeIT",
             "TLSAtLeastOnePointTwoIT",
             "MonotonicRecordTimeIT",  # KV-utils specific
@@ -184,7 +184,7 @@ conformance_test(
             "CommandDeduplicationPeriodValidationIT",
         ]),
         "--exclude=" + ",".join([
-            "CommandDeduplicationPeriodValidationIT:InvalidOffset",  # Needs SDK upgrade
+            "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # TODO https://github.com/DACH-NY/canton/issues/6301
             "ContractIdIT:AcceptSuffixedV1CidExerciseTarget",  # Racy with: ABORTED: CONTRACT_NOT_FOUND(14,0): Contract could not be found with id
         ]),
     ],

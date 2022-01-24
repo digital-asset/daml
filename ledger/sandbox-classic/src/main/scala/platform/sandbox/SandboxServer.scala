@@ -69,7 +69,7 @@ final class SandboxServer(
         .map(getLedgerId(_)(resourceContext, resourceManagementExecutionContext, materializer))
         .getOrElse(Resource.successful(None))
       genericConfig =
-        ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId)
+        ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
       participantConfig <-
         SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
       (apiServer, writeService) <-

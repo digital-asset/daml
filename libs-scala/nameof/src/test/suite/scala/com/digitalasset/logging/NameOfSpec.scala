@@ -7,13 +7,10 @@ import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.annotation.nowarn
-
 final class NameOfSpec extends AnyFlatSpec with Matchers {
 
   behavior of "NameOf"
 
-  @nowarn()
   case class Ham() {
     def ham(): String = qualifiedNameOfCurrentFunc
   }

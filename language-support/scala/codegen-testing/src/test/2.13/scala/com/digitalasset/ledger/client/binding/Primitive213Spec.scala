@@ -7,7 +7,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.annotation.nowarn
-import scala.collection.compat._
 import scala.collection.immutable.Map
 
 class Primitive213Spec extends AnyWordSpec with Matchers {

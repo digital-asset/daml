@@ -48,9 +48,11 @@ da_scala_library(
         "//ledger/participant-state-metrics",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
+        "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
+        "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
@@ -58,6 +60,7 @@ da_scala_library(
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -141,11 +144,9 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--verbose",
-        "--additional=ParticipantPruningIT",
         "--exclude=ClosedWorldIT",
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
@@ -154,8 +155,6 @@ conformance_test(
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
         "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
-        # Disable tests targeting only append-only schema functionality
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -166,7 +165,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
         "--enable-conflict-checking",
     ],
     test_tool_args = [
@@ -175,9 +173,6 @@ conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=ParticipantPruningIT",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -188,16 +183,12 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
         "--enable-conflict-checking",
         "--static-time",
     ],
     test_tool_args = [
         "--verbose",
         "--static-time",
-        "--additional=ParticipantPruningIT",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -208,7 +199,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--verbose",

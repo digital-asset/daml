@@ -175,6 +175,7 @@ filegroup(
 ledger_api_haskellpb_sources_admin = [
     "PackageManagementService.hs",
     "PartyManagementService.hs",
+    "MeteringReportService.hs",
 ]
 
 genrule(

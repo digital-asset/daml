@@ -10,7 +10,7 @@ import com.daml.ledger.api.v1.{event => evv1}
 import scalaz.{Monoid, \/, \/-}
 import scalaz.syntax.tag._
 
-import scala.collection.compat._
+import scala.collection.Factory
 import scala.runtime.AbstractFunction1
 
 private[daml] final case class InsertDeleteStep[+D, +C](

@@ -13,8 +13,6 @@ import scalaz.syntax.bifoldable._
 import scalaz.syntax.foldable._
 import scalaz.Bifoldable
 
-import scala.collection.compat._
-
 sealed abstract class DependencyGraph[Iface, TmplI] {
   def orderedDependencies(
       library: Iface

@@ -9,7 +9,6 @@ import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 import java.security.MessageDigest
 import java.sql.{Connection, ResultSet}
-import scala.collection.compat.immutable.LazyList
 import scala.jdk.CollectionConverters._
 
 private[migrations] abstract class V3__Backfill_Key_Hash_State_Table extends BaseJavaMigration {

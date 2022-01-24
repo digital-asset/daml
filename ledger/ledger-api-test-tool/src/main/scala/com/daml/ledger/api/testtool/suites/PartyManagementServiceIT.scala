@@ -15,7 +15,6 @@ import io.grpc.Status
 import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
 
-import scala.collection.compat._
 import scala.util.Random
 
 final class PartyManagementServiceIT extends LedgerTestSuite {

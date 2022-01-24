@@ -4,7 +4,6 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "silencer_plugin",
 )
 load(
     "//language-support/scala/codegen:codegen.bzl",
@@ -87,16 +86,16 @@ alias(
 ]
 
 # Correspond to the directories under src/test/lib/daml
-test_names_with_dependencies = {
-    "model": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    "semantic": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    "performance": [],
-    "package_management": [],
-}
+test_names = [
+    "model",
+    "semantic",
+    "performance",
+    "package_management",
+]
 
 da_scala_dar_resources_library(
     add_maven_tag = True,
-    daml_dir_names = test_names_with_dependencies.keys(),
+    daml_dir_names = test_names,
     daml_root_dir = "src/main/daml",
     enable_scenarios = True,
     exclusions = {
@@ -122,12 +121,8 @@ da_scala_dar_resources_library(
                 srcs = [
                     ":%s-tests-%s.scala-codegen" % (test_name, target),
                 ],
-                plugins = [
-                    silencer_plugin,
-                ],
-                scala_deps = extra_deps,
                 scalacopts = [
-                    "-P:silencer:lineContentFilters=import _root_.scala.language.higherKinds;",
+                    "-Wconf:cat=unused-imports&site=com\\.daml\\.ledger\\.test\\.{}\\..*:s".format(test_name),
                 ],
                 visibility = ["//visibility:public"],
                 deps = [
@@ -135,7 +130,7 @@ da_scala_dar_resources_library(
                 ],
             ),
         ]
-        for (test_name, extra_deps) in test_names_with_dependencies.items()
+        for test_name in test_names
     ]
     for target in lf_version_configuration_versions
 ]

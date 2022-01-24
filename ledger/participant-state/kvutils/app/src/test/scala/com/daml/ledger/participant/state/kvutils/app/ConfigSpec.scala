@@ -259,6 +259,41 @@ final class ConfigSpec
     }
   }
 
+  it should "handle '--enable-user-management' flag correctly" in {
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--enable-user-management",
+      )
+    ) shouldBe None
+
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--enable-user-management",
+        "false",
+      )
+    ).value.userManagementConfig.enabled shouldBe false
+
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--enable-user-management",
+        "true",
+      )
+    ).value.userManagementConfig.enabled shouldBe true
+
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+      )
+    ).value.userManagementConfig.enabled shouldBe false
+  }
+
   it should "set REQUIRE client-auth when the parameter is not explicitly provided" in {
     val aValidTlsOptions = List(s"$certRevocationChecking", "false")
     val config =

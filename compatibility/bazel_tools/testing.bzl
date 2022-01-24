@@ -676,13 +676,26 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        # Contract ID tests are governed by feature descriptors.
-        "start": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+        # Contract ID and participant pruning tests are no longer optional.
+        "start": "2.0.0-snapshot.20220110.8812.1",
         "platform_ranges": [
             {
                 "end": "2.0.0-snapshot.20220110.8812.1",
                 "exclusions": [
-                    "ContractIdIT",
+                    "ContractIdIT",  # Contract ID tests are governed by feature descriptors.
+                    "ParticipantPruningIT",  # Now enabled by default, but some ledgers may need to disable certain tests.
+                ],
+            },
+        ],
+    },
+    {
+        # The test requires the "definite_answer" gRPC error metadata entry, which is not present in old releases.
+        "start": "2.0.0-snapshot.20220118.8919.1",
+        "platform_ranges": [
+            {
+                "end": "1.16.0",
+                "exclusions": [
+                    "MultiPartySubmissionIT",
                 ],
             },
         ],

@@ -22,7 +22,6 @@ import com.daml.lf.engine.script.{Participants, Runner, Script, ScriptF, ScriptI
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import scala.collection.compat._
 import scala.collection.immutable.HashMap
 import scala.util.{Failure, Success}
 

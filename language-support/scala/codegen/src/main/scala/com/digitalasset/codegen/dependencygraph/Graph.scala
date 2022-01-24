@@ -5,8 +5,6 @@ package com.daml.codegen.dependencygraph
 
 import com.daml.codegen.exception.UnsopportedTypeError
 
-import scala.collection.compat._
-
 object Graph {
 
   /** Orders the nodes such that given a node n, its dependencies are placed in the resultant vector before n

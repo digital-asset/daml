@@ -38,8 +38,8 @@ case class ApiServerConfig(
     managementServiceTimeout: Duration,
     maxContractStateCacheSize: Long,
     maxContractKeyStateCacheSize: Long,
-    enableMutableContractStateCache: Boolean,
     maxTransactionsInMemoryFanOutBufferSize: Long,
     enableInMemoryFanOutForLedgerApi: Boolean,
     enableSelfServiceErrorCodes: Boolean,
+    enableUserManagement: Boolean,
 )
