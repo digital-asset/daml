@@ -8,9 +8,17 @@ import com.daml.ledger.client.binding.Primitive.Party
 
 private[testtool] object Allocation {
   def allocate(firstPartyCount: PartyCount, partyCounts: PartyCount*): ParticipantAllocation =
-    ParticipantAllocation(firstPartyCount +: partyCounts)
+    ParticipantAllocation(firstPartyCount +: partyCounts, minimumParticipantCount = 1)
 
-  final case class ParticipantAllocation private (partyCounts: Seq[PartyCount])
+  final case class ParticipantAllocation private (
+      partyCounts: Seq[PartyCount],
+      minimumParticipantCount: Int,
+  ) {
+    def expectingMinimumActualParticipantCount(
+        minimumParticipantCount: Int
+    ): ParticipantAllocation =
+      copy(minimumParticipantCount = minimumParticipantCount)
+  }
 
   sealed trait PartyCount {
     val count: Int

@@ -30,19 +30,12 @@ import scala.util.{Failure, Success, Try}
 // - Distributed ledger implementations (e.g. Canton) must reject non-suffixed CID
 final class ContractIdIT extends LedgerTestSuite {
   List(
-    TestConfiguration(
-      description = "v0",
-      example = v0Cid,
-      accepted = true,
-      isSupported = features => features.contractIds.v0.isSupported,
-      disabledReason = "V0 contract IDs are not supported",
-    ),
+    // Support for v0 contract ids existed only in sandbox-classic in
+    // SDK 1.18 and older and has been dropped completely.
     TestConfiguration(
       description = "v0",
       example = v0Cid,
       accepted = false,
-      isSupported = features => features.contractIds.v0.isNotSupported,
-      disabledReason = "V0 contract IDs are supported",
     ),
     TestConfiguration(
       description = "non-suffixed v1",

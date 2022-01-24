@@ -61,7 +61,6 @@ private[platform] object ReadOnlySqlLedger {
       enricher: ValueEnricher,
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
-      enableMutableContractStateCache: Boolean,
       maxTransactionsInMemoryFanOutBufferSize: Long,
       enableInMemoryFanOutForLedgerApi: Boolean,
       participantId: Ref.ParticipantId,
@@ -102,28 +101,19 @@ private[platform] object ReadOnlySqlLedger {
         ledgerEndCache: MutableLedgerEndCache,
         updatingStringInterningView: UpdatingStringInterningView,
     ) =
-      if (enableMutableContractStateCache) {
-        new ReadOnlySqlLedgerWithMutableCache.Owner(
-          ledgerDao,
-          ledgerEndCache,
-          updatingStringInterningView,
-          enricher,
-          ledgerId,
-          metrics,
-          maxContractStateCacheSize,
-          maxContractKeyStateCacheSize,
-          maxTransactionsInMemoryFanOutBufferSize,
-          enableInMemoryFanOutForLedgerApi,
-          servicesExecutionContext = servicesExecutionContext,
-        )
-      } else
-        new ReadOnlySqlLedgerWithTranslationCache.Owner(
-          ledgerDao,
-          ledgerEndCache,
-          updatingStringInterningView,
-          ledgerId,
-          lfValueTranslationCache,
-        )
+      new ReadOnlySqlLedgerWithMutableCache.Owner(
+        ledgerDao,
+        ledgerEndCache,
+        updatingStringInterningView,
+        enricher,
+        ledgerId,
+        metrics,
+        maxContractStateCacheSize,
+        maxContractKeyStateCacheSize,
+        maxTransactionsInMemoryFanOutBufferSize,
+        enableInMemoryFanOutForLedgerApi,
+        servicesExecutionContext = servicesExecutionContext,
+      )
 
     private def verifyLedgerId(
         ledgerDao: LedgerReadDao,

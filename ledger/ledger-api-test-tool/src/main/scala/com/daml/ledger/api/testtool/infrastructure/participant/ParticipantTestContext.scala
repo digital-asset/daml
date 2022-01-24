@@ -78,7 +78,9 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.client.binding.{Primitive, Template}
+import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.participant.util.HexOffset
 import com.daml.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
@@ -684,6 +686,20 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def firstCompletions(parties: Party*): Future[Vector[Completion]] =
     firstCompletions(completionStreamRequest()(parties: _*))
+
+  def findCompletionAtOffset(
+      offset: Ref.HexString,
+      p: Completion => Boolean,
+  )(parties: Party*): Future[Option[CompletionResponse]] = {
+    // We have to request an offset before the reported offset, as offsets are exclusive in the completion service.
+    val offsetPreviousToReportedOffset = HexOffset
+      .previous(offset)
+      .map(offset => LedgerOffset.of(LedgerOffset.Value.Absolute(offset)))
+      .getOrElse(referenceOffset)
+    val reportedOffsetCompletionStreamRequest =
+      completionStreamRequest(offsetPreviousToReportedOffset)(parties: _*)
+    findCompletion(reportedOffsetCompletionStreamRequest)(p)
+  }
 
   def findCompletion(
       request: CompletionStreamRequest

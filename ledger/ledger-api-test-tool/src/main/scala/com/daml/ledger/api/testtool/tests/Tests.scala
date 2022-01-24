@@ -44,6 +44,7 @@ object Tests {
       new MultiPartySubmissionIT,
       new PackageManagementServiceIT,
       new PackageServiceIT,
+      new ParticipantPruningIT,
       new PartyManagementServiceIT,
       new RaceConditionIT,
       new SemanticTests,
@@ -71,16 +72,9 @@ object Tests {
       new CompletionDeduplicationInfoIT(CommandSubmissionService),
       new CommandDeduplicationParallelIT,
       new CommandDeduplicationPeriodValidationIT,
-      new ParticipantPruningIT,
       new MonotonicRecordTimeIT,
       new TLSOnePointThreeIT,
       new TLSAtLeastOnePointTwoIT,
-    )
-
-  val retired: Vector[LedgerTestSuite] =
-    Vector(
-      new LotsOfPartiesIT,
-      new TransactionScaleIT,
     )
 
   /** These are performance envelope tests that also provide benchmarks and are always run

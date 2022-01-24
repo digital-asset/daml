@@ -79,11 +79,11 @@ trait ConfigProvider[ExtraConfig] {
       managementServiceTimeout = participantConfig.managementServiceTimeout,
       maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
       maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
-      enableMutableContractStateCache = config.enableMutableContractStateCache,
       maxTransactionsInMemoryFanOutBufferSize =
         participantConfig.maxTransactionsInMemoryFanOutBufferSize,
       enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
       enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+      enableUserManagement = config.userManagementConfig.enabled,
     )
 
   def partyConfig(@unused config: Config[ExtraConfig]): PartyConfiguration =
