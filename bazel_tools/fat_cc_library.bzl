@@ -73,6 +73,7 @@ def _fat_cc_library_impl(ctx):
     ar = toolchain.ar_executable
 
     if ar.find("libtool") >= 0:
+        pass
         # We are on MacOS where ar_executable is actually libtool, see
         # https://github.com/bazelbuild/bazel/issues/5127.
         # ctx.actions.run(
