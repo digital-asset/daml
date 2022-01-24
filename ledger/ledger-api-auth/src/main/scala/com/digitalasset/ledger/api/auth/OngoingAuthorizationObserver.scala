@@ -31,12 +31,12 @@ private[auth] final class OngoingAuthorizationObserver[A](
     akkaScheduler: Scheduler,
 )(implicit loggingContext: LoggingContext)
     extends ServerCallStreamObserver[A] {
+  self =>
 
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  // This flag is set only by the scheduled user rights check task
-  @volatile private var shouldAbort = false
+  @volatile private var aborted = false
   @volatile private var mostRecentUserInfoRefreshTime = nowF()
 
   private lazy val userId = originalClaims.applicationId.fold[Ref.UserId](
@@ -45,26 +45,35 @@ private[auth] final class OngoingAuthorizationObserver[A](
     )
   )(Ref.UserId.assertFromString)
 
-  private val cancellable: Cancellable = {
-    val delay = userRightsCheckIntervalInSeconds.seconds
-    // Note: https://doc.akka.io/docs/akka/2.6.13/scheduler.html states that:
-    // "All scheduled task will be executed when the ActorSystem is terminated, i.e. the task may execute before its timeout."
-    akkaScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay)(runnable =
-      checkUserRights _
-    )
+  private val cancellableO: Option[Cancellable] = {
+    if (originalClaims.resolvedFromUser) {
+      val delay = userRightsCheckIntervalInSeconds.seconds
+      // Note: https://doc.akka.io/docs/akka/2.6.13/scheduler.html states that:
+      // "All scheduled task will be executed when the ActorSystem is terminated, i.e. the task may execute before its timeout."
+      val c = akkaScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay)(runnable =
+        checkUserRights _
+      )
+      Some(c)
+    } else None
   }
 
   private def checkUserRights(): Unit = {
-    // This check ensures that once decided to abort there is no going back.
-    if (!shouldAbort) {
+    // Check if not already aborted the stream in case user rights check cancellation hasn't carried through.
+    if (!aborted) {
       userManagementStore
         .listUserRights(userId)
         .onComplete {
-          case Failure(_) => shouldAbort = true
-          case Success(Left(_)) => shouldAbort = true
+          case Failure(_) | Success(Left(_)) =>
+            aborted = true
+            self.synchronized(observer.onError(staleStreamAuthError))
+            cancelUserRightsCheckTask()
           case Success(Right(userRights)) =>
             val updatedClaims = AuthorizationInterceptor.convertUserRightsToClaims(userRights)
-            shouldAbort = updatedClaims.toSet != originalClaims.claims.toSet
+            if (updatedClaims.toSet != originalClaims.claims.toSet) {
+              aborted = true
+              self.synchronized(observer.onError(staleStreamAuthError))
+              cancelUserRightsCheckTask()
+            }
             mostRecentUserInfoRefreshTime = nowF()
         }
     }
@@ -84,22 +93,29 @@ private[auth] final class OngoingAuthorizationObserver[A](
 
   override def request(i: Int): Unit = observer.request(i)
 
-  override def setMessageCompression(b: Boolean): Unit = observer.setMessageCompression(b)
+  override def setMessageCompression(b: Boolean): Unit =
+    self.synchronized(observer.setMessageCompression(b))
 
   override def onNext(v: A): Unit =
     authorize match {
-      case Right(_) => observer.onNext(v)
-      case Left(e) => observer.onError(e)
+      case Right(_) => self.synchronized(observer.onNext(v))
+      case Left(e) => {
+        aborted = true
+        cancelUserRightsCheckTask()
+        self.synchronized(observer.onError(e))
+      }
     }
 
   override def onError(throwable: Throwable): Unit = {
+    aborted = true
     cancelUserRightsCheckTask()
-    observer.onError(throwable)
+    self.synchronized(observer.onError(throwable))
   }
 
   override def onCompleted(): Unit = {
+    aborted = true
     cancelUserRightsCheckTask()
-    observer.onCompleted()
+    self.synchronized(observer.onCompleted())
   }
 
   private def authorize: Either[StatusRuntimeException, Unit] = {
@@ -114,29 +130,31 @@ private[auth] final class OngoingAuthorizationObserver[A](
       _ <-
         if (
           originalClaims.resolvedFromUser &&
-          (shouldAbort ||
-            mostRecentUserInfoRefreshTime.isAfter(
-              now.plusSeconds(2 * userRightsCheckIntervalInSeconds.toLong)
-            ))
-        ) {
-          cancelUserRightsCheckTask()
-          // Terminate the stream, so that clients will restart their streams
-          // and claims will be rechecked precisely.
-          Left(
-            LedgerApiErrors.AuthorizationChecks.StaleUserManagementBasedStreamClaims
-              .Reject()(errorLogger)
-              .asGrpcError
+          mostRecentUserInfoRefreshTime.isAfter(
+            now.plusSeconds(2 * userRightsCheckIntervalInSeconds.toLong)
           )
+        ) {
+          Left(staleStreamAuthError)
         } else Right(())
     } yield {
       ()
     }
   }
 
+  private def staleStreamAuthError: StatusRuntimeException = {
+    // Terminate the stream, so that clients will restart their streams
+    // and claims will be rechecked precisely.
+    LedgerApiErrors.AuthorizationChecks.StaleUserManagementBasedStreamClaims
+      .Reject()(errorLogger)
+      .asGrpcError
+  }
+
   private def cancelUserRightsCheckTask(): Unit = {
-    cancellable.cancel()
-    if (!cancellable.isCancelled) {
-      logger.debug(s"Failed to cancel stream authorization task")
+    cancellableO.foreach { cancellable =>
+      cancellable.cancel()
+      if (!cancellable.isCancelled) {
+        logger.debug(s"Failed to cancel stream authorization task")
+      }
     }
   }
 

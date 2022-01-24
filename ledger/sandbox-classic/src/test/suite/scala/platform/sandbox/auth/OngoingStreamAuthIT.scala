@@ -63,7 +63,6 @@ final class OngoingStreamAuthIT
         override def onCompleted(): Unit = ()
       }
       val request = new GetTransactionsRequest(
-        ledgerId = unwrappedLedgerId,
         begin = Option(ledgerBegin),
         end = None,
         filter = Some(
@@ -96,14 +95,13 @@ final class OngoingStreamAuthIT
       )
       _ = Thread.sleep(UserManagementCacheExpiryInSeconds.toLong * 1000)
       //
-      _ <- submitAndWaitF()
       // Timer that finishes the stream in case it isn't aborted as expected
       timerTask = new TimerTask {
         override def run(): Unit = streamObserver.onError(
           new AssertionError("Timed-out waiting while waiting for stream to abort")
         )
       }
-      _ = new Timer(true).schedule(timerTask, 1000)
+      _ = new Timer(true).schedule(timerTask, 100)
       t <- transactionStreamAbortedPromise.future
     } yield {
       timerTask.cancel()
