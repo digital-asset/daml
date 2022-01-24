@@ -953,7 +953,7 @@ class WebSocketService(
               .fromLedgerApi(ce)
               .liftErr(ServerError)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError)),
-        )(implicitly[Factory[ServerError, Seq[ServerError]]])
+        )(Seq)
         StepAndErrors(
           errors ++ aerrors,
           dstep mapInserts { inserts: Vector[domain.ActiveContract[LfV]] =>
