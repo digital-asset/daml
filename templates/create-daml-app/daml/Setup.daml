@@ -1,7 +1,7 @@
 module Setup where
 
 import DA.Foldable (forA_)
-import DA.Optional (fromSome)
+import DA.Optional (fromSomeNote)
 import qualified DA.Text as T
 import Daml.Script
 
@@ -46,4 +46,4 @@ toUserId : Text -> Text
 toUserId = T.asciiToLower
 
 getPrimaryParty : User -> Party
-getPrimaryParty u = fromSome u.primaryParty
+getPrimaryParty u = fromSomeNote ("User " <> u.userId <> " is missing a primary party.") u.primaryParty
