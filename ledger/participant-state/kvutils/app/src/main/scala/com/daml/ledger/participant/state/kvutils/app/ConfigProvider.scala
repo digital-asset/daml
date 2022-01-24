@@ -16,10 +16,9 @@ import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
-import scala.annotation.{nowarn, unused}
+import scala.annotation.unused
 import scala.concurrent.duration.FiniteDuration
 
-@nowarn("msg=parameter value config .* is never used") // possibly used in overrides
 trait ConfigProvider[ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 
@@ -79,11 +78,11 @@ trait ConfigProvider[ExtraConfig] {
       managementServiceTimeout = participantConfig.managementServiceTimeout,
       maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
       maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
-      enableMutableContractStateCache = config.enableMutableContractStateCache,
       maxTransactionsInMemoryFanOutBufferSize =
         participantConfig.maxTransactionsInMemoryFanOutBufferSize,
       enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
       enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+      enableUserManagement = config.userManagementConfig.enabled,
     )
 
   def partyConfig(@unused config: Config[ExtraConfig]): PartyConfiguration =

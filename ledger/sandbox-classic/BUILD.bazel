@@ -6,7 +6,6 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
-    "silencer_plugin",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
@@ -22,9 +21,6 @@ alias(
     da_scala_library(
         name = "sandbox-classic-{}".format(edition),
         srcs = glob(["src/main/scala/**/*.scala"]),
-        plugins = [
-            silencer_plugin,
-        ],
         # Do not include logback.xml into the library: let the user
         # of the sandbox-as-a-library decide how to log.
         resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
@@ -33,13 +29,7 @@ alias(
             "@maven//:com_typesafe_akka_akka_actor",
             "@maven//:com_typesafe_akka_akka_stream",
             "@maven//:org_scala_lang_modules_scala_java8_compat",
-            "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalaz_scalaz_core",
-        ],
-        scalacopts = [
-            # retain is deprecated in 2.13 but the replacement filterInPlace
-            # does not exist in 2.12.
-            "-P:silencer:lineContentFilters=retain",
         ],
         tags = ["maven_coordinates=com.daml:sandbox-classic:__VERSION__"],
         visibility = [
@@ -53,14 +43,10 @@ alias(
         ],
         deps = [
             "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
+            "//daml-lf/archive:daml_lf_archive_reader",
             "//daml-lf/data",
-            "//daml-lf/engine",
-            "//daml-lf/interpreter",
             "//daml-lf/language",
-            "//daml-lf/scenario-interpreter",
-            "//daml-lf/transaction",
             "//language-support/scala/bindings",
-            "//ledger-api/rs-grpc-bridge",
             "//ledger/caching",
             "//ledger/error",
             "//ledger/ledger-api-auth",
@@ -68,26 +54,22 @@ alias(
             "//ledger/ledger-api-domain",
             "//ledger/ledger-api-health",
             "//ledger/ledger-configuration",
-            "//ledger/ledger-offset",
             "//ledger/ledger-resources",
             "//ledger/metrics",
             "//ledger/participant-integration-api",
             "//ledger/participant-state",
-            "//ledger/participant-state-index",
-            "//ledger/participant-state-metrics",
+            "//ledger/participant-state/kvutils/app",
             "//ledger/sandbox-common:sandbox-common-{}".format(edition),
             "//ledger-service/cli-opts",
+            "//ledger/sandbox-on-x",
             "//libs-scala/build-info",
-            "//libs-scala/concurrent",
             "//libs-scala/contextualized-logging",
-            "//libs-scala/grpc-utils",
             "//libs-scala/logging-entries",
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/resources-akka",
             "//libs-scala/resources-grpc",
             "@maven//:ch_qos_logback_logback_classic",
-            "@maven//:com_google_api_grpc_proto_google_common_protos",
             "@maven//:com_typesafe_config",
             "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_slf4j_slf4j_api",
@@ -131,7 +113,6 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_flatspec",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scala_runtime_deps = [
@@ -145,29 +126,22 @@ da_scala_library(
     deps = [
         ":sandbox-classic",
         "//daml-lf/data",
-        "//daml-lf/engine",
-        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/caching",
-        "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-auth-client",
-        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/participant-state",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
-        "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
@@ -176,7 +150,6 @@ da_scala_library(
         "//libs-scala/resources-grpc",
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
@@ -217,7 +190,6 @@ test_deps = [
     "//ledger/ledger-resources:ledger-resources-test-lib",
     "//ledger/metrics",
     "//ledger/participant-state",
-    "//ledger/participant-state-index",
     "//ledger/participant-state-metrics",
     "//ledger/sandbox-common",
     "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
@@ -261,34 +233,21 @@ scala_test_deps = [
     "@maven//:org_scalaz_scalaz_core",
 ]
 
-[
-    da_scala_test_suite(
-        name = "sandbox-classic-tests",
-        size = "medium",
-        srcs = glob(
-            ["src/test/suite/**/*.scala"],
-            exclude = [],
-        ),
-        data = [
-            "//daml-lf/encoder:testing-dars",
-            "//ledger/test-common:model-tests-default.dar",
-            "//ledger/test-common/test-certificates",
-        ],
-        flaky = False,
-        resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
-        scala_deps = scala_test_deps,
-        deps = test_deps,
-    ),
-]
+da_scala_test_suite(
+    name = "sandbox-classic-tests",
+    size = "medium",
+    srcs = glob(["src/test/suite/**/*.scala"]),
+    data = [
+        "//daml-lf/encoder:testing-dars",
+        "//ledger/test-common:model-tests-default.dar",
+        "//ledger/test-common/test-certificates",
+    ],
+    resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    scala_deps = scala_test_deps,
+    deps = test_deps,
+)
 
 SERVERS = {
-    "memory": {
-        "binary": ":sandbox-classic-binary",
-        "server_args": [
-            "--port=6865",
-            "--eager-package-loading",
-        ],
-    },
     "h2database": {
         "binary": ":sandbox-classic-binary",
         "server_args": [
@@ -336,9 +295,6 @@ server_conformance_test(
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=ParticipantPruningIT",
-        # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -362,9 +318,6 @@ server_conformance_test(
         "--additional=CommandDeduplicationParallelIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=ParticipantPruningIT",
-        # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -407,60 +360,5 @@ server_conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
-    ],
-)
-
-# =============================================================================
-# Conformance tests: deprecated ledger backends (in-memory ledger)
-# =============================================================================
-
-DEPRECATED_SERVERS = {
-    "memory": SERVERS["memory"],
-}
-
-# Full conformance test (in-memory ledger)
-server_conformance_test(
-    name = "conformance-test-deprecated",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-    ],
-    servers = DEPRECATED_SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-        "--exclude=ContractKeysIT:CKFetchOrLookup",
-        "--exclude=ContractKeysIT:CKNoFetchUndisclosed",
-        "--exclude=ContractKeysIT:CKMaintainerScoped",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
-        # Below test suites are duplicates of the above ExceptionsIT and ContractKeysIT
-        # but with more generic assertions for the in-memory ledger
-        # TODO sandbox-classic removal: Delete these tests
-        "--additional=DeprecatedSandboxClassicMemoryContractKeysIT",
-        "--additional=DeprecatedSandboxClassicMemoryExceptionsIT",
-    ],
-)
-
-# Feature test: --static-time (in-memory ledger)
-server_conformance_test(
-    name = "conformance-test-deprecated-static-time",
-    server_args = [
-        "--static-time",
-        "--contract-id-seeding=testing-weak",
-    ],
-    servers = DEPRECATED_SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-        "--exclude=ContractKeysIT:CKFetchOrLookup",
-        "--exclude=ContractKeysIT:CKNoFetchUndisclosed",
-        "--exclude=ContractKeysIT:CKMaintainerScoped",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
-        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
-        # Below test suites are duplicates of the above ExceptionsIT and ContractKeysIT
-        # but with more generic assertions for the in-memory ledger
-        # TODO sandbox-classic removal: Delete these tests
-        "--additional=DeprecatedSandboxClassicMemoryContractKeysIT",
-        "--additional=DeprecatedSandboxClassicMemoryExceptionsIT",
     ],
 )

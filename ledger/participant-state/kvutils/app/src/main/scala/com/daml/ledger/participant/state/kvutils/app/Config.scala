@@ -54,7 +54,6 @@ final case class Config[Extra](
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
     allowedLanguageVersions: VersionRange[LanguageVersion],
-    enableMutableContractStateCache: Boolean,
     enableInMemoryFanOutForLedgerApi: Boolean,
     extra: Extra,
     enableSelfServiceErrorCodes: Boolean,
@@ -98,12 +97,11 @@ object Config {
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
       allowedLanguageVersions = LanguageVersion.StableVersions,
-      enableMutableContractStateCache = false,
       enableInMemoryFanOutForLedgerApi = false,
       maxDeduplicationDuration = None,
       extra = extra,
       enableSelfServiceErrorCodes = true,
-      userManagementConfig = UserManagementConfig.default,
+      userManagementConfig = UserManagementConfig.default(enabled = false),
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
@@ -615,35 +613,26 @@ object Config {
             "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
           )
 
-        // TODO append-only: remove after removing support for the current (mutating) schema
+        // TODO append-only: remove
         opt[Unit]("index-append-only-schema")
           .optional()
           .text("Legacy flag with no effect")
           .action((_, config) => config)
 
+        // TODO remove
         opt[Unit]("mutable-contract-state-cache")
           .optional()
           .hidden()
-          .text(
-            "Contract state cache for command execution. Must be enabled in conjunction with index-append-only-schema."
-          )
-          .action((_, config) => config.copy(enableMutableContractStateCache = true))
+          .text("Legacy flag with no effect")
+          .action((_, config) => config)
 
         opt[Unit]("buffered-ledger-api-streams-unsafe")
           .optional()
           .hidden()
           .text(
-            "Experimental buffer for Ledger API streaming queries. Must be enabled in conjunction with index-append-only-schema and mutable-contract-state-cache. Should not be used in production."
+            "Experimental buffer for Ledger API streaming queries. Should not be used in production."
           )
           .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
-
-        checkConfig(config =>
-          if (config.enableInMemoryFanOutForLedgerApi && !config.enableMutableContractStateCache)
-            failure(
-              "buffered-ledger-api-streams-unsafe must be enabled in conjunction with mutable-contract-state-cache."
-            )
-          else success
-        )
 
         opt[Unit]("use-pre-1.18-error-codes")
           .optional()
@@ -652,10 +641,19 @@ object Config {
           )
           .action((_, config: Config[Extra]) => config.copy(enableSelfServiceErrorCodes = false))
 
+        opt[Boolean]("enable-user-management")
+          .optional()
+          .text(
+            "Whether to enable participant user management."
+          )
+          .action((enabled, config: Config[Extra]) =>
+            config.withUserManagementConfig(_.copy(enabled = enabled))
+          )
+
         opt[Int]("user-management-cache-expiry")
           .optional()
           .text(
-            s"Defaults to ${UserManagementConfig.default.cacheExpiryAfterWriteInSeconds} seconds. " +
+            s"Defaults to ${UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds} seconds. " +
               // TODO participant user management: Update max delay to 2x the configured value when made use of in throttled stream authorization.
               "Determines the maximum delay for propagating user management state changes."
           )
@@ -666,7 +664,7 @@ object Config {
         opt[Int]("user-management-max-cache-size")
           .optional()
           .text(
-            s"Defaults to ${UserManagementConfig.default.maximumCacheSize} entries. " +
+            s"Defaults to ${UserManagementConfig.DefaultMaximumCacheSize} entries. " +
               "Determines the maximum in-memory cache size for user management state."
           )
           .action((value, config: Config[Extra]) =>

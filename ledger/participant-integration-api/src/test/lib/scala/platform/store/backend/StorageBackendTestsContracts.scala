@@ -4,7 +4,6 @@
 package com.daml.platform.store.backend
 
 import com.daml.lf.data.Ref
-import com.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -20,12 +19,12 @@ private[backend] trait StorageBackendTestsContracts
   import StorageBackendTestValues._
 
   it should "correctly find an active contract" in {
-    val contractId = ContractId.V0.assertFromString("#1")
+    val contractId = hashCid("#1")
     val signatory = Ref.Party.assertFromString("signatory")
 
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
-      dtoCreate(offset(1), 1L, contractId = contractId.coid, signatory = signatory),
+      dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
       DbDto.CreateFilter(1L, someTemplateId.toString, signatory),
       dtoCompletion(offset(1)),
     )
@@ -50,16 +49,16 @@ private[backend] trait StorageBackendTestsContracts
   }
 
   it should "not find an archived contract" in {
-    val contractId = ContractId.V0.assertFromString("#1")
+    val contractId = hashCid("#1")
     val signatory = Ref.Party.assertFromString("signatory")
 
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
-      dtoCreate(offset(1), 1L, contractId = contractId.coid, signatory = signatory),
+      dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
       DbDto.CreateFilter(1L, someTemplateId.toString, signatory),
       dtoCompletion(offset(1)),
       // 2: transaction that archives the contract
-      dtoExercise(offset(2), 2L, true, contractId.coid),
+      dtoExercise(offset(2), 2L, true, contractId),
       dtoCompletion(offset(2)),
     )
 
@@ -80,12 +79,12 @@ private[backend] trait StorageBackendTestsContracts
   }
 
   it should "correctly find a divulged contract" in {
-    val contractId = ContractId.V0.assertFromString("#1")
+    val contractId = hashCid("#1")
     val divulgee = Ref.Party.assertFromString("divulgee")
 
     val dtos: Vector[DbDto] = Vector(
       // 1: divulgence
-      dtoDivulgence(Some(offset(1)), 1L, contractId = contractId.coid, divulgee = divulgee),
+      dtoDivulgence(Some(offset(1)), 1L, contractId = contractId, divulgee = divulgee),
       DbDto.CreateFilter(1L, someTemplateId.toString, divulgee),
       dtoCompletion(offset(1)),
     )
@@ -110,17 +109,17 @@ private[backend] trait StorageBackendTestsContracts
   }
 
   it should "correctly find an active contract that is also divulged" in {
-    val contractId = ContractId.V0.assertFromString("#1")
+    val contractId = hashCid("#1")
     val signatory = Ref.Party.assertFromString("signatory")
     val divulgee = Ref.Party.assertFromString("divulgee")
 
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
-      dtoCreate(offset(1), 1L, contractId = contractId.coid, signatory = signatory),
+      dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
       DbDto.CreateFilter(1L, someTemplateId.toString, signatory),
       dtoCompletion(offset(1)),
       // 2: divulgence without any optional information
-      dtoDivulgence(Some(offset(2)), 2L, contractId = contractId.coid, divulgee = divulgee)
+      dtoDivulgence(Some(offset(2)), 2L, contractId = contractId, divulgee = divulgee)
         .copy(template_id = None, create_argument = None, create_argument_compression = None),
       DbDto.CreateFilter(2L, someTemplateId.toString, divulgee),
       dtoCompletion(offset(2)),
@@ -146,21 +145,21 @@ private[backend] trait StorageBackendTestsContracts
   }
 
   it should "not disclose to divulgees that a contract was archived" in {
-    val contractId = ContractId.V0.assertFromString("#1")
+    val contractId = hashCid("#1")
     val signatory = Ref.Party.assertFromString("signatory")
     val divulgee = Ref.Party.assertFromString("divulgee")
 
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
-      dtoCreate(offset(1), 1L, contractId = contractId.coid, signatory = signatory),
+      dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
       DbDto.CreateFilter(1L, someTemplateId.toString, signatory),
       dtoCompletion(offset(1)),
       // 2: divulgence
-      dtoDivulgence(Some(offset(2)), 2L, contractId = contractId.coid, divulgee = divulgee),
+      dtoDivulgence(Some(offset(2)), 2L, contractId = contractId, divulgee = divulgee),
       DbDto.CreateFilter(2L, someTemplateId.toString, divulgee),
       dtoCompletion(offset(2)),
       // 3: transaction that archives the contract
-      dtoExercise(offset(3), 3L, true, contractId.coid, signatory = signatory),
+      dtoExercise(offset(3), 3L, true, contractId, signatory = signatory),
       dtoCompletion(offset(3)),
     )
 

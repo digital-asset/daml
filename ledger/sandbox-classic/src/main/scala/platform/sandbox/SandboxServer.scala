@@ -3,82 +3,159 @@
 
 package com.daml.platform.sandbox
 
-import java.io.File
-import java.nio.file.Files
-import java.time.Instant
-import java.util.concurrent.Executors
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.error.ErrorCodesVersionSwitcher
-import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
-import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  CommandDeduplicationPeriodSupport,
-  CommandDeduplicationType,
-  ExperimentalContractIds,
-}
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
-import com.daml.ledger.participant.state.v2.metrics.TimedWriteService
+import com.daml.ledger.participant.state.kvutils.app.Config
+import com.daml.ledger.participant.state.v2.WriteService
+import com.daml.ledger.resources
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Engine, EngineConfig}
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.StandardTransactionCommitter
-import com.daml.logging.LoggingContext.newLoggingContextWith
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
+import com.daml.lf.archive.DarParser
+import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
-import com.daml.platform.apiserver._
-import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
-import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.apiserver.ApiServer
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
-import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
-import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.daml.platform.sandbox.stores.ledger._
-import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndexAndWriteService}
-import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.{DbSupport, DbType, FlywayMigrations, LfValueTranslationCache}
-import com.daml.platform.usermanagement.PersistentUserManagementStore
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.store.{FlywayMigrations, IndexMetadata}
 import com.daml.ports.Port
+import com.daml.resources.AbstractResourceOwner
+import com.daml.telemetry.NoOpTelemetryContext
 import scalaz.syntax.tag._
 
+import java.nio.file.Files
+import java.util.UUID
+import java.util.concurrent.Executors
+import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
-object SandboxServer {
+final class SandboxServer(
+    config: SandboxConfig,
+    materializer: Materializer,
+    metrics: Metrics,
+) extends AutoCloseable {
+  private val resourceManagementExecutionContext =
+    ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
 
-  private val DefaultName = LedgerName("Sandbox")
+  // Only used for testing.
+  def this(config: SandboxConfig, materializer: Materializer) =
+    this(config, materializer, new Metrics(new MetricRegistry))
 
-  private val AsyncTolerance = 30.seconds
+  private val apiServerResource = start(
+    ResourceContext(resourceManagementExecutionContext),
+    materializer,
+  )
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  // Only used in testing; hopefully we can get rid of it soon.
+  private[sandbox] val port =
+    Await.result(apiServerResource.asFuture.map(_.port)(ExecutionContext.parasitic), AsyncTolerance)
 
-  // We memoize the engine between resets so we avoid the expensive
-  // repeated validation of the sames packages after each reset
-  private[this] var engine: Option[Engine] = None
+  override def close(): Unit = Await.result(apiServerResource.release(), AsyncTolerance)
 
-  private def getEngine(config: EngineConfig): Engine = synchronized {
-    engine match {
-      case Some(eng) if eng.config == config => eng
-      case _ =>
-        val eng = new Engine(config)
-        engine = Some(eng)
-        eng
+  private def start(implicit
+      resourceContext: ResourceContext,
+      materializer: Materializer,
+  ) =
+    for {
+      maybeLedgerId <- config.jdbcUrl
+        .map(getLedgerId(_)(resourceContext, resourceManagementExecutionContext, materializer))
+        .getOrElse(Resource.successful(None))
+      genericConfig =
+        ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
+      participantConfig <-
+        SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
+      (apiServer, writeService) <-
+        SandboxOnXRunner
+          .buildLedger(
+            genericConfig,
+            participantConfig,
+            materializer,
+            materializer.system,
+            Some(metrics),
+          )
+          .acquire()
+      _ <- Resource.fromFuture(writePortFile(apiServer.port)(resourceManagementExecutionContext))
+      _ <- loadPackages(writeService)(resourceManagementExecutionContext).acquire()
+    } yield {
+      initializationLoggingHeader(genericConfig, apiServer)
+      apiServer
+    }
+
+  private def initializationLoggingHeader(
+      genericConfig: Config[BridgeConfig],
+      apiServer: ApiServer,
+  ): Unit = {
+    Banner.show(Console.out)
+    logger.withoutContext.info(
+      s"Initialized Sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
+      BuildInfo.Version,
+      genericConfig.ledgerId,
+      apiServer.port.toString,
+      config.damlPackages,
+      genericConfig.extra.timeProviderType.description,
+      "SQL-backed conflict-checking ledger-bridge",
+      genericConfig.extra.authService.getClass.getSimpleName,
+      config.seeding.name,
+      if (config.stackTraces) "" else ", stack traces = no",
+      config.profileDir match {
+        case None => ""
+        case Some(profileDir) => s", profile directory = $profileDir"
+      },
+    )
+    if (config.scenario.nonEmpty) {
+      logger.withoutContext.warn(
+        """|Initializing a ledger with scenarios is deprecated has no effect.
+           |You are advised to use Daml Script instead. Using scenarios in Daml Studio will continue to work as expected.
+           |A migration guide for converting your scenarios to Daml Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin
+      )
+    }
+    if (config.engineMode == SandboxConfig.EngineMode.EarlyAccess) {
+      logger.withoutContext.warn(
+        """|Using early access mode is dangerous as the backward compatibility of future SDKs is not guaranteed.
+           |Should be used for testing purpose only.""".stripMargin
+      )
     }
   }
 
-  // Only used for testing.
+  private def writePortFile(port: Port)(implicit executionContext: ExecutionContext): Future[Unit] =
+    config.portFile
+      .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
+      .getOrElse(Future.unit)
+
+  private def loadPackages(writeService: WriteService)(implicit
+      executionContext: ExecutionContext
+  ): AbstractResourceOwner[ResourceContext, List[Unit]] =
+    ResourceOwner.forFuture(() =>
+      Future.sequence(
+        config.damlPackages.map { file =>
+          val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
+          for {
+            dar <- Future.fromTry(DarParser.readArchiveFromFile(file).toTry)
+            _ <- writeService
+              .uploadPackages(submissionId, dar.all, None)(
+                LoggingContext.ForTesting,
+                NoOpTelemetryContext,
+              )
+              .toScala
+          } yield ()
+        }
+      )
+    )
+}
+
+object SandboxServer {
+  private val DefaultName = LedgerName("Sandbox")
+  private val AsyncTolerance = 30.seconds
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
     owner(DefaultName, config)
 
@@ -91,388 +168,43 @@ object SandboxServer {
       )
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
-      server <- ResourceOwner
-        .forTryCloseable(() => Try(new SandboxServer(name, config, materializer, metrics)))
+      server <- ResourceOwner.forTryCloseable(() =>
+        Try(new SandboxServer(config, materializer, metrics))
+      )
       // Wait for the API server to start.
       _ <- new ResourceOwner[Unit] {
         override def acquire()(implicit context: ResourceContext): Resource[Unit] =
-          // We use the Future rather than the Resource to avoid holding onto the API server.
-          // Otherwise, we cause a memory leak upon reset.
-          Resource.fromFuture(server.apiServer.map(_ => ()))
+          server.apiServerResource.map(_ => ())
       }
     } yield server
 
   // Run only the flyway migrations but do not initialize any of the ledger api or indexer services
   def migrateOnly(
       config: SandboxConfig
-  )(implicit resourceContext: ResourceContext): Future[Unit] = {
-
+  )(implicit resourceContext: ResourceContext): Future[Unit] =
     newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
       logger.info("Running only schema migration scripts")
       new FlywayMigrations(config.jdbcUrl.get)
         .migrate()
     }
-  }
 
-  final class SandboxState(
-      // nested resource so we can release it independently when restarting
-      apiServerResource: Resource[ApiServer]
-  ) {
-    def port(implicit executionContext: ExecutionContext): Future[Port] =
-      apiServer.map(_.port)
-
-    private[SandboxServer] def apiServer: Future[ApiServer] =
-      apiServerResource.asFuture
-
-    def release(): Future[Unit] =
-      apiServerResource.release()
-  }
-
-}
-
-final class SandboxServer(
-    name: LedgerName,
-    config: SandboxConfig,
-    materializer: Materializer,
-    metrics: Metrics,
-) extends AutoCloseable {
-
-  private[this] val engine = {
-    val engineConfig = {
-      val allowedLanguageVersions =
-        config.engineMode match {
-          case EngineMode.Stable =>
-            LanguageVersion.StableVersions
-          case EngineMode.EarlyAccess =>
-            LanguageVersion.EarlyAccessVersions
-          case EngineMode.Dev =>
-            LanguageVersion.DevVersions
-        }
-      EngineConfig(
-        allowedLanguageVersions = allowedLanguageVersions,
-        profileDir = config.profileDir,
-        stackTraceMode = config.stackTraces,
-        forbidV0ContractId = false,
-      )
-    }
-    getEngine(engineConfig)
-  }
-
-  // Only used for testing.
-  def this(config: SandboxConfig, materializer: Materializer) =
-    this(DefaultName, config, materializer, new Metrics(new MetricRegistry))
-
-  private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
-  private val seedingService = SeedService(config.seeding)
-
-  // We store a Future rather than a Resource to avoid keeping old resources around after a reset.
-  // It's package-private so we can test that we drop the reference properly in ResetServiceIT.
-  @volatile
-  private[sandbox] var sandboxState: Future[SandboxState] = start()
-
-  private def apiServer(implicit executionContext: ExecutionContext): Future[ApiServer] =
-    sandboxState.flatMap(_.apiServer)
-
-  // Only used in testing; hopefully we can get rid of it soon.
-  def port: Port =
-    Await.result(portF(ExecutionContext.parasitic), AsyncTolerance)
-
-  def portF(implicit executionContext: ExecutionContext): Future[Port] =
-    apiServer.map(_.port)
-
-  // if requested, initialize the ledger state with the given scenario
-  private def createInitialState(
-      config: SandboxConfig,
-      packageStore: InMemoryPackageStore,
-  ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
-    // [[ScenarioLoader]] needs all the packages to be already compiled --
-    // make sure that that's the case
-    if (config.eagerPackageLoading || config.scenario.nonEmpty) {
-      for (pkgId <- packageStore.listLfPackagesSync().keys) {
-        val pkg = packageStore.getLfPackageSync(pkgId).get
-        engine
-          .preloadPackage(pkgId, pkg)
-          .consume(
-            pcs = { _ =>
-              sys.error("Unexpected request of contract")
-            },
-            packages = packageStore.getLfPackageSync,
-            keys = { _ =>
-              sys.error("Unexpected request of contract key")
-            },
-          )
-          .left
-          .foreach(err => sys.error(err.message))
-      }
-    }
-    config.scenario match {
-      case None => (InMemoryActiveLedgerState.empty, ImmArray.Empty, None)
-      case Some(scenario) =>
-        val (acs, records, ledgerTime) =
-          ScenarioLoader.fromScenario(
-            packageStore,
-            engine,
-            scenario,
-            seedingService.nextSeed(),
-          )
-        (acs, records, Some(ledgerTime))
-    }
-  }
-
-  private def buildAndStartApiServer(
+  // TODO SoX-to-sandbox-classic: Work-around to emulate the ledgerIdMode used in sandbox-classic.
+  //                              This is needed for the Dynamic ledger id mode, when the index should be initialized with the existing ledger id (only used in testing).
+  private def getLedgerId(
+      jdbcUrl: String
+  )(implicit
+      resourceContext: ResourceContext,
+      executionContext: ExecutionContext,
       materializer: Materializer,
-      metrics: Metrics,
-      packageStore: InMemoryPackageStore,
-      currentPort: Option[Port],
-  )(implicit loggingContext: LoggingContext): Resource[ApiServer] = {
-    implicit val _materializer: Materializer = materializer
-    implicit val actorSystem: ActorSystem = materializer.system
-    implicit val executionContext: ExecutionContext = materializer.executionContext
-    implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
-
-    val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
-
-    val timeProviderType = config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType)
-    val (timeProvider, timeServiceBackendO: Option[TimeServiceBackend]) =
-      (mbLedgerTime, timeProviderType) match {
-        case (None, TimeProviderType.WallClock) => (TimeProvider.UTC, None)
-        case (ledgerTime, _) =>
-          val ts = TimeServiceBackend.simple(ledgerTime.getOrElse(Instant.EPOCH))
-          (ts, Some(ts))
-      }
-
-    val transactionCommitter = StandardTransactionCommitter
-
-    val lfValueTranslationCache =
-      LfValueTranslationCache.Cache.newInstrumentedInstance(
-        eventConfiguration = config.lfValueTranslationEventCacheConfiguration,
-        contractConfiguration = config.lfValueTranslationContractCacheConfiguration,
-        metrics = metrics,
-      )
-
-    val ledgerType = config.jdbcUrl match {
-      case Some(_) => "postgres"
-      case None => "in-memory"
+  ): resources.Resource[Option[String]] =
+    newLoggingContext { implicit loggingContext: LoggingContext =>
+      Resource
+        // TODO Sandbox: Handle verbose error logging on non-existing ledger id (e.g. when starting on non-initialized Index DB)
+        .fromFuture(IndexMetadata.read(jdbcUrl, ErrorFactories(true)).transform {
+          case Failure(_) => Success(None)
+          case Success(indexMetadata) =>
+            if (indexMetadata.ledgerId.isEmpty) Success(None)
+            else Success(Some(indexMetadata.ledgerId))
+        })
     }
-
-    for {
-      servicesExecutionContext <- ResourceOwner
-        .forExecutorService(() => Executors.newWorkStealingPool())
-        .map(ExecutionContext.fromExecutorService)
-        .acquire()
-      dbSupportOption <- config.jdbcUrl match {
-        case Some(jdbcUrl) =>
-          DbSupport
-            .migratedOwner(
-              jdbcUrl = jdbcUrl,
-              serverRole = ServerRole.Sandbox,
-              connectionPoolSize = DbType
-                .jdbcType(jdbcUrl)
-                .maxSupportedWriteConnections(config.databaseConnectionPoolSize),
-              connectionTimeout = config.databaseConnectionTimeout,
-              metrics = metrics,
-            )
-            .acquire()
-            .map(Some(_))
-
-        case None => Resource.successful(None)
-      }
-      userManagementStore = dbSupportOption match {
-        case Some(dbSupport) =>
-          PersistentUserManagementStore.cached(
-            dbSupport = dbSupport,
-            metrics = metrics,
-            cacheExpiryAfterWriteInSeconds =
-              config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-            maximumCacheSize = config.userManagementConfig.maximumCacheSize,
-          )(servicesExecutionContext)
-        case None => new InMemoryUserManagementStore
-      }
-      indexAndWriteService <- (dbSupportOption match {
-        case Some(dbSupport: DbSupport) =>
-          SandboxIndexAndWriteService.postgres(
-            name = name,
-            providedLedgerId = config.ledgerIdMode,
-            participantId = config.participantId,
-            dbSupport = dbSupport,
-            timeProvider = timeProvider,
-            ledgerEntries = ledgerEntries,
-            queueDepth = config.maxParallelSubmissions,
-            transactionCommitter = transactionCommitter,
-            templateStore = packageStore,
-            eventsPageSize = config.eventsPageSize,
-            eventsProcessingParallelism = config.eventsProcessingParallelism,
-            acsIdPageSize = config.acsIdPageSize,
-            acsIdFetchingParallelism = config.acsIdFetchingParallelism,
-            acsContractFetchingParallelism = config.acsContractFetchingParallelism,
-            acsGlobalParallelism = config.acsGlobalParallelism,
-            acsIdQueueLimit = config.acsIdQueueLimit,
-            servicesExecutionContext = servicesExecutionContext,
-            metrics = metrics,
-            lfValueTranslationCache = lfValueTranslationCache,
-            engine = engine,
-            validatePartyAllocation = !config.implicitPartyAllocation,
-            enableCompression = config.enableCompression,
-            enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
-          )
-        case None =>
-          SandboxIndexAndWriteService.inMemory(
-            name,
-            config.ledgerIdMode,
-            config.participantId,
-            timeProvider,
-            acs,
-            ledgerEntries,
-            transactionCommitter,
-            packageStore,
-            metrics,
-            engine,
-            enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
-          )
-      }).acquire()
-      ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())
-      errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
-        config.enableSelfServiceErrorCodes
-      )
-      authorizer = new Authorizer(
-        () => java.time.Clock.systemUTC.instant(),
-        LedgerId.unwrap(ledgerId),
-        config.participantId,
-        errorCodesVersionSwitcher,
-      )
-      healthChecks = new HealthChecks(
-        "index" -> indexAndWriteService.indexService,
-        "write" -> indexAndWriteService.writeService,
-      )
-      executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
-      apiServicesOwner = new ApiServices.Owner(
-        participantId = config.participantId,
-        optWriteService = Some(new TimedWriteService(indexAndWriteService.writeService, metrics)),
-        indexService = new TimedIndexService(indexAndWriteService.indexService, metrics),
-        authorizer = authorizer,
-        engine = engine,
-        timeProvider = timeProvider,
-        timeProviderType = timeProviderType,
-        configurationLoadTimeout = config.configurationLoadTimeout,
-        initialLedgerConfiguration = Some(config.initialLedgerConfiguration),
-        commandConfig = config.commandConfig,
-        partyConfig = PartyConfiguration.default.copy(
-          implicitPartyAllocation = config.implicitPartyAllocation
-        ),
-        submissionConfig = config.submissionConfig,
-        optTimeServiceBackend = timeServiceBackendO,
-        servicesExecutionContext = servicesExecutionContext,
-        metrics = metrics,
-        healthChecks = healthChecks,
-        seedService = seedingService,
-        managementServiceTimeout = config.managementServiceTimeout,
-        enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
-        checkOverloaded = _ => None,
-        userManagementStore = userManagementStore,
-        ledgerFeatures = LedgerFeatures(
-          staticTime = timeServiceBackendO.isDefined,
-          commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
-            Some(
-              CommandDeduplicationPeriodSupport.of(
-                offsetSupport =
-                  CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
-                durationSupport =
-                  CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
-              )
-            ),
-            CommandDeduplicationType.SYNC_ONLY,
-            maxDeduplicationDurationEnforced = false,
-          ),
-          contractIdFeatures = ExperimentalContractIds.of(
-            v0 = ExperimentalContractIds.ContractIdV0Support.SUPPORTED,
-            v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
-          ),
-        ),
-      )(materializer, executionSequencerFactory, loggingContext)
-      apiServer <- new LedgerApiServer(
-        apiServicesOwner,
-        // NOTE: Re-use the same port after reset.
-        currentPort.getOrElse(config.port),
-        config.maxInboundMessageSize,
-        config.address,
-        config.tlsConfig,
-        List(
-          AuthorizationInterceptor(
-            authService,
-            userManagementStore,
-            servicesExecutionContext,
-            errorCodesVersionSwitcher,
-          )
-        ),
-        servicesExecutionContext,
-        metrics,
-      ).acquire()
-      _ <- Resource.fromFuture(writePortFile(apiServer.port))
-    } yield {
-      Banner.show(Console.out)
-      logger.withoutContext.info(
-        s"Initialized {} version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
-        LedgerName.unwrap(name),
-        BuildInfo.Version,
-        LedgerId.unwrap(ledgerId),
-        apiServer.port.toString,
-        config.damlPackages,
-        timeProviderType.description,
-        ledgerType,
-        authService.getClass.getSimpleName,
-        config.seeding.name,
-        if (config.stackTraces) "" else ", stack traces = no",
-        config.profileDir match {
-          case None => ""
-          case Some(profileDir) => s", profile directory = $profileDir"
-        },
-      )
-      if (config.scenario.nonEmpty) {
-        logger.withoutContext.warn(
-          """|Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use Daml Script instead. Using scenarios in Daml Studio will continue to work as expected.
-             |A migration guide for converting your scenarios to Daml Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin
-        )
-      }
-      if (config.engineMode == SandboxConfig.EngineMode.EarlyAccess) {
-        logger.withoutContext.warn(
-          """|Using early access mode is dangerous as the backward compatibility of future SDKs is not guaranteed.
-             |Should be used for testing purpose only.""".stripMargin
-        )
-      }
-      apiServer
-    }
-  }
-
-  private def start(): Future[SandboxState] = {
-    newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
-      val packageStore = loadDamlPackages()
-      val apiServerResource = buildAndStartApiServer(
-        materializer,
-        metrics,
-        packageStore,
-        currentPort = None,
-      )
-      Future.successful(new SandboxState(apiServerResource))
-    }
-  }
-
-  private def loadDamlPackages(): InMemoryPackageStore = {
-    // TODO is it sensible to have all the initial packages to be known since the epoch?
-    config.damlPackages
-      .foldLeft[Either[(String, File), InMemoryPackageStore]](Right(InMemoryPackageStore.empty)) {
-        case (storeE, f) =>
-          storeE.flatMap(_.withDarFile(Timestamp.Epoch, None, f).left.map(_ -> f))
-
-      }
-      .fold({ case (err, file) => sys.error(s"Could not load package $file: $err") }, identity)
-  }
-
-  override def close(): Unit = {
-    Await.result(sandboxState.flatMap(_.release())(ExecutionContext.parasitic), AsyncTolerance)
-  }
-
-  private def writePortFile(port: Port)(implicit executionContext: ExecutionContext): Future[Unit] =
-    config.portFile
-      .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
-      .getOrElse(Future.unit)
 }

@@ -14,7 +14,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.serialization.Compression
 
-import scala.collection.compat.immutable.ArraySeq
+import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
 
 /** An event as it's fetched from the participant index, before

@@ -19,8 +19,6 @@ import org.scalatest.{Assertion, BeforeAndAfter}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.compat._
-import scala.collection.compat.immutable.LazyList
 import scala.collection.immutable
 import scala.collection.immutable.TreeMap
 import scala.concurrent.Future.successful

@@ -15,7 +15,9 @@ import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationPeriodSu
   DurationSupport,
   OffsetSupport,
 }
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding.Primitive.Party
+import com.daml.lf.data.Ref
 import com.daml.platform.testing.WithTimeout
 import com.google.protobuf.duration.{Duration => DurationProto}
 import io.grpc.Status.Code
@@ -51,36 +53,83 @@ object CommandDeduplicationAssertions {
           completionResponse.completion.deduplicationPeriod.deduplicationOffset,
           "No deduplication offset has been reported",
         )
+        val reportedHexOffset = Ref.HexString.assertFromString(reportedOffset)
         if (completionResponse.completion.getStatus.code == Code.ALREADY_EXISTS.value) {
-          // Search for the first accepting completion with the same command ID since the beginning of the test case.
-          // Multiple consecutive accepting completions are not supported.
-          val completionStreamRequest = ledger.completionStreamRequest()(submittingParty)
-          WithTimeout(5.seconds)(
-            ledger
-              .findCompletion(completionStreamRequest)(c =>
-                c.commandId == c.commandId && c.getStatus.code == Code.OK.value
-              )
-          ).map { optAcceptedCompletionResponse =>
-            val acceptedCompletionResponse = assertDefined(
-              optAcceptedCompletionResponse,
-              s"No accepted completion with the command ID '${completionResponse.completion.commandId}' has been found",
-            )
-            assert(
-              acceptedCompletionResponse.offset.getAbsolute >= reportedOffset,
-              s"No accepted completion with the command ID '${completionResponse.completion.commandId}' after the reported offset $reportedOffset has been found",
-            )
-            assert(
-              acceptedCompletionResponse.offset.getAbsolute < completionResponse.offset.getAbsolute,
-              s"No accepted completion with the command ID '${completionResponse.completion.commandId}' before the completion's offset ${completionResponse.offset} has been found",
-            )
-          }
+          assertReportedOffsetForDuplicateSubmission(
+            reportedHexOffset,
+            completionResponse,
+            submittingParty,
+            ledger,
+          )
         } else {
-          fail("This case is not yet supported by this assertion")
+          assertReportedOffsetForAcceptedSubmission(
+            reportedHexOffset,
+            requestedDuration,
+            completionResponse,
+            submittingParty,
+            ledger,
+          )
         }
       case DurationSupport.Unrecognized(_) =>
         fail("Unrecognized deduplication duration support")
     }
   }
+
+  private def assertReportedOffsetForDuplicateSubmission(
+      reportedOffset: Ref.HexString,
+      completionResponse: CompletionResponse,
+      submittingParty: Party,
+      ledger: ParticipantTestContext,
+  )(implicit executionContext: ExecutionContext) =
+    WithTimeout(5.seconds)(
+      ledger.findCompletionAtOffset(
+        reportedOffset,
+        c => c.commandId == completionResponse.completion.commandId && c.getStatus.code == Code.OK.value,
+      )(submittingParty)
+    ).map { optAcceptedCompletionResponse =>
+      val acceptedCompletionResponse = assertDefined(
+        optAcceptedCompletionResponse,
+        s"No accepted completion with the command ID '${completionResponse.completion.commandId}' since the reported offset $reportedOffset has been found",
+      )
+      assert(
+        acceptedCompletionResponse.offset.getAbsolute < completionResponse.offset.getAbsolute,
+        s"An accepted completion with the command ID '${completionResponse.completion.commandId}' at the offset ${acceptedCompletionResponse.offset} that is not before the completion's offset ${completionResponse.offset} has been found",
+      )
+    }
+
+  private def assertReportedOffsetForAcceptedSubmission(
+      reportedOffset: Ref.HexString,
+      requestedDuration: Duration,
+      completionResponse: CompletionResponse,
+      submittingParty: Party,
+      ledger: ParticipantTestContext,
+  )(implicit executionContext: ExecutionContext) =
+    WithTimeout(5.seconds)(
+      ledger.findCompletionAtOffset(
+        reportedOffset,
+        _.commandId == completionResponse.completion.commandId,
+      )(submittingParty)
+    ).map { optReportedOffsetCompletionResponse =>
+      val reportedOffsetCompletionResponse = assertDefined(
+        optReportedOffsetCompletionResponse,
+        s"No completion with the command ID '${completionResponse.completion.commandId}' since the reported offset $reportedOffset has been found",
+      )
+      assert(
+        reportedOffsetCompletionResponse.offset == LedgerOffset.of(
+          LedgerOffset.Value.Absolute(reportedOffset)
+        ),
+        s"No completion with the reported offset $reportedOffset has been found, the ${reportedOffsetCompletionResponse.offset} offset has been found instead",
+      )
+      val durationBetweenReportedDeduplicationOffsetAndCompletionRecordTimes = Duration
+        .between(
+          reportedOffsetCompletionResponse.recordTime,
+          completionResponse.recordTime,
+        )
+      assert(
+        durationBetweenReportedDeduplicationOffsetAndCompletionRecordTimes >= requestedDuration,
+        s"The requested deduplication duration $requestedDuration was greater than the duration between the reported deduplication offset and completion record times ($durationBetweenReportedDeduplicationOffsetAndCompletionRecordTimes).",
+      )
+    }
 
   def assertDeduplicationOffset(
       requestedDeduplicationOffsetCompletionResponse: CompletionResponse,

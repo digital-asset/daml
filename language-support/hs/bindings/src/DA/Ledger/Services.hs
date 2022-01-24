@@ -14,3 +14,4 @@ import DA.Ledger.Services.PartyManagementService as X
 import DA.Ledger.Services.PackageService as X
 import DA.Ledger.Services.TimeService as X
 import DA.Ledger.Services.TransactionService as X
+import DA.Ledger.Services.MeteringReportService as X

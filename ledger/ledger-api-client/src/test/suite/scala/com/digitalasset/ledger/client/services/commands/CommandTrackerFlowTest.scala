@@ -38,12 +38,10 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.DurationLong
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-@nowarn("msg=deprecated")
 class CommandTrackerFlowTest
     extends AsyncWordSpec
     with Matchers

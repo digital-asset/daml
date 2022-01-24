@@ -12,7 +12,6 @@ import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 
-import scala.collection.compat._
 import scala.collection.immutable
 import scala.util.Try
 

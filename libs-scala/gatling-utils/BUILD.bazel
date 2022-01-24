@@ -7,7 +7,6 @@ load(
     "da_scala_test",
     "kind_projector_plugin",
     "lf_scalacopts",
-    "silencer_plugin",
 )
 load("@scala_version//:index.bzl", "scala_major_version")
 
@@ -20,14 +19,12 @@ da_scala_library(
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
         kind_projector_plugin,
-        silencer_plugin,
     ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_spray_spray_json",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = scalacopts,
     tags = ["maven_coordinates=com.daml:gatling-utils:__VERSION__"],

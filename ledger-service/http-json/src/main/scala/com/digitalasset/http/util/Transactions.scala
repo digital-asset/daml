@@ -11,8 +11,6 @@ import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 
-import scala.collection.compat._
-
 object Transactions {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def allCreatedEvents(transaction: Transaction): ImmArraySeq[CreatedEvent] =

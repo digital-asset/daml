@@ -39,6 +39,8 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
     new BridgeMetrics(new Metrics(new MetricRegistry))
   )
 
+  private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
+
   behavior of classOf[PrepareSubmissionImpl].getSimpleName
 
   it should "forward the correct failure on inconsistent keys" in {
@@ -48,7 +50,7 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
     val keyValue = Value.ValueText("key-1")
 
     val createNode = txBuilder.create(
-      id = ContractId.assertFromString("#1"),
+      id = cid("#1"),
       templateId = templateId,
       argument = Value.ValueInt64(1),
       signatories = Set.empty,
@@ -60,7 +62,7 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
 
     val contractKey = GlobalKey.assertBuild(templateId, keyValue)
     val otherCreateNode = txBuilder.create(
-      id = ContractId.assertFromString("#2"),
+      id = cid("#2"),
       templateId = templateId,
       argument = Value.ValueInt64(1),
       signatories = Set.empty,
@@ -100,7 +102,7 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
     val keyValue = Value.ValueText("key-1")
 
     val createNode = txBuilder.create(
-      id = ContractId.assertFromString("#1"),
+      id = cid("#1"),
       templateId = templateId,
       argument = Value.ValueInt64(1),
       signatories = Set.empty,

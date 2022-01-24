@@ -144,10 +144,21 @@ canonicalize_rlocation() {{
 runner=$$(canonicalize_rlocation $(rootpath {runner}))
 # Cleanup the trigger runner process but maintain the script runner exit code.
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
+
+SCRIPTOUTPUT=$$(mktemp -d)
+$$runner script \\
+  --ledger-host localhost \\
+  --ledger-port 6865 \\
+  --wall-clock-time \\
+  --dar $$(canonicalize_rlocation $(rootpath {dar})) \\
+  --script-name TestScript:allocateAlice \\
+  --output-file $$SCRIPTOUTPUT/alice.json
+ALICE=$$(cat $$SCRIPTOUTPUT/alice.json | sed 's/"//g')
+rm -rf $$SCRIPTOUTPUT
 $$runner trigger \\
   --ledger-host localhost \\
   --ledger-port 6865 \\
-  --ledger-party Alice \\
+  --ledger-party $$ALICE \\
   --wall-clock-time \\
   --dar $$(canonicalize_rlocation $(rootpath {dar})) \\
   --trigger-name CopyTrigger:copyTrigger &
@@ -191,9 +202,10 @@ chmod +x $(OUTS)
         runner = "//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = daml_runner,
-        server_args = ["sandbox-kv" if versions.is_at_least("2.0.0", runner_version) else "sandbox"],
+        server_args = ["sandbox"],
         server_files = [
             "$(rootpath {})".format(compiled_dar),
         ],
+        server_files_prefix = "--dar=" if versions.is_at_least("2.0.0", runner_version) else "",
         tags = ["exclusive"],
     )

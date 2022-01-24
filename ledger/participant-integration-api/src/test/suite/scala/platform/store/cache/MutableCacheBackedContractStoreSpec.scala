@@ -13,6 +13,7 @@ import akka.stream.{BoundedSourceQueue, Materializer}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceContext
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
@@ -551,7 +552,7 @@ object MutableCacheBackedContractStoreSpec {
   }
 
   private def contractId(id: Int): ContractId =
-    ContractId.assertFromString(s"#contract-$id")
+    ContractId.V1(Hash.hashPrivateKey(id.toString))
 
   private def globalKey(desc: String): Key =
     GlobalKey.assertBuild(Identifier.assertFromString(s"some:template:$desc"), ValueText(desc))

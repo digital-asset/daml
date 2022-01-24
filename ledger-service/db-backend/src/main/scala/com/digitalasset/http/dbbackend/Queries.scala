@@ -11,7 +11,6 @@ import nonempty.NonEmptyReturningOps._
 import doobie._
 import doobie.implicits._
 import scala.annotation.nowarn
-import scala.collection.compat._
 import scala.collection.immutable.{Seq => ISeq, SortedMap}
 import scalaz.{@@, Cord, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0

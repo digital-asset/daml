@@ -136,8 +136,8 @@ User access tokens
 Daml ledgers that support participant user management also accept user access tokens.
 They are useful for scenarios where an application's rights change dynamically over the application's lifetime.
 
-User access tokens do not encode rights directly like custom Daml claims tokens.
-Instead, these tokens encode the participant user whose behalf the request is issued.
+User access tokens do not encode rights directly like the custom Daml claims tokens explained in the following sections.
+Instead, user access tokens encode the participant user on whose behalf the request is issued.
 
 When handling such requests, participant nodes look up the participant user's current rights
 before checking request authorization per the  :ref:`table above <authorization-claims>`.
@@ -193,9 +193,9 @@ where all of the fields are optional, and if present,
 - ``exp`` is the standard JWT expiration date (in seconds since EPOCH)
 - ``actAs``, ``readAs`` and (participant) ``admin`` encode the rights granted by this access token
 
-The ``public`` right is implicitly granted to any bearing a valid JWT issued by a trusted issuer (even without being an admin or being able to act or read on behalf of any party).
+The ``public`` right is implicitly granted to any request bearing a non-expired JWT issued by a trusted issuer with matching ``ledgerId``, ``participantId`` and ``applicationId`` values.
 
 .. note:: All Daml ledgers also support a deprecated legacy format of custom Daml claims
-   access tokens whose format is equal to the above expect for the custom claims
+   access tokens whose format is equal to the above except for the custom claims
    to be present at the same level as ``exp`` in the token above,
    instead of being nested below ``"https://daml.com/ledger-api"``.

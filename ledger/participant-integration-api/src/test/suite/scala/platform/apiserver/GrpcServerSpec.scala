@@ -22,7 +22,6 @@ import io.grpc.ManagedChannel
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.compat.immutable.LazyList
 import scala.concurrent.Future
 
 final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResourceContext {

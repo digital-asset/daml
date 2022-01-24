@@ -55,7 +55,7 @@ import scalaz.{-\/, Functor, \/, \/-}
 
 import java.time.Instant
 import java.util.UUID
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.tailrec
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -77,7 +77,6 @@ final case class Trigger(
     // Whether the trigger supports readAs claims (SDK 1.18 and newer) or not.
     hasReadAs: Boolean,
 ) {
-  @nowarn("msg=parameter value label .* is never used") // Proxy only
   private[trigger] final class withLoggingContext[P] private (
       label: label[Trigger with P],
       kvs: Seq[LoggingEntry],

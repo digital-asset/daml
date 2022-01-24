@@ -14,12 +14,10 @@ import shapeless.record.{Record => HRecord}
 import shapeless.syntax.singleton._
 import shapeless.{Coproduct => HSum}
 
-import scala.annotation.nowarn
 import scala.language.implicitConversions
 
 class HashSpec extends AnyWordSpec with Matchers {
 
-  @nowarn("msg=dead code following this construct")
   private val packageId0 = Ref.PackageId.assertFromString("package")
 
   private val complexRecordT =

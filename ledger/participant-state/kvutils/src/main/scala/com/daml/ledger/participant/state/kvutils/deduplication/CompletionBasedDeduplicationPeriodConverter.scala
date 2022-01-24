@@ -12,6 +12,7 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.participant.util.HexOffset
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.math.Ordering.Implicits._

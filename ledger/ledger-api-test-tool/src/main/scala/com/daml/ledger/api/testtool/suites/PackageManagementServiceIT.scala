@@ -14,7 +14,6 @@ import com.google.protobuf.ByteString
 import io.grpc.Status
 
 import java.util.regex.Pattern
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
 final class PackageManagementServiceIT extends LedgerTestSuite {

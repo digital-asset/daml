@@ -44,6 +44,7 @@ final case class SandboxConfig(
     commandConfig: CommandConfiguration,
     submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
+    // TODO sandbox: Remove CLI option
     scenario: Option[String],
     implicitPartyAllocation: Boolean,
     maxInboundMessageSize: Int,
@@ -176,7 +177,7 @@ object SandboxConfig {
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableCompression = false,
       enableSelfServiceErrorCodes = true,
-      userManagementConfig = UserManagementConfig.default,
+      userManagementConfig = UserManagementConfig.default(true),
     )
 
   sealed abstract class EngineMode extends Product with Serializable

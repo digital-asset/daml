@@ -27,7 +27,6 @@ import com.daml.ports.{Port, PortFiles}
 import scalaz.{-\/, \/-}
 import spray.json._
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}

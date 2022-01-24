@@ -5,8 +5,6 @@ package com.daml.ledger.client.binding.encoding
 import java.time.{LocalDate, ZoneOffset}
 
 import com.daml.api.util.TimestampConversion
-import com.daml.ledger.client.binding.{Primitive => P}
-import scalaz.std.stream
 
 object DamlDates {
   val Min: LocalDate = TimestampConversion.MIN.atZone(ZoneOffset.UTC).toLocalDate
@@ -32,20 +30,4 @@ object DamlDates {
     */
   val RangeOfLocalDatesWithoutInjectiveFunctionToSqlDate: (LocalDate, LocalDate) =
     (LocalDate.parse("1582-10-05"), LocalDate.parse("1582-10-14"))
-
-  def localDatesWithoutInjectiveFunctionToSqlDate: Stream[LocalDate] =
-    stream
-      .unfold(RangeOfLocalDatesWithoutInjectiveFunctionToSqlDate._1) { a: LocalDate =>
-        if (!a.isAfter(RangeOfLocalDatesWithoutInjectiveFunctionToSqlDate._2))
-          Some((a, a.plusDays(1)))
-        else None
-      }
-
-  def damlDatesWithoutInjectiveFunctionToSqlDate: Stream[P.Date] =
-    localDatesWithoutInjectiveFunctionToSqlDate.map(pDate)
-
-  private def pDate(d: LocalDate): P.Date =
-    P.Date
-      .fromLocalDate(d)
-      .getOrElse(sys.error(s"expected `P.Date` friendly `LocalDate`, but got: $d"))
 }

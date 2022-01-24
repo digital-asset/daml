@@ -7,7 +7,9 @@ import com.daml.error.{ErrorCodesVersionSwitcher, NoLogging}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.api.validation.{ValidatorTestUtils, ValueValidator}
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time
+import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.google.protobuf.empty.Empty
@@ -42,7 +44,7 @@ class ValueConversionRoundTripTest
 
       val testCases: TableFor1[Sum] = Table(
         "values",
-        Sum.ContractId("#coid"),
+        Sum.ContractId(ContractId.V1(Hash.hashPrivateKey("#coid")).coid),
         DomainMocks.values.validApiParty.sum,
         Sum.Int64(Long.MinValue),
         Sum.Int64(0),

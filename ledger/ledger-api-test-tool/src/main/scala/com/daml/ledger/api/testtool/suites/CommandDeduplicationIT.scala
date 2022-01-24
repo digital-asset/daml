@@ -23,7 +23,7 @@ import com.daml.ledger.api.testtool.infrastructure.participant.{
   Features,
   ParticipantTestContext,
 }
-import com.daml.ledger.api.testtool.suites.CommandDeduplicationIT.{
+import com.daml.ledger.api.testtool.infrastructure.time.{
   DelayMechanism,
   StaticTimeDelayMechanism,
   TimeDelayMechanism,
@@ -43,7 +43,6 @@ import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, Tex
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{LedgerString, SubmissionId}
 import com.daml.logging.LoggingContext
-import com.daml.timer.Delayed
 import io.grpc.Status.Code
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -82,7 +81,7 @@ final class CommandDeduplicationIT(
         updateSubmissionId(request, firstAcceptedSubmissionId),
         party,
       )
-      optCompletionResponse <- submitRequestAndAssertDeduplication(
+      _ <- submitRequestAndAssertDeduplication(
         ledger,
         updateWithFreshSubmissionId(request),
         firstAcceptedSubmissionId,
@@ -95,16 +94,6 @@ final class CommandDeduplicationIT(
         party,
         noOfActiveContracts = 1,
       )
-      _ <-
-        if (!ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly) {
-          val completion = assertDefined(optCompletionResponse, "No completion has been produced")
-          assertDeduplicationDuration(
-            deduplicationDuration.asProtobuf,
-            completion,
-            party,
-            ledger,
-          )
-        } else Future.unit
     } yield {
       assert(
         response.completion.commandId == request.commands.get.commandId,
@@ -321,22 +310,16 @@ final class CommandDeduplicationIT(
         LedgerString.assertFromString(firstAcceptedCommand.completion.submissionId),
         firstAcceptedCommand.offset,
       )
-      deduplicationDurationFromPeriod = duplicateResponse
-        .map(_.completion.deduplicationPeriod)
-        .map {
-          case CompletionDeduplicationPeriod.Empty =>
-            throw new IllegalStateException("received empty completion")
-          case CompletionDeduplicationPeriod.DeduplicationOffset(_) =>
-            deduplicationDuration
-          case CompletionDeduplicationPeriod.DeduplicationDuration(value) =>
-            value.asScala
-        }
-        .getOrElse(deduplicationDuration + delay.skews)
-        .asInstanceOf[FiniteDuration]
+      deduplicationDurationFromPeriod = extractDurationFromDeduplicationPeriod(
+        deduplicationCompletionResponse = duplicateResponse,
+        defaultDuration = deduplicationDuration,
+        delayMechanism = delay,
+      )
       eventuallyAccepted <- succeedsEventually(
         maxRetryDuration = deduplicationDurationFromPeriod + delay.skews + 10.seconds,
         description =
           s"Deduplication period expires and request is accepted for command ${submitRequest.getCommands}.",
+        delayMechanism = delay,
       ) {
         submitAndAssertAccepted(thirdCall)
       }
@@ -469,6 +452,85 @@ final class CommandDeduplicationIT(
   })
 
   testGivenAllParticipants(
+    shortIdentifier = s"DeduplicateUsingDurations",
+    description = "Deduplicate commands within the deduplication period defined by a duration",
+    participants = allocate(SingleParty),
+    runConcurrently = false, // updates the time model
+    enabled = !_.commandDeduplicationFeatures.deduplicationType.isSyncOnly,
+    disabledReason =
+      "Most of the assertions run on async responses. Also, ledgers with the sync-only deduplication support use the wall clock for deduplication.",
+  )(implicit ec =>
+    configuredParticipants => { case Participants(Participant(ledger, party)) =>
+      val request = ledger
+        .submitRequest(party, DummyWithAnnotation(party, "Duplicate command").create.command)
+        .update(
+          _.commands.deduplicationPeriod :=
+            DeduplicationPeriod.DeduplicationDuration(deduplicationDuration.asProtobuf)
+        )
+      val firstAcceptedSubmissionId = newSubmissionId()
+      runWithTimeModel(configuredParticipants) { delay =>
+        for {
+          completionResponse <- submitRequestAndAssertCompletionAccepted(
+            ledger,
+            updateSubmissionId(request, firstAcceptedSubmissionId),
+            party,
+          )
+          optDeduplicationCompletionResponse <- submitRequestAndAssertDeduplication(
+            ledger,
+            updateWithFreshSubmissionId(request),
+            firstAcceptedSubmissionId,
+            completionResponse.offset,
+            party,
+          )
+          deduplicationDurationFromPeriod = extractDurationFromDeduplicationPeriod(
+            deduplicationCompletionResponse = optDeduplicationCompletionResponse,
+            defaultDuration = deduplicationDuration,
+            delayMechanism = delay,
+          )
+          eventuallyAcceptedCompletionResponse <- succeedsEventually(
+            maxRetryDuration = deduplicationDurationFromPeriod + delay.skews + 10.seconds,
+            description =
+              s"The deduplication period expires and the request is accepted for the commands ${request.getCommands}.",
+            delayMechanism = delay,
+          ) {
+            submitRequestAndAssertCompletionAccepted(
+              ledger,
+              updateSubmissionId(request, firstAcceptedSubmissionId),
+              party,
+            )
+          }
+          _ <- assertPartyHasActiveContracts(
+            ledger,
+            party,
+            noOfActiveContracts = 2,
+          )
+          deduplicationCompletionResponse = assertDefined(
+            optDeduplicationCompletionResponse,
+            "No completion has been produced",
+          )
+          _ <- assertDeduplicationDuration(
+            deduplicationDuration.asProtobuf,
+            deduplicationCompletionResponse,
+            party,
+            ledger,
+          )
+          _ <- assertDeduplicationDuration(
+            deduplicationDuration.asProtobuf,
+            eventuallyAcceptedCompletionResponse,
+            party,
+            ledger,
+          )
+        } yield {
+          assert(
+            completionResponse.completion.commandId == request.commands.get.commandId,
+            "The command ID of the first completion does not match the command ID of the submission",
+          )
+        }
+      }
+    }
+  )
+
+  testGivenAllParticipants(
     "DeduplicateUsingOffsets",
     "Deduplicate commands within the deduplication period defined by the offset",
     allocate(SingleParty),
@@ -482,7 +544,20 @@ final class CommandDeduplicationIT(
         .submitRequest(party, DummyWithAnnotation(party, "Duplicate command").create.command)
       val acceptedSubmissionId = newSubmissionId()
       runWithTimeModel(configuredParticipants) { delay =>
+        val dummyRequest = ledger.submitRequest(
+          party,
+          DummyWithAnnotation(party, "Dummy command to generate a completion offset").create.command,
+        )
         for {
+          // Send a dummy command to the ledger so that we obtain a recent offset
+          // We should be able to just grab the current ledger end,
+          // but the converter from offsets to durations cannot handle this yet.
+          dummyResponse <- submitRequestAndAssertCompletionAccepted(
+            ledger,
+            dummyRequest,
+            party,
+          )
+          offsetBeforeFirstCompletion = dummyResponse.offset
           response <- submitRequestAndAssertCompletionAccepted(
             ledger,
             updateSubmissionId(request, acceptedSubmissionId),
@@ -497,7 +572,7 @@ final class CommandDeduplicationIT(
             updateWithFreshSubmissionId(
               request.update(
                 _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationOffset(
-                  Ref.HexString.assertFromString(response.offset.getAbsolute)
+                  Ref.HexString.assertFromString(offsetBeforeFirstCompletion.getAbsolute)
                 )
               )
             ),
@@ -983,29 +1058,23 @@ final class CommandDeduplicationIT(
       }
     }
   }
-}
 
-object CommandDeduplicationIT {
+  private def extractDurationFromDeduplicationPeriod(
+      deduplicationCompletionResponse: Option[CompletionResponse],
+      defaultDuration: FiniteDuration,
+      delayMechanism: DelayMechanism,
+  ): FiniteDuration =
+    deduplicationCompletionResponse
+      .map(_.completion.deduplicationPeriod)
+      .map {
+        case CompletionDeduplicationPeriod.Empty =>
+          throw new IllegalStateException("received empty completion")
+        case CompletionDeduplicationPeriod.DeduplicationOffset(_) =>
+          defaultDuration
+        case CompletionDeduplicationPeriod.DeduplicationDuration(value) =>
+          value.asScala
+      }
+      .getOrElse(defaultDuration + delayMechanism.skews)
+      .asInstanceOf[FiniteDuration]
 
-  trait DelayMechanism {
-    val skews: FiniteDuration
-    def delayBy(duration: Duration): Future[Unit]
-
-  }
-
-  class TimeDelayMechanism(val skews: FiniteDuration)(implicit ec: ExecutionContext)
-      extends DelayMechanism {
-    override def delayBy(duration: Duration): Future[Unit] = Delayed.by(duration)(())
-  }
-
-  class StaticTimeDelayMechanism(ledger: ParticipantTestContext, val skews: FiniteDuration)(implicit
-      ec: ExecutionContext
-  ) extends DelayMechanism {
-    override def delayBy(duration: Duration): Future[Unit] =
-      ledger
-        .time()
-        .flatMap { currentTime =>
-          ledger.setTime(currentTime, currentTime.plusMillis(duration.toMillis))
-        }
-  }
 }

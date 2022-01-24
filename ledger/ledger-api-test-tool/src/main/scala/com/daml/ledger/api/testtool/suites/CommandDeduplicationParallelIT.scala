@@ -27,7 +27,6 @@ import com.daml.ledger.test.model.Test.DummyWithAnnotation
 import io.grpc.Status
 import io.grpc.Status.Code
 
-import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal

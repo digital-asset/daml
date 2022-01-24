@@ -69,6 +69,13 @@ class DeduplicationPeriodSupport(
               },
               duration => {
                 logger.debug(s"Converted deduplication offset $offset to duration $duration")
+                // We implicitly extend the deduplication period slightly:
+                // If a later offset has the same record time as `offset` (e.g., in static time mode),
+                // command deduplication must consider this later offset.
+                // Yet, a deduplication duration cannot distinguish between offsets with the same record time.
+                // We therefore extend the deduplication period to include all offsets with the same record time
+                // as `offset`, including `offset` itself which would not have to be included in the deduplication period.
+                // This is allowed as the ledger implementation may extend the deduplication period.
                 validation.validate(
                   DeduplicationPeriod.DeduplicationDuration(duration),
                   maxDeduplicationDuration,

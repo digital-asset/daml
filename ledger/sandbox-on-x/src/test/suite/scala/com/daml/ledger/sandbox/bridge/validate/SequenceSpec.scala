@@ -112,7 +112,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     sequenceImpl.ledgerConfiguration shouldBe Some(config)
   }
 
-  it should "fail on time model check" in new TestContext {
+  it should "reject a transaction on time model violation" in new TestContext {
     val Seq((offset, update)) = sequence(input(lateSubmission))
     offset shouldBe toOffset(1L)
 
@@ -123,13 +123,37 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     )
   }
 
-  it should "fail on unallocated transaction informees" in new TestContext {
+  it should "reject a transaction on unallocated transaction informees" in new TestContext {
     val Seq((offset, update)) = sequence(input(txWithUnallocatedParty))
     offset shouldBe toOffset(1L)
     assertCommandRejected(update, "Parties not known on ledger: [new-guy]")
   }
 
-  it should "validate party allocation if disabled" in new TestContext {
+  it should "reject a transaction if there is no ledger configuration" in new TestContext {
+    private val sequenceWithoutLedgerConfig = buildSequence(initialLedgerConfiguration = None)()
+
+    // Assert transaction rejection on missing ledger configuration
+    val Seq((offset, update)) = sequenceWithoutLedgerConfig(create(cId(1), Some(contractKey(1L))))
+    offset shouldBe toOffset(1L)
+    assertCommandRejected(update, "Ledger configuration not found")
+
+    // Upload config to ledger
+    sequenceWithoutLedgerConfig(input(NoOpPreparedSubmission(configUpload))) shouldBe Iterable(
+      toOffset(2L) -> Update.ConfigurationChanged(
+        recordTime = currentRecordTime,
+        submissionId = submissionId,
+        participantId = Ref.ParticipantId.assertFromString(participantName),
+        newConfiguration = config,
+      )
+    )
+
+    // Assert transaction accepted after ledger config upload
+    val Seq((offset3, update3)) = sequenceWithoutLedgerConfig(create(cId(1), Some(contractKey(1L))))
+    offset3 shouldBe toOffset(3L)
+    update3 shouldBe transactionAccepted(3)
+  }
+
+  it should "not validate party allocation if disabled" in new TestContext {
     val Seq((offset, update)) =
       sequenceWithoutPartyAllocationValidation()(input(txWithUnallocatedParty))
     offset shouldBe toOffset(1L)
@@ -155,7 +179,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     // Reject when trying to archive a contract again
     val Seq((offset4, update4)) = sequence(consume(cId(3)))
     offset4 shouldBe toOffset(4L)
-    assertCommandRejected(update4, "Inconsistent: Could not lookup contracts: [#3]")
+    assertCommandRejected(update4, s"Inconsistent: Could not lookup contracts: [${cId(3).coid}]")
 
     // Archiving a contract with an assigned key for the first time succeeds
     val Seq((offset5, update5)) = sequence(consume(cId(4), Some(contractKey(2L))))
@@ -167,7 +191,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     offset6 shouldBe toOffset(6L)
     assertCommandRejected(
       update6,
-      "Inconsistent: Contract key lookup with different results: expected [None], actual [Some(ContractId(#5))]",
+      s"Inconsistent: Contract key lookup with different results: expected [None], actual [Some(${cId(5)})]",
     )
 
     // Reject on inconsistent key usage
@@ -175,7 +199,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     offset7 shouldBe toOffset(7L)
     assertCommandRejected(
       update7,
-      "Inconsistent: Contract key lookup with different results: expected [Some(ContractId(#1))], actual [Some(ContractId(#5))]",
+      s"Inconsistent: Contract key lookup with different results: expected [Some(${cId(1)})], actual [Some(${cId(5)})]",
     )
   }
 
@@ -214,15 +238,12 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     val allocatedInformees: Set[IdString.Party] =
       (1 to 3).map(idx => s"party-$idx").map(Ref.Party.assertFromString).toSet
 
-    private val initialLedgerConfiguration: Some[Configuration] = Some(
-      Configuration(
-        generation = 0L,
-        timeModel = LedgerTimeModel.reasonableDefault,
-        maxDeduplicationTime = Duration.ofSeconds(60L),
-      )
+    val initialConfig: Configuration = Configuration(
+      generation = 0L,
+      timeModel = LedgerTimeModel.reasonableDefault,
+      maxDeduplicationTime = Duration.ofSeconds(60L),
     )
-
-    val sequenceImpl: SequenceImpl = buildSequence(validatePartyAllocation = true)
+    val sequenceImpl: SequenceImpl = buildSequence()
     val sequenceWithoutPartyAllocationValidation: SequenceImpl =
       buildSequence(validatePartyAllocation = false)
     val sequence: Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)] =
@@ -361,7 +382,10 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       Right(noConflictUpTo -> preparedTransactionSubmission)
     }
 
-    def buildSequence(validatePartyAllocation: Boolean) = new SequenceImpl(
+    def buildSequence(
+        validatePartyAllocation: Boolean = true,
+        initialLedgerConfiguration: Option[Configuration] = Some(initialConfig),
+    ) = new SequenceImpl(
       participantId = Ref.ParticipantId.assertFromString(participantName),
       bridgeMetrics = bridgeMetrics,
       timeProvider = timeProviderMock,
@@ -426,5 +450,5 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     GlobalKey(templateId, Value.ValueInt64(i))
   }
 
-  private def cId(i: Int) = ContractId.assertFromString(s"#$i")
+  private def cId(i: Int) = ContractId.V1(Hash.hashPrivateKey(i.toString))
 }

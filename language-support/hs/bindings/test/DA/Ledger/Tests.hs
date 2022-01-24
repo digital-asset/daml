@@ -77,6 +77,7 @@ sharedSandboxTests testDar = testGroupWithSandbox testDar Nothing "shared sandbo
     , tUploadDarFileBad
     , tUploadDarFileGood
     , tAllocateParty
+    , tMeteringReport
     ]
 
 authenticatingSandboxTests :: FilePath -> TestTree
@@ -542,6 +543,13 @@ tValueConversion withSandbox = testCase "tValueConversion" $ run withSandbox $ \
     [Transaction{events=[CreatedEvent{createArgs=Record{fields}}]}] <- return trList
     [RecordField{label="owner"},RecordField{label="bucket",fieldValue=bucketReturned}] <- return fields
     liftIO $ assertEqual "bucket" bucket (detag bucketReturned)
+
+tMeteringReport :: SandboxTest
+tMeteringReport withSandbox = testCase "tMeteringReport" $ run withSandbox $ \_ _testId -> do
+    let expected = Timestamp {seconds = 1, nanos = 2}
+    report <- getMeteringReport expected Nothing Nothing
+    let MeteringReport{from=actual} = report
+    liftIO $ assertEqual "report from date" expected actual
 
 -- Strip the rid,vid,eid tags recusively from record, variant and enum values
 detag :: Value -> Value

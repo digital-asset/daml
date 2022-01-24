@@ -117,6 +117,7 @@ object StandaloneApiServer {
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
         ledgerFeatures = ledgerFeatures,
+        enableUserManagement = config.enableUserManagement,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(

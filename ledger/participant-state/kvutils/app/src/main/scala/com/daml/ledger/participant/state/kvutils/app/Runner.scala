@@ -3,12 +3,17 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.util.concurrent.{Executors, TimeUnit}
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
+import com.daml.buildinfo.BuildInfo
 import com.daml.error.ErrorCodesVersionSwitcher
+import com.daml.ledger.api.auth.{
+  AuthServiceJWT,
+  AuthServiceNone,
+  AuthServiceStatic,
+  AuthServiceWildcard,
+}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
@@ -19,17 +24,18 @@ import com.daml.ledger.api.v1.experimental_features.{
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.{Engine, EngineConfig}
-import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.{LedgerFeatures, StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.usermanagement.PersistentUserManagementStore
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.usermanagement.PersistentUserManagementStore
 import com.daml.ports.Port
 
+import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.ExecutionContext
 
 final class Runner[T <: ReadWriteService, Extra](
@@ -38,6 +44,7 @@ final class Runner[T <: ReadWriteService, Extra](
     configProvider: ConfigProvider[Extra],
 ) {
   private val cleanedName = "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-")
+  private val logger = ContextualizedLogger.get(getClass)
 
   def owner(args: collection.Seq[String]): ResourceOwner[Unit] =
     Config
@@ -86,8 +93,34 @@ final class Runner[T <: ReadWriteService, Extra](
             runParticipant(config, participantConfig, sharedEngine)
           )
         )
-      } yield ()
+      } yield logInitializationHeader(config)
     }
+  }
+
+  private def logInitializationHeader(config: Config[Extra]): Unit = {
+    val authentication = configProvider.authService(config) match {
+      case _: AuthServiceJWT => "JWT-based authentication"
+      case AuthServiceNone => "none authenticated"
+      case _: AuthServiceStatic => "static authentication"
+      case AuthServiceWildcard => "all unauthenticated allowed"
+      case other => other.getClass.getSimpleName
+    }
+    val participantsInitializationText = config.participants
+      .map(participantConfig =>
+        s"{participant-id = ${participantConfig.participantId}, shared-name = ${participantConfig.shardName}, run-mode = ${participantConfig.mode}, port = ${participantConfig.port.toString}}"
+      )
+      .mkString("[", ", ", "]")
+    logger.withoutContext.info(
+      s"Initialized {} version {} with ledger-id = {}, ledger = {}, allowed language versions = {}, authentication = {}, contract ids seeding = {} with participants: {}",
+      name,
+      BuildInfo.Version,
+      config.ledgerId,
+      factory.ledgerName,
+      s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
+      authentication,
+      config.seeding,
+      participantsInitializationText,
+    )
   }
 
   private[app] def runParticipant(
@@ -220,8 +253,7 @@ final class Runner[T <: ReadWriteService, Extra](
                       maxDeduplicationDurationEnforced = true,
                     ),
                     contractIdFeatures = ExperimentalContractIds.of(
-                      v0 = ExperimentalContractIds.ContractIdV0Support.NOT_SUPPORTED,
-                      v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED,
+                      v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
                     ),
                   ),
                 ).acquire()

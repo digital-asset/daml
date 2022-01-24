@@ -143,18 +143,12 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
-        "--additional=MultiPartySubmissionIT",
-        # Notoriously times-out
-        #"--additional=ParticipantPruningIT",
         "--additional=CommandDeduplicationParallelIT",
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -167,18 +161,12 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
         "--index-append-only-schema",
-        "--mutable-contract-state-cache",
         "--use-pre-1.18-error-codes",
     ],
     test_tool_args = [
-        "--additional=MultiPartySubmissionIT",
-        # Notoriously times-out
-        #"--additional=ParticipantPruningIT",
         "--additional=CommandDeduplicationParallelIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -192,14 +180,11 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--mutable-contract-state-cache",
         "--participant=participant-id=example1,port=6865",
         "--participant=participant-id=example2,port=6866",
     ],
     test_tool_args = [
         "--verbose",
-        # Notoriously times-out
-        #"--additional=ParticipantPruningIT",
         # The following two tests don't actually care about multi-participant but they do need append-only.
         "--additional=CommandDeduplicationParallelIT",
         "--additional=CommandDeduplicationPeriodValidationIT",
@@ -218,21 +203,16 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--mutable-contract-state-cache",
         "--participant=participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=server1,run-mode=ledger-api-server",
         "--participant=participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=indexer,run-mode=indexer",
     ],
     test_tool_args = [
         "--verbose",
-        # Notoriously times-out
-        #"--additional=ParticipantPruningIT",
         "--additional=CommandDeduplicationParallelIT",
         "--additional=CommandDeduplicationPeriodValidationIT",
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ConfigManagementServiceIT",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -243,7 +223,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--verbose",

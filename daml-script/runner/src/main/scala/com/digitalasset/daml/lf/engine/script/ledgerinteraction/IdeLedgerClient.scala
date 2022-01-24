@@ -47,7 +47,6 @@ class IdeLedgerClient(
   private[this] val preprocessor =
     new preprocessing.CommandPreprocessor(
       compiledPackages.interface,
-      forbidV0ContractId = true,
       requireV1ContractIdSuffix = false,
     )
 

@@ -364,6 +364,24 @@ abstract class CommonCliSpecBase(
       )
     }
 
+    "handle '--enable-user-management' flag correctly" in {
+      checkOptionFail(
+        Array("--enable-user-management")
+      )
+      checkOption(
+        Array("--enable-user-management", "false"),
+        _.withUserManagementConfig(_.copy(enabled = false)),
+      )
+      checkOption(
+        Array("--enable-user-management", "true"),
+        _.withUserManagementConfig(_.copy(enabled = true)),
+      )
+      checkOption(
+        Array(),
+        _.withUserManagementConfig(_.copy(enabled = true)),
+      )
+    }
+
     "handle '--user-management-max-cache-size' flag correctly" in {
       // missing cache size value
       checkOptionFail(
