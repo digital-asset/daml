@@ -8,8 +8,15 @@ da_haskell_binary(
   "base",
   ],
   deps = [
-#       ":foobar",
-"@stackage//:grpc-haskell-core",
+       ":foobar",
+#"@stackage//:grpc-haskell-core",
   ],
 )
 
+da_haskell_library(
+  name = "foobar",
+  srcs = [],
+  deps = [
+       "@grpc_haskell_core//:fat_cbits",
+  ],
+)
