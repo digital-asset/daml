@@ -98,7 +98,7 @@ def _fat_cc_library_impl(ctx):
         feature_configuration = feature_configuration,
         cc_toolchain = toolchain,
         dynamic_library = dyn_lib,
-        static_library = static_lib,
+        # static_library = static_lib,
     )
 
     linker_input = cc_common.create_linker_input(
@@ -139,6 +139,6 @@ fat_cc_library = rule(
     fragments = ["cpp"],
     outputs = {
         "dynamic_library": "lib%{name}.dll" if is_windows else "lib%{name}.so",
-        "static_library": "lib%{name}.a",
+#        "static_library": "lib%{name}.a",
     },
 )
