@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.script.export
+package com.daml.script.exporting
 
 import com.daml.ledger.api.refinements.ApiTypes.ContractId
 import com.daml.ledger.api.v1.{value => v}
@@ -33,11 +33,11 @@ class ExportCidRefsSpec extends AnyFreeSpec with Matchers {
             )
           ),
       ).map(_.toTransactionTree)
-      val export =
+      val exporting =
         Export.fromTransactionTrees(acs, trees, Map.empty, acsBatchSize = 10, setTime = false)
-      export.cidRefs shouldBe empty
-      export.cidMap shouldBe empty
-      export.unknownCids shouldBe empty
+      exporting.cidRefs shouldBe empty
+      exporting.cidMap shouldBe empty
+      exporting.unknownCids shouldBe empty
     }
     "referenced" in {
       val acs = TestData
@@ -72,19 +72,19 @@ class ExportCidRefsSpec extends AnyFreeSpec with Matchers {
             )
           ),
       ).map(_.toTransactionTree)
-      val export =
+      val exporting =
         Export.fromTransactionTrees(acs, trees, Map.empty, acsBatchSize = 10, setTime = false)
-      export.cidRefs should contain only (
+      exporting.cidRefs should contain only (
         ContractId("acs1"),
         ContractId("acs2"),
         ContractId("tree1"),
       )
-      export.cidMap should contain only (
+      exporting.cidMap should contain only (
         ContractId("acs1") -> "template_0_0",
         ContractId("acs2") -> "template_0_1",
         ContractId("tree1") -> "template_1_0",
       )
-      export.unknownCids shouldBe empty
+      exporting.unknownCids shouldBe empty
     }
   }
   "unknown" in {
@@ -113,10 +113,10 @@ class ExportCidRefsSpec extends AnyFreeSpec with Matchers {
           )
         )
     ).map(_.toTransactionTree)
-    val export =
+    val exporting =
       Export.fromTransactionTrees(acs, trees, Map.empty, acsBatchSize = 10, setTime = false)
-    export.cidRefs should contain only (ContractId("un1"), ContractId("un2"))
-    export.cidMap shouldBe empty
-    export.unknownCids should contain only (ContractId("un1"), ContractId("un2"))
+    exporting.cidRefs should contain only (ContractId("un1"), ContractId("un2"))
+    exporting.cidMap shouldBe empty
+    exporting.unknownCids should contain only (ContractId("un1"), ContractId("un2"))
   }
 }

@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.script.export
+package com.daml.script.exporting
 
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, ZoneId, ZonedDateTime}
@@ -13,43 +13,43 @@ import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.{Date, Timestamp}
 import com.daml.lf.language.Ast
-import com.daml.script.export.Dependencies.{ChoiceInstanceSpec, TemplateInstanceSpec}
-import com.daml.script.export.TreeUtils._
+import com.daml.script.exporting.Dependencies.{ChoiceInstanceSpec, TemplateInstanceSpec}
+import com.daml.script.exporting.TreeUtils._
 import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
 import spray.json._
 
-private[export] object Encode {
+private[exporting] object Encode {
 
-  def encodeArgs(export: Export): JsObject = {
+  def encodeArgs(exporting: Export): JsObject = {
     JsObject(
-      "parties" -> JsObject(export.partyMap.keys.map { case Party(party) =>
+      "parties" -> JsObject(exporting.partyMap.keys.map { case Party(party) =>
         party -> JsString(party)
       }.toMap),
-      "contracts" -> JsObject(export.unknownCids.map { case ContractId(c) =>
+      "contracts" -> JsObject(exporting.unknownCids.map { case ContractId(c) =>
         c -> JsString(c)
       }.toMap),
     )
   }
 
-  def encodeExport(export: Export): Doc = {
+  def encodeExport(exporting: Export): Doc = {
     Doc.intercalate(
       Doc.line + Doc.hardLine,
       Seq(
-        encodeModuleHeader(export.moduleRefs),
+        encodeModuleHeader(exporting.moduleRefs),
         encodePartyType(),
         encodeLookupParty(),
-        encodeAllocateParties(export.partyMap),
+        encodeAllocateParties(exporting.partyMap),
         encodeContractsType(),
         encodeLookupContract(),
         encodeArgsType(),
         encodeTestExport(),
-        encodeExportActions(export),
-      ) ++ export.missingInstances.map { case (tplId, spec) => encodeMissingInstances(tplId, spec) },
+        encodeExportActions(exporting),
+      ) ++ exporting.missingInstances.map { case (tplId, spec) => encodeMissingInstances(tplId, spec) },
     )
   }
 
-  private[export] def encodeMissingInstances(tplId: TemplateId, spec: TemplateInstanceSpec): Doc = {
+  private[exporting] def encodeMissingInstances(tplId: TemplateId, spec: TemplateInstanceSpec): Doc = {
     val tplIdDoc = encodeTemplateId(tplId)
     def primInstance(name: String, parms: Doc): Doc = {
       val cls = Doc.text(s"Has${name.capitalize}")
@@ -79,17 +79,17 @@ private[export] object Encode {
     Doc.stack(Seq(header) ++ tplInstances ++ keyInstances ++ choiceInstances)
   }
 
-  private def encodeExportActions(export: Export): Doc = {
-    Doc.text("-- | The Daml ledger export.") /
-      Doc.text("export : Args -> Script ()") /
-      (Doc.text("export Args{parties, contracts} = do") /
+  private def encodeExportActions(exporting: Export): Doc = {
+    Doc.text("-- | The Daml ledger exporting.") /
+      Doc.text("exporting : Args -> Script ()") /
+      (Doc.text("exporting Args{parties, contracts} = do") /
         stackNonEmpty(
-          export.partyMap.map(Function.tupled(encodePartyBinding)).toSeq ++ export.actions.map(
+          exporting.partyMap.map(Function.tupled(encodePartyBinding)).toSeq ++ exporting.actions.map(
             encodeAction(
-              export.partyMap,
-              export.cidMap,
-              export.cidRefs,
-              export.missingInstances.keySet,
+              exporting.partyMap,
+              exporting.cidMap,
+              exporting.cidRefs,
+              exporting.missingInstances.keySet,
               _,
             )
           ) :+ Doc.text("pure ()")
@@ -100,16 +100,16 @@ private[export] object Encode {
     s"let $binding = lookupParty" &: quotes(Doc.text(Party.unwrap(party))) :& "parties"
 
   private def encodeTestExport(): Doc =
-    Doc.text("-- | Test 'export' with freshly allocated parties and") /
+    Doc.text("-- | Test 'exporting' with freshly allocated parties and") /
       Doc.text("-- no replacements for missing contract ids.") /
       Doc.text("testExport : Script ()") /
       (Doc.text("testExport = do") /
         Doc.text("parties <- allocateParties") /
         Doc.text("let contracts = DA.TextMap.empty") /
-        Doc.text("export Args with ..")).nested(2)
+        Doc.text("exporting Args with ..")).nested(2)
 
   private def encodeArgsType(): Doc =
-    Doc.text("-- | Arguments to 'export'. See 'Parties' and 'Contracts' for details.") /
+    Doc.text("-- | Arguments to 'exporting'. See 'Parties' and 'Contracts' for details.") /
       (Doc.text("data Args = Args with") /
         Doc.text("parties : Parties") /
         Doc.text("contracts : Contracts")).nested(2)
@@ -133,7 +133,7 @@ private[export] object Encode {
       Doc.text("-- >>> let args = Args with") /
       Doc.text("-- >>>   parties = Parties with alice_0") /
       Doc.text("-- >>>   contracts = DA.TextMap.fromList [(\"00737...\", replacement)]") /
-      Doc.text("-- >>> export args") /
+      Doc.text("-- >>> exporting args") /
       Doc.text("type Contracts = DA.TextMap.TextMap (ContractId ())")
 
   private def encodeAllocateParties(partyMap: Map[Party, String]): Doc =
@@ -158,7 +158,7 @@ private[export] object Encode {
 
   private def encodePartyType(): Doc =
     Doc.text("-- | Mapping from party names in the original ledger state ") /
-      Doc.text("-- to parties to be used in 'export'.") /
+      Doc.text("-- to parties to be used in 'exporting'.") /
       Doc.text("type Parties = DA.TextMap.TextMap Party")
 
   private def encodeModuleHeader(moduleRefs: Set[String]): Doc =
@@ -172,7 +172,7 @@ private[export] object Encode {
     Doc.text("(DA.Date.date ") + Doc.text(formatter.format(d)) + Doc.text(")")
   }
 
-  private[export] def encodeValue(
+  private[exporting] def encodeValue(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       v: Value.Sum,
@@ -241,7 +241,7 @@ private[export] object Encode {
     )
   }
 
-  private[export] def encodeType(ty: Ast.Type, precCtx: Int = 0): Doc = {
+  private[exporting] def encodeType(ty: Ast.Type, precCtx: Int = 0): Doc = {
     def precParens(prec: Int, doc: Doc): Doc =
       if (prec < precCtx) { parens(doc) }
       else { doc }
@@ -504,11 +504,11 @@ private[export] object Encode {
     ((bind + encodeSubmitCall(partyMap, submit) :& "do") / body).hang(2)
   }
 
-  private[export] def encodeSetTime(timestamp: Timestamp): Doc = {
+  private[exporting] def encodeSetTime(timestamp: Timestamp): Doc = {
     "setTime" &: encodeTimestamp(timestamp.toInstant.atZone(ZoneId.of("UTC")))
   }
 
-  private[export] def encodeSubmit(
+  private[exporting] def encodeSubmit(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],

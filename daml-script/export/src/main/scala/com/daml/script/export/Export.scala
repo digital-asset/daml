@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.script.export
+package com.daml.script.exporting
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
@@ -12,8 +12,8 @@ import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
-import com.daml.script.export.Dependencies.TemplateInstanceSpec
-import com.daml.script.export.TreeUtils.{
+import com.daml.script.exporting.Dependencies.TemplateInstanceSpec
+import com.daml.script.exporting.TreeUtils.{
   Action,
   CreatedContract,
   SetTime,
@@ -136,20 +136,20 @@ object Export {
       setTime: Boolean,
   ) = {
     val missingInstances = Dependencies.templatesMissingInstances(pkgs)
-    val export = Export.fromTransactionTrees(acs, trees, missingInstances, acsBatchSize, setTime)
+    val exporting = Export.fromTransactionTrees(acs, trees, missingInstances, acsBatchSize, setTime)
 
     val dir = Files.createDirectories(targetDir)
     Files.write(
       dir.resolve("Export.daml"),
       Encode
-        .encodeExport(export)
+        .encodeExport(exporting)
         .render(80)
         .getBytes(StandardCharsets.UTF_8),
     )
     Files.write(
       dir.resolve("args.json"),
       Encode
-        .encodeArgs(export)
+        .encodeArgs(exporting)
         .prettyPrint
         .getBytes(StandardCharsets.UTF_8),
     )
@@ -176,10 +176,10 @@ object Export {
       val json = Json.fromFields(
         mutable.LinkedHashMap(
           "sdk-version" -> Json.fromString(sdkVersion),
-          "name" -> Json.fromString("export"),
+          "name" -> Json.fromString("exporting"),
           "version" -> Json.fromString("1.0.0"),
           "source" -> Json.fromString("."),
-          "init-script" -> Json.fromString("Export:export"),
+          "init-script" -> Json.fromString("Export:exporting"),
           "script-options" -> Json.fromValues(
             List(
               Json.fromString("--input-file"),
@@ -187,7 +187,7 @@ object Export {
             )
           ),
           "parties" -> Json.fromValues(
-            export.partyMap.keys.map(p => Json.fromString(Party.unwrap(p)))
+            exporting.partyMap.keys.map(p => Json.fromString(Party.unwrap(p)))
           ),
           "dependencies" -> Json.fromValues(
             List(

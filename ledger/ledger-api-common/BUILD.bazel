@@ -28,6 +28,9 @@ da_scala_library(
     runtime_deps = [
         "@maven//:io_netty_netty_tcnative_boringssl_static",
     ],
+    scalacopts=[
+        "-Wconf:msg=class DeduplicationTime in object DeduplicationPeriod is deprecated:s",  # deprecated field that needs to be tested
+    ],
     deps = [
         "//daml-lf/data",
         "//daml-lf/engine",

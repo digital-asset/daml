@@ -11,7 +11,6 @@ import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.Transaction.LeafNode
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.{NodeId, Transaction}
 import com.daml.lf.value.{Value => V}
@@ -280,7 +279,7 @@ object NormalizeRollbackSpec {
               case V.ValueInt64(n) => Create(n)
               case _ => sys.error(s"unexpected create.arg: ${create.arg}")
             }
-          case leaf: LeafOnlyAction => sys.error(s"Shape.ofTransaction, unexpected leaf: $leaf")
+          case leaf: Node.LeafOnlyAction => sys.error(s"Shape.ofTransaction, unexpected leaf: $leaf")
           case node: Node.Exercise => Exercise(node.children.toList.map(ofNid))
           case node: Node.Rollback => Rollback(node.children.toList.map(ofNid))
         }
