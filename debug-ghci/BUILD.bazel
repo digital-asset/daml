@@ -5,6 +5,8 @@ da_haskell_binary(
   srcs = ["Main.hs"],
   hackage_deps = [
   "base",
-               "grpc-haskell-core",
+  ],
+  deps = [
+       "@grpc_haskell_core//:fat_cbits",
   ],
 )

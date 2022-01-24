@@ -201,6 +201,7 @@ c2hs_suite(
 fat_cc_library(
   name = "fat_cbits",
   input_lib = "cbits",
+visibility = ["//visibility:public"],
 )
 cc_library(
   name = "cbits",
