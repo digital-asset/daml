@@ -292,7 +292,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
     @Explanation("""The stream was aborted because the authenticated user's rights changed,
         |and the user might thus no longer be authorized to this stream.
-        |""".stripMargin)
+        |""")
     @Resolution(
       "The application should automatically retry fetching the stream. It will either succeed, or fail with an explicit denial of authentication or permission."
     )
