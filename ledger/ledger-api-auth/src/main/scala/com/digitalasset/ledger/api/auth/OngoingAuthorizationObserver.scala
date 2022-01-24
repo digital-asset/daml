@@ -20,6 +20,9 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
+/** @param userRightsCheckIntervalInSeconds - determines the interval at which to check whether user rights state has changed.
+  *                                         Also, double of this value serves as timeout value for subsequent user rights state checks.
+  */
 private[auth] final class OngoingAuthorizationObserver[A](
     observer: ServerCallStreamObserver[A],
     originalClaims: ClaimSet.Claims,
@@ -36,7 +39,6 @@ private[auth] final class OngoingAuthorizationObserver[A](
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  @volatile private var aborted = false
   @volatile private var mostRecentUserInfoRefreshTime = nowF()
 
   private lazy val userId = originalClaims.applicationId.fold[Ref.UserId](
@@ -58,25 +60,20 @@ private[auth] final class OngoingAuthorizationObserver[A](
   }
 
   private def checkUserRights(): Unit = {
-    // Check if not already aborted the stream in case user rights check cancellation hasn't carried through.
-    if (!aborted) {
-      userManagementStore
-        .listUserRights(userId)
-        .onComplete {
-          case Failure(_) | Success(Left(_)) =>
-            aborted = true
+    userManagementStore
+      .listUserRights(userId)
+      .onComplete {
+        case Failure(_) | Success(Left(_)) =>
+          self.synchronized(observer.onError(staleStreamAuthError))
+          cancelUserRightsCheckTask()
+        case Success(Right(userRights)) =>
+          val updatedClaims = AuthorizationInterceptor.convertUserRightsToClaims(userRights)
+          if (updatedClaims.toSet != originalClaims.claims.toSet) {
             self.synchronized(observer.onError(staleStreamAuthError))
             cancelUserRightsCheckTask()
-          case Success(Right(userRights)) =>
-            val updatedClaims = AuthorizationInterceptor.convertUserRightsToClaims(userRights)
-            if (updatedClaims.toSet != originalClaims.claims.toSet) {
-              aborted = true
-              self.synchronized(observer.onError(staleStreamAuthError))
-              cancelUserRightsCheckTask()
-            }
-            mostRecentUserInfoRefreshTime = nowF()
-        }
-    }
+          }
+          mostRecentUserInfoRefreshTime = nowF()
+      }
   }
 
   override def isCancelled: Boolean = observer.isCancelled
@@ -96,49 +93,49 @@ private[auth] final class OngoingAuthorizationObserver[A](
   override def setMessageCompression(b: Boolean): Unit =
     self.synchronized(observer.setMessageCompression(b))
 
-  override def onNext(v: A): Unit =
-    authorize match {
+  override def onNext(v: A): Unit = {
+    val now = nowF()
+    (for {
+      _ <- checkClaimsExpiry(now)
+      _ <- checkUserRightsRefreshTimeout(now)
+    } yield {
+      ()
+    }) match {
       case Right(_) => self.synchronized(observer.onNext(v))
-      case Left(e) => {
-        aborted = true
+      case Left(e) =>
         cancelUserRightsCheckTask()
         self.synchronized(observer.onError(e))
-      }
     }
+  }
 
   override def onError(throwable: Throwable): Unit = {
-    aborted = true
     cancelUserRightsCheckTask()
     self.synchronized(observer.onError(throwable))
   }
 
   override def onCompleted(): Unit = {
-    aborted = true
     cancelUserRightsCheckTask()
     self.synchronized(observer.onCompleted())
   }
 
-  private def authorize: Either[StatusRuntimeException, Unit] = {
-    val now = nowF()
-    for {
-      _ <- originalClaims
-        .notExpired(now)
-        .left
-        .map(authorizationError =>
-          errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
-        )
-      _ <-
-        if (
-          originalClaims.resolvedFromUser &&
-          mostRecentUserInfoRefreshTime.isAfter(
-            now.plusSeconds(2 * userRightsCheckIntervalInSeconds.toLong)
-          )
-        ) {
-          Left(staleStreamAuthError)
-        } else Right(())
-    } yield {
-      ()
-    }
+  private def checkUserRightsRefreshTimeout(now: Instant) = {
+    if (
+      originalClaims.resolvedFromUser &&
+      mostRecentUserInfoRefreshTime.isAfter(
+        now.plusSeconds(2 * userRightsCheckIntervalInSeconds.toLong)
+      )
+    ) {
+      Left(staleStreamAuthError)
+    } else Right(())
+  }
+
+  private def checkClaimsExpiry(now: Instant) = {
+    originalClaims
+      .notExpired(now)
+      .left
+      .map(authorizationError =>
+        errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
+      )
   }
 
   private def staleStreamAuthError: StatusRuntimeException = {
