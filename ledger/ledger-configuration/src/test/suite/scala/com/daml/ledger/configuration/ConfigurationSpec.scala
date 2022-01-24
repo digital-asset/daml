@@ -8,7 +8,7 @@ import com.daml.ledger.configuration.protobuf.{ledger_configuration => proto}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.compat.java8.DurationConverters._
+import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import org.scalatest.prop.TableDrivenPropertyChecks._
 

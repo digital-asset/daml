@@ -7,9 +7,6 @@ load("@scala_version//:index.bzl", "scala_major_version")
 da_scala_library(
     name = "resources",
     srcs = glob(["src/main/scala/**/*.scala"]) + glob(["src/main/{}/**/*.scala".format(scala_major_version)]),
-    scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_java8_compat",
-    ],
     tags = ["maven_coordinates=com.daml:resources:__VERSION__"],
     visibility = [
         "//visibility:public",

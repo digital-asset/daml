@@ -12,7 +12,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 
-import scala.compat.java8.FutureConverters
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -49,8 +49,9 @@ final class AuthorizationInterceptor(
         new ServerCall.Listener[Nothing]() {}
       }
 
-      FutureConverters
-        .toScala(authService.decodeMetadata(headers))
+      authService
+        .decodeMetadata(headers)
+        .asScala
         .flatMap(resolveAuthenticatedUserRights)
         .onComplete {
           case Failure(error: StatusRuntimeException) =>

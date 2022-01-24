@@ -23,7 +23,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
 
-import scala.compat.java8.FutureConverters
+import scala.jdk.FutureConverters.FutureOps
 
 class KeyValueParticipantStateWriter(
     writer: LedgerWriter,
@@ -142,13 +142,13 @@ class KeyValueParticipantStateWriter(
       submission: DamlSubmission,
       metadata: Option[CommitMetadata] = None,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
-    FutureConverters.toJava(
-      writer.commit(
+    writer
+      .commit(
         correlationId,
         Envelope.enclose(submission),
         metadata.getOrElse(CommitMetadata(submission, None)),
       )
-    )
+      .asJava
 
   override def prune(
       pruneUpToInclusive: Offset,

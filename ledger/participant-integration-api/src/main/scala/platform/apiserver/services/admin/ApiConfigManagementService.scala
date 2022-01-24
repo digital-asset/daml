@@ -30,7 +30,7 @@ import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, Status, StatusRuntimeException}
 
-import scala.compat.java8.FutureConverters._
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -252,7 +252,7 @@ private[apiserver] object ApiConfigManagementService {
       val (maximumRecordTime, newConfiguration) = input
       writeConfigService
         .submitConfiguration(maximumRecordTime, submissionId, newConfiguration)
-        .toScala
+        .asScala
     }
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[ConfigurationEntry, _] =

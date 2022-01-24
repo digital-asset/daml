@@ -92,7 +92,6 @@ scala_compile_deps = [
     "@maven//:com_typesafe_akka_akka_stream",
     "@maven//:org_playframework_anorm_anorm",
     "@maven//:org_playframework_anorm_anorm_tokenizer",
-    "@maven//:org_scala_lang_modules_scala_java8_compat",
     "@maven//:org_scalaz_scalaz_core",
     "@maven//:io_spray_spray_json",
 ]
