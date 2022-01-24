@@ -1,4 +1,5 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 
 da_haskell_binary(
   name = "debug-ghci",
@@ -11,13 +12,12 @@ da_haskell_binary(
   ],
 )
 
-da_haskell_library(
+haskell_cabal_library(
   name = "foobar",
-  srcs = ["Lib.hs"],
+  version = "1.0.0",
+  srcs = ["Lib.hs", "foobar.cabal"],
   deps = [
        "@grpc_haskell_core//:fat_cbits",
-  ],
-  hackage_deps = [
-  "base",
+       "@stackage//:base",
   ],
 )
