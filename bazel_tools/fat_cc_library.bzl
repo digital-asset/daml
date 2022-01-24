@@ -75,15 +75,15 @@ def _fat_cc_library_impl(ctx):
     if ar.find("libtool") >= 0:
         # We are on MacOS where ar_executable is actually libtool, see
         # https://github.com/bazelbuild/bazel/issues/5127.
-        ctx.actions.run(
-            mnemonic = "CppLinkFatStaticLib",
-            outputs = [static_lib],
-            executable = ar,
-            inputs = static_libs,
-            arguments =
-                ["-no_warning_for_no_symbols", "-static", "-o", static_lib.path] +
-                [f.path for f in static_libs],
-        )
+        # ctx.actions.run(
+        #     mnemonic = "CppLinkFatStaticLib",
+        #     outputs = [static_lib],
+        #     executable = ar,
+        #     inputs = static_libs,
+        #     arguments =
+        #         ["-no_warning_for_no_symbols", "-static", "-o", static_lib.path] +
+        #         [f.path for f in static_libs],
+        # )
     else:
         ctx.actions.run_shell(
             mnemonic = "CppLinkFatStaticLib",
