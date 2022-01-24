@@ -5,6 +5,6 @@ da_haskell_binary(
   srcs = ["Main.hs"],
   hackage_deps = [
   "base",
-               "grpc-haskell",
+               "grpc-haskell-core",
   ],
 )
