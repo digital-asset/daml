@@ -39,7 +39,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  @volatile private var mostRecentUserInfoRefreshTime = nowF()
+  @volatile private var lastUserRightsCheckTime = nowF()
 
   private lazy val userId = originalClaims.applicationId.fold[Ref.UserId](
     throw new RuntimeException(
@@ -72,7 +72,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
             self.synchronized(observer.onError(staleStreamAuthError))
             cancelUserRightsCheckTask()
           }
-          mostRecentUserInfoRefreshTime = nowF()
+          lastUserRightsCheckTime = nowF()
       }
   }
 
@@ -118,10 +118,10 @@ private[auth] final class OngoingAuthorizationObserver[A](
     self.synchronized(observer.onCompleted())
   }
 
-  private def checkUserRightsRefreshTimeout(now: Instant) = {
+  private def checkUserRightsRefreshTimeout(now: Instant): Either[StatusRuntimeException, Unit] = {
     if (
       originalClaims.resolvedFromUser &&
-      mostRecentUserInfoRefreshTime.isAfter(
+      lastUserRightsCheckTime.isAfter(
         now.plusSeconds(2 * userRightsCheckIntervalInSeconds.toLong)
       )
     ) {
@@ -129,7 +129,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
     } else Right(())
   }
 
-  private def checkClaimsExpiry(now: Instant) = {
+  private def checkClaimsExpiry(now: Instant): Either[StatusRuntimeException, Unit] = {
     originalClaims
       .notExpired(now)
       .left
