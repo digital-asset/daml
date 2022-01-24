@@ -21,7 +21,7 @@ import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, Sql
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.StringInterning
 
-import scala.collection.compat.immutable.ArraySeq
+import scala.collection.immutable.ArraySeq
 
 abstract class EventStorageBackendTemplate(
     eventStrategy: EventStrategy,

@@ -10,7 +10,6 @@ import scopt.{OptionParser, Read}
 
 import java.io.File
 import java.nio.file.{Path, Paths}
-import scala.collection.compat.immutable.LazyList
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
 

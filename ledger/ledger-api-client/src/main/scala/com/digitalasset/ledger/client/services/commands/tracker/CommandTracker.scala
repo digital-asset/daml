@@ -28,7 +28,6 @@ import io.grpc.Status
 import org.slf4j.LoggerFactory
 
 import scala.annotation.nowarn
-import scala.collection.compat._
 import scala.collection.{immutable, mutable}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Future, Promise}

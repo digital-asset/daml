@@ -7,18 +7,13 @@ load(
     "da_scala_test",
     "lf_scalacopts",
     "lf_scalacopts_stricter",
-    "silencer_plugin",
 )
 
 da_scala_library(
     name = "interface",
     srcs = glob(["src/main/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-interface:__VERSION__"],

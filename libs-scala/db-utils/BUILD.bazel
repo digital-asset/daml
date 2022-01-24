@@ -6,15 +6,11 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
-    "silencer_plugin",
 )
 
 da_scala_library(
     name = "db-utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:org_scalaz_scalaz_core",

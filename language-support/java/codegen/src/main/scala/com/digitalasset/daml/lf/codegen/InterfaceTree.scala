@@ -10,7 +10,6 @@ import com.typesafe.scalalogging.StrictLogging
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.collection.compat._
 import scala.jdk.CollectionConverters._
 
 private[codegen] sealed trait Node

@@ -11,7 +11,6 @@ import com.daml.auth.middleware.api.Request
 import com.daml.auth.middleware.api.Tagged.RefreshToken
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 
-import scala.collection.compat._
 import scala.collection.concurrent.TrieMap
 import scala.io.{BufferedSource, Source}
 import scala.util.Try

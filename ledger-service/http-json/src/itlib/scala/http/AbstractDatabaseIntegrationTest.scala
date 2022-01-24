@@ -17,7 +17,6 @@ import org.scalatest.{Assertion, AsyncTestSuite, BeforeAndAfterAll, Inside}
 import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
 
-import scala.collection.compat._
 import scala.concurrent.Future
 
 abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with BeforeAndAfterAll {

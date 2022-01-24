@@ -9,7 +9,6 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "scaladoc_jar",
-    "silencer_plugin",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@scala_version//:index.bzl", "scala_major_version_suffix")
