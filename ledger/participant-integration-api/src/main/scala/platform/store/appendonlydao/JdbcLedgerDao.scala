@@ -155,47 +155,12 @@ private class JdbcLedgerDao(
       dbDispatcher.executeSql(
         metrics.daml.index.db.storeConfigurationEntryDbMetrics
       ) { implicit conn =>
-        val optCurrentConfig =
-          readStorageBackend.configurationStorageBackend.ledgerConfiguration(conn)
-        val optExpectedGeneration: Option[Long] =
-          optCurrentConfig.map { case (_, c) => c.generation + 1 }
-        val finalRejectionReason: Option[String] =
-          optExpectedGeneration match {
-            case Some(expGeneration)
-                if rejectionReason.isEmpty && expGeneration != configuration.generation =>
-              // If we're not storing a rejection and the new generation is not succ of current configuration, then
-              // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
-              // pattern as with transactions.
-              Some(
-                s"Generation mismatch: expected=$expGeneration, actual=${configuration.generation}"
-              )
-
-            case _ =>
-              // Rejection reason was set, or we have no previous configuration generation, in which case we accept any
-              // generation.
-              rejectionReason
-          }
-
-        val update = finalRejectionReason match {
-          case None =>
-            state.Update.ConfigurationChanged(
-              recordTime = recordedAt,
-              submissionId = Ref.SubmissionId.assertFromString(submissionId),
-              participantId =
-                Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
-              newConfiguration = configuration,
-            )
-
-          case Some(reason) =>
-            state.Update.ConfigurationChangeRejected(
-              recordTime = recordedAt,
-              submissionId = Ref.SubmissionId.assertFromString(submissionId),
-              participantId =
-                Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
-              proposedConfiguration = configuration,
-              rejectionReason = reason,
-            )
-        }
+        val update = state.Update.ConfigurationChanged(
+          recordTime = recordedAt,
+          submissionId = Ref.SubmissionId.assertFromString(submissionId),
+          participantId = Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
+          newConfiguration = configuration,
+        )
 
         sequentialIndexer.store(conn, offset, Some(update))
         PersistenceResponse.Ok
