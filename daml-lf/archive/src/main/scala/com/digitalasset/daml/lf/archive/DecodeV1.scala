@@ -1200,15 +1200,15 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             ),
           )
         case PLF.CaseAlt.SumCase.ENUM =>
-          val enum = lfCaseAlt.getEnum
+          val `enum` = lfCaseAlt.getEnum
           CPEnum(
-            tycon = decodeTypeConName(enum.getCon),
+            tycon = decodeTypeConName(`enum`.getCon),
             constructor = handleInternedName(
-              enum.getConstructorCase,
+              `enum`.getConstructorCase,
               PLF.CaseAlt.Enum.ConstructorCase.CONSTRUCTOR_STR,
-              enum.getConstructorStr,
+              `enum`.getConstructorStr,
               PLF.CaseAlt.Enum.ConstructorCase.CONSTRUCTOR_INTERNED_STR,
-              enum.getConstructorInternedStr,
+              `enum`.getConstructorInternedStr,
               "CaseAlt.Enum.constructor.constructor",
             ),
           )

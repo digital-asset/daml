@@ -283,12 +283,12 @@ object ValueCoder {
             ValueVariant(id, identifier(variant.getConstructor), go(newNesting, variant.getValue))
 
           case proto.Value.SumCase.ENUM =>
-            val enum = protoValue.getEnum
+            val `enum` = protoValue.getEnum
             val id =
-              if (enum.getEnumId == ValueOuterClass.Identifier.getDefaultInstance) None
+              if (`enum`.getEnumId == ValueOuterClass.Identifier.getDefaultInstance) None
               else {
                 assertUntil(TransactionVersion.minTypeErasure, "enum_id field in message Enum")
-                decodeIdentifier(enum.getEnumId).fold(
+                decodeIdentifier(`enum`.getEnumId).fold(
                   { err =>
                     throw Err(err.errorMessage)
                   },
@@ -297,7 +297,7 @@ object ValueCoder {
                   },
                 )
               }
-            ValueEnum(id, identifier(enum.getValue))
+            ValueEnum(id, identifier(`enum`.getValue))
 
           case proto.Value.SumCase.RECORD =>
             val record = protoValue.getRecord

@@ -25,8 +25,8 @@ abstract class EnumCompanion[T](implicit isEnum: T <~< EnumRef) extends ValueRef
 
     private[this] val rpcValues = values.map(e => ` enum`(isEnum(e).constructor))
 
-    override def write(enum: T): rpcvalue.Value.Sum =
-      rpcValues(isEnum(enum).index)
+    override def write(`enum`: T): rpcvalue.Value.Sum =
+      rpcValues(isEnum(`enum`).index)
   }
 
   implicit final lazy val `the enum LfEncodable`: LfEncodable[T] = new LfEncodable[T] {

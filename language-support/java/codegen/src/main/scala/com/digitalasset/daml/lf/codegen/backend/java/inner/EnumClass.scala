@@ -15,26 +15,26 @@ private[inner] object EnumClass extends StrictLogging {
 
   def generate(
       className: ClassName,
-      enum: iface.Enum,
+      `enum`: iface.Enum,
   ): TypeSpec = {
     TrackLineage.of("enum", className.simpleName()) {
       logger.info("Start")
       val enumType = TypeSpec.enumBuilder(className).addModifiers(Modifier.PUBLIC)
-      enum.constructors.foreach(c => enumType.addEnumConstant(c.toUpperCase()))
-      enumType.addField(generateValuesArray(enum))
-      enumType.addMethod(generateEnumsMapBuilder(className, enum))
+      `enum`.constructors.foreach(c => enumType.addEnumConstant(c.toUpperCase()))
+      enumType.addField(generateValuesArray(`enum`))
+      enumType.addMethod(generateEnumsMapBuilder(className, `enum`))
       enumType.addField(generateEnumsMap(className))
-      enumType.addMethod(generateFromValue(className, enum))
+      enumType.addMethod(generateFromValue(className, `enum`))
       enumType.addMethod(generateToValue(className))
       logger.debug("End")
       enumType.build()
     }
   }
 
-  private def generateValuesArray(enum: iface.Enum): FieldSpec = {
+  private def generateValuesArray(`enum`: iface.Enum): FieldSpec = {
     val fieldSpec = FieldSpec.builder(ArrayTypeName.of(classOf[javaapi.data.DamlEnum]), "__values$")
     fieldSpec.addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
-    val constructorValues = enum.constructors
+    val constructorValues = `enum`.constructors
       .map(c => CodeBlock.of("new $T($S)", classOf[javaapi.data.DamlEnum], c))
       .asJava
     fieldSpec.initializer(constructorValues.stream().collect(CodeBlock.joining(", ", "{", "}")))
@@ -61,21 +61,21 @@ private[inner] object EnumClass extends StrictLogging {
       .initializer("$T.__buildEnumsMap$$()", className)
       .build()
 
-  private def generateEnumsMapBuilder(className: ClassName, enum: iface.Enum): MethodSpec = {
+  private def generateEnumsMapBuilder(className: ClassName, `enum`: iface.Enum): MethodSpec = {
     val builder = MethodSpec.methodBuilder("__buildEnumsMap$")
     builder.addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
     builder.returns(mapType(className))
     builder.addStatement("$T m = new $T()", mapType(className), hashMapType(className))
-    enum.constructors.foreach(c => builder.addStatement(s"""m.put("$c", ${c.toUpperCase()})"""))
+    `enum`.constructors.foreach(c => builder.addStatement(s"""m.put("$c", ${c.toUpperCase()})"""))
     builder.addStatement("return m")
     builder.build()
   }
 
   private def generateFromValue(
       className: ClassName,
-      enum: iface.Enum,
+      `enum`: iface.Enum,
   ): MethodSpec = {
-    logger.debug(s"Generating fromValue static method for $enum")
+    logger.debug(s"Generating fromValue static method for ${`enum`}")
 
     MethodSpec
       .methodBuilder("fromValue")
