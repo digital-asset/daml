@@ -8,7 +8,6 @@ import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
-import com.daml.ledger.participant.state.index.v2.UserManagementStore.Result
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
