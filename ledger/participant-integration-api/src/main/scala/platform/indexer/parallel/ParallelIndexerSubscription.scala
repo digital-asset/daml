@@ -125,7 +125,7 @@ object ParallelIndexerSubscription {
   def inputMapper(
       metrics: Metrics,
       toDbDto: Offset => state.Update => Iterator[DbDto],
-      toMeteringDbDto: Iterator[(Offset, state.Update)] => Vector[DbDto.TransactionMetering],
+      toMeteringDbDto: Iterable[(Offset, state.Update)] => Vector[DbDto.TransactionMetering],
   )(implicit
       loggingContext: LoggingContext
   ): Iterable[((Offset, state.Update), Long)] => Batch[Vector[DbDto]] = { input =>
@@ -141,7 +141,7 @@ object ParallelIndexerSubscription {
       toDbDto(offset)(update)
     }.toVector
 
-    val meteringBatch = toMeteringDbDto(input.map(_._1).iterator)
+    val meteringBatch = toMeteringDbDto(input.map(_._1))
 
     val batch = mainBatch ++ meteringBatch
 

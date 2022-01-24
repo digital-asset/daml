@@ -63,7 +63,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
 
     "extract transaction metering" in {
 
-      val actual = UpdateToMeteringDbDto(clock = () => timestamp)(List((Offset.fromHexString(offset), someTransactionAccepted)).iterator)
+      val actual = UpdateToMeteringDbDto(clock = () => timestamp)(List((Offset.fromHexString(offset), someTransactionAccepted)))
 
       val expected: Vector[DbDto.TransactionMetering] = Vector(
         DbDto.TransactionMetering(
@@ -102,11 +102,17 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
               Offset.fromHexString(Ref.HexString.assertFromString(metering.to_ledger_offset)),
               someTransactionAccepted,
             ),
-          ).iterator
+          )
         )
 
       actual should equal(expected)(decided by DbDtoSeqEq)
 
+    }
+
+    "return empty vector if input iterable is empty" in {
+      val expected: Vector[DbDto.TransactionMetering] = Vector.empty
+      val actual = UpdateToMeteringDbDto(clock = () => timestamp)(List.empty)
+      actual should equal(expected)(decided by DbDtoSeqEq)
     }
 
   }
