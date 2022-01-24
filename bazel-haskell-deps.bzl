@@ -172,19 +172,35 @@ haskell_cabal_library(
         name = "grpc_haskell_core",
         build_file_content = """
 load("@com_github_digital_asset_daml//bazel_tools:fat_cc_library.bzl", "fat_cc_library")
-load("@com_github_digital_asset_daml//bazel_tools:haskell.bzl", "c2hs_suite", "da_haskell_library")
+load("@com_github_digital_asset_daml//bazel_tools:haskell.bzl", "c2hs_suite")
 load("@rules_haskell//haskell:defs.bzl", "haskell_library")
-da_haskell_library(
-  name = "grpc-haskell-core",
-  srcs = [],
-  deps = [":fat_cbits"],
-visibility = ["//visibility:public"],
+c2hs_suite(
+    name = "grpc-haskell-core",
+    srcs = [
+        "src/Network/GRPC/Unsafe/Constants.hsc",
+    ] + glob(["src/**/*.hs"]),
+    c2hs_src_strip_prefix = "src",
+    hackage_deps = ["clock", "managed", "base", "sorted-list", "bytestring", "containers", "stm", "transformers"],
+    c2hs_srcs = [
+        "src/Network/GRPC/Unsafe/Time.chs",
+        "src/Network/GRPC/Unsafe/ChannelArgs.chs",
+        "src/Network/GRPC/Unsafe/Slice.chs",
+        "src/Network/GRPC/Unsafe/ByteBuffer.chs",
+        "src/Network/GRPC/Unsafe/Metadata.chs",
+        "src/Network/GRPC/Unsafe/Op.chs",
+        "src/Network/GRPC/Unsafe.chs",
+        "src/Network/GRPC/Unsafe/Security.chs",
+    ],
+    compiler_flags = ["-XCPP", "-Wno-unused-imports", "-Wno-unused-record-wildcards"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":fat_cbits",
+    ],
 )
 
 fat_cc_library(
   name = "fat_cbits",
   input_lib = "cbits",
-visibility = ["//visibility:public"],
 )
 cc_library(
   name = "cbits",
