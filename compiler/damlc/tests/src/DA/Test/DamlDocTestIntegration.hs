@@ -59,7 +59,6 @@ tests damlcPath = testGroup "doctest integration tests"
     docTestProc dir f =
         let p = proc damlcPath
                 [ "doctest"
-                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
                 , f
                 ]
         in p { cwd = Just dir }

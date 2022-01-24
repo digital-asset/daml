@@ -7,6 +7,8 @@
 
 module MultiplePartyAgreement where
 
+import Daml.Script
+
 import Utilities
 import DA.List
 
@@ -54,7 +56,7 @@ template Pending
           create finalContract
     -- end snippet: second half pending template
 
-multiplePartyAgreementTest : Scenario (ContractId Agreement)  -- test
+multiplePartyAgreementTest : Script (ContractId Agreement)  -- test
 multiplePartyAgreementTest = do
 
   -- start snippet: testing setup
@@ -63,30 +65,30 @@ multiplePartyAgreementTest = do
 
   -- Parties cannot create a contract already signed by someone else
   initialFailTest <- person1 `submitMustFail` do
-    create Pending with finalContract; alreadySigned = [person1, person2]
+    createCmd Pending with finalContract; alreadySigned = [person1, person2]
 
   -- Any party can create a Pending contract provided they list themselves as the only signatory
   pending <- person1 `submit` do
-    create Pending with finalContract; alreadySigned = [person1]
+    createCmd Pending with finalContract; alreadySigned = [person1]
   -- end snippet: testing setup
   -- start snippet: testing add agreements
   -- Each signatory of the finalContract can Sign the Pending contract
   pending <- person2 `submit` do
-    exercise pending Sign with signer = person2
+    exerciseCmd pending Sign with signer = person2
   pending <- person3 `submit` do
-    exercise pending Sign with signer = person3
+    exerciseCmd pending Sign with signer = person3
   pending <- person4 `submit` do
-    exercise pending Sign with signer = person4
+    exerciseCmd pending Sign with signer = person4
 
   -- A party can't sign the Pending contract twice
   pendingFailTest <- person3 `submitMustFail` do
-    exercise pending Sign with signer = person3
+    exerciseCmd pending Sign with signer = person3
   -- A party can't sign on behalf of someone else
   pendingFailTest <- person3 `submitMustFail` do
-    exercise pending Sign with signer = person4
+    exerciseCmd pending Sign with signer = person4
   -- end snippet: testing add agreements
 
   -- start snippet: testing finalize
   person1 `submit` do
-    exercise pending Finalize with signer = person1
+    exerciseCmd pending Finalize with signer = person1
   -- end snippet: testing finalize

@@ -4,6 +4,7 @@
 
 module Types where
 
+import Daml.Script
 import DA.Date
 
 data MyProductType = MyProductType {
@@ -25,10 +26,10 @@ template SomeTemplate
   where
     signatory owner
 
-myTest = scenario do
-    alice <- getParty "Alice"
-    bob <- getParty "Bob"
-    someCid <- submit alice do create SomeTemplate with owner=alice
+myTest = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    someCid <- submit alice do createCmd SomeTemplate with owner=alice
 
     let myProduct = MyProductType with
                 intField = 17

@@ -210,8 +210,8 @@ daml_build_test(
     dar_dict = {
         ":pkg1.dar": "pkg1.dar",
         ":pkg2.dar": "pkg2.dar",
+        "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
     },
-    enable_scenarios = True,
     project_dir = "src/it/daml/pkg-root",
 )
 

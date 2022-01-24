@@ -84,6 +84,7 @@ da_haskell_test(
     srcs = ["src/DamlcTest.hs"],
     data = [
         "//compiler/damlc",
+        "//daml-script/daml:daml-script.dar",
     ],
     hackage_deps = [
         "base",
