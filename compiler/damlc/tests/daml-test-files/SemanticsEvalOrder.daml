@@ -536,24 +536,24 @@ evUpdExercNonConsumErr = scenario do
     abort "EvUpdExercNonConsumErr failed"
 
 
--- | Verify that the exercising party is evaluated
--- when the exercise is performed, not after.
--- @ERROR EvUpdExercWithoutActorsErr_1 OK
+-- | Verify that the choice controller is evaluated
+-- only when the contract is active.
+-- @ERROR Attempt to exercise a contract that was consumed in same transaction.
 template T_EvUpdExercWithoutActorsErr_1
   with
     p : Party
   where
     signatory p
     choice C_EvUpdExercWithoutActorsErr_1 : () with
-      controller (error @Party "EvUpdExercWithoutActorsErr_1 OK")
-        do abort "EvUpdExercWithoutActorsErr_1 failed (1)"
+      controller (error @Party "EvUpdExercWithoutActorsErr_1 failed (1)")
+        do abort "EvUpdExercWithoutActorsErr_1 failed (2)"
 
 evUpdExercWithoutActorsErr_1 = scenario do
   p <- getParty "Alice"
   submit p do
     c <- create (T_EvUpdExercWithoutActorsErr_1 p)
     exercise c C_EvUpdExercWithoutActorsErr_1
-    abort "EvUpdExercWithoutActorsErr_1 failed (2)"
+    abort "EvUpdExercWithoutActorsErr_1 failed (3)"
 
 -- | Show that the exercising party is evaluated before
 -- we check that the contract is still active.
