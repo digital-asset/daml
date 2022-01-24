@@ -16,7 +16,7 @@ da_haskell_binary(
 da_haskell_library(
   name = "foobar",
   version = "1.0.0",
-  srcs = ["Lib.hs", "foobar.cabal"],
+  srcs = ["Lib.hs"],
   deps = [
        "@grpc_haskell_core//:fat_cbits",
        "@stackage//:base",
