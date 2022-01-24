@@ -7,7 +7,7 @@ import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.data.DatabaseActions
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.collection.compat.immutable.LazyList
+import scala.collection.immutable.LazyList
 import scala.util.{Failure, Success, Try}
 
 /** In-memory projection of ledger events. */
