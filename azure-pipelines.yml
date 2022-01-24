@@ -218,6 +218,16 @@ jobs:
         ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
     - bash: |
         set -euo pipefail
+        source $(bash-lib)
+        cd $(Build.StagingDirectory)/split-release/split-release
+        for f in "damlc-*" daml-libs/daml-script; do
+          gcs "$GCRED" cp -r "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
+        done
+      name: gcs_for_canton
+      env:
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - bash: |
+        set -euo pipefail
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
