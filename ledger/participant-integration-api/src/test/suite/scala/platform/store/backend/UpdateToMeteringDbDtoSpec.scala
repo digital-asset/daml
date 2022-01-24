@@ -9,28 +9,11 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.TransactionNodeStatistics.EmptyActions
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics, TransactionVersion, VersionedTransaction}
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class UpdateToMeteringDbDtoSpec extends AnyWordSpec with Matchers {
+class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
 
-  private val DbDtoEq: org.scalactic.Equality[DbDto] = {
-    case (a: DbDto, b: DbDto) =>
-      (a.productPrefix === b.productPrefix) &&
-        (a.productArity == b.productArity) &&
-        (a.productIterator zip b.productIterator).forall {
-          case (x: Array[_], y: Array[_]) => x sameElements y
-          case (Some(x: Array[_]), Some(y: Array[_])) => x sameElements y
-          case (x, y) => x === y
-        }
-    case (_, _) => false
-  }
-
-  private val DbDtoSeqEq: org.scalactic.Equality[Seq[DbDto]] = {
-    case (a: Seq[_], b: Seq[_]) =>
-      a.size == b.size && a.zip(b).forall({ case (x, y) => DbDtoEq.areEqual(x, y) })
-    case (_, _) => false
-  }
+  import DbDtoEq._
 
   "UpdateMeteringToDbDto" should {
 
@@ -97,8 +80,35 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with Matchers {
 
     }
 
+    "aggregate transaction metering across batch" in {
+
+      val metering = DbDto.TransactionMetering(
+        application_id = applicationId,
+        action_count = 2 * (statistics.committed.actions + statistics.rolledBack.actions),
+        from_timestamp = timestamp,
+        to_timestamp = timestamp,
+        from_ledger_offset = Ref.HexString.assertFromString("01"),
+        to_ledger_offset = Ref.HexString.assertFromString("03"),
+      )
+
+      val expected: Vector[DbDto.TransactionMetering] = Vector(metering)
+
+      val actual = UpdateToMeteringDbDto(clock = () => timestamp)(List(
+            (
+              Offset.fromHexString(Ref.HexString.assertFromString(metering.from_ledger_offset)),
+              someTransactionAccepted,
+            ),
+            (
+              Offset.fromHexString(Ref.HexString.assertFromString(metering.to_ledger_offset)),
+              someTransactionAccepted,
+            ),
+          ).iterator
+        )
+
+      actual should equal(expected)(decided by DbDtoSeqEq)
+
+    }
+
   }
-
-
 
 }

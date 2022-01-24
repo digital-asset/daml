@@ -7,8 +7,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.CompletionInfo
-import com.daml.ledger.participant.state.v2.Update.TransactionAccepted
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -63,6 +61,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
               translation = translation,
               compressionStrategy = compressionStrategy,
             ),
+            UpdateToMeteringDbDto()
           )
         ),
         seqMapperZero =
@@ -126,6 +125,7 @@ object ParallelIndexerSubscription {
   def inputMapper(
       metrics: Metrics,
       toDbDto: Offset => state.Update => Iterator[DbDto],
+      toMeteringDbDto: Iterator[(Offset, state.Update)] => Vector[DbDto.TransactionMetering],
   )(implicit
       loggingContext: LoggingContext
   ): Iterable[((Offset, state.Update), Long)] => Batch[Vector[DbDto]] = { input =>
@@ -137,42 +137,13 @@ object ParallelIndexerSubscription {
       }
     }
 
-    val nonMetering = input.iterator.flatMap { case ((offset, update), _) =>
+    val mainBatch = input.iterator.flatMap { case ((offset, update), _) =>
       toDbDto(offset)(update)
     }.toVector
 
-    val metering = input.iterator
-      .collect({ case ((offset, ta: TransactionAccepted), time) =>
-        (offset, ta.optCompletionInfo, time)
-      })
-      .collect({
-        case (offset, Some(CompletionInfo(_, applicationId, _, _, _, Some(statistics))), time) =>
-          (offset, applicationId, statistics, time)
-      })
-      .foldLeft(Map.empty[Ref.ApplicationId, DbDto.TransactionMetering]) {
-        case (map, (offset, applicationId, statistics, time)) =>
-          val update = map.get(applicationId) match {
-            case None =>
-              DbDto.TransactionMetering(
-                applicationId,
-                statistics.committed.actions + statistics.rolledBack.actions,
-                time,
-                time,
-                offset.toHexString,
-                offset.toHexString,
-              )
-            case Some(m) =>
-              m.copy(
-                action_count =
-                  m.action_count + statistics.committed.actions + statistics.rolledBack.actions,
-                to_timestamp = time,
-                to_ledger_offset = offset.toHexString,
-              )
-          }
-          map + (applicationId -> update)
-      }
+    val meteringBatch = toMeteringDbDto(input.map(_._1).iterator)
 
-    val batch = nonMetering ++ metering.values.toList.sortBy(_.application_id)
+    val batch = mainBatch ++ meteringBatch
 
     Batch(
       lastOffset = input.last._1._1,

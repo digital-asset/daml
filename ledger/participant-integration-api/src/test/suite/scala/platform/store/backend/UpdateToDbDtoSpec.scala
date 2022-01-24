@@ -24,7 +24,6 @@ import com.daml.platform.store.appendonlydao.{DeduplicationKeyMaker, JdbcLedgerD
 import com.google.protobuf.ByteString
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
-import org.scalactic.TripleEquals._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
@@ -1467,18 +1466,5 @@ object UpdateToDbDtoSpec {
     optByKeyNodes = None,
   )
 
-  // DbDto case classes contain serialized values in Arrays (sometimes wrapped in Options),
-  // because this representation can efficiently be passed to Jdbc.
-  // Using Arrays means DbDto instances are not comparable, so we have to define a custom equality operator.
-  implicit private val DbDtoEq: org.scalactic.Equality[DbDto] = {
-    case (a: DbDto, b: DbDto) =>
-      (a.productPrefix === b.productPrefix) &&
-        (a.productArity == b.productArity) &&
-        (a.productIterator zip b.productIterator).forall {
-          case (x: Array[_], y: Array[_]) => x sameElements y
-          case (Some(x: Array[_]), Some(y: Array[_])) => x sameElements y
-          case (x, y) => x === y
-        }
-    case (_, _) => false
-  }
+  implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = DbDtoEq.DbDtoEq
 }
