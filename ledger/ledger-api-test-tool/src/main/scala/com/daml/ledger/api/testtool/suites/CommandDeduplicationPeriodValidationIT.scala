@@ -11,17 +11,22 @@ import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.{FutureAssertions, LedgerTestSuite}
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.time.DelayMechanism
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import io.grpc.Status
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 
 class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
+
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   test(
     "ValidDeduplicationDuration",
@@ -47,7 +52,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     val deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(
       DurationConversion.toProto(Duration.ofSeconds(-1))
     )
-    assertFailedRequest(
+    assertSyncFailedRequest(
       ledger,
       party,
       deduplicationPeriod,
@@ -67,7 +72,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     val deduplicationPeriod = DeduplicationPeriod.DeduplicationOffset(
       "invalid_offset"
     )
-    assertFailedRequest(
+    assertSyncFailedRequest(
       ledger,
       party,
       deduplicationPeriod,
@@ -139,7 +144,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       deduplicationPeriod = DeduplicationPeriod.DeduplicationOffset(
         Ref.HexString.assertFromString(end.getAbsolute.toLowerCase)
       )
-      _ <- assertFailedRequest(
+      _ <- assertSyncFailedRequest(
         ledger,
         party,
         deduplicationPeriod,
@@ -172,19 +177,39 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       deduplicationPeriod = DeduplicationPeriod.DeduplicationOffset(
         Ref.HexString.assertFromString(firstExercise.offset)
       )
-      _ <- assertFailedRequest(
+      failure <- FutureAssertions.succeedsEventually(
+        maxRetryDuration = 20.seconds,
+        delayMechanism = DelayMechanism(ledger),
+        description = "Failing to use a pruned offset",
+      ) {
+        ledger
+          .submitAndWaitForTransaction(
+            ledger
+              .submitAndWaitRequest(party, Dummy(party).create.command)
+              .update(
+                _.commands.deduplicationPeriod := deduplicationPeriod
+              )
+          )
+          .flatMap(response =>
+            ledger.findCompletionAtOffset(
+              Ref.HexString.assertFromString(response.getTransaction.offset),
+              _ => true,
+            )(party)
+          )
+          .mustFail("using an offset which was pruned")
+      }
+    } yield {
+      assertGrpcErrorRegex(
         ledger,
-        party,
-        deduplicationPeriod,
-        failReason = "Submitting a command with a pruned offset",
-        expectedMessage = ".*",
+        failure,
         expectedCode = Status.Code.INVALID_ARGUMENT,
-        expectedError = LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
+        selfServiceErrorCode = LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
+        None,
       )
-    } yield {}
+    }
   })
 
-  private def assertFailedRequest(
+  private def assertSyncFailedRequest(
       ledger: ParticipantTestContext,
       party: Primitive.Party,
       deduplicationPeriod: DeduplicationPeriod,
