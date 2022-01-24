@@ -53,4 +53,4 @@ toUserId = T.asciiToLower
 
 -- | Try to get the primary party of a user and fail if the user has no associated primary party.
 getPrimaryParty : User -> Party
-getPrimaryParty u = fromSomeNote ("User " <> u.userId <> " is missing a primary party.") u.primaryParty
+getPrimaryParty u = fromSomeNote ("User " <> userIdToText u.userId <> " is missing a primary party.") u.primaryParty
