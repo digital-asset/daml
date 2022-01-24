@@ -184,7 +184,7 @@ conformance_test(
             "CommandDeduplicationPeriodValidationIT",
         ]),
         "--exclude=" + ",".join([
-            "CommandDeduplicationPeriodValidationIT:InvalidOffset",  # Needs SDK upgrade
+            "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # TODO https://github.com/DACH-NY/canton/issues/6301
             "ContractIdIT:AcceptSuffixedV1CidExerciseTarget",  # Racy with: ABORTED: CONTRACT_NOT_FOUND(14,0): Contract could not be found with id
         ]),
     ],
