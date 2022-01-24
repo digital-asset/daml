@@ -64,7 +64,7 @@ import qualified Data.Aeson as A
 import Data.Fixed
 import Data.Int (Int64)
 import Data.Map (Map)
-import Data.Text.Lazy (Text, pack)
+import Data.Text.Lazy (Text)
 import Prelude hiding(Enum)
 import qualified Data.Text.Lazy as Text(unpack)
 import qualified Google.Protobuf.Duration as LL
