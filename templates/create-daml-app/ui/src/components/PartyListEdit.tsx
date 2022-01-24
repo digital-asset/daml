@@ -17,7 +17,9 @@ type Props = {
 const PartyListEdit: React.FC<Props> = ({parties, partyToAlias, onAddParty}) => {
   const [newParty, setNewParty] = React.useState<string|undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const options = Array.from(partyToAlias.entries()).map((e) => ({key: e[0], text: e[1], value: e[0]}))
+
+  const aliasToOption = (party, alias) => {{key: party, text: alias, value: party}};
+  const options = Array.from(partyToAlias.entries()).map((e) => partyToOption(e[0], e[1]))
 
   const addParty = async (event?: React.FormEvent) => {
     if (event) {
