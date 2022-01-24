@@ -21,24 +21,18 @@ private[backend] class MeteringStorageBackendTemplate(ledgerEndCache: LedgerEndC
     (
         applicationId("application_id") ~
         int("action_count") ~
-        timestampFromMicros("from_timestamp") ~
-        timestampFromMicros("to_timestamp") ~
-        offset("from_ledger_offset") ~
-        offset("to_ledger_offset")
+        timestampFromMicros("metering_timestamp") ~
+        offset("ledger_offset")
     ).map {
       case applicationId ~
           actionCount ~
-          fromTimestamp ~
-          toTimestamp ~
-          fromLedgerOffset ~
-          toLedgerOffset =>
+          meteringTimestamp ~
+          ledgerOffset  =>
         TransactionMetering(
           applicationId,
           actionCount,
-          fromTimestamp,
-          toTimestamp,
-          fromLedgerOffset,
-          toLedgerOffset,
+          meteringTimestamp,
+          ledgerOffset,
         )
     }
 
@@ -51,15 +45,13 @@ private[backend] class MeteringStorageBackendTemplate(ledgerEndCache: LedgerEndC
       select
         application_id,
         action_count,
-        from_timestamp,
-        to_timestamp,
-        from_ledger_offset,
-        to_ledger_offset
+        metering_timestamp,
+        ledger_offset
       from
         transaction_metering
       where
-        from_ledger_offset <= ${ledgerEndCache()._1.toHexString.toString}
-      order by from_ledger_offset asc
+        ledger_offset <= ${ledgerEndCache()._1.toHexString.toString}
+      order by ledger_offset, application_id asc
     """
       .asVectorOf(transactionMeteringParser)(connection)
   }

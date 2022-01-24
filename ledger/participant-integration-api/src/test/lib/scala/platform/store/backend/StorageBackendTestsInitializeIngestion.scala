@@ -23,8 +23,6 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       someApplicationId,
       1,
       someTime,
-      someTime,
-      offset(0),
       offset(0),
     )
 
@@ -47,10 +45,10 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoCompletion(offset(5)),
       // Transaction Metering
       dtoTransactionMetering(
-        metering.copy(fromLedgerOffset = offset(1), toLedgerOffset = offset(3))
+        metering.copy(ledgerOffset = offset(1))
       ),
       dtoTransactionMetering(
-        metering.copy(fromLedgerOffset = offset(4), toLedgerOffset = offset(5))
+        metering.copy(ledgerOffset = offset(4))
       ),
     )
 
@@ -72,7 +70,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoCompletion(offset(10)),
       // Transaction Metering
       dtoTransactionMetering(
-        metering.copy(fromLedgerOffset = offset(6), toLedgerOffset = offset(10))
+        metering.copy(ledgerOffset = offset(6))
       ),
     )
 

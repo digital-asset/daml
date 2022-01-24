@@ -440,10 +440,8 @@ object MeteringStorageBackend {
   case class TransactionMetering(
       applicationId: Ref.ApplicationId,
       actionCount: Int,
-      fromTimestamp: Timestamp,
-      toTimestamp: Timestamp,
-      fromLedgerOffset: Offset,
-      toLedgerOffset: Offset,
+      meteringTimestamp: Timestamp,
+      ledgerOffset: Offset,
   )
 }
 

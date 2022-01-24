@@ -16,8 +16,7 @@ object UpdateToMeteringDbDto {
 
     if (input.nonEmpty) {
 
-      val from = input.head._1.toHexString
-      val to = input.last._1.toHexString
+      val ledgerOffset = input.head._1.toHexString
 
       (for {
         optCompletionInfo <- input.collect { case (_, ta: TransactionAccepted) => ta.optCompletionInfo }
@@ -30,10 +29,8 @@ object UpdateToMeteringDbDto {
           DbDto.TransactionMetering(
             application_id = applicationId,
             action_count = count,
-            from_timestamp = time,
-            to_timestamp = time,
-            from_ledger_offset = from,
-            to_ledger_offset = to,
+            metering_timestamp = time,
+            ledger_offset = ledgerOffset,
           )
         }
         .toVector

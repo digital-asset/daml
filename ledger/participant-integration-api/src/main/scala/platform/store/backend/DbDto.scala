@@ -154,9 +154,7 @@ object DbDto {
   final case class TransactionMetering(
       application_id: String,
       action_count: Int,
-      from_timestamp: Long,
-      to_timestamp: Long,
-      from_ledger_offset: String,
-      to_ledger_offset: String,
+      metering_timestamp: Long,
+      ledger_offset: String,
   ) extends DbDto
 }

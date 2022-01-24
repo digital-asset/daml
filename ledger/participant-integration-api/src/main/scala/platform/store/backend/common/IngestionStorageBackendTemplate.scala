@@ -33,7 +33,7 @@ private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
         SQL"DELETE FROM party_entries WHERE ledger_offset > $ledgerOffset",
         SQL"DELETE FROM string_interning WHERE internal_id > $lastStringInterningId",
         SQL"DELETE FROM participant_events_create_filter WHERE event_sequential_id > $lastEventSequentialId",
-        SQL"DELETE FROM transaction_metering WHERE from_ledger_offset > $ledgerOffset",
+        SQL"DELETE FROM transaction_metering WHERE ledger_offset > $ledgerOffset",
       ).map(_.execute()(connection))
 
       ()

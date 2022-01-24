@@ -249,10 +249,8 @@ private[backend] object StorageBackendTestValues {
     DbDto.TransactionMetering(
       applicationId,
       actionCount,
-      fromTimestamp.micros,
-      toTimestamp.micros,
-      fromLedgerOffset.toHexString,
-      toLedgerOffset.toHexString,
+      meteringTimestamp.micros,
+      ledgerOffset.toHexString,
     )
   }
 

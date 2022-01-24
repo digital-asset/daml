@@ -26,10 +26,8 @@ private[backend] trait StorageBackendTestsMetering
     val metering = TransactionMetering(
       someApplicationId,
       actionCount = 1,
-      fromTimestamp = now.addMicros(2),
-      toTimestamp = now.addMicros(3),
-      fromLedgerOffset = offset(4),
-      toLedgerOffset = toOffset,
+      meteringTimestamp = now.addMicros(2),
+      ledgerOffset = offset(4)
     )
 
     val expected = metering

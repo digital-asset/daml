@@ -219,10 +219,8 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         DbDto.TransactionMetering(
           application_id = applicationId,
           action_count = statistics.committed.actions + statistics.rolledBack.actions,
-          from_timestamp = timestamp,
-          to_timestamp = timestamp,
-          from_ledger_offset = offset,
-          to_ledger_offset = offset,
+          metering_timestamp = timestamp,
+          ledger_offset = offset,
         )
       )
 

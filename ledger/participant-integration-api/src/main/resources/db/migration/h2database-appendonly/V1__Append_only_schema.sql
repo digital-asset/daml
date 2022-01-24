@@ -550,10 +550,8 @@ CREATE INDEX idx_participant_events_create_seq_id_idx ON participant_events_crea
 CREATE TABLE transaction_metering (
     application_id VARCHAR NOT NULL,
     action_count INTEGER NOT NULL,
-    from_timestamp BIGINT NOT NULL,
-    to_timestamp BIGINT NOT NULL,
-    from_ledger_offset VARCHAR NOT NULL,
-    to_ledger_offset VARCHAR NOT NULL
+    metering_timestamp BIGINT NOT NULL,
+    ledger_offset VARCHAR NOT NULL
 );
 
-CREATE INDEX transaction_metering_from_offset ON transaction_metering(from_ledger_offset);
+CREATE INDEX transaction_metering_ledger_offset ON transaction_metering(ledger_offset);

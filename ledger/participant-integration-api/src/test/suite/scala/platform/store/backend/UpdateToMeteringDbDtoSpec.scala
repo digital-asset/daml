@@ -69,10 +69,8 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
         DbDto.TransactionMetering(
           application_id = applicationId,
           action_count = statistics.committed.actions + statistics.rolledBack.actions,
-          from_timestamp = timestamp,
-          to_timestamp = timestamp,
-          from_ledger_offset = offset,
-          to_ledger_offset = offset,
+          metering_timestamp = timestamp,
+          ledger_offset = offset,
         )
       )
 
@@ -85,21 +83,19 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
       val metering = DbDto.TransactionMetering(
         application_id = applicationId,
         action_count = 2 * (statistics.committed.actions + statistics.rolledBack.actions),
-        from_timestamp = timestamp,
-        to_timestamp = timestamp,
-        from_ledger_offset = Ref.HexString.assertFromString("01"),
-        to_ledger_offset = Ref.HexString.assertFromString("03"),
+        metering_timestamp = timestamp,
+        ledger_offset = Ref.HexString.assertFromString("01"),
       )
 
       val expected: Vector[DbDto.TransactionMetering] = Vector(metering)
 
       val actual = UpdateToMeteringDbDto(clock = () => timestamp)(List(
             (
-              Offset.fromHexString(Ref.HexString.assertFromString(metering.from_ledger_offset)),
+              Offset.fromHexString(Ref.HexString.assertFromString(metering.ledger_offset)),
               someTransactionAccepted,
             ),
             (
-              Offset.fromHexString(Ref.HexString.assertFromString(metering.to_ledger_offset)),
+              Offset.fromHexString(Ref.HexString.assertFromString("99")),
               someTransactionAccepted,
             ),
           )
