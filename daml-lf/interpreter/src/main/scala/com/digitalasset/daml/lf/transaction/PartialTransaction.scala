@@ -517,8 +517,11 @@ private[speedy] case class PartialTransaction(
       byInterface,
       version,
     )
-    insertLeafNode(node, version, optLocation)
-      .noteAuthFails(nid, CheckAuthorization.authorizeFetch(optLocation, node), auth)
+    mustBeActive(
+      NameOf.qualifiedNameOfCurrentFunc,
+      coid,
+      insertLeafNode(node, version, optLocation),
+    ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(optLocation, node), auth)
   }
 
   def insertLookup(
@@ -578,28 +581,32 @@ private[speedy] case class PartialTransaction(
         byInterface = byInterface,
       )
 
-    copy(
-      actionNodeLocations = actionNodeLocations :+ optLocation,
-      nextNodeIdx = nextNodeIdx + 1,
-      context = Context(ec),
-      actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
-      // important: the semantics of Daml dictate that contracts are immediately
-      // inactive as soon as you exercise it. therefore, mark it as consumed now.
-      consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
-      keys = mbKey match {
-        case Some(kWithM) if consuming =>
-          val gkey = GlobalKey(templateId, kWithM.key)
-          keys.get(gkey).orElse(globalKeyInputs.get(gkey)) match {
-            // An archive can only mark a key as inactive
-            // if it was brought into scope before.
-            case Some(KeyActive(cid)) if cid == targetId =>
-              keys.updated(gkey, KeyInactive)
-            // If the key was not in scope or mapped to a different cid, we don’t change keys. Instead we will do
-            // an activeness check when looking it up later.
-            case _ => keys
-          }
-        case _ => keys
-      },
+    mustBeActive(
+      NameOf.qualifiedNameOfCurrentFunc,
+      targetId,
+      copy(
+        actionNodeLocations = actionNodeLocations :+ optLocation,
+        nextNodeIdx = nextNodeIdx + 1,
+        context = Context(ec),
+        actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
+        // important: the semantics of Daml dictate that contracts are immediately
+        // inactive as soon as you exercise it. therefore, mark it as consumed now.
+        consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
+        keys = mbKey match {
+          case Some(kWithM) if consuming =>
+            val gkey = GlobalKey(templateId, kWithM.key)
+            keys.get(gkey).orElse(globalKeyInputs.get(gkey)) match {
+              // An archive can only mark a key as inactive
+              // if it was brought into scope before.
+              case Some(KeyActive(cid)) if cid == targetId =>
+                keys.updated(gkey, KeyInactive)
+              // If the key was not in scope or mapped to a different cid, we don’t change keys. Instead we will do
+              // an activeness check when looking it up later.
+              case _ => keys
+            }
+          case _ => keys
+        },
+      ),
     ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec)), auth)
   }
 
@@ -754,6 +761,19 @@ private[speedy] case class PartialTransaction(
 
   /** `True` iff the given `ContractId` has been consumed already */
   def isConsumed(coid: Value.ContractId): Boolean = consumedBy.contains(coid)
+
+  /** Double check the execution of a step with the unconsumedness of a
+    * `ContractId`.
+    */
+  private[this] def mustBeActive(
+      loc: => String,
+      coid: Value.ContractId,
+      f: => PartialTransaction,
+  ): PartialTransaction =
+    if (consumedBy.isDefinedAt(coid))
+      InternalError.runtimeException(loc, "try to build a node using an inactive contract.")
+    else
+      f
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
   def insertLeafNode(
