@@ -985,9 +985,6 @@ private[lf] object SBuiltin {
           coid,
           crash(s"Contract ${coid.coid} is missing from cache"),
         )
-      onLedger.ptx.consumedBy
-        .get(coid)
-        .foreach(nid => throw SErrorDamlException(IE.ContractNotActive(coid, templateId, nid)))
       val sigs = cached.signatories
       val templateObservers = cached.observers
       val ctrls = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
