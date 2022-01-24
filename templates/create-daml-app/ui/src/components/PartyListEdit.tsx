@@ -7,7 +7,7 @@ import { Party } from '@daml/types';
 
 type Props = {
   parties: Party[];
-  partyToAlias: Map<Party,String>;
+  partyToAlias: Map<Party,string>;
   onAddParty: (party: Party) => Promise<boolean>;
 }
 
@@ -18,8 +18,10 @@ const PartyListEdit: React.FC<Props> = ({parties, partyToAlias, onAddParty}) => 
   const [newParty, setNewParty] = React.useState<string|undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const aliasToOption = (party, alias) => {{key: party, text: alias, value: party}};
-  const options = Array.from(partyToAlias.entries()).map((e) => partyToOption(e[0], e[1]))
+  const aliasToOption = (party: string, alias: string) => {
+    return {key: party, text: alias, value: party}
+    };
+  const options = Array.from(partyToAlias.entries()).map((e) => aliasToOption(e[0], e[1]))
 
   const addParty = async (event?: React.FormEvent) => {
     if (event) {

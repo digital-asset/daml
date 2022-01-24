@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useCallback, useEffect, useState} from 'react'
+import React, { useCallback } from 'react'
 import { Button, Form, Grid, Header, Image, Segment } from 'semantic-ui-react'
 import Credentials from '../Credentials';
 import Ledger from '@daml/ledger';
@@ -61,18 +61,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
     </Grid>;
 
   const InsecureLogin: React.FC<{auth: Insecure}> = ({auth}) => {
-    const [options, setOptions] = useState([{key: '', text: '', value: ''}]);
     const [username, setUsername] = React.useState('');
-
-    useEffect(() => {
-      (async () => {
-        const token = auth.makeToken('public');
-        const ledger = new Ledger({token: token});
-        const allUsers = await ledger.listUsers();
-        setOptions(allUsers.filter((u) => !['participant_admin', 'public'].includes(u.userId) ).map((u) => ({key: u.userId, text: u.userId, value: u.userId})))
-      })()
-
-    }, [auth])
 
     const handleLogin = async (event: React.FormEvent) => {
       event.preventDefault();
@@ -89,12 +78,10 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
 
     return wrap(<>
       {/* FORM_BEGIN */}
-      <Form.Select fluid
-                  options={options}
+      <Form.Input fluid
                   placeholder='Username'
                   value={username}
                   className='test-select-username-field'
-                  search
                   onChange={(e, {value}) => setUsername(value?.toString() ?? '')}
                    />
       <Button primary

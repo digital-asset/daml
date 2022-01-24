@@ -204,7 +204,6 @@ const login = async (page: Page, partyName: string) => {
   const usernameInput = await page.waitForSelector('.test-select-username-field');
   await usernameInput.click();
   await usernameInput.type(partyName);
-  await usernameInput.press('Enter');
   await page.click('.test-select-login-button');
   await page.waitForSelector('.test-select-main-menu');
 }
