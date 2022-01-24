@@ -147,7 +147,6 @@ object TypedValueGenerators {
         Tag unsubst implicitly[Arbitrary[Vector[elt.Inj] @@ Div3]]
       }
       override def injshrink(implicit shr: Shrink[Value.ContractId]) = {
-        import elt.injshrink
         implicitly[Shrink[Vector[elt.Inj]]]
       }
     }
@@ -169,7 +168,6 @@ object TypedValueGenerators {
         implicitly[Arbitrary[Option[elt.Inj]]]
       }
       override def injshrink(implicit cid: Shrink[Value.ContractId]) = {
-        import elt.injshrink
         implicitly[Shrink[Option[elt.Inj]]]
       }
     }
@@ -306,7 +304,7 @@ object TypedValueGenerators {
           override def injshrink(implicit shr: Shrink[Value.ContractId]) =
             Shrink { ev =>
               if (!(values.headOption contains ev)) values.headOption.toStream
-              else Stream.empty
+              else Stream.empty: @annotation.nowarn("cat=deprecation")
             }
         },
       )

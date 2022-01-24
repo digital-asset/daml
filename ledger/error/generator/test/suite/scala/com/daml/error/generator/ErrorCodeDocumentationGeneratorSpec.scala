@@ -12,9 +12,6 @@ import com.daml.error._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.annotation.nowarn
-
-@nowarn("msg=deprecated")
 class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
   private val className = ErrorCodeDocumentationGenerator.getClass.getSimpleName
 

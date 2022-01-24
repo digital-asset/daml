@@ -11,7 +11,6 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 
 import java.io.File
 
-import scala.collection.compat._
 import scala.reflect.runtime.universe._
 import scalaz.{Tree => _, _}
 import scalaz.std.list._

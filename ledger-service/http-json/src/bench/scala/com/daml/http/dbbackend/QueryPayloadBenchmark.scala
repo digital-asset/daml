@@ -10,12 +10,9 @@ import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain.{Party, TemplateId}
 import com.daml.http.query.ValuePredicate
 import com.daml.http.util.Logging.instanceUUIDLogCtx
-import com.daml.scalautil.Statement.discard
 import com.daml.scalautil.nonempty.NonEmpty
 import org.openjdk.jmh.annotations._
 import spray.json._
-
-import scala.collection.compat._
 
 trait QueryPayloadBenchmark extends ContractDaoBenchmark {
   self: BenchmarkDbConnection =>
@@ -83,7 +80,6 @@ trait QueryPayloadBenchmark extends ContractDaoBenchmark {
     assert(result.size == batchSize)
   }
 
-  discard(IterableOnce) // only needed for scala 2.12
 }
 
 class QueryPayloadBenchmarkOracle extends QueryPayloadBenchmark with OracleBenchmarkDbConn

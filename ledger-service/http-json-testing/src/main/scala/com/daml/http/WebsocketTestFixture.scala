@@ -39,7 +39,6 @@ import spray.json.{
   enrichString => `sj enrichString`,
 }
 
-import scala.collection.compat._
 import scala.concurrent.Future
 
 private[http] object WebsocketTestFixture extends StrictLogging with Assertions {

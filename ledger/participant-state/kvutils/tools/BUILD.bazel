@@ -8,7 +8,6 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
-    "silencer_plugin",
 )
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
@@ -21,7 +20,6 @@ da_scala_library(
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils-tools:__VERSION__"],
     visibility = [
@@ -154,11 +152,7 @@ da_scala_test(
 da_scala_library(
     name = "engine-replay",
     srcs = glob(["engine-replay/src/replay/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [

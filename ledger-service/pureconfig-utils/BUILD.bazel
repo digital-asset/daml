@@ -6,15 +6,11 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
-    "silencer_plugin",
 )
 
 da_scala_library(
     name = "pureconfig-utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:com_github_pureconfig_pureconfig_core",
@@ -26,7 +22,6 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
-    #    tags = ["maven_coordinates=com.daml:pureconfig-utils:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

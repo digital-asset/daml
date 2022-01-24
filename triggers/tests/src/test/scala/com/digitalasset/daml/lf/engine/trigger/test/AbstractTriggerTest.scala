@@ -33,7 +33,6 @@ import com.daml.platform.sandbox.services.TestCommands
 import org.scalatest._
 import scalaz.syntax.tag._
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 

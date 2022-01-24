@@ -5,7 +5,7 @@ package com.daml.resources
 
 import com.daml.resources.HasExecutionContext.executionContext
 
-import scala.collection.compat._
+import scala.collection.Factory
 import scala.concurrent.Future
 import scala.util.Try
 

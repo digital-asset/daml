@@ -7,7 +7,6 @@ import java.nio.file.Path
 
 import scalaz._
 
-import scala.collection.compat._
 import scala.collection.immutable.ListMap
 import spray.json._
 

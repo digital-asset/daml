@@ -14,8 +14,6 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-import scala.collection.compat.immutable.LazyList
-
 private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
 
   // the number of contracts proceeded in a batch.

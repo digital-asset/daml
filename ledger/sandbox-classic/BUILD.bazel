@@ -6,7 +6,6 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
-    "silencer_plugin",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
@@ -22,9 +21,6 @@ alias(
     da_scala_library(
         name = "sandbox-classic-{}".format(edition),
         srcs = glob(["src/main/scala/**/*.scala"]),
-        plugins = [
-            silencer_plugin,
-        ],
         # Do not include logback.xml into the library: let the user
         # of the sandbox-as-a-library decide how to log.
         resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
@@ -34,11 +30,6 @@ alias(
             "@maven//:com_typesafe_akka_akka_stream",
             "@maven//:org_scala_lang_modules_scala_java8_compat",
             "@maven//:org_scalaz_scalaz_core",
-        ],
-        scalacopts = [
-            # retain is deprecated in 2.13 but the replacement filterInPlace
-            # does not exist in 2.12.
-            "-P:silencer:lineContentFilters=retain",
         ],
         tags = ["maven_coordinates=com.daml:sandbox-classic:__VERSION__"],
         visibility = [
