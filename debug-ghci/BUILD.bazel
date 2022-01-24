@@ -1,4 +1,4 @@
-load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
 
 da_haskell_binary(
   name = "debug-ghci",
@@ -7,6 +7,17 @@ da_haskell_binary(
   "base",
   ],
   deps = [
+       ":foobar",
+  ],
+)
+
+da_haskell_library(
+  name = "foobar",
+  srcs = ["Lib.hs"],
+  deps = [
        "@grpc_haskell_core//:fat_cbits",
+  ],
+  hackage_deps = [
+  "base",
   ],
 )
