@@ -61,7 +61,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
               translation = translation,
               compressionStrategy = compressionStrategy,
             ),
-            UpdateToMeteringDbDto()
+            UpdateToMeteringDbDto(),
           )
         ),
         seqMapperZero =

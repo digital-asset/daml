@@ -10,7 +10,12 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.TransactionNodeStatistics.EmptyActions
-import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics, TransactionVersion, VersionedTransaction}
+import com.daml.lf.transaction.{
+  CommittedTransaction,
+  TransactionNodeStatistics,
+  TransactionVersion,
+  VersionedTransaction,
+}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.parallel.ParallelIndexerSubscription.Batch
@@ -228,7 +233,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         .inputMapper(
           metrics = metrics,
           toDbDto = _ => _ => Iterator.empty,
-          toMeteringDbDto = _ => expected
+          toMeteringDbDto = _ => expected,
         )(lc)(
           List(
             (

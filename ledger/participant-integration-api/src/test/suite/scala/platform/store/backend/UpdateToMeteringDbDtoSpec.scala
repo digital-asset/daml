@@ -8,7 +8,12 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.TransactionNodeStatistics.EmptyActions
-import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics, TransactionVersion, VersionedTransaction}
+import com.daml.lf.transaction.{
+  CommittedTransaction,
+  TransactionNodeStatistics,
+  TransactionVersion,
+  VersionedTransaction,
+}
 import org.scalatest.wordspec.AnyWordSpec
 
 class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
@@ -63,7 +68,9 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
 
     "extract transaction metering" in {
 
-      val actual = UpdateToMeteringDbDto(clock = () => timestamp)(List((Offset.fromHexString(offset), someTransactionAccepted)))
+      val actual = UpdateToMeteringDbDto(clock = () => timestamp)(
+        List((Offset.fromHexString(offset), someTransactionAccepted))
+      )
 
       val expected: Vector[DbDto.TransactionMetering] = Vector(
         DbDto.TransactionMetering(
@@ -89,17 +96,18 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
 
       val expected: Vector[DbDto.TransactionMetering] = Vector(metering)
 
-      val actual = UpdateToMeteringDbDto(clock = () => timestamp)(List(
-            (
-              Offset.fromHexString(Ref.HexString.assertFromString(metering.ledger_offset)),
-              someTransactionAccepted,
-            ),
-            (
-              Offset.fromHexString(Ref.HexString.assertFromString("99")),
-              someTransactionAccepted,
-            ),
-          )
+      val actual = UpdateToMeteringDbDto(clock = () => timestamp)(
+        List(
+          (
+            Offset.fromHexString(Ref.HexString.assertFromString(metering.ledger_offset)),
+            someTransactionAccepted,
+          ),
+          (
+            Offset.fromHexString(Ref.HexString.assertFromString("99")),
+            someTransactionAccepted,
+          ),
         )
+      )
 
       actual should equal(expected)(decided by DbDtoSeqEq)
 

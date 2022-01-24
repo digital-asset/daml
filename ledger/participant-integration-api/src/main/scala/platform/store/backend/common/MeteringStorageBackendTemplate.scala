@@ -19,7 +19,7 @@ private[backend] class MeteringStorageBackendTemplate(ledgerEndCache: LedgerEndC
 
   private val transactionMeteringParser: RowParser[TransactionMetering] = {
     (
-        applicationId("application_id") ~
+      applicationId("application_id") ~
         int("action_count") ~
         timestampFromMicros("metering_timestamp") ~
         offset("ledger_offset")
@@ -27,7 +27,7 @@ private[backend] class MeteringStorageBackendTemplate(ledgerEndCache: LedgerEndC
       case applicationId ~
           actionCount ~
           meteringTimestamp ~
-          ledgerOffset  =>
+          ledgerOffset =>
         TransactionMetering(
           applicationId,
           actionCount,
