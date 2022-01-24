@@ -17,6 +17,7 @@ da_scala_library(
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scala_lang_modules_scala_java8_compat",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_typesafe_akka_akka_actor",
     ],
     tags = ["maven_coordinates=com.daml:ledger-api-auth:__VERSION__"],
     visibility = [
@@ -65,9 +66,13 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
     ],
     deps = [
         ":ledger-api-auth",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
         "//ledger/error",
         "//ledger/participant-state-index",
         "//ledger/test-common",

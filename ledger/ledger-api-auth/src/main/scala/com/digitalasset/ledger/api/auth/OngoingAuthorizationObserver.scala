@@ -4,9 +4,8 @@
 package com.daml.ledger.api.auth
 
 import java.time.Instant
-import java.time.temporal.ChronoUnit
-import java.util.concurrent.atomic.AtomicBoolean
 
+import akka.actor.{Cancellable, Scheduler}
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
@@ -18,6 +17,7 @@ import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 private[auth] final class OngoingAuthorizationObserver[A](
@@ -27,24 +27,48 @@ private[auth] final class OngoingAuthorizationObserver[A](
     errorFactories: ErrorFactories,
     userManagementStore: UserManagementStore,
     implicit val ec: ExecutionContext,
-    claimsFreshnessCheckDelayInSeconds: Int,
+    userRightsCheckIntervalInSeconds: Int,
+    akkaScheduler: Scheduler,
 )(implicit loggingContext: LoggingContext)
     extends ServerCallStreamObserver[A] {
 
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  private var lastUserInfoAccessTime = Instant.EPOCH
-  private val shouldAbort = new AtomicBoolean(false)
-  private val aborted = new AtomicBoolean(false)
+  // This flag is set only by the scheduled user rights check task
+  @volatile private var shouldAbort = false
+  @volatile private var mostRecentUserInfoRefreshTime = nowF()
 
-  private val userRightsRefreshInProgress = new AtomicBoolean(false)
-
-  private val userId = originalClaims.applicationId.fold[Ref.UserId](
+  private lazy val userId = originalClaims.applicationId.fold[Ref.UserId](
     throw new RuntimeException(
       "Claims were resolved from a user but userId (applicationId) is missing in the claims."
     )
   )(Ref.UserId.assertFromString)
+
+  private val cancellable: Cancellable = {
+    val delay = userRightsCheckIntervalInSeconds.seconds
+    // Note: https://doc.akka.io/docs/akka/2.6.13/scheduler.html states that:
+    // "All scheduled task will be executed when the ActorSystem is terminated, i.e. the task may execute before its timeout."
+    akkaScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay)(runnable =
+      checkUserRights _
+    )
+  }
+
+  private def checkUserRights(): Unit = {
+    // This check ensures that once decided to abort there is no going back.
+    if (!shouldAbort) {
+      userManagementStore
+        .listUserRights(userId)
+        .onComplete {
+          case Failure(_) => shouldAbort = true
+          case Success(Left(_)) => shouldAbort = true
+          case Success(Right(userRights)) =>
+            val updatedClaims = AuthorizationInterceptor.convertUserRightsToClaims(userRights)
+            shouldAbort = updatedClaims.toSet != originalClaims.claims.toSet
+            mostRecentUserInfoRefreshTime = nowF()
+        }
+    }
+  }
 
   override def isCancelled: Boolean = observer.isCancelled
 
@@ -64,84 +88,56 @@ private[auth] final class OngoingAuthorizationObserver[A](
 
   override def onNext(v: A): Unit =
     authorize match {
-      case _ if aborted.get() => ()
       case Right(_) => observer.onNext(v)
-      case Left(authorizationError: AuthorizationError) =>
-        val e: StatusRuntimeException =
-          errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
-        observer.onError(e)
+      case Left(e) => observer.onError(e)
     }
 
-  override def onError(throwable: Throwable): Unit = observer.onError(throwable)
+  override def onError(throwable: Throwable): Unit = {
+    cancelUserRightsCheckTask()
+    observer.onError(throwable)
+  }
 
-  override def onCompleted(): Unit = observer.onCompleted()
+  override def onCompleted(): Unit = {
+    cancelUserRightsCheckTask()
+    observer.onCompleted()
+  }
 
-  private def authorize: Either[AuthorizationError, Unit] = {
+  private def authorize: Either[StatusRuntimeException, Unit] = {
     val now = nowF()
     for {
-      _ <- originalClaims.notExpired(now)
-      _ = validateClaimsResolvedFromUser(now)
+      _ <- originalClaims
+        .notExpired(now)
+        .left
+        .map(authorizationError =>
+          errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
+        )
+      _ <-
+        if (
+          originalClaims.resolvedFromUser &&
+          (shouldAbort ||
+            mostRecentUserInfoRefreshTime.isAfter(
+              now.plusSeconds(2 * userRightsCheckIntervalInSeconds.toLong)
+            ))
+        ) {
+          cancelUserRightsCheckTask()
+          // Terminate the stream, so that clients will restart their streams
+          // and claims will be rechecked precisely.
+          Left(
+            LedgerApiErrors.AuthorizationChecks.StaleUserManagementBasedStreamClaims
+              .Reject()(errorLogger)
+              .asGrpcError
+          )
+        } else Right(())
     } yield {
       ()
     }
   }
 
-  /** Aborts the stream by throwing an exception
-    * if any change in compared the original user claims has been detected
-    * or if user claims change check times out.
-    */
-  private def validateClaimsResolvedFromUser(now: Instant): Unit = {
-    if (originalClaims.resolvedFromUser) {
-      if (shouldAbort.get()) {
-        signalError()
-      } else if (
-        !userRightsRefreshInProgress.get()
-        && now.isAfter(
-          lastUserInfoAccessTime.plus(claimsFreshnessCheckDelayInSeconds.toLong, ChronoUnit.SECONDS)
-        )
-      ) {
-        userRightsRefreshInProgress.set(true)
-        scheduleAuthenticationRefresh()
-      } else if (userRightsRefreshInProgress.get()) {
-        // Timing out user rights refresh
-        if (
-          now.isAfter(
-            lastUserInfoAccessTime
-              .plus(2 * claimsFreshnessCheckDelayInSeconds.toLong, ChronoUnit.SECONDS)
-          )
-        ) {
-          shouldAbort.set(true)
-          signalError()
-        }
-      }
-
+  private def cancelUserRightsCheckTask(): Unit = {
+    cancellable.cancel()
+    if (!cancellable.isCancelled) {
+      logger.debug(s"Failed to cancel stream authorization task")
     }
   }
 
-  private def checkUserRights(): Unit = {
-    userManagementStore
-      .listUserRights(userId)
-      .onComplete {
-        case Failure(_) => shouldAbort.set(true)
-        case Success(Left(_)) => shouldAbort.set(true)
-        case Success(Right(userRights)) =>
-          if (!shouldAbort.get()) {
-            val updatedClaims = AuthorizationInterceptor.convertUserRightsToClaims(userRights)
-            shouldAbort.set(updatedClaims.toSet != originalClaims.claims.toSet)
-            lastUserInfoAccessTime = nowF()
-            userRightsRefreshInProgress.set(false)
-          }
-      }
-  }
-
-  private def signalError(): Unit = {
-    // Terminate the stream, so that clients will restart their streams
-    // and claims will be rechecked precisely.
-    onError(
-      LedgerApiErrors.AuthorizationChecks.StaleUserManagementBasedStreamClaims
-        .Reject()(errorLogger)
-        .asGrpcError
-    )
-    aborted.set(true)
-  }
 }

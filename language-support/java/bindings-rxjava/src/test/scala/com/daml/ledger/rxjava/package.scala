@@ -7,6 +7,8 @@ import com.daml.error.ErrorCodesVersionSwitcher
 import java.time.Clock
 import java.util.UUID
 
+import akka.actor.ActorSystem
+
 import scala.concurrent.ExecutionContext
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.auth.{
@@ -25,6 +27,7 @@ package object rxjava {
 
   private[rxjava] def untestedEndpoint: Nothing =
     throw new UnsupportedOperationException("Untested endpoint, implement if needed")
+  private val akkaSystem = ActorSystem("testActorSystem")
 
   private[rxjava] val authorizer =
     Authorizer(
@@ -34,7 +37,8 @@ package object rxjava {
       new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
       new InMemoryUserManagementStore(),
       ExecutionContext.parasitic,
-      streamClaimsFreshnessCheckDelayInSeconds = 1,
+      userRightsCheckIntervalInSeconds = 1,
+      akkaScheduler = akkaSystem.scheduler,
     )
 
   private[rxjava] val emptyToken = "empty"

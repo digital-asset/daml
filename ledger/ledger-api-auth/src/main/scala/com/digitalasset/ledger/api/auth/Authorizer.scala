@@ -5,6 +5,7 @@ package com.daml.ledger.api.auth
 
 import java.time.Instant
 
+import akka.actor.Scheduler
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{
   ContextualizedErrorLogger,
@@ -34,7 +35,8 @@ final class Authorizer(
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
     userManagementStore: UserManagementStore,
     ec: ExecutionContext,
-    streamClaimsFreshnessCheckDelayInSeconds: Int,
+    userRightsCheckIntervalInSeconds: Int,
+    akkaScheduler: Scheduler,
 )(implicit loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
@@ -240,7 +242,8 @@ final class Authorizer(
     errorFactories = errorFactories,
     userManagementStore = userManagementStore,
     ec = ec,
-    claimsFreshnessCheckDelayInSeconds = streamClaimsFreshnessCheckDelayInSeconds,
+    userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
+    akkaScheduler = akkaScheduler,
   )
 
   /** Directly access the authenticated claims from the thread-local context.
@@ -332,7 +335,8 @@ object Authorizer {
       errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
       userManagementStore: UserManagementStore,
       ec: ExecutionContext,
-      streamClaimsFreshnessCheckDelayInSeconds: Int,
+      userRightsCheckIntervalInSeconds: Int,
+      akkaScheduler: Scheduler,
   ): Authorizer =
     LoggingContext.newLoggingContext { loggingContext =>
       new Authorizer(
@@ -342,7 +346,8 @@ object Authorizer {
         errorCodesVersionSwitcher = errorCodesVersionSwitcher,
         userManagementStore = userManagementStore,
         ec = ec,
-        streamClaimsFreshnessCheckDelayInSeconds = streamClaimsFreshnessCheckDelayInSeconds,
+        userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
+        akkaScheduler = akkaScheduler,
       )(loggingContext)
     }
 }

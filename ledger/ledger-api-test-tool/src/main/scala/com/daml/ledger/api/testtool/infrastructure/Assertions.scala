@@ -187,15 +187,15 @@ object Assertions {
         )
       )
     val expectedErrorId = expectedErrorCode.id
-    val expectedRetryabilitySeconds = expectedErrorCode.category.retryable.map(_.duration.toSeconds)
+    val expectedRetryability = expectedErrorCode.category.retryable.map(_.duration)
 
     val actualStatusCode = status.getCode
     val actualErrorDetails = ErrorDetails.from(status.getDetailsList.asScala.toSeq)
     val actualErrorId = actualErrorDetails
       .collectFirst { case err: ErrorDetails.ErrorInfoDetail => err.reason }
       .getOrElse(fail("Actual error id is not defined"))
-    val actualRetryabilitySeconds = actualErrorDetails
-      .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.retryDelayInSeconds }
+    val actualRetryability = actualErrorDetails
+      .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.duration }
 
     if (actualErrorId != expectedErrorId)
       fail(s"Actual error id ($actualErrorId) does not match expected error id ($expectedErrorId}")
@@ -208,8 +208,8 @@ object Assertions {
 
     Assertions.assertEquals(
       s"Error retryability details mismatch",
-      actualRetryabilitySeconds,
-      expectedRetryabilitySeconds,
+      actualRetryability,
+      expectedRetryability,
     )
   }
 

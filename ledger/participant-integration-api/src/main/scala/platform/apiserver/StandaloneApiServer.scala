@@ -90,7 +90,8 @@ object StandaloneApiServer {
       errorCodesVersionSwitcher,
       userManagementStore,
       servicesExecutionContext,
-      streamClaimsFreshnessCheckDelayInSeconds = userManagementConfig.cacheExpiryAfterWriteInSeconds,
+      userRightsCheckIntervalInSeconds = userManagementConfig.cacheExpiryAfterWriteInSeconds,
+      akkaScheduler = actorSystem.scheduler,
     )
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
 

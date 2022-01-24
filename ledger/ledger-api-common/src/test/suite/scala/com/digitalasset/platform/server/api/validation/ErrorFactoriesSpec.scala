@@ -31,6 +31,7 @@ import org.scalatest.BeforeAndAfter
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
+import scala.concurrent.duration._
 
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
@@ -83,7 +84,7 @@ class ErrorFactoriesSpec
         expectedMessage = msg,
         expectedDetails = Seq[ErrorDetails.ErrorDetail](
           expectedCorrelationIdRequestInfo,
-          ErrorDetails.RetryInfoDetail(1),
+          ErrorDetails.RetryInfoDetail(1.second),
           ErrorDetails.ErrorInfoDetail(
             "INDEX_DB_SQL_TRANSIENT_ERROR",
             Map("category" -> "1", "definite_answer" -> "false"),
@@ -161,7 +162,7 @@ class ErrorFactoriesSpec
               ),
             ),
             expectedCorrelationIdRequestInfo,
-            ErrorDetails.RetryInfoDetail(1),
+            ErrorDetails.RetryInfoDetail(1.second),
           ),
           v2_logEntry = ExpectedLogEntry(
             Level.WARN,
@@ -194,7 +195,7 @@ class ErrorFactoriesSpec
               ),
             ),
             expectedCorrelationIdRequestInfo,
-            ErrorDetails.RetryInfoDetail(1),
+            ErrorDetails.RetryInfoDetail(1.second),
           ),
           v2_logEntry = ExpectedLogEntry(
             Level.INFO,
@@ -223,7 +224,7 @@ class ErrorFactoriesSpec
               Map("category" -> "3", "definite_answer" -> "false"),
             ),
             expectedCorrelationIdRequestInfo,
-            ErrorDetails.RetryInfoDetail(1),
+            ErrorDetails.RetryInfoDetail(1.second),
           ),
           v2_logEntry = ExpectedLogEntry(
             Level.INFO,
@@ -399,7 +400,7 @@ class ErrorFactoriesSpec
             Map("category" -> "3", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
-          ErrorDetails.RetryInfoDetail(1),
+          ErrorDetails.RetryInfoDetail(1.second),
         ),
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
@@ -742,7 +743,7 @@ class ErrorFactoriesSpec
               Map("category" -> "1", "definite_answer" -> "false", "service_name" -> serviceName),
             ),
             expectedCorrelationIdRequestInfo,
-            ErrorDetails.RetryInfoDetail(1),
+            ErrorDetails.RetryInfoDetail(1.second),
           ),
           v2_logEntry = ExpectedLogEntry(
             Level.INFO,

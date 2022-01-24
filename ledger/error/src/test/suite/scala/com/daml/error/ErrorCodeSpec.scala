@@ -85,7 +85,7 @@ class ErrorCodeSpec
           NotSoSeriousError.id,
           Map("category" -> "1") ++ contextMetadata ++ Map("definite_answer" -> "true"),
         ),
-        ErrorDetails.RetryInfoDetail(TransientServerFailure.retryable.get.duration.toSeconds),
+        ErrorDetails.RetryInfoDetail(TransientServerFailure.retryable.get.duration),
         ErrorDetails.RequestInfoDetail(correlationId),
         ErrorDetails.ResourceInfoDetail(error.resources.head._1.asString, error.resources.head._2),
       ),
