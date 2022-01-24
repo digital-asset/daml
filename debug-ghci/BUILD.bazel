@@ -8,7 +8,8 @@ da_haskell_binary(
   "base",
   ],
   deps = [
-       ":foobar",
+#       ":foobar",
+"@stackage//:grpc-haskell-core",
   ],
 )
 
