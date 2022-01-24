@@ -126,6 +126,7 @@ serializabilityConditionsDataType world0 version mbModName (DefDataType _loc _ _
     Nothing
       | DataVariant [] <- cons -> Left URUninhabitatedType
       | DataEnum [] <- cons -> Left URUninhabitatedType
+      | DataInterface <- cons -> Left URInterface
       | otherwise -> do
           let vars = HS.fromList (map fst params)
           mconcatMapM (serializabilityConditionsType world0 version mbModName vars) (toListOf dataConsType cons)

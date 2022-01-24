@@ -76,6 +76,7 @@ data UnserializabilityReason
   | URTypeRep -- ^ It contains a value of type TypeRep.
   | URTypeSyn  -- ^ It contains a type synonym.
   | URExperimental -- ^ It contains a experimental type
+  | URInterface -- ^ It constains an interface
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -226,6 +227,7 @@ instance Pretty UnserializabilityReason where
     URRoundingMode -> "RoundingMode"
     URBigNumeric -> "BigNumeric"
     URExperimental -> "experimental type"
+    URInterface -> "interface"
 
 instance Pretty Error where
   pPrint = \case
