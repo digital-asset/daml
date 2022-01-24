@@ -13,6 +13,14 @@ da_haskell_binary(
   ],
 )
 
+haskell_repl(
+    name = "repl",
+    deps = [":debug-ghci"],
+    experimental_from_binary = [
+    ":foobar",
+    ],
+)
+
 da_haskell_library(
   name = "foobar",
   srcs = ["Lib.hs"],
