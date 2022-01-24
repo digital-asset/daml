@@ -1069,6 +1069,38 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             )
           }
         }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of lookup of a local contract with visibility failure
+        "visibility failure" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(cId: Test:Bridge) (sig : Party) (exercisingParty: Party) ->
+             ubind x: ContractId M:T <- exercise @Test:Bridge CreateNonvisibleKey cId ()
+             in Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
+            Array(SContractId(cId), SParty(alice), SParty(charlie)),
+            Set(charlie),
+            getContract = Map(
+              cId -> Versioned(
+                TransactionVersion.StableVersions.max,
+                Value.ContractInstance(
+                  Bridge,
+                  ValueRecord(
+                    None,
+                    ImmArray(None -> ValueParty(alice), None -> ValueParty(charlie)),
+                  ),
+                  "",
+                ),
+              )
+            ),
+          )
+          inside(res) {
+            case Success(
+                  Left(SErrorDamlException(IE.LocalContractKeyNotVisible(_, key, _, _, _)))
+                ) =>
+              key.templateId shouldBe T
+              msgs shouldBe Seq("starts test", "maintainers")
+          }
+        }
       }
 
       // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of an unknown contract
@@ -1110,8 +1142,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key with output exceeding max nesting
-      "output exceeds max nesting" in {
+      // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key with result exceeding max nesting
+      "result exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(exercisingParty : Party) (sig: Party) -> Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Right @Int64 @Int64 100)""",
