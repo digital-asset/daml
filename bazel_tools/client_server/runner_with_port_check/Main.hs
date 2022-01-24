@@ -18,9 +18,11 @@ main = do
   let splitArgs = filter (/= "") . splitOn " "
   let serverProc = proc serverExe (splitArgs serverArgs)
   let ports :: [Int] = read <$> splitArgs runnerArgs
-  withProcessTerm serverProc $ \_ph -> do
+  withProcessTerm serverProc $ \ph -> do
     forM_ ports $ \port -> waitForConnectionOnPort (threadDelay 500000) port
     runProcess_ (proc clientExe (splitArgs clientArgs))
+    -- See the comment on DA.Daml.Helper.Util.withProcessWait_'
+    when isWindows (terminateProcess $ unsafeProcessHandle ph)
 
 
 waitForConnectionOnPort :: IO () -> Int -> IO ()

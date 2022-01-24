@@ -32,3 +32,5 @@ main = do
       port <- readPortFile (unsafeProcessHandle ph) maxRetries portFile
       let interpolatedClientArgs = map (replace "%PORT%" (show port)) splitClientArgs
       runProcess_ (proc clientExe interpolatedClientArgs)
+      -- See the comment on DA.Daml.Helper.Util.withProcessWait_'
+      when isWindows (terminateProcess $ unsafeProcessHandle ph)
