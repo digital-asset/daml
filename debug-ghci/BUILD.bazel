@@ -8,24 +8,7 @@ da_haskell_binary(
   "base",
   ],
   deps = [
-       ":foobar",
-#"@stackage//:grpc-haskell-core",
+"@stackage//:grpc-haskell-core",
   ],
 )
 
-da_haskell_repl(
-    name = "repl",
-    deps = [":debug-ghci"],
-    experimental_from_binary = [
-    ":foobar",
-    ],
-)
-
-da_haskell_library(
-  name = "foobar",
-  srcs = ["Lib.hs"],
-  hackage_deps = ["base"],
-  deps = [
-       "@grpc_haskell_core//:fat_cbits",
-  ],
-)
