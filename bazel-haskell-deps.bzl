@@ -194,7 +194,7 @@ c2hs_suite(
     compiler_flags = ["-XCPP", "-Wno-unused-imports", "-Wno-unused-record-wildcards"],
     visibility = ["//visibility:public"],
     deps = [
-        ":cbits",
+        ":fat_cbits",
     ],
 )
 
