@@ -556,4 +556,4 @@ CREATE TABLE transaction_metering (
     to_ledger_offset VARCHAR NOT NULL
 );
 
-CREATE UNIQUE INDEX transaction_metering_from_timestamp_application ON transaction_metering(from_ledger_offset, application_id);
+CREATE INDEX transaction_metering_from_offset ON transaction_metering(from_ledger_offset);

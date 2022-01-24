@@ -14,7 +14,7 @@ CREATE TABLE transaction_metering (
 
 SELECT 'Add Transaction Metering: Creating indexes...';
 
-CREATE UNIQUE INDEX transaction_metering_from_timestamp_application ON transaction_metering(from_ledger_offset, application_id);
+CREATE INDEX transaction_metering_from_offset ON transaction_metering(from_ledger_offset);
 
 SELECT 'Add Transaction Metering: Done.';
 
