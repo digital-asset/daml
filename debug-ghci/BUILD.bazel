@@ -1,4 +1,4 @@
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl")
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 
 da_haskell_binary(
@@ -13,7 +13,7 @@ da_haskell_binary(
   ],
 )
 
-haskell_repl(
+da_haskell_repl(
     name = "repl",
     deps = [":debug-ghci"],
     experimental_from_binary = [
