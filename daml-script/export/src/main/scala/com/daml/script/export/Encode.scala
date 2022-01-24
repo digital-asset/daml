@@ -45,11 +45,16 @@ private[exporting] object Encode {
         encodeArgsType(),
         encodeTestExport(),
         encodeExportActions(exporting),
-      ) ++ exporting.missingInstances.map { case (tplId, spec) => encodeMissingInstances(tplId, spec) },
+      ) ++ exporting.missingInstances.map { case (tplId, spec) =>
+        encodeMissingInstances(tplId, spec)
+      },
     )
   }
 
-  private[exporting] def encodeMissingInstances(tplId: TemplateId, spec: TemplateInstanceSpec): Doc = {
+  private[exporting] def encodeMissingInstances(
+      tplId: TemplateId,
+      spec: TemplateInstanceSpec,
+  ): Doc = {
     val tplIdDoc = encodeTemplateId(tplId)
     def primInstance(name: String, parms: Doc): Doc = {
       val cls = Doc.text(s"Has${name.capitalize}")
@@ -84,15 +89,16 @@ private[exporting] object Encode {
       Doc.text("exporting : Args -> Script ()") /
       (Doc.text("exporting Args{parties, contracts} = do") /
         stackNonEmpty(
-          exporting.partyMap.map(Function.tupled(encodePartyBinding)).toSeq ++ exporting.actions.map(
-            encodeAction(
-              exporting.partyMap,
-              exporting.cidMap,
-              exporting.cidRefs,
-              exporting.missingInstances.keySet,
-              _,
-            )
-          ) :+ Doc.text("pure ()")
+          exporting.partyMap.map(Function.tupled(encodePartyBinding)).toSeq ++ exporting.actions
+            .map(
+              encodeAction(
+                exporting.partyMap,
+                exporting.cidMap,
+                exporting.cidRefs,
+                exporting.missingInstances.keySet,
+                _,
+              )
+            ) :+ Doc.text("pure ()")
         )).hang(2)
   }
 

@@ -66,7 +66,9 @@ private[inner] object EnumClass extends StrictLogging {
     builder.addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
     builder.returns(mapType(className))
     builder.addStatement("$T m = new $T()", mapType(className), hashMapType(className))
-    enumeration.constructors.foreach(c => builder.addStatement(s"""m.put("$c", ${c.toUpperCase()})"""))
+    enumeration.constructors.foreach(c =>
+      builder.addStatement(s"""m.put("$c", ${c.toUpperCase()})""")
+    )
     builder.addStatement("return m")
     builder.build()
   }

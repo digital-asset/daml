@@ -124,7 +124,8 @@ final class BackStack[+A] private (fq: BQ[A], val length: Int) {
 
   /** O(n) */
   override def equals(that: Any) = that match {
-    case thatQueue: BackStack[_] => this.reverseIterator sameElements[Any] thatQueue.reverseIterator
+    case thatQueue: BackStack[_] =>
+      this.reverseIterator sameElements [Any] thatQueue.reverseIterator
     case _ => false
   }
 

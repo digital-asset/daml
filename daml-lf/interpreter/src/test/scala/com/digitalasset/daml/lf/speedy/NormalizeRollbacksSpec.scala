@@ -279,7 +279,8 @@ object NormalizeRollbackSpec {
               case V.ValueInt64(n) => Create(n)
               case _ => sys.error(s"unexpected create.arg: ${create.arg}")
             }
-          case leaf: Node.LeafOnlyAction => sys.error(s"Shape.ofTransaction, unexpected leaf: $leaf")
+          case leaf: Node.LeafOnlyAction =>
+            sys.error(s"Shape.ofTransaction, unexpected leaf: $leaf")
           case node: Node.Exercise => Exercise(node.children.toList.map(ofNid))
           case node: Node.Rollback => Rollback(node.children.toList.map(ofNid))
         }
