@@ -332,7 +332,8 @@ generateSrcFromLf env = noLoc mod
             , valueDecls
             ]
         instDecls <- sequence instanceDecls
-        pure $ decls <> catMaybes instDecls
+        ifaceDecls <- sequence interfaceDecls
+        pure $ decls <> catMaybes instDecls <> ifaceDecls
 
 
     classMethodNames :: Set T.Text
@@ -583,6 +584,20 @@ generateSrcFromLf env = noLoc mod
             | otherwise
             = pure emptyBag
 
+    interfaceDecls :: [Gen (LHsDecl GhcPs)]
+    interfaceDecls = do
+        iface <- NM.toList $ LF.moduleInterfaces $ envMod env
+        meth <- NM.toList $ LF.intMethods iface
+        pure . noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
+            { cid_ext = noExt
+            , cid_poly_ty = _a meth
+            , cid_binds = mempty
+            , cid_sigs = []
+            , cid_tyfam_insts = []
+            , cid_datafam_insts = []
+            , cid_overlap_mode = Nothing
+            }
+
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env
 
@@ -642,8 +657,7 @@ generateSrcFromLf env = noLoc mod
                 | conName <- cons
                 ]
 
-        -- TODO https://github.com/digital-asset/daml/issues/12051
-        LF.DataInterface -> error "interfaces are not implemented"
+        LF.DataInterface -> pure []
       where
         occName = mkOccName varName (T.unpack dataTypeCon0)
         occNameFor (LF.VariantConName c) = mkOccName varName (T.unpack c)
@@ -1164,8 +1178,7 @@ refsFromDataCons = \case
     LF.DataRecord fields -> foldMap (refsFromType . snd) fields
     LF.DataVariant cons -> foldMap (refsFromType . snd) cons
     LF.DataEnum _ -> mempty
-    -- TODO https://github.com/digital-asset/daml/issues/12051
-    LF.DataInterface -> error "interfaces are not implemented"
+    LF.DataInterface -> mempty
 
 rootRefs :: Config -> LF.World -> DL.DList Ref
 rootRefs config world = fold
