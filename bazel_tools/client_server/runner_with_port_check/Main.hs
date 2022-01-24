@@ -8,9 +8,11 @@ import Control.Exception.Safe
 import Control.Monad.Loops (untilJust)
 import System.Process.Typed
 import Data.List.Split (splitOn)
-import Control.Monad (forM_)
+import Control.Monad (forM_, when)
 import Network.Socket
 import Control.Concurrent
+import System.Info.Extra
+import System.Process (terminateProcess)
 
 main :: IO ()
 main = do

@@ -10,6 +10,7 @@ da_haskell_binary(
         "base",
         "extra",
         "typed-process",
+        "process",
         "async",
         "text",
         "safe",

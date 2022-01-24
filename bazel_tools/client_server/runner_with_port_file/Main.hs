@@ -3,7 +3,7 @@
 
 module Main (main) where
 
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import Data.List.Extra (replace, splitOn, stripInfix)
 import Data.Maybe (isJust)
 import System.Environment (getArgs)
@@ -12,6 +12,8 @@ import System.Process.Typed (proc, runProcess_, withProcessTerm, unsafeProcessHa
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 import System.IO.Extra (withTempDir)
+import System.Info.Extra
+import System.Process (terminateProcess)
 
 import DA.PortFile
 
