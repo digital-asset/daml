@@ -144,10 +144,21 @@ canonicalize_rlocation() {{
 runner=$$(canonicalize_rlocation $(rootpath {runner}))
 # Cleanup the trigger runner process but maintain the script runner exit code.
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
+
+SCRIPTOUTPUT=$$(mktemp -d)
+$$runner script \\
+  --ledger-host localhost \\
+  --ledger-port 6865 \\
+  --wall-clock-time \\
+  --dar $$(canonicalize_rlocation $(rootpath {dar})) \\
+  --script-name TestScript:allocateAlice \\
+  --output-file $$SCRIPTOUTPUT/alice.json
+ALICE=$$(cat $$SCRIPTOUTPUT/alice.json | sed 's/"//g')
+rm -rf $$SCRIPTOUTPUT
 $$runner trigger \\
   --ledger-host localhost \\
   --ledger-port 6865 \\
-  --ledger-party Alice \\
+  --ledger-party $$ALICE \\
   --wall-clock-time \\
   --dar $$(canonicalize_rlocation $(rootpath {dar})) \\
   --trigger-name CopyTrigger:copyTrigger &
