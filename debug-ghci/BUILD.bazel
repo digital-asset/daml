@@ -1,0 +1,10 @@
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+
+da_haskell_binary(
+  name = "debug-ghci",
+  srcs = ["Main.hs"],
+  hackage_deps = [
+  "base",
+               "grpc-haskell",
+  ],
+)
