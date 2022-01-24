@@ -6,7 +6,7 @@ module Main(main) where
 import System.Environment
 import Control.Exception.Safe
 import Control.Monad.Loops (untilJust)
-import System.Process
+import System.Process.Typed
 import Data.List.Split (splitOn)
 import Control.Monad (forM_)
 import Network.Socket
@@ -18,9 +18,9 @@ main = do
   let splitArgs = filter (/= "") . splitOn " "
   let serverProc = proc serverExe (splitArgs serverArgs)
   let ports :: [Int] = read <$> splitArgs runnerArgs
-  withCreateProcess serverProc $ \_stdin _stdout _stderr _ph -> do
+  withProcessTerm serverProc $ \_ph -> do
     forM_ ports $ \port -> waitForConnectionOnPort (threadDelay 500000) port
-    callProcess clientExe (splitArgs clientArgs)
+    runProcess_ (proc clientExe (splitArgs clientArgs))
 
 
 waitForConnectionOnPort :: IO () -> Int -> IO ()

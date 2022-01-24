@@ -8,7 +8,7 @@ import Data.List.Extra (replace, splitOn, stripInfix)
 import Data.Maybe (isJust)
 import System.Environment (getArgs)
 import System.FilePath ((</>))
-import System.Process (callProcess, proc, withCreateProcess)
+import System.Process.Typed (proc, runProcess_, withProcessTerm, unsafeProcessHandle)
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 import System.IO.Extra (withTempDir)
@@ -28,7 +28,7 @@ main = do
     let portFile = tempDir </> "portfile"
     let interpolatedServerArgs = map (replace "%PORT_FILE%" portFile) splitServerArgs
     let serverProc = proc serverExe interpolatedServerArgs
-    withCreateProcess serverProc $ \_stdin _stdout _stderr ph -> do
-      port <- readPortFile ph maxRetries portFile
+    withProcessTerm serverProc $ \ph -> do
+      port <- readPortFile (unsafeProcessHandle ph) maxRetries portFile
       let interpolatedClientArgs = map (replace "%PORT%" (show port)) splitClientArgs
-      callProcess clientExe interpolatedClientArgs
+      runProcess_ (proc clientExe interpolatedClientArgs)

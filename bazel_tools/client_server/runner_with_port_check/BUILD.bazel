@@ -9,7 +9,7 @@ da_haskell_binary(
     hackage_deps = [
         "base",
         "extra",
-        "process",
+        "typed-process",
         "async",
         "text",
         "safe",

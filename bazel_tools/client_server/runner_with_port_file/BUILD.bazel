@@ -11,7 +11,7 @@ da_haskell_binary(
         "directory",
         "extra",
         "filepath",
-        "process",
+        "typed-process",
     ],
     visibility = ["//visibility:public"],
     deps = ["//libs-haskell/da-hs-base"],
