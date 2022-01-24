@@ -26,12 +26,7 @@ import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.events.{ContractStateEvent, FilterRelation}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.{LedgerDaoContractsReader, TransactionLogUpdate}
 
 import scala.concurrent.Future
@@ -225,6 +220,8 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   ): Future[Unit]
 }
 
+// TODO sandbox-classic clean-up: This interface and its implementation is only used in the JdbcLedgerDao suite
+//                                It should be removed when the assertions in that suite are covered by other suites
 private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   /** Initializes the database with the given ledger identity.
@@ -251,19 +248,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       offset: Offset,
       reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
-
-  /** !!! Please kindly not use this.
-    * !!! This method is solely for supporting sandbox-classic. Targeted for removal as soon sandbox classic is removed.
-    * Stores the initial ledger state, e.g., computed by the scenario loader.
-    * Must be called at most once, before any call to storeLedgerEntry.
-    *
-    * @param ledgerEntries the list of LedgerEntries to save
-    * @return Ok when the operation was successful
-    */
-  def storeInitialState(
-      ledgerEntries: Vector[(Offset, LedgerEntry)],
-      newLedgerEnd: Offset,
-  )(implicit loggingContext: LoggingContext): Future[Unit]
 
   /** Stores a party allocation or rejection thereof.
     *

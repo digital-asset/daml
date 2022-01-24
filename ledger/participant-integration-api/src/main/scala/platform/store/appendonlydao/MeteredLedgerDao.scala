@@ -18,12 +18,7 @@ import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 
 import scala.concurrent.Future
@@ -154,15 +149,6 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     Timed.future(
       metrics.daml.index.db.storeRejection,
       ledgerDao.storeRejection(completionInfo, recordTime, offset, reason),
-    )
-
-  override def storeInitialState(
-      ledgerEntries: Vector[(Offset, LedgerEntry)],
-      newLedgerEnd: Offset,
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    Timed.future(
-      metrics.daml.index.db.storeInitialState,
-      ledgerDao.storeInitialState(ledgerEntries, newLedgerEnd),
     )
 
   override def initialize(

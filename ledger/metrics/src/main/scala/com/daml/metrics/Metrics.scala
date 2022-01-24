@@ -400,7 +400,6 @@ final class Metrics(val registry: MetricRegistry) {
         private val Prefix: MetricName = index.Prefix :+ "db"
 
         val storePartyEntry: Timer = registry.timer(Prefix :+ "store_party_entry")
-        val storeInitialState: Timer = registry.timer(Prefix :+ "store_initial_state")
         val storePackageEntry: Timer = registry.timer(Prefix :+ "store_package_entry")
 
         val storeTransaction: Timer = registry.timer(Prefix :+ "store_ledger_entry")
@@ -473,7 +472,6 @@ final class Metrics(val registry: MetricRegistry) {
           val prepareBatches: Timer = registry.timer(dbPrefix :+ "prepare_batches")
 
           // in order within SQL transaction
-          val commitValidation: Timer = registry.timer(dbPrefix :+ "commit_validation")
           val eventsBatch: Timer = registry.timer(dbPrefix :+ "events_batch")
           val deleteContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "delete_contract_witnesses_batch")
