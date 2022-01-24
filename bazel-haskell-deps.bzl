@@ -177,7 +177,8 @@ load("@rules_haskell//haskell:defs.bzl", "haskell_library")
 da_haskell_library(
   name = "grpc-haskell-core",
   srcs = [],
-  deps = [":fat_cbits"]
+  deps = [":fat_cbits"],
+visibility = ["//visibility:public"],
 )
 
 fat_cc_library(
