@@ -15,7 +15,8 @@ da_haskell_binary(
 
 da_haskell_library(
   name = "foobar",
-  srcs = [],
+  srcs = ["Lib.hs"],
+  hackage_deps = ["base"],
   deps = [
        "@grpc_haskell_core//:fat_cbits",
   ],
