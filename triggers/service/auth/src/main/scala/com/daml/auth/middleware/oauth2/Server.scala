@@ -13,7 +13,9 @@ import akka.http.scaladsl.model.headers.{HttpCookie, HttpCookiePair}
 import akka.http.scaladsl.server.{Directive1, Route}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
+import com.daml.ledger.api.domain.UserRight
 import com.daml.auth.oauth2.api.{JsonProtocol => OAuthJsonProtocol, Response => OAuthResponse}
 import com.typesafe.scalalogging.StrictLogging
 
@@ -21,10 +23,9 @@ import java.util.UUID
 import com.daml.auth.middleware.api.{Request, RequestStore, Response}
 import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.ports.{Port, PortFiles}
-import scalaz.{-\/, \/-}
+import scalaz.{-\/, \/-, \/}
 import spray.json._
 
 import scala.collection.compat._
@@ -67,30 +68,53 @@ class Server(config: Config) extends StrictLogging {
       tokenPayload <- AuthServiceJWTCodec
         .readFromString(decodedJwt.payload)
         .map {
-          case _: StandardJWTPayload =>
-            throw new UnsupportedOperationException(
-              // TODO (i12388): make auth middlware work with user tokens
-              "auth-middleware: user access tokens are not yet supported (https://github.com/digital-asset/daml/issues/12388)."
+          case s: StandardJWTPayload =>
+            (
+              Some(s.userId), {
+                throw new UnsupportedOperationException(
+                  // TODO (i12388): make auth middlware work with user tokens
+                  "auth-middleware: user access tokens are not yet supported (https://github.com/digital-asset/daml/issues/12388)."
+                )
+              }: Nothing \/ Set[UserRight],
             )
-          case payload: CustomDamlJWTPayload => payload
+          case payload: CustomDamlJWTPayload => (payload.applicationId, -\/(payload))
         }
         .toOption
-    } yield {
-      (tokenPayload.admin || !claims.admin) &&
-      claims.actAs.map(_.toString).toSet.subsetOf(tokenPayload.actAs.toSet) &&
-      claims.readAs
-        .map(_.toString)
-        .toSet
-        .subsetOf(tokenPayload.readAs.toSet ++ tokenPayload.actAs.toSet) &&
-      ((claims.applicationId, tokenPayload.applicationId) match {
-        // No requirement on app id
-        case (None, _) => true
-        // Token valid for all app ids.
-        case (_, None) => true
-        case (Some(expectedAppId), Some(actualAppId)) => expectedAppId == ApplicationId(actualAppId)
-      })
-    }
-  }.getOrElse(false)
+      (userId, rightsData) = tokenPayload
+    } yield rightsProvideClaims(userId, rightsData, claims)
+  } getOrElse false
+
+  private def rightsProvideClaims(
+      userId: Option[String],
+      r: CustomDamlJWTPayload \/ Set[UserRight],
+      claims: Request.Claims,
+  ): Boolean = {
+    import UserRight._
+    (r.fold(_.admin, _(ParticipantAdmin)) || !claims.admin) &&
+    Party
+      .unsubst(claims.actAs)
+      .toSet
+      .subsetOf(r.fold(_.actAs.toSet, _.collect { case CanActAs(p) => p: String })) &&
+    Party
+      .unsubst(claims.readAs)
+      .toSet
+      .subsetOf(
+        r.fold(
+          tp => tp.readAs.toSet ++ tp.actAs,
+          _.collect {
+            case CanActAs(p) => p: String
+            case CanReadAs(p) => p: String
+          },
+        )
+      ) &&
+    ((claims.applicationId, userId) match {
+      // No requirement on app id
+      case (None, _) => true
+      // Token valid for all app ids.
+      case (_, None) => true
+      case (Some(expectedAppId), Some(actualAppId)) => expectedAppId == ApplicationId(actualAppId)
+    })
+  }
 
   private val requestTemplates: RequestTemplates = RequestTemplates(
     config.clientId,
