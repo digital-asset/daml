@@ -1521,6 +1521,18 @@ class Ledger {
   }
 
   /**
+   * Deletes a user
+   * 
+   * @param userId The user ID
+   * @param rights The initial rights the user should have
+   * @param primaryParty The primary party the user should have
+   *
+   */
+   async deleteUser(userId: string): Promise<void> {
+    await this.submit('v1/user/delete', { 'userId': userId })
+  }
+
+  /**
    * Allocate a new party.
    *
    * @param partyOpt Parameters for party allocation.

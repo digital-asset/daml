@@ -605,6 +605,8 @@ test('user API', async () => {
   expect(await ledger.revokeUserRights(niceUser, [ UserRight.participantAdmin, UserRight.canActAs(ALICE_PARTY) ])).toEqual([ UserRight.participantAdmin, UserRight.canActAs(ALICE_PARTY) ])
 
   expect((await ledger.listUsers()).map(it => it.userId)).toEqual([ "participant_admin", niceUser ])
+  await ledger.deleteUser(niceUser)
+  expect((await ledger.listUsers()).map(it => it.userId)).toEqual([ "participant_admin" ])
 
 });
 
