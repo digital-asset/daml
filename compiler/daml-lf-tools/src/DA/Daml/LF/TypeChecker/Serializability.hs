@@ -122,9 +122,7 @@ serializabilityConditionsType world0 _version mbCurrentModule vars = go
         _ -> False
       (Left _, Just currentModule)
         | Right tconName <- matching (_PRSelfModule $ modName currentModule) con
-        -> if tconName `HS.member` modInterfaces currentModule
-             then True
-             else False
+        -> tconName `HS.member` modInterfaces currentModule
       (Left err, _) -> error $ showString "Serializability.serializabilityConditionsDataTyp: " $ show err
     isInterface _ = False
 
