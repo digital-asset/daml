@@ -173,11 +173,6 @@ jobs:
     - template: ci/bash-lib.yml
       parameters:
         var_name: bash-lib
-    - bash: |
-        set -euo pipefail
-        if git tag v$(release_tag) $(release_sha); then
-          git push origin v$(release_tag)
-        fi
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: linux-release
