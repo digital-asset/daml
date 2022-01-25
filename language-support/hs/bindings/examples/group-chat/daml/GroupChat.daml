@@ -7,6 +7,8 @@
 
 module GroupChat where
 
+import Daml.Script
+
 import DA.Optional
 
 -- A Message sent to a Group, with recipient authority.
@@ -79,113 +81,125 @@ defaulting x y = Some (DA.Optional.fromOptional y x)
 
 -- Testing
 
-only_members_see_messages = scenario do
+template Helper
+  with
+    p : Party
+  where
+    signatory p
 
-    alice <- getParty "Alice"
-    bob   <- getParty "Bob"
-    chris <- getParty "Chris"
+    choice Fetch : Message
+      with
+        messageCid : ContractId Message
+      controller p
+      do fetch messageCid
 
-    g  <- submit alice do create     Group        with members = [alice], invitees = [], origin = None
-    g  <- submit alice do exercise g Group_Invite with inviter = alice, candidate = bob
-    g  <- submit alice do exercise g Group_Invite with inviter = alice, candidate = chris
-    g  <- submit bob   do exercise g Group_Join   with joiner = bob
-    m1 <- submit bob   do exercise g Group_Send   with sender = bob, body = "From Alice"
-    g  <- submit chris do exercise g Group_Join   with joiner = chris
-    m2 <- submit bob   do exercise g Group_Send   with sender = bob, body = "From Bob"
-    g  <- submit alice do exercise g Group_Leave  with leaver = alice
-    m3 <- submit chris do exercise g Group_Send   with sender = chris, body = "From Chris"
+only_members_see_messages = script do
 
-    submit         alice do fetch m1
-    submit         bob   do fetch m1
-    submitMustFail chris do fetch m1
+    alice <- allocateParty "Alice"
+    bob   <- allocateParty "Bob"
+    chris <- allocateParty "Chris"
 
-    submit         alice do fetch m2
-    submit         bob   do fetch m2
-    submit         chris do fetch m2
+    g  <- submit alice do createCmd     Group        with members = [alice], invitees = [], origin = None
+    g  <- submit alice do exerciseCmd g Group_Invite with inviter = alice, candidate = bob
+    g  <- submit alice do exerciseCmd g Group_Invite with inviter = alice, candidate = chris
+    g  <- submit bob   do exerciseCmd g Group_Join   with joiner = bob
+    m1 <- submit bob   do exerciseCmd g Group_Send   with sender = bob, body = "From Alice"
+    g  <- submit chris do exerciseCmd g Group_Join   with joiner = chris
+    m2 <- submit bob   do exerciseCmd g Group_Send   with sender = bob, body = "From Bob"
+    g  <- submit alice do exerciseCmd g Group_Leave  with leaver = alice
+    m3 <- submit chris do exerciseCmd g Group_Send   with sender = chris, body = "From Chris"
 
-    submitMustFail alice do fetch m3
-    submit         bob   do fetch m3
-    submit         chris do fetch m3
+    submit         alice do Helper alice `createAndExerciseCmd` Fetch m1
+    submit         bob   do Helper bob   `createAndExerciseCmd` Fetch  m1
+    submitMustFail chris do Helper chris `createAndExerciseCmd` Fetch  m1
 
-    return ()
+    submit         alice do Helper alice `createAndExerciseCmd` Fetch  m2
+    submit         bob   do Helper bob   `createAndExerciseCmd` Fetch  m2
+    submit         chris do Helper chris `createAndExerciseCmd` Fetch  m2
 
-
-non_members_cant_send = scenario do -- and two groups don't interfere
-
-    alice <- getParty "Alice"
-    bob   <- getParty "Bob"
-    chris <- getParty "Chris"
-
-    ga <- submit   alice do create      Group        with members = [alice], invitees = [], origin = None
-    gb <- submit   bob   do create      Group        with members = [bob],   invitees = [], origin = None
-    ga <- submit   alice do exercise ga Group_Invite with inviter = alice, candidate = chris
-    gb <- submit   bob   do exercise gb Group_Invite with inviter = bob,   candidate = chris
-    ga <- submit   chris do exercise ga Group_Join   with joiner = chris
-    gb <- submit   chris do exercise gb Group_Join   with joiner = chris
-
-    submit         alice do exercise ga Group_Send   with sender = alice, body = "1"
-    submitMustFail bob   do exercise ga Group_Send   with sender = bob,   body = "2"
-    submit         chris do exercise ga Group_Send   with sender = chris, body = "3"
-
-    submitMustFail alice do exercise gb Group_Send   with sender = alice, body = "4"
-    submit         bob   do exercise gb Group_Send   with sender = bob,   body = "5"
-    submit         chris do exercise gb Group_Send   with sender = chris, body = "6"
-
-
-no_join_without_invite = scenario do
-
-    alice <- getParty "Alice"
-    bob   <- getParty "Bob"
-    chris <- getParty "Chris"
-
-    g <- submit         alice do create     Group        with members = [alice], invitees = [], origin = None
-    _ <- submitMustFail bob   do exercise g Group_Join   with joiner = bob
-    g <- submit         alice do exercise g Group_Invite with inviter = alice, candidate = bob
-    g <- submit         bob   do exercise g Group_Join   with joiner = bob
-    _ <- submitMustFail chris do exercise g Group_Join   with joiner = chris
+    submitMustFail alice do Helper alice `createAndExerciseCmd` Fetch  m3
+    submit         bob   do Helper bob   `createAndExerciseCmd` Fetch  m3
+    submit         chris do Helper chris `createAndExerciseCmd` Fetch  m3
 
     return ()
 
 
-transitive_invite = scenario do
+non_members_cant_send = script do -- and two groups don't interfere
 
-    alice <- getParty "Alice"
-    bob   <- getParty "Bob"
-    chris <- getParty "Chris"
+    alice <- allocateParty "Alice"
+    bob   <- allocateParty "Bob"
+    chris <- allocateParty "Chris"
 
-    g <- submit         alice do create     Group        with members = [alice], invitees = [], origin = None
-    g <- submit         alice do exercise g Group_Invite with inviter = alice, candidate = bob
-    g <- submit         bob   do exercise g Group_Join   with joiner = bob
-    g <- submit         bob   do exercise g Group_Invite with inviter = bob, candidate = chris
-    g <- submit         chris do exercise g Group_Join   with joiner = chris
+    ga <- submit   alice do createCmd      Group        with members = [alice], invitees = [], origin = None
+    gb <- submit   bob   do createCmd      Group        with members = [bob],   invitees = [], origin = None
+    ga <- submit   alice do exerciseCmd ga Group_Invite with inviter = alice, candidate = chris
+    gb <- submit   bob   do exerciseCmd gb Group_Invite with inviter = bob,   candidate = chris
+    ga <- submit   chris do exerciseCmd ga Group_Join   with joiner = chris
+    gb <- submit   chris do exerciseCmd gb Group_Join   with joiner = chris
+
+    submit         alice do exerciseCmd ga Group_Send   with sender = alice, body = "1"
+    submitMustFail bob   do exerciseCmd ga Group_Send   with sender = bob,   body = "2"
+    submit         chris do exerciseCmd ga Group_Send   with sender = chris, body = "3"
+
+    submitMustFail alice do exerciseCmd gb Group_Send   with sender = alice, body = "4"
+    submit         bob   do exerciseCmd gb Group_Send   with sender = bob,   body = "5"
+    submit         chris do exerciseCmd gb Group_Send   with sender = chris, body = "6"
+
+
+no_join_without_invite = script do
+
+    alice <- allocateParty "Alice"
+    bob   <- allocateParty "Bob"
+    chris <- allocateParty "Chris"
+
+    g <- submit         alice do createCmd     Group        with members = [alice], invitees = [], origin = None
+    _ <- submitMustFail bob   do exerciseCmd g Group_Join   with joiner = bob
+    g <- submit         alice do exerciseCmd g Group_Invite with inviter = alice, candidate = bob
+    g <- submit         bob   do exerciseCmd g Group_Join   with joiner = bob
+    _ <- submitMustFail chris do exerciseCmd g Group_Join   with joiner = chris
 
     return ()
 
 
-non_member_cant_invite = scenario do
+transitive_invite = script do
 
-    alice <- getParty "Alice"
-    bob   <- getParty "Bob"
-    chris <- getParty "Chris"
+    alice <- allocateParty "Alice"
+    bob   <- allocateParty "Bob"
+    chris <- allocateParty "Chris"
 
-    g <- submit         alice do create     Group        with members = [alice], invitees = [], origin = None
-    g <- submitMustFail bob   do exercise g Group_Invite with inviter = bob, candidate = chris
+    g <- submit         alice do createCmd     Group        with members = [alice], invitees = [], origin = None
+    g <- submit         alice do exerciseCmd g Group_Invite with inviter = alice, candidate = bob
+    g <- submit         bob   do exerciseCmd g Group_Join   with joiner = bob
+    g <- submit         bob   do exerciseCmd g Group_Invite with inviter = bob, candidate = chris
+    g <- submit         chris do exerciseCmd g Group_Join   with joiner = chris
 
     return ()
 
 
-last_member_may_leave = scenario do -- and group is shutdown
+non_member_cant_invite = script do
 
-    alice <- getParty "Alice"
-    bob   <- getParty "Bob"
-    chris <- getParty "Chris"
+    alice <- allocateParty "Alice"
+    bob   <- allocateParty "Bob"
+    chris <- allocateParty "Chris"
 
-    g  <- submit         alice do create     Group        with members = [alice], invitees = [], origin = None
-    g  <- submit         alice do exercise g Group_Invite with inviter = alice, candidate = bob
-    g  <- submit         bob   do exercise g Group_Join   with joiner = bob
-    g  <- submit         alice do exercise g Group_Leave  with leaver = alice
+    g <- submit         alice do createCmd     Group        with members = [alice], invitees = [], origin = None
+    g <- submitMustFail bob   do exerciseCmd g Group_Invite with inviter = bob, candidate = chris
 
-    g <- submit bob do exercise g Group_Leave  with leaver = bob
+    return ()
+
+
+last_member_may_leave = script do -- and group is shutdown
+
+    alice <- allocateParty "Alice"
+    bob   <- allocateParty "Bob"
+    chris <- allocateParty "Chris"
+
+    g  <- submit         alice do createCmd     Group        with members = [alice], invitees = [], origin = None
+    g  <- submit         alice do exerciseCmd g Group_Invite with inviter = alice, candidate = bob
+    g  <- submit         bob   do exerciseCmd g Group_Join   with joiner = bob
+    g  <- submit         alice do exerciseCmd g Group_Leave  with leaver = alice
+
+    g <- submit bob do exerciseCmd g Group_Leave  with leaver = bob
     -- g is no longer active. How can this be tested?
 
     return ()

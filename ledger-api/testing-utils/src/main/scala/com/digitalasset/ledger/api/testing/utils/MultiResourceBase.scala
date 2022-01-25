@@ -5,7 +5,6 @@ package com.daml.ledger.api.testing.utils
 
 import org.scalatest.AsyncTestSuite
 
-import scala.collection.compat._
 import scala.collection.immutable
 
 trait MultiResourceBase[FixtureId, TestContext]

@@ -86,7 +86,7 @@ conformance_test(
             "CommandDeduplicationIT:DeduplicateUsingDurations",  # disabled while Canton does not support the feature descriptors
             "CommandDeduplicationIT:DeduplicateUsingOffsets",  # disabled while Canton does not support the feature descriptors
             "CommandDeduplicationParallelIT",  # can be re-enabled once canton exposes the feature descriptors
-            "CommandDeduplicationPeriodValidationIT:InvalidOffset",  # Needs SDK upgrade
+            "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # TODO https://github.com/DACH-NY/canton/issues/6301
             "ContractIdIT",  # temporarily disabled due to changed error codes
             "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
             "RaceConditionIT:RWArchiveVsFailedLookupByKey",  # finding a lookup failure after contract creation

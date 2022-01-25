@@ -5,6 +5,7 @@
 
 module RestrictedPayout where
 
+import Daml.Script
 
 -- One party agrees to pay another five pounds.
 template Payout
@@ -42,14 +43,14 @@ template RestrictedPayout
         create RestrictedPayout with receiver = newReceiver; giver; blacklisted; qty
 -- END_CHOICE_WITH_ASSERT
 
-exampleFailureBlacklisted = scenario do
-    boe <- getParty "Bank of England"
-    alice <- getParty "Alice"
-    charlie <- getParty "Charlie"
+exampleFailureBlacklisted = script do
+    boe <- allocateParty "Bank of England"
+    alice <- allocateParty "Alice"
+    charlie <- allocateParty "Charlie"
     ci <- submit boe do
-      create RestrictedPayout with
+      createCmd RestrictedPayout with
         receiver = alice; giver = boe
         blacklisted = charlie; qty = 5
 
     submitMustFail alice do
-      exercise ci Transfer with newReceiver = charlie
+      exerciseCmd ci Transfer with newReceiver = charlie

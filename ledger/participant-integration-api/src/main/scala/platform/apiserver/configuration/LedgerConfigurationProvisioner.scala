@@ -15,7 +15,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
-import scala.compat.java8.FutureConverters
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{Duration => ScalaDuration}
 import scala.util.{Failure, Success}
@@ -76,9 +76,9 @@ final class LedgerConfigurationProvisioner(
           ) { implicit telemetryContext =>
             val maxRecordTime =
               Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60))
-            FutureConverters.toScala(
-              writeService.submitConfiguration(maxRecordTime, submissionId, initialConfiguration)
-            )
+            writeService
+              .submitConfiguration(maxRecordTime, submissionId, initialConfiguration)
+              .asScala
           }
           .onComplete {
             case Success(state.SubmissionResult.Acknowledged) =>

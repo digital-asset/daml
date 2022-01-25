@@ -4,6 +4,8 @@
 
 module Iou where
 
+import Daml.Script
+
 template Iou
   with
     issuer : Party
@@ -19,18 +21,18 @@ template Iou
       controller owner
       do create this with owner = newOwner
 
-run = scenario do
-    bank <- getParty "Bank"
-    alice <- getParty "Alice"
-    bob <- getParty "Bob"
+run = script do
+    bank <- allocateParty "Bank"
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
     cid <- submit bank do
-      create Iou with
+      createCmd Iou with
        issuer = bank
        owner = alice
        amount = 10
        currency = "USD"
     submit alice do
-      exercise cid Transfer with
+      exerciseCmd cid Transfer with
        newOwner = bob
 
 

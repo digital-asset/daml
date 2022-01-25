@@ -3,7 +3,7 @@
 
 package com.daml.resources
 
-import scala.collection.compat._
+import scala.collection.Factory
 import scala.collection.mutable
 
 private[resources] final class UnitCanBuildFrom[T, C[_]] extends Factory[T, Unit] {

@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import com.google.common.io.BaseEncoding
 
-import scala.collection.compat.immutable.ArraySeq
+import scala.collection.immutable.ArraySeq
 import scala.util.Try
 
 package object nonrepudiation {

@@ -16,7 +16,6 @@ import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
 
-import scala.collection.compat._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}

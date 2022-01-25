@@ -14,8 +14,6 @@ da_scala_library(
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
         "@maven//:io_spray_spray_json",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
-        "@maven//:org_scala_lang_modules_scala_java8_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["maven_coordinates=com.daml:ledger-api-auth:__VERSION__"],

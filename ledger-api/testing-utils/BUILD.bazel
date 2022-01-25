@@ -5,15 +5,11 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
-    "silencer_plugin",
 )
 
 da_scala_library(
     name = "testing-utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
@@ -21,7 +17,6 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:testing-utils:__VERSION__"],
     visibility = [

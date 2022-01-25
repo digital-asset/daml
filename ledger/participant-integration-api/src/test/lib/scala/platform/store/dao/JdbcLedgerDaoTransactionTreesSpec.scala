@@ -19,7 +19,6 @@ import org.scalatest._
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.collection.compat._
 import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoTransactionTreesSpec

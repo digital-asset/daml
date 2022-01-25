@@ -5,6 +5,8 @@
 
 module Functions where
 
+import Daml.Script
+import DA.Assert
 import DA.Text
 
 multiplyThreeNumbers : Int -> Int -> Int -> Int
@@ -27,16 +29,16 @@ applyFilter (filter : Int -> Int -> Bool)
     (x : Int)
     (y : Int) = filter x y
 
-compute = scenario do
-    assert (applyFilter (<) 3 2 == False)
-    assert (applyFilter (/=) 3 2 == True)
+compute = script do
+    applyFilter (<) 3 2 === False
+    applyFilter (/=) 3 2 === True
 
-    assert (round (2.5 : Decimal) == 3)
-    assert (round (3.5 : Decimal) == 4)
+    round (2.5 : Decimal) === 3
+    round (3.5 : Decimal) === 4
 
-    assert (explode "me" == ["m", "e"])
+    explode "me" === ["m", "e"]
 
-    assert (applyFilter (\a b -> a /= b) 3 2 == True)
+    applyFilter (\a b -> a /= b) 3 2 === True
 
 
 
@@ -44,7 +46,7 @@ compute = scenario do
 compose (f : b -> c) (g : a -> b) (x : a) : c = f (g x)
 
 
-t = scenario do
-  assert (compose ((+) 4) ((*) 2) 3 == 10)
+t = script do
+  compose ((+) 4) ((*) 2) 3 === 10
   assert (compose not ((&&) True) False)
   assert (or [True, True])

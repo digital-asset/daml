@@ -4,7 +4,7 @@
 
 module ObligableErrors where
 
-
+import Daml.Script
 
 
 template Payout
@@ -20,15 +20,15 @@ template Payout
       show giver <> " agress to give " <> show receiver <>
       " the amount of " <> show amount <> " dollars"
 
-receiverCreates = scenario do
-  receiver <- getParty "Bob"
-  giver <- getParty "Alice"
-  submitMustFail receiver do create Payout with giver; receiver; amount = 1000000.0
+receiverCreates = script do
+  receiver <- allocateParty "Bob"
+  giver <- allocateParty "Alice"
+  submitMustFail receiver do createCmd Payout with giver; receiver; amount = 1000000.0
 
-giverCreates = scenario do
-  receiver <- getParty "Bob"
-  giver <- getParty "Alice"
-  submitMustFail giver do create Payout with giver; receiver; amount = 1000000.0
+giverCreates = script do
+  receiver <- allocateParty "Bob"
+  giver <- allocateParty "Alice"
+  submitMustFail giver do createCmd Payout with giver; receiver; amount = 1000000.0
 
 template CallablePayout
   with
@@ -44,13 +44,13 @@ template CallablePayout
       do create Payout with giver; receiver; amount
 
 
-callPayout = scenario do
-  receiver <- getParty "Bob"
-  giver <- getParty "Alice"
+callPayout = script do
+  receiver <- allocateParty "Bob"
+  giver <- allocateParty "Alice"
   callableId <- submit giver do
-    create CallablePayout with giver; receiver; amount = 1000000.0
+    createCmd CallablePayout with giver; receiver; amount = 1000000.0
   submit receiver do
-    exercise callableId CallablePayout_Call
+    exerciseCmd callableId CallablePayout_Call
 
 -- Parties from a choice
 {-

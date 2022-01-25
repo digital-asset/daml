@@ -16,7 +16,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.Scalaz._
 import scalaz._
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import java.time._
 import com.daml.ledger.api.{domain => LedgerApiDomain}

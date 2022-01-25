@@ -18,7 +18,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-import scala.collection.compat._
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
 

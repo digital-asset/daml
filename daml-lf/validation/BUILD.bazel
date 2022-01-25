@@ -8,7 +8,6 @@ load(
     "da_scala_test",
     "lf_scalacopts",
     "lf_scalacopts_stricter",
-    "silencer_plugin",
 )
 
 da_scala_library(
@@ -16,7 +15,6 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-validation:__VERSION__"],
@@ -36,12 +34,7 @@ da_scala_test(
     name = "validation-test",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
-    scalacopts = lf_scalacopts + [
-        "-P:silencer:lineContentFilters=standardInterpolator",
-    ],
+    scalacopts = lf_scalacopts,
     deps = [
         ":validation",
         "//daml-lf/data",

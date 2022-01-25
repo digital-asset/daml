@@ -14,7 +14,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
-import scala.collection.compat._
 
 class ValueSpec
     extends AnyFlatSpec

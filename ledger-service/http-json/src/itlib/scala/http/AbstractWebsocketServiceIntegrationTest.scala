@@ -31,7 +31,6 @@ import spray.json.{
 }
 
 import scala.annotation.nowarn
-import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 

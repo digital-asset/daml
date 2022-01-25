@@ -7,6 +7,8 @@
 
 module CoinTransferWithAuthorization where
 
+import Daml.Script
+
 import Utilities
 --authorization contract allows more control on a choice
 --in the example below, issuer grants access to the newOwner. which is checked on Accept choice to ensure he is legit coin owner.
@@ -89,27 +91,27 @@ template TransferProposal
 
 
 
-tokenAccept : Scenario ()  -- test
+tokenAccept : Script ()  -- test
 tokenAccept =
-  scenario do
+  script do
 
     [issuer, owner, newOwner] <- makePartiesFrom ["Bank", "Me", "You"]
 
     --test 1: token is active, allowing new owner to accept
 
-    creatProp <- issuer `submit` do create CoinProposal with owner; issuer; amount=100.0
-    coinId <- owner `submit` do exercise creatProp AcceptProposal
-    coinProp <- owner `submit` do exercise coinId Transfer with newOwner
+    creatProp <- issuer `submit` do createCmd CoinProposal with owner; issuer; amount=100.0
+    coinId <- owner `submit` do exerciseCmd creatProp AcceptProposal
+    coinProp <- owner `submit` do exerciseCmd coinId Transfer with newOwner
 
-    tokenId <- issuer `submit` do create CoinOwnerAuthorization with owner = newOwner; issuer
-    newOwner `submit` do exercise coinProp AcceptTransfer with token = tokenId
+    tokenId <- issuer `submit` do createCmd CoinOwnerAuthorization with owner = newOwner; issuer
+    newOwner `submit` do exerciseCmd coinProp AcceptTransfer with token = tokenId
 
     --test 2: token is withdraw before new owner accpet. Hence the accept will fail
-    creatProp <- issuer `submit` do create CoinProposal with owner; issuer; amount=100.0
-    coinId <- owner `submit` do exercise creatProp AcceptProposal
-    coinProp <- owner `submit` do exercise coinId Transfer with newOwner
+    creatProp <- issuer `submit` do createCmd CoinProposal with owner; issuer; amount=100.0
+    coinId <- owner `submit` do exerciseCmd creatProp AcceptProposal
+    coinProp <- owner `submit` do exerciseCmd coinId Transfer with newOwner
 
-    tokenId <- issuer `submit` do create CoinOwnerAuthorization with owner = newOwner; issuer
-    issuer `submit` do exercise tokenId WithdrawAuthorization
-    newOwner `submitMustFail` do exercise coinProp AcceptTransfer with token = tokenId
+    tokenId <- issuer `submit` do createCmd CoinOwnerAuthorization with owner = newOwner; issuer
+    issuer `submit` do exerciseCmd tokenId WithdrawAuthorization
+    newOwner `submitMustFail` do exerciseCmd coinProp AcceptTransfer with token = tokenId
 

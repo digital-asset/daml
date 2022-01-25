@@ -9,9 +9,6 @@ load(
 da_scala_library(
     name = "non-repudiation-testing",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
-    ],
     visibility = [
         "//:__subpackages__",
     ],

@@ -13,6 +13,8 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
 
+// Allows using deprecated Protobuf fields for testing
+@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
 final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
 
   behavior of "SubmitCommandsRequest.toProto/fromProto"
