@@ -66,14 +66,14 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
   private val ParticipantIdParser: RowParser[ParticipantId] =
     Conversions.participantId(ParticipantIdColumnName).map(ParticipantId(_))
 
-  private val LedgerEndOffsetParser: RowParser[Offset] =
-    offset(LedgerEndColumnName)
+  private val LedgerEndOffsetParser: RowParser[Option[Offset]] =
+    offset(LedgerEndColumnName).?
 
-  private val LedgerEndSequentialIdParser: RowParser[Long] =
-    long(LedgerEndSequentialIdColumnName)
+  private val LedgerEndSequentialIdParser: RowParser[Option[Long]] =
+    long(LedgerEndSequentialIdColumnName).?
 
-  private val LedgerEndStringInterningIdParser: RowParser[Int] =
-    int(LedgerEndStringInterningIdColumnName)
+  private val LedgerEndStringInterningIdParser: RowParser[Option[Int]] =
+    int(LedgerEndStringInterningIdColumnName).?
 
   private val LedgerIdentityParser: RowParser[ParameterStorageBackend.IdentityParams] =
     LedgerIdParser ~ ParticipantIdParser map { case ledgerId ~ participantId =>
@@ -82,12 +82,16 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
 
   private val LedgerEndParser: RowParser[ParameterStorageBackend.LedgerEnd] =
     LedgerEndOffsetParser ~ LedgerEndSequentialIdParser ~ LedgerEndStringInterningIdParser map {
-      case lastOffset ~ lastEventSequentialId ~ lastStringInterningId =>
+      case Some(lastOffset) ~ Some(lastEventSequentialId) ~ Some(lastStringInterningId) =>
         ParameterStorageBackend.LedgerEnd(
           lastOffset,
           lastEventSequentialId,
           lastStringInterningId,
         )
+      case _ =>
+        // Note: offset and event sequential id are always written together.
+        // Cases where only one of them is defined are not handled here.
+        ParameterStorageBackend.LedgerEnd.beforeBegin
     }
 
   override def initializeParameters(
