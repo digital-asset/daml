@@ -14,9 +14,7 @@ const MainView: React.FC = () => {
   const username = useParty();
   const myUserResult = useStreamFetchByKeys(User.User, () => [username], [username]);
   const aliases = useStreamQueries(User.Alias, () => [], []);
-  const partyToAlias = new Map<Party, string>(aliases.contracts.map(({payload}) => [payload.username, payload.alias]))
   const myUser = myUserResult.contracts[0]?.payload;
-  const myUserName = partyToAlias.get(username) ?? username;
   const allUsers = useStreamQueries(User.User).contracts;
 // USERS_END
 
@@ -27,6 +25,13 @@ const MainView: React.FC = () => {
     .filter(user => user.username !== username)
     .sort((x, y) => x.username.localeCompare(y.username)),
     [allUsers, username]);
+
+  // Map to translate party identifiers to aliases.
+  const partyToAlias = useMemo(() =>
+    new Map<Party, string>(aliases.contracts.map(({payload}) => [payload.username, payload.alias])),
+    [aliases]
+  );
+  const myUserName = aliases.loading ? 'loading ...' : partyToAlias.get(username) ?? username;
 
   // FOLLOW_BEGIN
   const ledger = useLedger();
