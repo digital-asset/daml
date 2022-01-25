@@ -4,6 +4,7 @@
 parameters:
   release_tag: ''
   is_release: ''
+  is_split_release: 'false'
   skip_tests: ''
 
 steps:
@@ -51,7 +52,10 @@ steps:
   - bash: |
       set -euo pipefail
       mkdir -p '$(Build.StagingDirectory)'/release
-      ./ci/copy-windows-release-artifacts.sh ${{parameters.release_tag}} '$(Build.StagingDirectory)'/release
+      ./ci/copy-windows-release-artifacts.sh \
+        ${{parameters.release_tag}} \
+        '$(Build.StagingDirectory)'/release \
+        "${{ parameters.is_split_release }}"
     name: publish
     env:
       AZURE_KEY_VAULT_URL: $(AZURE_KEY_VAULT_URL)

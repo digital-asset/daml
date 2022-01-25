@@ -72,7 +72,10 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
       .hidden()
       .optional()
       .action((enabled, config) => config.copy(extra = config.extra.copy(stackTraces = enabled)))
-      .text("Enable/disable stack traces. Default is to enable them.")
+      .text(
+        "Enable/disable stack traces. Default is to disable them. " +
+          "Enabling stack traces may have a significant performance impact."
+      )
 
     JwtVerifierConfigurationCli.parse(parser)((v, c) =>
       c.copy(extra = c.extra.copy(authService = AuthServiceJWT(v)))
@@ -95,6 +98,6 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     timeProviderType = TimeProviderType.WallClock,
     authService = AuthServiceWildcard,
     profileDir = None,
-    stackTraces = true,
+    stackTraces = false,
   )
 }

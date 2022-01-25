@@ -8,7 +8,6 @@ load(
     "da_scala_test",
     "lf_scalacopts",
     "lf_scalacopts_stricter",
-    "silencer_plugin",
 )
 
 #
@@ -47,12 +46,8 @@ proto_jars(
 da_scala_library(
     name = "transaction",
     srcs = glob(["src/main/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
@@ -77,16 +72,12 @@ da_scala_test(
         "src/test/**/value/*.scala",
         "src/test/**/transaction/*.scala",
     ]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = lf_scalacopts,
     deps = [
@@ -107,9 +98,6 @@ da_scala_test(
     srcs = glob([
         "src/test/**/validation/*.scala",
     ]),
-    plugins = [
-        silencer_plugin,
-    ],
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",

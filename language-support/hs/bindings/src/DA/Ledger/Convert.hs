@@ -17,7 +17,9 @@ module DA.Ledger.Convert (
     raiseGetTimeResponse,
     raiseTimestamp,
     raisePackageId,
-    RaiseFailureReason,
+    raiseApplicationId,
+    raiseParticipantId,
+    RaiseFailureReason(..),
     ) where
 
 import Prelude hiding(Enum)
@@ -484,6 +486,12 @@ raiseChoice = fmap Choice . raiseText "Choice"
 
 raiseParty :: Text -> Perhaps Party
 raiseParty = fmap Party . raiseText "Party"
+
+raiseApplicationId :: Text -> Perhaps ApplicationId
+raiseApplicationId = fmap ApplicationId . raiseText "ApplicationId"
+
+raiseParticipantId :: Text -> Perhaps ParticipantId
+raiseParticipantId = fmap ParticipantId . raiseText "ParticipantId"
 
 raisePackageId :: Text -> Perhaps PackageId
 raisePackageId = fmap PackageId . raiseText "PackageId"

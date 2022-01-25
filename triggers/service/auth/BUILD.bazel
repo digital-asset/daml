@@ -6,7 +6,6 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
-    "silencer_plugin",
 )
 
 exports_files(["release/oauth2-middleware-logback.xml"])
@@ -52,9 +51,6 @@ da_scala_library(
 da_scala_library(
     name = "oauth2-middleware",
     srcs = glob(["src/main/scala/com/daml/auth/middleware/oauth2/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     resources = glob(["src/main/resources/com/daml/auth/middleware/oauth2/**"]),
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
@@ -75,7 +71,6 @@ da_scala_library(
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
         "@maven//:io_spray_spray_json",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = scalacopts,

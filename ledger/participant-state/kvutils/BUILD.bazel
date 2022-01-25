@@ -6,7 +6,6 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
-    "silencer_plugin",
 )
 load(
     "//bazel_tools/client_server:client_server_build.bzl",
@@ -24,15 +23,10 @@ load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 da_scala_library(
     name = "kvutils",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scala_lang_modules_scala_java8_compat",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils:__VERSION__"],
     visibility = [
@@ -86,15 +80,10 @@ da_scala_library(
         "src/test/lib/scala/**/*.scala",
         "src/test/lib/{}/**/*.scala".format(scala_major_version),
     ]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
-        "@maven//:org_scala_lang_modules_scala_java8_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -152,15 +141,11 @@ da_scala_test_suite(
     data = [
         "//ledger/test-common:model-tests-default.dar",
     ],
-    plugins = [
-        silencer_plugin,
-    ],
     resources = glob(["src/test/resources/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",

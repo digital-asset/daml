@@ -839,15 +839,6 @@ object Transaction {
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable
 
-  /** Signals that the contract-id `coid` was expected to be active, but
-    * is not.
-    */
-  final case class ContractNotActive(
-      coid: Value.ContractId,
-      templateId: TypeConName,
-      consumedBy: NodeId,
-  ) extends TransactionError
-
   /** Signals that within the transaction we got to a point where
     * two contracts with the same key were active.
     *

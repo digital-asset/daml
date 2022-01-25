@@ -11,8 +11,6 @@ import org.scalameter.utils.Tree
 import org.scalameter.{CurveData, Parameters}
 import org.w3c.dom.{Document, Element}
 
-import scala.collection.compat._
-
 private[reporter] object JMeterXmlGenerator {
 
   private val rootElementName = "testResults"

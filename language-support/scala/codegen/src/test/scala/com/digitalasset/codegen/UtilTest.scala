@@ -15,8 +15,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-import scala.collection.compat._
-
 class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
 
   val packageInterface =

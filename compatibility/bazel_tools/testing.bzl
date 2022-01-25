@@ -700,6 +700,20 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # Some command deduplication tests are no longer optional, but fail on older releases.
+        "start": "2.0.0-snapshot.20220118.8919.1",
+        "platform_ranges": [
+            {
+                "end": "2.0.0-snapshot.20220118.8919.1",
+                "exclusions": [
+                    "CommandDeduplicationPeriodValidationIT",
+                    "CompletionDeduplicationInfoITCommandService",
+                    "CompletionDeduplicationInfoITCommandSubmissionService",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

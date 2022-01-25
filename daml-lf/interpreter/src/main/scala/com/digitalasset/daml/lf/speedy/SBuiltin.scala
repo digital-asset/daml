@@ -1032,13 +1032,12 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 0)
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
-          if (cached.templateId != templateId) {
-            machine.ctrl = SEDamlException(
-              IE.WronglyTypedContract(coid, templateId, cached.templateId)
-            )
-          } else {
-            machine.returnValue = cached.value
-          }
+          if (cached.templateId != templateId)
+            throw SErrorDamlException(IE.WronglyTypedContract(coid, templateId, cached.templateId))
+          onLedger.ptx.consumedBy
+            .get(coid)
+            .foreach(nid => throw SErrorDamlException(IE.ContractNotActive(coid, templateId, nid)))
+          machine.returnValue = cached.value
         case None =>
           throw SpeedyHungry(
             SResultNeedContract(
@@ -1875,8 +1874,6 @@ private[lf] object SBuiltin {
     ptx.aborted match {
       case Some(Tx.AuthFailureDuringExecution(nid, fa)) =>
         throw SErrorDamlException(IE.FailedAuthorization(nid, fa))
-      case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
-        throw SErrorDamlException(IE.ContractNotActive(coid, tid, consumedBy))
       case Some(Tx.DuplicateContractKey(key)) =>
         throw SErrorDamlException(IE.DuplicateContractKey(key))
       case None =>

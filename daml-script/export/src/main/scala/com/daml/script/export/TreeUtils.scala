@@ -20,7 +20,6 @@ import scalaz.std.iterable._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
-import scala.collection.compat._
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 

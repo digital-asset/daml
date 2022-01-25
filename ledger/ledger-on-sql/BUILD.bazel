@@ -6,7 +6,6 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
-    "silencer_plugin",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 load("@oracle//:index.bzl", "oracle_testing")
@@ -35,16 +34,12 @@ all_database_runtime_deps = {dep: None for db in supported_databases for dep in 
 da_scala_library(
     name = "ledger-on-sql",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_playframework_anorm_anorm",
         "@maven//:org_playframework_anorm_anorm_tokenizer",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["maven_coordinates=com.daml:ledger-on-sql:__VERSION__"],
@@ -179,7 +174,6 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scala_lang_modules_scala_java8_compat",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_flatspec",
@@ -297,10 +291,6 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
 
@@ -316,10 +306,6 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
 
@@ -336,10 +322,6 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
 
@@ -356,10 +338,6 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
 

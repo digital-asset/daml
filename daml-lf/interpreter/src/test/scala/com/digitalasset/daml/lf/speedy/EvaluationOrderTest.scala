@@ -613,9 +613,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getContract = getContract,
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
-            // TODO https://github.com/digital-asset/daml/issues/11874
-            //  choice controlles and observer should not be evaluated
-            msgs shouldBe Seq("starts test", "choice controllers", "choice observers")
+            msgs shouldBe Seq("starts test")
           }
         }
 
@@ -703,13 +701,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             Set(alice),
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
-            // TODO https://github.com/digital-asset/daml/issues/11874
-            //  choice controlles and observer should not be evaluated
-            msgs shouldBe Seq(
-              "starts test",
-              "choice controllers",
-              "choice observers",
-            )
+            msgs shouldBe Seq("starts test")
           }
         }
 

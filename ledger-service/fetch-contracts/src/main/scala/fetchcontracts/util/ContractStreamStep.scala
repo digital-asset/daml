@@ -10,7 +10,7 @@ import scalaz.{Semigroup, \/}
 import scalaz.std.tuple._
 import scalaz.syntax.functor._
 
-import scala.collection.compat._
+import scala.collection.Factory
 
 private[daml] sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializable {
   import ContractStreamStep._

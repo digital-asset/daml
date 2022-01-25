@@ -13,7 +13,6 @@ load(
     "da_scala_test",
     "da_scala_test_suite",
     "scaladoc_jar",
-    "silencer_plugin",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("//rules_daml:daml.bzl", "daml_compile")
@@ -93,8 +92,6 @@ scala_compile_deps = [
     "@maven//:com_typesafe_akka_akka_stream",
     "@maven//:org_playframework_anorm_anorm",
     "@maven//:org_playframework_anorm_anorm_tokenizer",
-    "@maven//:org_scala_lang_modules_scala_collection_compat",
-    "@maven//:org_scala_lang_modules_scala_java8_compat",
     "@maven//:org_scalaz_scalaz_core",
     "@maven//:io_spray_spray_json",
 ]
@@ -106,9 +103,6 @@ runtime_deps = [
 da_scala_library(
     name = "participant-integration-api",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     resources =
         glob(
             ["src/main/resources/**/*"],
@@ -130,9 +124,6 @@ da_scala_library(
 da_scala_library(
     name = "ledger-api-server",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     resources =
         glob(
             ["src/main/resources/**/*"],
@@ -152,13 +143,9 @@ da_scala_library(
 da_scala_library(
     name = "participant-integration-api-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -241,9 +228,6 @@ da_scala_test_suite(
     jvm_flags = [
         "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
     ],
-    plugins = [
-        silencer_plugin,
-    ],
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
@@ -253,7 +237,6 @@ da_scala_test_suite(
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_playframework_anorm_anorm",
         "@maven//:org_playframework_anorm_anorm_tokenizer",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -410,13 +393,7 @@ scaladoc_jar(
         "//ledger/participant-state:sources",
     ],
     doctitle = "Daml participant integration API",
-    plugins = [
-        silencer_plugin,
-    ],
     root_content = "rootdoc.txt",
-    scalacopts = [
-        "-P:silencer:checkUnused",
-    ] + (["-P:silencer:lineContentFilters=import scala.collection.compat._"] if scala_major_version != "2.12" else []),
     visibility = [
         "//visibility:public",
     ],

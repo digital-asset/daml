@@ -34,7 +34,6 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, OneAnd, OptionT, Show, \/, \/-}
 import spray.json.JsValue
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import scalaz.std.scalaFuture._

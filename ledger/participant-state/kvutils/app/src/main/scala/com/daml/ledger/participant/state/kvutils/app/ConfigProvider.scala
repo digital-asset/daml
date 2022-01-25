@@ -16,10 +16,9 @@ import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
-import scala.annotation.{nowarn, unused}
+import scala.annotation.unused
 import scala.concurrent.duration.FiniteDuration
 
-@nowarn("msg=parameter value config .* is never used") // possibly used in overrides
 trait ConfigProvider[ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 

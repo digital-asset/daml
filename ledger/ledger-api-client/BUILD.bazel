@@ -5,18 +5,13 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
-    "silencer_plugin",
 )
 load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
     name = "ledger-api-client",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
     ],
@@ -51,9 +46,6 @@ da_scala_library(
 da_scala_test_suite(
     name = "ledger-api-client-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
@@ -63,9 +55,6 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
-    ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import Compat._",
     ],
     deps = [
         ":ledger-api-client",

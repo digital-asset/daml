@@ -12,6 +12,7 @@ import com.daml.lf.value.json.ApiCodecCompressed
 import scalaz.syntax.std.option._
 import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
 import spray.json._
+import spray.json.derived.Discriminator
 
 object JsonProtocol extends JsonProtocolLow {
 
@@ -73,14 +74,29 @@ object JsonProtocol extends JsonProtocolLow {
   implicit val userDetails: JsonFormat[domain.UserDetails] =
     jsonFormat2(domain.UserDetails.apply)
 
-  // If one uses the uppercase name then the implicit resolution will fail
-  implicit val userRights: RootJsonFormat[domain.UserRights] = jsonFormat3(domain.UserRights.apply)
+  import spray.json.derived.semiauto._
+
+  // For whatever reason the annotation detection for the deriveFormat is not working correctly.
+  // This fixes it.
+  private implicit def annotationFix[T]: shapeless.Annotation[Option[Discriminator], T] =
+    shapeless.Annotation.mkAnnotation(None)
+
+  implicit val userRight: JsonFormat[domain.UserRight] = deriveFormat[domain.UserRight]
 
   implicit val PartyDetails: JsonFormat[domain.PartyDetails] =
     jsonFormat3(domain.PartyDetails.apply)
 
   implicit val CreateUserRequest: JsonFormat[domain.CreateUserRequest] =
-    jsonFormat5(domain.CreateUserRequest)
+    jsonFormat3(domain.CreateUserRequest)
+
+  implicit val ListUserRightsRequest: JsonFormat[domain.ListUserRightsRequest] =
+    jsonFormat1(domain.ListUserRightsRequest)
+
+  implicit val GrantUserRightsRequest: JsonFormat[domain.GrantUserRightsRequest] =
+    jsonFormat2(domain.GrantUserRightsRequest)
+
+  implicit val RevokeUserRightsRequest: JsonFormat[domain.RevokeUserRightsRequest] =
+    jsonFormat2(domain.RevokeUserRightsRequest)
 
   implicit val GetUserRequest: JsonFormat[domain.GetUserRequest] =
     jsonFormat1(domain.GetUserRequest)

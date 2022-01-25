@@ -169,6 +169,8 @@ jobs:
       value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
     - name: is_release
       value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - name: is_split_release
+      value: $[ dependencies.check_for_release.outputs['out.split_release_process'] ]
     - name: skip_tests
       value: $[ and(eq(variables.is_release, 'true'),
                        eq(variables['Build.SourceBranchName'], 'main')) ]
@@ -196,6 +198,7 @@ jobs:
         # and then splice that in via a template parameter.
         skip_tests: $(skip_tests)
         is_release: variables.is_release
+        is_split_release: variables.is_split_release
     - template: upload-bazel-metrics.yml
     - task: PublishBuildArtifacts@1
       condition: succeededOrFailed()

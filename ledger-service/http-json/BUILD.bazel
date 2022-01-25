@@ -10,7 +10,6 @@ load(
     "da_scala_test_suite",
     "kind_projector_plugin",
     "lf_scalacopts",
-    "silencer_plugin",
 )
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@os_info//:os_info.bzl", "is_windows")
@@ -26,7 +25,6 @@ hj_scalacopts = lf_scalacopts + [
         srcs = glob(["src/main/scala/**/*.scala"]),
         plugins = [
             kind_projector_plugin,
-            silencer_plugin,
         ],
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
@@ -34,7 +32,6 @@ hj_scalacopts = lf_scalacopts + [
             "@maven//:com_typesafe_akka_akka_http",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:io_spray_spray_json",
-            "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalaz_scalaz_core",
             "@maven//:org_tpolecat_doobie_core",
             "@maven//:org_tpolecat_doobie_free",
@@ -43,6 +40,7 @@ hj_scalacopts = lf_scalacopts + [
             "@maven//:org_typelevel_cats_effect",
             "@maven//:org_typelevel_cats_free",
             "@maven//:org_typelevel_cats_kernel",
+            "@maven//:io_github_paoloboni_spray_json_derived_codecs",
         ],
         scalacopts = hj_scalacopts,
         tags = ["maven_coordinates=com.daml:http-json:__VERSION__"],
@@ -102,7 +100,6 @@ json_scala_deps = [
     "@maven//:com_typesafe_akka_akka_slf4j",
     "@maven//:com_typesafe_scala_logging_scala_logging",
     "@maven//:io_spray_spray_json",
-    "@maven//:org_scala_lang_modules_scala_collection_compat",
     "@maven//:org_scalaz_scalaz_core",
     "@maven//:org_tpolecat_doobie_core",
     "@maven//:org_tpolecat_doobie_free",
@@ -206,13 +203,11 @@ daml_compile(
         ],
         plugins = [
             kind_projector_plugin,
-            silencer_plugin,
         ],
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:io_spray_spray_json",
-            "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalacheck_scalacheck",
             "@maven//:org_scalatest_scalatest_core",
             "@maven//:org_scalatest_scalatest_matchers_core",
@@ -271,14 +266,12 @@ alias(
     da_scala_library(
         name = "integration-tests-lib-{}".format(edition),
         srcs = glob(["src/itlib/scala/**/*.scala"]),
-        plugins = [silencer_plugin],
         resources = glob(["src/itlib/resources/**/*"]),
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_scala_logging_scala_logging",
             "@maven//:io_spray_spray_json",
-            "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalacheck_scalacheck",
             "@maven//:org_scalactic_scalactic",
             "@maven//:org_scalatest_scalatest_core",
@@ -354,7 +347,6 @@ alias(
         ]),
         plugins = [
             kind_projector_plugin,
-            silencer_plugin,
         ],
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
@@ -421,7 +413,6 @@ alias(
         flaky = True,
         plugins = [
             kind_projector_plugin,
-            silencer_plugin,
         ],
         resources = glob(["src/it/resources/**/*"]),
         scala_deps = [
@@ -443,7 +434,6 @@ alias(
             "@maven//:org_typelevel_cats_effect",
             "@maven//:org_typelevel_cats_free",
             "@maven//:org_typelevel_cats_kernel",
-            "@maven//:org_scala_lang_modules_scala_collection_compat",
         ],
         scalacopts = hj_scalacopts,
         deps = [

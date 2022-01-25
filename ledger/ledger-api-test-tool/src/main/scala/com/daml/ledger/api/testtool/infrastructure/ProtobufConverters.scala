@@ -5,7 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import com.google.protobuf
 
-import scala.compat.java8.DurationConverters._
+import scala.jdk.DurationConverters.{JavaDurationOps, ScalaDurationOps}
 
 object ProtobufConverters {
 

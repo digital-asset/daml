@@ -1,0 +1,10 @@
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ERROR expected serializable type
+module InterfaceSerializabilityPayload where
+
+-- Test that the interface serializability payload itself is not serializable.
+interface Gettable where
+  nonconsuming choice Get : Gettable
+    with anyActor : Party
+    controller anyActor
+    do return this

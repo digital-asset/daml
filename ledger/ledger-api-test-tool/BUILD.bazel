@@ -7,7 +7,6 @@ load(
     "da_scala_library",
     "da_scala_library_suite",
     "da_scala_test_suite",
-    "silencer_plugin",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -73,14 +72,9 @@ da_scala_binary(
         da_scala_library(
             name = "ledger-api-test-tool-%s-lib" % lf_version,
             srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala"]),
-            plugins = [
-                silencer_plugin,
-            ],
             scala_deps = [
                 "@maven//:com_typesafe_akka_akka_actor",
                 "@maven//:com_typesafe_akka_akka_stream",
-                "@maven//:org_scala_lang_modules_scala_collection_compat",
-                "@maven//:org_scala_lang_modules_scala_java8_compat",
                 "@maven//:org_scalameta_munit",
             ],
             visibility = ["//:__subpackages__"],
@@ -111,12 +105,8 @@ da_scala_binary(
         da_scala_library_suite(
             name = "ledger-api-test-tool-%s-test-suites" % lf_version,
             srcs = suites_sources(lf_version),
-            plugins = [
-                silencer_plugin,
-            ],
             scala_deps = [
                 "@maven//:com_chuusai_shapeless",
-                "@maven//:org_scala_lang_modules_scala_collection_compat",
             ],
             scaladoc = False,
             visibility = [
@@ -165,14 +155,10 @@ da_scala_binary(
             name = "ledger-api-test-tool-%s" % lf_version,
             srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/*.scala"]),
             main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
-            plugins = [
-                silencer_plugin,
-            ],
             resources = [
                 "src/main/resources/logback.xml",
             ],
             scala_deps = [
-                "@maven//:org_scala_lang_modules_scala_collection_compat",
                 "@maven//:com_github_scopt_scopt",
             ],
             tags = [

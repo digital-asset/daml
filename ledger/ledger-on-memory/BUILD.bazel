@@ -145,10 +145,7 @@ conformance_test(
         "--participant=participant-id=example,port=6865",
     ],
     test_tool_args = [
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
+        "--verbose",
     ],
 )
 
@@ -164,9 +161,8 @@ conformance_test(
         "--use-pre-1.18-error-codes",
     ],
     test_tool_args = [
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
+        "--verbose",
+        "--exclude=CommandDeduplicationPeriodValidationIT",  # The test expects the new error codes.
     ],
 )
 
@@ -186,10 +182,6 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         # The following two tests don't actually care about multi-participant but they do need append-only.
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ConfigManagementServiceIT",
     ],
 )
@@ -208,10 +200,6 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ConfigManagementServiceIT",
     ],
 )

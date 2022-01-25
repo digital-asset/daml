@@ -22,7 +22,7 @@ import Value._
 import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
-import scala.collection.compat._
+import scala.collection.Factory
 import scala.collection.immutable
 
 /** An in-memory representation of a ledger for scenarios */
