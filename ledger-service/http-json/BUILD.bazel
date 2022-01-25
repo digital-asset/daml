@@ -40,6 +40,7 @@ hj_scalacopts = lf_scalacopts + [
             "@maven//:org_typelevel_cats_effect",
             "@maven//:org_typelevel_cats_free",
             "@maven//:org_typelevel_cats_kernel",
+            "@maven//:io_github_paoloboni_spray_json_derived_codecs",
         ],
         scalacopts = hj_scalacopts,
         tags = ["maven_coordinates=com.daml:http-json:__VERSION__"],

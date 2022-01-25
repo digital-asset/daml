@@ -56,10 +56,10 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
 import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
+import com.daml.lf.data.Ref.UserId
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -220,8 +220,11 @@ class Endpoints(
           path("query") & withTimer(queryMatchingTimer) apply toRoute(query(req)),
           path("fetch") & withFetchTimer apply toRoute(fetch(req)),
           path("user") apply toRoute(getUser(req)),
-          path("user" / "create") apply toRoute(allocateUser(req)),
+          path("user" / "create") apply toRoute(createUser(req)),
           path("user" / "delete") apply toRoute(deleteUser(req)),
+          path("user" / "rights") apply toRoute(listUserRights(req)),
+          path("user" / "rights" / "grant") apply toRoute(grantUserRights(req)),
+          path("user" / "rights" / "revoke") apply toRoute(revokeUserRights(req)),
           path("parties") & withFetchTimer apply toRoute(parties(req)),
           path("parties" / "allocate") & withTimer(
             allocatePartyTimer
@@ -483,14 +486,8 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[Boolean]] =
     proxyWithCommandET { (jwt, deleteUserRequest: domain.DeleteUserRequest) =>
-      import scalaz.syntax.std.either._
-      import com.daml.lf.data.Ref
       for {
-        userId <- either(
-          Ref.UserId.fromString(deleteUserRequest.userId).disjunction.leftMap(InvalidUserInput)
-        ): ET[
-          Ref.UserId
-        ]
+        userId <- parseUserId(deleteUserRequest.userId)
         _ <- EitherT.rightT(userManagementClient.deleteUser(userId, Some(jwt.value)))
       } yield domain.OkResponse(true): domain.SyncResponse[Boolean]
     }(req)
@@ -505,29 +502,75 @@ class Endpoints(
       )
     } yield domain.OkResponse(users.map(domain.UserDetails.fromUser).toList)
 
+  def listUserRights(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
+    proxyWithCommandET { (jwt, listUserRightsRequest: domain.ListUserRightsRequest) =>
+      for {
+        userId <- parseUserId(listUserRightsRequest.userId)
+        rights <- EitherT.rightT(
+          userManagementClient.listUserRights(userId, Some(jwt.value))
+        )
+      } yield domain
+        .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[
+        List[domain.UserRight]
+      ]
+    }(req)
+
   def listAuthenticatedUserRights(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[domain.UserRights]] =
+  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
     for {
       jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
-      userId <- decodeAndParseUserIdFromToken(jwt, decodeJwt).leftMap(identity[Error])
+      userId <- getUserIdFromToken(jwt)
       rights <- EitherT.rightT(
         userManagementClient.listUserRights(userId, Some(jwt.value))
       )
-    } yield domain.OkResponse(domain.UserRights.fromListUserRights(rights))
+    } yield domain
+      .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[List[
+      domain.UserRight
+    ]]
+
+  def grantUserRights(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
+    proxyWithCommandET { (jwt, grantUserRightsRequest: domain.GrantUserRightsRequest) =>
+      for {
+        userId <- parseUserId(grantUserRightsRequest.userId)
+        rights <- either(
+          domain.UserRights.toLedgerUserRights(grantUserRightsRequest.rights)
+        ).leftMap(InvalidUserInput): ET[List[UserRight]]
+        grantedUserRights <- EitherT.rightT(
+          userManagementClient.grantUserRights(userId, rights, Some(jwt.value))
+        )
+      } yield domain.OkResponse(
+        domain.UserRights.fromLedgerUserRights(grantedUserRights)
+      ): domain.SyncResponse[List[domain.UserRight]]
+    }(req)
+
+  def revokeUserRights(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
+    proxyWithCommandET { (jwt, revokeUserRightsRequest: domain.RevokeUserRightsRequest) =>
+      for {
+        userId <- parseUserId(revokeUserRightsRequest.userId)
+        rights <- either(
+          domain.UserRights.toLedgerUserRights(revokeUserRightsRequest.rights)
+        ).leftMap(InvalidUserInput): ET[List[UserRight]]
+        revokedUserRights <- EitherT.rightT(
+          userManagementClient.revokeUserRights(userId, rights, Some(jwt.value))
+        )
+      } yield domain.OkResponse(
+        domain.UserRights.fromLedgerUserRights(revokedUserRights)
+      ): domain.SyncResponse[List[domain.UserRight]]
+    }(req)
 
   def getUser(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[domain.UserDetails]] =
     proxyWithCommandET { (jwt, getUserRequest: domain.GetUserRequest) =>
-      import scalaz.syntax.std.either._
-      import com.daml.lf.data.Ref
       for {
-        userId <- either(
-          Ref.UserId.fromString(getUserRequest.userId).disjunction.leftMap(InvalidUserInput)
-        ): ET[
-          Ref.UserId
-        ]
+        userId <- parseUserId(getUserRequest.userId)
         user <- EitherT.rightT(userManagementClient.getUser(userId, Some(jwt.value)))
       } yield domain.OkResponse(
         domain.UserDetails(user.id, user.primaryParty)
@@ -539,7 +582,7 @@ class Endpoints(
   ): ET[domain.SyncResponse[domain.UserDetails]] =
     for {
       jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
-      userId <- decodeAndParseUserIdFromToken(jwt, decodeJwt).leftMap(identity[Error])
+      userId <- getUserIdFromToken(jwt)
       user <- EitherT.rightT(userManagementClient.getUser(userId, Some(jwt.value)))
     } yield domain.OkResponse(domain.UserDetails(user.id, user.primaryParty))
 
@@ -551,42 +594,26 @@ class Endpoints(
     )(req)
       .map(ps => partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList))
 
-  def allocateUser(req: HttpRequest)(implicit
+  def createUser(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[Boolean]] =
     proxyWithCommand { (jwt, createUserRequest: domain.CreateUserRequest) =>
       {
-        import scalaz.std.list._
         import scalaz.std.option._
         import scalaz.syntax.traverse._
         import scalaz.syntax.std.either._
         import com.daml.lf.data.Ref
         val input =
           for {
-            username <- Ref.UserId.fromString(createUserRequest.userId).disjunction
+            username <- UserId.fromString(createUserRequest.userId).disjunction
             primaryParty <- createUserRequest.primaryParty.traverse(it =>
               Ref.Party.fromString(it).disjunction
             )
-            canActAs <-
-              domain.Party
-                .unsubst(createUserRequest.canActAs)
-                .traverse(it =>
-                  Ref.Party
-                    .fromString(it)
-                    .map(CanActAs(_): UserRight)
-                    .disjunction
-                )
-            canReadAs <-
-              domain.Party
-                .unsubst(createUserRequest.canReadAs)
-                .traverse(it => Ref.Party.fromString(it).map(CanReadAs(_): UserRight).disjunction)
-            isAdminLs =
-              if (createUserRequest.isAdmin) List(ParticipantAdmin)
-              else List.empty
-          } yield (username, primaryParty, canActAs ++ canReadAs ++ isAdminLs)
+            rights <- domain.UserRights.toLedgerUserRights(createUserRequest.rights)
+          } yield (username, primaryParty, rights)
         for {
           info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
-            (Ref.UserId, Option[Ref.Party], List[UserRight])
+            (UserId, Option[Ref.Party], List[UserRight])
           ]
           (username, primaryParty, initialRights) = info
           _ <- EitherT.rightT(
@@ -889,6 +916,16 @@ class Endpoints(
   )(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[R] = proxyWithCommand((jwt, a: A) => fn(jwt, a).run)(req)
+
+  private def getUserIdFromToken(jwt: Jwt): ET[UserId] =
+    decodeAndParseUserIdFromToken(jwt, decodeJwt).leftMap(identity[Error])
+
+  private def parseUserId(rawUserId: String): ET[UserId] = {
+    import scalaz.syntax.std.either._
+    either(
+      UserId.fromString(rawUserId).disjunction.leftMap(InvalidUserInput)
+    )
+  }
 }
 
 object Endpoints {
