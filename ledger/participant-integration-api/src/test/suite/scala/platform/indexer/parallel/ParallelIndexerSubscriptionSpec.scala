@@ -173,7 +173,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
   behavior of "inputMapper transaction metering"
 
-  {
+  it should "extract transaction metering" in {
 
     val applicationId = Ref.ApplicationId.assertFromString("a0")
 
@@ -218,36 +218,32 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       blindingInfo = None,
     )
 
-    it should "extract transaction metering" in {
-
-      val expected: Vector[DbDto.TransactionMetering] = Vector(
-        DbDto.TransactionMetering(
-          application_id = applicationId,
-          action_count = statistics.committed.actions + statistics.rolledBack.actions,
-          metering_timestamp = timestamp,
-          ledger_offset = offset,
-        )
+    val expected: Vector[DbDto.TransactionMetering] = Vector(
+      DbDto.TransactionMetering(
+        application_id = applicationId,
+        action_count = statistics.committed.actions + statistics.rolledBack.actions,
+        metering_timestamp = timestamp,
+        ledger_offset = offset,
       )
+    )
 
-      val actual: Vector[DbDto.TransactionMetering] = ParallelIndexerSubscription
-        .inputMapper(
-          metrics = metrics,
-          toDbDto = _ => _ => Iterator.empty,
-          toMeteringDbDto = _ => expected,
-        )(lc)(
-          List(
-            (
-              (Offset.fromHexString(offset), someTransactionAccepted),
-              timestamp,
-            )
+    val actual: Vector[DbDto.TransactionMetering] = ParallelIndexerSubscription
+      .inputMapper(
+        metrics = metrics,
+        toDbDto = _ => _ => Iterator.empty,
+        toMeteringDbDto = _ => expected,
+      )(lc)(
+        List(
+          (
+            (Offset.fromHexString(offset), someTransactionAccepted),
+            timestamp,
           )
         )
-        .batch
-        .asInstanceOf[Vector[DbDto.TransactionMetering]]
+      )
+      .batch
+      .asInstanceOf[Vector[DbDto.TransactionMetering]]
 
-      actual shouldBe expected
-
-    }
+    actual shouldBe expected
 
   }
 
