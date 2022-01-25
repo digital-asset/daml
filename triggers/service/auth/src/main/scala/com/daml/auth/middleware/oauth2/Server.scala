@@ -13,9 +13,8 @@ import akka.http.scaladsl.model.headers.{HttpCookie, HttpCookiePair}
 import akka.http.scaladsl.server.{Directive1, Route}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
+import com.daml.ledger.api.{auth => lapiauth}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.ledger.api.domain.UserRight
 import com.daml.auth.oauth2.api.{JsonProtocol => OAuthJsonProtocol, Response => OAuthResponse}
 import com.typesafe.scalalogging.StrictLogging
 
@@ -25,7 +24,7 @@ import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.ports.{Port, PortFiles}
-import scalaz.{-\/, \/-, \/}
+import scalaz.{-\/, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -64,49 +63,36 @@ class Server(config: Config) extends StrictLogging {
   private def tokenProvidesClaims(accessToken: String, claims: Request.Claims): Boolean = {
     for {
       decodedJwt <- JwtDecoder.decode(Jwt(accessToken)).toOption
-      tokenPayload <- AuthServiceJWTCodec
+      tokenPayload <- lapiauth.AuthServiceJWTCodec
         .readFromString(decodedJwt.payload)
-        .map {
-          case s: StandardJWTPayload =>
-            (
-              Some(s.userId), {
-                throw new UnsupportedOperationException(
-                  // TODO (i12388): make auth middlware work with user tokens
-                  "auth-middleware: user access tokens are not yet supported (https://github.com/digital-asset/daml/issues/12388)."
-                )
-              }: Nothing \/ Set[UserRight],
-            )
-          case payload: CustomDamlJWTPayload => (payload.applicationId, -\/(payload))
-        }
         .toOption
-      (userId, rightsData) = tokenPayload
-    } yield rightsProvideClaims(userId, rightsData, claims)
+    } yield rightsProvideClaims(tokenPayload, claims)
   } getOrElse false
 
   private def rightsProvideClaims(
-      userId: Option[String],
-      r: CustomDamlJWTPayload \/ Set[UserRight],
+      r: lapiauth.AuthServiceJWTPayload,
       claims: Request.Claims,
   ): Boolean = {
-    import UserRight._
-    (r.fold(_.admin, _(ParticipantAdmin)) || !claims.admin) &&
-    Party
-      .unsubst(claims.actAs)
-      .toSet
-      .subsetOf(r.fold(_.actAs.toSet, _.collect { case CanActAs(p) => p: String })) &&
-    Party
-      .unsubst(claims.readAs)
-      .toSet
-      .subsetOf(
-        r.fold(
-          tp => tp.readAs.toSet ++ tp.actAs,
-          _.collect {
-            case CanActAs(p) => p: String
-            case CanReadAs(p) => p: String
-          },
+    val (precond, userId) = r match {
+      case tp: lapiauth.CustomDamlJWTPayload =>
+        (
+          (tp.admin || !claims.admin) &&
+            Party
+              .unsubst(claims.actAs)
+              .toSet
+              .subsetOf(tp.actAs.toSet) &&
+            Party
+              .unsubst(claims.readAs)
+              .toSet
+              .subsetOf(tp.readAs.toSet ++ tp.actAs),
+          tp.applicationId,
         )
-      ) &&
-    ((claims.applicationId, userId) match {
+      case tp: lapiauth.StandardJWTPayload =>
+        // NB: in this mode we check the applicationId claim (if supplied)
+        // and ignore everything else
+        (true, Some(tp.userId))
+    }
+    precond && ((claims.applicationId, userId) match {
       // No requirement on app id
       case (None, _) => true
       // Token valid for all app ids.

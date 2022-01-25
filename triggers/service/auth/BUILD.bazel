@@ -85,7 +85,6 @@ da_scala_library(
         "//ledger-service/pureconfig-utils",
         "//ledger/cli-opts",
         "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-domain",
         "//libs-scala/ports",
         "@maven//:com_typesafe_config",
         "@maven//:org_slf4j_slf4j_api",
