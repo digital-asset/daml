@@ -1,0 +1,125 @@
+module AppManager where
+
+import DA.Set
+import DA.Map
+
+import Daml.Script
+
+data Service = Service with
+    provider : Party
+    name : Text
+  deriving (Eq, Ord, Show)
+
+template MSA with
+    service : Service
+    consumer : Party
+    appUrl : Text
+    readDependencies : [Service]
+  where
+    signatory service.provider, consumer
+
+    key (service, consumer) : (Service, Party)
+    maintainer key._1.provider, key._2
+
+    nonconsuming choice 
+      MSA_ConsumerRequest : ContractId ConsumerRequest with
+        request : Text
+      controller consumer
+      do create ConsumerRequest with consumer; service; request
+
+    nonconsuming choice 
+      MSA_LookupReference : Optional Text with
+          k : Text
+        controller consumer 
+        do 
+          mbCid <- lookupByKey @ReferenceData (service, k)
+          case mbCid of
+            None -> return None
+            Some cid -> do rd <- fetch cid; return (Some rd.v)
+    
+
+
+
+template MSAProposal with
+    msa : MSA
+  where
+    signatory msa.service.provider
+    observer msa.consumer
+
+    choice MSAProposal_Accept : ContractId MSA
+      controller msa.consumer
+      do create msa
+
+
+template ReferenceData with
+    service : Service
+    k : Text
+    v : Text
+  where
+    signatory service.provider
+
+    key (service, k) : (Service, Text)
+    maintainer key._1.provider
+
+
+template ConsumerRequest with
+    consumer : Party
+    service : Service
+    request : Text
+  where
+    signatory consumer, service.provider
+    
+type SomeContractId = Text
+type SomeContractKey = Text
+type SomeTemplateId = Text
+type Parties = Set Party
+
+data ReadScope
+  = ReadOnlyExerciseOn { actAs: Party; readAs: Parties; cid: SomeContractId }
+  | ReadOnlyExerciseOnKey { actAs: Party; readAs : Parties; ckey:  SomeContractKey }
+  | ReadAcs AcsFilter
+
+data ReadWriteScope
+  = ExerciseOn { actAs: Party; readAs: Parties; cid: SomeContractId }
+  | ExerciseOnKey { actAs: Party; readAs: Parties; cid: SomeContractKey }
+
+
+type AcsFilter = Map Party (Optional (Set SomeTemplateId))
+
+-- participant hosting p can self-sign acces tokens issued by p
+-- 
+
+-- access tokens
+data Token = Token with
+    iss : Party
+    msaId : ContractId MSA
+  deriving (Eq, Ord)
+{-
+
+- app.provider.com server 
+  - determines logged-in party c
+  - looks up MSA for k = (MSA, ((p, "app"), c))
+  - sets cookie with Token p k ReadOnly using the right of "actAs p"
+- SPA
+  - asks consumer participant node for every readDependency r for token
+      Token c (MSA, (r, c)) ReadOnly
+  - asks consumer participant node for 
+      Token c (MSA, ((p, "app"), c)) ReadWrite
+
+
+-}
+
+test : Script ()
+test = do
+  dir_p <- allocateParty "dir_provider"
+  chat_p <- allocateParty "chat_provider"
+  c <- allocateParty "consumer"
+  let dir_service = Service dir_p "dir"
+      chat_service = Service chat_p "chat"
+      dir_msa = MSA with service = dir_service; consumer = c; readDependencies = []; appUrl = "https://app.dir-provider.com"
+      chat_msa = MSA with service = chat_service; consumer = c; readDependencies = [dir_service]; appUrl = "https://app.chat-provider.com"
+  cid <- submit dir_p $ createCmd (MSAProposal with msa = dir_msa)
+  submit c $ exerciseCmd cid MSAProposal_Accept
+  cid <- submit chat_p $ createCmd (MSAProposal with msa = chat_msa)
+  submit c $ exerciseCmd cid MSAProposal_Accept
+  return ()

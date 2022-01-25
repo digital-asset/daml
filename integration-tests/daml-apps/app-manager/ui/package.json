@@ -1,0 +1,50 @@
+{
+  "name": "app-manager",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@auth0/auth0-react": "^1.6.0",
+    "@daml.js/app-manager": "file:daml.js/app-manager-0.1.0",
+    "@daml/ledger": "1.18.1",
+    "@daml/react": "1.18.1",
+    "@daml/types": "1.18.1",
+    "@daml/hub-react": "^1.0.0",
+    "dotenv": "^8.2.0",
+    "jwt-simple": "^0.5.6",
+    "react": "^17.0.0",
+    "react-dom": "^17.0.0",
+    "semantic-ui-css": "^2.4.1",
+    "semantic-ui-react": "^2.0.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test --testURL='http://localhost:7575'",
+    "eject": "react-scripts eject",
+    "lint": "eslint --ext .js,.jsx,.ts,.tsx src/"
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@types/jwt-simple": "^0.5.33",
+    "@types/react": "^17.0.0",
+    "@types/react-dom": "^17.0.0",
+    "@types/dotenv": "^8.2.0",
+    "http-proxy-middleware": "^1.0.4",
+    "react-scripts": "^4.0.3",
+    "typescript": "~3.8.3"
+  }
+}
