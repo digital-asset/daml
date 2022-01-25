@@ -305,7 +305,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl("Stale stream authorization. Retry quickly.") {
         override def retryable: Option[ErrorCategoryRetry] = Some(
-          ErrorCategoryRetry(who = "", duration = 0.seconds)
+          ErrorCategoryRetry(who = "application", duration = 0.seconds)
         )
       }
 
