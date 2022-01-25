@@ -35,17 +35,15 @@ import DA.Daml.LF.TypeChecker.Error
 serializabilityConditionsType
   :: World
   -> Version
-  -> Maybe (ModuleName, HS.HashSet TypeConName)
-     -- ^ References to data types in this module are returned rather than
-     -- chased. They are considered to have an associated template exactly when
-     -- they are contained in the hashset.
+  -> Maybe ModuleName
+     -- ^ See description on `serializabilityConditionsDataType`.
   -> HS.HashSet TypeVarName
      -- ^ Type variables that are bound by a surrounding data type definition
      -- if any. The check that all of them are of kind '*' must be performed by
      -- the caller.
   -> Type
   -> Either UnserializabilityReason (HS.HashSet TypeConName)
-serializabilityConditionsType world0 _version mbModNameTpls vars = go
+serializabilityConditionsType world0 _version mbModName vars = go
   where
     noConditions = Right HS.empty
     go = \case
@@ -69,7 +67,7 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         | otherwise -> Left (URFreeVar v)
       TSynApp{} -> Left URTypeSyn
       TCon tcon
-        | Just (modName, _) <- mbModNameTpls
+        | Just modName <- mbModName
         , Right tconName <- matching (_PRSelfModule modName) tcon ->
             Right (HS.singleton tconName)
         | isSerializable tcon -> noConditions
@@ -113,13 +111,16 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
 serializabilityConditionsDataType
   :: World
   -> Version
-  -> Maybe (ModuleName, HS.HashSet TypeConName)
-     -- ^ References to data types in this module are returned rather than
-     -- chased. They are considered to have an associated template exactly when
-     -- they are contained in the hashset.
+  -> Maybe ModuleName
+     -- ^ We invoke this function in two different ways: During serializability inference
+     -- world excludes the current module and this will be `Just`. In that case, any type
+     -- in the current module becomes a condition.
+     -- During typechecking we only validate serializability. In that case, world includes
+     -- the current module this is `Nothing` and serializability of types
+     -- in the current modules is taking from `dataSerializable`.
   -> DefDataType
   -> Either UnserializabilityReason (HS.HashSet TypeConName)
-serializabilityConditionsDataType world0 version mbModNameTpls (DefDataType _loc _ _ params cons) =
+serializabilityConditionsDataType world0 version mbModName (DefDataType _loc _ _ params cons) =
   case find (\(_, k) -> k /= KStar) params of
     Just (v, k) -> Left (URHigherKinded v k)
     Nothing
@@ -127,7 +128,7 @@ serializabilityConditionsDataType world0 version mbModNameTpls (DefDataType _loc
       | DataEnum [] <- cons -> Left URUninhabitatedType
       | otherwise -> do
           let vars = HS.fromList (map fst params)
-          mconcatMapM (serializabilityConditionsType world0 version mbModNameTpls vars) (toListOf dataConsType cons)
+          mconcatMapM (serializabilityConditionsType world0 version mbModName vars) (toListOf dataConsType cons)
 
 -- | Check whether a type is serializable.
 checkType :: MonadGamma m => SerializabilityRequirement -> Type -> m ()
