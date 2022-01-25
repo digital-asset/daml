@@ -48,7 +48,17 @@ serializabilityConditionsType world0 _version mbModName vars = go
     noConditions = Right HS.empty
     go = \case
       -- This is the only way 'ContractId's, 'List's and 'Optional's are allowed. Other cases handled below.
-      TContractId typ -> go typ
+      TContractId typ
+          -- While an interface payload I is not serializable, ContractId I
+          -- is so specialcase this here.
+          | TCon con <- typ
+          , DataInterface <-
+            either
+              (error . showString "Serializability.serializabilityConditionsType: " . show)
+              dataCons
+              (lookupDataType con world0)
+           -> noConditions
+          | otherwise -> go typ
       TList typ -> go typ
       TOptional typ -> go typ
       TTextMap typ -> go typ
