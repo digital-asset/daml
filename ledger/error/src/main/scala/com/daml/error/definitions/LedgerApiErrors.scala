@@ -304,6 +304,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       ) extends LoggingTransactionErrorImpl(
             cause = "The command is missing a (valid) JWT token"
           )
+
+      case class UserBasedAuthenticationIsDisabled()(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = "User based authentication is disabled."
+          )
     }
 
     @Explanation("An internal system authorization error occurred.")
