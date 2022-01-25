@@ -48,7 +48,6 @@ da_scala_library(
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = [
         "-Wconf:cat=unused-imports&site=com\\.daml\\.sample\\..*:s",

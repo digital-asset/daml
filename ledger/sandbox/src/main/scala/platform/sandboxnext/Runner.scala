@@ -56,7 +56,7 @@ import com.daml.ports.Port
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 import scalaz.syntax.tag._
 
-import scala.compat.java8.FutureConverters.CompletionStageOps
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /** Runs Sandbox with a KV SQL ledger backend.
@@ -324,7 +324,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
       for {
         dar <- Future.fromTry(DarParser.readArchiveFromFile(from).toTry)
-        _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+        _ <- to.uploadPackages(submissionId, dar.all, None).asScala
       } yield ()
   }
 }

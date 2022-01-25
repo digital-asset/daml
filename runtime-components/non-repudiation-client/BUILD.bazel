@@ -29,9 +29,6 @@ da_scala_test(
     resources = [
         "src/test/resources/logback-test.xml",
     ],
-    scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
-    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],

@@ -75,7 +75,6 @@ da_scala_binary(
             scala_deps = [
                 "@maven//:com_typesafe_akka_akka_actor",
                 "@maven//:com_typesafe_akka_akka_stream",
-                "@maven//:org_scala_lang_modules_scala_java8_compat",
                 "@maven//:org_scalameta_munit",
             ],
             visibility = ["//:__subpackages__"],

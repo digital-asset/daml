@@ -32,7 +32,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
-import scala.compat.java8.FutureConverters._
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPartyManagementService private (
@@ -209,7 +209,7 @@ private[apiserver] object ApiPartyManagementService {
         input: (Option[Ref.Party], Option[String]),
     )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] = {
       val (party, displayName) = input
-      writeService.allocateParty(party, displayName, submissionId).toScala
+      writeService.allocateParty(party, displayName, submissionId).asScala
     }
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[PartyEntry, _] =

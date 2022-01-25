@@ -12,7 +12,7 @@ import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ResourceO
 import doobie.hikari.HikariTransactor
 import doobie.util.{Get, Put, Read}
 
-import scala.collection.compat.immutable.ArraySeq
+import scala.collection.immutable.ArraySeq
 import scala.concurrent.ExecutionContext
 
 package object postgresql {

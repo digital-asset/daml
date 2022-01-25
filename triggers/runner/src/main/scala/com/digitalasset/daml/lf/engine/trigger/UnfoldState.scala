@@ -15,7 +15,7 @@ import scala.annotation.tailrec
 
 import com.daml.scalautil.Statement.discard
 
-import scala.collection.compat._
+import scala.collection.Factory
 import scala.collection.immutable.{IndexedSeq, Iterable, LinearSeq}
 
 /** A variant of [[scalaz.CorecursiveList]] that emits a final state

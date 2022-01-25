@@ -11,6 +11,7 @@ module-prefixes:
 dependencies:
   - daml-prim
   - daml-stdlib
+  - path/to/daml-script.dar
 data-dependencies:
   - pkg1.dar
   - pkg2.dar

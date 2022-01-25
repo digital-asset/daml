@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicReference
 import com.daml.lf.{iface => DamlLfIface}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.config.UserConfig
-import scala.collection.compat.immutable.LazyList
 import scalaz.Tag
 
 case class State(ledger: Ledger, packageRegistry: PackageRegistry)

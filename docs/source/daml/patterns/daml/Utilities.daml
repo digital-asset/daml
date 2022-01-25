@@ -4,8 +4,10 @@
 
 module Utilities where
 
+import Daml.Script
+
 makePartiesFrom names =
-  mapA getParty names
+  mapA allocateParty names
 
 makeParties =
   makePartiesFrom ["Me", "You", "Bank"]

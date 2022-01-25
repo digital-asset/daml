@@ -19,7 +19,6 @@ da_scala_library(
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-transaction-test-lib:__VERSION__"],

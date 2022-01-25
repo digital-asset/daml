@@ -21,7 +21,6 @@ import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import scalapb.lenses.Lens
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 

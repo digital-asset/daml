@@ -28,7 +28,7 @@ import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
-import scala.compat.java8.FutureConverters
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 
 final class ApiParticipantPruningService private (
@@ -113,8 +113,9 @@ final class ApiParticipantPruningService private (
     logger.info(
       s"About to prune participant ledger up to ${pruneUpTo.toApiString} inclusively starting with the write service"
     )
-    FutureConverters
-      .toScala(writeBackend.prune(pruneUpTo, submissionId, pruneAllDivulgedContracts))
+    writeBackend
+      .prune(pruneUpTo, submissionId, pruneAllDivulgedContracts)
+      .asScala
       .flatMap {
         case NotPruned(status) => Future.failed(status.asRuntimeException())
         case ParticipantPruned =>

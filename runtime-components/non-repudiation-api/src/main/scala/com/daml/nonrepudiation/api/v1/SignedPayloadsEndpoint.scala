@@ -12,7 +12,7 @@ import com.google.common.io.BaseEncoding
 import org.slf4j.{Logger, LoggerFactory}
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
-import scala.collection.compat.immutable.ArraySeq
+import scala.collection.immutable.ArraySeq
 
 private[api] final class SignedPayloadsEndpoint private (
     signedPayloads: SignedPayloadRepository.Read[CommandIdString]

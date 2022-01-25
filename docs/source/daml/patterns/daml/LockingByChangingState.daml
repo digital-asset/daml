@@ -7,6 +7,8 @@
 
 module LockingByChangingState where
 
+import Daml.Script
+
 import Utilities
 
 -- BEGIN_LOCKABLE_COIN_TEMPLATE
@@ -89,22 +91,22 @@ template CoinProposal
       do create LockableCoin with issuer; owner; amount; locker=owner
 
 
-locking : Scenario (ContractId LockableCoin)  -- test
+locking : Script (ContractId LockableCoin)  -- test
 locking =
-  do
+  script do
 
     [issuer, owner, newOwner, locker] <- makePartiesFrom ["Bank", "Me", "You", "Custodian Bank"]
     --when coin is created, owner = locker. it is unlocked
 
-    propId <- issuer `submit` do create CoinProposal with owner; issuer; amount=100.0
-    coinCid <- owner `submit` do exercise propId AcceptProposal
+    propId <- issuer `submit` do createCmd CoinProposal with owner; issuer; amount=100.0
+    coinCid <- owner `submit` do exerciseCmd propId AcceptProposal
 
     --owner can choose to lock it with his custodian bank
-    lockedCid <- owner `submit` do exercise coinCid Lock with newLocker=locker
+    lockedCid <- owner `submit` do exerciseCmd coinCid Lock with newLocker=locker
     --since coin is locked, owner cannot transfer
-    owner `submitMustFail` do exercise lockedCid Transfer with newOwner
+    owner `submitMustFail` do exerciseCmd lockedCid Transfer with newOwner
 
-    unlockedCid <- locker `submit` do exercise lockedCid Unlock
+    unlockedCid <- locker `submit` do exerciseCmd lockedCid Unlock
 
-    propId <- owner `submit` do exercise unlockedCid Transfer with newOwner
-    newOwner `submit` do exercise propId AcceptTransfer
+    propId <- owner `submit` do exerciseCmd unlockedCid Transfer with newOwner
+    newOwner `submit` do exerciseCmd propId AcceptTransfer
