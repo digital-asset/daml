@@ -53,29 +53,43 @@ const userDecoder: jtv.Decoder<User> =
 
 export type CanActAs = {
   type: "CanActAs"
-  userId: string
+  party: string
 }
 
 export type CanReadAs = {
   type: "CanReadAs"
-  userId: string
+  party: string
 }
 
 export type ParticipantAdmin = {
   type: "ParticipantAdmin"
 }
 
-export type UserRight = CanActAs | CanReadAs | ParticipantAdmin;
+export type UserRight = CanActAs | CanReadAs | ParticipantAdmin
+
+export namespace UserRight {
+  export function canActAs(party: string): UserRight {
+   return { type: "CanActAs", party: party } as CanActAs
+  }
+  
+  export function canReadAs(party: string): UserRight {
+    return { type: "CanReadAs", party: party } as CanReadAs
+  }
+  
+  export const participantAdmin: UserRight = {
+    type: "ParticipantAdmin" 
+  } as ParticipantAdmin
+}
 
 const userRightDecoder: jtv.Decoder<UserRight> =
   jtv.oneOf<UserRight>(
     jtv.object<CanActAs>({
       type: jtv.constant("CanActAs"),
-      userId: jtv.string()
+      party: jtv.string()
     }),
     jtv.object<CanReadAs>({
       type: jtv.constant("CanReadAs"),
-      userId: jtv.string()
+      party: jtv.string()
     }),
     jtv.object<ParticipantAdmin>({
       type: jtv.constant("ParticipantAdmin")
@@ -1459,9 +1473,9 @@ class Ledger {
   async listUserRights(userId?: string): Promise<UserRight[]> {
     var json
     if (isUndefined(userId)) {
-      json = await this.submit('v1/user/rights/list', undefined, 'get');
+      json = await this.submit('v1/user/rights', undefined, 'get');
     } else {
-      json = await this.submit('v1/user/rights/list', { 'userId': userId })
+      json = await this.submit('v1/user/rights', { 'userId': userId })
     }
     return decode(jtv.array(userRightDecoder), json);
   }
