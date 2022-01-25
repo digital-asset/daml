@@ -59,20 +59,7 @@ serializabilityConditionsType world0 _version mbCurrentModule vars = go
       TContractId typ
           -- While an interface payload I is not serializable, ContractId I
           -- is so specialcase this here.
-          | TCon con <- typ -> case (lookupDataType con world0, mbCurrentModule) of
-              (Right t, _) -> case dataCons t of
-                DataInterface -> noConditions
-                _ -> go typ
-              (Left _, Just currentModule)
-                | Right tconName <- matching (_PRSelfModule $ modName currentModule) con
-                -> if tconName `HS.member` modInterfaces currentModule
-                     then noConditions
-                     else go typ
-              (Left err, _) -> error $ showString "Serializability.serializabilityConditionsDataTyp: " $ show err
-          | TCon con <- typ
-          , Just currentModule <- mbCurrentModule
-          , Right tconName <- matching (_PRSelfModule $ modName currentModule) con
-          , tconName `HS.member` modInterfaces currentModule -> noConditions
+          | isInterface typ -> noConditions
           | otherwise -> go typ
       TList typ -> go typ
       TOptional typ -> go typ
@@ -129,6 +116,17 @@ serializabilityConditionsType world0 _version mbCurrentModule vars = go
         BTBigNumeric -> Left URBigNumeric
       TForall{} -> Left URForall
       TStruct{} -> Left URStruct
+    isInterface (TCon con) = case (lookupDataType con world0, mbCurrentModule) of
+      (Right t, _) -> case dataCons t of
+        DataInterface -> True
+        _ -> False
+      (Left _, Just currentModule)
+        | Right tconName <- matching (_PRSelfModule $ modName currentModule) con
+        -> if tconName `HS.member` modInterfaces currentModule
+             then True
+             else False
+      (Left err, _) -> error $ showString "Serializability.serializabilityConditionsDataTyp: " $ show err
+    isInterface _ = False
 
 -- | Determine whether a data type preserves serializability. When a module
 -- name is given, -- data types in this module are returned rather than lookup
