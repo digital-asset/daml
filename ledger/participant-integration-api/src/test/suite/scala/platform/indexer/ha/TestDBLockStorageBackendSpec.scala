@@ -22,5 +22,7 @@ class TestDBLockStorageBackendSpec
 
   override def dbLock: DBLockStorageBackend = _dbLock
 
+  override def lockIdSeed: Int = 1000 // Seeding not needed for this test
+
   override def getConnection: Connection = new TestConnection
 }

@@ -21,6 +21,7 @@ import org.scalatest.Suite
   */
 private[backend] trait StorageBackendProvider {
   protected def jdbcUrl: String
+  protected def lockIdSeed: Int
   protected def backend: TestBackend
 
   protected final def ingest(dbDtos: Vector[DbDto], connection: Connection): Unit = {
@@ -61,14 +62,14 @@ trait StorageBackendProviderPostgres extends StorageBackendProvider with Postgre
 
 private[backend] trait StorageBackendProviderH2 extends StorageBackendProvider { this: Suite =>
   override protected def jdbcUrl: String = "jdbc:h2:mem:storage_backend_provider;db_close_delay=-1"
+  override protected def lockIdSeed: Int =
+    throw new UnsupportedOperationException //  DB Locking is not supported for H2
   override protected val backend: TestBackend = TestBackend(H2StorageBackendFactory)
 }
 
 private[backend] trait StorageBackendProviderOracle
     extends StorageBackendProvider
     with OracleAroundAll { this: Suite =>
-  override protected def jdbcUrl: String =
-    s"jdbc:oracle:thin:$oracleUser/$oraclePwd@$oracleHost:$oraclePort/ORCLPDB1"
   override protected val backend: TestBackend = TestBackend(OracleStorageBackendFactory)
 }
 
