@@ -1475,7 +1475,7 @@ HTTP Response
       "status": 200
     }
 
-Returns back the rights which were actually applied as existing rights are ignored.
+Returns the rights that were newly granted.
 
 Revoke User Rights
 ******************
@@ -1541,7 +1541,7 @@ HTTP Response
       "status": 200
     }
 
-Returns back the rights which were actually revoked as non-existing rights are ignored.
+Returns the rights that were actually granted.
 
 List Authenticated User Rights
 ******************************
