@@ -24,7 +24,20 @@ grpcurl \
     localhost:6865 \
     com.daml.ledger.api.v1.admin.UserManagementService.ListUsers
 
+grpcurl \
+    -plaintext \
+    -H "Authorization: Bearer `cat participant_admin.token`" \
+    -d '{ "user_id": "participant_admin" }' \
+    localhost:6865 \
+    com.daml.ledger.api.v1.admin.UserManagementService.ListUserRights
 
+
+grpcurl \
+    -plaintext \
+    -H "Authorization: Bearer `cat participant_admin.token`" \
+    -d '{ "user": { "id": "another_admin" }, "rights": [{"participantAdmin":{}}] }' \
+    localhost:6865 \
+    com.daml.ledger.api.v1.admin.UserManagementService.CreateUser
 
 
 
