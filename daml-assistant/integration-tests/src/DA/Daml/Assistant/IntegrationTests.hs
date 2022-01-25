@@ -195,9 +195,7 @@ quickSandbox projDir = do
                         , "--domain-admin-port", show domainAdminApiPort
                         , "--port-file", portFile
                         , "--dar", darFile
-                        -- , "--static-time"
-                            -- TODO https://github.com/digital-asset/daml/issues/11831
-                            --   Re-enable once sim-clock is working.
+                        , "--static-time"
                         ])
                     {std_out = UseHandle devNull, create_group = True, cwd = Just projDir}
         (_, _, _, sandboxPh) <- createProcess sandboxProc
