@@ -609,7 +609,9 @@ class Endpoints(
             primaryParty <- createUserRequest.primaryParty.traverse(it =>
               Ref.Party.fromString(it).disjunction
             )
-            rights <- domain.UserRights.toLedgerUserRights(createUserRequest.rights)
+            rights <- domain.UserRights.toLedgerUserRights(
+              createUserRequest.rights.getOrElse(List.empty)
+            )
           } yield (username, primaryParty, rights)
         for {
           info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
