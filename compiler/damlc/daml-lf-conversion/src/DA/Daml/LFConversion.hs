@@ -1704,7 +1704,7 @@ convertDataCon env m con args
     -- In this situation there is no worker function, so we inline
     -- the constructor by introducing some type lambdas.
     | let (conTypes, conTheta, conArgs, _) = dataConSig con
-    , length conTheta + length conArgs == 0 -- no value args
+    , null conTheta && null conArgs -- no value args
     = do
         kinds <- mapM (convertKind . tyVarKind) conTypes
         withTyArgs env kinds args $ \ env' types args' -> do
