@@ -59,7 +59,14 @@ final class ContractIdIT extends LedgerTestSuite {
       accepted = true,
     ),
   ).foreach {
-    case TestConfiguration(cidDescription, example, accepted, isSupported, disabledReason, failsInPreprocessing) =>
+    case TestConfiguration(
+          cidDescription,
+          example,
+          accepted,
+          isSupported,
+          disabledReason,
+          failsInPreprocessing,
+        ) =>
       val result = if (accepted) "Accept" else "Reject"
 
       def test(
@@ -81,10 +88,14 @@ final class ContractIdIT extends LedgerTestSuite {
           update(ec)(alpha, party).map {
             case Success(_) if accepted => ()
             case Failure(err: Throwable) if !accepted =>
-              val (prefix, errorCode)  = if (failsInPreprocessing)
-                ("Illegal Contract ID", LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed)
-              else
-                ("cannot parse ContractId", parseErrorCode)
+              val (prefix, errorCode) =
+                if (failsInPreprocessing)
+                  (
+                    "Illegal Contract ID",
+                    LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
+                  )
+                else
+                  ("cannot parse ContractId", parseErrorCode)
               assertGrpcError(
                 alpha,
                 err,
@@ -214,9 +225,9 @@ object ContractIdIT {
       example: String,
       accepted: Boolean,
       isSupported: Features => Boolean = _ => true,
-    disabledReason: String = "",
-    // Invalid v1 cids (e.g. no suffix when one is required) fail during command preprocessing
-    // while invalid v0 cids fail earlier.
-    failsInPreprocessing: Boolean = false,
+      disabledReason: String = "",
+      // Invalid v1 cids (e.g. no suffix when one is required) fail during command preprocessing
+      // while invalid v0 cids fail earlier.
+      failsInPreprocessing: Boolean = false,
   )
 }
