@@ -47,10 +47,13 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )
   private val AdminUserId = "participant_admin"
 
-  userManagementTest(
+  test(
     "UserManagementUserRightsLimit",
     "Test user rights per user limit",
-  )(implicit ec => { ledger =>
+    allocate(NoParties),
+    enabled = _.userManagement.maxRightsPerUser > 0,
+    disabledReason = "requires user management feature with user rights limit",
+  )(implicit ec => { case Participants(Participant(ledger)) =>
     def assertTooManyUserRightsError(t: Throwable): Unit = {
       assertGrpcError(
         participant = ledger,
