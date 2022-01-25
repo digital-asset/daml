@@ -1528,7 +1528,7 @@ class Ledger {
    * @returns PartyInfo for the newly created party.
    *
    */
-  async allocateParty(partyOpt: { identifierHint?: string; displayName?: string }): Promise<PartyInfo> {
+  async allocateParty(partyOpt: {identifierHint?: string; displayName?: string}): Promise<PartyInfo> {
     const json = await this.submit('v1/parties/allocate', partyOpt);
     return decode(partyInfoDecoder, json);
   }
