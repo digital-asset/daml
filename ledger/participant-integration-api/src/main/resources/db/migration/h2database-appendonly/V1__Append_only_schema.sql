@@ -9,9 +9,9 @@ CREATE ALIAS array_intersection FOR "com.daml.platform.store.backend.h2.H2Functi
 CREATE TABLE parameters (
   ledger_id VARCHAR NOT NULL,
   participant_id VARCHAR NOT NULL,
-  ledger_end VARCHAR,
-  ledger_end_sequential_id BIGINT,
-  ledger_end_string_interning_id INTEGER,
+  ledger_end VARCHAR NOT NULL,
+  ledger_end_sequential_id BIGINT NOT NULL,
+  ledger_end_string_interning_id INTEGER NOT NULL,
   participant_pruned_up_to_inclusive VARCHAR,
   participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR
 );
