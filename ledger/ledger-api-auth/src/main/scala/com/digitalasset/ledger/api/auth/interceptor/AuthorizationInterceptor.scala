@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.auth.interceptor
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.domain.UserRight
@@ -18,10 +19,12 @@ import scala.util.{Failure, Success, Try}
 
 /** This interceptor uses the given [[AuthService]] to get [[Claims]] for the current request,
   * and then stores them in the current [[Context]].
+  *
+  * @param userManagementStoreO - use None if user management is disabled
   */
 final class AuthorizationInterceptor(
     authService: AuthService,
-    userManagementStore: UserManagementStore,
+    userManagementStoreO: Option[UserManagementStore],
     implicit val ec: ExecutionContext,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit loggingContext: LoggingContext)
@@ -77,35 +80,57 @@ final class AuthorizationInterceptor(
   private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] =
     claimSet match {
       case ClaimSet.AuthenticatedUser(userIdStr, participantId, expiration) =>
-        Ref.UserId.fromString(userIdStr) match {
-          case Left(err) =>
-            Future.failed(
-              errorFactories.invalidArgument(None)(s"token $err")(errorLogger)
-            )
-          case Right(userId) =>
-            userManagementStore
-              .listUserRights(userId)
-              .flatMap {
-                case Left(msg) =>
-                  Future.failed(
-                    errorFactories.permissionDenied(
-                      s"Could not resolve rights for user '$userId' due to '$msg'"
-                    )(errorLogger)
-                  )
-                case Right(userRights: Set[UserRight]) =>
-                  Future.successful(
-                    ClaimSet.Claims(
-                      claims = AuthorizationInterceptor.convertUserRightsToClaims(userRights),
-                      ledgerId = None,
-                      participantId = participantId,
-                      applicationId = Some(userId),
-                      expiration = expiration,
-                      resolvedFromUser = true,
-                    )
-                  )
-              }
+        for {
+          userManagementStore <- getUserManagementStore(userManagementStoreO)
+          userId <- getUserId(userIdStr)
+          userRightsResult <- userManagementStore.listUserRights(userId)
+          claimsSet <- userRightsResult match {
+            case Left(msg) =>
+              Future.failed(
+                errorFactories.permissionDenied(
+                  s"Could not resolve rights for user '$userId' due to '$msg'"
+                )(errorLogger)
+              )
+            case Right(userRights: Set[UserRight]) =>
+              Future.successful(
+                ClaimSet.Claims(
+                  claims = AuthorizationInterceptor.convertUserRightsToClaims(userRights),
+                  ledgerId = None,
+                  participantId = participantId,
+                  applicationId = Some(userId),
+                  expiration = expiration,
+                  resolvedFromUser = true,
+                )
+              )
+          }
+        } yield {
+          claimsSet
         }
       case _ => Future.successful(claimSet)
+    }
+
+  private[this] def getUserManagementStore(
+      userManagementStoreO: Option[UserManagementStore]
+  ): Future[UserManagementStore] =
+    userManagementStoreO match {
+      case None =>
+        Future.failed(
+          LedgerApiErrors.AuthorizationChecks.Unauthenticated
+            .UserBasedAuthenticationIsDisabled()(errorLogger)
+            .asGrpcError
+        )
+      case Some(userManagementStore) =>
+        Future.successful(userManagementStore)
+    }
+
+  private[this] def getUserId(userIdStr: String): Future[Ref.UserId] =
+    Ref.UserId.fromString(userIdStr) match {
+      case Left(err) =>
+        Future.failed(
+          errorFactories.invalidArgument(None)(s"token $err")(errorLogger)
+        )
+      case Right(userId) =>
+        Future.successful(userId)
     }
 
 }
@@ -128,12 +153,12 @@ object AuthorizationInterceptor {
 
   def apply(
       authService: AuthService,
-      userManagementStore: UserManagementStore,
+      userManagementStoreO: Option[UserManagementStore],
       ec: ExecutionContext,
       errorCodesStatusSwitcher: ErrorCodesVersionSwitcher,
   ): AuthorizationInterceptor =
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
-      new AuthorizationInterceptor(authService, userManagementStore, ec, errorCodesStatusSwitcher)
+      new AuthorizationInterceptor(authService, userManagementStoreO, ec, errorCodesStatusSwitcher)
     }
 
   def convertUserRightsToClaims(userRights: Set[UserRight]): Seq[Claim] = {

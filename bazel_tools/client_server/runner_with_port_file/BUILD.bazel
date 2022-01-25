@@ -11,6 +11,7 @@ da_haskell_binary(
         "directory",
         "extra",
         "filepath",
+        "typed-process",
         "process",
     ],
     visibility = ["//visibility:public"],

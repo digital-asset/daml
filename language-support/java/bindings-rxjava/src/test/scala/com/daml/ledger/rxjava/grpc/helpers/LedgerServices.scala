@@ -100,7 +100,7 @@ final class LedgerServices(val ledgerId: String) {
   ): Server = {
     val authorizationInterceptor = AuthorizationInterceptor(
       authService,
-      new InMemoryUserManagementStore(),
+      Some(new InMemoryUserManagementStore()),
       executionContext,
       new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
     )
