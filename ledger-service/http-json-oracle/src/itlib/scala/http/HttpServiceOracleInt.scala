@@ -22,9 +22,9 @@ trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns with O
 
   protected[this] def jdbcConfig_ =
     HttpServiceOracleInt.defaultJdbcConfig(
-      oracleJdbcUrl,
-      oracleUser,
-      oraclePwd,
+      oracleJdbcUrlWithoutCredentials,
+      oracleUserName,
+      oracleUserPwd,
       disableContractPayloadIndexing = disableContractPayloadIndexing,
     )
 }

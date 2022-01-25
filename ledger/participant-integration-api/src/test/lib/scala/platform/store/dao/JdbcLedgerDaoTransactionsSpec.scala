@@ -503,7 +503,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
       // `pageSize = 2` and the offset gaps in the `commandWithOffsetGaps` above are to make sure
       // that streaming works with event pages separated by offsets that don't have events in the store
-      ledgerDao <- createLedgerDao(
+      response <- createLedgerDaoResourceOwner(
         pageSize = 2,
         eventsProcessingParallelism = 8,
         acsIdPageSize = 2,
@@ -511,16 +511,16 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsContractFetchingParallelism = 2,
         acsGlobalParallelism = 10,
         acsIdQueueLimit = 1000000,
-      )
-
-      response <- ledgerDao.transactionsReader
-        .getFlatTransactions(
-          beginOffset,
-          endOffset,
-          Map(alice -> Set.empty[Identifier]),
-          verbose = true,
-        )
-        .runWith(Sink.seq)
+      ).use(
+        _.transactionsReader
+          .getFlatTransactions(
+            beginOffset,
+            endOffset,
+            Map(alice -> Set.empty[Identifier]),
+            verbose = true,
+          )
+          .runWith(Sink.seq)
+      )(ResourceContext(executionContext))
 
       readTxs = extractAllTransactions(response)
     } yield {
@@ -641,7 +641,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   ): Vector[Transaction] =
     responses.foldLeft(Vector.empty[Transaction])((b, a) => b ++ a._2.transactions.toVector)
 
-  private def createLedgerDao(
+  private def createLedgerDaoResourceOwner(
       pageSize: Int,
       eventsProcessingParallelism: Int,
       acsIdPageSize: Int,
@@ -660,8 +660,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsGlobalParallelism = acsGlobalParallelism,
         acsIdQueueLimit = acsIdQueueLimit,
         MockitoSugar.mock[ErrorFactories],
-      ).acquire()(ResourceContext(executionContext))
-    }.asFuture
+      )
+    }
 
   // XXX SC much of this is repeated because we're more concerned here
   // with whether each query is tested than whether the specifics of the

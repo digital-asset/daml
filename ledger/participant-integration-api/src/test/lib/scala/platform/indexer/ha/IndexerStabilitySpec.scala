@@ -27,6 +27,8 @@ trait IndexerStabilitySpec
 
   // To be overriden by the spec implementation
   def jdbcUrl: String
+  // This will be used to pick lock IDs for DB locking
+  def lockIdSeed: Int
 
   // The default EC is coming from AsyncTestSuite and is serial, do not use it
   implicit val ec: ExecutionContext = system.dispatcher
@@ -47,6 +49,7 @@ trait IndexerStabilitySpec
         updatesPerSecond,
         indexerCount,
         jdbcUrl,
+        lockIdSeed,
         materializer,
       )
       .use[Unit] { indexers =>

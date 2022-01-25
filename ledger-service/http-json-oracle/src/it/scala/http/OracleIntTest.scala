@@ -15,5 +15,5 @@ class OracleIntTest
     with Matchers
     with Inside {
   override protected def jdbcConfig: JdbcConfig =
-    defaultJdbcConfig(oracleJdbcUrl, oracleUser, oraclePwd)
+    defaultJdbcConfig(oracleJdbcUrlWithoutCredentials, oracleUserName, oracleUserPwd)
 }

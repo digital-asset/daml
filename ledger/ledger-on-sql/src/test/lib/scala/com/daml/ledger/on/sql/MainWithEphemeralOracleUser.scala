@@ -8,21 +8,27 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.resources.ProgramResource
 import com.daml.testing.oracle.OracleAround
 
-// TODO for Brian: please verify usage of OracleAround here
-object MainWithEphemeralOracleUser extends OracleAround {
+object MainWithEphemeralOracleUser {
   def main(args: Array[String]): Unit = {
     val originalConfig =
       Config
         .parse[Unit]("SQL Ledger", _ => (), (), args)
         .getOrElse(sys.exit(1))
 
-    connectToOracle()
-    val user = createNewRandomUser()
-    sys.addShutdownHook(dropUser(user.name))
-    val oracleJdbcUrl =
-      s"jdbc:oracle:thin:${user.name}/${user.pwd}@$oracleHost:$oraclePort/ORCLPDB1"
+    val user = OracleAround.createNewUniqueRandomUser()
+    sys.addShutdownHook(user.drop())
     val config = originalConfig.copy(
-      participants = originalConfig.participants.map(_.copy(serverJdbcUrl = oracleJdbcUrl)),
+      participants = originalConfig.participants.map(participantConfig =>
+        participantConfig.copy(
+          serverJdbcUrl = user.jdbcUrl,
+          indexerConfig = participantConfig.indexerConfig.copy(
+            haConfig = participantConfig.indexerConfig.haConfig.copy(
+              indexerLockId = user.lockIdSeed,
+              indexerWorkerLockId = user.lockIdSeed + 1,
+            )
+          ),
+        )
+      ),
       extra = ExtraConfig(
         // Oracle is only used as persistence for the participant; we use in-memory ledger persistence here.
         jdbcUrl = Some("jdbc:sqlite:file:test?mode=memory&cache=shared")

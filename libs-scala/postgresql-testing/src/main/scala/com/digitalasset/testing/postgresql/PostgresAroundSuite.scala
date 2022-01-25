@@ -13,6 +13,9 @@ trait PostgresAroundSuite extends PostgresAround {
 
   protected def postgresDatabase: PostgresDatabase = database.get
 
+  protected def lockIdSeed: Int =
+    1000 // For postgres each test-suite uses different DB, so no unique lock-ids needed
+
   protected def createNewDatabase(): PostgresDatabase = {
     database = Some(createNewRandomDatabase())
     postgresDatabase
