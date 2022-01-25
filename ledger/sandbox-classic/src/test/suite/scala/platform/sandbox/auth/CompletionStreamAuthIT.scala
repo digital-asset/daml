@@ -42,7 +42,7 @@ final class CompletionStreamAuthIT
 
   override protected def serviceCallWithoutApplicationId(token: Option[String]): Future[Any] =
     // Note: the token must allow actAs mainActor for this call to work.
-    submitAndWait(token, "").flatMap(_ =>
+    submitAndWait(token, "", party = mainActor).flatMap(_ =>
       new StreamConsumer[CompletionStreamResponse](streamFor("")(token)).first()
     )
 

@@ -14,8 +14,12 @@ import scala.concurrent.Future
 trait SubmitAndWaitDummyCommand extends TestCommands with SubmitAndWaitDummyCommandHelpers {
   self: ServiceCallWithMainActorAuthTests =>
 
-  protected def submitAndWait(): Future[Empty] =
-    submitAndWait(Option(toHeader(readWriteToken(mainActor))))
+  protected def submitAndWaitAsMainActor(): Future[Empty] =
+    submitAndWait(
+      Option(toHeader(readWriteToken(mainActor))),
+      applicationId = serviceCallName,
+      party = mainActor,
+    )
 
 }
 
@@ -24,10 +28,10 @@ trait SubmitAndWaitDummyCommandHelpers extends TestCommands {
 
   protected def dummySubmitAndWaitRequest(
       applicationId: String,
-      party: String = "",
+      party: String,
   ): SubmitAndWaitRequest =
     SubmitAndWaitRequest(
-      dummyCommands(wrappedLedgerId, s"$serviceCallName-${UUID.randomUUID}", party)
+      dummyCommands(wrappedLedgerId, s"$serviceCallName-${UUID.randomUUID}", party = party)
         .update(_.commands.applicationId := applicationId, _.commands.party := party)
         .commands
     )
@@ -38,14 +42,14 @@ trait SubmitAndWaitDummyCommandHelpers extends TestCommands {
   protected def submitAndWait(
       token: Option[String],
       applicationId: String = serviceCallName,
-      party: String = "",
+      party: String,
   ): Future[Empty] =
     service(token).submitAndWait(dummySubmitAndWaitRequest(applicationId, party = party))
 
   protected def submitAndWaitForTransaction(
       token: Option[String],
       applicationId: String = serviceCallName,
-      party: String = "",
+      party: String,
   ): Future[Empty] =
     service(token)
       .submitAndWaitForTransaction(dummySubmitAndWaitRequest(applicationId, party = party))
@@ -54,7 +58,7 @@ trait SubmitAndWaitDummyCommandHelpers extends TestCommands {
   protected def submitAndWaitForTransactionId(
       token: Option[String],
       applicationId: String = serviceCallName,
-      party: String = "",
+      party: String,
   ): Future[Empty] =
     service(token)
       .submitAndWaitForTransactionId(dummySubmitAndWaitRequest(applicationId, party = party))
@@ -63,7 +67,7 @@ trait SubmitAndWaitDummyCommandHelpers extends TestCommands {
   protected def submitAndWaitForTransactionTree(
       token: Option[String],
       applicationId: String = serviceCallName,
-      party: String = "",
+      party: String,
   ): Future[Empty] =
     service(token)
       .submitAndWaitForTransactionTree(dummySubmitAndWaitRequest(applicationId, party = party))

@@ -51,16 +51,16 @@ trait ExpiringStreamServiceCallAuthTests[T]
     toHeader(expiringIn(Duration.ofSeconds(5), readOnlyToken(mainActor)))
 
   it should "break a stream in flight upon read-only token expiration" in {
-    val _ = Delayed.Future.by(10.seconds)(submitAndWait())
+    val _ = Delayed.Future.by(10.seconds)(submitAndWaitAsMainActor())
     expectExpiration(canReadAsMainActorExpiresInFiveSeconds).map(_ => succeed)
   }
 
   it should "break a stream in flight upon read/write token expiration" in {
-    val _ = Delayed.Future.by(10.seconds)(submitAndWait())
+    val _ = Delayed.Future.by(10.seconds)(submitAndWaitAsMainActor())
     expectExpiration(canActAsMainActorExpiresInFiveSeconds).map(_ => succeed)
   }
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    submitAndWait().flatMap(_ => new StreamConsumer[T](stream(token)).first())
+    submitAndWaitAsMainActor().flatMap(_ => new StreamConsumer[T](stream(token)).first())
 
 }
