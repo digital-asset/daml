@@ -52,6 +52,7 @@ import qualified DA.Daml.LF.TypeChecker.Env as LF
 import qualified DA.Daml.LF.TypeChecker.Error as LF
 import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
+import DA.Daml.UtilGHC (fsFromText)
 
 import SdkVersion
 
@@ -586,17 +587,35 @@ generateSrcFromLf env = noLoc mod
 
     interfaceDecls :: [Gen (LHsDecl GhcPs)]
     interfaceDecls = do
-        iface <- NM.toList $ LF.moduleInterfaces $ envMod env
-        meth <- NM.toList $ LF.intMethods iface
-        pure . noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
-            { cid_ext = noExt
-            , cid_poly_ty = _a meth
-            , cid_binds = mempty
-            , cid_sigs = []
-            , cid_tyfam_insts = []
-            , cid_datafam_insts = []
-            , cid_overlap_mode = Nothing
-            }
+        interface <- NM.toList $ LF.moduleInterfaces $ envMod env
+        [interfaceName] <- [LF.unTypeConName $ LF.intName interface]
+        let interfaceType = HsTyVar noExt NotPromoted $ mkRdrName interfaceName
+        meth <- NM.toList $ LF.intMethods interface
+        pure $ do
+            methodType <- convType env reexportedClasses $ LF.ifmType meth
+            cls <- mkDesugarType env "HasMethod"
+            let methodNameSymbol = HsTyLit noExt $ HsStrTy NoSourceText $ fsFromText $ LF.unMethodName $ LF.ifmName meth
+                args =
+                    [ interfaceType
+                    , methodNameSymbol
+                    , methodType
+                    ]
+                sig :: LHsSigType GhcPs
+                sig =
+                    HsIB noExt $ noLoc $
+                        foldl'
+                            (HsAppTy noExt . noLoc)
+                            cls
+                            (map noLoc args)
+            pure $ noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
+                { cid_ext = noExt
+                , cid_poly_ty = sig
+                , cid_binds = emptyBag
+                , cid_sigs = []
+                , cid_tyfam_insts = []
+                , cid_datafam_insts = []
+                , cid_overlap_mode = Nothing
+                }
 
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env
@@ -1049,6 +1068,10 @@ mkGhcType env = mkStableType env primUnitId $
 mkLfInternalType :: Env -> String -> Gen (HsType GhcPs)
 mkLfInternalType env = mkStableType env damlStdlib $
     LF.ModuleName ["DA", "Internal", "LF"]
+
+mkDesugarType :: Env -> String -> Gen (HsType GhcPs)
+mkDesugarType env = mkStableType env primUnitId $
+    LF.ModuleName ["DA", "Internal", "Desugar"]
 
 mkLfInternalPrelude :: Env -> String -> Gen (HsType GhcPs)
 mkLfInternalPrelude env = mkStableType env damlStdlib $

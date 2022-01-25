@@ -380,6 +380,7 @@ baseImports =
           , "DA.Internal.Template.Functions"
           , "DA.Internal.LF"
           , "DA.Internal.Prelude"
+          , "DA.Internal.Desugar"
           , "DA.Internal.Down"
           , "DA.NonEmpty.Types"
           , "DA.Semigroup.Types"

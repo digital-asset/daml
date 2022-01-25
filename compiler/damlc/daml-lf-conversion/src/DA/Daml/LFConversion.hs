@@ -1091,6 +1091,7 @@ convertBind env (name, x)
     = pure []
 
     -- HasMethod instances are only used for desugaring.
+    -- In data-dependencies, they are reconstructed from the interface definition.
     | DFunId _ <- idDetails name
     , TypeCon hasMethodCls _ <- varType name
     , NameIn DA_Internal_Desugar "HasMethod" <- hasMethodCls
