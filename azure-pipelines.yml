@@ -69,6 +69,7 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
         KEY_FILE=$(mktemp)
         GPG_DIR=$(mktemp -d)
         cleanup() {
@@ -108,6 +109,7 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag)
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
@@ -115,6 +117,7 @@ jobs:
     - bash: |
         set -euo pipefail
 
+        eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
         cd $(Build.StagingDirectory)/release-artifacts/github
@@ -133,6 +136,7 @@ jobs:
     - bash: |
         set -euo pipefail
         source $(bash-lib)
+        eval "$(./dev-env/bin/dade-assist)"
         msg=$(git log -n1 --format=%b HEAD | head -1)
         # Keep this line in sync with RELEASE_PR_NOTIF in ci/cron/wednesday.yml
         if [ "$msg" = "This PR has been created by a script, which is not very smart" ]; then
@@ -190,6 +194,7 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
         KEY_FILE=$(mktemp)
         GPG_DIR=$(mktemp -d)
         cleanup() {
@@ -213,6 +218,7 @@ jobs:
         ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
     - bash: |
         set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
         cd $(Build.StagingDirectory)/split-release/split-release
         for f in "damlc-*" daml-libs/daml-script; do
@@ -223,6 +229,7 @@ jobs:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - bash: |
         set -euo pipefail
+        eval "$(./dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
