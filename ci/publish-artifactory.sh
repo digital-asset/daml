@@ -65,7 +65,12 @@ else
     # For the split release process, we publish intermediate artifacts to the
     # assembly repo, under the daml folder.
     cd $STAGING_DIR/split-release
-    for file in $(find . -type f); do
-        push assembly/daml $file
+    for d in split-release github; do
+        (
+        cd $d
+        for file in $(find . -type f); do
+            push assembly/daml $file
+        done
+        )
     done
 fi
