@@ -69,6 +69,7 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         KEY_FILE=$(mktemp)
         GPG_DIR=$(mktemp -d)
@@ -109,6 +110,7 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag)
       env:
@@ -117,6 +119,7 @@ jobs:
     - bash: |
         set -euo pipefail
 
+        # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
@@ -136,6 +139,7 @@ jobs:
     - bash: |
         set -euo pipefail
         source $(bash-lib)
+        # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         msg=$(git log -n1 --format=%b HEAD | head -1)
         # Keep this line in sync with RELEASE_PR_NOTIF in ci/cron/wednesday.yml
@@ -194,6 +198,7 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         KEY_FILE=$(mktemp)
         GPG_DIR=$(mktemp -d)
@@ -213,11 +218,13 @@ jobs:
         GPG_KEY: $(gpg-code-signing)
     - bash: |
         set -eou pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         mkdir -p $(Build.StagingDirectory)/split-release
         ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
     - bash: |
         set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
         cd $(Build.StagingDirectory)/split-release/split-release
@@ -229,6 +236,7 @@ jobs:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - bash: |
         set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
       env:
