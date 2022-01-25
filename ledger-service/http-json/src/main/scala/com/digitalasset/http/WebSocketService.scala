@@ -48,7 +48,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
 import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny => `sj enrichAny`}
 
-import scala.collection.Factory
 import scala.collection.mutable.HashSet
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}

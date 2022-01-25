@@ -9,8 +9,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.collection.Factory
-import scala.collection.mutable
+import scala.collection.{Factory, mutable}
 
 /** Commit context provides access to state inputs, commit parameters (e.g. record time) and
   * allows committer to set state outputs.

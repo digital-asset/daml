@@ -45,7 +45,7 @@ private[daml] final case class InsertDeleteStep[+D, +C](
 
   /** Results undefined if cid(cc) != cid(c) */
   def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(implicit
-      LDS: Factory[LD, LDS]
+      LDS: collection.Factory[LD, LDS]
   ): (LDS, Inserts[LC], InsertDeleteStep[DD, CC]) = {
     import scalaz.std.tuple._, scalaz.std.either._, scalaz.syntax.traverse._
     val (lcs, ins) = inserts partitionMap (x => g(x).toEither)
