@@ -9,6 +9,7 @@ import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpola
 import com.daml.platform.store.backend.ResetStorageBackend
 
 object PostgresResetStorageBackend extends ResetStorageBackend {
+
   override def resetAll(connection: Connection): Unit = {
     SQL"""
       truncate table configuration_entries cascade;
@@ -26,6 +27,7 @@ object PostgresResetStorageBackend extends ResetStorageBackend {
       truncate table participant_events_create_filter cascade;
       truncate table participant_users cascade;
       truncate table participant_user_rights cascade;
+      truncate table transaction_metering cascade;
     """
       .execute()(connection)
     ()

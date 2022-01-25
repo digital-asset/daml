@@ -546,3 +546,12 @@ CREATE TABLE participant_events_create_filter (
 CREATE INDEX idx_participant_events_create_filter_party_template_seq_id_idx ON participant_events_create_filter(party_id, template_id, event_sequential_id);
 CREATE INDEX idx_participant_events_create_filter_party_seq_id_idx ON participant_events_create_filter(party_id, event_sequential_id);
 CREATE INDEX idx_participant_events_create_seq_id_idx ON participant_events_create_filter(event_sequential_id);
+
+CREATE TABLE transaction_metering (
+    application_id VARCHAR NOT NULL,
+    action_count INTEGER NOT NULL,
+    metering_timestamp BIGINT NOT NULL,
+    ledger_offset VARCHAR NOT NULL
+);
+
+CREATE INDEX transaction_metering_ledger_offset ON transaction_metering(ledger_offset);

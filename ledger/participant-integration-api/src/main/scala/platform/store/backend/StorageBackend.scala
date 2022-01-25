@@ -3,9 +3,6 @@
 
 package com.daml.platform.store.backend
 
-import java.sql.Connection
-import javax.sql.DataSource
-
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails, User, UserRight}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.configuration.Configuration
@@ -26,6 +23,8 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.platform.store.interning.StringInterning
 import com.daml.scalautil.NeverEqualsOverride
 
+import java.sql.Connection
+import javax.sql.DataSource
 import scala.annotation.unused
 import scala.util.Try
 
@@ -435,4 +434,17 @@ trait UserManagementStorageBackend {
 
 object UserManagementStorageBackend {
   case class DbUser(internalId: Int, domainUser: User)
+}
+
+object MeteringStorageBackend {
+  case class TransactionMetering(
+      applicationId: Ref.ApplicationId,
+      actionCount: Int,
+      meteringTimestamp: Timestamp,
+      ledgerOffset: Offset,
+  )
+}
+
+trait MeteringStorageBackend {
+  def entries(connection: Connection): Vector[MeteringStorageBackend.TransactionMetering]
 }

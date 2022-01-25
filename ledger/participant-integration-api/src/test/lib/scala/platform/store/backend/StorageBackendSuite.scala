@@ -19,6 +19,7 @@ trait StorageBackendSuite
     with StorageBackendTestsDeduplication
     with StorageBackendTestsTimestamps
     with StorageBackendTestsStringInterning
-    with StorageBackendTestsUserManagement {
+    with StorageBackendTestsUserManagement
+    with StorageBackendTestsMetering {
   this: AnyFlatSpec =>
 }

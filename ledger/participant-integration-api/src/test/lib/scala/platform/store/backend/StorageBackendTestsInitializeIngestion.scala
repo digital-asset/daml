@@ -18,6 +18,14 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   import StorageBackendTestValues._
 
+  val metering =
+    MeteringStorageBackend.TransactionMetering(
+      someApplicationId,
+      1,
+      someTime,
+      offset(0),
+    )
+
   it should "delete overspill entries" in {
     val dtos1: Vector[DbDto] = Vector(
       // 1: config change
@@ -35,6 +43,13 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoExercise(offset(5), 2L, false, hashCid("#4")),
       dtoDivulgence(Some(offset(5)), 3L, hashCid("#4")),
       dtoCompletion(offset(5)),
+      // Transaction Metering
+      dtoTransactionMetering(
+        metering.copy(ledgerOffset = offset(1))
+      ),
+      dtoTransactionMetering(
+        metering.copy(ledgerOffset = offset(4))
+      ),
     )
 
     val dtos2: Vector[DbDto] = Vector(
@@ -53,6 +68,10 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoExercise(offset(10), 5L, false, hashCid("#9")),
       dtoDivulgence(Some(offset(10)), 6L, hashCid("#9")),
       dtoCompletion(offset(10)),
+      // Transaction Metering
+      dtoTransactionMetering(
+        metering.copy(ledgerOffset = offset(6))
+      ),
     )
 
     // TODO: make sure it's obvious these are the stakeholders of dtoCreate() nodes created above
@@ -98,6 +117,8 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
 
+    val metering1 = executeSql(backend.metering.entries)
+
     // Restart the indexer - should delete data from the partial insert above
     val end2 = executeSql(backend.parameter.ledgerEnd)
     executeSql(backend.ingestion.deletePartiallyIngestedData(end2))
@@ -131,12 +152,15 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
 
+    val metering2 = executeSql(backend.metering.entries)
+
     parties1 should have length 1
     packages1 should have size 1
     config1 shouldBe Some(offset(1) -> someConfiguration)
     contract41 should not be empty
     contract91 shouldBe None
     filterIds1 shouldBe List(1L, 4L) // since ledger-end does not limit the range query
+    metering1 should have length 2
 
     parties2 should have length 1
     packages2 should have size 1
@@ -144,5 +168,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     contract42 should not be empty
     contract92 shouldBe None
     filterIds2 shouldBe List(1L)
+    metering2 should have length 2
+
   }
 }

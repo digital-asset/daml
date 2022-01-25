@@ -3,9 +3,6 @@
 
 package com.daml.platform.store.backend
 
-import java.time.{Duration, Instant}
-import java.util.UUID
-
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -18,6 +15,9 @@ import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.google.protobuf.ByteString
+
+import java.time.{Duration, Instant}
+import java.util.UUID
 
 /** Except where specified, values should be treated as opaque
   */
@@ -241,6 +241,18 @@ private[backend] object StorageBackendTestValues {
       deduplication_duration_nanos = deduplicationDurationNanos,
       deduplication_start = deduplicationStart.map(_.micros),
     )
+
+  def dtoTransactionMetering(
+      metering: MeteringStorageBackend.TransactionMetering
+  ): DbDto.TransactionMetering = {
+    import metering._
+    DbDto.TransactionMetering(
+      applicationId,
+      actionCount,
+      meteringTimestamp.micros,
+      ledgerOffset.toHexString,
+    )
+  }
 
   def dtoCreateFilter(
       event_sequential_id: Long,

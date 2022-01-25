@@ -68,7 +68,7 @@ private[backend] trait StorageBackendProviderOracle
     extends StorageBackendProvider
     with OracleAroundAll { this: Suite =>
   override protected def jdbcUrl: String =
-    s"jdbc:oracle:thin:$oracleUser/$oraclePwd@localhost:$oraclePort/ORCLPDB1"
+    s"jdbc:oracle:thin:$oracleUser/$oraclePwd@$oracleHost:$oraclePort/ORCLPDB1"
   override protected val backend: TestBackend = TestBackend(OracleStorageBackendFactory)
 }
 
@@ -90,6 +90,7 @@ case class TestBackend(
     ledgerEndCache: MutableLedgerEndCache,
     stringInterningSupport: MockStringInterning,
     userManagement: UserManagementStorageBackend,
+    metering: MeteringStorageBackend,
 )
 
 object TestBackend {
@@ -115,6 +116,7 @@ object TestBackend {
       ledgerEndCache = ledgerEndCache,
       stringInterningSupport = stringInterning,
       userManagement = storageBackendFactory.createUserManagementStorageBackend,
+      metering = storageBackendFactory.createMeteringStorageBackend(ledgerEndCache),
     )
   }
 }

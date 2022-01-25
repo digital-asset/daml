@@ -8,5 +8,5 @@ import com.daml.testing.oracle.OracleAroundAll
 final class IndexerStabilityOracleSpec extends IndexerStabilitySpec with OracleAroundAll {
 
   override def jdbcUrl: String =
-    s"jdbc:oracle:thin:$oracleUser/$oraclePwd@localhost:$oraclePort/ORCLPDB1"
+    s"jdbc:oracle:thin:$oracleUser/$oraclePwd@$oracleHost:$oraclePort/ORCLPDB1"
 }
