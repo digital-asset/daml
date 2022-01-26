@@ -184,6 +184,16 @@ jobs:
     - checkout: self
     - bash: |
         set -euo pipefail
+
+        for f in $(find /d/a/SourceRootMapping); do
+          echo "-----"
+          echo $f
+          echo "-----"
+          cat $f
+          echo "-----"
+        done
+    - bash: |
+        set -euo pipefail
         git checkout $(release_sha)
       name: checkout_release
       condition: and(succeeded(), eq(variables.is_release, 'true'))
