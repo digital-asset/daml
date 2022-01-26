@@ -7,6 +7,8 @@ import akka.NotUsed
 import akka.stream.scaladsl.Sink
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -18,8 +20,6 @@ import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedSource
 import com.daml.telemetry.TelemetryContext
-import com.google.rpc.code.Code
-import com.google.rpc.status.Status
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
@@ -134,7 +134,7 @@ class BridgeWriteService(
   }
 
   private def submit(submission: Submission): CompletionStage[SubmissionResult] =
-    toSubmissionResult(queue.offer(submission))
+    toSubmissionResult(submission.submissionId, queue.offer(submission))
 
   override def close(): Unit = {
     logger.info("Shutting down BridgeLedgerFactory.")
@@ -146,36 +146,39 @@ object BridgeWriteService {
   private[this] val logger = ContextualizedLogger.get(getClass)
 
   def toSubmissionResult(
-      queueOfferResult: QueueOfferResult
-  )(implicit loggingContext: LoggingContext): CompletableFuture[SubmissionResult] =
+      submissionId: Ref.SubmissionId,
+      queueOfferResult: QueueOfferResult,
+  )(implicit
+      loggingContext: LoggingContext
+  ): CompletableFuture[SubmissionResult] = {
+    implicit val errorLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+
     CompletableFuture.completedFuture(
       queueOfferResult match {
         case QueueOfferResult.Enqueued => SubmissionResult.Acknowledged
         case QueueOfferResult.Dropped =>
-          logger.warn(
-            "Buffer overflow: new submission is not added, signalized `Overloaded` for caller."
-          )
           SubmissionResult.SynchronousError(
-            Status(
-              Code.ABORTED.value // TODO SoX: Use error codes
-            )
+            LedgerApiErrors.ParticipantBackpressure
+              .Rejection("Sandbox-on-X ledger bridge submission buffer is full")
+              .rpcStatus(Some(submissionId))
           )
         case QueueOfferResult.Failure(throwable) =>
-          logger.error("Error enqueueing new submission.", throwable)
           SubmissionResult.SynchronousError(
-            Status(
-              Code.INTERNAL.value,
-              throwable.getMessage,
-            )
+            LedgerApiErrors.InternalError
+              .Generic(
+                message = s"Failed to enqueue submission in the Sandbox-on-X ledger bridge",
+                throwableO = Some(throwable),
+              )
+              .rpcStatus(Some(submissionId))
           )
         case QueueOfferResult.QueueClosed =>
-          logger.error("Error enqueueing new submission: queue is closed.")
           SubmissionResult.SynchronousError(
-            Status(
-              Code.INTERNAL.value,
-              "Queue is closed",
-            )
+            LedgerApiErrors.ServiceNotRunning
+              .Reject("Sandbox-on-X ledger bridge")
+              .rpcStatus(None)
           )
       }
     )
+  }
 }
