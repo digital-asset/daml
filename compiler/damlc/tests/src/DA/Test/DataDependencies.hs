@@ -1521,6 +1521,127 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
             ]
         ]
 
+    , dataDependenciesTestOptions "use interface from data-dependency"
+        [ "--target=1.dev" ]
+        [   (,) "Lib.daml"
+            [ "module Lib where"
+            , "import DA.Assert"
+
+            , "interface Token where"
+            , "  getOwner : Party -- ^ A method comment."
+            , "  getAmount : Int"
+            , "  setAmount : Int -> Token"
+
+            , "  splitImpl : Int -> Update (ContractId Token, ContractId Token)"
+            , "  transferImpl : Party -> Update (ContractId Token)"
+            , "  noopImpl : () -> Update ()"
+
+            , "  ensure (getAmount this >= 0)"
+
+            , "  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment."
+            , "    with"
+            , "      splitAmount : Int -- ^ A choice field comment."
+            , "    controller getOwner this"
+            , "    do"
+            , "      splitImpl this splitAmount"
+
+            , "  choice Transfer : ContractId Token"
+            , "    with"
+            , "      newOwner : Party"
+            , "    controller getOwner this, newOwner"
+            , "    do"
+            , "      transferImpl this newOwner"
+
+            , "  nonconsuming choice Noop : ()"
+            , "    with"
+            , "      nothing : ()"
+            , "    controller getOwner this"
+            , "    do"
+            , "      noopImpl this nothing"
+
+            , "  choice GetRich : ContractId Token"
+            , "    with"
+            , "      byHowMuch : Int"
+            , "    controller getOwner this"
+            , "    do"
+            , "        assert (byHowMuch > 0)"
+            , "        create $ setAmount this (getAmount this + byHowMuch)"
+
+            , "template Asset"
+            , "  with"
+            , "    issuer : Party"
+            , "    owner : Party"
+            , "    amount : Int"
+            , "  where"
+            , "    signatory issuer, owner"
+            , "    implements Token where"
+            , "      let getOwner = owner"
+            , "      let getAmount = amount"
+            , "      let setAmount = \\x -> toInterface @Token (this with amount = x)"
+
+            , "      let splitImpl = \\splitAmount -> do"
+            , "            assert (splitAmount < amount)"
+            , "            cid1 <- create this with amount = splitAmount"
+            , "            cid2 <- create this with amount = amount - splitAmount"
+            , "            pure (toInterfaceContractId @Token cid1, toInterfaceContractId @Token cid2)"
+
+            , "      let transferImpl = \\newOwner -> do"
+            , "            cid <- create this with owner = newOwner"
+            , "            pure (toInterfaceContractId @Token cid)"
+
+            , "      let noopImpl = \\nothing -> do"
+            , "            [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
+            , "            pure ()"
+            ]
+        ]
+        [
+            (,) "Main.daml"
+            [ "module Main where"
+            , "import Lib"
+            , "import DA.Assert"
+
+            , "main = scenario do"
+            , "  p <- getParty \"Alice\""
+            , "  p `submitMustFail` do"
+            , "    create Asset with"
+            , "      issuer = p"
+            , "      owner = p"
+            , "      amount = -1"
+            , "  p `submit` do"
+            , "    cidAsset1 <- create Asset with"
+            , "      issuer = p"
+            , "      owner = p"
+            , "      amount = 15"
+            , "    let cidToken1 = toInterfaceContractId @Token cidAsset1"
+            , "    _ <- exercise cidToken1 (Noop ())"
+            , "    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)"
+            , "    token2 <- fetch cidToken2"
+            , "    -- Party is duplicated because p is both observer & issuer"
+            , "    signatory token2 === [p, p]"
+            , "    getAmount token2 === 10"
+            , "    case fromInterface token2 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 10"
+            , "    token3 <- fetch cidToken3"
+            , "    getAmount token3 === 5"
+            , "    case fromInterface token3 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 5"
+
+            , "    cidToken4 <- exercise cidToken3 (GetRich 20)"
+            , "    token4 <- fetch cidToken4"
+            , "    getAmount token4 === 25"
+            , "    case fromInterface token4 of"
+            , "      None -> abort \"expected Asset\""
+            , "      Some Asset {amount} ->"
+            , "        amount === 25"
+
+            , "    pure ()"
+            ]
+        ]
+
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
