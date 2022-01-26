@@ -7,7 +7,6 @@ import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateV
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 
 import scala.collection.SortedMap
-import scala.collection.Factory
 
 final class StateSerializationStrategy(keyStrategy: StateKeySerializationStrategy) {
   def serializeState(key: DamlStateKey, value: DamlStateValue): Raw.StateEntry =
@@ -16,8 +15,5 @@ final class StateSerializationStrategy(keyStrategy: StateKeySerializationStrateg
   def serializeStateUpdates(
       state: Map[DamlStateKey, DamlStateValue]
   ): SortedMap[Raw.StateKey, Raw.Envelope] =
-    implicitly[Factory[Raw.StateEntry, SortedMap[Raw.StateKey, Raw.Envelope]]]
-      .fromSpecific(state.view.map { case (key, value) =>
-        serializeState(key, value)
-      })
+    state.view.map { case (key, value) => serializeState(key, value) }.to(SortedMap)
 }
