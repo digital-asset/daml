@@ -28,6 +28,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import Development.IDE.Types.Location
 import GHC.Generics (Generic)
+import GHC.Stack
 import Safe
 import System.FilePath
 
@@ -56,8 +57,9 @@ import DA.Daml.UtilGHC (fsFromText)
 
 import SdkVersion
 
-panicOnError :: Either LF.Error a -> a
-panicOnError (Left e) = error $ "Internal LF type error: " <> renderPretty e
+panicOnError :: HasCallStack => Either LF.Error a -> a
+panicOnError (Left e) =
+    withFrozenCallStack $ error $ "Internal LF type error: " <> renderPretty e
 panicOnError (Right a) = a
 
 -- | Newtype wrapper around an LF type where all type synonyms have been expanded.
