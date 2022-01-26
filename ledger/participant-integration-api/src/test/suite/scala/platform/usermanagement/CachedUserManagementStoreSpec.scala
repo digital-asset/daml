@@ -31,6 +31,19 @@ class CachedUserManagementStoreSpec
   private val rights = Set(right1, right2)
   private val userInfo = UserInfo(user, rights)
 
+  "test user-not-found cache result gets invalidated after user creation" in {
+    val delegate = spy(new InMemoryUserManagementStore())
+    val tested = createTested(delegate)
+    for {
+      getYetNonExistent <- tested.getUserInfo(userInfo.user.id)
+      _ <- tested.createUser(userInfo.user, userInfo.rights)
+      get <- tested.getUserInfo(user.id)
+    } yield {
+      getYetNonExistent shouldBe Left(UserNotFound(userInfo.user.id))
+      get shouldBe Right(userInfo)
+    }
+  }
+
   "test cache population" in {
     val delegate = spy(new InMemoryUserManagementStore())
     val tested = createTested(delegate)
