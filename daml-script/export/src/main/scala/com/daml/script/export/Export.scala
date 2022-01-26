@@ -177,7 +177,7 @@ object Export {
       val json = Json.fromFields(
         mutable.LinkedHashMap(
           "sdk-version" -> Json.fromString(sdkVersion),
-          "name" -> Json.fromString("exporting"),
+          "name" -> Json.fromString("export"),
           "version" -> Json.fromString("1.0.0"),
           "source" -> Json.fromString("."),
           "init-script" -> Json.fromString("Export:export"),
