@@ -5,13 +5,13 @@
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "https://nodejs.org/dist/v14.18.3/node-v14.18.3-win-x64.7z",
-            "hash": "456f3d26f900dbf0221b311884e81926b4aea96d75e57b30ab6cb142d05e10d9",
+            "url": "https://nodejs.org/dist/v14.18.3/node-v14.18.3-win-x64.zip",
+            "hash": "9fd6acd826c499353b186d784ba8de7aa14a5764648ffdb19dc7edf9f688e940",
             "extract_dir": "node-v14.18.3-win-x64"
         },
         "32bit": {
-            "url": "https://nodejs.org/dist/v14.18.3/node-v14.18.3-win-x86.7z",
-            "hash": "a7ec2f7d8a5973869eebae31f24d859bfb363bb9df8ad19404ff28b84784c0e1",
+            "url": "https://nodejs.org/dist/v14.18.3/node-v14.18.3-win-x86.zip",
+            "hash": "39512195eb68641c944c822a1b47802e02dda26487baeb109478bda54b0528bc",
             "extract_dir": "node-v14.18.3-win-x86"
         }
     },
