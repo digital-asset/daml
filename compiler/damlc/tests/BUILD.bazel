@@ -1012,6 +1012,6 @@ daml_test(
     name = "interface-implementation",
     srcs = glob(["interfaces-data-deps/interface-implementation/**/*.daml"]),
     data_deps = [":interface-definition.dar"],
-    deps = ["//daml-script/daml:daml-script-1.dev.dar"],
     target = "1.dev",
+    deps = ["//daml-script/daml:daml-script-1.dev.dar"],
 )
