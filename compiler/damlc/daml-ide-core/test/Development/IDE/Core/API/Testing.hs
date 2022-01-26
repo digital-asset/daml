@@ -62,7 +62,7 @@ import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Core.Service.Daml(VirtualResource(..), mkDamlEnv)
 import DA.Test.Util (standardizeQuotes)
-import Language.LSP.Types
+import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelative (..))
 
 -- * external dependencies
 import Control.Concurrent.STM
@@ -325,11 +325,17 @@ cursorFilePath :: Cursor -> D.NormalizedFilePath
 cursorFilePath ( absPath, _line, _col) = absPath
 
 cursorPosition :: Cursor -> D.Position
-cursorPosition (_absPath,  line,  col) = D.Position line col
+cursorPosition (_absPath,  line,  col) =
+    D.Position
+        (fromIntegral line)
+        (fromIntegral col)
 
 locationStartCursor :: D.Location -> Cursor
 locationStartCursor (D.Location path (D.Range (D.Position line col) _)) =
-    (D.toNormalizedFilePath' $ fromMaybe D.noFilePath $ D.uriToFilePath' path, line, col)
+    ( D.toNormalizedFilePath' $ fromMaybe D.noFilePath $ D.uriToFilePath' path
+    , fromIntegral line
+    , fromIntegral col
+    )
 
 -- | Same as Cursor, but passing a list of columns, so you can specify a range
 -- such as (foo,1,[10..20]).

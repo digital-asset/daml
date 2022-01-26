@@ -10,8 +10,6 @@ import scalaz.{Semigroup, \/}
 import scalaz.std.tuple._
 import scalaz.syntax.functor._
 
-import scala.collection.Factory
-
 private[daml] sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializable {
   import ContractStreamStep._
 
@@ -45,7 +43,7 @@ private[daml] sealed abstract class ContractStreamStep[+D, +C] extends Product w
     mapInserts(_ map f)
 
   def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(implicit
-      LDS: Factory[LD, LDS]
+      LDS: collection.Factory[LD, LDS]
   ): (LDS, Inserts[LC], ContractStreamStep[DD, CC]) =
     this match {
       case Acs(inserts) =>

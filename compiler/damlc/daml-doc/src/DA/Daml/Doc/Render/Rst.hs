@@ -11,9 +11,9 @@ import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Monoid
 import DA.Daml.Doc.Render.Util (escapeText)
 
-import qualified Data.Text.Prettyprint.Doc as Pretty
-import Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
-import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
+import qualified Prettyprinter as Pretty
+import Prettyprinter (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
+import Prettyprinter.Render.Text (renderStrict)
 
 import Data.Char
 import qualified Data.Text as T

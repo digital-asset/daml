@@ -17,8 +17,8 @@ import Data.Maybe
 import Data.List
 import Data.List.Extra (nubOrd)
 import Data.Tuple.Extra (both)
-import Data.Text.Prettyprint.Doc
-import Data.Text.Prettyprint.Doc.Render.String
+import Prettyprinter
+import Prettyprinter.Render.String
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified SimpleSMT as S

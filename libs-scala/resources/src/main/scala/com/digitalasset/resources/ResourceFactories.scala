@@ -5,7 +5,6 @@ package com.daml.resources
 
 import com.daml.resources.HasExecutionContext.executionContext
 
-import scala.collection.Factory
 import scala.concurrent.Future
 import scala.util.Try
 
@@ -56,7 +55,7 @@ final class ResourceFactories[Context: HasExecutionContext] {
     * @return A [[Resource]] with a sequence of the values of the sequenced [[Resource]]s as its underlying value.
     */
   def sequence[T, C[X] <: Iterable[X], U](seq: C[R[T]])(implicit
-      bf: Factory[T, U],
+      bf: collection.Factory[T, U],
       context: Context,
   ): R[U] = new R[U] {
     private val resource = seq

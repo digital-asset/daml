@@ -11,7 +11,7 @@ mkdir -p $OUTPUT_DIR/github
 mkdir -p $OUTPUT_DIR/artifactory
 mkdir -p $OUTPUT_DIR/split-release
 
-if [ "$SPLIT_RELEASE" = "false" ]; then
+if ! [ "$SPLIT_RELEASE" = "true" ]; then
     INSTALLER="$OUTPUT_DIR/github/daml-sdk-$RELEASE_TAG-windows.exe"
     EE_INSTALLER="$OUTPUT_DIR/artifactory/daml-sdk-$RELEASE_TAG-windows-ee.exe"
     mv "bazel-bin/release/windows-installer/daml-sdk-installer-ce.exe" "$INSTALLER"

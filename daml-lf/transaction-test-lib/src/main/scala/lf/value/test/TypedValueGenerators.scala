@@ -21,7 +21,6 @@ import iface.{
   Variant,
   PrimType => PT,
 }
-import scala.collection.Factory
 import scalaz.{@@, Order, Ordering, Tag}
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.traverse._
@@ -243,10 +242,7 @@ object TypedValueGenerators {
           override def inj(hl: Inj) =
             ValueRecord(
               Some(name),
-              implicitly[
-                Factory[(Some[Ref.Name], Value), ImmArray[(Some[Ref.Name], Value)]]
-              ]
-                .fromSpecific(lfvFieldNames zip spec.injRec(hl)),
+              (lfvFieldNames zip spec.injRec(hl)).to(ImmArray),
             )
           override def prj = {
             case ValueRecord(_, fields) if fields.length == spec.t.length =>

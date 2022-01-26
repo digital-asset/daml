@@ -184,6 +184,16 @@ jobs:
     - checkout: self
     - bash: |
         set -euo pipefail
+
+        for f in $(find /d/a/SourceRootMapping -type f); do
+          echo "-----"
+          echo $f
+          echo "-----"
+          cat $f
+          echo "-----"
+        done
+    - bash: |
+        set -euo pipefail
         git checkout $(release_sha)
       name: checkout_release
       condition: and(succeeded(), eq(variables.is_release, 'true'))
@@ -198,7 +208,7 @@ jobs:
         # and then splice that in via a template parameter.
         skip_tests: $(skip_tests)
         is_release: variables.is_release
-        is_split_release: variables.is_split_release
+        is_split_release: $(is_split_release)
     - template: upload-bazel-metrics.yml
     - task: PublishBuildArtifacts@1
       condition: succeededOrFailed()
@@ -270,10 +280,8 @@ jobs:
         bazel test \
           --config=oracle \
           --test_strategy=exclusive \
-          //ledger-service/http-json-oracle/... \
-          //triggers/service:test-oracle \
-          //ledger/participant-integration-api:participant-integration-api-tests-oracle \
-          //ledger/ledger-on-sql:conformance-test-oracle
+          --test_tag_filters=+oracle \
+          //...
 
         oracle_logs=$(Build.StagingDirectory)/oracle-logs
         mkdir $oracle_logs
@@ -441,7 +449,7 @@ jobs:
                 setvar release_sha "$(added_line | awk '{print $1}')"
                 RELEASE_TAG="$(added_line | awk '{print $2}')"
                 setvar release_tag "$RELEASE_TAG"
-                if [ $(added_line | awk '{print $3}') == "SPLIT_RELEASE" ]; then
+                if [ "$(added_line | awk '{print $3}')" == "SPLIT_RELEASE" ]; then
                   setvar split_release_process true
                 else
                   setvar split_release_process false

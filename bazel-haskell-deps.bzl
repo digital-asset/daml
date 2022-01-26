@@ -23,17 +23,18 @@ GHC_LIB_VERSION = "8.8.1"
 GHC_LIB_PARSER_REV = "a0b9249a488a13d561a6731a74f72505"
 GHC_LIB_PARSER_SHA256 = "69a3b783f53b3bff7cc92bb51a4e520f7bb1097d2182745a408a41f5711734b0"
 GHC_LIB_PARSER_VERSION = "8.8.1"
-GHCIDE_REV = "e04b5386b3741b839eb5c3d2a2586fd2aa97229c"
-GHCIDE_SHA256 = "1d27926e0ad3c2a9536f23b454875a385ecc766ae68ce48a0ec88d0867884b46"
+GHCIDE_REV = "4146f08b729e1f4e4a3ac789570e9c0b9010944e"
+GHCIDE_SHA256 = "bd16242397b67ac0d803c7e0452b03396133d9b7aaf2ba3bddd834260a78bd80"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
-SHAKE_VERSION = "0.18.5"
+SHAKE_VERSION = "0.19.6"
 ZIP_VERSION = "1.7.1"
 GRPC_HASKELL_REV = "641f0bab046f2f03e5350a7c5f2044af1e19a5b1"
 GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a1536f4ca81"
 XML_CONDUIT_VERSION = "1.9.1.1"
-LSP_TYPES_VERSION = "1.2.0.0"
+LSP_TYPES_VERSION = "1.4.0.0"
+LSP_TYPES_SHA256 = "7ae8a3bad0e91d4a2af9b93e3ad207e3f4c3dace40d420e0592f6323ac93fb67"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
@@ -61,8 +62,10 @@ haskell_cabal_library(
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:lsp-types-normalisation.patch",
+            # `mod` does not have `integer-simple` support so we swap it out for another dep.
+            "@com_github_digital_asset_daml//bazel_tools:lsp-types-modular-arithmetic.patch",
         ],
-        sha256 = "637a85878d7b8c895311eb6878f19c43038ef93db1e4de4820b04fa7bc30b4ab",
+        sha256 = LSP_TYPES_SHA256,
         strip_prefix = "lsp-types-{}".format(LSP_TYPES_VERSION),
         urls = ["http://hackage.haskell.org/package/lsp-types-{version}/lsp-types-{version}.tar.gz".format(version = LSP_TYPES_VERSION)],
     )
@@ -393,7 +396,7 @@ haskell_cabal_library(
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-shake.patch",
         ],
-        sha256 = "576ab57f53b8051f67ceeb97bd9abf2e0926f592334a7a1c27c07b36afca240f",
+        sha256 = "7d9db837bfd67acaaabdb3cea29acc15559ede82dd9f75d438589268031cd542",
         strip_prefix = "shake-{}".format(SHAKE_VERSION),
         urls = ["http://hackage.haskell.org/package/shake-{version}/shake-{version}.tar.gz".format(version = SHAKE_VERSION)],
     )
