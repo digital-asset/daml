@@ -22,7 +22,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = [
-        "-P:silencer:globalFilters=DeduplicationTime.*deprecated",  # deprecated field that needs to be tested
+        "-Wconf:msg=class DeduplicationTime in object DeduplicationPeriod is deprecated:s",  # deprecated field that needs to be tested
     ],
     tags = ["maven_coordinates=com.daml:ledger-api-common:__VERSION__"],
     visibility = [
@@ -30,9 +30,6 @@ da_scala_library(
     ],
     runtime_deps = [
         "@maven//:io_netty_netty_tcnative_boringssl_static",
-    ],
-    scalacopts=[
-        "-Wconf:msg=class DeduplicationTime in object DeduplicationPeriod is deprecated:s",  # deprecated field that needs to be tested
     ],
     deps = [
         "//daml-lf/data",
