@@ -566,7 +566,7 @@ instance Pretty DefDataType where
     DataEnum enums ->
       (keyword_ "enum" <-> lhsDoc) $$ nest 2 (vcat (map pPrintEnumCon enums))
     DataInterface ->
-      keyword_ "interface"
+      keyword_ "interface" <-> pPrint tcon
     where
       lhsDoc =
         serializableDoc <-> pPrint tcon <-> hsep (map (pPrintAndKind lvl precParam) params) <-> "="
