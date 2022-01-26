@@ -91,9 +91,8 @@ diff -Naur create-daml-app/daml/User.daml gsg-trigger/daml/User.daml
 +  where
 +    signatory sender, receiver
 +-- MESSAGE_END
-diff -Naur create-daml-app/daml.yaml.template gsg-trigger/daml.yaml.template
---- create-daml-app/daml.yaml.template	2022-01-12 18:10:42.308452547 +0100
-+++ gsg-trigger/daml.yaml.template	2022-01-12 18:11:03.832307353 +0100
+--- create-daml-app/daml.yaml.template	2022-01-26 17:29:37.149557361 +0100
++++ gsg-trigger/daml.yaml.template	2022-01-26 17:29:27.749276386 +0100
 @@ -6,10 +6,12 @@
  - Alice
  - Bob
@@ -104,9 +103,9 @@ diff -Naur create-daml-app/daml.yaml.template gsg-trigger/daml.yaml.template
  - daml-stdlib
  - daml-trigger
 +# trigger-dependencies-end
- sandbox-options:
- - --wall-clock-time
- - --ledgerid=__PROJECT_NAME__-sandbox
+ start-navigator: false
+ codegen:
+   js:
 diff -Naur create-daml-app/ui/src/components/MainView.tsx.template gsg-trigger/ui/src/components/MainView.tsx.template
 --- create-daml-app/ui/src/components/MainView.tsx.template	2022-01-12 18:39:11.584886272 +0100
 +++ gsg-trigger/ui/src/components/MainView.tsx.template	2022-01-12 18:17:12.021819139 +0100
