@@ -179,7 +179,7 @@ object Export {
           "name" -> Json.fromString("exporting"),
           "version" -> Json.fromString("1.0.0"),
           "source" -> Json.fromString("."),
-          "init-script" -> Json.fromString("Export:exporting"),
+          "init-script" -> Json.fromString("Export:export"),
           "script-options" -> Json.fromValues(
             List(
               Json.fromString("--input-file"),

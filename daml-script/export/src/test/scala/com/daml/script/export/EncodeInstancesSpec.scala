@@ -8,8 +8,7 @@ import com.daml.ledger.api.v1.{value => V}
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Util._
-import com.daml.script.export.Dependencies.ChoiceInstanceSpec
-import com.daml.script.export.Dependencies.TemplateInstanceSpec
+import com.daml.script.export.Dependencies.{ChoiceInstanceSpec, TemplateInstanceSpec}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
