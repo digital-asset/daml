@@ -5,26 +5,18 @@ package com.daml.platform.store
 
 import anorm.Column.nonNull
 import anorm._
-import com.daml.error.ContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
-import com.daml.grpc.GrpcStatus
-import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.Update.CommandRejected
-import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
-import com.daml.platform.server.api.validation.ErrorFactories
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
-import scala.util.Try
 import java.io.BufferedReader
 import java.sql.{PreparedStatement, SQLNonTransientException, Types}
 import java.util.stream.Collectors
-import scala.annotation.nowarn
+import scala.util.Try
 
 // TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
 
@@ -389,68 +381,5 @@ private[platform] object Conversions {
   implicit object HashMetaParameter extends ParameterMetaData[Hash] {
     override val sqlType: String = ParameterMetaData.StringParameterMetaData.sqlType
     override val jdbcType: Int = ParameterMetaData.StringParameterMetaData.jdbcType
-  }
-
-  implicit class RejectionReasonOps(rejectionReason: domain.RejectionReason) {
-    @nowarn("msg=deprecated")
-    def toParticipantStateRejectionReason(
-        errorFactories: ErrorFactories
-    )(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
-    ): state.Update.CommandRejected.RejectionReasonTemplate =
-      rejectionReason match {
-        case domain.RejectionReason.ContractsNotFound(missingContractIds) =>
-          CommandRejected.FinalReason(
-            errorFactories.CommandRejections.contractsNotFound(missingContractIds)
-          )
-        case domain.RejectionReason.Inconsistent(reason) =>
-          CommandRejected.FinalReason(
-            errorFactories.CommandRejections.inconsistent(reason)
-          )
-        case domain.RejectionReason.InconsistentContractKeys(lookupResult, currentResult) =>
-          CommandRejected.FinalReason(
-            errorFactories.CommandRejections
-              .inconsistentContractKeys(lookupResult, currentResult)
-          )
-        case rejection @ domain.RejectionReason.DuplicateContractKey(key) =>
-          CommandRejected.FinalReason(
-            errorFactories.CommandRejections
-              .duplicateContractKey(rejection.description, key)
-          )
-        case domain.RejectionReason.Disputed(reason) =>
-          CommandRejected.FinalReason(
-            errorFactories.CommandRejections.Deprecated.disputed(reason)
-          )
-        case domain.RejectionReason.OutOfQuota(reason) =>
-          CommandRejected.FinalReason(
-            errorFactories.CommandRejections.Deprecated.outOfQuota(reason)
-          )
-        case domain.RejectionReason.PartiesNotKnownOnLedger(parties) =>
-          CommandRejected.FinalReason(
-            errorFactories.CommandRejections.partiesNotKnownToLedger(parties)
-          )
-        case domain.RejectionReason.PartyNotKnownOnLedger(description) =>
-          CommandRejected.FinalReason(
-            errorFactories.CommandRejections.partyNotKnownOnLedger(description)
-          )
-        case domain.RejectionReason.SubmitterCannotActViaParticipant(reason) =>
-          CommandRejected.FinalReason(
-            errorFactories.CommandRejections.submitterCannotActViaParticipant(reason)
-          )
-        case domain.RejectionReason.InvalidLedgerTime(reason) =>
-          CommandRejected.FinalReason(
-            errorFactories.CommandRejections.invalidLedgerTime(reason)
-          )
-        case domain.RejectionReason.LedgerConfigNotFound(description) =>
-          // This rejection is returned only for V2 error codes already so we don't need to
-          // wrap it in ErrorFactories (see [[com.daml.platform.sandbox.stores.ledger.Rejection.NoLedgerConfiguration]]
-          CommandRejected.FinalReason(
-            GrpcStatus.toProto(
-              LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
-                .RejectWithMessage(description)
-                .asGrpcStatusFromContext
-            )
-          )
-      }
   }
 }

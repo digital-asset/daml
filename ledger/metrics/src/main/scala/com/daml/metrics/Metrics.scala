@@ -488,9 +488,6 @@ final class Metrics(val registry: MetricRegistry) {
         val storeRejectionDbMetrics: DatabaseMetrics = createDbMetrics(
           "store_rejection"
         ) // FIXME Base name conflicts with storeRejection
-        val storeInitialStateFromScenario: DatabaseMetrics = createDbMetrics(
-          "store_initial_state_from_scenario"
-        )
         val loadParties: DatabaseMetrics = createDbMetrics("load_parties")
         val loadAllParties: DatabaseMetrics = createDbMetrics("load_all_parties")
         val loadPackages: DatabaseMetrics = createDbMetrics("load_packages")
