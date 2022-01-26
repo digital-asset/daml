@@ -32,12 +32,12 @@ const Logo = styled.div`
 `;
 
 const Title = styled.h1`
-  font-weight: 200;
+  font-weight: 400;
   font-size: 3rem;
 `;
 
 const GuideDescription = styled(ReactMarkdown)`
-  font-weight: 300;
+  font-weight: 400;
 `;
 
 const SectionWrapper = styled.section`
