@@ -254,7 +254,7 @@ object SandboxOnXRunner {
               CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
             )
           ),
-          deduplicationType = CommandDeduplicationType.SYNC_ONLY,
+          deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
           maxDeduplicationDurationEnforced = false,
         ),
         contractIdFeatures = ExperimentalContractIds.of(

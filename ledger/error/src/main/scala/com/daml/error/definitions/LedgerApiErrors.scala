@@ -5,6 +5,7 @@ package com.daml.error.definitions
 
 import com.daml.error._
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.LedgerApiErrorGroup
+import com.daml.ledger.participant.state.v2.ChangeId
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Error.Validation.ReplayMismatch
@@ -736,6 +737,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(
           _definiteAnswer: Boolean = false,
           _existingCommandSubmissionId: Option[String],
+          _changeId: Option[ChangeId] = None,
       )(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
@@ -743,9 +745,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             definiteAnswer = _definiteAnswer,
           ) {
         override def context: Map[String, String] =
-          super.context ++ _existingCommandSubmissionId.map("existing_submission_id" -> _).toList
+          super.context ++ _existingCommandSubmissionId
+            .map("existing_submission_id" -> _)
+            .toList ++ _changeId
+            .map(changeId => Seq("changeId" -> changeId.toString))
+            .getOrElse(Seq.empty)
       }
-
     }
 
     @Explanation("An input contract has been archived by a concurrent transaction submission.")

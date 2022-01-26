@@ -22,6 +22,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.common.primitives.Longs
 
+import java.time.Duration
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 
@@ -90,6 +91,10 @@ object LedgerBridge {
       ),
       validatePartyAllocation = !config.extra.implicitPartyAllocation,
       servicesThreadPoolSize = servicesThreadPoolSize,
+      maxDeduplicationDuration =
+        // TODO SoX: Enforce cap on this config
+        config.maxDeduplicationDuration
+          .getOrElse(Duration.ofMinutes(1L)),
     )
 
   private[bridge] def packageUploadSuccess(

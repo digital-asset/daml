@@ -4,7 +4,7 @@
 package com.daml
 package ledger.sandbox.domain
 
-import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
+import com.daml.ledger.participant.state.v2.{ChangeId, CompletionInfo, Update}
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import error.ContextualizedErrorLogger
 import error.definitions.LedgerApiErrors
@@ -116,6 +116,18 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status =
       errorFactories.CommandRejections.partiesNotKnownToLedger(unallocatedParties)
+  }
+
+  final case class DuplicateCommand(
+      changeId: ChangeId,
+      completionInfo: CompletionInfo,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ) extends Rejection {
+    override def toStatus: Status =
+      LedgerApiErrors.ConsistencyErrors.DuplicateCommand
+        .Reject(_definiteAnswer = false, None, Some(changeId))
+        .rpcStatus(completionInfo.submissionId)
   }
 
   final case class NoLedgerConfiguration(
