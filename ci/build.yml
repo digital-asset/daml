@@ -198,7 +198,7 @@ jobs:
         # and then splice that in via a template parameter.
         skip_tests: $(skip_tests)
         is_release: variables.is_release
-        is_split_release: variables.is_split_release
+        is_split_release: $(is_split_release)
     - template: upload-bazel-metrics.yml
     - task: PublishBuildArtifacts@1
       condition: succeededOrFailed()
@@ -439,7 +439,7 @@ jobs:
                 setvar release_sha "$(added_line | awk '{print $1}')"
                 RELEASE_TAG="$(added_line | awk '{print $2}')"
                 setvar release_tag "$RELEASE_TAG"
-                if [ $(added_line | awk '{print $3}') == "SPLIT_RELEASE" ]; then
+                if [ "$(added_line | awk '{print $3}')" == "SPLIT_RELEASE" ]; then
                   setvar split_release_process true
                 else
                   setvar split_release_process false
