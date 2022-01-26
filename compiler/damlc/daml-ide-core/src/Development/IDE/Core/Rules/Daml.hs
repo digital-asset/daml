@@ -1265,11 +1265,11 @@ getDlintDiagnosticsRule =
       srcSpanToRange :: SrcSpan -> LSP.Range
       srcSpanToRange (RealSrcSpan span) = Range {
           _start = LSP.Position {
-                _line = srcSpanStartLine span - 1
-              , _character  = srcSpanStartCol span - 1}
+                _line = fromIntegral (srcSpanStartLine span) - 1
+              , _character  = fromIntegral (srcSpanStartCol span) - 1}
         , _end   = LSP.Position {
-                _line = srcSpanEndLine span - 1
-             , _character = srcSpanEndCol span - 1}
+                _line = fromIntegral (srcSpanEndLine span) - 1
+             , _character = fromIntegral (srcSpanEndCol span) - 1}
         }
       srcSpanToRange (UnhelpfulSpan _) = Range {
           _start = LSP.Position {

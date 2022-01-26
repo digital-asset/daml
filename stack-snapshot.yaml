@@ -15,9 +15,9 @@ packages:
     sha256: "531bbd4df2eca160be436074ade336a70cad3a6477df8d00d479440edfe9896b"
   - grpc-haskell-core-0.0.0.0
   - fuzzy-0.1.0.0
-  - lsp-1.2.0.0
-  - lsp-types-1.2.0.0
-  - lsp-test-0.14.0.0
+  - lsp-1.4.0.0
+  - lsp-types-1.4.0.0
+  - lsp-test-0.14.0.2
   - haskell-src-1.0.3.1
   - hpp-0.6.3
   - parser-combinators-1.2.1
@@ -30,6 +30,7 @@ packages:
   - shake-0.18.5
   - simple-smt-0.9.4
   - stm-conduit-4.0.1
+  - modular-arithmetic-2.0.0.1
   # Core packages, need to be listed for integer-simple flags.
   - integer-simple-0.1.1.1
   - text-1.2.3.1
