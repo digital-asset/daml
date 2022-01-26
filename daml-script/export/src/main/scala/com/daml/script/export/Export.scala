@@ -136,20 +136,21 @@ object Export {
       setTime: Boolean,
   ) = {
     val missingInstances = Dependencies.templatesMissingInstances(pkgs)
-    val exporting = Export.fromTransactionTrees(acs, trees, missingInstances, acsBatchSize, setTime)
+    val scriptExport =
+      Export.fromTransactionTrees(acs, trees, missingInstances, acsBatchSize, setTime)
 
     val dir = Files.createDirectories(targetDir)
     Files.write(
       dir.resolve("Export.daml"),
       Encode
-        .encodeExport(exporting)
+        .encodeExport(scriptExport)
         .render(80)
         .getBytes(StandardCharsets.UTF_8),
     )
     Files.write(
       dir.resolve("args.json"),
       Encode
-        .encodeArgs(exporting)
+        .encodeArgs(scriptExport)
         .prettyPrint
         .getBytes(StandardCharsets.UTF_8),
     )
@@ -187,7 +188,7 @@ object Export {
             )
           ),
           "parties" -> Json.fromValues(
-            exporting.partyMap.keys.map(p => Json.fromString(Party.unwrap(p)))
+            scriptExport.partyMap.keys.map(p => Json.fromString(Party.unwrap(p)))
           ),
           "dependencies" -> Json.fromValues(
             List(

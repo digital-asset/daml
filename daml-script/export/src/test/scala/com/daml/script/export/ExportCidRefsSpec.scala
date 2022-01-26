@@ -33,11 +33,11 @@ class ExportCidRefsSpec extends AnyFreeSpec with Matchers {
             )
           ),
       ).map(_.toTransactionTree)
-      val exporting =
+      val scriptExport =
         Export.fromTransactionTrees(acs, trees, Map.empty, acsBatchSize = 10, setTime = false)
-      exporting.cidRefs shouldBe empty
-      exporting.cidMap shouldBe empty
-      exporting.unknownCids shouldBe empty
+      scriptExport.cidRefs shouldBe empty
+      scriptExport.cidMap shouldBe empty
+      scriptExport.unknownCids shouldBe empty
     }
     "referenced" in {
       val acs = TestData
@@ -72,19 +72,19 @@ class ExportCidRefsSpec extends AnyFreeSpec with Matchers {
             )
           ),
       ).map(_.toTransactionTree)
-      val exporting =
+      val scriptExport =
         Export.fromTransactionTrees(acs, trees, Map.empty, acsBatchSize = 10, setTime = false)
-      exporting.cidRefs should contain only (
+      scriptExport.cidRefs should contain only (
         ContractId("acs1"),
         ContractId("acs2"),
         ContractId("tree1"),
       )
-      exporting.cidMap should contain only (
+      scriptExport.cidMap should contain only (
         ContractId("acs1") -> "template_0_0",
         ContractId("acs2") -> "template_0_1",
         ContractId("tree1") -> "template_1_0",
       )
-      exporting.unknownCids shouldBe empty
+      scriptExport.unknownCids shouldBe empty
     }
   }
   "unknown" in {
@@ -113,10 +113,10 @@ class ExportCidRefsSpec extends AnyFreeSpec with Matchers {
           )
         )
     ).map(_.toTransactionTree)
-    val exporting =
+    val scriptExport =
       Export.fromTransactionTrees(acs, trees, Map.empty, acsBatchSize = 10, setTime = false)
-    exporting.cidRefs should contain only (ContractId("un1"), ContractId("un2"))
-    exporting.cidMap shouldBe empty
-    exporting.unknownCids should contain only (ContractId("un1"), ContractId("un2"))
+    scriptExport.cidRefs should contain only (ContractId("un1"), ContractId("un2"))
+    scriptExport.cidMap shouldBe empty
+    scriptExport.unknownCids should contain only (ContractId("un1"), ContractId("un2"))
   }
 }

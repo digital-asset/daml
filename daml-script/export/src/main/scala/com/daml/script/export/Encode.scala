@@ -21,31 +21,31 @@ import spray.json._
 
 private[export] object Encode {
 
-  def encodeArgs(exporting: Export): JsObject = {
+  def encodeArgs(scriptExport: Export): JsObject = {
     JsObject(
-      "parties" -> JsObject(exporting.partyMap.keys.map { case Party(party) =>
+      "parties" -> JsObject(scriptExport.partyMap.keys.map { case Party(party) =>
         party -> JsString(party)
       }.toMap),
-      "contracts" -> JsObject(exporting.unknownCids.map { case ContractId(c) =>
+      "contracts" -> JsObject(scriptExport.unknownCids.map { case ContractId(c) =>
         c -> JsString(c)
       }.toMap),
     )
   }
 
-  def encodeExport(exporting: Export): Doc = {
+  def encodeExport(scriptExport: Export): Doc = {
     Doc.intercalate(
       Doc.line + Doc.hardLine,
       Seq(
-        encodeModuleHeader(exporting.moduleRefs),
+        encodeModuleHeader(scriptExport.moduleRefs),
         encodePartyType(),
         encodeLookupParty(),
-        encodeAllocateParties(exporting.partyMap),
+        encodeAllocateParties(scriptExport.partyMap),
         encodeContractsType(),
         encodeLookupContract(),
         encodeArgsType(),
         encodeTestExport(),
-        encodeExportActions(exporting),
-      ) ++ exporting.missingInstances.map { case (tplId, spec) =>
+        encodeExportActions(scriptExport),
+      ) ++ scriptExport.missingInstances.map { case (tplId, spec) =>
         encodeMissingInstances(tplId, spec)
       },
     )
@@ -84,18 +84,20 @@ private[export] object Encode {
     Doc.stack(Seq(header) ++ tplInstances ++ keyInstances ++ choiceInstances)
   }
 
-  private def encodeExportActions(exporting: Export): Doc = {
+  private def encodeExportActions(scriptExport: Export): Doc = {
     Doc.text("-- | The Daml ledger export.") /
       Doc.text("export : Args -> Script ()") /
       (Doc.text("export Args{parties, contracts} = do") /
         stackNonEmpty(
-          exporting.partyMap.map(Function.tupled(encodePartyBinding)).toSeq ++ exporting.actions
+          scriptExport.partyMap
+            .map(Function.tupled(encodePartyBinding))
+            .toSeq ++ scriptExport.actions
             .map(
               encodeAction(
-                exporting.partyMap,
-                exporting.cidMap,
-                exporting.cidRefs,
-                exporting.missingInstances.keySet,
+                scriptExport.partyMap,
+                scriptExport.cidMap,
+                scriptExport.cidRefs,
+                scriptExport.missingInstances.keySet,
                 _,
               )
             ) :+ Doc.text("pure ()")
