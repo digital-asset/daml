@@ -6,7 +6,6 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "kind_projector_plugin",
-    "silencer_plugin",
 )
 load("@scala_version//:index.bzl", "scala_major_version")
 
@@ -92,9 +91,6 @@ da_scala_test_suite(
     data = [
         "//ledger/test-common/test-certificates",
     ],
-    plugins = [
-        silencer_plugin,
-    ],
     resources = ["src/test/resources/logback-test.xml"],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
@@ -103,17 +99,15 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_testkit",
         "@maven//:io_spray_spray_json",
         "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scala_lang_modules_scala_parallel_collections",
-    ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.parallel.CollectionConverters._",
     ],
     deps = [
         ":ledger-api-common",

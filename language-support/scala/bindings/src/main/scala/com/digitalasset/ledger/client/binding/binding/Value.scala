@@ -12,7 +12,6 @@ import scalaz.std.option._
 import scalaz.syntax.traverse._
 
 import scala.annotation.tailrec
-import scala.collection.compat._
 import scala.{specialized => sp}
 
 sealed trait DamlCodecs // always include `object DamlCodecs` in implicit search
@@ -118,7 +117,7 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
 
   private[this] def seqAlterTraverse[A, B, That](
       xs: Iterable[A]
-  )(f: A => Option[B])(implicit factory: Factory[B, That]): Option[That] = {
+  )(f: A => Option[B])(implicit factory: collection.Factory[B, That]): Option[That] = {
     val bs = factory.newBuilder
     val i = xs.iterator
     @tailrec def go(): Option[That] =

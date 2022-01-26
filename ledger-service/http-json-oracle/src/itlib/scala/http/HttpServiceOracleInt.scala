@@ -22,9 +22,9 @@ trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns with O
 
   protected[this] def jdbcConfig_ =
     HttpServiceOracleInt.defaultJdbcConfig(
-      oracleJdbcUrl,
-      oracleUser,
-      oraclePwd,
+      oracleJdbcUrlWithoutCredentials,
+      oracleUserName,
+      oracleUserPwd,
       disableContractPayloadIndexing = disableContractPayloadIndexing,
     )
 }
@@ -44,7 +44,7 @@ object HttpServiceOracleInt {
       tablePrefix = "some_nice_prefix_",
       poolSize = ConnectionPool.PoolSize.Integration,
     ),
-    dbStartupMode = DbStartupMode.CreateOnly,
+    startMode = DbStartupMode.CreateOnly,
     backendSpecificConf =
       if (disableContractPayloadIndexing) Map(DisableContractPayloadIndexing -> "true")
       else Map.empty,

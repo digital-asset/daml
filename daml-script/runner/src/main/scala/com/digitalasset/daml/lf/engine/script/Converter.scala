@@ -667,9 +667,15 @@ object Converter {
     Right(
       record(
         scriptIds.damlScript("User"),
-        ("id", SText(user.id)),
+        ("id", fromUserId(scriptIds, user.id)),
         ("primaryParty", SOptional(user.primaryParty.map(SParty(_)))),
       )
+    )
+
+  def fromUserId(scriptIds: ScriptIds, userId: UserId): SValue =
+    record(
+      scriptIds.damlScript("UserId"),
+      ("userName", SText(userId)),
     )
 
   def toUser(v: SValue): Either[String, User] =
@@ -683,9 +689,14 @@ object Converter {
     }
 
   def toUserId(v: SValue): Either[String, UserId] =
-    // TODO https://github.com/digital-asset/daml/issues/11997
-    // Produce a sensible error for invalid user ids.
-    toText(v).flatMap(UserId.fromString(_))
+    v match {
+      case SRecord(_, _, vals) if vals.size == 1 =>
+        for {
+          userName <- toText(vals.get(0))
+          userId <- UserId.fromString(userName)
+        } yield userId
+      case _ => Left(s"Expected UserId but got $v")
+    }
 
   def fromUserRight(
       scriptIds: ScriptIds,
@@ -747,7 +758,6 @@ object Converter {
       valueTranslator =
         new preprocessing.ValueTranslator(
           compiledPackages.interface,
-          forbidV0ContractId = false,
           requireV1ContractIdSuffix = false,
         )
       sValue <- valueTranslator

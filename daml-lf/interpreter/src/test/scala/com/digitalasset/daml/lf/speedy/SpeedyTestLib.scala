@@ -8,13 +8,28 @@ package speedy
 import data.Ref.PackageId
 import data.Time
 import SResult._
+import com.daml.lf.language.{Ast, PackageInterface}
+import com.daml.lf.testing.parser.ParserParameters
+import com.daml.lf.validation.{Validation, ValidationError}
 import transaction.{GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value
 import scalautil.Statement.discard
 
 import scala.annotation.tailrec
 
-object SpeedyTestLib {
+private[speedy] object SpeedyTestLib {
+
+  sealed abstract class Error(msg: String) extends RuntimeException("SpeedyTestLib.run:" + msg)
+
+  final case object UnexpectedSResultNeedTime extends Error("unexpected SResultNeedTime")
+
+  final case class UnknownContract(contractId: Value.ContractId)
+      extends Error(s"unknown contract '$contractId'")
+
+  final case class UnknownPackage(packageId: PackageId)
+      extends Error(s"unknown package '$packageId'")
+
+  final case object UnexpectedSResultScenarioX extends Error("unexpected SResultScenarioX")
 
   @throws[SError.SErrorCrash]
   def run(
@@ -22,8 +37,7 @@ object SpeedyTestLib {
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
-      getKey: PartialFunction[GlobalKeyWithMaintainers, Option[Value.ContractId]] =
-        PartialFunction.empty,
+      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SValue] = {
     @tailrec
@@ -35,7 +49,7 @@ object SpeedyTestLib {
               callback(value)
               loop
             case None =>
-              throw new IllegalStateException("SpeedyTestLib.run: unexpected SResultNeedTime")
+              throw UnexpectedSResultNeedTime
           }
         case SResultNeedContract(contractId, _, _, callback) =>
           getContract.lift(contractId) match {
@@ -43,7 +57,7 @@ object SpeedyTestLib {
               callback(value)
               loop
             case None =>
-              throw new IllegalStateException(s"SpeedyTestLib.run: unknown contract '$contractId'")
+              throw UnknownContract(contractId)
           }
         case SResultNeedPackage(pkg, _, callback) =>
           getPkg.lift(pkg) match {
@@ -51,22 +65,17 @@ object SpeedyTestLib {
               callback(value)
               loop
             case None =>
-              throw new IllegalStateException(s"SpeedyTestLib.run: unknown package '$pkg'")
+              throw UnknownPackage(pkg)
           }
         case SResultNeedKey(key, _, callback) =>
-          getKey.lift(key) match {
-            case Some(value) =>
-              discard(callback(value))
-              loop
-            case None =>
-              throw new IllegalStateException("SpeedyTestLib.run: unexpected SResultNeedKey")
-          }
+          discard(callback(getKey.lift(key)))
+          loop
         case SResultFinalValue(v) =>
           Right(v)
         case SResultError(err) =>
           Left(err)
-        case otherwise =>
-          throw new IllegalStateException(s"SpeedyTestLib.run: unexpected ${otherwise.getClass}")
+        case _: SResultScenarioGetParty | _: SResultScenarioPassTime | _: SResultScenarioSubmit =>
+          throw UnexpectedSResultScenarioX
       }
     }
 
@@ -79,8 +88,7 @@ object SpeedyTestLib {
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
-      getKey: PartialFunction[GlobalKeyWithMaintainers, Option[Value.ContractId]] =
-        PartialFunction.empty,
+      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] =
     run(machine, getPkg, getContract, getKey, getTime) match {
@@ -96,5 +104,20 @@ object SpeedyTestLib {
       case Left(err) =>
         Left(err)
     }
+
+  @throws[ValidationError]
+  def typeAndCompile(pkgs: Map[PackageId, Ast.Package]): PureCompiledPackages = {
+    Validation.unsafeCheckPackages(PackageInterface(pkgs), pkgs)
+    PureCompiledPackages.assertBuild(
+      pkgs,
+      Compiler.Config.Dev.copy(stacktracing = Compiler.FullStackTrace),
+    )
+  }
+
+  @throws[ValidationError]
+  def typeAndCompile[X](pkg: Ast.Package)(implicit
+      parserParameter: ParserParameters[X]
+  ): PureCompiledPackages =
+    typeAndCompile(Map(parserParameter.defaultPackageId -> pkg))
 
 }

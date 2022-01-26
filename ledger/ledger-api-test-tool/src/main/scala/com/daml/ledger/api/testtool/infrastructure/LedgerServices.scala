@@ -7,6 +7,8 @@ import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrp
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
+import com.daml.ledger.api.v1.admin.metering_report_service.MeteringReportServiceGrpc
+import com.daml.ledger.api.v1.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportService
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc
@@ -65,6 +67,9 @@ private[infrastructure] final class LedgerServices(
 
   val partyManagement: PartyManagementService =
     PartyManagementServiceGrpc.stub(participant)
+
+  val meteringReport: MeteringReportService =
+    MeteringReportServiceGrpc.stub(participant)
 
   val packageManagement: PackageManagementService =
     PackageManagementServiceGrpc.stub(participant)

@@ -18,11 +18,14 @@ class FieldValidations private (errorFactories: ErrorFactories) {
 
   def matchLedgerId(
       ledgerId: LedgerId
-  )(received: LedgerId)(implicit
+  )(receivedO: Option[LedgerId])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, LedgerId] =
-    if (ledgerId == received) Right(received)
-    else Left(ledgerIdMismatch(ledgerId, received, definiteAnswer = Some(false)))
+  ): Either[StatusRuntimeException, Option[LedgerId]] = receivedO match {
+    case None => Right(None)
+    case Some(`ledgerId`) => Right(Some(ledgerId))
+    case Some(mismatching) =>
+      Left(ledgerIdMismatch(ledgerId, mismatching, definiteAnswer = Some(false)))
+  }
 
   def requireNonEmptyString(s: String, fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

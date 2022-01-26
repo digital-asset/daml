@@ -7,7 +7,6 @@ import com.daml.lf.data.Ref.Name
 import com.daml.lf.language.Ast._
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
-import scala.collection.compat.immutable.LazyList
 
 private[validation] object TypeSubst {
 

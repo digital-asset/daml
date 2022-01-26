@@ -16,6 +16,7 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarParser
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
@@ -134,7 +135,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     ),
   )
   protected final val someChoiceResult =
-    LfValue.ValueContractId(ContractId.V0.assertFromString("#1"))
+    LfValue.ValueContractId(ContractId.V1(Hash.hashPrivateKey("#1")))
 
   protected final def someContractKey(party: Party, value: String): LfValue.ValueRecord =
     LfValue.ValueRecord(

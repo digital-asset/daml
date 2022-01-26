@@ -4,10 +4,10 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import java.io.File
-import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
@@ -23,6 +23,7 @@ import com.daml.platform.configuration.{
   IndexConfiguration,
   SubmissionConfiguration,
 }
+import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
@@ -32,7 +33,6 @@ import scala.concurrent.duration.FiniteDuration
 final case class Config[Extra](
     mode: Mode,
     ledgerId: String,
-    archiveFiles: Seq[Path],
     commandConfig: CommandConfiguration,
     submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
@@ -54,13 +54,18 @@ final case class Config[Extra](
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
     allowedLanguageVersions: VersionRange[LanguageVersion],
-    enableMutableContractStateCache: Boolean,
     enableInMemoryFanOutForLedgerApi: Boolean,
     extra: Extra,
     enableSelfServiceErrorCodes: Boolean,
+    userManagementConfig: UserManagementConfig,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
+
+  def withUserManagementConfig(
+      modify: UserManagementConfig => UserManagementConfig
+  ): Config[Extra] =
+    copy(userManagementConfig = modify(userManagementConfig))
 }
 
 object Config {
@@ -72,7 +77,6 @@ object Config {
     Config(
       mode = Mode.Run,
       ledgerId = UUID.randomUUID().toString,
-      archiveFiles = Vector.empty,
       commandConfig = CommandConfiguration.default,
       submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
@@ -93,11 +97,11 @@ object Config {
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
       allowedLanguageVersions = LanguageVersion.StableVersions,
-      enableMutableContractStateCache = false,
       enableInMemoryFanOutForLedgerApi = false,
       maxDeduplicationDuration = None,
       extra = extra,
       enableSelfServiceErrorCodes = true,
+      userManagementConfig = UserManagementConfig.default(enabled = false),
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
@@ -156,14 +160,6 @@ object Config {
                 })
               )
           }
-
-        arg[File]("<archive>...")
-          .optional()
-          .unbounded()
-          .text(
-            "DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default."
-          )
-          .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
 
         help("help").text("Print this help page.")
 
@@ -617,35 +613,26 @@ object Config {
             "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
           )
 
-        // TODO append-only: remove after removing support for the current (mutating) schema
+        // TODO append-only: remove
         opt[Unit]("index-append-only-schema")
           .optional()
           .text("Legacy flag with no effect")
           .action((_, config) => config)
 
+        // TODO remove
         opt[Unit]("mutable-contract-state-cache")
           .optional()
           .hidden()
-          .text(
-            "Contract state cache for command execution. Must be enabled in conjunction with index-append-only-schema."
-          )
-          .action((_, config) => config.copy(enableMutableContractStateCache = true))
+          .text("Legacy flag with no effect")
+          .action((_, config) => config)
 
         opt[Unit]("buffered-ledger-api-streams-unsafe")
           .optional()
           .hidden()
           .text(
-            "Experimental buffer for Ledger API streaming queries. Must be enabled in conjunction with index-append-only-schema and mutable-contract-state-cache. Should not be used in production."
+            "Experimental buffer for Ledger API streaming queries. Should not be used in production."
           )
           .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
-
-        checkConfig(config =>
-          if (config.enableInMemoryFanOutForLedgerApi && !config.enableMutableContractStateCache)
-            failure(
-              "buffered-ledger-api-streams-unsafe must be enabled in conjunction with mutable-contract-state-cache."
-            )
-          else success
-        )
 
         opt[Unit]("use-pre-1.18-error-codes")
           .optional()
@@ -653,6 +640,36 @@ object Config {
             "Enables gRPC error code compatibility mode to the pre-1.18 behaviour. This option is deprecated and will be removed in a future release."
           )
           .action((_, config: Config[Extra]) => config.copy(enableSelfServiceErrorCodes = false))
+
+        opt[Boolean]("enable-user-management")
+          .optional()
+          .text(
+            "Whether to enable participant user management."
+          )
+          .action((enabled, config: Config[Extra]) =>
+            config.withUserManagementConfig(_.copy(enabled = enabled))
+          )
+
+        opt[Int]("user-management-cache-expiry")
+          .optional()
+          .text(
+            s"Defaults to ${UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds} seconds. " +
+              // TODO participant user management: Update max delay to 2x the configured value when made use of in throttled stream authorization.
+              "Determines the maximum delay for propagating user management state changes."
+          )
+          .action((value, config: Config[Extra]) =>
+            config.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = value))
+          )
+
+        opt[Int]("user-management-max-cache-size")
+          .optional()
+          .text(
+            s"Defaults to ${UserManagementConfig.DefaultMaximumCacheSize} entries. " +
+              "Determines the maximum in-memory cache size for user management state."
+          )
+          .action((value, config: Config[Extra]) =>
+            config.withUserManagementConfig(_.copy(maximumCacheSize = value))
+          )
       }
     extraOptions(parser)
     parser

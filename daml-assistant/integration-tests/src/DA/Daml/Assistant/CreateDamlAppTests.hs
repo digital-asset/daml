@@ -78,7 +78,7 @@ tests =
         -- First test the base application (without the user-added feature).
         withCurrentDirectory cdaDir $ do
           step "Build DAML model for base application"
-          callCommandSilent "daml build"
+          callCommandSilent "daml build --ghc-option=-Werror"
           step "Run JavaScript codegen"
           callCommandSilent $ "daml codegen js -o ui/daml.js .daml/dist/" <> projectName <> "-0.1.0.dar"
           -- We patch all package.json files to point to local files for our TypeScript libraries.
@@ -114,7 +114,7 @@ tests =
           forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
             assertFileExists ("ui" </> "src" </> "components" </> messageComponent <.> "tsx")
           step "Build the new DAML model"
-          callCommandSilent "daml build"
+          callCommandSilent "daml build --ghc-option=-Werror"
           step "Run JavaScript codegen for new DAML model"
           callCommandSilent $ "daml codegen js -o ui/daml.js .daml/dist/" <> projectName <> "-0.1.0.dar"
           genFiles <- listFilesRecursive "ui/daml.js"

@@ -34,7 +34,6 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, OneAnd, OptionT, Show, \/, \/-}
 import spray.json.JsValue
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import scalaz.std.scalaFuture._
@@ -320,7 +319,6 @@ class ContractsService(
             metrics: Metrics,
         ): Future[Option[domain.ActiveContract[LfV]]] = {
           import ctx.{jwt, parties, templateIds => otemplateId, ledgerId}
-          import scalaz.Scalaz._
           val dbQueried = for {
             templateId <- OptionT(Future.successful(otemplateId))
             resolved <- OptionT(

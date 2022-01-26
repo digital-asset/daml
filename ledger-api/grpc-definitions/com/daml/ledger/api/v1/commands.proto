@@ -19,7 +19,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 message Commands {
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 
   // Identifier of the on-ledger workflow that this command is a part of.
@@ -73,7 +73,7 @@ message Commands {
     // ``ledger_configuration_service.proto``).
     google.protobuf.Duration deduplication_duration = 15;
 
-    // Specifies the start of the deduplication period by a completion stream offset.
+    // Specifies the start of the deduplication period by a completion stream offset (exclusive).
     // Must be a valid LedgerString (as described in ``ledger_offset.proto``).
     string deduplication_offset = 16;
   }

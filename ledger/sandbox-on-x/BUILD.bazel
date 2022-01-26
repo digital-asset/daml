@@ -18,7 +18,6 @@ da_scala_library(
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scala_lang_modules_scala_java8_compat",
     ],
     tags = ["maven_coordinates=com.daml:sandbox-on-x:__VERSION__"],
     visibility = [
@@ -26,13 +25,14 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
-        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
+        "//ledger-service/jwt",
         "//ledger/caching",
+        "//ledger/cli-opts",
         "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
@@ -48,15 +48,19 @@ da_scala_library(
         "//ledger/participant-state-metrics",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
+        "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
+        "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "@maven//:com_auth0_java_jwt",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -77,20 +81,29 @@ da_scala_test_suite(
         ":sandbox-on-x",
         "//daml-lf/data",
         "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "//language-support/scala/bindings",
+        "//ledger/error",
+        "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
+        "//ledger/metrics",
+        "//ledger/participant-integration-api",
         "//ledger/participant-state",
+        "//ledger/participant-state-index",
+        "//ledger/participant-state-metrics",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
     ],
 )
 
 da_scala_library(
-    name = "sandbox-on-x-app",
+    name = "sandbox-on-x-app-lib",
     srcs = glob(["src/app/scala/**/*.scala"]),
     resources = glob(["src/app/resources/**/*"]),
     scala_deps = [
@@ -108,6 +121,11 @@ da_scala_library(
 da_scala_binary(
     name = "app",
     main_class = "com.daml.ledger.sandbox.Main",
+    tags = [
+        "fat_jar",
+        "maven_coordinates=com.daml:sandbox-on-x-app-jar:__VERSION__",
+        "no_scala_version_suffix",
+    ],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -115,7 +133,7 @@ da_scala_binary(
         "@maven//:com_h2database_h2",
     ],
     deps = [
-        ":sandbox-on-x-app",
+        ":sandbox-on-x-app-lib",
     ],
 )
 
@@ -126,13 +144,9 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--verbose",
-        "--additional=ParticipantPruningIT",
-        "--additional=MultiPartySubmissionIT",
-        "--exclude=CommandDeduplicationIT",
         "--exclude=ClosedWorldIT",
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
@@ -141,8 +155,6 @@ conformance_test(
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
         "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
-        # Disable tests targeting only append-only schema functionality
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -153,26 +165,10 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
         "--enable-conflict-checking",
     ],
     test_tool_args = [
         "--verbose",
-        "--additional=CommandDeduplicationParallelIT",
-        "--additional=CommandDeduplicationPeriodValidationIT",
-        "--additional=CompletionDeduplicationInfoITCommandService",
-        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=ContractIdIT:Accept",
-        "--additional=ParticipantPruningIT",
-        "--additional=MultiPartySubmissionIT",
-        # Exclude offset command deduplication tests as
-        # Sandbox-on-X has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods.
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
-        # not enforced
-        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -183,23 +179,12 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
         "--enable-conflict-checking",
         "--static-time",
     ],
     test_tool_args = [
         "--verbose",
         "--static-time",
-        "--additional=ParticipantPruningIT",
-        "--additional=MultiPartySubmissionIT",
-        # Exclude offset command deduplication tests as
-        # Sandbox-on-X has support only for participant side deduplication,
-        # which in turn only has support for durations as deduplication periods.
-        "--exclude=CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateUsingOffsets",
-        # not enforced
-        "--exclude=CommandDeduplicationPeriodValidationIT:DeduplicationDurationExceedsMaxDeduplicationDuration",
-        # Disable tests targeting only multi-participant setups
-        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -210,7 +195,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
-        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--verbose",

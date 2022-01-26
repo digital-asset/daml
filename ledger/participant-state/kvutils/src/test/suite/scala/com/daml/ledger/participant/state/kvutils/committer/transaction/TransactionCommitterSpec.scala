@@ -35,10 +35,8 @@ import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
-@nowarn("msg=deprecated")
 class TransactionCommitterSpec
     extends AnyWordSpec
     with Matchers

@@ -30,7 +30,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_akka_akka_parsing",
         "@maven//:io_spray_spray_json",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
     ],
@@ -69,7 +68,6 @@ da_scala_test(
     deps = [
         ":script-runner-lib",
         "//daml-lf/data",
-        "//daml-lf/scenario-interpreter",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
     ],

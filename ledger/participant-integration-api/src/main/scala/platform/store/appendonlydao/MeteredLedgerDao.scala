@@ -44,11 +44,6 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerEnd] =
     Timed.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupLedgerEnd())
 
-  override def lookupInitialLedgerEnd()(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Offset]] =
-    Timed.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupInitialLedgerEnd())
-
   override def transactionsReader: LedgerDaoTransactionsReader = ledgerDao.transactionsReader
 
   override def contractsReader: LedgerDaoContractsReader = ledgerDao.contractsReader
@@ -170,9 +165,6 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       participantId: ParticipantId,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     ledgerDao.initialize(ledgerId, participantId)
-
-  override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
-    ledgerDao.reset()
 
   override def storePartyEntry(
       offset: Offset,

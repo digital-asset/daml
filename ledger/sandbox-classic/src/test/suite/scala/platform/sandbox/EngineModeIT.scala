@@ -52,7 +52,6 @@ class EngineModeIT
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = ledger.client.configuration.LedgerIdRequirement.none,
       commandClient = ledger.client.configuration.CommandClientConfiguration.default,
-      sslContext = None,
       token = None,
     )
 
@@ -115,7 +114,9 @@ class EngineModeIT
         DefaultConfig.copy(
           port = Port.Dynamic,
           engineMode = mode,
-          seeding = Some(Seeding.Weak),
+          seeding = Seeding.Weak,
+          // Ensure separate DBs per test
+          jdbcUrl = Some(s"jdbc:h2:mem:${UUID.randomUUID().toString};db_close_delay=-1"),
         )
       )
 

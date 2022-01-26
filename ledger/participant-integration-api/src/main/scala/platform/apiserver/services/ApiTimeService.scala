@@ -25,6 +25,7 @@ import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations
 import com.google.protobuf.empty.Empty
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.syntax.tag._
+import com.daml.ledger.api.domain.optionalLedgerId
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
@@ -60,11 +61,13 @@ private[apiserver] final class ApiTimeService private (
       request: GetTimeRequest
   ): Source[GetTimeResponse, NotUsed] = {
     val validated =
-      matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
     validated.fold(
       t => Source.failed(ValidationLogger.logFailure(request, t)),
       { ledgerId =>
-        logger.info(s"Received request for time with ledger ID $ledgerId")
+        logger.info(
+          s"Received request for time with ledger ID ${ledgerId.getOrElse("<empty-ledger-id>")}"
+        )
         dispatcher
           .subscribe()
           .map(_ => backend.getCurrentTime)
@@ -102,7 +105,7 @@ private[apiserver] final class ApiTimeService private (
     }
 
     val result = for {
-      _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      _ <- matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       expectedTime <- fieldValidations
         .requirePresence(request.currentTime, "current_time")
         .map(toInstant)

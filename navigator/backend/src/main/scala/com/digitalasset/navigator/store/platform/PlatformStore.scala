@@ -20,6 +20,7 @@ import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -305,7 +306,7 @@ class PlatformStore(
     val maxCommandsInFlight = 10
     val maxParallelSubmissions = 10
 
-    val configuration = LedgerClientConfiguration(
+    val clientConfig = LedgerClientConfiguration(
       applicationId,
       LedgerIdRequirement.none,
       CommandClientConfiguration(
@@ -313,13 +314,14 @@ class PlatformStore(
         maxParallelSubmissions,
         Duration.ofSeconds(30),
       ),
-      sslContext,
       token,
     )
 
+    val channelConfig = LedgerClientChannelConfiguration(sslContext)
+
     val result =
       RetryHelper.retry(retryMaxAttempts, retryDelay)(RetryHelper.failFastOnPermissionDenied)(
-        tryConnect(configuration)
+        tryConnect(clientConfig, channelConfig)
       )
 
     result onComplete {
@@ -337,9 +339,12 @@ class PlatformStore(
     }
   }
 
-  private def tryConnect(configuration: LedgerClientConfiguration): Future[ConnectionResult] = {
+  private def tryConnect(
+      clientConfig: LedgerClientConfiguration,
+      channelConfig: LedgerClientChannelConfiguration,
+  ): Future[ConnectionResult] = {
 
-    if (configuration.sslContext.isDefined) {
+    if (channelConfig.sslContext.isDefined) {
       log.info("Connecting to {}:{}, using TLS", platformHost, platformPort)
     } else {
       log.info("Connecting to {}:{}, using a plaintext connection", platformHost, platformPort)
@@ -349,7 +354,8 @@ class PlatformStore(
       ledgerClient <- LedgerClient.singleHost(
         platformHost,
         platformPort,
-        configuration.copy(maxInboundMessageSize = ledgerMaxInbound),
+        clientConfig,
+        channelConfig.copy(maxInboundMessageSize = ledgerMaxInbound),
       )
       staticTime <- getStaticTime(ledgerClient.channel, ledgerClient.ledgerId.unwrap)
       time <- getTimeProvider(staticTime)

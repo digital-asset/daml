@@ -169,6 +169,8 @@ jobs:
       value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
     - name: is_release
       value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - name: is_split_release
+      value: $[ dependencies.check_for_release.outputs['out.split_release_process'] ]
     - name: skip_tests
       value: $[ and(eq(variables.is_release, 'true'),
                        eq(variables['Build.SourceBranchName'], 'main')) ]
@@ -180,6 +182,16 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
+    - bash: |
+        set -euo pipefail
+
+        for f in $(find /d/a/SourceRootMapping -type f); do
+          echo "-----"
+          echo $f
+          echo "-----"
+          cat $f
+          echo "-----"
+        done
     - bash: |
         set -euo pipefail
         git checkout $(release_sha)
@@ -196,6 +208,7 @@ jobs:
         # and then splice that in via a template parameter.
         skip_tests: $(skip_tests)
         is_release: variables.is_release
+        is_split_release: $(is_split_release)
     - template: upload-bazel-metrics.yml
     - task: PublishBuildArtifacts@1
       condition: succeededOrFailed()
@@ -267,10 +280,8 @@ jobs:
         bazel test \
           --config=oracle \
           --test_strategy=exclusive \
-          //ledger-service/http-json-oracle/... \
-          //triggers/service:test-oracle \
-          //ledger/participant-integration-api:participant-integration-api-tests-oracle \
-          //ledger/ledger-on-sql:conformance-test-oracle
+          --test_tag_filters=+oracle \
+          //...
 
         oracle_logs=$(Build.StagingDirectory)/oracle-logs
         mkdir $oracle_logs
@@ -438,7 +449,7 @@ jobs:
                 setvar release_sha "$(added_line | awk '{print $1}')"
                 RELEASE_TAG="$(added_line | awk '{print $2}')"
                 setvar release_tag "$RELEASE_TAG"
-                if [ $(added_line | awk '{print $3}') == "SPLIT_RELEASE" ]; then
+                if [ "$(added_line | awk '{print $3}')" == "SPLIT_RELEASE" ]; then
                   setvar split_release_process true
                 else
                   setvar split_release_process false

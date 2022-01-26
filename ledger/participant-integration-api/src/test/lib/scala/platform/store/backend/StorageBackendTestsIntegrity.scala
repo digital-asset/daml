@@ -3,11 +3,11 @@
 
 package com.daml.platform.store.backend
 
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 private[backend] trait StorageBackendTestsIntegrity extends Matchers with StorageBackendSpec {
-  this: AsyncFlatSpec =>
+  this: AnyFlatSpec =>
 
   import StorageBackendTestValues._
 
@@ -15,59 +15,49 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
   it should "find duplicate event ids" in {
     val updates = Vector(
-      dtoCreate(offset(7), 7L, "#7"),
-      dtoCreate(offset(7), 7L, "#7"), // duplicate id
+      dtoCreate(offset(7), 7L, hashCid("#7")),
+      dtoCreate(offset(7), 7L, hashCid("#7")), // duplicate id
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(updates, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(7), 7L)
-      )
-      failure <- executeSql(backend.integrity.verifyIntegrity()).failed
-    } yield {
-      // Error message should contain the duplicate event sequential id
-      failure.getMessage should include("7")
-    }
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(7), 7L))
+    val failure = intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+
+    // Error message should contain the duplicate event sequential id
+    failure.getMessage should include("7")
   }
 
   it should "find non-consecutive event ids" in {
     val updates = Vector(
-      dtoCreate(offset(1), 1L, "#1"),
-      dtoCreate(offset(3), 3L, "#3"), // non-consecutive id
+      dtoCreate(offset(1), 1L, hashCid("#1")),
+      dtoCreate(offset(3), 3L, hashCid("#3")), // non-consecutive id
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(updates, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(3), 3L)
-      )
-      failure <- executeSql(backend.integrity.verifyIntegrity()).failed
-    } yield {
-      failure.getMessage should include("consecutive")
-    }
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(3), 3L))
+    val failure = intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+
+    failure.getMessage should include("consecutive")
+
   }
 
   it should "not find errors beyond the ledger end" in {
     val updates = Vector(
-      dtoCreate(offset(1), 1L, "#1"),
-      dtoCreate(offset(2), 2L, "#2"),
-      dtoCreate(offset(7), 7L, "#7"), // beyond the ledger end
-      dtoCreate(offset(7), 7L, "#7"), // duplicate id (beyond ledger end)
-      dtoCreate(offset(9), 9L, "#9"), // non-consecutive id (beyond ledger end)
+      dtoCreate(offset(1), 1L, hashCid("#1")),
+      dtoCreate(offset(2), 2L, hashCid("#2")),
+      dtoCreate(offset(7), 7L, hashCid("#7")), // beyond the ledger end
+      dtoCreate(offset(7), 7L, hashCid("#7")), // duplicate id (beyond ledger end)
+      dtoCreate(offset(9), 9L, hashCid("#9")), // non-consecutive id (beyond ledger end)
     )
 
-    for {
-      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
-      _ <- executeSql(ingest(updates, _))
-      _ <- executeSql(
-        updateLedgerEnd(offset(2), 2L)
-      )
-      _ <- executeSql(backend.integrity.verifyIntegrity())
-    } yield {
-      succeed
-    }
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(backend.integrity.verifyIntegrity())
+
+    // Succeeds if verifyIntegrity() doesn't throw
+    succeed
   }
 }

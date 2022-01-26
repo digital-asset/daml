@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
+import com.daml.ledger.api.testtool.infrastructure.Assertions.assertDefined
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.suites.CompletionDeduplicationInfoIT._
@@ -100,7 +101,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
       } yield completion
 
     override def assertCompletion(optCompletion: Option[Completion]): Unit = {
-      val completion = assertDefined(optCompletion)
+      val completion = assertDefined(optCompletion, "No completion has been produced")
       assert(completion.status.forall(_.code == Status.Code.OK.value()))
       assert(
         Ref.SubmissionId.fromString(completion.submissionId).isRight,
@@ -135,7 +136,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
       } yield completion
 
     override def assertCompletion(optCompletion: Option[Completion]): Unit = {
-      val completion = assertDefined(optCompletion)
+      val completion = assertDefined(optCompletion, "No completion has been produced")
       assert(completion.status.forall(_.code == Status.Code.OK.value()))
     }
   }
@@ -148,14 +149,14 @@ private[testtool] object CompletionDeduplicationInfoIT {
     WithTimeout(5.seconds)(
       ledger
         .findCompletion(ledger.completionStreamRequest(offset)(party))(_ => true)
-        .map(_.map(_._2))
+        .map(_.map(_.completion))
     )
 
   private def assertSubmissionIdIsPreserved(
       optCompletion: Option[Completion],
       requestedSubmissionId: Ref.SubmissionId,
   ): Unit = {
-    val submissionIdCompletion = assertDefined(optCompletion)
+    val submissionIdCompletion = assertDefined(optCompletion, "No completion has been produced")
     val actualSubmissionId = submissionIdCompletion.submissionId
     assert(submissionIdCompletion.status.forall(_.code == Status.Code.OK.value()))
     assert(
@@ -168,7 +169,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
   private def assertDeduplicationPeriodIsReported(
       optCompletion: Option[Completion]
   ): Unit = {
-    val completion = assertDefined(optCompletion)
+    val completion = assertDefined(optCompletion, "No completion has been produced")
     assert(completion.status.forall(_.code == Status.Code.OK.value()))
     assert(completion.deduplicationPeriod.isDefined, "The deduplication period was not reported")
   }
@@ -178,7 +179,7 @@ private[testtool] object CompletionDeduplicationInfoIT {
       optCompletion: Option[Completion],
   ): Unit = {
     val expectedApplicationId = requestedApplicationId
-    assertDefined(optCompletion)
+    assertDefined(optCompletion, "No completion has been produced")
     val applicationIdCompletion = optCompletion.get
     assert(applicationIdCompletion.status.forall(_.code == Status.Code.OK.value()))
     val actualApplicationId = applicationIdCompletion.applicationId
@@ -187,11 +188,6 @@ private[testtool] object CompletionDeduplicationInfoIT {
       "Wrong application ID in completion, " +
         s"expected: $expectedApplicationId, actual: $actualApplicationId",
     )
-  }
-
-  private def assertDefined(optCompletion: Option[Completion]): Completion = {
-    assert(optCompletion.isDefined, "No completion has been produced")
-    optCompletion.get
   }
 
   private def simpleCreate(party: Primitive.Party): Command = Dummy(party).create.command

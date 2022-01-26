@@ -34,7 +34,6 @@ import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 
-import scala.collection.compat._
 import scala.collection.immutable
 
 /** V1 was missing divulgence info

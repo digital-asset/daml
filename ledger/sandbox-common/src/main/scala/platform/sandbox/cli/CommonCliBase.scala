@@ -5,6 +5,7 @@ package com.daml.platform.sandbox.cli
 
 import java.io.File
 import java.time.Duration
+
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.AuthServiceJWT
@@ -19,6 +20,7 @@ import com.daml.platform.configuration.Readers._
 import com.daml.platform.sandbox.cli.CommonCliBase._
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scalaz.syntax.tag._
@@ -391,6 +393,36 @@ class CommonCliBase(name: LedgerName) {
         )
         .action((_, config: SandboxConfig) => config.copy(enableSelfServiceErrorCodes = false))
 
+      opt[Boolean]("enable-user-management")
+        .optional()
+        .text(
+          "Whether to enable participant user management."
+        )
+        .action((enabled, config: SandboxConfig) =>
+          config.withUserManagementConfig(_.copy(enabled = enabled))
+        )
+
+      opt[Int]("user-management-cache-expiry")
+        .optional()
+        .text(
+          s"Defaults to ${UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds} seconds. " +
+            // TODO participant user management: Update max delay to 2x the configured value when made use of in throttled stream authorization.
+            "Determines the maximum delay for propagating user management state changes."
+        )
+        .action((value, config: SandboxConfig) =>
+          config.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = value))
+        )
+
+      opt[Int]("user-management-max-cache-size")
+        .optional()
+        .text(
+          s"Defaults to ${UserManagementConfig.DefaultMaximumCacheSize} entries. " +
+            "Determines the maximum in-memory cache size for user management state."
+        )
+        .action((value, config: SandboxConfig) =>
+          config.withUserManagementConfig(_.copy(maximumCacheSize = value))
+        )
+
       com.daml.cliopts.Metrics.metricsReporterParse(this)(
         (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),
         (setter, config) =>
@@ -410,13 +442,12 @@ class CommonCliBase(name: LedgerName) {
 
   def withContractIdSeeding(
       defaultConfig: SandboxConfig,
-      seedingModes: Option[Seeding]*
+      seedingModes: Seeding*
   ): CommonCliBase = {
     val seedingModesMap =
-      seedingModes.map(mode => (mode.map(_.name).getOrElse(Seeding.NoSeedingModeName), mode)).toMap
+      seedingModes.map(mode => (mode.name, mode)).toMap
     val allSeedingModeNames = seedingModesMap.keys.mkString(", ")
-    val defaultSeedingModeName =
-      defaultConfig.seeding.map(_.name).getOrElse(Seeding.NoSeedingModeName)
+    val defaultSeedingModeName = defaultConfig.seeding.name
     parser
       .opt[String]("contract-id-seeding")
       .optional()

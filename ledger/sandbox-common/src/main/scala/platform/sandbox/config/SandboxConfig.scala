@@ -19,10 +19,12 @@ import com.daml.platform.configuration.{
 }
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
-
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
+
+import com.daml.platform.usermanagement.UserManagementConfig
+
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 /** Defines the basic configuration for running sandbox
@@ -42,6 +44,7 @@ final case class SandboxConfig(
     commandConfig: CommandConfiguration,
     submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
+    // TODO sandbox: Remove CLI option
     scenario: Option[String],
     implicitPartyAllocation: Boolean,
     maxInboundMessageSize: Int,
@@ -51,7 +54,7 @@ final case class SandboxConfig(
     eagerPackageLoading: Boolean,
     logLevel: Option[Level],
     authService: Option[AuthService],
-    seeding: Option[Seeding],
+    seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: FiniteDuration,
     maxParallelSubmissions: Int, // only used by Sandbox Classic
@@ -71,10 +74,16 @@ final case class SandboxConfig(
     sqlStartMode: Option[PostgresStartupMode],
     enableCompression: Boolean,
     enableSelfServiceErrorCodes: Boolean,
+    userManagementConfig: UserManagementConfig,
 ) {
 
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): SandboxConfig =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
+
+  def withUserManagementConfig(
+      modify: UserManagementConfig => UserManagementConfig
+  ): SandboxConfig =
+    copy(userManagementConfig = modify(userManagementConfig))
 
   lazy val initialLedgerConfiguration: InitialLedgerConfiguration =
     InitialLedgerConfiguration(
@@ -148,7 +157,7 @@ object SandboxConfig {
       eagerPackageLoading = false,
       logLevel = None, // the default is in logback.xml
       authService = None,
-      seeding = Some(Seeding.Strong),
+      seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = 10.seconds,
       maxParallelSubmissions = 512,
@@ -168,6 +177,7 @@ object SandboxConfig {
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableCompression = false,
       enableSelfServiceErrorCodes = true,
+      userManagementConfig = UserManagementConfig.default(true),
     )
 
   sealed abstract class EngineMode extends Product with Serializable

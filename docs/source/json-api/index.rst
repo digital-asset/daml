@@ -63,11 +63,127 @@ The most basic way to start the JSON API is with the command:
 
 .. code-block:: shell
 
-    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
+    daml json-api --config json-api-app.conf
+
+where a corresponding minimal config file is
+
+.. code-block:: none
+
+    {
+      server {
+        address = "localhost"
+        port = 7575
+      }
+      ledger-api {
+        address = "localhost"
+        port = 6865
+      }
+    }
 
 This will start the JSON API on port 7575 and connect it to a ledger running on ``localhost:6865``.
 
 .. note:: Your JSON API service should never be exposed to the internet. When running in production the JSON API should be behind a `reverse proxy, such as via NGINX <https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/>`_.
+
+The full set of configurable options that can be specified via config file is listed below
+
+.. code-block:: none
+
+    {
+      server {
+        //IP address that HTTP JSON API service listens on. Defaults to 127.0.0.1.
+        address = "127.0.0.1"
+        //HTTP JSON API service port number. A port number of 0 will let the system pick an ephemeral port.
+        port = 7575
+      }
+      ledger-api {
+        address = "127.0.0.1"
+        port = 6865
+        tls {
+            enabled = "true"
+            // the certificate to be used by the server
+            cert-chain-file = "cert-chain.crt"
+            // private key of the server
+            private-key-file = "pvt-key.pem"
+            // trust collection, which means that all client certificates will be verified using the trusted
+            // certificates in this store. if omitted, the JVM default trust store is used.
+            trust-collection-file = "root-ca.crt"
+        }
+      }
+
+      query-store {
+        base-config {
+          user = "postgres"
+          password = "password"
+          driver = "org.postgresql.Driver"
+          url = "jdbc:postgresql://localhost:5432/test?&ssl=true"
+
+          // prefix for table names to avoid collisions, empty by default
+          table-prefix = "foo"
+
+          // max pool size for the database connection pool
+          pool-size = 12
+          //specifies the min idle connections for database connection pool.
+          min-idle = 4
+          //specifies the idle timeout for the database connection pool.
+          idle-timeout = 12s
+          //specifies the connection timeout for database connection pool.
+          connection-timeout = 90s
+        }
+        // option setting how the schema should be handled.
+        // Valid options are start-only, create-only, create-if-needed-and-start and create-and-start
+        start-mode = "start-only"
+      }
+
+
+
+      // Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
+      package-reload-interval = 5s
+      //Optional max inbound message size in bytes. Defaults to 4194304.
+      max-inbound-message-size = 4194304
+      //Optional max inbound message size in bytes used for uploading and downloading package updates. Defaults to the `max-inbound-message-size` setting.
+      package-max-inbound-message-size = 4194304
+      //Optional max cache size in entries for storing surrogate template id mappings. Defaults to None
+      max-template-id-cache-entries = 1000
+      //health check timeout in seconds
+      health-timeout-seconds = 5
+
+      //Optional websocket configuration parameters
+      websocket-config {
+        //Maximum websocket session duration
+        max-duration = 120m
+        //Server-side heartbeat interval duration
+        heartbeat-period = 5s
+        //akka stream throttle-mode one of either `shaping` or `enforcing`
+        mode = "shaping"
+      }
+
+      metrics {
+        //Start a metrics reporter. Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]".
+        reporter = "console"
+        //Set metric reporting interval , examples : 1s, 30s, 1m, 1h
+        reporting-interval = 30s
+      }
+
+      // DEV MODE ONLY (not recommended for production)
+      // Allow connections without a reverse proxy providing HTTPS.
+      allow-insecure-tokens = false
+      // Optional static content configuration string. Contains comma-separated key-value pairs, where:
+      // prefix -- URL prefix,
+      // directory -- local directory that will be mapped to the URL prefix.
+      // Example: "prefix=static,directory=./static-content"
+      static-content {
+        prefix = "static"
+        directory = "static-content-dir"
+      }
+    }
+
+
+.. note:: You can also start JSON API using CLI args (example below) however this is now deprecated
+
+.. code-block:: shell
+
+    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
+
 
 Standalone JAR
 --------------
@@ -84,7 +200,7 @@ start the standalone JAR, you can use the following command:
 
 .. code-block:: shell
 
-    java -jar http-json-1.5.0.jar --ledger-host localhost --ledger-port 6865 --http-port 7575
+    java -jar http-json-1.5.0.jar --config json-api-app.conf
 
 Replace the version number ``1.5.0`` by the version of the SDK you are
 using.
@@ -99,10 +215,37 @@ your query every time so it is generally not recommended to rely on
 this in production. Note that the PostgreSQL backend acts purely as a
 cache. It is safe to reinitialize the database at any time.
 
-To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` flag, an example of which is below.
+To enable the PostgreSQL backend you can add the ``query-store`` config block in your application config file
+
+.. code-block:: none
+
+    query-store {
+      base-config {
+        user = "postgres"
+        password = "password"
+        driver = "org.postgresql.Driver"
+        url = "jdbc:postgresql://localhost:5432/test?&ssl=true"
+
+        // prefix for table names to avoid collisions, empty by default
+        table-prefix = "foo"
+
+        // max pool size for the database connection pool
+        pool-size = 12
+        //specifies the min idle connections for database connection pool.
+        min-idle = 4
+        //specifies the idle timeout for the database connection pool.
+        idle-timeout = 12s
+        //specifies the connection timeout for database connection pool.
+        connection-timeout = 90s
+      }
+      // option setting how the schema should be handled.
+      // Valid options are start-only, create-only, create-if-needed-and-start and create-and-start
+      start-mode = "create-if-needed-and-start"
+    }
 
 .. note:: When you use the Query Store you'll want to use ``start-mode=create-if-needed-and-start`` so that all the necessary tables are created if they don't exist.
 
+you can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), an example of which is below.
 
 .. code-block:: shell
 
@@ -110,6 +253,8 @@ To enable the PostgreSQL backend you can use the ``--query-store-jdbc-config`` f
     --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,start-mode=create-if-needed-and-start"
 
 .. note:: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
+
+.. _json-api-access-tokens:
 
 Access Tokens
 =============
@@ -124,7 +269,7 @@ The JSON API essentially performs two separate tasks:
 Party-specific Access Tokens
 ----------------------------
 
-Party-specific requests, i.e., command submissions and queries, require a JWT with some additional restrictions compared to the format :doc:`described in the Token Payload section here </tools/sandbox>`. For command submissions, ``actAs`` must contain at least one party and ``readAs`` can contain 0 or more parties. Queries require at least one party in either ``actAs`` or ``readAs`` (note that before SDK 1.7.0, every request required exactly one party and before SDK 1.8.0 actAs was limited to exactly one party). In addition to that, the application id and ledger id are mandatory. HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
+Party-specific requests, i.e., command submissions and queries, require a JWT with some additional restrictions compared to general :ref:`Daml ledger access token formats <access-token-formats>`. For command submissions, ``actAs`` must contain at least one party and ``readAs`` can contain 0 or more parties. Queries require at least one party in either ``actAs`` or ``readAs`` (note that before SDK 1.7.0, every request required exactly one party and before SDK 1.8.0 actAs was limited to exactly one party). The application id and ledger id are mandatory. HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
 
 .. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it, and all data contained within the request, on to the Ledger API's AuthService which will then determine if the token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id and party so it requires that you use the JWT format documented below.
 

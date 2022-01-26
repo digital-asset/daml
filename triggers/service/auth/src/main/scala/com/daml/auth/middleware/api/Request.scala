@@ -13,7 +13,6 @@ import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import scalaz.{@@, Tag}
 import spray.json._
 
-import scala.collection.compat.immutable.LazyList
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent._
 import scala.util.Try

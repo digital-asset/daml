@@ -7,7 +7,6 @@ load(
     "da_scala_library",
     "da_scala_library_suite",
     "da_scala_test_suite",
-    "silencer_plugin",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -73,14 +72,9 @@ da_scala_binary(
         da_scala_library(
             name = "ledger-api-test-tool-%s-lib" % lf_version,
             srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala"]),
-            plugins = [
-                silencer_plugin,
-            ],
             scala_deps = [
                 "@maven//:com_typesafe_akka_akka_actor",
                 "@maven//:com_typesafe_akka_akka_stream",
-                "@maven//:org_scala_lang_modules_scala_collection_compat",
-                "@maven//:org_scala_lang_modules_scala_java8_compat",
                 "@maven//:org_scalameta_munit",
             ],
             visibility = ["//:__subpackages__"],
@@ -111,12 +105,8 @@ da_scala_binary(
         da_scala_library_suite(
             name = "ledger-api-test-tool-%s-test-suites" % lf_version,
             srcs = suites_sources(lf_version),
-            plugins = [
-                silencer_plugin,
-            ],
             scala_deps = [
                 "@maven//:com_chuusai_shapeless",
-                "@maven//:org_scala_lang_modules_scala_collection_compat",
             ],
             scaladoc = False,
             visibility = [
@@ -129,17 +119,19 @@ da_scala_binary(
                 "//ledger/error",
                 "//ledger/ledger-api-common",
                 "//ledger/ledger-resources",
-                "//libs-scala/resources",
-                "//libs-scala/resources-akka",
-                "//libs-scala/resources-grpc",
                 "//ledger/test-common:test-common-%s" % lf_version,
                 "//ledger/test-common:package_management-tests-%s.scala" % lf_version,
                 "//ledger/test-common:model-tests-%s.scala" % lf_version,
                 "//ledger/test-common:performance-tests-%s.scala" % lf_version,
                 "//ledger/test-common:semantic-tests-%s.scala" % lf_version,
                 "//ledger/test-common:dar-files-%s-lib" % lf_version,
+                "//libs-scala/contextualized-logging",
                 "//libs-scala/grpc-utils",
+                "//libs-scala/resources",
+                "//libs-scala/resources-akka",
+                "//libs-scala/resources-grpc",
                 "//libs-scala/timer-utils",
+                "@maven//:com_google_api_grpc_proto_google_common_protos",
                 "@maven//:io_grpc_grpc_api",
                 "@maven//:io_grpc_grpc_context",
                 "@maven//:io_grpc_grpc_netty",
@@ -163,14 +155,10 @@ da_scala_binary(
             name = "ledger-api-test-tool-%s" % lf_version,
             srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/*.scala"]),
             main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
-            plugins = [
-                silencer_plugin,
-            ],
             resources = [
                 "src/main/resources/logback.xml",
             ],
             scala_deps = [
-                "@maven//:org_scala_lang_modules_scala_collection_compat",
                 "@maven//:com_github_scopt_scopt",
             ],
             tags = [
@@ -256,14 +244,6 @@ conformance_test(
         "--additional=LotsOfPartiesIT",
         "--additional=TransactionScaleIT",
         "--additional=TLSOnePointThreeIT",
-        "--exclude=CommandDeduplicationIT",
-        # Makes sure that deprecated CLI options can still be used to make sure existing CI pipelines are not broken.
-        # This test should fail if any deprecated CLI option has any effect whatsoever -- they are preserved
-        # exclusively for backwards-compatibility.
-        # Deprecated CLI options will be eventually removed.
-        "--load-scale-factor=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
-        "--target-port=THIS_OPTION_IS_DEPRECATED_AND_HAS_NO_EFFECT",
-        "--all-tests",
     ],
 )
 

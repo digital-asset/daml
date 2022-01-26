@@ -20,6 +20,16 @@ private[h2] object H2Schema {
     ): Field[FROM, Option[Iterable[Int]], _] =
       IntArrayOptional(extractor)
 
+    override def bytea[FROM, _](
+        extractor: StringInterning => FROM => Array[Byte]
+    ): Field[FROM, Array[Byte], _] =
+      H2Bytea(extractor)
+
+    override def byteaOptional[FROM, _](
+        extractor: StringInterning => FROM => Option[Array[Byte]]
+    ): Field[FROM, Option[Array[Byte]], _] =
+      H2ByteaOptional(extractor)
+
     override def insert[FROM](tableName: String)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =

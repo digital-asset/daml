@@ -16,18 +16,17 @@ import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.auth.oauth2.api.{JsonProtocol => OAuthJsonProtocol, Response => OAuthResponse}
 import com.typesafe.scalalogging.StrictLogging
-import java.util.UUID
 
+import java.util.UUID
 import com.daml.auth.middleware.api.{Request, RequestStore, Response}
 import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.AuthServiceJWTCodec
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.ports.{Port, PortFiles}
 import scalaz.{-\/, \/-}
 import spray.json._
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
@@ -64,7 +63,17 @@ class Server(config: Config) extends StrictLogging {
   private def tokenProvidesClaims(accessToken: String, claims: Request.Claims): Boolean = {
     for {
       decodedJwt <- JwtDecoder.decode(Jwt(accessToken)).toOption
-      tokenPayload <- AuthServiceJWTCodec.readFromString(decodedJwt.payload).toOption
+      tokenPayload <- AuthServiceJWTCodec
+        .readFromString(decodedJwt.payload)
+        .map {
+          case _: StandardJWTPayload =>
+            throw new UnsupportedOperationException(
+              // TODO (i12388): make auth middlware work with user tokens
+              "auth-middleware: user access tokens are not yet supported (https://github.com/digital-asset/daml/issues/12388)."
+            )
+          case payload: CustomDamlJWTPayload => payload
+        }
+        .toOption
     } yield {
       (tokenPayload.admin || !claims.admin) &&
       claims.actAs.map(_.toString).toSet.subsetOf(tokenPayload.actAs.toSet) &&

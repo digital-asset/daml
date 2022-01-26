@@ -36,7 +36,6 @@ import com.daml.platform.store.backend.{
   DeduplicationStorageBackend,
   ParameterStorageBackend,
   ReadStorageBackend,
-  ResetStorageBackend,
 }
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.{
@@ -74,7 +73,6 @@ private class JdbcLedgerDao(
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
     deduplicationStorageBackend: DeduplicationStorageBackend,
-    resetStorageBackend: ResetStorageBackend,
     errorFactories: ErrorFactories,
     materializer: Materializer,
 ) extends LedgerDao {
@@ -104,18 +102,10 @@ private class JdbcLedgerDao(
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerEnd] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.getLedgerEnd)(
-        parameterStorageBackend.ledgerEndOrBeforeBegin
+        parameterStorageBackend.ledgerEnd
       )
 
   case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
-
-  override def lookupInitialLedgerEnd()(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Offset]] =
-    dbDispatcher
-      .executeSql(metrics.daml.index.db.getInitialLedgerEnd)(
-        parameterStorageBackend.ledgerEnd(_).map(_.lastOffset)
-      )
 
   override def initialize(
       ledgerId: LedgerId,
@@ -647,9 +637,6 @@ private class JdbcLedgerDao(
       }(servicesExecutionContext)
   }
 
-  override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.truncateAllTables)(resetStorageBackend.reset)
-
   private val translation: LfValueTranslation =
     new LfValueTranslation(
       cache = lfValueTranslationCache,
@@ -825,7 +812,6 @@ private[platform] object JdbcLedgerDao {
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
         dbSupport.storageBackendFactory.createDeduplicationStorageBackend,
-        dbSupport.storageBackendFactory.createResetStorageBackend,
         errorFactories,
         materializer = materializer,
       ),
@@ -873,7 +859,6 @@ private[platform] object JdbcLedgerDao {
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
         dbSupport.storageBackendFactory.createDeduplicationStorageBackend,
-        dbSupport.storageBackendFactory.createResetStorageBackend,
         errorFactories,
         materializer = materializer,
       ),
@@ -922,7 +907,6 @@ private[platform] object JdbcLedgerDao {
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
         dbSupport.storageBackendFactory.createDeduplicationStorageBackend,
-        dbSupport.storageBackendFactory.createResetStorageBackend,
         errorFactories,
         materializer,
       ),

@@ -33,17 +33,14 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "a8faef92f59a4f1428ed9a93c7c313a996466a66ad64c119fc49b5c7dea98c59"
 
-rules_haskell_version = "a7241fa64c7cd36462a1f6ac4c660d1247d5e07b"
-rules_haskell_sha256 = "9ca581c79dbda507da05ca4c3e958eb5865c9fbc7e393656cdcb8216b20d8821"
+rules_haskell_version = "156b091fc1b8d0736ad9f072cdc9abdadacbf57f"
+rules_haskell_sha256 = "e3fb9e6da187d0ef79f1e6240325092c011dd1c7db207cd3f3793806642bd2c4"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-    # This can be removed once the following upstream PR has been merged:
-    # https://github.com/tweag/rules_haskell/pull/1648
-    "@com_github_digital_asset_daml//bazel_tools:haskell-cabal-reproducible.patch",
 ]
 rules_nixpkgs_version = "81f61c4b5afcf50665b7073f7fce4c1755b4b9a3"
 rules_nixpkgs_sha256 = "33fd540d0283cf9956d0a5a640acb1430c81539a84069114beaf9640c96d221a"
@@ -61,8 +58,8 @@ buildifier_version = "4.0.0"
 buildifier_sha256 = "0d3ca4ed434958dda241fb129f77bd5ef0ce246250feed2d5a5470c6f29a77fa"
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
-rules_nodejs_version = "4.4.2"
-rules_nodejs_sha256 = "3aa6296f453ddc784e1377e0811a59e1e6807da364f44b27856e34f5042043fe"
+rules_nodejs_version = "4.6.1"
+rules_nodejs_sha256 = "d63ecec7192394f5cc4ad95a115f8a6c9de55c60d56c1f08da79c306355e4654"
 rules_jvm_external_version = "3.3"
 rules_jvm_external_sha256 = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
 rules_go_version = "0.29.0"
@@ -356,7 +353,7 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "ef767f4e45492aea7c89b796a549f8cce35c91e2836211b64be20f3dfb4e5309",
+            sha256 = "aad497893c2508b14b9ca05516a8a92c0750e5531d83300c84ee21e932038194",
             strip_prefix = "canton-community-1.0.0-SNAPSHOT",
-            urls = ["https://www.canton.io/releases/canton-community-20220110.tar.gz"],
+            urls = ["https://www.canton.io/releases/canton-community-20220124.tar.gz"],
         )

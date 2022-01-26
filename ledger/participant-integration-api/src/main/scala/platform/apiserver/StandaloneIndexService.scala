@@ -90,7 +90,6 @@ object StandaloneIndexService {
           enricher = valueEnricher,
           maxContractStateCacheSize = config.maxContractStateCacheSize,
           maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
-          enableMutableContractStateCache = config.enableMutableContractStateCache,
           maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
           enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
           enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,

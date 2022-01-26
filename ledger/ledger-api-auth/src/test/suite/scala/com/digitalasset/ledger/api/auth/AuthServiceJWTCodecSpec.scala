@@ -18,34 +18,23 @@ class AuthServiceJWTCodecSpec
     with ScalaCheckDrivenPropertyChecks {
 
   /** Serializes a [[AuthServiceJWTPayload]] to JSON, then parses it back to a AuthServiceJWTPayload */
-  private def serializeAndParse(value: SupportedJWTPayload): Try[SupportedJWTPayload] = {
-    import SupportedJWTCodec.JsonImplicits._
+  private def serializeAndParse(value: AuthServiceJWTPayload): Try[AuthServiceJWTPayload] = {
+    import AuthServiceJWTCodec.JsonImplicits._
 
     for {
       serialized <- Try(value.toJson.prettyPrint)
       json <- Try(serialized.parseJson)
-      parsed <- Try(json.convertTo[SupportedJWTPayload])
+      parsed <- Try(json.convertTo[AuthServiceJWTPayload])
     } yield parsed
   }
 
-  /** Parses a string as a [[CustomDamlJWTPayload]] */
-  private def parseCustomToken(serialized: String): Try[CustomDamlJWTPayload] = {
-    import SupportedJWTCodec.JsonImplicits._
+  /** Parses a [[AuthServiceJWTPayload]] */
+  private def parse(serialized: String): Try[AuthServiceJWTPayload] = {
+    import AuthServiceJWTCodec.JsonImplicits._
 
     for {
       json <- Try(serialized.parseJson)
-      // FIXME: understand how to avoid unwrapping and re-wrapping the `parsed` here
-      CustomDamlJWTPayload(parsed) <- Try(json.convertTo[SupportedJWTPayload])
-    } yield CustomDamlJWTPayload(parsed)
-  }
-
-  /** Parses a [[SupportedJWTPayload]] */
-  private def parse(serialized: String): Try[SupportedJWTPayload] = {
-    import SupportedJWTCodec.JsonImplicits._
-
-    for {
-      json <- Try(serialized.parseJson)
-      parsed <- Try(json.convertTo[SupportedJWTPayload])
+      parsed <- Try(json.convertTo[AuthServiceJWTPayload])
     } yield parsed
   }
 
@@ -64,28 +53,16 @@ class AuthServiceJWTCodecSpec
     "serializing and parsing a value" should {
 
       "work for arbitrary custom Daml token values" in forAll(
-        Gen.resultOf(AuthServiceJWTPayload),
+        Gen.resultOf(CustomDamlJWTPayload),
         minSuccessful(100),
-      )(v0 => {
-        val value = CustomDamlJWTPayload(v0)
+      )(value => {
         serializeAndParse(value) shouldBe Success(value)
       })
 
       "work for arbitrary standard Daml token values" in forAll(
-        Gen.resultOf(AuthServiceJWTPayload),
+        Gen.resultOf(StandardJWTPayload),
         minSuccessful(100),
-      )(v0 => {
-        val value = StandardJWTPayload(
-          AuthServiceJWTPayload(
-            ledgerId = None,
-            participantId = v0.participantId,
-            applicationId = Some(v0.applicationId.getOrElse("default-user")),
-            exp = v0.exp,
-            admin = false,
-            actAs = List.empty,
-            readAs = List.empty,
-          )
-        )
+      )(value => {
         serializeAndParse(value) shouldBe Success(value)
       })
 
@@ -104,19 +81,16 @@ class AuthServiceJWTCodecSpec
             |}
           """.stripMargin
         val expected = CustomDamlJWTPayload(
-          AuthServiceJWTPayload(
-            ledgerId = Some("someLedgerId"),
-            participantId = Some("someParticipantId"),
-            applicationId = Some("someApplicationId"),
-            exp = Some(Instant.EPOCH),
-            admin = true,
-            actAs = List("Alice"),
-            readAs = List("Alice", "Bob"),
-          )
+          ledgerId = Some("someLedgerId"),
+          participantId = Some("someParticipantId"),
+          applicationId = Some("someApplicationId"),
+          exp = Some(Instant.EPOCH),
+          admin = true,
+          actAs = List("Alice"),
+          readAs = List("Alice", "Bob"),
         )
-        val result = parseCustomToken(serialized)
-        result shouldBe Success(expected)
-        result.map(_.payload.party) shouldBe Success(None)
+        expected.party shouldBe None
+        parse(serialized) shouldBe Success(expected)
       }
 
       "support legacy sandbox format" in {
@@ -132,19 +106,16 @@ class AuthServiceJWTCodecSpec
             |}
           """.stripMargin
         val expected = CustomDamlJWTPayload(
-          AuthServiceJWTPayload(
-            ledgerId = Some("someLedgerId"),
-            participantId = Some("someParticipantId"),
-            applicationId = Some("someApplicationId"),
-            exp = Some(Instant.EPOCH),
-            admin = true,
-            actAs = List("Alice"),
-            readAs = List("Alice", "Bob"),
-          )
+          ledgerId = Some("someLedgerId"),
+          participantId = Some("someParticipantId"),
+          applicationId = Some("someApplicationId"),
+          exp = Some(Instant.EPOCH),
+          admin = true,
+          actAs = List("Alice"),
+          readAs = List("Alice", "Bob"),
         )
-        val result = parseCustomToken(serialized)
-        result shouldBe Success(expected)
-        result.map(_.payload.party) shouldBe Success(None)
+        expected.party shouldBe None
+        parse(serialized) shouldBe Success(expected)
       }
 
       "support legacy JSON API format" in {
@@ -156,19 +127,16 @@ class AuthServiceJWTCodecSpec
             |}
           """.stripMargin
         val expected = CustomDamlJWTPayload(
-          AuthServiceJWTPayload(
-            ledgerId = Some("someLedgerId"),
-            participantId = None,
-            applicationId = Some("someApplicationId"),
-            exp = None,
-            admin = false,
-            actAs = List("Alice"),
-            readAs = List.empty,
-          )
+          ledgerId = Some("someLedgerId"),
+          participantId = None,
+          applicationId = Some("someApplicationId"),
+          exp = None,
+          admin = false,
+          actAs = List("Alice"),
+          readAs = List.empty,
         )
-        val result = parseCustomToken(serialized)
-        result shouldBe Success(expected)
-        result.map(_.payload.party) shouldBe Success(Some("Alice"))
+        expected.party shouldBe Some("Alice")
+        parse(serialized) shouldBe Success(expected)
       }
 
       "support legacy sandbox format even with standard JWT claims present" in {
@@ -177,63 +145,69 @@ class AuthServiceJWTCodecSpec
             |  "participantId": "someLegacyParticipantId",
             |  "aud": "someParticipantId",
             |  "sub": "someUserId",
-            |  "exp": 100
+            |  "exp": 100,
+            |  "scope": "dummy-scope1 dummy-scope2"
             |}
           """.stripMargin
         val expected = CustomDamlJWTPayload(
-          AuthServiceJWTPayload(
-            ledgerId = None,
-            participantId = Some("someLegacyParticipantId"),
-            applicationId = None,
-            exp = Some(Instant.ofEpochSecond(100)),
-            admin = false,
-            actAs = List.empty,
-            readAs = List.empty,
-          )
+          ledgerId = None,
+          participantId = Some("someLegacyParticipantId"),
+          applicationId = None,
+          exp = Some(Instant.ofEpochSecond(100)),
+          admin = false,
+          actAs = List.empty,
+          readAs = List.empty,
         )
-        val result = parse(serialized)
-        result shouldBe Success(expected)
+        parse(serialized) shouldBe Success(expected)
       }
 
-      "support standard JWT claims" in {
+      "support standard JWT claims with just the one scope" in {
         val serialized =
           """{
             |  "aud": "someParticipantId",
             |  "sub": "someUserId",
-            |  "exp": 100
+            |  "exp": 100,
+            |  "scope": "daml_ledger_api"
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
-          AuthServiceJWTPayload(
-            ledgerId = None,
-            participantId = Some("someParticipantId"),
-            applicationId = Some("someUserId"),
-            exp = Some(Instant.ofEpochSecond(100)),
-            admin = false,
-            actAs = List.empty,
-            readAs = List.empty,
-          )
+          participantId = Some("someParticipantId"),
+          userId = "someUserId",
+          exp = Some(Instant.ofEpochSecond(100)),
         )
-        val result = parse(serialized)
-        result shouldBe Success(expected)
+        parse(serialized) shouldBe Success(expected)
+      }
+
+      "support standard JWT claims with extra scopes" in {
+        val serialized =
+          """{
+            |  "aud": "someParticipantId",
+            |  "sub": "someUserId",
+            |  "exp": 100,
+            |  "scope": "dummy-scope1 daml_ledger_api dummy-scope2"
+            |}
+          """.stripMargin
+        val expected = StandardJWTPayload(
+          participantId = Some("someParticipantId"),
+          userId = "someUserId",
+          exp = Some(Instant.ofEpochSecond(100)),
+        )
+        parse(serialized) shouldBe Success(expected)
       }
 
       "have stable default values" in {
         val serialized = "{}"
         val expected = CustomDamlJWTPayload(
-          AuthServiceJWTPayload(
-            ledgerId = None,
-            participantId = None,
-            applicationId = None,
-            exp = None,
-            admin = false,
-            actAs = List.empty,
-            readAs = List.empty,
-          )
+          ledgerId = None,
+          participantId = None,
+          applicationId = None,
+          exp = None,
+          admin = false,
+          actAs = List.empty,
+          readAs = List.empty,
         )
-        val result = parseCustomToken(serialized)
-        result shouldBe Success(expected)
-        result.map(_.payload.party) shouldBe Success(None)
+        expected.party shouldBe None
+        parse(serialized) shouldBe Success(expected)
       }
 
     }

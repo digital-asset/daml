@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Helper.Start
     ( runStart
-    , runPlatformJar
 
     , withJar
     , withSandbox
@@ -21,26 +20,18 @@ module DA.Daml.Helper.Start
 
 import Control.Concurrent
 import Control.Concurrent.Async
-import Control.Exception
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
-import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe
-import qualified Data.Map.Strict as Map
 import DA.PortFile
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Network.HTTP.Simple as HTTP
 import Network.Socket.Extended (getFreePort)
 import System.Console.ANSI
-import System.Environment (getEnvironment, getEnv, lookupEnv)
 import System.FilePath
 import System.Process.Typed
 import System.IO.Extra
 import System.Info.Extra
 import Web.Browser
-import qualified Web.JWT as JWT
-import Data.Aeson
 
 import Options.Applicative.Extended (YesNoAuto, determineAutoM)
 
@@ -49,31 +40,6 @@ import DA.Daml.Helper.Ledger
 import DA.Daml.Helper.Util
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
-import DA.Daml.Project.Types
-
--- [Note] The `platform-version` field:
---
--- Platform commands (at this point `daml sandbox`, `daml sandbox-classic` and `daml json-api`)
--- are handled as follows:
---
--- 1. The assistant invokes `daml-helper` as usual. The assistant is not aware of the
---    `platform-version` field or what is and what is not a platform command.
--- 2. `daml-helper` reads the `DAML_PLATFORM_VERSION` env var falling back to
---    the `platform-version` field from `daml.yaml`.
--- 3.1. If the platform version is equal to the SDK version (from `DAML_SDK_VERSION`),
---      `daml-helper` invokes the underlying tools (sandbox, JSON API, …) directly
---      and we are finished.
--- 3.2. If the platform version is different from the SDK version, `daml-helper`
---      invokes the underlying tool via the assistant, setting both `DAML_SDK_VERSION`
---      and `DAML_PLATFORM_VERSION` to the platform version.
--- 4. The assistant will now invoke `daml-helper` from the platform version SDK.
---    At this point, we are guaranteed to fall into 3.1 and daml-helper invokes the
---    tool directly.
---
--- Note that this supports `platform-version`s for SDKs that are not
--- aware of `platform-version`. In that case, `daml-helper` only has
--- the codepath for invoking the underlying tool so we are also guaranteed
--- to go to step 3.1.
 
 data SandboxPortSpec = FreePort | SpecifiedPort SandboxPort
 
@@ -99,26 +65,26 @@ navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
 -- | Use SandboxPortSpec to determine a sandbox port number.
 -- This is racy thanks to getFreePort, but there's no good alternative at the moment.
-getPortForSandbox :: Int -> Maybe SandboxPortSpec -> IO Int
-getPortForSandbox defaultPort = \case
-    Nothing -> pure defaultPort
-    Just (SpecifiedPort port) -> pure (unSandboxPort port)
-    Just FreePort -> fromIntegral <$> getFreePort
+getPortForSandbox :: SandboxPortSpec -> Maybe SandboxPortSpec -> IO Int
+getPortForSandbox defaultPortSpec portSpecM =
+    case fromMaybe defaultPortSpec portSpecM of
+        SpecifiedPort port -> pure (unSandboxPort port)
+        FreePort -> fromIntegral <$> getFreePort
 
 determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> FilePath -> IO CantonOptions
 determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile = do
-    ledgerApi <- getPortForSandbox 6865 ledgerApiSpec
-    adminApi <- getPortForSandbox 6866 adminApiSpec
-    domainPublicApi <- getPortForSandbox 6867 domainPublicApiSpec
-    domainAdminApi <- getPortForSandbox 6868 domainAdminApiSpec
-    let portFileM = Just portFile -- TODO allow canton port file to be passed in from command line?
+    cantonLedgerApi <- getPortForSandbox (SpecifiedPort (SandboxPort 6865)) ledgerApiSpec
+    cantonAdminApi <- getPortForSandbox FreePort adminApiSpec
+    cantonDomainPublicApi <- getPortForSandbox FreePort domainPublicApiSpec
+    cantonDomainAdminApi <- getPortForSandbox FreePort domainAdminApiSpec
+    let cantonPortFileM = Just portFile -- TODO allow canton port file to be passed in from command line?
+    let cantonStaticTime = StaticTime False
     pure CantonOptions {..}
 
 withSandbox :: StartOptions -> FilePath -> [String] -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
 withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
     case sandboxChoice of
-      SandboxClassic -> oldSandbox "sandbox-classic"
-      SandboxKV -> oldSandbox "sandbox"
+      SandboxKV -> oldSandbox "sandbox-kv"
       SandboxCanton cantonPortSpec -> cantonSandbox cantonPortSpec
 
   where
@@ -127,8 +93,8 @@ withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
       cantonOptions <- determineCantonOptions sandboxPortM cantonPortSpec portFile
       withCantonSandbox cantonOptions sandboxArgs $ \ph -> do
         putStrLn "Waiting for canton sandbox to start."
-        sandboxPort <- readPortFileWith decodeCantonSandboxPort maxRetries portFile
-        runLedgerUploadDar ((defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}) (Just darPath)
+        sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries portFile
+        runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
         kont ph (SandboxPort sandboxPort)
 
     oldSandbox sandbox = withTempDir $ \tempDir -> do
@@ -141,23 +107,22 @@ withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
             , scenarioArgs
             , sandboxArgs
             ]
-      withPlatformJar args "sandbox-logback.xml" $ \ph -> do
+      withSdkJar args "sandbox-logback.xml" $ \ph -> do
           putStrLn "Waiting for sandbox to start: "
-          port <- readPortFile maxRetries portFile
+          port <- readPortFile (unsafeProcessHandle ph) maxRetries portFile
           kont ph (SandboxPort port)
 
 withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (Process () () () -> IO a) -> IO a
 withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
     let navigatorArgs = concat
-            [ ["server", "localhost", show sandboxPort]
+            [ ["navigator", "server", "localhost", show sandboxPort]
             , navigatorPortNavigatorArgs navigatorPort
             , args
             ]
-    logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
-    withJar damlSdkJar [logbackArg] ("navigator":navigatorArgs) $ \ph -> do
+    withSdkJar navigatorArgs "navigator-logback.xml" $ \ph -> do
         putStrLn "Waiting for navigator to start: "
-        -- TODO We need to figure out a sane timeout for this step.
-        waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort) []
+        waitForHttpServer 240 (unsafeProcessHandle ph) (putStr "." *> threadDelay 500000)
+            (navigatorURL navigatorPort) []
         a ph
 
 withJsonApi :: SandboxPort -> JsonApiPort -> [String] -> (Process () () () -> IO a) -> IO a
@@ -169,23 +134,10 @@ withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) extraArgs a = do
             , "--http-port", show jsonApiPort
             , "--allow-insecure-tokens"
             ] ++ extraArgs
-    withPlatformJar args "json-api-logback.xml" $ \ph -> do
+    withSdkJar args "json-api-logback.xml" $ \ph -> do
         putStrLn "Waiting for JSON API to start: "
-        -- The secret doesn’t matter here
-        let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
-                { JWT.unregisteredClaims = JWT.ClaimsMap $
-                      Map.fromList [("https://daml.com/ledger-api", Object $ HashMap.fromList
-                        [("actAs", toJSON ["Alice" :: T.Text]), ("ledgerId", "sandbox"), ("applicationId", "foobar")])]
-                        -- TODO https://github.com/digital-asset/daml/issues/12145
-                        --   Drop the ledgerId field once it becomes optional.
-                }
-        -- For now, we have a dummy authorization header here to wait for startup since we cannot get a 200
-        -- response otherwise. We probably want to add some method to detect successful startup without
-        -- any authorization
-        let headers =
-                [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
-                ] :: HTTP.RequestHeaders
-        waitForHttpServer (putStr "." *> threadDelay 500000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
+        waitForHttpServer 240 (unsafeProcessHandle ph) (putStr "." *> threadDelay 500000)
+            ("http://localhost:" <> show jsonApiPort <> "/readyz") []
         a ph
 
 data JsonApiConfig = JsonApiConfig
@@ -216,8 +168,7 @@ data StartOptions = StartOptions
     }
 
 data SandboxChoice
-  = SandboxClassic
-  | SandboxKV
+  = SandboxKV
   | SandboxCanton !SandboxCantonPortSpec
 
 data SandboxCantonPortSpec = SandboxCantonPortSpec
@@ -297,9 +248,9 @@ runStart startOptions@StartOptions{..} =
             whenJust mbOutputPath $ \_outputPath -> do
               runCodegen lang []
         doReset (SandboxPort sandboxPort) =
-          runLedgerReset $ (defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}
+          runLedgerReset (sandboxLedgerFlags sandboxPort)
         doUploadDar darPath (SandboxPort sandboxPort) =
-          runLedgerUploadDar ((defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}) (Just darPath)
+          runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
         listenForKeyPress projectConfig darPath sandboxPort runInitScript = do
           hSetBuffering stdin NoBuffering
           void $
@@ -332,75 +283,13 @@ runStart startOptions@StartOptions{..} =
           | isWindows = "\nPress 'r' + 'Enter' to re-build and upload the package to the sandbox.\nPress 'Ctrl-C' to quit."
           | otherwise = "\nPress 'r' to re-build and upload the package to the sandbox.\nPress 'Ctrl-C' to quit."
 
-platformVersionEnvVar :: String
-platformVersionEnvVar = "DAML_PLATFORM_VERSION"
-
--- | Returns the platform version determined as follows:
---
--- 1. If DAML_PLATFORM_VERSION is set return that.
--- 2. If DAML_PROJECT is set and non-empty and `daml.yaml`
---    has a `platform-version` field return that.
--- 3. If `DAML_SDK_VERSION` is set return that.
--- 4. Else we are invoked outside of the assistant and we throw an exception.
-getPlatformVersion :: IO String
-getPlatformVersion = do
-  mbPlatformVersion <- lookupEnv platformVersionEnvVar
-  case mbPlatformVersion of
-    Just platformVersion -> pure platformVersion
-    Nothing -> do
-      mbProjPath <- getProjectPath
-      case mbProjPath of
-        Just projPath -> do
-          project <- readProjectConfig (ProjectPath projPath)
-          case queryProjectConfig ["platform-version"] project of
-            Left err -> throwIO err
-            Right (Just ver) -> pure ver
-            Right Nothing -> getSdkVersion
-        Nothing -> getSdkVersion
-
--- Convenience-wrapper around `withPlatformProcess` for commands that call the SDK
--- JAR `daml-sdk.jar`.
-withPlatformJar
+withSdkJar
     :: [String]
-    -- ^ Commands passed to the assistant and the platform JAR.
+    -- ^ Commands passed to the assistant and the SDK JAR.
     -> FilePath
     -- ^ File name of the logback config.
     -> (Process () () () -> IO a)
     -> IO a
-withPlatformJar args logbackConf f = do
+withSdkJar args logbackConf f = do
     logbackArg <- getLogbackArg (damlSdkJarFolder </> logbackConf)
-    withPlatformProcess args (withJar damlSdkJar [logbackArg] args) f
-
-runPlatformJar :: [String] -> FilePath -> IO ()
-runPlatformJar args logback = do
-    withPlatformJar args logback (const $ pure ())
-
-withPlatformProcess
-    :: [String]
-    -- ^ List of commands passed to the assistant to invoke the command.
-    -> ((Process () () () -> IO a) -> IO a)
-    -- ^ Function to invoke the command in the current SDK.
-    -> (Process () () () -> IO a)
-    -> IO a
-withPlatformProcess args runInCurrentSdk f = do
-    platformVersion <- getPlatformVersion
-    sdkVersion <- getSdkVersion
-    if platformVersion == sdkVersion
-       then runInCurrentSdk f
-       else do
-        assistant <- getEnv damlAssistantEnvVar
-        env <- extendEnv
-            [ (platformVersionEnvVar, platformVersion)
-            , (sdkVersionEnvVar, platformVersion)
-            ]
-        withProcessWait_
-            ( setEnv env
-            $ proc assistant args
-            )
-            f
-
-extendEnv :: [(String, String)] -> IO [(String, String)]
-extendEnv xs = do
-    oldEnv <- getEnvironment
-    -- DAML_SDK is version specific so we need to filter it.
-    pure (xs ++ filter (\(k, _) -> k `notElem` (sdkPathEnvVar : map fst xs)) oldEnv)
+    withJar damlSdkJar [logbackArg] args f

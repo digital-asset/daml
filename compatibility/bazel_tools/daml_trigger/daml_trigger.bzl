@@ -124,6 +124,21 @@ def daml_trigger_test(compiler_version, runner_version):
         compiler_version = version_to_name(compiler_version),
         runner_version = version_to_name(runner_version),
     )
+
+    # 1.16.0 is the first SDK version that uses LF 1.14, which is the earliest version that canton supports
+    use_canton = versions.is_at_least("2.0.0", runner_version) and versions.is_at_least("1.16.0", compiler_version)
+    use_sandbox_on_x = versions.is_at_least("2.0.0", runner_version) and not use_canton
+    if use_sandbox_on_x:
+        server = "@daml-sdk-{version}//:sandbox-on-x".format(version = runner_version)
+        server_args = ["--participant", "participant-id=sandbox,port=6865"]
+        server_files = []
+        server_files_prefix = ""
+    else:
+        server = daml_runner
+        server_args = ["sandbox"]
+        server_files = ["$(rootpath {})".format(compiled_dar)]
+        server_files_prefix = "--dar=" if use_canton else ""
+
     native.genrule(
         name = "{}-client-sh".format(name),
         outs = ["{}-client.sh".format(name)],
@@ -144,10 +159,27 @@ canonicalize_rlocation() {{
 runner=$$(canonicalize_rlocation $(rootpath {runner}))
 # Cleanup the trigger runner process but maintain the script runner exit code.
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
+
+SCRIPTOUTPUT=$$(mktemp -d)
+if [ {upload_dar} -eq 1 ] ; then
+  $$runner ledger upload-dar \\
+    --host localhost \\
+    --port 6865 \\
+    $$(canonicalize_rlocation $(rootpath {dar}))
+fi
+$$runner script \\
+  --ledger-host localhost \\
+  --ledger-port 6865 \\
+  --wall-clock-time \\
+  --dar $$(canonicalize_rlocation $(rootpath {dar})) \\
+  --script-name TestScript:allocateAlice \\
+  --output-file $$SCRIPTOUTPUT/alice.json
+ALICE=$$(cat $$SCRIPTOUTPUT/alice.json | sed 's/"//g')
+rm -rf $$SCRIPTOUTPUT
 $$runner trigger \\
   --ledger-host localhost \\
   --ledger-port 6865 \\
-  --ledger-party Alice \\
+  --ledger-party $$ALICE \\
   --wall-clock-time \\
   --dar $$(canonicalize_rlocation $(rootpath {dar})) \\
   --trigger-name CopyTrigger:copyTrigger &
@@ -163,6 +195,7 @@ chmod +x $(OUTS)
 """.format(
             dar = compiled_dar,
             runner = daml_runner,
+            upload_dar = "1" if use_sandbox_on_x else "0",
         ),
         exec_tools = [
             compiled_dar,
@@ -177,6 +210,7 @@ chmod +x $(OUTS)
             daml_runner,
         ],
     )
+
     client_server_test(
         name = "daml-trigger-test-compiler-{compiler_version}-runner-{runner_version}".format(
             compiler_version = version_to_name(compiler_version),
@@ -190,10 +224,9 @@ chmod +x $(OUTS)
         ],
         runner = "//bazel_tools/client_server:runner",
         runner_args = ["6865"],
-        server = daml_runner,
-        server_args = ["sandbox"],
-        server_files = [
-            "$(rootpath {})".format(compiled_dar),
-        ],
+        server = server,
+        server_args = server_args,
+        server_files = server_files,
+        server_files_prefix = server_files_prefix,
         tags = ["exclusive"],
     )

@@ -115,10 +115,6 @@ object Error {
       sealed abstract class Reason extends Serializable with Product {
         def details: String
       }
-      case object V0ContractId extends Reason {
-        def details = "V0 Contract IDs are forbidden"
-        def apply(cid: Value.ContractId.V0): IllegalContractId = IllegalContractId(cid, this)
-      }
       case object NonSuffixV1ContractId extends Reason {
         def details = "non-suffixed V1 Contract IDs are forbidden"
         def apply(cid: Value.ContractId.V1): IllegalContractId = IllegalContractId(cid, this)

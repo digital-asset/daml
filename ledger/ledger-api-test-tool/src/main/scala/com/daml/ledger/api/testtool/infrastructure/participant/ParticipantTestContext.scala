@@ -78,6 +78,9 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.client.binding.{Primitive, Template}
+import com.daml.lf.data.Ref
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.participant.util.HexOffset
 import com.daml.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
@@ -87,6 +90,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Failure
 import scala.util.control.NonFatal
 
 private[testtool] object ParticipantTestContext {
@@ -117,7 +121,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     val clientTlsConfiguration: Option[TlsConfiguration],
     val features: Features,
 )(implicit ec: ExecutionContext) {
-
+  private val logger = ContextualizedLogger.get(getClass)
   import ParticipantTestContext._
 
   val begin: LedgerOffset =
@@ -131,14 +135,20 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   private[this] val identifierPrefix =
     s"$applicationId-$endpointId-$identifierSuffix"
-  private[this] def nextId(idType: String): () => String =
-    Identification.indexSuffix(s"$identifierPrefix-$idType")
+  private[this] def nextIdGenerator(name: String, lowerCase: Boolean = false): () => String = {
+    val f = Identification.indexSuffix(s"$identifierPrefix-$name")
+    if (lowerCase)
+      () => f().toLowerCase
+    else
+      f
+  }
 
-  private[this] val nextPartyHintId: () => String = nextId("party")
-  private[this] val nextCommandId: () => String = nextId("command")
-  private[this] val nextSubmissionId: () => String = nextId("submission")
+  private[this] val nextPartyHintId: () => String = nextIdGenerator("party")
+  private[this] val nextCommandId: () => String = nextIdGenerator("command")
+  private[this] val nextSubmissionId: () => String = nextIdGenerator("submission")
   private[this] val workflowId: String = s"$applicationId-$identifierSuffix"
-  val nextKeyId: () => String = nextId("key")
+  val nextKeyId: () => String = nextIdGenerator("key")
+  val nextUserId: () => String = nextIdGenerator("user", lowerCase = true)
 
   override def toString: String = s"participant $endpointId"
 
@@ -677,21 +687,36 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def firstCompletions(parties: Party*): Future[Vector[Completion]] =
     firstCompletions(completionStreamRequest()(parties: _*))
 
+  def findCompletionAtOffset(
+      offset: Ref.HexString,
+      p: Completion => Boolean,
+  )(parties: Party*): Future[Option[CompletionResponse]] = {
+    // We have to request an offset before the reported offset, as offsets are exclusive in the completion service.
+    val offsetPreviousToReportedOffset = HexOffset
+      .previous(offset)
+      .map(offset => LedgerOffset.of(LedgerOffset.Value.Absolute(offset)))
+      .getOrElse(referenceOffset)
+    val reportedOffsetCompletionStreamRequest =
+      completionStreamRequest(offsetPreviousToReportedOffset)(parties: _*)
+    findCompletion(reportedOffsetCompletionStreamRequest)(p)
+  }
+
   def findCompletion(
       request: CompletionStreamRequest
-  )(p: Completion => Boolean): Future[Option[(LedgerOffset, Completion)]] =
+  )(p: Completion => Boolean): Future[Option[CompletionResponse]] =
     new StreamConsumer[CompletionStreamResponse](
       services.commandCompletion.completionStream(request, _)
     ).find(_.completions.exists(p))
-      .map(response =>
-        response.checkpoint
-          .flatMap(_.offset)
-          .flatMap(offset => response.completions.find(p).map(offset -> _))
-      )
+      .map(response => {
+        val checkpoint = response.getCheckpoint
+        response.completions
+          .find(p)
+          .map(CompletionResponse(_, checkpoint.getOffset, checkpoint.getRecordTime.asJava))
+      })
 
   def findCompletion(parties: Party*)(
       p: Completion => Boolean
-  ): Future[Option[(LedgerOffset, Completion)]] =
+  ): Future[Option[CompletionResponse]] =
     findCompletion(completionStreamRequest()(parties: _*))(p)
 
   def checkpoints(n: Int, request: CompletionStreamRequest): Future[Vector[Checkpoint]] =
@@ -765,9 +790,13 @@ private[testtool] final class ParticipantTestContext private[participant] (
     eventually(
       attempts = attempts,
       runAssertion = {
-        services.participantPruning.prune(
-          PruneRequest(pruneUpTo, nextSubmissionId(), pruneAllDivulgedContracts)
-        )
+        services.participantPruning
+          .prune(
+            PruneRequest(pruneUpTo, nextSubmissionId(), pruneAllDivulgedContracts)
+          )
+          .andThen { case Failure(exception) =>
+            logger.warn("Failed to prune", exception)(LoggingContext.ForTesting)
+          }
       },
     )
 
@@ -798,3 +827,5 @@ private[testtool] final class ParticipantTestContext private[participant] (
   private def reservePartyNames(n: Int): Future[Vector[Party]] =
     Future.successful(Vector.fill(n)(Party(nextPartyHintId())))
 }
+
+case class CompletionResponse(completion: Completion, offset: LedgerOffset, recordTime: Instant)

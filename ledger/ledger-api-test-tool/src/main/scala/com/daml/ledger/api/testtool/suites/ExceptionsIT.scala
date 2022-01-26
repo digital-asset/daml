@@ -12,6 +12,8 @@ import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.test.semantic.Exceptions._
 import io.grpc.Status
 
+import java.util.regex.Pattern
+
 final class ExceptionsIT extends LedgerTestSuite {
   test(
     "ExUncaught",
@@ -22,12 +24,12 @@ final class ExceptionsIT extends LedgerTestSuite {
       t <- ledger.create(party, ExceptionTester(party))
       failure <- ledger.exercise(party, t.exerciseThrowUncaught(_)).mustFail("Unhandled exception")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
-        Some("Unhandled exception"),
+        Some(Pattern.compile("Unhandled (Daml )?exception")),
         checkDefiniteAnswerMetadata = true,
       )
     }

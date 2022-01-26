@@ -43,6 +43,7 @@ da_haskell_library(
         "uuid",
         "vector",
         "yaml",
+        "aeson-pretty",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -68,6 +69,8 @@ da_haskell_binary(
         "process",
         "safe-exceptions",
         "typed-process",
+        "time",
+        "text",
     ],
     main_function = "DA.Daml.Helper.Main.main",
     visibility = ["//visibility:public"],

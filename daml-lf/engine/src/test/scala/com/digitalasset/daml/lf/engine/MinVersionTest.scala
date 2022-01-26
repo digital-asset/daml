@@ -5,11 +5,9 @@ package com.daml.lf.engine.MinVersionTest
 
 import java.io.{File, FileInputStream}
 import java.nio.file.{Files, Path}
+import java.util.UUID
 import java.util.stream.Collectors
 
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.commands.{CreateCommand, Command, Commands}
-import com.daml.ledger.api.v1.value._
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -17,6 +15,9 @@ import com.daml.ledger.api.testing.utils.{
   SuiteResource,
   SuiteResourceManagementAroundAll,
 }
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
+import com.daml.ledger.api.v1.value._
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -32,13 +33,12 @@ import com.daml.ledger.participant.state.kvutils.app.{
 import com.daml.ledger.participant.state.kvutils.{app => kvutils}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ledger.test.ModelTestDar
+import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref
 import com.daml.lf.language.LanguageVersion.v1_14
-import com.daml.lf.VersionRange
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
-import java.util.UUID
 import org.scalatest.Suite
 import org.scalatest.freespec.AsyncFreeSpec
 import scalaz.syntax.tag._
@@ -69,7 +69,6 @@ final class MinVersionTest
     applicationId = "minversiontest",
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
   )
   // This is an integration test to make sure that the version restrictions for stable packages
   // apply across the whole stack.
@@ -77,7 +76,7 @@ final class MinVersionTest
   "MinVersionTest" - {
     "can upload an LF 1.14 package and use it in a transaction" in {
       for {
-        client <- LedgerClient.singleHost(
+        client <- LedgerClient.insecureSingleHost(
           "localhost",
           suiteResource.value.value,
           ledgerClientConfig,
@@ -141,7 +140,8 @@ final class MinVersionTest
       allowExistingSchema = false
     ),
   )
-  override protected lazy val suiteResource = {
+
+  override protected lazy val suiteResource: OwnedResource[ResourceContext, Port] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](
       for {
@@ -150,12 +150,11 @@ final class MinVersionTest
             .createDefault(())
             .copy(
               participants = Seq(participant),
-              archiveFiles = Seq(),
               // Bump min version to 1.14 and check that older stable packages are still accepted.
               allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14),
             )
         )
-      } yield (readPortfile(portfile))
+      } yield readPortfile(portfile)
     )
   }
 }

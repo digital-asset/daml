@@ -518,8 +518,8 @@ private[speedy] case class PartialTransaction(
       version,
     )
     mustBeActive(
+      NameOf.qualifiedNameOfCurrentFunc,
       coid,
-      templateId,
       insertLeafNode(node, version, optLocation),
     ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(optLocation, node), auth)
   }
@@ -582,8 +582,8 @@ private[speedy] case class PartialTransaction(
       )
 
     mustBeActive(
+      NameOf.qualifiedNameOfCurrentFunc,
       targetId,
-      templateId,
       copy(
         actionNodeLocations = actionNodeLocations :+ optLocation,
         nextNodeIdx = nextNodeIdx + 1,
@@ -762,18 +762,18 @@ private[speedy] case class PartialTransaction(
   /** `True` iff the given `ContractId` has been consumed already */
   def isConsumed(coid: Value.ContractId): Boolean = consumedBy.contains(coid)
 
-  /** Guard the execution of a step with the unconsumedness of a
-    * `ContractId`
+  /** Double check the execution of a step with the unconsumedness of a
+    * `ContractId`.
     */
   private[this] def mustBeActive(
+      loc: => String,
       coid: Value.ContractId,
-      templateId: TypeConName,
       f: => PartialTransaction,
   ): PartialTransaction =
-    consumedBy.get(coid) match {
-      case None => f
-      case Some(nid) => noteAbort(Tx.ContractNotActive(coid, templateId, nid))
-    }
+    if (consumedBy.isDefinedAt(coid))
+      InternalError.runtimeException(loc, "try to build a node using an inactive contract.")
+    else
+      f
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
   def insertLeafNode(

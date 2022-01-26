@@ -58,7 +58,7 @@ object MetricsReporter {
     val defaultPort: Int = 55001
   }
 
-  implicit val metricsReporterRead: Read[MetricsReporter] = {
+  def parseMetricsReporter(s: String): MetricsReporter = {
     def getAddress(uri: URI, defaultPort: Int) = {
       if (uri.getHost == null) {
         throw invalidRead
@@ -66,7 +66,7 @@ object MetricsReporter {
       val port = if (uri.getPort > 0) uri.getPort else defaultPort
       new InetSocketAddress(uri.getHost, port)
     }
-    Read.reads {
+    s match {
       case "console" =>
         Console
       case value if value.startsWith("csv://") =>
@@ -87,6 +87,10 @@ object MetricsReporter {
       case _ =>
         throw invalidRead
     }
+  }
+
+  implicit val metricsReporterRead: Read[MetricsReporter] = {
+    Read.reads(parseMetricsReporter)
   }
 
   val cliHint: String =

@@ -3,14 +3,7 @@
 
 package com.daml.platform.store.backend.common
 
-import com.daml.platform.store.backend.{
-  ConfigurationStorageBackend,
-  IntegrityStorageBackend,
-  PackageStorageBackend,
-  ParameterStorageBackend,
-  StorageBackendFactory,
-  StringInterningStorageBackend,
-}
+import com.daml.platform.store.backend._
 import com.daml.platform.store.cache.LedgerEndCache
 
 trait CommonStorageBackendFactory extends StorageBackendFactory {
@@ -31,4 +24,12 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
 
   override val createStringInterningStorageBackend: StringInterningStorageBackend =
     StringInterningStorageBackendTemplate
+
+  override val createUserManagementStorageBackend: UserManagementStorageBackend =
+    UserManagementStorageBackendTemplate
+
+  override def createMeteringStorageBackend(
+      ledgerEndCache: LedgerEndCache
+  ): MeteringStorageBackend =
+    new MeteringStorageBackendTemplate(ledgerEndCache)
 }

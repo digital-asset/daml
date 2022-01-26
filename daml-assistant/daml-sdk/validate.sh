@@ -19,7 +19,7 @@ JAVA=$(rlocation "$TEST_WORKSPACE/$1")
 SDK_CE=$(rlocation "$TEST_WORKSPACE/$2")
 SDK_EE=$(rlocation "$TEST_WORKSPACE/$3")
 
-for cmd in sandbox sandbox-classic; do
+for cmd in sandbox-kv; do
     ret=0
     $JAVA -jar $SDK_CE $cmd --help | grep -q profile-dir || ret=$?
     if [[ $ret -eq 0 ]]; then
@@ -28,7 +28,7 @@ for cmd in sandbox sandbox-classic; do
     fi
 done
 
-for cmd in sandbox sandbox-classic; do
+for cmd in sandbox-kv; do
     $JAVA -jar $SDK_EE $cmd --help | grep -q profile-dir
 done
 

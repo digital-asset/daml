@@ -12,18 +12,18 @@ import qualified Data.NameMap as NM
 import           Data.Semigroup.FixedPoint (leastFixedPointBy)
 
 import DA.Daml.LF.Ast
-import DA.Daml.LF.TypeChecker.Serializability (serializabilityConditionsDataType)
+import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilityConditionsDataType)
 
 inferModule :: World -> Version -> Module -> Either String Module
 inferModule world0 version mod0 = do
   let modName = moduleName mod0
   let dataTypes = moduleDataTypes mod0
-  let templates1 = NM.namesSet (moduleTemplates mod0)
+  let interfaces = NM.namesSet (moduleInterfaces mod0)
   let eqs =
         [ (dataTypeCon dataType, serializable, deps)
         | dataType <- NM.toList dataTypes
         , let (serializable, deps) =
-                case serializabilityConditionsDataType world0 version (Just (modName, templates1)) dataType of
+                case serializabilityConditionsDataType world0 version (Just $ CurrentModule modName interfaces) dataType of
                   Left _ -> (False, [])
                   Right deps0 -> (True, HS.toList deps0)
         ]

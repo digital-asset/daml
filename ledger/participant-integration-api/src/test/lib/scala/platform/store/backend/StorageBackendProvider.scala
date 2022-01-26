@@ -21,6 +21,7 @@ import org.scalatest.Suite
   */
 private[backend] trait StorageBackendProvider {
   protected def jdbcUrl: String
+  protected def lockIdSeed: Int
   protected def backend: TestBackend
 
   protected final def ingest(dbDtos: Vector[DbDto], connection: Connection): Unit = {
@@ -48,28 +49,27 @@ private[backend] trait StorageBackendProvider {
   }
 
   protected final def updateLedgerEndCache(connection: Connection): Unit = {
-    val ledgerEnd = backend.parameter.ledgerEndOrBeforeBegin(connection)
+    val ledgerEnd = backend.parameter.ledgerEnd(connection)
     backend.ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
   }
 }
 
-private[backend] trait StorageBackendProviderPostgres
-    extends StorageBackendProvider
-    with PostgresAroundAll { this: Suite =>
+trait StorageBackendProviderPostgres extends StorageBackendProvider with PostgresAroundAll {
+  this: Suite =>
   override protected def jdbcUrl: String = postgresDatabase.url
   override protected val backend: TestBackend = TestBackend(PostgresStorageBackendFactory)
 }
 
 private[backend] trait StorageBackendProviderH2 extends StorageBackendProvider { this: Suite =>
   override protected def jdbcUrl: String = "jdbc:h2:mem:storage_backend_provider;db_close_delay=-1"
+  override protected def lockIdSeed: Int =
+    throw new UnsupportedOperationException //  DB Locking is not supported for H2
   override protected val backend: TestBackend = TestBackend(H2StorageBackendFactory)
 }
 
 private[backend] trait StorageBackendProviderOracle
     extends StorageBackendProvider
     with OracleAroundAll { this: Suite =>
-  override protected def jdbcUrl: String =
-    s"jdbc:oracle:thin:$oracleUser/$oraclePwd@localhost:$oraclePort/ORCLPDB1"
   override protected val backend: TestBackend = TestBackend(OracleStorageBackendFactory)
 }
 
@@ -90,6 +90,8 @@ case class TestBackend(
     stringInterning: StringInterningStorageBackend,
     ledgerEndCache: MutableLedgerEndCache,
     stringInterningSupport: MockStringInterning,
+    userManagement: UserManagementStorageBackend,
+    metering: MeteringStorageBackend,
 )
 
 object TestBackend {
@@ -114,6 +116,8 @@ object TestBackend {
       stringInterning = storageBackendFactory.createStringInterningStorageBackend,
       ledgerEndCache = ledgerEndCache,
       stringInterningSupport = stringInterning,
+      userManagement = storageBackendFactory.createUserManagementStorageBackend,
+      metering = storageBackendFactory.createMeteringStorageBackend(ledgerEndCache),
     )
   }
 }

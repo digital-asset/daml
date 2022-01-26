@@ -16,5 +16,6 @@ trait OracleAroundAll extends OracleAroundSuite with BeforeAndAfterAll {
 
   override protected def afterAll(): Unit = {
     super.afterAll()
+    dropUser()
   }
 }

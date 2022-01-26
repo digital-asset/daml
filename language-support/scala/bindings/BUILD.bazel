@@ -20,11 +20,9 @@ da_scala_library(
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scala_exports = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:bindings-scala:__VERSION__"],
     visibility = [
@@ -51,7 +49,6 @@ da_scala_test_suite(
     ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",

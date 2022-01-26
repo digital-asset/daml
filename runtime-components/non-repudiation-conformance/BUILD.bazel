@@ -16,7 +16,6 @@ da_scala_test(
         "//ledger/test-common:dar-files-default",
     ],
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_tpolecat_doobie_hikari",
         "@maven//:org_typelevel_cats_effect",

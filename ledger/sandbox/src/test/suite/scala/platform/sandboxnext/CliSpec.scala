@@ -30,7 +30,7 @@ class CliSpec extends CommonCliSpecBase(Cli) {
     "parse the contract-id-seeding mode when given" in {
       checkOption(
         Array("--contract-id-seeding", "testing-weak"),
-        _.copy(seeding = Some(Seeding.Weak)),
+        _.copy(seeding = Seeding.Weak),
       )
     }
 

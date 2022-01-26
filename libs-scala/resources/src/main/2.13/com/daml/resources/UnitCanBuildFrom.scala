@@ -3,8 +3,7 @@
 
 package com.daml.resources
 
-import scala.collection.compat._
-import scala.collection.mutable
+import scala.collection.{Factory, mutable}
 
 private[resources] final class UnitCanBuildFrom[T, C[_]] extends Factory[T, Unit] {
   override def fromSpecific(it: IterableOnce[T]) = ()

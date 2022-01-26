@@ -119,9 +119,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Looks up the current ledger end */
   def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerEnd]
 
-  /** Looks up the current external ledger end offset */
-  def lookupInitialLedgerEnd()(implicit loggingContext: LoggingContext): Future[Option[Offset]]
-
   /** Looks up the current ledger configuration, if it has been set. */
   def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
@@ -292,9 +289,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
-
-  /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
-  def reset()(implicit loggingContext: LoggingContext): Future[Unit]
 
   /** This is a combined store transaction method to support sandbox-classic and tests
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed

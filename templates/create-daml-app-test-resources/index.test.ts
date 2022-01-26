@@ -95,6 +95,7 @@ beforeAll(async () => {
   // Getting Started Guide.
   const startArgs = [
     'start',
+    '--sandbox-kv',
     `--json-api-option=--port-file=${JSON_API_PORT_FILE_NAME}`,
   ];
 
@@ -379,3 +380,58 @@ test('error when adding a user that you are already following', async () => {
 
   await page.close();
 });
+
+const failedLogin = async (page: Page, partyName: string) => {
+  let error: string | undefined = undefined;
+  await page.exposeFunction('getError', () =>
+    error
+  );
+  const dismissError = jest.fn(async dialog => {
+    error = dialog.message();
+    await dialog.dismiss();
+  });
+  page.on('dialog', dismissError);
+  const usernameInput = await page.waitForSelector('.test-select-username-field');
+  await usernameInput.click();
+  await usernameInput.type(partyName);
+  await page.click('.test-select-login-button');
+  await page.waitForFunction(async () => await window.getError() !== undefined);
+  expect(dismissError).toHaveBeenCalled();
+  return error;
+}
+
+test('error on user id with invalid format', async () => {
+    // user ids must be lowercase
+    const invalidUser = "Alice";
+    const page = await newUiPage();
+    const error = await failedLogin(page, invalidUser);
+    expect(error).toMatch(/User ID \\"Alice\\" does not match regex/);
+    await page.close();
+}, 40_000);
+
+test('error on non-existent user id', async () => {
+    const invalidUser = "nonexistent";
+    const page = await newUiPage();
+    const error = await failedLogin(page, invalidUser);
+    expect(error).toMatch(/cannot get user for unknown user \\"nonexistent\\"/);
+    await page.close();
+}, 40_000);
+
+test('error on user with no primary party', async () => {
+    const invalidUser = "noprimary";
+    // TODO replace with daml-ledger once it exposes the create user endpoint.
+  const grpcurlUserArgs = [
+    "-plaintext",
+    "-d",
+      JSON.stringify({"user": {"id": invalidUser}}),
+    "localhost:6865",
+    "com.daml.ledger.api.v1.admin.UserManagementService/CreateUser",
+  ];
+    const result = spawnSync('grpcurl', grpcurlUserArgs, {"encoding": "utf8"});
+    console.debug(result.stdout);
+    console.debug(result.stderr);
+    const page = await newUiPage();
+    const error = await failedLogin(page, invalidUser);
+    expect(error).toMatch(/User 'noprimary' has no primary party/);
+    await page.close();
+}, 40_000);

@@ -4,7 +4,10 @@
 package com.daml.http
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.ledger.client.configuration.{
+  LedgerClientChannelConfiguration,
+  LedgerClientConfiguration,
+}
 import com.daml.scalautil.ExceptionOps._
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import io.grpc.netty.NettyChannelBuilder
@@ -32,6 +35,7 @@ trait LedgerClientBase {
   protected def channelBuilder(
       ledgerHost: String,
       ledgerPort: Int,
+      clientChannelConfig: LedgerClientChannelConfiguration,
       nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit executionContext: ExecutionContext): Future[NettyChannelBuilder]
 
@@ -39,6 +43,7 @@ trait LedgerClientBase {
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
+      clientChannelConfig: LedgerClientChannelConfiguration,
       nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit
       ec: ExecutionContext,
@@ -47,6 +52,7 @@ trait LedgerClientBase {
     channelBuilder(
       ledgerHost,
       ledgerPort,
+      clientChannelConfig,
       nonRepudiationConfig,
     ).map(builder => DamlLedgerClient.fromBuilder(builder, clientConfig))
 
@@ -54,6 +60,7 @@ trait LedgerClientBase {
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
+      clientChannelConfig: LedgerClientChannelConfiguration,
       nonRepudiationConfig: nonrepudiation.Configuration.Cli,
       maxInitialConnectRetryAttempts: Int,
   )(implicit
@@ -66,7 +73,13 @@ trait LedgerClientBase {
     )
     RetryStrategy
       .constant(maxInitialConnectRetryAttempts, 1.seconds) { (i, _) =>
-        val client = buildLedgerClient(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig)
+        val client = buildLedgerClient(
+          ledgerHost,
+          ledgerPort,
+          clientConfig,
+          clientChannelConfig,
+          nonRepudiationConfig,
+        )
         client.onComplete {
           case Success(_) =>
             logger.info(s"""Attempt $i/$maxInitialConnectRetryAttempts succeeded!""")
@@ -90,12 +103,19 @@ trait LedgerClientBase {
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
+      clientChannelConfig: LedgerClientChannelConfiguration,
       nonRepudiationConfig: nonrepudiation.Configuration.Cli,
   )(implicit
       ec: ExecutionContext,
       aesf: ExecutionSequencerFactory,
   ): Future[LedgerClientBase.Error \/ DamlLedgerClient] =
-    buildLedgerClient(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig)
+    buildLedgerClient(
+      ledgerHost,
+      ledgerPort,
+      clientConfig,
+      clientChannelConfig,
+      nonRepudiationConfig,
+    )
       .map(_.right)
       .recover { case NonFatal(e) =>
         \/.left(

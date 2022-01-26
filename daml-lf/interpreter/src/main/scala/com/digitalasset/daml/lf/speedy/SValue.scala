@@ -17,7 +17,6 @@ import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
-import scala.collection.compat._
 import scala.collection.immutable.TreeMap
 import scala.util.hashing.MurmurHash3
 
@@ -228,9 +227,7 @@ object SValue {
     def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap = {
       SMap(
         isTextMap,
-        implicitly[Factory[(SValue, SValue), TreeMap[SValue, SValue]]].fromSpecific(entries.map {
-          case p @ (k, _) => comparable(k); p
-        }),
+        entries.map { case p @ (k, _) => comparable(k); p }.to(TreeMap),
       )
     }
 

@@ -13,7 +13,6 @@ import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test._
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 
-import scala.collection.compat._
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
 

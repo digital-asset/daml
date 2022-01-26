@@ -141,11 +141,6 @@ filegroup(
     visibility = ["//visibility:private"],
 )
 
-ledger_api_haskellpb_sources_testing = [
-    "ResetService.hs",
-    "TimeService.hs",
-]
-
 genrule(
     name = "ledger-api-haskellpb-sources-testing",
     srcs = [
@@ -153,16 +148,15 @@ genrule(
         "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg-testing",
     ],
-    outs = ["Com/Daml/Ledger/Api/V1/Testing/" + b for b in ledger_api_haskellpb_sources_testing],
+    outs = ["Com/Daml/Ledger/Api/V1/Testing/TimeService.hs"],
     cmd = """
-        for src in $(locations :ledger-api-protos-fg-testing); do
-            $(location @proto3-suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
-                --includeDir """ + google_rpc_src + """ \
-                --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto com/daml/ledger/api/v1/testing/$$(basename $$src) \
-                --out $(@D)
-        done
+        $(location @proto3-suite//:compile-proto-file) \
+            --includeDir """ + google_protobuf_src + """ \
+            --includeDir """ + google_rpc_src + """ \
+            --includeDir """ + ledger_api_proto_source_root + """ \
+            --proto com/daml/ledger/api/v1/testing/time_service.proto \
+            --out $$(dirname $$(dirname $$(dirname $$(dirname $$(dirname $$(dirname $(@D)))))))
+                #6x dirname because @D works differently for a single output
     """,
     tools = [
         "@proto3-suite//:compile-proto-file",
@@ -181,6 +175,7 @@ filegroup(
 ledger_api_haskellpb_sources_admin = [
     "PackageManagementService.hs",
     "PartyManagementService.hs",
+    "MeteringReportService.hs",
 ]
 
 genrule(

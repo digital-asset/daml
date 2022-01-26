@@ -27,6 +27,8 @@ import scala.concurrent.ExecutionContext
 private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
     extends LedgerFactory[Unit] {
 
+  override def ledgerName: String = "in-memory ledger"
+
   override def readWriteServiceFactoryOwner(
       config: Config[Unit],
       participantConfig: ParticipantConfig,
@@ -54,14 +56,6 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       state = state,
       engine = engine,
       committerExecutionContext = materializer.executionContext,
-    ).map(writer => {
-      new KeyValueReadWriteFactory(
-        config,
-        metrics,
-        reader,
-        writer,
-      )
-    })
+    ).map(writer => new KeyValueReadWriteFactory(config, metrics, reader, writer))
   }
-
 }

@@ -57,6 +57,13 @@ final class ConfigSpec
       getEnvVar = getEnvVar,
     )
 
+  private def configParserSimple(parameters: Seq[String] = Seq.empty): Option[Config[Unit]] =
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+      ) ++ parameters
+    )
   behavior of "Runner"
 
   it should "disable self service error codes when compatibility gRPC error codes flag is set" in {
@@ -252,12 +259,79 @@ final class ConfigSpec
     }
   }
 
+  it should "handle '--enable-user-management' flag correctly" in {
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--enable-user-management",
+      )
+    ) shouldBe None
+
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--enable-user-management",
+        "false",
+      )
+    ).value.userManagementConfig.enabled shouldBe false
+
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--enable-user-management",
+        "true",
+      )
+    ).value.userManagementConfig.enabled shouldBe true
+
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+      )
+    ).value.userManagementConfig.enabled shouldBe false
+  }
+
   it should "set REQUIRE client-auth when the parameter is not explicitly provided" in {
     val aValidTlsOptions = List(s"$certRevocationChecking", "false")
     val config =
       configParser(parameters = minimalValidOptions ++ aValidTlsOptions).getOrElse(parsingFailure())
 
     config.tlsConfig.value.clientAuth shouldBe ClientAuth.REQUIRE
+  }
+
+  it should "handle '--user-management-max-cache-size' flag correctly" in {
+    // missing cache size value
+    configParserSimple(
+      Seq("--user-management-max-cache-size")
+    ) shouldBe None
+    // default
+    configParserSimple().value.userManagementConfig.maximumCacheSize shouldBe 100
+    // custom value
+    configParserSimple(
+      Seq(
+        "--user-management-max-cache-size",
+        "123",
+      )
+    ).value.userManagementConfig.maximumCacheSize shouldBe 123
+  }
+
+  it should "handle '--user-management-cache-expiry' flag correctly" in {
+    // missing cache size value
+    configParserSimple(
+      Seq("--user-management-cache-expiry")
+    ) shouldBe None
+    // default
+    configParserSimple().value.userManagementConfig.cacheExpiryAfterWriteInSeconds shouldBe 5
+    // custom value
+    configParserSimple(
+      Seq(
+        "--user-management-cache-expiry",
+        "123",
+      )
+    ).value.userManagementConfig.cacheExpiryAfterWriteInSeconds shouldBe 123
   }
 
   private def parsingFailure(): Nothing = fail("Config parsing failed.")

@@ -70,7 +70,7 @@ class CommitterModelConformanceValidatorSpec
     keyAndMaintainer = Some(inputContractKey -> inputContractKeyMaintainer),
   )
   private val aCreate = create(aContractId)
-  private val anotherCreate = create("#anotherContractId")
+  private val anotherCreate = create(ContractId.V1(Hash.hashPrivateKey("#anotherContractId")))
 
   private val exercise = txBuilder.exercise(
     contract = inputCreate,
@@ -247,7 +247,7 @@ class CommitterModelConformanceValidatorSpec
       )
 
       val contractInstance = defaultValidator.lookupContract(commitContext)(
-        Conversions.decodeContractId(inputContractId)
+        Conversions.decodeContractId(inputContractId.coid)
       )
 
       contractInstance shouldBe Some(aContractInst)
@@ -259,7 +259,7 @@ class CommitterModelConformanceValidatorSpec
           None,
           Map.empty,
         )
-      )(Conversions.decodeContractId(inputContractId))
+      )(Conversions.decodeContractId(inputContractId.coid))
     }
   }
 
@@ -272,7 +272,7 @@ class CommitterModelConformanceValidatorSpec
     "return Some when mapping exists" in {
       defaultValidator.lookupKey(contractKeyInputs)(
         aGlobalKeyWithMaintainers(inputContractKey, inputContractKeyMaintainer)
-      ) shouldBe Some(Conversions.decodeContractId(inputContractId))
+      ) shouldBe Some(Conversions.decodeContractId(inputContractId.coid))
     }
 
     "return None when mapping does not exist" in {
@@ -400,10 +400,10 @@ class CommitterModelConformanceValidatorSpec
 
 object CommitterModelConformanceValidatorSpec {
 
-  private val inputContractId = "#inputContractId"
-  private val inputContractIdStateKey = makeContractIdStateKey(inputContractId)
-  private val aContractId = "#someContractId"
-  private val contractIdStateKey1 = makeContractIdStateKey(aContractId)
+  private val inputContractId = ContractId.V1(Hash.hashPrivateKey("#inputContractId"))
+  private val inputContractIdStateKey = makeContractIdStateKey(inputContractId.coid)
+  private val aContractId = ContractId.V1(Hash.hashPrivateKey("#someContractId"))
+  private val contractIdStateKey1 = makeContractIdStateKey(aContractId.coid)
   private val inputContractKey = "inputContractKey"
   private val inputContractKeyMaintainer = "inputContractKeyMaintainer"
   private val aKey = "key"

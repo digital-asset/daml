@@ -16,10 +16,9 @@ import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
-import scala.annotation.{nowarn, unused}
+import scala.annotation.unused
 import scala.concurrent.duration.FiniteDuration
 
-@nowarn("msg=parameter value config .* is never used") // possibly used in overrides
 trait ConfigProvider[ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 
@@ -54,7 +53,7 @@ trait ConfigProvider[ExtraConfig] {
   ): ApiServerConfig =
     ApiServerConfig(
       participantId = participantConfig.participantId,
-      archiveFiles = config.archiveFiles.map(_.toFile).toList,
+      archiveFiles = Nil,
       port = participantConfig.port,
       address = participantConfig.address,
       jdbcUrl = participantConfig.serverJdbcUrl,
@@ -79,11 +78,11 @@ trait ConfigProvider[ExtraConfig] {
       managementServiceTimeout = participantConfig.managementServiceTimeout,
       maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
       maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
-      enableMutableContractStateCache = config.enableMutableContractStateCache,
       maxTransactionsInMemoryFanOutBufferSize =
         participantConfig.maxTransactionsInMemoryFanOutBufferSize,
       enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
       enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+      enableUserManagement = config.userManagementConfig.enabled,
     )
 
   def partyConfig(@unused config: Config[ExtraConfig]): PartyConfiguration =
@@ -121,4 +120,14 @@ trait ConfigProvider[ExtraConfig] {
       .getOrElse("")
     new Metrics(SharedMetricRegistries.getOrCreate(registryName))
   }
+}
+
+object ConfigProvider {
+  class ForUnit extends ConfigProvider[Unit] {
+    override val defaultExtraConfig: Unit = ()
+
+    override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit = ()
+  }
+
+  object ForUnit extends ForUnit
 }

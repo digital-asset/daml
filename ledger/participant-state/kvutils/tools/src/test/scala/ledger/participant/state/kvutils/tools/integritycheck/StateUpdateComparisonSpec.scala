@@ -107,8 +107,8 @@ final class StateUpdateComparisonSpec
 
   private def buildATransaction(withFetchAndLookupByKeyNodes: Boolean): CommittedTransaction = {
     val builder = TransactionBuilder()
-    val create1 = create("#someContractId")
-    val create2 = create("#otherContractId")
+    val create1 = create(ContractId.V1(crypto.Hash.hashPrivateKey("#someContractId")))
+    val create2 = create(ContractId.V1(crypto.Hash.hashPrivateKey("#otherContractId")))
     val fetch1 = builder.fetch(create1)
     val lookup1 = builder.lookupByKey(create1, found = true)
     val fetch2 = builder.fetch(create2)

@@ -7,6 +7,7 @@ module DA.Daml.Helper.Ledger (
     LedgerFlags(..),
     RemoteDalf(..),
     defaultLedgerFlags,
+    sandboxLedgerFlags,
     getDefaultArgs,
     LedgerApi(..),
     L.ClientSSLConfig(..),
@@ -24,8 +25,9 @@ module DA.Daml.Helper.Ledger (
     runLedgerGetDalfs,
     runLedgerListPackages,
     runLedgerListPackages0,
+    runLedgerMeteringReport,
     -- exported for testing
-    downloadAllReachablePackages
+    downloadAllReachablePackages,
     ) where
 
 import Control.Exception (SomeException(..), catch)
@@ -33,7 +35,7 @@ import Control.Applicative ((<|>))
 import Control.Lens (toListOf)
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson ((.=))
+import Data.Aeson ((.=), encode)
 import qualified Data.Aeson as A
 import Data.Aeson.Text
 import qualified Data.ByteString as BS
@@ -73,6 +75,9 @@ import qualified DA.Ledger as L
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import qualified SdkVersion
+import DA.Ledger.Types (Timestamp(..), ApplicationId(..), IsoTime(..))
+import Data.Aeson.Encode.Pretty (encodePretty)
+
 
 data LedgerApi
   = Grpc
@@ -101,6 +106,12 @@ defaultLedgerFlags api = LedgerFlags
   , fPortM = Nothing
   , fTokFileM = Nothing
   , fMaxReceiveLengthM = Nothing
+  }
+
+sandboxLedgerFlags :: Int -> LedgerFlags
+sandboxLedgerFlags port = (defaultLedgerFlags Grpc)
+  { fHostM = Just "localhost"
+  , fPortM = Just port
   }
 
 data LedgerArgs = LedgerArgs
@@ -644,3 +655,23 @@ sanitizeToken :: String -> String
 sanitizeToken tok
   | "Bearer " `isPrefixOf` tok = tok
   | otherwise = "Bearer " <> tok
+
+-- | Report on Ledger Use.
+runLedgerMeteringReport :: LedgerFlags -> IsoTime -> Maybe IsoTime -> Maybe ApplicationId -> Bool -> IO ()
+runLedgerMeteringReport flags fromIso toIso application compactOutput = do
+    args <- getDefaultArgs flags
+    report <- meteringReport args (L.isoTimeToTimestamp fromIso) (fmap L.isoTimeToTimestamp toIso) application
+    let encodeFn = if compactOutput then encode else encodePretty  
+    let encoded = encodeFn report
+    let bsc = BSL.toStrict encoded
+    let output = BSC.unpack bsc
+    putStrLn output
+
+meteringReport :: LedgerArgs -> Timestamp -> Maybe Timestamp -> Maybe ApplicationId -> IO L.MeteringReport
+meteringReport args from to application =
+  case api args of
+    Grpc -> runWithLedgerArgs args $ do L.getMeteringReport from to application
+    HttpJson -> do
+      hPutStrLn stderr "Error: daml ledger metering can only be run via gRPC at the moment."
+      exitFailure
+

@@ -17,7 +17,6 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
-import scala.collection.compat._
 import scala.collection.immutable
 
 object DomainTransactionMapper {

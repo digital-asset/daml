@@ -15,6 +15,7 @@
 module DA.Daml.LF.TypeChecker.Serializability
   ( serializabilityConditionsDataType
   , checkModule
+  , CurrentModule(..)
   ) where
 
 import           Control.Lens (matching, toListOf)
@@ -29,28 +30,37 @@ import DA.Daml.LF.Ast.Optics (_PRSelfModule, dataConsType)
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
 
+-- This is only used during serializability inference. During typechecking the world
+-- contains the current module.
+data CurrentModule = CurrentModule
+  { modName :: ModuleName
+  , modInterfaces :: HS.HashSet TypeConName
+  }
+
 -- | Determine whether a type is serializable. When a module name is given,
 -- data types in this module are returned rather than lookup up in the world.
 -- If no module name is given, the returned set is always empty.
 serializabilityConditionsType
   :: World
   -> Version
-  -> Maybe (ModuleName, HS.HashSet TypeConName)
-     -- ^ References to data types in this module are returned rather than
-     -- chased. They are considered to have an associated template exactly when
-     -- they are contained in the hashset.
+  -> Maybe CurrentModule
+     -- ^ See description on `serializabilityConditionsDataType`.
   -> HS.HashSet TypeVarName
      -- ^ Type variables that are bound by a surrounding data type definition
      -- if any. The check that all of them are of kind '*' must be performed by
      -- the caller.
   -> Type
   -> Either UnserializabilityReason (HS.HashSet TypeConName)
-serializabilityConditionsType world0 _version mbModNameTpls vars = go
+serializabilityConditionsType world0 _version mbCurrentModule vars = go
   where
     noConditions = Right HS.empty
     go = \case
       -- This is the only way 'ContractId's, 'List's and 'Optional's are allowed. Other cases handled below.
-      TContractId typ -> go typ
+      TContractId typ
+          -- While an interface payload I is not serializable, ContractId I
+          -- is so specialcase this here.
+          | isInterface typ -> noConditions
+          | otherwise -> go typ
       TList typ -> go typ
       TOptional typ -> go typ
       TTextMap typ -> go typ
@@ -69,7 +79,7 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         | otherwise -> Left (URFreeVar v)
       TSynApp{} -> Left URTypeSyn
       TCon tcon
-        | Just (modName, _) <- mbModNameTpls
+        | Just CurrentModule { modName } <- mbCurrentModule
         , Right tconName <- matching (_PRSelfModule modName) tcon ->
             Right (HS.singleton tconName)
         | isSerializable tcon -> noConditions
@@ -106,6 +116,15 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         BTBigNumeric -> Left URBigNumeric
       TForall{} -> Left URForall
       TStruct{} -> Left URStruct
+    isInterface (TCon con) = case (lookupDataType con world0, mbCurrentModule) of
+      (Right t, _) -> case dataCons t of
+        DataInterface -> True
+        _ -> False
+      (Left _, Just currentModule)
+        | Right tconName <- matching (_PRSelfModule $ modName currentModule) con
+        -> tconName `HS.member` modInterfaces currentModule
+      (Left err, _) -> error $ showString "Serializability.serializabilityConditionsDataTyp: " $ show err
+    isInterface _ = False
 
 -- | Determine whether a data type preserves serializability. When a module
 -- name is given, -- data types in this module are returned rather than lookup
@@ -113,21 +132,25 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
 serializabilityConditionsDataType
   :: World
   -> Version
-  -> Maybe (ModuleName, HS.HashSet TypeConName)
-     -- ^ References to data types in this module are returned rather than
-     -- chased. They are considered to have an associated template exactly when
-     -- they are contained in the hashset.
+  -> Maybe CurrentModule
+     -- ^ We invoke this function in two different ways: During serializability inference
+     -- world excludes the current module and this will be `Just`. In that case, any type
+     -- in the current module becomes a condition.
+     -- During typechecking we only validate serializability. In that case, world includes
+     -- the current module this is `Nothing` and serializability of types
+     -- in the current modules is taking from `dataSerializable`.
   -> DefDataType
   -> Either UnserializabilityReason (HS.HashSet TypeConName)
-serializabilityConditionsDataType world0 version mbModNameTpls (DefDataType _loc _ _ params cons) =
+serializabilityConditionsDataType world0 version mbCurrentModule (DefDataType _loc _ _ params cons) =
   case find (\(_, k) -> k /= KStar) params of
     Just (v, k) -> Left (URHigherKinded v k)
     Nothing
       | DataVariant [] <- cons -> Left URUninhabitatedType
       | DataEnum [] <- cons -> Left URUninhabitatedType
+      | DataInterface <- cons -> Left URInterface
       | otherwise -> do
           let vars = HS.fromList (map fst params)
-          mconcatMapM (serializabilityConditionsType world0 version mbModNameTpls vars) (toListOf dataConsType cons)
+          mconcatMapM (serializabilityConditionsType world0 version mbCurrentModule vars) (toListOf dataConsType cons)
 
 -- | Check whether a type is serializable.
 checkType :: MonadGamma m => SerializabilityRequirement -> Type -> m ()
@@ -161,6 +184,15 @@ checkTemplate mod0 tpl = do
   for_ (tplKey tpl) $ \key -> withContext (ContextTemplate mod0 tpl TPKey) $ do
     checkType SRKey (tplKeyType key)
 
+-- | Check whether a template satisfies all serializability constraints.
+checkInterface :: MonadGamma m => Module -> DefInterface -> m ()
+checkInterface _mod0 iface = do
+  -- TODO https://github.com/digital-asset/daml/issues/12051
+  -- Add per interface choice context.
+  for_ (intFixedChoices iface) $ \ch -> do
+      checkType SRChoiceArg (snd (chcArgBinder ch))
+      checkType SRChoiceRes (chcReturnType ch)
+
 -- | Check whether exception is serializable.
 checkException :: MonadGamma m => Module -> DefException -> m ()
 checkException mod0 exn = do
@@ -179,3 +211,6 @@ checkModule mod0 = do
   for_ (moduleExceptions mod0) $ \exn ->
     withContext (ContextDefException mod0 exn) $
       checkException mod0 exn
+  for_ (moduleInterfaces mod0) $ \iface ->
+    withContext (ContextDefInterface mod0 iface) $
+      checkInterface mod0 iface

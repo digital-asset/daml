@@ -35,12 +35,11 @@ final class LedgerClientAuthIT
     applicationId = classOf[LedgerClientAuthIT].getSimpleName,
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
     token = None,
   )
 
   private val ClientConfiguration = ClientConfigurationWithoutToken.copy(
-    token = Some(customTokenToHeader(readOnlyToken("Read-only party")))
+    token = Some(toHeader(readOnlyToken("Read-only party")))
   )
 
   override protected def config: SandboxConfig = super.config.copy(
@@ -78,7 +77,7 @@ final class LedgerClientAuthIT
             .allocateParty(
               hint = Some(partyName),
               displayName = Some(partyName),
-              token = Some(customTokenToHeader(adminToken)),
+              token = Some(toHeader(adminToken)),
             )
         } yield {
           allocatedParty.displayName should be(Some(partyName))

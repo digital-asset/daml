@@ -3,8 +3,6 @@
 
 package com.daml.platform.apiserver
 
-import java.time.Duration
-
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCodesVersionSwitcher
@@ -13,7 +11,6 @@ import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services._
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.version_service.CommandDeduplicationFeatures
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
@@ -32,13 +29,7 @@ import com.daml.platform.apiserver.execution.{
   TimedCommandExecutor,
 }
 import com.daml.platform.apiserver.services._
-import com.daml.platform.apiserver.services.admin.{
-  ApiConfigManagementService,
-  ApiPackageManagementService,
-  ApiParticipantPruningService,
-  ApiPartyManagementService,
-  ApiUserManagementService,
-}
+import com.daml.platform.apiserver.services.admin._
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
 import com.daml.platform.configuration.{
   CommandConfiguration,
@@ -53,6 +44,7 @@ import com.daml.telemetry.TelemetryContext
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 
+import java.time.Duration
 import scala.collection.immutable
 import scala.concurrent.duration.{Duration => ScalaDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -96,7 +88,8 @@ private[daml] object ApiServices {
       managementServiceTimeout: Duration,
       enableSelfServiceErrorCodes: Boolean,
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
-      commandDeduplicationFeatures: CommandDeduplicationFeatures,
+      ledgerFeatures: LedgerFeatures,
+      enableUserManagement: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -161,7 +154,11 @@ private[daml] object ApiServices {
         ApiLedgerIdentityService.create(() => identityService.getLedgerId(), errorsVersionsSwitcher)
 
       val apiVersionService =
-        ApiVersionService.create(enableSelfServiceErrorCodes, commandDeduplicationFeatures)
+        ApiVersionService.create(
+          enableSelfServiceErrorCodes,
+          ledgerFeatures,
+          enableUserManagement = enableUserManagement,
+        )
 
       val apiPackageService =
         ApiPackageService.create(ledgerId, packagesService, errorsVersionsSwitcher)
@@ -205,8 +202,18 @@ private[daml] object ApiServices {
 
       val apiHealthService = new GrpcHealthService(healthChecks, errorsVersionsSwitcher)
 
-      val apiUserManagementService =
-        new ApiUserManagementService(userManagementStore, errorsVersionsSwitcher)
+      val maybeApiUserManagementService: Option[UserManagementServiceAuthorization] =
+        if (enableUserManagement) {
+          val apiUserManagementService =
+            new ApiUserManagementService(userManagementStore, errorsVersionsSwitcher)
+          val authorized =
+            new UserManagementServiceAuthorization(apiUserManagementService, authorizer)
+          Some(authorized)
+        } else {
+          None
+        }
+
+      val apiMeteringReportService = new ApiMeteringReportService()
 
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
@@ -220,8 +227,8 @@ private[daml] object ApiServices {
           apiReflectionService,
           apiHealthService,
           apiVersionService,
-          new UserManagementServiceAuthorization(apiUserManagementService, authorizer),
-        )
+          new MeteringReportServiceAuthorization(apiMeteringReportService, authorizer),
+        ) ::: maybeApiUserManagementService.toList
     }
 
     private def intitializeWriteServiceBackedApiServices(

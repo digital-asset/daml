@@ -16,7 +16,6 @@ import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
 
-import scala.collection.compat._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -92,16 +91,11 @@ object LedgerApiTestTool {
 
     val defaultTests: Vector[LedgerTestSuite] = Tests.default(
       timeoutScaleFactor = config.timeoutScaleFactor,
-      ledgerClockGranularity = config.ledgerClockGranularity,
       staticTime = config.staticTime,
     )
-    val optionalTests: Vector[LedgerTestSuite] = Tests.optional(
-      timeoutScaleFactor = config.timeoutScaleFactor,
-      ledgerClockGranularity = config.ledgerClockGranularity,
-      staticTime = config.staticTime,
-    )
+    val optionalTests: Vector[LedgerTestSuite] = Tests.optional()
     val visibleTests: Vector[LedgerTestSuite] = defaultTests ++ optionalTests
-    val allTests: Vector[LedgerTestSuite] = visibleTests ++ Tests.retired
+    val allTests: Vector[LedgerTestSuite] = visibleTests
     val allTestCaseNames: Set[String] = allTests.flatMap(_.tests).map(_.name).toSet
     val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
       allTestCaseNames.exists(_.startsWith(prefix))
@@ -154,7 +148,7 @@ object LedgerApiTestTool {
       })
 
     val defaultCases = defaultTests.flatMap(_.tests)
-    val allCases = defaultCases ++ optionalTests.flatMap(_.tests) ++ Tests.retired.flatMap(_.tests)
+    val allCases = defaultCases ++ optionalTests.flatMap(_.tests)
 
     val includedTests =
       if (config.included.isEmpty) defaultCases

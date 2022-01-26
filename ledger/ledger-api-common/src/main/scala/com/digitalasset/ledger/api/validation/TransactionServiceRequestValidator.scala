@@ -6,7 +6,7 @@ package com.daml.ledger.api.validation
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
+import com.daml.ledger.api.domain.{LedgerId, LedgerOffset, optionalLedgerId}
 import com.daml.ledger.api.messages.transaction
 import com.daml.ledger.api.messages.transaction.GetTransactionTreesRequest
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
@@ -40,12 +40,12 @@ class TransactionServiceRequestValidator(
   import fieldValidations._
   import errorFactories.invalidArgument
 
-  private def matchId(input: LedgerId)(implicit
+  private def matchId(input: Option[LedgerId])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[LedgerId] = matchLedgerId(ledgerId)(input)
+  ): Result[Option[LedgerId]] = matchLedgerId(ledgerId)(input)
 
   case class PartialValidation(
-      ledgerId: domain.LedgerId,
+      ledgerId: Option[domain.LedgerId],
       transactionFilter: TransactionFilter,
       begin: domain.LedgerOffset,
       end: Option[domain.LedgerOffset],
@@ -56,7 +56,7 @@ class TransactionServiceRequestValidator(
       req: GetTransactionsRequest
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[PartialValidation] = {
     for {
-      ledgerId <- matchId(LedgerId(req.ledgerId))
+      ledgerId <- matchId(optionalLedgerId(req.ledgerId))
       filter <- requirePresence(req.filter, "filter")
       requiredBegin <- requirePresence(req.begin, "begin")
       convertedBegin <- ledgerOffsetValidator.validate(requiredBegin, "begin")
@@ -94,7 +94,7 @@ class TransactionServiceRequestValidator(
       convertedFilter <- transactionFilterValidator.validate(partial.transactionFilter)
     } yield {
       transaction.GetTransactionsRequest(
-        ledgerId,
+        partial.ledgerId,
         partial.begin,
         partial.end,
         convertedFilter,
@@ -138,9 +138,9 @@ class TransactionServiceRequestValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetLedgerEndRequest] = {
     for {
-      ledgerId <- matchId(LedgerId(req.ledgerId))
+      _ <- matchId(optionalLedgerId(req.ledgerId))
     } yield {
-      transaction.GetLedgerEndRequest(ledgerId)
+      transaction.GetLedgerEndRequest()
     }
   }
 
@@ -150,7 +150,7 @@ class TransactionServiceRequestValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetTransactionByIdRequest] = {
     for {
-      ledgerId <- matchId(LedgerId(req.ledgerId))
+      ledgerId <- matchId(optionalLedgerId(req.ledgerId))
       _ <- requireNonEmptyString(req.transactionId, "transaction_id")
       trId <- requireLedgerString(req.transactionId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
@@ -170,7 +170,7 @@ class TransactionServiceRequestValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetTransactionByEventIdRequest] = {
     for {
-      ledgerId <- matchId(LedgerId(req.ledgerId))
+      ledgerId <- matchId(optionalLedgerId(req.ledgerId))
       eventId <- requireLedgerString(req.eventId, "event_id")
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       parties <- partyValidator.requireKnownParties(req.requestingParties)

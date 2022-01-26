@@ -26,4 +26,6 @@ public interface LedgerClient {
   LedgerConfigurationClient getLedgerConfigurationClient();
 
   TimeClient getTimeClient();
+
+  UserManagementClient getUserManagementClient();
 }

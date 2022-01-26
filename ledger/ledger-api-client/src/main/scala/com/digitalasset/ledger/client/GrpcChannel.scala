@@ -3,41 +3,27 @@
 
 package com.daml.ledger.client
 
-import java.net.{InetAddress, InetSocketAddress}
+import java.net.InetAddress
+import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ports.Port
+import io.grpc.netty.NettyChannelBuilder
 import io.grpc.{Channel, ManagedChannel}
-import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 
 object GrpcChannel {
 
-  def apply(
-      builder: NettyChannelBuilder,
-      configuration: LedgerClientConfiguration,
-  ): ManagedChannel = {
-    configuration.sslContext
-      .fold(builder.usePlaintext())(builder.sslContext(_).negotiationType(NegotiationType.TLS))
-    builder.maxInboundMetadataSize(configuration.maxInboundMetadataSize)
-    builder.maxInboundMessageSize(configuration.maxInboundMessageSize)
-    builder.build()
-  }
-
-  final class Owner(builder: NettyChannelBuilder, configuration: LedgerClientConfiguration)
-      extends ResourceOwner[ManagedChannel] {
-    def this(port: Port, configuration: LedgerClientConfiguration) =
+  final class Owner(builder: NettyChannelBuilder) extends ResourceOwner[ManagedChannel] {
+    def this(port: Port, configuration: LedgerClientChannelConfiguration) =
       this(
-        NettyChannelBuilder
-          .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, port.value)),
-        configuration,
+        configuration.builderFor(InetAddress.getLoopbackAddress.getHostAddress, port.value)
       )
 
     override def acquire()(implicit context: ResourceContext): Resource[ManagedChannel] =
-      Resource(Future(GrpcChannel(builder, configuration)))(channel =>
+      Resource(Future(builder.build()))(channel =>
         Future {
           channel.shutdownNow()
           ()
@@ -46,10 +32,9 @@ object GrpcChannel {
   }
 
   def withShutdownHook(
-      builder: NettyChannelBuilder,
-      configuration: LedgerClientConfiguration,
+      builder: NettyChannelBuilder
   ): ManagedChannel = {
-    val channel = GrpcChannel(builder, configuration)
+    val channel = builder.build()
     sys.addShutdownHook {
       channel.shutdownNow()
       ()

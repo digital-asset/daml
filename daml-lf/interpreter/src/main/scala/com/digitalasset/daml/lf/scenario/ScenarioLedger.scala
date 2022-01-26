@@ -22,7 +22,6 @@ import Value._
 import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
-import scala.collection.compat._
 import scala.collection.immutable
 
 /** An in-memory representation of a ledger for scenarios */
@@ -308,8 +307,7 @@ object ScenarioLedger {
   /** Collect all contract ids appearing in a value
     */
   def collectCoids(value: Value): Set[ContractId] = {
-    val coids =
-      implicitly[Factory[ContractId, Set[ContractId]]].newBuilder
+    val coids = Set.newBuilder[ContractId]
     def collect(v: Value): Unit =
       v match {
         case ValueRecord(tycon @ _, fs) =>

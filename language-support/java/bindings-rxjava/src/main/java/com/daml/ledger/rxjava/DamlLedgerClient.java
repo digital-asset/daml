@@ -6,7 +6,6 @@ package com.daml.ledger.rxjava;
 import com.daml.grpc.adapter.SingleThreadExecutionSequencerPool;
 import com.daml.ledger.rxjava.grpc.*;
 import io.grpc.ManagedChannel;
-import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
 import io.netty.handler.ssl.SslContext;
 import java.time.Duration;
@@ -58,6 +57,13 @@ public final class DamlLedgerClient implements LedgerClient {
       return this;
     }
 
+    /**
+     * @deprecated since 2.0 the ledger identifier has been deprecated as a fail-safe against
+     *     contacting an unexpected participant. You are recommended to use the participant
+     *     identifier in the access token as a way to validate that you are accessing the ledger
+     *     through the expected participant node (as well as authorize your calls).
+     */
+    @Deprecated
     public Builder withExpectedLedgerId(@NonNull String expectedLedgerId) {
       this.expectedLedgerId = Optional.of(expectedLedgerId);
       return this;
@@ -105,46 +111,6 @@ public final class DamlLedgerClient implements LedgerClient {
     return new Builder(channelBuilder);
   }
 
-  /**
-   * Creates a {@link DamlLedgerClient} connected to a Ledger identified by the ip and port.
-   *
-   * @param ledgerId The expected ledger-id
-   * @param hostIp The ip of the Ledger
-   * @param hostPort The port of the Ledger
-   * @param sslContext If present, it will be used to establish a TLS connection. If empty, an
-   *     unsecured plaintext connection will be used. Must be an SslContext created for client
-   *     applications via {@link GrpcSslContexts#forClient()}.
-   * @deprecated since 0.13.38, please use {@link
-   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or
-   *     even better either {@link DamlLedgerClient#newBuilder}
-   */
-  @Deprecated
-  public static DamlLedgerClient forLedgerIdAndHost(
-      @NonNull String ledgerId,
-      @NonNull String hostIp,
-      int hostPort,
-      @NonNull Optional<SslContext> sslContext) {
-    Builder builder = newBuilder(hostIp, hostPort).withExpectedLedgerId(ledgerId);
-    sslContext.ifPresent(builder::withSslContext);
-    return builder.build();
-  }
-
-  /**
-   * Like {@link DamlLedgerClient#forLedgerIdAndHost(String, String, int, Optional)} but with the
-   * ledger-id automatically discovered instead of provided.
-   *
-   * @deprecated since 0.13.38, please use {@link
-   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or
-   *     even better either {@link DamlLedgerClient#newBuilder}
-   */
-  @Deprecated
-  public static DamlLedgerClient forHostWithLedgerIdDiscovery(
-      @NonNull String hostIp, int hostPort, Optional<SslContext> sslContext) {
-    Builder builder = newBuilder(hostIp, hostPort);
-    sslContext.ifPresent(builder::withSslContext);
-    return builder.build();
-  }
-
   private ActiveContractsClient activeContractsClient;
   private TransactionsClient transactionsClient;
   private CommandCompletionClient commandCompletionClient;
@@ -154,6 +120,7 @@ public final class DamlLedgerClient implements LedgerClient {
   private PackageClient packageClient;
   private LedgerConfigurationClient ledgerConfigurationClient;
   private TimeClient timeClient;
+  private UserManagementClient userManagementClient;
   private String expectedLedgerId;
   private Optional<String> accessToken;
   private final Optional<Duration> timeout;
@@ -170,30 +137,9 @@ public final class DamlLedgerClient implements LedgerClient {
     this.timeout = timeout;
   }
 
-  /**
-   * Creates a {@link DamlLedgerClient} with a previously created {@link ManagedChannel}. This is
-   * useful in case additional settings need to be configured for the connection to the ledger (e.g.
-   * keep alive timeout).
-   *
-   * @param expectedLedgerId If the value is present, {@link DamlLedgerClient#connect()} throws an
-   *     exception if the provided ledger id does not match the ledger id provided by the ledger.
-   * @param channel A user provided instance of @{@link ManagedChannel}.
-   * @deprecated since 0.13.38, please use {@link DamlLedgerClient#newBuilder}
-   */
-  @Deprecated
-  public DamlLedgerClient(
-      Optional<String> expectedLedgerId,
-      @NonNull ManagedChannel channel,
-      Optional<Duration> timeout) {
-    this.channel = channel;
-    this.expectedLedgerId = expectedLedgerId.orElse(null);
-    this.accessToken = Optional.empty();
-    this.timeout = timeout;
-  }
-
   /** Connects this instance of the {@link DamlLedgerClient} to the Ledger. */
   public void connect() {
-    ledgerIdentityClient = new LedgerIdentityClientImpl(channel, this.accessToken);
+    ledgerIdentityClient = new LedgerIdentityClientImpl(channel, pool, this.accessToken);
 
     String reportedLedgerId = ledgerIdentityClient.getLedgerIdentity().blockingGet();
 
@@ -213,12 +159,14 @@ public final class DamlLedgerClient implements LedgerClient {
     commandCompletionClient =
         new CommandCompletionClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     commandSubmissionClient =
-        new CommandSubmissionClientImpl(reportedLedgerId, channel, this.accessToken, this.timeout);
-    commandClient = new CommandClientImpl(reportedLedgerId, channel, this.accessToken);
-    packageClient = new PackageClientImpl(reportedLedgerId, channel, this.accessToken);
+        new CommandSubmissionClientImpl(
+            reportedLedgerId, channel, pool, this.accessToken, this.timeout);
+    commandClient = new CommandClientImpl(reportedLedgerId, channel, pool, this.accessToken);
+    packageClient = new PackageClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     ledgerConfigurationClient =
         new LedgerConfigurationClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     timeClient = new TimeClientImpl(reportedLedgerId, channel, pool, this.accessToken);
+    userManagementClient = new UserManagementClientImpl(channel, pool, this.accessToken);
   }
 
   @Override
@@ -269,6 +217,11 @@ public final class DamlLedgerClient implements LedgerClient {
   @Override
   public TimeClient getTimeClient() {
     return timeClient;
+  }
+
+  @Override
+  public UserManagementClient getUserManagementClient() {
+    return userManagementClient;
   }
 
   public void close() throws Exception {

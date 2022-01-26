@@ -15,7 +15,7 @@ import java.io.File
 import org.openjdk.jmh.annotations.{Param, Setup, Level, Benchmark, State, Scope}
 
 @State(Scope.Benchmark)
-class SpeedyCompilation {
+class SpeedyCompilationBench {
 
   @Param(Array(""))
   var darPath: String = _

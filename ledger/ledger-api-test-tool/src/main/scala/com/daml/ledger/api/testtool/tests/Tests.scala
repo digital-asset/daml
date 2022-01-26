@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import java.nio.file.Path
+
 import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, Envelope, LedgerTestSuite}
 import com.daml.ledger.api.testtool.suites.CompletionDeduplicationInfoIT.{
   CommandService,
@@ -12,9 +14,7 @@ import com.daml.ledger.api.testtool.suites._
 import com.daml.ledger.test.TestDar
 import com.daml.lf.language.LanguageVersion
 
-import java.nio.file.Path
 import scala.collection.SortedSet
-import scala.concurrent.duration.FiniteDuration
 
 object Tests {
 
@@ -25,27 +25,34 @@ object Tests {
 
   def default(
       timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor,
-      ledgerClockGranularity: FiniteDuration = Defaults.LedgerClockGranularity,
       staticTime: Boolean = Defaults.StaticTime,
   ): Vector[LedgerTestSuite] =
     Vector(
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
-      new CommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity, staticTime),
+      new CommandDeduplicationIT(timeoutScaleFactor, staticTime),
+      new CommandDeduplicationParallelIT,
+      new CommandDeduplicationPeriodValidationIT,
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
+      new CompletionDeduplicationInfoIT(CommandService),
+      new CompletionDeduplicationInfoIT(CommandSubmissionService),
       new ConfigManagementServiceIT,
+      new ContractIdIT,
       new ContractKeysIT,
       new DeeplyNestedValueIT,
       new DivulgenceIT,
       new HealthServiceIT,
       new IdentityIT,
       new LedgerConfigurationServiceIT,
+      new MultiPartySubmissionIT,
       new PackageManagementServiceIT,
       new PackageServiceIT,
+      new ParticipantPruningIT,
       new PartyManagementServiceIT,
       new RaceConditionIT,
       new SemanticTests,
+      new TimeServiceIT,
       new TransactionServiceArgumentsIT,
       new TransactionServiceAuthorizationIT,
       new TransactionServiceCorrectnessIT,
@@ -63,32 +70,11 @@ object Tests {
     ) ++ (if (supportsExceptions) Vector(new ExceptionsIT, new ExceptionRaceConditionIT)
           else Vector.empty)
 
-  def optional(
-      timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor,
-      ledgerClockGranularity: FiniteDuration = Defaults.LedgerClockGranularity,
-      staticTime: Boolean = Defaults.StaticTime,
-  ): Vector[LedgerTestSuite] =
+  def optional(): Vector[LedgerTestSuite] =
     Vector(
-      new CompletionDeduplicationInfoIT(CommandService),
-      new CompletionDeduplicationInfoIT(CommandSubmissionService),
-      new CommandDeduplicationParallelIT,
-      new CommandDeduplicationPeriodValidationIT,
-      new ContractIdIT,
-      new KVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity, staticTime),
-      new MultiPartySubmissionIT,
-      new ParticipantPruningIT,
       new MonotonicRecordTimeIT,
       new TLSOnePointThreeIT,
       new TLSAtLeastOnePointTwoIT,
-      // TODO sandbox-classic removal: Remove
-      new DeprecatedSandboxClassicMemoryContractKeysIT,
-      new DeprecatedSandboxClassicMemoryExceptionsIT,
-    )
-
-  val retired: Vector[LedgerTestSuite] =
-    Vector(
-      new LotsOfPartiesIT,
-      new TransactionScaleIT,
     )
 
   /** These are performance envelope tests that also provide benchmarks and are always run

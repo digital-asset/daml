@@ -84,7 +84,7 @@ class SubmitRequestValidatorTest
     )
 
     val emptyCommands = ApiCommands(
-      ledgerId = ledgerId,
+      ledgerId = Some(ledgerId),
       workflowId = Some(workflowId),
       applicationId = applicationId,
       commandId = commandId,
@@ -183,21 +183,14 @@ class SubmitRequestValidatorTest
         )
       }
 
-      "not allow missing ledgerId" in {
+      "allow missing ledgerId" in {
+        testedCommandValidator.validateCommands(
+          api.commands.withLedgerId(""),
+          internal.ledgerTime,
+          internal.submittedAt,
+          Some(internal.maxDeduplicationDuration),
+        ) shouldEqual Right(internal.emptyCommands.copy(ledgerId = None))
 
-        commandValidatorFixture.testRequestFailure(
-          _.validateCommands(
-            api.commands.withLedgerId(""),
-            internal.ledgerTime,
-            internal.submittedAt,
-            Some(internal.maxDeduplicationDuration),
-          ),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: ledger_id",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: ledger_id",
-        )
       }
 
       "tolerate a missing workflowId" in {
@@ -452,10 +445,10 @@ class SubmitRequestValidatorTest
     "validating contractId values" should {
       "succeed" in {
 
-        val coid = Ref.ContractIdString.assertFromString("#coid")
+        val coid = Lf.ContractId.V1.assertFromString("00" + "00" * 32)
 
-        val input = Value(Sum.ContractId(coid))
-        val expected = Lf.ValueContractId(Lf.ContractId.V0(coid))
+        val input = Value(Sum.ContractId(coid.coid))
+        val expected = Lf.ValueContractId(coid)
 
         testedValueValidator.validateValue(input) shouldEqual Right(expected)
       }

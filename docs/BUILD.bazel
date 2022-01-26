@@ -248,18 +248,13 @@ export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
     # the PDF documentation due to issues with the FreeSerif font in the
     # fontspec package. So, for now we ignore `FutureWarning`.
     SPHINX_BUILD_EXIT_CODE=0
-    SPHINX_BUILD_OUTPUT=$$($(location @sphinx_nix//:bin/sphinx-build) -b {target} -c $$DIR/source/configs/{name} $$DIR/source/source $$DIR/target 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
+    # We hide the output unless we get a failure to make the builds less noisy.
+    SPHINX_BUILD_OUTPUT=$$($(location @sphinx_nix//:bin/sphinx-build) -W -b {target} -c $$DIR/source/configs/{name} $$DIR/source/source $$DIR/target 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
 
     if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
         >&2 echo "## SPHINX-BUILD OUTPUT:"
         >&2 echo "$$SPHINX_BUILD_OUTPUT"
         >&2 echo "## SPHINX-BUILD OUTPUT END"
-        exit 1
-    fi
-    # NOTE: appending ' || true' to force exit code of 0 from grep because grep normally exits with 1 if no lines are selected:
-    WARNINGS=$$(echo "$$SPHINX_BUILD_OUTPUT" | grep -Pi "(?<!future)warning:" || true)
-    if [ "$$WARNINGS" != "" ]; then
-        echo "$$WARNINGS"
         exit 1
     fi
 
@@ -348,6 +343,8 @@ genrule(
         "//language-support/ts/daml-ledger:docs",
         "//language-support/ts/daml-types:docs",
         "@daml-cheat-sheet//:site",
+        ":redirects",
+        "error.html",
     ],
     outs = ["non-sphinx-html-docs.tar.gz"],
     cmd = """
@@ -381,11 +378,15 @@ genrule(
     # Copy in hoogle DB
     cp -L $(location :hoogle_db.tar.gz) $$DIR/html/hoogle_db.tar.gz
 
+    echo {{ \\"{version}\\" : \\"{version}\\" }} > $$DIR/html/versions.json
+    cp $(location :error.html) $$DIR/html/
+    tar xf $(location :redirects) --strip-components=1 -C $$DIR/html
+
     MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
     OUT_PATH=$$PWD/$@
     cd $$DIR
     $$MKTGZ $$OUT_PATH html
-  """,
+  """.format(version = sdk_version),
     tools = ["//bazel_tools/sh:mktgz"],
 ) if not is_windows else None
 
@@ -438,16 +439,11 @@ genrule(
     srcs = [
         ":docs-no-pdf",
         ":pdf-docs",
-        ":redirects",
-        "error.html",
     ],
     outs = ["html.tar.gz"],
     cmd = """
         VERSION_DATE=$$(cat bazel-out/stable-status.txt | grep STABLE_VERSION_DATE | head -1 | cut -f 2 -d' ')
-        tar -zxf $(location :redirects)
         tar -zxf $(location :docs-no-pdf)
-        cp -rn redirects/* html
-        cp -L docs/error.html html
         cd html
         find . -name '*.html' | sort | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
         SMHEAD="{head}"
@@ -459,11 +455,10 @@ genrule(
         done < sitemap
         rm sitemap
         echo $$SMFOOT >> sitemap.xml
-        echo {{ \\"{version}\\" : \\"{version}\\" }} > versions.json
         cd ..
         cp -L $(location :pdf-docs) html/_downloads
         # Remove Sphinx build products
-        rm -rf .buildinfo .doctrees objects.inv
+        rm -r html/.buildinfo html/.doctrees html/objects.inv
         $(execpath //bazel_tools/sh:mktgz) $@ html
     """.format(
         head = """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
@@ -571,7 +566,7 @@ java_binary(
 daml_test(
     name = "ledger-api-daml-test",
     srcs = glob(["source/app-dev/code-snippets/**/*.daml"]),
-    enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
@@ -582,7 +577,7 @@ daml_test(
 daml_test(
     name = "patterns-daml-test",
     srcs = glob(["source/daml/patterns/daml/**/*.daml"]),
-    enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 pkg_tar(
@@ -595,14 +590,14 @@ pkg_tar(
 daml_test(
     name = "daml-studio-daml-test",
     srcs = glob(["source/daml/daml-studio/daml/**/*.daml"]),
-    enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
     name = "daml-ref-daml-test",
     timeout = "long",
     srcs = glob(["source/daml/code-snippets/**/*.daml"]),
-    enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
@@ -628,7 +623,7 @@ daml_test(
 daml_test(
     name = "ledger-model-daml-test",
     srcs = glob(["source/concepts/ledger-model/daml/**/*.daml"]),
-    enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
+    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(

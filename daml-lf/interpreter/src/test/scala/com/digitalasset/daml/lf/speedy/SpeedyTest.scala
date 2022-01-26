@@ -5,17 +5,15 @@ package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Struct}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.validation.Validation
 import org.scalactic.Equality
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -528,14 +526,6 @@ object SpeedyTest {
     case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
     case (Left(e1), Left(e2)) => e1 == e2
     case _ => false
-  }
-
-  private def typeAndCompile(pkg: Package): PureCompiledPackages = {
-    import defaultParserParameters.defaultPackageId
-    val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(language.PackageInterface(rawPkgs), defaultPackageId, pkg)
-    val compilerConfig = Compiler.Config.Default.copy(stacktracing = FullStackTrace)
-    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }
 
   private def intList(xs: Long*): String =

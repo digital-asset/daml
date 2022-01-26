@@ -7,6 +7,9 @@
 
 module CoinDelegation where
 
+import Daml.Script
+import DA.Assert
+
 import CoinIssuance
 import Utilities
 
@@ -44,9 +47,9 @@ template CoinPoA
         exercise coinId Transfer with newOwner
 -- END_COIN_POA_TRANSFER
 
-delegate : Scenario ()  -- test
+delegate : Script ()  -- test
 delegate =
-  scenario do
+  script do
 
     [issuer, owner, receiver, attorney] <- makePartiesFrom ["Bank", "Me", "You", "Lawyer"]
 
@@ -54,19 +57,19 @@ delegate =
     newCoinId <- createCoin issuer owner 100.0
 
     --poa is created between owner and attorney
-    poa <- owner `submit` do create CoinPoA with principal = owner; attorney
+    poa <- owner `submit` do createCmd CoinPoA with principal = owner; attorney
 
     --owner chooses to disclose coin to the attorney. This is how he devulge his coin to attorney
-    disclosedCoinId <- owner `submit` do exercise newCoinId Disclose with p = attorney
+    disclosedCoinId <- owner `submit` do exerciseCmd newCoinId Disclose with p = attorney
 
     --attorney now can Transfer coin on behalf of the owner
-    tprop <- attorney `submit` do exercise poa TransferCoin with coinId = disclosedCoinId; newOwner = receiver
+    tprop <- attorney `submit` do exerciseCmd poa TransferCoin with coinId = disclosedCoinId; newOwner = receiver
 
     --receives can accept
-    receiver `submit` do
-      newCoinId <- exercise tprop AcceptTransfer
-      newCoin <- fetch newCoinId
+    newCoinId <- receiver `submit` do
+      exerciseCmd tprop AcceptTransfer
 
-      assert (newCoin.owner == receiver)
-      assert (newCoin.issuer == issuer)
-      assert (newCoin.amount == 100.0)
+    Some newCoin <- receiver `queryContractId` newCoinId
+    newCoin.owner === receiver
+    newCoin.issuer === issuer
+    newCoin.amount === 100.0

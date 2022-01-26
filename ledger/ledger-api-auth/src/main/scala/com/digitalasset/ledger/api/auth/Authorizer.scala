@@ -19,7 +19,6 @@ import com.daml.error.definitions.LedgerApiErrors
 import io.grpc.StatusRuntimeException
 import scalapb.lenses.Lens
 
-import scala.collection.compat._
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
@@ -201,7 +200,7 @@ final class Authorizer(
   ): Either[StatusRuntimeException, String] =
     if (reqApplicationId.isEmpty)
       claims.applicationId match {
-        case Some(applicationId) if !applicationId.isEmpty => Right(applicationId)
+        case Some(applicationId) if applicationId.nonEmpty => Right(applicationId)
         case _ =>
           Left(
             errorFactories.invalidArgument(None)(

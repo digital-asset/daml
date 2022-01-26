@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.app.{Config, ParticipantConfig}
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.sandbox.BridgeConfig
+import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{Ref, Time}
@@ -52,7 +53,7 @@ object LedgerBridge {
       )
     else
       ResourceOwner.forValue(() =>
-        new PassThroughLedgerBridge(participantId = participantConfig.participantId)
+        new PassThroughLedgerBridge(participantConfig.participantId, timeProvider)
       )
 
   private def buildConfigCheckingLedgerBridge(
@@ -75,7 +76,7 @@ object LedgerBridge {
       allocatedPartiesAtInitialization <- ResourceOwner.forFuture(() =>
         indexService.listKnownParties().map(_.map(_.party).toSet)
       )
-    } yield new ConflictCheckingLedgerBridge(
+    } yield ConflictCheckingLedgerBridge(
       participantId = participantConfig.participantId,
       indexService = indexService,
       timeProvider = timeProvider,
@@ -91,6 +92,66 @@ object LedgerBridge {
       servicesThreadPoolSize = servicesThreadPoolSize,
     )
 
+  private[bridge] def packageUploadSuccess(
+      s: Submission.UploadPackages,
+      currentTimestamp: Time.Timestamp,
+  ): Update.PublicPackageUpload =
+    Update.PublicPackageUpload(
+      archives = s.archives,
+      sourceDescription = s.sourceDescription,
+      recordTime = currentTimestamp,
+      submissionId = Some(s.submissionId),
+    )
+
+  private[bridge] def configChangedSuccess(
+      s: Submission.Config,
+      participantId: ParticipantId,
+      currentTimestamp: Time.Timestamp,
+  ): Update.ConfigurationChanged =
+    Update.ConfigurationChanged(
+      recordTime = currentTimestamp,
+      submissionId = s.submissionId,
+      participantId = participantId,
+      newConfiguration = s.config,
+    )
+
+  private[bridge] def partyAllocationSuccess(
+      s: Submission.AllocateParty,
+      participantId: ParticipantId,
+      currentTimestamp: Time.Timestamp,
+  ): Update.PartyAddedToParticipant = {
+    val party = s.hint.getOrElse(UUID.randomUUID().toString)
+    Update.PartyAddedToParticipant(
+      party = Ref.Party.assertFromString(party),
+      displayName = s.displayName.getOrElse(party),
+      participantId = participantId,
+      recordTime = currentTimestamp,
+      submissionId = Some(s.submissionId),
+    )
+  }
+
+  private[sandbox] def transactionAccepted(
+      transactionSubmission: Submission.Transaction,
+      index: Long,
+      currentTimestamp: Time.Timestamp,
+  ): Update.TransactionAccepted = {
+    val submittedTransaction = transactionSubmission.transaction
+    val completionInfo = Some(
+      transactionSubmission.submitterInfo.toCompletionInfo(
+        Some(TransactionNodeStatistics(submittedTransaction))
+      )
+    )
+    Update.TransactionAccepted(
+      optCompletionInfo = completionInfo,
+      transactionMeta = transactionSubmission.transactionMeta,
+      transaction = CommittedTransaction(submittedTransaction),
+      transactionId = Ref.TransactionId.assertFromString(index.toString),
+      recordTime = currentTimestamp,
+      divulgedContracts = Nil,
+      blindingInfo = None,
+    )
+  }
+
   private[bridge] def fromOffset(offset: Offset): Long = {
     val offsetBytes = offset.toByteArray
     if (offsetBytes.length > 8)
@@ -100,61 +161,6 @@ object LedgerBridge {
         Array.fill[Byte](8 - offsetBytes.length)(0) ++ offsetBytes
       )
   }
-
-  private[bridge] def partyAllocationSuccessMapper(
-      party: Ref.Party,
-      displayName: Option[String],
-      submissionId: Ref.SubmissionId,
-      participantId: ParticipantId,
-  ): Update.PartyAddedToParticipant =
-    Update.PartyAddedToParticipant(
-      party = party,
-      displayName = displayName.getOrElse(party),
-      participantId = participantId,
-      recordTime = Time.Timestamp.now(),
-      submissionId = Some(submissionId),
-    )
-
-  def successMapper(submission: Submission, index: Long, participantId: Ref.ParticipantId): Update =
-    submission match {
-      case s: Submission.AllocateParty =>
-        val party = s.hint.getOrElse(UUID.randomUUID().toString)
-        Update.PartyAddedToParticipant(
-          party = Ref.Party.assertFromString(party),
-          displayName = s.displayName.getOrElse(party),
-          participantId = participantId,
-          recordTime = Time.Timestamp.now(),
-          submissionId = Some(s.submissionId),
-        )
-
-      case s: Submission.Config =>
-        Update.ConfigurationChanged(
-          recordTime = Time.Timestamp.now(),
-          submissionId = s.submissionId,
-          participantId = participantId,
-          newConfiguration = s.config,
-        )
-
-      case s: Submission.UploadPackages =>
-        Update.PublicPackageUpload(
-          archives = s.archives,
-          sourceDescription = s.sourceDescription,
-          recordTime = Time.Timestamp.now(),
-          submissionId = Some(s.submissionId),
-        )
-
-      case s: Submission.Transaction =>
-        Update.TransactionAccepted(
-          optCompletionInfo =
-            Some(s.submitterInfo.toCompletionInfo(Some(TransactionNodeStatistics(s.transaction)))),
-          transactionMeta = s.transactionMeta,
-          transaction = s.transaction.asInstanceOf[CommittedTransaction],
-          transactionId = Ref.TransactionId.assertFromString(index.toString),
-          recordTime = Time.Timestamp.now(),
-          divulgedContracts = Nil,
-          blindingInfo = None,
-        )
-    }
 
   private[bridge] def toOffset(index: Long): Offset = Offset.fromByteArray(Longs.toByteArray(index))
 }

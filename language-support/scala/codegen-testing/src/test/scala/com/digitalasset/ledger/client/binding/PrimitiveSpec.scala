@@ -13,7 +13,6 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import shapeless.test.illTyped
 
 import scala.annotation.nowarn
-import scala.collection.compat._
 import scala.collection.immutable.Map
 
 class PrimitiveSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {

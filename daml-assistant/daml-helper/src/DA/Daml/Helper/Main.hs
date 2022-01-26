@@ -4,7 +4,7 @@
 module DA.Daml.Helper.Main (main) where
 
 import Control.Exception.Safe
-import Control.Monad
+import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import Data.Foldable
 import Data.List.Extra
@@ -12,10 +12,10 @@ import Numeric.Natural
 import Options.Applicative.Extended
 import System.Environment
 import System.Exit
-import System.IO
+import System.IO.Extra
 import System.Process (showCommandForUser)
+import System.Process.Typed (unsafeProcessHandle)
 import Text.Read (readMaybe)
-
 import DA.Signals
 import DA.Daml.Helper.Init
 import DA.Daml.Helper.Ledger
@@ -24,6 +24,9 @@ import DA.Daml.Helper.Start
 import DA.Daml.Helper.Studio
 import DA.Daml.Helper.Util
 import DA.Daml.Helper.Codegen
+import DA.PortFile
+import DA.Ledger.Types (ApplicationId(..), IsoTime(..))
+import Data.Text.Lazy (pack)
 
 main :: IO ()
 main = do
@@ -49,11 +52,6 @@ data Command
         , remainingArguments :: [String]
         , shutdownStdinClose :: Bool
         }
-    | RunPlatformJar
-        { args :: [String]
-        , logbackConfig :: FilePath
-        , shutdownStdinClose :: Bool
-        }
     | New { targetFolder :: FilePath, appTemplate :: AppTemplate }
     | CreateDamlApp { targetFolder :: FilePath }
     -- ^ CreateDamlApp is sufficiently special that in addition to
@@ -71,13 +69,17 @@ data Command
     | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
     | LedgerReset {flags :: LedgerFlags}
     | LedgerExport { flags :: LedgerFlags, remainingArguments :: [String] }
-    | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
+    | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String], shutdownStdinClose :: Bool }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
+    | LedgerMeteringReport { flags :: LedgerFlags, from :: IsoTime, to :: Maybe IsoTime, application :: Maybe ApplicationId, compactOutput :: Bool }
     | CantonSandbox
-      { ports :: CantonOptions
-      , remainingArguments :: [String]
-      }
+        { cantonOptions :: CantonOptions
+        , portFileM :: Maybe FilePath
+        , darPaths :: [FilePath]
+        , remainingArguments :: [String]
+        , shutdownStdinClose :: Bool
+        }
 
 data AppTemplate
   = AppTemplateDefault
@@ -96,10 +98,9 @@ commandParser = subparser $ fold
     , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
     , command "ledger" (info (ledgerCmd <**> helper) ledgerCmdInfo)
     , command "run-jar" (info runJarCmd forwardOptions)
-    , command "run-platform-jar" (info runPlatformJarCmd forwardOptions)
     , command "codegen" (info (codegenCmd <**> helper) forwardOptions)
     , command "packages" (info (packagesCmd <**> helper) packagesCmdInfo)
-    , command "canton-sandbox" (info (cantonSandboxCmd <**> helper) cantonSandboxCmdInfo)
+    , command "sandbox" (info (cantonSandboxCmd <**> helper) cantonSandboxCmdInfo)
     ]
   where
 
@@ -126,11 +127,6 @@ commandParser = subparser $ fold
         <$> argument str (metavar "JAR" <> help "Path to JAR relative to SDK path")
         <*> optional (strOption (long "logback-config"))
         <*> many (argument str (metavar "ARG"))
-        <*> stdinCloseOpt
-
-    runPlatformJarCmd = RunPlatformJar
-        <$> many (argument str (metavar "ARG"))
-        <*> strOption (long "logback-config")
         <*> stdinCloseOpt
 
     newCmd =
@@ -176,18 +172,14 @@ commandParser = subparser $ fold
             (long name <> metavar "PORT_NUM" <> help desc))
 
     sandboxChoiceOpt =
-            flag' SandboxClassic (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic.")
-        <|> flag' SandboxKV (long "sandbox-kv" <> help "Deprecated. Run with Sandbox KV.")
-        <|> flag' SandboxCanton (long "sandbox-canton" <> help "Run with Canton Sandbox. The 2.0 default.")
+            flag' SandboxKV (long "sandbox-kv" <> help "Deprecated. Run with Sandbox KV.")
+        <|> flag SandboxCanton SandboxCanton (long "sandbox-canton" <> help "Run with Canton Sandbox. The 2.0 default.")
                 <*> sandboxCantonPortSpecOpt
-        <|> pure SandboxKV -- pre-2.0 default
-            -- TODO https://github.com/digital-asset/daml/issues/11831
-            --   Change default to --sandbox-canton
 
     sandboxCantonPortSpecOpt = do
-        adminApiSpec <- sandboxPortOpt "canton-admin-api-port" "Port number for the canton admin API (--sandbox-canton only)"
-        domainPublicApiSpec <- sandboxPortOpt "canton-domain-public-port" "Port number for the canton domain public API (--sandbox-canton only)"
-        domainAdminApiSpec <- sandboxPortOpt "canton-domain-admin-port" "Port number for the canton domain admin API (--sandbox-canton only)"
+        adminApiSpec <- sandboxPortOpt "sandbox-admin-api-port" "Port number for the canton admin API (--sandbox-canton only)"
+        domainPublicApiSpec <- sandboxPortOpt "sandbox-domain-public-port" "Port number for the canton domain public API (--sandbox-canton only)"
+        domainAdminApiSpec <- sandboxPortOpt "sandbox-domain-admin-port" "Port number for the canton domain admin API (--sandbox-canton only)"
         pure SandboxCantonPortSpec {..}
 
     navigatorPortOption = NavigatorPort <$> option auto
@@ -272,6 +264,9 @@ commandParser = subparser $ fold
             , command "navigator" $ info
                 (ledgerNavigatorCmd <**> helper)
                 (forwardOptions <> progDesc "Launch Navigator on ledger")
+            , command "metering-report" $ info
+                (ledgerMeteringReportCmd <**> helper)
+                (forwardOptions <> progDesc "Report on Ledger Use")                
             ]
         , subparser $ internal <> fold -- hidden subcommands
             [ command "allocate-party" $ info
@@ -345,6 +340,17 @@ commandParser = subparser $ fold
     ledgerNavigatorCmd = LedgerNavigator
         <$> ledgerFlags (ShowJsonApi False)
         <*> many (argument str (metavar "ARG" <> help "Extra arguments to navigator."))
+        <*> stdinCloseOpt
+
+    app :: ReadM ApplicationId
+    app = fmap (ApplicationId . pack) str
+
+    ledgerMeteringReportCmd = LedgerMeteringReport
+        <$> ledgerFlags (ShowJsonApi True)
+        <*> option auto (long "from" <> metavar "FROM" <> help "From date of report (inclusive).")
+        <*> optional (option auto (long "to" <> metavar "TO" <> help "To date of report (exclusive)."))
+        <*> optional (option app (long "application" <> metavar "APP" <> help "Report application identifier."))
+        <*> switch (long "compact-output" <> help "Generate compact report.")
 
     ledgerFlags showJsonApi = LedgerFlags
         <$> httpJsonFlag showJsonApi
@@ -423,15 +429,23 @@ commandParser = subparser $ fold
         , help "Timeout of gRPC operations in seconds. Defaults to 60s. Must be > 0."
         ]
 
-    cantonSandboxCmd = CantonSandbox
-      <$> (CantonOptions
-             <$> option auto (long "port" <> value 6865)
-             <*> option auto (long "admin-api-port" <> value 6866)
-             <*> option auto (long "domain-public-port" <> value 6867)
-             <*> option auto (long "domain-admin-port" <> value 6868)
-             <*> optional (option str (long "port-file" <> metavar "PATH"))
-          )
-      <*> many (argument str (metavar "ARG"))
+    cantonSandboxCmd = do
+        cantonOptions <- do
+            cantonLedgerApi <- option auto (long "port" <> value 6865)
+            cantonAdminApi <- option auto (long "admin-api-port" <> value 6866)
+            cantonDomainPublicApi <- option auto (long "domain-public-port" <> value 6867)
+            cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value 6868)
+            cantonPortFileM <- optional $ option str (long "canton-port-file" <> metavar "PATH"
+                <> help "File to write canton participant ports when ready")
+            cantonStaticTime <- StaticTime <$> switch (long "static-time")
+            pure CantonOptions{..}
+        portFileM <- optional $ option str (long "port-file" <> metavar "PATH"
+            <> help "File to write ledger API port when ready")
+        darPaths <- many $ option str (long "dar" <> metavar "PATH"
+            <> help "DAR file to upload to sandbox")
+        remainingArguments <- many (argument str (metavar "ARG"))
+        shutdownStdinClose <- stdinCloseOpt
+        pure CantonSandbox {..}
 
     cantonSandboxCmdInfo =
         forwardOptions
@@ -442,9 +456,6 @@ runCommand = \case
     RunJar {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runJar jarPath mbLogbackConfig remainingArguments
-    RunPlatformJar {..} ->
-        (if shutdownStdinClose then withCloseOnStdin else id) $
-        runPlatformJar args logbackConfig
     New {..} -> do
         templateNameM <- case appTemplate of
             AppTemplateDefault -> pure Nothing
@@ -475,6 +486,19 @@ runCommand = \case
     LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
     LedgerReset {..} -> runLedgerReset flags
     LedgerExport {..} -> runLedgerExport flags remainingArguments
-    LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
+    LedgerNavigator {..} -> (if shutdownStdinClose then withCloseOnStdin else id) $ runLedgerNavigator flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments
-    CantonSandbox {..} -> runCantonSandbox ports remainingArguments
+    LedgerMeteringReport {..} -> runLedgerMeteringReport flags from to application compactOutput
+    CantonSandbox {..} ->
+        (if shutdownStdinClose then withCloseOnStdin else id) $
+        withCantonPortFile cantonOptions $ \cantonOptions cantonPortFile ->
+            withCantonSandbox cantonOptions remainingArguments $ \ph -> do
+                putStrLn "Starting Canton sandbox."
+                sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries cantonPortFile
+                putStrLn ("Listening at port " <> show sandboxPort)
+                forM_ darPaths $ \darPath -> do
+                    runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
+                whenJust portFileM $ \portFile -> do
+                    putStrLn ("Writing ledger API port to " <> portFile)
+                    writeFileUTF8 portFile (show sandboxPort)
+                putStrLn "Canton sandbox is ready."

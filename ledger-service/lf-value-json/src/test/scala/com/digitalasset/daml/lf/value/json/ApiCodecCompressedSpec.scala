@@ -117,7 +117,7 @@ class ApiCodecCompressedSpec
         fUnit = (),
         fInt64 = 100L,
         fParty = Ref.Party assertFromString "BANK1",
-        fContractId = ContractId.assertFromString("#C0"),
+        fContractId = ContractId.assertFromString("00" + "00" * 32 + "c0"),
         fListOfText = Vector("foo", "bar"),
         fListOfUnit = Vector((), ()),
         fDate = Time.Date assertFromString "2019-01-28",
@@ -260,7 +260,14 @@ class ApiCodecCompressedSpec
 
     val successes = Table(
       ("line#", "serialized", "serializedNumerically", "type", "parsed", "alternates"),
-      c("\"#123\"", VA.contractId)(ContractId.assertFromString("#123")),
+      c(
+        "\"0000000000000000000000000000000000000000000000000000000000000000000123\"",
+        VA.contractId,
+      )(
+        ContractId.assertFromString(
+          "0000000000000000000000000000000000000000000000000000000000000000000123"
+        )
+      ),
       cn("\"42.0\"", "42.0", VA.numeric(Decimal.scale))(
         Decimal assertFromString "42",
         "\"42\"",

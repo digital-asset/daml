@@ -69,6 +69,8 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
         KEY_FILE=$(mktemp)
         GPG_DIR=$(mktemp -d)
         cleanup() {
@@ -108,6 +110,8 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag)
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
@@ -115,6 +119,8 @@ jobs:
     - bash: |
         set -euo pipefail
 
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
         cd $(Build.StagingDirectory)/release-artifacts/github
@@ -133,6 +139,8 @@ jobs:
     - bash: |
         set -euo pipefail
         source $(bash-lib)
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
         msg=$(git log -n1 --format=%b HEAD | head -1)
         # Keep this line in sync with RELEASE_PR_NOTIF in ci/cron/wednesday.yml
         if [ "$msg" = "This PR has been created by a script, which is not very smart" ]; then
@@ -173,11 +181,6 @@ jobs:
     - template: ci/bash-lib.yml
       parameters:
         var_name: bash-lib
-    - bash: |
-        set -euo pipefail
-        if git tag v$(release_tag) $(release_sha); then
-          git push origin v$(release_tag)
-        fi
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: linux-release
@@ -194,20 +197,50 @@ jobs:
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
+        set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
+        KEY_FILE=$(mktemp)
+        GPG_DIR=$(mktemp -d)
+        cleanup() {
+            rm -rf $KEY_FILE $GPG_DIR
+        }
+        trap cleanup EXIT
+        echo "$GPG_KEY" | base64 -d > $KEY_FILE
+        gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
+        # For now we only sign artifactory artifacts here and leave signing of artifacts
+        # published to GH to the assembly repo.
+        cd $(Build.StagingDirectory)/release-artifacts/artifactory
+        for f in *; do
+            gpg --homedir $GPG_DIR -ab $f
+        done
+      env:
+        GPG_KEY: $(gpg-code-signing)
+    - bash: |
         set -eou pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         mkdir -p $(Build.StagingDirectory)/split-release
         ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
     - bash: |
-        set -eou pipefail
-
+        set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
-        cd $(Build.StagingDirectory)/split-release
-        gcs "$GCRED" -m cp -r github gs://daml-data/split-releases/$(release_tag)/
-        gcs "$GCRED" -m cp -r split-release gs://daml-data/split-releases/$(release_tag)/
-      name: upload_to_gcs
+        cd $(Build.StagingDirectory)/split-release/split-release
+        for f in "damlc-*" daml-libs/daml-script; do
+          gcs "$GCRED" cp -r "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
+        done
+      name: gcs_for_canton
       env:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - bash: |
+        set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
+        ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
+      env:
+        AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
     - template: ci/tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'

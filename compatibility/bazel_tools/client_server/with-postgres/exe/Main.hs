@@ -13,4 +13,4 @@ main :: IO ()
 main = do
     (arg : args) <- getArgs
     withPostgres $ \jdbcUrl ->
-        callProcess arg (args <> ["--jdbcurl=" <> T.unpack jdbcUrl])
+        callProcess arg (map (T.unpack . T.replace "__jdbcurl__" jdbcUrl . T.pack) args)

@@ -88,7 +88,7 @@ On Windows:
 bazel build //release:sdk-release-tarball
 tar -vxf .\bazel-bin\release\sdk-release-tarball-ce.tar.gz
 cd sdk-*
-daml\daml.exe install . --activate
+daml\daml.exe install . --install-assistant=yes
 ```
 
 That should tell you what to put in the path, something along the lines of `C:\Users\admin\AppData\Roaming\daml\bin`.

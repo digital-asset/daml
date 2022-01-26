@@ -17,7 +17,6 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     scala_deps = [
         "@maven//:io_spray_spray_json",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
     ],
@@ -54,7 +53,9 @@ da_scala_library(
         ":interpreter",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//daml-lf/parser",
         "//daml-lf/transaction",
+        "//daml-lf/validation",
         "//libs-scala/scala-utils",
     ],
 )
@@ -70,7 +71,6 @@ da_scala_test_suite(
         ],
     ),
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -91,7 +91,6 @@ da_scala_test_suite(
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
-        "//daml-lf/validation",
         "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
@@ -130,7 +129,7 @@ scala_repl(
 
 da_scala_benchmark_jmh(
     name = "speedy-compilation-benchmark",
-    srcs = glob(["src/bench/**/*.scala"]),
+    srcs = glob(["src/bench/**/SpeedyCompilationBench.scala"]),
     data = [
         "//ledger/test-common:model-tests-1.14.dar",
     ],
@@ -151,5 +150,18 @@ da_scala_benchmark_jmh(
         "//daml-lf/validation",
         "//ledger/test-common:dar-files-default-lib",
         "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_benchmark_jmh(
+    name = "speedy-struct-proj-bench",
+    srcs = glob(["src/bench/**/StructProjBench.scala"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//daml-lf/validation",
     ],
 )

@@ -20,17 +20,17 @@ module DA.Daml.Helper.Util
   , runJar
   , runCantonSandbox
   , withCantonSandbox
+  , withCantonPortFile
   , getLogbackArg
-  , waitForConnectionOnPort
   , waitForHttpServer
   , tokenFor
+  , StaticTime(..)
   , CantonOptions(..)
   , decodeCantonSandboxPort
   ) where
 
 import Control.Exception.Safe
 import Control.Monad.Extra
-import Control.Monad.Loops (untilJust)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL8
@@ -39,13 +39,13 @@ import Data.Maybe
 import qualified Data.Text as T
 import qualified Network.HTTP.Simple as HTTP
 import qualified Network.HTTP.Types as HTTP
-import Network.Socket
 import System.Directory
 import System.FilePath
 import System.IO
-import System.IO.Extra (withTempFile)
+import System.IO.Extra (withTempDir, withTempFile)
 import System.Info.Extra
-import System.Process (showCommandForUser, terminateProcess)
+import System.Exit (exitFailure)
+import System.Process (ProcessHandle, getProcessExitCode, showCommandForUser, terminateProcess)
 import System.Process.Typed
 import qualified Web.JWT as JWT
 import qualified Data.Aeson as A
@@ -196,35 +196,32 @@ damlSdkJarFolder = "daml-sdk"
 damlSdkJar :: FilePath
 damlSdkJar = damlSdkJarFolder </> "daml-sdk.jar"
 
--- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
--- Between each connection request it calls `sleep`.
-waitForConnectionOnPort :: IO () -> Int -> IO ()
-waitForConnectionOnPort sleep port = do
-    let hints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV], addrSocketType = Stream }
-    addr : _ <- getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
-    untilJust $ do
-        r <- tryIO $ checkConnection addr
-        case r of
-            Left _ -> sleep *> pure Nothing
-            Right _ -> pure $ Just ()
-    where
-        checkConnection addr = bracket
-              (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
-              close
-              (\s -> connect s (addrAddress addr))
-
--- | `waitForHttpServer sleep url` keeps trying to establish an HTTP connection on the given URL.
--- Between each connection request it calls `sleep`.
-waitForHttpServer :: IO () -> String -> HTTP.RequestHeaders -> IO ()
-waitForHttpServer sleep url headers = do
+-- | `waitForHttpServer numTries processHandle sleep url headers` tries to establish an HTTP connection on
+-- the given URL with the given headers, in a given number of tries. Between each connection request
+-- it checks that a certain process is still alive and calls `sleep`.
+waitForHttpServer :: Int -> ProcessHandle -> IO () -> String -> HTTP.RequestHeaders -> IO ()
+waitForHttpServer 0 _processHandle _sleep url _headers = do
+    hPutStrLn stderr ("Failed to connect to HTTP server " <> url <> " in time.")
+    exitFailure
+waitForHttpServer numTries processHandle sleep url headers = do
     request <- HTTP.parseRequest $ "HEAD " <> url
     request <- pure (HTTP.setRequestHeaders headers request)
-    untilJust $ do
-        r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request
-        case r of
-            Right resp
-                | HTTP.statusCode (HTTP.getResponseStatus resp) == 200 -> pure $ Just ()
-            _ -> sleep *> pure Nothing
+    r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request
+    case r of
+        Right resp | HTTP.statusCode (HTTP.getResponseStatus resp) == 200 -> pure ()
+        Right resp -> do
+            hPutStrLn stderr ("HTTP server " <> url <> " replied with status code "
+                <> show (HTTP.statusCode (HTTP.getResponseStatus resp)) <> ".")
+            exitFailure
+        Left _ -> do
+            sleep
+            status <- getProcessExitCode processHandle
+            case status of
+                Nothing -> waitForHttpServer (numTries-1) processHandle sleep url headers
+                Just exitCode -> do
+                    hPutStrLn stderr ("Failed to connect to HTTP server " <> url
+                        <> " before process exited with " <> show exitCode)
+                    exitFailure
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)
 
@@ -258,37 +255,63 @@ withCantonSandbox options remainingArgs k = do
         BSL.writeFile config (cantonConfig options)
         withJar cantonJar [] ("daemon" : "-c" : config :  "--auto-connect-local" : remainingArgs) k
 
+-- | Obtain a path to use as canton portfile, and give updated options.
+withCantonPortFile :: CantonOptions -> (CantonOptions -> FilePath -> IO a) -> IO a
+withCantonPortFile options kont =
+    case cantonPortFileM options of
+        Nothing ->
+            withTempDir $ \ tempDir -> do
+                let portFile = tempDir </> "canton-portfile.json"
+                kont options { cantonPortFileM = Just portFile } portFile
+        Just portFile ->
+            kont options portFile
+
+newtype StaticTime = StaticTime Bool
+
 data CantonOptions = CantonOptions
-  { ledgerApi :: Int
-  , adminApi :: Int
-  , domainPublicApi :: Int
-  , domainAdminApi :: Int
-  , portFileM :: Maybe FilePath
+  { cantonLedgerApi :: Int
+  , cantonAdminApi :: Int
+  , cantonDomainPublicApi :: Int
+  , cantonDomainAdminApi :: Int
+  , cantonPortFileM :: Maybe FilePath
+  , cantonStaticTime :: StaticTime
   }
 
 cantonConfig :: CantonOptions -> BSL.ByteString
 cantonConfig CantonOptions{..} =
     Aeson.encode $ Aeson.object
-        [ "canton" Aeson..= Aeson.object (
-            [ "participants" Aeson..= Aeson.object
+        [ "canton" Aeson..= Aeson.object
+            [ "parameters" Aeson..= Aeson.object ( concat
+                [ [ "ports-file" Aeson..= portFile | Just portFile <- [cantonPortFileM] ]
+                , [ "clock" Aeson..= Aeson.object
+                        [ "type" Aeson..= ("sim-clock" :: T.Text) ]
+                  | StaticTime True <- [cantonStaticTime] ]
+                ] )
+            , "participants" Aeson..= Aeson.object
                 [ "sandbox" Aeson..= Aeson.object
-                    [ storage
-                    , "admin-api" Aeson..= port adminApi
-                    , "ledger-api" Aeson..= port ledgerApi
-                    ]
+                    (
+                     [ storage
+                     , "admin-api" Aeson..= port cantonAdminApi
+                     , "ledger-api" Aeson..= port cantonLedgerApi
+                     ] <>
+                     [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
+                     | StaticTime True <- [cantonStaticTime]
+                     ]
+                    )
                 ]
             , "domains" Aeson..= Aeson.object
                 [ "local" Aeson..= Aeson.object
-                    [ storage
-                    , "public-api" Aeson..= port domainPublicApi
-                    , "admin-api" Aeson..= port domainAdminApi
-                    ]
+                    (
+                     [ storage
+                     , "public-api" Aeson..= port cantonDomainPublicApi
+                     , "admin-api" Aeson..= port cantonDomainAdminApi
+                     ] <>
+                     [ "domain-parameters" Aeson..= Aeson.object [ "topology-change-delay" Aeson..= ("0 ms" :: T.Text) ]
+                     | StaticTime True <- [cantonStaticTime]
+                     ]
+                    )
                 ]
-            ] ++
-            [ "parameters" Aeson..= Aeson.object
-                [ "ports-file" Aeson..= portFile ]
-            | Just portFile <- [portFileM]
-            ] )
+            ]
         ]
   where
     port p = Aeson.object [ "port" Aeson..= p ]

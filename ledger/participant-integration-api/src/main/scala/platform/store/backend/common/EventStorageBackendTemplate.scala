@@ -21,7 +21,7 @@ import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, Sql
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.StringInterning
 
-import scala.collection.compat.immutable.ArraySeq
+import scala.collection.immutable.ArraySeq
 
 abstract class EventStorageBackendTemplate(
     eventStrategy: EventStrategy,
@@ -484,11 +484,13 @@ abstract class EventStorageBackendTemplate(
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.ledgerStringToStatement
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    val ledgerEndOffset = ledgerEndCache()._1
     events(
       columnPrefix = "",
       joinClause = cSQL"""JOIN parameters ON
             (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
-            AND event_offset <= ${ledgerEndCache()._1.toHexString.toString}""",
+            AND event_offset <= $ledgerEndOffset""",
       additionalAndClause = cSQL"""
             transaction_id = $transactionId AND
             event_kind != 0 AND -- we do not want to fetch divulgence events""",
@@ -529,11 +531,13 @@ abstract class EventStorageBackendTemplate(
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.ledgerStringToStatement
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    val ledgerEndOffset = ledgerEndCache()._1
     events(
       columnPrefix = "",
       joinClause = cSQL"""JOIN parameters ON
             (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
-            AND event_offset <= ${ledgerEndCache()._1.toHexString.toString}""",
+            AND event_offset <= $ledgerEndOffset""",
       additionalAndClause = cSQL"""
             transaction_id = $transactionId AND
             event_kind != 0 AND -- we do not want to fetch divulgence events""",

@@ -1091,6 +1091,7 @@ convertBind env (name, x)
     = pure []
 
     -- HasMethod instances are only used for desugaring.
+    -- In data-dependencies, they are reconstructed from the interface definition.
     | DFunId _ <- idDetails name
     , TypeCon hasMethodCls _ <- varType name
     , NameIn DA_Internal_Desugar "HasMethod" <- hasMethodCls
@@ -1698,6 +1699,25 @@ convertDataCon env m con args
     | Just (tyArgs, tmArgs) <- splitConArgs_maybe con args = do
         tyArgs <- mapM (convertType env) tyArgs
         tmArgs <- mapM (convertExpr env) tmArgs
+        (, []) <$> fullyApplied env tyArgs tmArgs
+
+    -- Partially applied, but the constructor only takes type args.
+    -- In this situation there is no worker function, so we inline
+    -- the constructor by introducing some type lambdas.
+    | let (conTypes, conTheta, conArgs, _) = dataConSig con
+    , null conTheta && null conArgs -- no value args
+    = do
+        kinds <- mapM (convertKind . tyVarKind) conTypes
+        withTyArgs env kinds args $ \ env' types args' -> do
+            (, args') <$> fullyApplied env' types []
+
+    -- Partially applied
+    | otherwise = do
+        fmap (\op -> (EVal op, args)) (qual mkWorkerName (getOccText con))
+  where
+
+    fullyApplied :: Env -> [LF.Type] -> [LF.Expr] -> ConvertM LF.Expr
+    fullyApplied env tyArgs tmArgs = do
         let tycon = dataConTyCon con
         qTCon <- qual (\x -> mkTypeCon [x]) (getOccText tycon)
         let tcon = TypeConApp qTCon tyArgs
@@ -1705,7 +1725,7 @@ convertDataCon env m con args
             fldNames = ctorLabels con
             xargs = (dataConName con, args)
 
-        fmap (, []) $ case classifyDataCon con of
+        case classifyDataCon con of
             EnumCon -> do
                 unless (null args) $ unhandled "enum constructor with arguments" xargs
                 pure $ EEnumCon qTCon ctorName
@@ -1729,22 +1749,25 @@ convertDataCon env m con args
                     EVariantCon tcon ctorName $
                     ERecCon (TypeConApp recTCon tyArgs) (zipExact fldNames tmArgs)
 
-    -- Partially applied
-    | otherwise = do
-        fmap (\op -> (EVal op, args)) (qual mkWorkerName (getOccText con))
-
-    where
-
-        qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
-        qual f t
-            | Just xs <- T.stripPrefix "(," t
-            , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
-            | IgnoreWorkerPrefix t' <- t = qualify env m $ f t'
+    qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
+    qual f t
+        | Just xs <- T.stripPrefix "(," t
+        , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
+        | IgnoreWorkerPrefix t' <- t = qualify env m $ f t'
 
 convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
 convertArg env = \case
     Type t -> TyArg <$> convertType env t
     e -> TmArg <$> convertExpr env e
+
+withTyArgs :: Env -> [LF.Kind] -> [LArg Var] -> (Env -> [LF.Type] -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
+withTyArgs env0 kinds0 args0 cont = go env0 args0 [] kinds0
+  where
+    go !env !args !types [] =
+        cont env (reverse types) args
+    go !env !args !types (kind : kinds) =
+        withTyArg env kind args $ \env' ty args' ->
+            go env' args' (ty : types) kinds
 
 withTyArg :: Env -> LF.Kind -> [LArg Var] -> (Env -> LF.Type -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
 withTyArg env _ (LType t:args) cont = do

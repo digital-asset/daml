@@ -32,7 +32,7 @@ message GetTimeRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as describe in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 }
 
@@ -46,7 +46,7 @@ message SetTimeRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as describe in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 
   // MUST precisely match the current time as it's known to the ledger server.

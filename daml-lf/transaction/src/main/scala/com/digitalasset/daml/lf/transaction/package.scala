@@ -3,7 +3,7 @@
 
 package com.daml.lf
 
-import scala.collection.compat._
+import scala.collection.BuildFrom
 
 package object transaction {
 

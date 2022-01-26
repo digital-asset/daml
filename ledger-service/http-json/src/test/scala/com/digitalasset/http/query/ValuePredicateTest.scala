@@ -12,7 +12,7 @@ import com.daml.http.dbbackend.SurrogateTemplateIdCache
 import com.daml.lf.iface
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, RNil, ValueAddend => VA}
-import com.daml.lf.value.test.ValueGenerators.cidV0Gen
+import com.daml.lf.value.test.ValueGenerators.coidGen
 import com.daml.metrics.Metrics
 import org.scalacheck.Arbitrary
 import org.scalactic.source
@@ -33,7 +33,7 @@ class ValuePredicateTest
     with TableDrivenPropertyChecks {
   import ValuePredicateTest._
   type Cid = V.ContractId
-  private[this] implicit val arbCid: Arbitrary[Cid] = Arbitrary(cidV0Gen)
+  private[this] implicit val arbCid: Arbitrary[Cid] = Arbitrary(coidGen)
 
   import Ref.QualifiedName.{assertFromString => qn}
 

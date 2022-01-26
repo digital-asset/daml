@@ -44,6 +44,7 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
 
   override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] = cases
 
+  @annotation.nowarn("cat=deprecation&origin=scala\\.Stream")
   override def enumAll[A](
       enumId: Identifier,
       index: A => Int,
@@ -53,6 +54,7 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
       if (index(a) == 0) Stream.empty else Stream(cases.head._2)
     }
 
+  @annotation.nowarn("cat=deprecation&origin=scala\\.Stream")
   override def variantCase[B, A](caseName: String, o: Out[B])(
       inject: B => A
   )(select: A PartialFunction B): VariantCases[A] = Shrink[A] { a: A =>
@@ -98,6 +100,7 @@ object ShrinkEncoding extends ShrinkEncoding {
 
     override val valueText: Out[P.Text] = myShrinkString
 
+    @annotation.nowarn("cat=deprecation&origin=scala\\.Stream")
     private def myShrinkString: Shrink[String] = Shrink { s0: String =>
       import scalaz.std.stream.unfold
 

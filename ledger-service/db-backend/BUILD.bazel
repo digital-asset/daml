@@ -6,19 +6,14 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
-    "silencer_plugin",
 )
 
 da_scala_library(
     name = "db-backend",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:io_spray_spray_json",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_tpolecat_doobie_free",
@@ -73,6 +68,5 @@ da_scala_test(
     # data = ["//docs:quickstart-model.dar"],
     deps = [
         ":db-backend",
-        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

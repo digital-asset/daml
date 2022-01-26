@@ -31,13 +31,14 @@ class Tls
     }
   }
 
-  override protected def config =
-    super.config
-      .copy(tlsConfig = Some(TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)))
+  private val tlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)
 
-  override protected def ledgerClientConfiguration =
-    super.ledgerClientConfiguration
-      .copy(sslContext = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt).client())
+  override protected def config =
+    super.config.copy(tlsConfig = Some(tlsConfig))
+
+  override protected def ledgerClientChannelConfiguration =
+    super.ledgerClientChannelConfiguration
+      .copy(sslContext = tlsConfig.client())
 
   "TLS" can {
     // We just need something simple to test the connection.

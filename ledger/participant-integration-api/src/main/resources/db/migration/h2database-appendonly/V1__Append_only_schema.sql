@@ -9,9 +9,9 @@ CREATE ALIAS array_intersection FOR "com.daml.platform.store.backend.h2.H2Functi
 CREATE TABLE parameters (
   ledger_id VARCHAR NOT NULL,
   participant_id VARCHAR NOT NULL,
-  ledger_end VARCHAR,
-  ledger_end_sequential_id BIGINT,
-  ledger_end_string_interning_id INTEGER,
+  ledger_end VARCHAR NOT NULL,
+  ledger_end_sequential_id BIGINT NOT NULL,
+  ledger_end_string_interning_id INTEGER NOT NULL,
   participant_pruned_up_to_inclusive VARCHAR,
   participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR
 );
@@ -24,7 +24,7 @@ CREATE TABLE configuration_entries (
     recorded_at BIGINT NOT NULL,
     submission_id VARCHAR NOT NULL,
     typ VARCHAR NOT NULL,
-    configuration BYTEA NOT NULL,
+    configuration BINARY LARGE OBJECT NOT NULL,
     rejection_reason VARCHAR,
 
     CONSTRAINT configuration_entries_check_reason
@@ -37,6 +37,35 @@ CREATE TABLE configuration_entries (
 CREATE INDEX idx_configuration_submission ON configuration_entries (submission_id);
 
 ---------------------------------------------------------------------------------------------------
+-- User management tables
+---------------------------------------------------------------------------------------------------
+CREATE TABLE participant_users (
+    internal_id         INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id             VARCHAR(256)        NOT NULL UNIQUE,
+    primary_party       VARCHAR(512),
+    created_at          BIGINT              NOT NULL DEFAULT CAST((1000 * 1000 * EXTRACT(epoch FROM CURRENT_TIMESTAMP)) AS BIGINT)
+);
+
+CREATE TABLE participant_user_rights (
+    user_internal_id    INTEGER         NOT NULL REFERENCES participant_users (internal_id) ON DELETE CASCADE,
+    user_right          INTEGER         NOT NULL,
+    for_party           VARCHAR(512),
+    for_party2          VARCHAR(512)    GENERATED ALWAYS AS (CASE
+                                                                    WHEN for_party IS NOT NULL
+                                                                    THEN for_party
+                                                                    ELSE ''
+                                                             END),
+    granted_at          BIGINT          NOT NULL DEFAULT CAST((1000 * 1000 * EXTRACT(epoch FROM CURRENT_TIMESTAMP)) AS BIGINT),
+    UNIQUE (user_internal_id, user_right, for_party2)
+);
+
+INSERT INTO participant_users(user_id, primary_party) VALUES ('participant_admin', NULL);
+INSERT INTO participant_user_rights(user_internal_id, user_right, for_party)
+    SELECT internal_id, 1, NULL
+    FROM participant_users
+    WHERE user_id = 'participant_admin';
+
+---------------------------------------------------------------------------------------------------
 -- Packages table
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE packages (
@@ -46,7 +75,7 @@ CREATE TABLE packages (
     package_size BIGINT NOT NULL,
     known_since BIGINT NOT NULL,
     ledger_offset VARCHAR NOT NULL,
-    package BYTEA NOT NULL
+    package BINARY LARGE OBJECT NOT NULL
 );
 
 CREATE INDEX idx_packages_ledger_offset ON packages (ledger_offset);
@@ -132,7 +161,7 @@ CREATE TABLE participant_command_completions (
     -- (decided by the ledger driver), and may be `NULL` even if the other two columns are set.
     rejection_status_code INTEGER,
     rejection_status_message VARCHAR,
-    rejection_status_details BYTEA
+    rejection_status_details BINARY LARGE OBJECT
 );
 
 CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions (completion_offset, application_id);
@@ -161,7 +190,7 @@ CREATE TABLE participant_events_divulgence (
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * contract data
-    create_argument BYTEA,
+    create_argument BINARY LARGE OBJECT,
 
     -- * compression flags
     create_argument_compression SMALLINT
@@ -207,11 +236,11 @@ CREATE TABLE participant_events_create (
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * contract data
-    create_argument BYTEA NOT NULL,
+    create_argument BINARY LARGE OBJECT NOT NULL,
     create_signatories INTEGER ARRAY NOT NULL,
     create_observers INTEGER ARRAY NOT NULL,
     create_agreement_text VARCHAR,
-    create_key_value BYTEA,
+    create_key_value BINARY LARGE OBJECT,
     create_key_hash VARCHAR,
 
     -- * compression flags
@@ -268,12 +297,12 @@ CREATE TABLE participant_events_consuming_exercise (
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * information about the corresponding create event
-    create_key_value BYTEA,        -- used for the mutable state cache
+    create_key_value BINARY LARGE OBJECT,        -- used for the mutable state cache
 
     -- * choice data
     exercise_choice VARCHAR NOT NULL,
-    exercise_argument BYTEA NOT NULL,
-    exercise_result BYTEA,
+    exercise_argument BINARY LARGE OBJECT NOT NULL,
+    exercise_result BINARY LARGE OBJECT,
     exercise_actors INTEGER ARRAY NOT NULL,
     exercise_child_event_ids VARCHAR ARRAY NOT NULL,
 
@@ -329,12 +358,12 @@ CREATE TABLE participant_events_non_consuming_exercise (
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * information about the corresponding create event
-    create_key_value BYTEA,        -- used for the mutable state cache
+    create_key_value BINARY LARGE OBJECT,        -- used for the mutable state cache
 
     -- * choice data
     exercise_choice VARCHAR NOT NULL,
-    exercise_argument BYTEA NOT NULL,
-    exercise_result BYTEA,
+    exercise_argument BINARY LARGE OBJECT NOT NULL,
+    exercise_result BINARY LARGE OBJECT,
     exercise_actors INTEGER ARRAY NOT NULL,
     exercise_child_event_ids VARCHAR ARRAY NOT NULL,
 
@@ -390,11 +419,11 @@ SELECT
     NULL::INTEGER ARRAY as create_signatories,
     NULL::INTEGER ARRAY as create_observers,
     NULL::VARCHAR as create_agreement_text,
-    NULL::BYTEA as create_key_value,
+    NULL::BINARY LARGE OBJECT as create_key_value,
     NULL::VARCHAR as create_key_hash,
     NULL::VARCHAR as exercise_choice,
-    NULL::BYTEA as exercise_argument,
-    NULL::BYTEA as exercise_result,
+    NULL::BINARY LARGE OBJECT as exercise_argument,
+    NULL::BINARY LARGE OBJECT as exercise_result,
     NULL::INTEGER ARRAY as exercise_actors,
     NULL::VARCHAR ARRAY as exercise_child_event_ids,
     create_argument_compression,
@@ -426,8 +455,8 @@ SELECT
     create_key_value,
     create_key_hash,
     NULL::VARCHAR as exercise_choice,
-    NULL::BYTEA as exercise_argument,
-    NULL::BYTEA as exercise_result,
+    NULL::BINARY LARGE OBJECT as exercise_argument,
+    NULL::BINARY LARGE OBJECT as exercise_result,
     NULL::INTEGER ARRAY as exercise_actors,
     NULL::VARCHAR ARRAY as exercise_child_event_ids,
     create_argument_compression,
@@ -452,7 +481,7 @@ SELECT
     template_id,
     flat_event_witnesses,
     tree_event_witnesses,
-    NULL::BYTEA as create_argument,
+    NULL::BINARY LARGE OBJECT as create_argument,
     NULL::INTEGER ARRAY as create_signatories,
     NULL::INTEGER ARRAY as create_observers,
     NULL::VARCHAR as create_agreement_text,
@@ -485,7 +514,7 @@ SELECT
     template_id,
     flat_event_witnesses,
     tree_event_witnesses,
-    NULL::BYTEA as create_argument,
+    NULL::BINARY LARGE OBJECT as create_argument,
     NULL::INTEGER ARRAY as create_signatories,
     NULL::INTEGER ARRAY as create_observers,
     NULL::VARCHAR as create_agreement_text,
@@ -517,3 +546,12 @@ CREATE TABLE participant_events_create_filter (
 CREATE INDEX idx_participant_events_create_filter_party_template_seq_id_idx ON participant_events_create_filter(party_id, template_id, event_sequential_id);
 CREATE INDEX idx_participant_events_create_filter_party_seq_id_idx ON participant_events_create_filter(party_id, event_sequential_id);
 CREATE INDEX idx_participant_events_create_seq_id_idx ON participant_events_create_filter(event_sequential_id);
+
+CREATE TABLE transaction_metering (
+    application_id VARCHAR NOT NULL,
+    action_count INTEGER NOT NULL,
+    metering_timestamp BIGINT NOT NULL,
+    ledger_offset VARCHAR NOT NULL
+);
+
+CREATE INDEX transaction_metering_ledger_offset ON transaction_metering(ledger_offset);

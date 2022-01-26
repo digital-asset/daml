@@ -82,20 +82,6 @@ type MonadFail = ActionFail
 {-# DEPRECATED Num "Daml compatibility helper, use 'Number' instead of 'Num'" #-}
 type Num = Number
 
-{-# DEPRECATED commits "Daml compatibility helper, use 'submit' instead of 'commits'" #-}
-infixr 0 `commits`
-commits : Party -> Update a -> Scenario a
-commits = submit
-
-{-# DEPRECATED fails "Daml compatibility helper, use 'submitMustFail' instead of 'fails'" #-}
-infixr 0 `fails`
-fails : Party -> Update a -> Scenario ()
-fails = submitMustFail
-
-{-# DEPRECATED test "Daml compatibility helper, use 'scenario' instead" #-}
-test : Scenario a -> Scenario a
-test = identity
-
 {-# DEPRECATED Maybe "Daml compatibility helper, use 'Optional' instead of 'Maybe'" #-}
 type Maybe = Optional
 

@@ -63,14 +63,6 @@ private[platform] class FlywayMigrations(
     )
   }
 
-  def reset(): Future[Unit] = run { configBase =>
-    val flyway = configBase
-      .load()
-    logger.info("Running Flyway clean...")
-    flyway.clean()
-    logger.info("Flyway schema clean finished successfully.")
-  }
-
   @nowarn("msg=method ignoreFutureMigrations .* is deprecated")
   def validateAndWaitOnly(retries: Int, retryBackoff: FiniteDuration): Future[Unit] = runF {
     configBase =>

@@ -17,8 +17,13 @@ import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
-import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
-import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.auth.{
+  AuthServiceJWT,
+  AuthServiceJWTCodec,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+}
+import com.daml.ledger.api.domain.{LedgerId, User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
   OwnedResource,
@@ -27,6 +32,12 @@ import com.daml.ledger.api.testing.utils.{
   Resource => TestResource,
 }
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement,
+}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
@@ -103,7 +114,7 @@ trait JsonApiFixture
   }
 
   protected def getToken(actAs: List[String], readAs: List[String], admin: Boolean): String = {
-    val payload = AuthServiceJWTPayload(
+    val payload = CustomDamlJWTPayload(
       ledgerId = Some("MyLedger"),
       participantId = None,
       exp = None,
@@ -111,6 +122,20 @@ trait JsonApiFixture
       actAs = actAs,
       readAs = readAs,
       admin = admin,
+    )
+    val header = """{"alg": "HS256", "typ": "JWT"}"""
+    val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))
+    JwtSigner.HMAC256.sign(jwt, secret) match {
+      case -\/(e) => throw new IllegalStateException(e.toString)
+      case \/-(a) => a.value
+    }
+  }
+
+  protected def getUserToken(userId: UserId): String = {
+    val payload = StandardJWTPayload(
+      userId = userId,
+      participantId = None,
+      exp = None,
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))
@@ -245,6 +270,23 @@ final class JsonApiIt
     Runner.jsonClients(participantParams, envIface)
   }
 
+  private def getUserClients(
+      user: UserId,
+      envIface: EnvironmentInterface = envIface,
+  ) = {
+    // We give the default participant some nonsense party so the checks for party mismatch fail
+    // due to the mismatch and not because the token does not allow inferring a party
+    val defaultParticipant =
+      ApiParameters(
+        "http://localhost",
+        httpPort,
+        Some(getUserToken(user)),
+        None,
+      )
+    val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
+    Runner.jsonClients(participantParams, envIface)
+  }
+
   private val party = "Alice"
 
   private def run(
@@ -362,7 +404,7 @@ final class JsonApiIt
         )
       } yield {
         exception.cause.getMessage should include(
-          "Interpretation error: Error: Unhandled exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = \"Assertion failed\" }."
+          "Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = \"Assertion failed\" }."
         )
       }
     }
@@ -506,6 +548,31 @@ final class JsonApiIt
       } yield {
         r shouldBe SUnit
       }
+    }
+    "user tokens" in {
+      for {
+        grpcClient <- LedgerClient(
+          channel,
+          LedgerClientConfiguration(
+            applicationId = "appid",
+            ledgerIdRequirement = LedgerIdRequirement.none,
+            commandClient = CommandClientConfiguration.default,
+            token = Some(getUserToken(UserId.assertFromString("participant_admin"))),
+          ),
+        )
+        p1 <- grpcClient.partyManagementClient.allocateParty(None, None).map(_.party)
+        p2 <- grpcClient.partyManagementClient.allocateParty(None, None).map(_.party)
+        u <- grpcClient.userManagementClient.createUser(
+          User(UserId.assertFromString("u"), None),
+          Seq(UserRight.CanActAs(p1), UserRight.CanActAs(p2)),
+        )
+        clients <- getUserClients(u.id)
+        r <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonMultiPartyPartySets"),
+          inputValue = Some(JsArray(JsString(p1), JsString(p2))),
+        )
+      } yield r shouldBe SUnit
     }
     "invalid response" in {
       def withServer[A](f: ServerBinding => Future[A]) = {

@@ -130,10 +130,10 @@ object Main {
                   IO.pure(some(ErrorCodes.StartupError))
                 case Right(true) =>
                   DbStartupOps
-                    .fromStartupMode(dao, c.dbStartupMode)
+                    .fromStartupMode(dao, c.startMode)
                     .map(success =>
                       if (success)
-                        if (DbStartupOps.shouldStart(c.dbStartupMode)) none
+                        if (DbStartupOps.shouldStart(c.startMode)) none
                         else some(ErrorCodes.Ok)
                       else some(ErrorCodes.StartupError)
                     )

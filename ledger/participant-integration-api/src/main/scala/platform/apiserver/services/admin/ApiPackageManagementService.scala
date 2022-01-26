@@ -40,7 +40,7 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
-import scala.compat.java8.FutureConverters._
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -198,7 +198,7 @@ private[apiserver] object ApiPackageManagementService {
     override def submit(submissionId: Ref.SubmissionId, dar: Dar[Archive])(implicit
         telemetryContext: TelemetryContext
     ): Future[state.SubmissionResult] =
-      packagesWrite.uploadPackages(submissionId, dar.all, None).toScala
+      packagesWrite.uploadPackages(submissionId, dar.all, None).asScala
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[PackageEntry, _] =
       packagesIndex.packageEntries(offset)

@@ -46,7 +46,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.compat.java8.FutureConverters._
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -80,7 +80,7 @@ class RecoveringIndexerIntegrationSpec
                 displayName = Some("Alice"),
                 submissionId = randomSubmissionId(),
               )
-              .toScala
+              .asScala
             _ <- eventuallyPartiesShouldBe("Alice")(materializer)
           } yield ()
         }
@@ -106,21 +106,21 @@ class RecoveringIndexerIntegrationSpec
                   displayName = Some("Alice"),
                   submissionId = randomSubmissionId(),
                 )
-                .toScala
+                .asScala
               _ <- participantState
                 .allocateParty(
                   hint = Some(Ref.Party.assertFromString("bob")),
                   displayName = Some("Bob"),
                   submissionId = randomSubmissionId(),
                 )
-                .toScala
+                .asScala
               _ <- participantState
                 .allocateParty(
                   hint = Some(Ref.Party.assertFromString("carol")),
                   displayName = Some("Carol"),
                   submissionId = randomSubmissionId(),
                 )
-                .toScala
+                .asScala
               _ <- eventuallyPartiesShouldBe("Alice", "Bob", "Carol")(materializer)
             } yield ()
           }
@@ -155,7 +155,7 @@ class RecoveringIndexerIntegrationSpec
                   displayName = Some("Alice"),
                   submissionId = randomSubmissionId(),
                 )
-                .toScala
+                .asScala
               _ <- eventually { (_, _) =>
                 Future.fromTry(
                   Try(
@@ -196,9 +196,6 @@ class RecoveringIndexerIntegrationSpec
     for {
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem())
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
-      servicesExecutionContext <- ResourceOwner
-        .forExecutorService(() => Executors.newWorkStealingPool())
-        .map(ExecutionContext.fromExecutorService)
       participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
       _ <- new StandaloneIndexerServer(
         readService = participantState._1,
@@ -208,7 +205,6 @@ class RecoveringIndexerIntegrationSpec
           startupMode = IndexerStartupMode.MigrateAndStart,
           restartDelay = restartDelay,
         ),
-        servicesExecutionContext = servicesExecutionContext,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       )(materializer, loggingContext)

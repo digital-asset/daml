@@ -364,6 +364,64 @@ abstract class CommonCliSpecBase(
       )
     }
 
+    "handle '--enable-user-management' flag correctly" in {
+      checkOptionFail(
+        Array("--enable-user-management")
+      )
+      checkOption(
+        Array("--enable-user-management", "false"),
+        _.withUserManagementConfig(_.copy(enabled = false)),
+      )
+      checkOption(
+        Array("--enable-user-management", "true"),
+        _.withUserManagementConfig(_.copy(enabled = true)),
+      )
+      checkOption(
+        Array(),
+        _.withUserManagementConfig(_.copy(enabled = true)),
+      )
+    }
+
+    "handle '--user-management-max-cache-size' flag correctly" in {
+      // missing cache size value
+      checkOptionFail(
+        Array("--user-management-max-cache-size")
+      )
+      // default
+      checkOption(
+        Array.empty,
+        _.withUserManagementConfig(_.copy(maximumCacheSize = 100)),
+      )
+      // custom value
+      checkOption(
+        Array(
+          "--user-management-max-cache-size",
+          "123",
+        ),
+        _.withUserManagementConfig(_.copy(maximumCacheSize = 123)),
+      )
+    }
+
+    "handle '--user-management-cache-expiry' flag correctly" in {
+      // missing cache size value
+      checkOptionFail(
+        Array("--user-management-cache-expiry")
+      )
+      // default
+      checkOption(
+        Array.empty,
+        _.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = 5)),
+      )
+      // custom value
+      checkOption(
+        Array(
+          "--user-management-cache-expiry",
+          "123",
+        ),
+        _.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = 123)),
+      )
+    }
+
   }
 
   protected def checkOption(

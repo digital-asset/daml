@@ -32,7 +32,7 @@ import com.daml.dbutils.{ConnectionPool, JdbcConfig}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -135,7 +135,7 @@ trait AbstractAuthFixture extends SuiteMixin {
   self: Suite =>
 
   protected def authService: Option[auth.AuthService]
-  protected def authToken(payload: AuthServiceJWTPayload): Option[String]
+  protected def authToken(payload: CustomDamlJWTPayload): Option[String]
   protected def authConfig: AuthConfig
 }
 
@@ -143,7 +143,7 @@ trait NoAuthFixture extends AbstractAuthFixture {
   self: Suite =>
 
   protected override def authService: Option[auth.AuthService] = None
-  protected override def authToken(payload: AuthServiceJWTPayload): Option[String] = None
+  protected override def authToken(payload: CustomDamlJWTPayload): Option[String] = None
   protected override def authConfig: AuthConfig = NoAuth
 }
 
@@ -155,7 +155,7 @@ trait AuthMiddlewareFixture
   self: Suite =>
 
   protected def authService: Option[auth.AuthService] = Some(auth.AuthServiceJWT(authVerifier))
-  protected def authToken(payload: AuthServiceJWTPayload): Option[String] = Some {
+  protected def authToken(payload: CustomDamlJWTPayload): Option[String] = Some {
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = JwtSigner.HMAC256
       .sign(DecodedJwt(header, AuthServiceJWTCodec.compactPrint(payload)), authSecret)
@@ -266,7 +266,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     timeProviderType = Some(TimeProviderType.Static),
     delayBeforeSubmittingLedgerConfiguration = JDuration.ZERO,
     authService = authService,
-    seeding = Some(Seeding.Weak),
+    seeding = Seeding.Weak,
   )
 
   protected lazy val sandboxPort: Port = resource.value._1
@@ -283,9 +283,8 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         applicationId = ApplicationId.unwrap(applicationId),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
-        sslContext = None,
         token = authToken(
-          AuthServiceJWTPayload(
+          CustomDamlJWTPayload(
             ledgerId = None,
             applicationId = None,
             participantId = None,
@@ -459,9 +458,9 @@ trait TriggerDaoOracleFixture
   private lazy val jdbcConfig_ =
     JdbcConfig(
       "oracle.jdbc.OracleDriver",
-      oracleJdbcUrl,
-      oracleUser,
-      oraclePwd,
+      oracleJdbcUrlWithoutCredentials,
+      oracleUserName,
+      oracleUserPwd,
       ConnectionPool.PoolSize.Production,
     )
   // TODO For whatever reason we need a larger pool here, otherwise

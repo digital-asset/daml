@@ -10,9 +10,6 @@ load(
 da_scala_library(
     name = "caching",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_java8_compat",
-    ],
     tags = ["maven_coordinates=com.daml:caching:__VERSION__"],
     visibility = [
         "//:__subpackages__",

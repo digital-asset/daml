@@ -23,6 +23,7 @@ import scopt.OptionParser
 import scala.concurrent.ExecutionContext
 
 object SqlLedgerFactory extends LedgerFactory[ExtraConfig] {
+  override def ledgerName: String = "SQL ledger"
 
   override def readWriteServiceFactoryOwner(
       config: Config[ExtraConfig],
@@ -51,12 +52,7 @@ object SqlLedgerFactory extends LedgerFactory[ExtraConfig] {
         metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
       ),
     ).map(ledgerReaderWriter =>
-      new KeyValueReadWriteFactory(
-        config,
-        metrics,
-        ledgerReaderWriter,
-        ledgerReaderWriter,
-      )
+      new KeyValueReadWriteFactory(config, metrics, ledgerReaderWriter, ledgerReaderWriter)
     )
   }
 }

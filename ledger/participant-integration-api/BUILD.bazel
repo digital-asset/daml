@@ -1,18 +1,18 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@oracle//:index.bzl", "oracle_testing")
+load("@oracle//:index.bzl", "oracle_tags")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix")
 load("//bazel_tools:proto.bzl", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
     "da_scala_test_suite",
     "scaladoc_jar",
-    "silencer_plugin",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("//rules_daml:daml.bzl", "daml_compile")
@@ -83,6 +83,7 @@ compile_deps = [
     "@maven//:org_postgresql_postgresql",
     "@maven//:com_oracle_database_jdbc_ojdbc8",
     "@maven//:com_google_api_grpc_proto_google_common_protos",
+    "@maven//:com_github_ben_manes_caffeine_caffeine",
 ]
 
 scala_compile_deps = [
@@ -91,8 +92,6 @@ scala_compile_deps = [
     "@maven//:com_typesafe_akka_akka_stream",
     "@maven//:org_playframework_anorm_anorm",
     "@maven//:org_playframework_anorm_anorm_tokenizer",
-    "@maven//:org_scala_lang_modules_scala_collection_compat",
-    "@maven//:org_scala_lang_modules_scala_java8_compat",
     "@maven//:org_scalaz_scalaz_core",
     "@maven//:io_spray_spray_json",
 ]
@@ -104,9 +103,6 @@ runtime_deps = [
 da_scala_library(
     name = "participant-integration-api",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     resources =
         glob(
             ["src/main/resources/**/*"],
@@ -128,9 +124,6 @@ da_scala_library(
 da_scala_library(
     name = "ledger-api-server",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     resources =
         glob(
             ["src/main/resources/**/*"],
@@ -150,13 +143,9 @@ da_scala_library(
 da_scala_library(
     name = "participant-integration-api-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -214,6 +203,7 @@ da_scala_library(
         "@maven//:io_netty_netty_common",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_transport",
+        "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -227,7 +217,6 @@ da_scala_test_suite(
     srcs = glob(
         ["src/test/suite/**/*.scala"],
         exclude = [
-            "src/test/suite/**/ResetService*IT.scala",
             "**/*Oracle*",
         ],
     ),
@@ -239,9 +228,6 @@ da_scala_test_suite(
     jvm_flags = [
         "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
     ],
-    plugins = [
-        silencer_plugin,
-    ],
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
@@ -251,7 +237,6 @@ da_scala_test_suite(
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_playframework_anorm_anorm",
         "@maven//:org_playframework_anorm_anorm_tokenizer",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -362,7 +347,7 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_mockito_mockito_scala",
     ],
-    tags = [] if oracle_testing else ["manual"],
+    tags = oracle_tags,
     runtime_deps = [
     ],
     deps = [
@@ -408,13 +393,7 @@ scaladoc_jar(
         "//ledger/participant-state:sources",
     ],
     doctitle = "Daml participant integration API",
-    plugins = [
-        silencer_plugin,
-    ],
     root_content = "rootdoc.txt",
-    scalacopts = [
-        "-P:silencer:checkUnused",
-    ] + (["-P:silencer:lineContentFilters=import scala.collection.compat._"] if scala_major_version != "2.12" else []),
     visibility = [
         "//visibility:public",
     ],
@@ -430,4 +409,15 @@ filegroup(
     name = "sources",
     srcs = glob(["src/main/scala/**/*.scala"]),
     visibility = ["//visibility:public"],
+)
+
+da_scala_benchmark_jmh(
+    name = "string-interning-benchmark",
+    srcs = glob(["src/bench/platform/store/interning/**/*.scala"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//ledger/participant-integration-api",
+        "//libs-scala/contextualized-logging",
+    ],
 )

@@ -43,7 +43,7 @@ import com.daml.timer.Delayed
 import io.grpc.{Status, StatusRuntimeException}
 
 import scala.annotation.nowarn
-import scala.compat.java8.FutureConverters.CompletionStageOps
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -285,7 +285,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
             submissionId = submissionId,
           )
     }
-  }.toScala
+  }.asScala
 
   private def submitTransaction(
       transactionInfo: CommandExecutionResult,

@@ -3,23 +3,27 @@
 
 package com.daml.platform.store.backend
 
-import java.time.{Duration, Instant}
-import java.util.UUID
-
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.NodeId
+import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.google.protobuf.ByteString
+
+import java.time.{Duration, Instant}
+import java.util.UUID
 
 /** Except where specified, values should be treated as opaque
   */
 private[backend] object StorageBackendTestValues {
+
+  def hashCid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
 
   /** Produces offsets that are ordered the same as the input value */
   def offset(x: Long): Offset = Offset.fromHexString(Ref.HexString.assertFromString(f"$x%08d"))
@@ -108,7 +112,7 @@ private[backend] object StorageBackendTestValues {
   def dtoCreate(
       offset: Offset,
       eventSequentialId: Long,
-      contractId: String,
+      contractId: ContractId,
       signatory: String = "signatory",
       observer: String = "observer",
       commandId: String = UUID.randomUUID().toString,
@@ -125,7 +129,7 @@ private[backend] object StorageBackendTestValues {
       submitters = None,
       node_index = Some(0),
       event_id = Some(EventId(transactionId, NodeId(0)).toLedgerString),
-      contract_id = contractId,
+      contract_id = contractId.coid,
       template_id = Some(someTemplateId.toString),
       flat_event_witnesses = Set(signatory, observer),
       tree_event_witnesses = Set(signatory, observer),
@@ -151,7 +155,7 @@ private[backend] object StorageBackendTestValues {
       offset: Offset,
       eventSequentialId: Long,
       consuming: Boolean,
-      contractId: String,
+      contractId: ContractId,
       signatory: String = "signatory",
       actor: String = "actor",
       commandId: String = UUID.randomUUID().toString,
@@ -168,7 +172,7 @@ private[backend] object StorageBackendTestValues {
       submitters = Some(Set(actor)),
       node_index = Some(0),
       event_id = Some(EventId(transactionId, NodeId(0)).toLedgerString),
-      contract_id = contractId,
+      contract_id = contractId.coid,
       template_id = Some(someTemplateId.toString),
       flat_event_witnesses = if (consuming) Set(signatory) else Set.empty,
       tree_event_witnesses = Set(signatory, actor),
@@ -190,7 +194,7 @@ private[backend] object StorageBackendTestValues {
   def dtoDivulgence(
       offset: Option[Offset],
       eventSequentialId: Long,
-      contractId: String,
+      contractId: ContractId,
       submitter: String = "signatory",
       divulgee: String = "divulgee",
       commandId: String = UUID.randomUUID().toString,
@@ -201,7 +205,7 @@ private[backend] object StorageBackendTestValues {
       workflow_id = Some("workflow_id"),
       application_id = Some(someApplicationId),
       submitters = Some(Set(submitter)),
-      contract_id = contractId,
+      contract_id = contractId.coid,
       template_id = Some(someTemplateId.toString),
       tree_event_witnesses = Set(divulgee),
       create_argument = Some(someSerializedDamlLfValue),
@@ -237,6 +241,18 @@ private[backend] object StorageBackendTestValues {
       deduplication_duration_nanos = deduplicationDurationNanos,
       deduplication_start = deduplicationStart.map(_.micros),
     )
+
+  def dtoTransactionMetering(
+      metering: MeteringStorageBackend.TransactionMetering
+  ): DbDto.TransactionMetering = {
+    import metering._
+    DbDto.TransactionMetering(
+      applicationId,
+      actionCount,
+      meteringTimestamp.micros,
+      ledgerOffset.toHexString,
+    )
+  }
 
   def dtoCreateFilter(
       event_sequential_id: Long,

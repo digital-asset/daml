@@ -72,7 +72,7 @@ class ApiSubmissionServiceSpec
     val (signatories, observers) = informeesOfNode.splitAt(2)
     builder.add(
       builder.create(
-        s"#contractId$i",
+        Value.ContractId.V1(Hash.hashPrivateKey(i.toString)).coid,
         "test:test",
         Value.ValueNil,
         signatories.toSeq,
@@ -199,7 +199,7 @@ class ApiSubmissionServiceSpec
     val builder = TransactionBuilder()
     builder.add(
       builder.create(
-        s"#contractId1",
+        "00" + "00" * 32 + "01",
         "test:test",
         Value.ValueNil,
         Seq(party),
@@ -244,7 +244,9 @@ class ApiSubmissionServiceSpec
     val errorsToExpectedStatuses: Seq[(ErrorCause, Status)] = List(
       ErrorCause.DamlLf(
         LfError.Interpretation(
-          LfError.Interpretation.DamlException(LfInterpretationError.ContractNotFound("#cid")),
+          LfError.Interpretation.DamlException(
+            LfInterpretationError.ContractNotFound("00" + "00" * 32)
+          ),
           None,
         )
       ) -> ((Status.ABORTED, Status.NOT_FOUND)),
@@ -451,7 +453,7 @@ object ApiSubmissionServiceSpec {
   private def newSubmitRequest() = {
     SubmitRequest(
       Commands(
-        ledgerId = LedgerId("ledger-id"),
+        ledgerId = Some(LedgerId("ledger-id")),
         workflowId = None,
         applicationId = DomainMocks.applicationId,
         commandId = CommandId(

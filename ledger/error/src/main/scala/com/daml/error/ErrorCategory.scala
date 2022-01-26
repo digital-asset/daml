@@ -231,7 +231,7 @@ object ErrorCategory {
     */
   @Description(
     """The mutable state of the system does not satisfy the preconditions required to execute the request.
-                 |We consider the whole Daml ledger including ledger config, parties, packages, and command
+                 |We consider the whole Daml ledger including ledger config, parties, packages, users and command
                  |deduplication to be mutable system state. Thus all Daml interpretation errors are reported
                  |as this error or one of its specializations."""
   )

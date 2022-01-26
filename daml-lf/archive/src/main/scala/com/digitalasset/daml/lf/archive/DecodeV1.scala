@@ -16,7 +16,6 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.compat._
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 

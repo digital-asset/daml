@@ -49,14 +49,13 @@ trait SandboxFixture extends SandboxNextFixture {
     damlPackages = damlPackages,
     timeProviderType = Some(TimeProviderType.Static),
     engineMode = SandboxConfig.EngineMode.Dev,
-    seeding = Some(Seeding.Weak),
+    seeding = Seeding.Weak,
   )
 
-  protected val ClientConfiguration = LedgerClientConfiguration(
+  protected val ClientConfiguration: LedgerClientConfiguration = LedgerClientConfiguration(
     applicationId = TestUtil.LedgerID,
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
     token = None,
   )
 

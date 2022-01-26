@@ -5,6 +5,7 @@ package com.daml.http
 
 import java.io.File
 import java.time.Instant
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -24,7 +25,12 @@ import com.daml.http.util.TestUtil.getResponseDataBytes
 import com.daml.http.util.{FutureUtil, NewBoolean}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.ledger.api.auth.{AuthService, AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthService,
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -32,6 +38,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
@@ -117,7 +124,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val client = DamlLedgerClient.singleHost(
       "localhost",
       ledgerPort.value,
-      clientConfig(applicationId, useTls = useTls),
+      clientConfig(applicationId),
+      clientChannelConfig(useTls),
     )
 
     val codecsF: Future[(DomainJsonEncoder, DomainJsonDecoder)] = for {
@@ -187,7 +195,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     } yield DamlLedgerClient.singleHost(
       "localhost",
       ledgerPort.value,
-      clientConfig(applicationId, token, useTls),
+      clientConfig(applicationId, token),
+      clientChannelConfig(useTls),
     )
 
     val fa: Future[A] = for {
@@ -220,21 +229,26 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       tlsConfig = if (useTls) Some(serverTlsConfig) else None,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
       authService = authService,
-      seeding = Some(Seeding.Weak),
+      seeding = Seeding.Weak,
     )
 
-  private def clientConfig[A](
+  private def clientConfig(
       applicationId: ApplicationId,
       token: Option[String] = None,
-      useTls: UseTls,
   ): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = if (useTls) clientTlsConfig.client() else None,
       token = token,
     )
+
+  private def clientChannelConfig(useTls: UseTls): LedgerClientChannelConfiguration =
+    if (useTls) {
+      LedgerClientChannelConfiguration(clientTlsConfig.client())
+    } else {
+      LedgerClientChannelConfiguration.InsecureDefaults
+    }
 
   def jsonCodecs(
       client: DamlLedgerClient,
@@ -272,7 +286,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     for {
       dao <- Future(ContractDao(c))
       isSuccess <- DbStartupOps
-        .fromStartupMode(dao, c.dbStartupMode)
+        .fromStartupMode(dao, c.startMode)
         .unsafeToFuture()
       _ = if (!isSuccess) throw new Exception("Db startup failed")
     } yield dao
@@ -318,7 +332,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
                |}
               """.stripMargin
       else
-        AuthServiceJWTPayload(
+        (CustomDamlJWTPayload(
           ledgerId = Some(ledgerId),
           applicationId = Some("test"),
           actAs = actAs,
@@ -326,7 +340,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
           exp = None,
           admin = false,
           readAs = readAs,
-        ).toJson.prettyPrint
+        ): AuthServiceJWTPayload).toJson.prettyPrint
     JwtSigner.HMAC256
       .sign(
         DecodedJwt(

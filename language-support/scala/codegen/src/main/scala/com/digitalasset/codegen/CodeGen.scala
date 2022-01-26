@@ -27,7 +27,6 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.bind._
 import scalaz.syntax.traverse1._
 
-import scala.collection.compat._
 import scala.util.matching.Regex
 
 object CodeGen {

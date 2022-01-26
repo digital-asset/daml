@@ -147,7 +147,7 @@ _daml_build = rule(
         ),
         "ghc_options": attr.string_list(
             doc = "Options passed to GHC.",
-            default = ["--ghc-option=-Werror", "--ghc-option=-Wwarn", "--log-level=WARNING"],
+            default = ["--ghc-option=-Werror", "--log-level=WARNING"],
         ),
         "damlc": _damlc,
     },
@@ -256,7 +256,7 @@ _inspect_dar = rule(
 
 _default_project_version = "1.0.0"
 
-default_damlc_opts = ["--ghc-option=-Werror", "--ghc-option=-Wwarn", "--log-level=WARNING"]
+default_damlc_opts = ["--ghc-option=-Werror", "--log-level=WARNING"]
 
 def damlc_for_target(target):
     if not target or target in COMPILER_LF_VERSIONS:
@@ -330,7 +330,6 @@ def daml_build_test(
         daml_yaml = None,
         dar_dict = {},
         ghc_options = default_damlc_opts,
-        enable_scenarios = False,
         **kwargs):
     "Build a DAML project and validate the resulting .dar file."
     if not daml_yaml:
@@ -342,9 +341,7 @@ def daml_build_test(
         srcs = srcs,
         dar_dict = dar_dict,
         dar = name + ".dar",
-        ghc_options =
-            ghc_options +
-            (["--enable-scenarios=yes"] if enable_scenarios else []),
+        ghc_options = ghc_options,
         **kwargs
     )
     _daml_validate_test(
@@ -359,7 +356,6 @@ def daml_test(
         data_deps = [],
         damlc = "//compiler/damlc:damlc",
         target = None,
-        enable_scenarios = False,
         **kwargs):
     sh_inline_test(
         name = name,
@@ -386,7 +382,7 @@ EOF
 cat $$tmpdir/daml.yaml
 {cp_srcs}
 cd $$tmpdir
-$$DAMLC test {enable_scenarios} --files {files}
+$$DAMLC test --files {files}
 """.format(
             damlc = damlc,
             files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
@@ -401,7 +397,6 @@ $$DAMLC test {enable_scenarios} --files {files}
                 for src in srcs
             ]),
             target = "--target=" + target if (target) else "",
-            enable_scenarios = "--enable-scenarios=yes" if enable_scenarios else "",
         ),
         **kwargs
     )
@@ -442,7 +437,7 @@ $$DAMLC doctest {flags} --cpp $$CPP --package-name {package_name}-{version} "$${
             cpp = cpp,
             damlc = damlc,
             package_name = package_name,
-            flags = " ".join(flags + ["--enable-scenarios=yes"]),  # TODO: https://github.com/digital-asset/daml/issues/11316
+            flags = " ".join(flags),
             version = ghc_version,
             files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
             ignored = " ".join(ignored_srcs),

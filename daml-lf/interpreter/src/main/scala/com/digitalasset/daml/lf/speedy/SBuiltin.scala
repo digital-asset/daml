@@ -765,41 +765,27 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $tproj[fieldIndex] :: Struct -> a */
-  final case class SBStructProj(fieldIndex: Int) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue =
-      getSStruct(args, 0).values.get(fieldIndex)
-  }
-
   /** $tproj[field] :: Struct -> a */
-  // This is a slower version of `SBStructProj` for the case when we didn't run
-  // the Daml-LF type checker and hence didn't infer the field index.
-  final case class SBStructProjByName(field: Ast.FieldName) extends SBuiltinPure(1) {
+  final case class SBStructProj(field: Ast.FieldName) extends SBuiltinPure(1) {
+    // The variable `fieldIndex` is used to cache the (logarithmic) evaluation
+    // of `struct.fieldNames.indexOf(field)` at the first call in order to
+    // avoid its reevaluations, hence obtaining an amortized constant
+    // complexity.
+    private[this] var fieldIndex = -1
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
       val struct = getSStruct(args, 0)
-      struct.values.get(struct.fieldNames.indexOf(field))
-    }
-  }
-
-  /** $tupd[fieldIndex] :: Struct -> a -> Struct */
-  final case class SBStructUpd(fieldIndex: Int) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
-      val struct = getSStruct(args, 0)
-      val values2 = struct.values.clone.asInstanceOf[util.ArrayList[SValue]]
-      discard(values2.set(fieldIndex, args.get(1)))
-      struct.copy(values = values2)
+      if (fieldIndex < 0) fieldIndex = struct.fieldNames.indexOf(field)
+      struct.values.get(fieldIndex)
     }
   }
 
   /** $tupd[field] :: Struct -> a -> Struct */
-  // This is a slower version of `SBStructUpd` for the case when we didn't run
-  // the Daml-LF type checker and hence didn't infer the field index.
-  final case class SBStructUpdByName(field: Ast.FieldName) extends SBuiltinPure(2) {
+  final case class SBStructUpd(field: Ast.FieldName) extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
       val struct = getSStruct(args, 0)
-      val values2 = struct.values.clone.asInstanceOf[util.ArrayList[SValue]]
-      discard(values2.set(struct.fieldNames.indexOf(field), args.get(1)))
-      struct.copy(values = values2)
+      val values = struct.values.clone.asInstanceOf[util.ArrayList[SValue]]
+      discard(values.set(struct.fieldNames.indexOf(field), args.get(1)))
+      struct.copy(values = values)
     }
   }
 
@@ -1046,19 +1032,12 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 0)
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
-          if (cached.templateId != templateId) {
-            if (onLedger.ptx.localContracts.contains(coid)) {
-              // This should be prevented by the type checker so it’s an internal error.
-              crash(s"contract ${coid.coid} ($templateId) not found from partial transaction")
-            } else {
-              // This is a user-error.
-              machine.ctrl = SEDamlException(
-                IE.WronglyTypedContract(coid, templateId, cached.templateId)
-              )
-            }
-          } else {
-            machine.returnValue = cached.value
-          }
+          if (cached.templateId != templateId)
+            throw SErrorDamlException(IE.WronglyTypedContract(coid, templateId, cached.templateId))
+          onLedger.ptx.consumedBy
+            .get(coid)
+            .foreach(nid => throw SErrorDamlException(IE.ContractNotActive(coid, templateId, nid)))
+          machine.returnValue = cached.value
         case None =>
           throw SpeedyHungry(
             SResultNeedContract(
@@ -1895,8 +1874,6 @@ private[lf] object SBuiltin {
     ptx.aborted match {
       case Some(Tx.AuthFailureDuringExecution(nid, fa)) =>
         throw SErrorDamlException(IE.FailedAuthorization(nid, fa))
-      case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
-        throw SErrorDamlException(IE.ContractNotActive(coid, tid, consumedBy))
       case Some(Tx.DuplicateContractKey(key)) =>
         throw SErrorDamlException(IE.DuplicateContractKey(key))
       case None =>

@@ -22,7 +22,7 @@ message GetLedgerApiVersionRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Optional
   string ledger_id = 1;
 }
 
@@ -55,34 +55,9 @@ message FeaturesDescriptor {
   // Daml applications SHOULD not depend on these in production.
   ExperimentalFeatures experimental = 1;
 
-  // Features related to command deduplication
-  CommandDeduplicationFeatures command_deduplication = 3;
 }
 
-// Used to signal the presence of the user management service.
-// Defined as a message to enable future addition of individual per-service features.
-message UserManagementFeature {}
-
-message CommandDeduplicationFeatures {
-  DeduplicationPeriodSupport deduplication_period_support = 1;
-  ParticipantDeduplicationSupport participant_deduplication_support = 2;
-}
-
-message DeduplicationPeriodSupport {
-  enum OffsetSupport {
-    OFFSET_NATIVE_SUPPORT = 0;
-    OFFSET_CONVERT_TO_DURATION = 1;
-    OFFSET_NOT_SUPPORTED = 2;
-  }
-  enum DurationSupport {
-    DURATION_NATIVE_SUPPORT = 0;
-    DURATION_CONVERT_TO_OFFSET = 1;
-  }
-  OffsetSupport offset_support = 1;
-  DurationSupport duration_support = 2;
-}
-enum ParticipantDeduplicationSupport {
-  PARTICIPANT_DEDUPLICATION_NOT_SUPPORTED = 0;
-  PARTICIPANT_DEDUPLICATION_PARALLEL_ONLY = 1;
-  PARTICIPANT_DEDUPLICATION_SUPPORTED = 2;
+// Whether the Ledger API server provides the user management service.
+message UserManagementFeature {
+  bool supported = 1;
 }

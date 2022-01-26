@@ -35,7 +35,6 @@ final class LedgerClientIT
     applicationId = classOf[LedgerClientIT].getSimpleName,
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
     token = None,
   )
 

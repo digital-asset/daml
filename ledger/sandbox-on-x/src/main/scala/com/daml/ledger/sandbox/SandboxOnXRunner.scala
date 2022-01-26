@@ -3,56 +3,47 @@
 
 package com.daml.ledger.sandbox
 
-import java.util.UUID
-import java.util.concurrent.{Executors, TimeUnit}
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
+import com.daml.buildinfo.BuildInfo
 import com.daml.error.ErrorCodesVersionSwitcher
+import com.daml.ledger.api.auth.{
+  AuthServiceJWT,
+  AuthServiceNone,
+  AuthServiceStatic,
+  AuthServiceWildcard,
+}
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.version_service.{
+import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
-  DeduplicationPeriodSupport,
-  ParticipantDeduplicationSupport,
+  CommandDeduplicationPeriodSupport,
+  CommandDeduplicationType,
+  ExperimentalContractIds,
 }
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.kvutils.app.{
-  Config,
-  DumpIndexMetadata,
-  Mode,
-  ParticipantConfig,
-  ParticipantRunMode,
-}
+import com.daml.ledger.participant.state.kvutils.app._
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
-import com.daml.lf.archive.DarParser
-import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.apiserver.{
-  ApiServer,
-  ApiServerConfig,
-  StandaloneApiServer,
-  StandaloneIndexService,
-  TimeServiceBackend,
-}
+import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
-import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
+import com.daml.platform.usermanagement.PersistentUserManagementStore
 
-import scala.compat.java8.FutureConverters.CompletionStageOps
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
+import java.util.concurrent.{Executors, TimeUnit}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 
 object SandboxOnXRunner {
@@ -93,10 +84,6 @@ object SandboxOnXRunner {
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    val sharedEngine = new Engine(
-      EngineConfig(config.allowedLanguageVersions, forbidV0ContractId = false)
-    )
-
     for {
       // Take ownership of the actor system and materializer so they're cleaned up properly.
       // This is necessary because we can't declare them as implicits in a `for` comprehension.
@@ -105,7 +92,7 @@ object SandboxOnXRunner {
 
       // Start the ledger
       participantConfig <- validateCombinedParticipantMode(config)
-      _ <- buildLedger(sharedEngine)(
+      _ <- buildLedger(
         config,
         participantConfig,
         materializer,
@@ -114,7 +101,7 @@ object SandboxOnXRunner {
     } yield ()
   }
 
-  private def validateCombinedParticipantMode(
+  def validateCombinedParticipantMode(
       config: Config[BridgeConfig]
   ): Resource[ParticipantConfig] =
     config.participants.toList match {
@@ -128,21 +115,27 @@ object SandboxOnXRunner {
         }
     }
 
-  private def buildLedger(
-      sharedEngine: Engine
-  )(implicit
+  def buildLedger(implicit
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       materializer: Materializer,
       actorSystem: ActorSystem,
-  ): ResourceOwner[Unit] = {
+      metrics: Option[Metrics] = None,
+  ): ResourceOwner[(ApiServer, WriteService)] = {
     implicit val apiServerConfig: ApiServerConfig =
       BridgeConfigProvider.apiServerConfig(participantConfig, config)
+    val sharedEngine = new Engine(
+      EngineConfig(
+        allowedLanguageVersions = config.allowedLanguageVersions,
+        profileDir = config.extra.profileDir,
+        stackTraceMode = config.extra.stackTraces,
+      )
+    )
 
     newLoggingContextWith("participantId" -> participantConfig.participantId) {
       implicit loggingContext =>
         for {
-          metrics <- buildMetrics
+          metrics <- metrics.map(ResourceOwner.successful).getOrElse(buildMetrics)
           translationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
             eventConfiguration = config.lfValueTranslationEventCache,
             contractConfiguration = config.lfValueTranslationContractCache,
@@ -165,18 +158,27 @@ object SandboxOnXRunner {
 
           indexerHealthChecks <- buildIndexerServer(
             metrics,
-            servicesExecutionContext,
             new TimedReadService(readServiceWithSubscriber, metrics),
             translationCache,
           )
 
-          indexService <- standaloneIndexService(
-            sharedEngine,
-            config,
-            apiServerConfig,
-            metrics,
-            translationCache,
-            servicesExecutionContext,
+          dbSupport <- DbSupport
+            .owner(
+              jdbcUrl = apiServerConfig.jdbcUrl,
+              serverRole = ServerRole.ApiServer,
+              connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
+              connectionTimeout = apiServerConfig.databaseConnectionTimeout,
+              metrics = metrics,
+            )
+
+          indexService <- StandaloneIndexService(
+            ledgerId = config.ledgerId,
+            config = apiServerConfig,
+            metrics = metrics,
+            engine = sharedEngine,
+            servicesExecutionContext = servicesExecutionContext,
+            lfValueTranslationCache = translationCache,
+            dbSupport = dbSupport,
           )
 
           timeServiceBackend = BridgeConfigProvider.timeServiceBackend(config)
@@ -190,7 +192,7 @@ object SandboxOnXRunner {
             timeServiceBackend,
           )
 
-          _ <- buildStandaloneApiServer(
+          apiServer <- buildStandaloneApiServer(
             sharedEngine,
             indexService,
             metrics,
@@ -198,41 +200,14 @@ object SandboxOnXRunner {
             new TimedWriteService(writeService, metrics),
             indexerHealthChecks,
             timeServiceBackend,
+            dbSupport,
           )
-        } yield ()
+        } yield {
+          logInitializationHeader(config, participantConfig)
+          apiServer -> writeService
+        }
     }
   }
-
-  private def standaloneIndexService(
-      sharedEngine: Engine,
-      config: Config[BridgeConfig],
-      apiServerConfig: ApiServerConfig,
-      metrics: Metrics,
-      translationCache: LfValueTranslationCache.Cache,
-      servicesExecutionContext: ExecutionContextExecutorService,
-  )(implicit
-      loggingContext: LoggingContext,
-      materializer: Materializer,
-  ): ResourceOwner[IndexService] =
-    for {
-      dbSupport <- DbSupport
-        .owner(
-          jdbcUrl = apiServerConfig.jdbcUrl,
-          serverRole = ServerRole.ApiServer,
-          connectionPoolSize = apiServerConfig.databaseConnectionPoolSize,
-          connectionTimeout = apiServerConfig.databaseConnectionTimeout,
-          metrics = metrics,
-        )
-      indexService <- StandaloneIndexService(
-        ledgerId = config.ledgerId,
-        config = apiServerConfig,
-        metrics = metrics,
-        engine = sharedEngine,
-        servicesExecutionContext = servicesExecutionContext,
-        lfValueTranslationCache = translationCache,
-        dbSupport = dbSupport,
-      )
-    } yield indexService
 
   private def buildStandaloneApiServer(
       sharedEngine: Engine,
@@ -242,6 +217,7 @@ object SandboxOnXRunner {
       writeService: WriteService,
       healthChecksWithIndexer: HealthChecks,
       timeServiceBackend: Option[TimeServiceBackend],
+      dbSupport: DbSupport,
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
@@ -256,28 +232,39 @@ object SandboxOnXRunner {
       submissionConfig = config.submissionConfig,
       partyConfig = PartyConfiguration(config.extra.implicitPartyAllocation),
       optWriteService = Some(writeService),
-      authService = BridgeConfigProvider.authService(config),
+      authService = config.extra.authService,
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
       metrics = metrics,
       timeServiceBackend = timeServiceBackend,
       otherInterceptors = BridgeConfigProvider.interceptors(config),
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
-      userManagementStore = new InMemoryUserManagementStore, // TODO persistence wiring comes here
-      commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
-        Some(
-          DeduplicationPeriodSupport.of(
-            DeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
-            DeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
-          )
+      userManagementStore = PersistentUserManagementStore.cached(
+        dbSupport = dbSupport,
+        metrics = metrics,
+        cacheExpiryAfterWriteInSeconds = config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
+        maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+      )(servicesExecutionContext),
+      ledgerFeatures = LedgerFeatures(
+        staticTime = timeServiceBackend.isDefined,
+        commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
+          deduplicationPeriodSupport = Some(
+            CommandDeduplicationPeriodSupport.of(
+              CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_NOT_SUPPORTED,
+              CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
+            )
+          ),
+          deduplicationType = CommandDeduplicationType.SYNC_ONLY,
+          maxDeduplicationDurationEnforced = false,
         ),
-        ParticipantDeduplicationSupport.PARTICIPANT_DEDUPLICATION_SUPPORTED,
+        contractIdFeatures = ExperimentalContractIds.of(
+          v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
+        ),
       ),
     )
 
   private def buildIndexerServer(
       metrics: Metrics,
-      servicesExecutionContext: ExecutionContextExecutorService,
       readService: ReadService,
       translationCache: LfValueTranslationCache.Cache,
   )(implicit
@@ -290,7 +277,6 @@ object SandboxOnXRunner {
       indexerHealth <- new StandaloneIndexerServer(
         readService = readService,
         config = BridgeConfigProvider.indexerConfig(participantConfig, config),
-        servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         lfValueTranslationCache = translationCache,
       )
@@ -363,20 +349,42 @@ object SandboxOnXRunner {
           bridgeMetrics = bridgeMetrics,
         )
       )
-      _ <- ResourceOwner.forFuture(() =>
-        Future.sequence(
-          config.archiveFiles.map(path =>
-            DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
-              implicit telemetryContext =>
-                val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
-                for {
-                  dar <- Future.fromTry(DarParser.readArchiveFromFile(path.toFile).toTry)
-                  _ <- writeService.uploadPackages(submissionId, dar.all, None).toScala
-                } yield ()
-            }
-          )
-        )
-      )
     } yield writeService
+  }
+
+  private def logInitializationHeader(
+      config: Config[BridgeConfig],
+      participantConfig: ParticipantConfig,
+  ): Unit = {
+    val authentication = BridgeConfigProvider.authService(config) match {
+      case _: AuthServiceJWT => "JWT-based authentication"
+      case AuthServiceNone => "none authenticated"
+      case _: AuthServiceStatic => "static authentication"
+      case AuthServiceWildcard => "all unauthenticated allowed"
+      case other => other.getClass.getSimpleName
+    }
+
+    val ledgerDetails =
+      Seq[(String, String)](
+        "run-mode" -> s"${participantConfig.mode} participant",
+        "participant-id" -> participantConfig.participantId,
+        "ledger-id" -> config.ledgerId,
+        "port" -> participantConfig.port.toString,
+        "time mode" -> config.extra.timeProviderType.description,
+        "allowed language versions" -> s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
+        "authentication" -> authentication,
+        "contract ids seeding" -> config.seeding.toString,
+      ).map { case (key, value) =>
+        s"$key = $value"
+      }.mkString(", ")
+
+    logger.withoutContext.info(
+      s"Initialized {} with {}, version {}, {}",
+      RunnerName,
+      if (config.extra.conflictCheckingEnabled) "conflict checking ledger bridge"
+      else "pass-through ledger bridge (no conflict checking)",
+      BuildInfo.Version,
+      ledgerDetails,
+    )
   }
 }

@@ -5,6 +5,7 @@ package com.daml.platform.store.appendonlydao.events
 
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
@@ -523,7 +524,7 @@ object PostCommitValidationSpec {
 
   private def genTestCreate(): Create =
     txBuilder.create(
-      id = s"#${UUID.randomUUID}",
+      id = ContractId.V1(Hash.hashPrivateKey(UUID.randomUUID.toString)),
       templateId = "bar:baz",
       argument = TxBuilder.record("field" -> "value"),
       signatories = Set("Alice"),

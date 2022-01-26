@@ -10,12 +10,13 @@ import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.rxjava.TransactionsClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
+import com.daml.ledger.rxjava.util.CreateSingle;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.Channel;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Future;
 
 public final class TransactionClientImpl implements TransactionsClient {
   private final String ledgerId;
@@ -149,8 +150,8 @@ public final class TransactionClientImpl implements TransactionsClient {
   }
 
   private Single<TransactionTree> extractTransactionTree(
-      Future<TransactionServiceOuterClass.GetTransactionResponse> future) {
-    return Single.fromFuture(future)
+      ListenableFuture<TransactionServiceOuterClass.GetTransactionResponse> future) {
+    return CreateSingle.fromFuture(future, sequencerFactory)
         .map(GetTransactionResponse::fromProto)
         .map(GetTransactionResponse::getTransaction);
   }
@@ -205,8 +206,8 @@ public final class TransactionClientImpl implements TransactionsClient {
   }
 
   private Single<Transaction> extractTransaction(
-      Future<TransactionServiceOuterClass.GetFlatTransactionResponse> future) {
-    return Single.fromFuture(future)
+      ListenableFuture<TransactionServiceOuterClass.GetFlatTransactionResponse> future) {
+    return CreateSingle.fromFuture(future, sequencerFactory)
         .map(GetFlatTransactionResponse::fromProto)
         .map(GetFlatTransactionResponse::getTransaction);
   }
@@ -264,8 +265,9 @@ public final class TransactionClientImpl implements TransactionsClient {
   private Single<LedgerOffset> getLedgerEnd(Optional<String> accessToken) {
     TransactionServiceOuterClass.GetLedgerEndRequest request =
         TransactionServiceOuterClass.GetLedgerEndRequest.newBuilder().setLedgerId(ledgerId).build();
-    return Single.fromFuture(
-            StubHelper.authenticating(this.serviceFutureStub, accessToken).getLedgerEnd(request))
+    return CreateSingle.fromFuture(
+            StubHelper.authenticating(this.serviceFutureStub, accessToken).getLedgerEnd(request),
+            sequencerFactory)
         .map(GetLedgerEndResponse::fromProto)
         .map(GetLedgerEndResponse::getOffset);
   }
