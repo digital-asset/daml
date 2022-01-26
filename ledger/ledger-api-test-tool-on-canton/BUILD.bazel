@@ -77,7 +77,42 @@ conformance_test(
         "--verbose",
         "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
         "--timeout-scale-factor=2",  # increased to reduce flakes particularly wrt timeouts in TransactionService*IT tests
-        "--include=UserManagementServiceIT",
+        "--exclude=" + ",".join([
+            "ParticipantPruningIT",  # see "conformance-test-participant-pruning" below
+            "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
+            "CommandServiceIT:CSsubmitAndWaitCompletionOffset",  # Canton does not fill the offsets
+            "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
+            "CommandDeduplicationIT:SimpleDeduplicationBasic",  # sync vs async error (part of canton #6301)
+            "CommandDeduplicationIT:DeduplicateSubmitterBasic",
+            "CommandDeduplicationIT:DeduplicateUsingDurations",  #  disabled while Canton does not support the feature descriptors
+            "CommandDeduplicationIT:DeduplicateUsingOffsets",  #  disabled while Canton does not support the feature descriptors
+            "RaceConditionIT:RWArchiveVsFailedLookupByKey",  # finding a lookup failure after contract creation
+            # dynamic config management not supported by Canton
+            "ConfigManagementServiceIT",
+            "LedgerConfigurationServiceIT",
+            # Excluding tests that require contract key uniqueness
+            "ContractKeysIT:CKFetchOrLookup",
+            "ContractKeysIT:CKMaintainerScoped",
+            "ContractKeysIT:CKNoFetchUndisclosed",
+            "RaceConditionIT:RWArchiveVsFetch",
+            "RaceConditionIT:RWArchiveVsLookupByKey",
+            "RaceConditionIT:RWArchiveVsNonConsumingChoice",
+            "RaceConditionIT:RWTransientCreateVsNonTransientCreate",
+            "RaceConditionIT:WWArchiveVsNonTransientCreate",
+            "RaceConditionIT:WWDoubleArchive",
+            "RaceConditionIT:WWDoubleNonTransientCreate",
+            # need UCK mode - added below
+            "ExceptionsIT",
+            "ExceptionRaceConditionIT",
+            # Also exclude "optional tests" - which are run separately below
+            "CompletionDeduplicationInfoITCommandService",
+            "CompletionDeduplicationInfoITCommandSubmissionService",
+            "CommandDeduplicationParallelIT",
+            "TLSOnePointThreeIT",
+            "TLSAtLeastOnePointTwoIT",
+            "MonotonicRecordTimeIT",  # KV-utils specific
+            "ContractIdIT",  # temporarily disabled due to changed error codes
+        ]),
     ],
 ) if not is_windows else None
 
