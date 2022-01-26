@@ -185,7 +185,7 @@ jobs:
     - bash: |
         set -euo pipefail
 
-        for f in $(find /d/a/SourceRootMapping); do
+        for f in $(find /d/a/SourceRootMapping -type f); do
           echo "-----"
           echo $f
           echo "-----"
