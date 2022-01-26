@@ -507,8 +507,15 @@ generateSrcFromLf env = noLoc mod
         -- convDataCons.
         [dataTypeCon0] <- [LF.unTypeConName dataTypeCon]
         let occName = mkOccName varName (T.unpack dataTypeCon0)
-        [ mkDataDecl env thisModule occName dataParams =<<
-            convDataCons dataTypeCon0 dataCons ]
+        pure $ do
+            ctxt <- noLoc <$> do
+                if NM.name dtype `NM.member` LF.moduleInterfaces (envMod env) then do
+                    interface <- mkGhcType env "DamlInterface"
+                    pure [noLoc interface]
+                else
+                    pure []
+            cons <- convDataCons dataTypeCon0 dataCons
+            mkDataDecl env thisModule ctxt occName dataParams cons
 
     valueDecls :: [Gen (LHsDecl GhcPs)]
     valueDecls = do
@@ -749,8 +756,8 @@ mkConRdr env thisModule
  | envQualifyThisModule env = mkOrig thisModule
  | otherwise = mkRdrUnqual
 
-mkDataDecl :: Env -> Module -> OccName -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
-mkDataDecl env thisModule occName tyVars cons = do
+mkDataDecl :: Env -> Module -> LHsContext GhcPs -> OccName -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
+mkDataDecl env thisModule ctxt occName tyVars cons = do
     tyVars' <- mapM (convTyVarBinder env) tyVars
     pure . noLoc . TyClD noExt $ DataDecl
         { tcdDExt = noExt
@@ -761,7 +768,7 @@ mkDataDecl env thisModule occName tyVars cons = do
             HsDataDefn
                 { dd_ext = noExt
                 , dd_ND = DataType
-                , dd_ctxt = noLoc []
+                , dd_ctxt = ctxt
                 , dd_cType = Nothing
                 , dd_kindSig = Nothing
                 , dd_cons = cons
@@ -1108,6 +1115,7 @@ generateSrcPkgFromLf envConfig pkg = do
         , "{-# LANGUAGE UndecidableInstances #-}"
         , "{-# LANGUAGE AllowAmbiguousTypes #-}"
         , "{-# LANGUAGE MagicHash #-}"
+        , "{-# LANGUAGE DatatypeContexts #-}"
         , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods -Wno-deprecations #-}"
         ]
 
