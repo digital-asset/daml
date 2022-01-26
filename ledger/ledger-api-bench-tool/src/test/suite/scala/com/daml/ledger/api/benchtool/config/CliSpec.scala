@@ -175,6 +175,9 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
         "ledger-begin" -> LedgerOffset.defaultInstance.withBoundary(
           LedgerOffset.LedgerBoundary.LEDGER_BEGIN
         ),
+        "ledger-end" -> LedgerOffset.defaultInstance.withBoundary(
+          LedgerOffset.LedgerBoundary.LEDGER_END
+        ),
       )
       forAll(cases) { (argument, offset) =>
         val streamConfig = TransactionsStreamConfig(
@@ -201,6 +204,9 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       val cases = Table(
         "cli parameter" -> "offset",
         "abcdef" -> LedgerOffset.defaultInstance.withAbsolute("abcdef"),
+        "ledger-begin" -> LedgerOffset.defaultInstance.withBoundary(
+          LedgerOffset.LedgerBoundary.LEDGER_BEGIN
+        ),
         "ledger-end" -> LedgerOffset.defaultInstance.withBoundary(
           LedgerOffset.LedgerBoundary.LEDGER_END
         ),
