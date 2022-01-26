@@ -67,14 +67,21 @@ authorizationHeaders alice = [("Authorization", "Bearer " <> T.encodeUtf8 (hardc
 
 withDamlServiceIn :: FilePath -> String -> [String] -> (ProcessHandle -> IO a) -> IO a
 withDamlServiceIn path command args act = withDevNull $ \devNull -> do
-    let proc' = (shell $ unwords $ ["daml", command] <> args)
+    let proc' = (shell $ unwords $ ["daml", command, "--shutdown-stdin-close"] <> args)
           { std_out = UseHandle devNull
-          , create_group = True
+          , std_in = CreatePipe
           , cwd = Just path
           }
-    withCreateProcess proc' $ \_ _ _ ph -> do
+    withCreateProcess proc' $ \stdin _ _ ph -> do
+        Just stdin <- pure stdin
         r <- act ph
-        interruptProcessGroupOf ph
+        hClose stdin
+        -- We tear things down gracefully instead of killing
+        -- the process group so that waiting for the parent process
+        -- ensures that all child processes are all dead too.
+        -- Gonig via closing stdin works on Windows whereas tearing things
+        -- down gracefully
+        _ <- waitForProcess ph
         pure r
 
 data DamlStartResource = DamlStartResource
