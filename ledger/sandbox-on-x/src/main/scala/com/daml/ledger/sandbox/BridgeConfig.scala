@@ -7,12 +7,13 @@ import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard}
 import com.daml.ledger.participant.state.kvutils.app.{Config, ConfigProvider}
 import com.daml.platform.apiserver.TimeServiceBackend
+import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.platform.services.time.TimeProviderType
 import scopt.OptionParser
 
 import java.io.File
 import java.nio.file.Path
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 // TODO SoX: Keep only ledger-bridge-related configurations in this class
 //           and extract the participant-specific configs in the main config file.
@@ -80,6 +81,14 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     JwtVerifierConfigurationCli.parse(parser)((v, c) =>
       c.copy(extra = c.extra.copy(authService = AuthServiceJWT(v)))
     )
+
+    parser.checkConfig(c =>
+      Either.cond(
+        c.maxDeduplicationDuration.forall(_.compareTo(Duration.ofHours(1L)) <= 0),
+        (),
+        "Maximum supported deduplication duration is one hour",
+      )
+    )
     ()
   }
 
@@ -88,6 +97,13 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
       case TimeProviderType.Static => Some(TimeServiceBackend.simple(Instant.EPOCH))
       case TimeProviderType.WallClock => None
     }
+
+  override def initialLedgerConfig(config: Config[BridgeConfig]): InitialLedgerConfiguration = {
+    val superConfig = super.initialLedgerConfig(config)
+    superConfig.copy(configuration =
+      superConfig.configuration.copy(maxDeduplicationTime = Duration.ofHours(1L))
+    )
+  }
 
   override val defaultExtraConfig: BridgeConfig = BridgeConfig(
     // TODO SoX: Enabled by default

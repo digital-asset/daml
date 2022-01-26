@@ -91,7 +91,6 @@ private[validate] class SequenceImpl(
     case s: Submission.UploadPackages =>
       Some(packageUploadSuccess(s, timeProvider.getCurrentTimestamp))
     case _: Submission.Transaction =>
-      // TODO SoX: Handle gracefully
       throw new RuntimeException("Unexpected Submission.Transaction")
   }
 
@@ -156,11 +155,15 @@ private[validate] class SequenceImpl(
 
     withErrorLogger(submitterInfo.submissionId) { implicit errorLogger =>
       for {
-        _ <- checkTimeModel(txSubmission.submission, recordTime, ledgerConfiguration)
+        _ <- checkTimeModel(
+          transaction = txSubmission.submission,
+          recordTime = recordTime,
+          ledgerConfiguration = ledgerConfiguration,
+        )
         _ <- validateParties(
-          allocatedParties,
-          txSubmission.transactionInformees,
-          completionInfo,
+          allocatedParties = allocatedParties,
+          transactionInformees = txSubmission.transactionInformees,
+          completionInfo = completionInfo,
         )
         _ <- conflictCheckWithInFlight(
           keysState = sequencerState.keyState,
@@ -169,7 +172,7 @@ private[validate] class SequenceImpl(
           inputContracts = txSubmission.inputContracts,
           completionInfo = completionInfo,
         )
-        _ <- deduplicate(
+        _ <- deduplicateAndUpdateState(
           changeId = ChangeId(
             submitterInfo.applicationId,
             submitterInfo.commandId,
@@ -237,7 +240,7 @@ private[validate] class SequenceImpl(
           }
     }
 
-  private def deduplicate(
+  private def deduplicateAndUpdateState(
       changeId: ChangeId,
       deduplicationPeriod: DeduplicationPeriod,
       completionInfo: CompletionInfo,

@@ -416,6 +416,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       initialAllocatedParties = allocatedInformees,
       initialLedgerConfiguration = initialLedgerConfiguration,
       maxDeduplicationDuration = maxDeduplicationDuration,
+      wallClockTime = () => timeProviderMock.getCurrentTimestamp,
     )
 
     def exerciseNonConsuming(
