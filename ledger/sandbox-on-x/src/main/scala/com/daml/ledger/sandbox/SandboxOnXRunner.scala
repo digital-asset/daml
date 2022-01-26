@@ -50,7 +50,10 @@ object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
   private val logger = ContextualizedLogger.get(getClass)
 
-  def owner(args: collection.Seq[String]): ResourceOwner[Unit] =
+  def owner(
+      args: collection.Seq[String],
+      manipulateConfig: Config[BridgeConfig] => Config[BridgeConfig] = identity,
+  ): ResourceOwner[Unit] =
     Config
       .owner(
         RunnerName,
@@ -58,6 +61,7 @@ object SandboxOnXRunner {
         BridgeConfigProvider.defaultExtraConfig,
         args,
       )
+      .map(manipulateConfig)
       .flatMap(owner)
 
   private def owner(originalConfig: Config[BridgeConfig]): ResourceOwner[Unit] =
