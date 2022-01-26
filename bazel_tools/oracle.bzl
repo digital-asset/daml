@@ -15,6 +15,7 @@ def _impl(ctx):
         "index.bzl",
         content = """
 oracle_testing = {testing}
+oracle_tags = ["oracle"] + ([] if oracle_testing else ["manual"])
 """.format(
             testing = testing,
         ),

@@ -270,10 +270,8 @@ jobs:
         bazel test \
           --config=oracle \
           --test_strategy=exclusive \
-          //ledger-service/http-json-oracle/... \
-          //triggers/service:test-oracle \
-          //ledger/participant-integration-api:participant-integration-api-tests-oracle \
-          //ledger/ledger-on-sql:conformance-test-oracle
+          --test_tag_filters=+oracle \
+          //...
 
         oracle_logs=$(Build.StagingDirectory)/oracle-logs
         mkdir $oracle_logs
