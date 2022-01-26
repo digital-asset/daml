@@ -1001,17 +1001,3 @@ daml_compile_with_dalf(
     # PlatformIndependence.daml.
     ghc_options = [],
 )
-
-# Test for interfaces + data-dependencies
-daml_build_test(
-    name = "interface-definition",
-    project_dir = "interfaces-data-deps/interface-definition",
-)
-
-daml_test(
-    name = "interface-implementation",
-    srcs = glob(["interfaces-data-deps/interface-implementation/**/*.daml"]),
-    data_deps = [":interface-definition.dar"],
-    target = "1.dev",
-    deps = ["//daml-script/daml:daml-script-1.dev.dar"],
-)
