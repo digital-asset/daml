@@ -57,6 +57,22 @@ def daml_script_test(compiler_version, runner_version):
     daml_runner = "@daml-sdk-{version}//:daml".format(
         version = runner_version,
     )
+
+    # 1.16.0 is the first SDK version that defaulted to LF 1.14, which is the earliest LF version that Canton supports
+    use_canton = versions.is_at_least("2.0.0", runner_version) and versions.is_at_least("1.16.0", compiler_version)
+    use_sandbox_on_x = versions.is_at_least("2.0.0", runner_version) and not use_canton
+
+    if use_sandbox_on_x:
+        server = "@daml-sdk-{version}//:sandbox-on-x".format(version = runner_version)
+        server_args = ["--participant", "participant-id=sandbox,port=6865"]
+        server_files = []
+        runner_files = ["$(rootpath {})".format(compiled_dar)]
+    else:
+        server = daml_runner
+        server_args = ["sandbox"]
+        server_files = ["$(rootpath {})".format(compiled_dar)]
+        runner_files = []
+
     client_server_test(
         name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
             compiler_version = version_to_name(compiler_version),
@@ -80,13 +96,13 @@ def daml_script_test(compiler_version, runner_version):
         data = [
             compiled_dar,
         ],
-        runner = "//bazel_tools/client_server:runner",
-        runner_args = ["6865"],
-        server = daml_runner,
-        server_args = ["sandbox"],
-        server_files = [
-            "$(rootpath {})".format(compiled_dar),
-        ],
-        server_files_prefix = "--dar=" if versions.is_at_least("2.0.0", runner_version) else "",
+        runner = "//bazel_tools/client_server/with-upload-dar:runner",
+        runner_args = ["--port=6865"],
+        runner_files = runner_files,
+        runner_files_prefix = "--dar=",
+        server = server,
+        server_args = server_args,
+        server_files = server_files,
+        server_files_prefix = "--dar=" if use_canton else "",
         tags = ["exclusive"],
     )
