@@ -69,16 +69,16 @@ export type UserRight = CanActAs | CanReadAs | ParticipantAdmin
 
 export namespace UserRight {
   export function canActAs(party: string): UserRight {
-   return { type: "CanActAs", party: party } as CanActAs
+   return { type: "CanActAs", party: party }
   }
   
   export function canReadAs(party: string): UserRight {
-    return { type: "CanReadAs", party: party } as CanReadAs
+    return { type: "CanReadAs", party: party }
   }
   
   export const participantAdmin: UserRight = {
     type: "ParticipantAdmin" 
-  } as ParticipantAdmin
+  }
 }
 
 const userRightDecoder: jtv.Decoder<UserRight> =
