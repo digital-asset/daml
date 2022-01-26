@@ -707,6 +707,7 @@ excluded_test_tool_tests = [
             {
                 "end": "2.0.0-snapshot.20220118.8919.1",
                 "exclusions": [
+                    "CommandDeduplicationParallelIT",
                     "CommandDeduplicationPeriodValidationIT",
                     "CompletionDeduplicationInfoITCommandService",
                     "CompletionDeduplicationInfoITCommandSubmissionService",
