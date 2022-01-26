@@ -289,17 +289,27 @@ cantonConfig CantonOptions{..} =
                 ] )
             , "participants" Aeson..= Aeson.object
                 [ "sandbox" Aeson..= Aeson.object
-                    [ storage
-                    , "admin-api" Aeson..= port cantonAdminApi
-                    , "ledger-api" Aeson..= port cantonLedgerApi
-                    ]
+                    (
+                     [ storage
+                     , "admin-api" Aeson..= port cantonAdminApi
+                     , "ledger-api" Aeson..= port cantonLedgerApi
+                     ] <>
+                     [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
+                     | StaticTime True <- [cantonStaticTime]
+                     ]
+                    )
                 ]
             , "domains" Aeson..= Aeson.object
                 [ "local" Aeson..= Aeson.object
-                    [ storage
-                    , "public-api" Aeson..= port cantonDomainPublicApi
-                    , "admin-api" Aeson..= port cantonDomainAdminApi
-                    ]
+                    (
+                     [ storage
+                     , "public-api" Aeson..= port cantonDomainPublicApi
+                     , "admin-api" Aeson..= port cantonDomainAdminApi
+                     ] <>
+                     [ "domain-parameters" Aeson..= Aeson.object [ "topology-change-delay" Aeson..= ("0 ms" :: T.Text) ]
+                     | StaticTime True <- [cantonStaticTime]
+                     ]
+                    )
                 ]
             ]
         ]
