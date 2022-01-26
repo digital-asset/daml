@@ -1,11 +1,11 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChildProcess, spawn, spawnSync } from 'child_process';
+import { ChildProcess, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
-import Ledger, { Event, Stream, PartyInfo } from  '@daml/ledger';
+import Ledger, { Event, Stream, PartyInfo, UserRightHelper } from  '@daml/ledger';
 import { Int, emptyMap, Map } from '@daml/types';
 import pEvent from 'p-event';
 import _ from 'lodash';
@@ -35,15 +35,6 @@ const BOB_PARTY = 'Bob';
 const BOB_TOKEN = computeToken(BOB_PARTY);
 const CHARLIE_PARTY = 'Charlie'
 const CHARLIE_TOKEN = computeToken(CHARLIE_PARTY)
-const USERNAME = "nice.user"
-const USER_DETAILS = {
-  "user": {
-    "id": USERNAME,
-    "primary_party": ALICE_PARTY,
-  },
-  "rights": [{"can_act_as": {"party": ALICE_PARTY}}]
-};
-const USER_TOKEN = computeUserToken(USERNAME);
 
 let sandboxPort: number | undefined = undefined;
 const SANDBOX_PORT_FILE = 'sandbox.port';
@@ -88,17 +79,6 @@ beforeAll(async () => {
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, { encoding: 'utf8' });
   sandboxPort = parseInt(sandboxPortData);
   console.log('Sandbox listening on port ' + sandboxPort.toString());
-
-  // TODO: Replace this with a call to the json api as soon as the CreateUser endpoint has been merged.
-  const grpcurlUserArgs = [
-    "-plaintext",
-    "-d",
-    JSON.stringify(USER_DETAILS),
-    "localhost:" + sandboxPort.toString(),
-    "com.daml.ledger.api.v1.admin.UserManagementService/CreateUser",
-  ];
-  spawnSync('grpcurl', grpcurlUserArgs, {"encoding": "utf8"})
-  console.log('Created user')
 
   jsonApiProcess = spawnJvm(
     getEnv('JSON_API'),
@@ -609,9 +589,25 @@ test('party API', async () => {
 
 
 test('user API', async () => {
-  const ledger = new Ledger({token: USER_TOKEN, httpBaseUrl: httpBaseUrl()});
-  const user = await ledger.getUser()
-  expect(user).toEqual({ userId: USER_DETAILS.user.id, primaryParty: USER_DETAILS.user.primary_party });
+  const ledger = new Ledger({token: computeUserToken("participant_admin"), httpBaseUrl: httpBaseUrl()});
+  
+  const participantAdminUser = await ledger.getUser()
+  expect(participantAdminUser.userId).toEqual("participant_admin");
+  expect(await ledger.listUserRights()).toEqual([ UserRightHelper.participantAdmin ])
+
+  const niceUser = "nice.user"
+  const niceUserRights = [ UserRightHelper.canActAs(ALICE_PARTY) ]
+  await ledger.createUser(niceUser, niceUserRights, ALICE_PARTY)
+  
+  expect(await ledger.getUser(niceUser)).toEqual({ userId: niceUser, primaryParty: ALICE_PARTY })
+  expect(await ledger.listUserRights(niceUser)).toEqual(niceUserRights)
+  expect(await ledger.grantUserRights(niceUser, [ UserRightHelper.participantAdmin ])).toEqual([ UserRightHelper.participantAdmin ])
+  expect(await ledger.revokeUserRights(niceUser, [ UserRightHelper.participantAdmin, UserRightHelper.canActAs(ALICE_PARTY) ])).toEqual([ UserRightHelper.participantAdmin, UserRightHelper.canActAs(ALICE_PARTY) ])
+
+  expect((await ledger.listUsers()).map(it => it.userId)).toEqual([ "participant_admin", niceUser ])
+  await ledger.deleteUser(niceUser)
+  expect((await ledger.listUsers()).map(it => it.userId)).toEqual([ "participant_admin" ])
+
 });
 
 test('package API', async () => {
