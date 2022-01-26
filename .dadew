@@ -2,7 +2,6 @@
     "version": "0.0.8",
     "manifests": "dev-env\\windows\\manifests",
     "tools": [
-        "7zip",
         "bazel",
         "cacert",
         "curl",
