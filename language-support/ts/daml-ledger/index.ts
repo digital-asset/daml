@@ -67,17 +67,17 @@ export type ParticipantAdmin = {
 
 export type UserRight = CanActAs | CanReadAs | ParticipantAdmin
 
-export namespace UserRight {
-  export function canActAs(party: string): UserRight {
-   return { type: "CanActAs", party: party }
+export class UserRightHelper {
+  static canActAs(party: string): UserRight {
+    return { type: "CanActAs", party: party }
   }
-  
-  export function canReadAs(party: string): UserRight {
+
+  static canReadAs(party: string): UserRight {
     return { type: "CanReadAs", party: party }
   }
-  
-  export const participantAdmin: UserRight = {
-    type: "ParticipantAdmin" 
+
+  static participantAdmin: UserRight = {
+    type: "ParticipantAdmin"
   }
 }
 
@@ -1443,12 +1443,9 @@ class Ledger {
    *
    */
   async getUser(userId?: string): Promise<User> {
-    var json
-    if (isUndefined(userId)) {
-      json = await this.submit('v1/user', undefined, 'get');
-    } else {
-      json = await this.submit('v1/user', { 'userId': userId }, 'post')
-    }
+    const json = isUndefined(userId) ?
+      await this.submit('v1/user', undefined, 'get') :
+      await this.submit('v1/user', { 'userId': userId }, 'post')
     return decode(userDecoder, json);
   }
 
@@ -1471,12 +1468,9 @@ class Ledger {
    * @returns list of user rights
    */
   async listUserRights(userId?: string): Promise<UserRight[]> {
-    var json
-    if (isUndefined(userId)) {
-      json = await this.submit('v1/user/rights', undefined, 'get');
-    } else {
-      json = await this.submit('v1/user/rights', { 'userId': userId })
-    }
+    const json = isUndefined(userId) ?
+      await this.submit('v1/user/rights', undefined, 'get') :
+      await this.submit('v1/user/rights', { 'userId': userId })
     return decode(jtv.array(userRightDecoder), json);
   }
   

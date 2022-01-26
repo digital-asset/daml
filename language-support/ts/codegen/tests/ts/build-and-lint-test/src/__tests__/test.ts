@@ -5,7 +5,7 @@ import { ChildProcess, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
-import Ledger, { Event, Stream, PartyInfo, UserRight } from  '@daml/ledger';
+import Ledger, { Event, Stream, PartyInfo, UserRightHelper } from  '@daml/ledger';
 import { Int, emptyMap, Map } from '@daml/types';
 import pEvent from 'p-event';
 import _ from 'lodash';
@@ -593,16 +593,16 @@ test('user API', async () => {
   
   const participantAdminUser = await ledger.getUser()
   expect(participantAdminUser.userId).toEqual("participant_admin");
-  expect(await ledger.listUserRights()).toEqual([ UserRight.participantAdmin ])
+  expect(await ledger.listUserRights()).toEqual([ UserRightHelper.participantAdmin ])
 
   const niceUser = "nice.user"
-  const niceUserRights = [ UserRight.canActAs(ALICE_PARTY) ]
+  const niceUserRights = [ UserRightHelper.canActAs(ALICE_PARTY) ]
   await ledger.createUser(niceUser, niceUserRights, ALICE_PARTY)
   
   expect(await ledger.getUser(niceUser)).toEqual({ userId: niceUser, primaryParty: ALICE_PARTY })
   expect(await ledger.listUserRights(niceUser)).toEqual(niceUserRights)
-  expect(await ledger.grantUserRights(niceUser, [ UserRight.participantAdmin ])).toEqual([ UserRight.participantAdmin ])
-  expect(await ledger.revokeUserRights(niceUser, [ UserRight.participantAdmin, UserRight.canActAs(ALICE_PARTY) ])).toEqual([ UserRight.participantAdmin, UserRight.canActAs(ALICE_PARTY) ])
+  expect(await ledger.grantUserRights(niceUser, [ UserRightHelper.participantAdmin ])).toEqual([ UserRightHelper.participantAdmin ])
+  expect(await ledger.revokeUserRights(niceUser, [ UserRightHelper.participantAdmin, UserRightHelper.canActAs(ALICE_PARTY) ])).toEqual([ UserRightHelper.participantAdmin, UserRightHelper.canActAs(ALICE_PARTY) ])
 
   expect((await ledger.listUsers()).map(it => it.userId)).toEqual([ "participant_admin", niceUser ])
   await ledger.deleteUser(niceUser)
