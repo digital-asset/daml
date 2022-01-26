@@ -79,8 +79,8 @@ withDamlServiceIn path command args act = withDevNull $ \devNull -> do
         -- We tear things down gracefully instead of killing
         -- the process group so that waiting for the parent process
         -- ensures that all child processes are all dead too.
-        -- Gonig via closing stdin works on Windows whereas tearing things
-        -- down gracefully
+        -- Going via closing stdin works on Windows whereas tearing things
+        -- down gracefully via SIGTERM isn’t as much of a thing so we use the former.
         _ <- waitForProcess ph
         pure r
 
