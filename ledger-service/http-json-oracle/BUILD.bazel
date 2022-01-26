@@ -1,7 +1,7 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@oracle//:index.bzl", "oracle_testing")
+load("@oracle//:index.bzl", "oracle_tags")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
@@ -32,7 +32,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = hj_scalacopts,
-    tags = [] if oracle_testing else ["manual"],
+    tags = oracle_tags,
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
@@ -88,7 +88,7 @@ da_scala_test_suite(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = hj_scalacopts,
-    tags = [] if oracle_testing else ["manual"],
+    tags = oracle_tags,
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],

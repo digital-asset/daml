@@ -1,7 +1,7 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@oracle//:index.bzl", "oracle_testing")
+load("@oracle//:index.bzl", "oracle_tags")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix")
 load("//bazel_tools:proto.bzl", "proto_jars")
@@ -347,7 +347,7 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_mockito_mockito_scala",
     ],
-    tags = [] if oracle_testing else ["manual"],
+    tags = oracle_tags,
     runtime_deps = [
     ],
     deps = [
