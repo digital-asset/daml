@@ -21,9 +21,6 @@ da_scala_library(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = [
-        "-Wconf:msg=class DeduplicationTime in object DeduplicationPeriod is deprecated:s",  # deprecated field that needs to be tested
-    ],
     tags = ["maven_coordinates=com.daml:ledger-api-common:__VERSION__"],
     visibility = [
         "//visibility:public",

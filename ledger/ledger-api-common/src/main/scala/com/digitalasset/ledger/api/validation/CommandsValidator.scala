@@ -223,8 +223,13 @@ final class CommandsValidator(
     } yield Submitters(actAs, readAs)
   }
 
+  // TODO: Address usage of deprecated class DeduplicationTime
+
   /** We validate only using current time because we set the currentTime as submitTime so no need to check both
     */
+  @scala.annotation.nowarn(
+    "msg=class DeduplicationTime in object DeduplicationPeriod is deprecated"
+  )
   def validateDeduplicationPeriod(
       deduplicationPeriod: commands.Commands.DeduplicationPeriod,
       optMaxDeduplicationDuration: Option[Duration],
