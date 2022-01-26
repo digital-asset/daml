@@ -62,22 +62,68 @@ private[backend] trait StorageBackendTestsUserManagement
     getNonexistent shouldBe None
   }
 
-  it should "get users (getUsers)" in {
-    val user1 = newUniqueUser()
-    val user2 = newUniqueUser()
-    val emptyUsers = executeSql(tested.getUsers())
+  it should "get all users (getUsers) ordered by id" in {
+    val user1 = newUniqueUser(userIdPrefix = "user_id_1_")
+    val user2 = newUniqueUser(userIdPrefix = "user_id_2_")
+    val user3 = newUniqueUser(userIdPrefix = "user_id_3_")
+    executeSql(tested.getUsersOrderedById(maxResults = 10)) shouldBe empty
+    val _ = executeSql(tested.createUser(user3))
     val _ = executeSql(tested.createUser(user1))
+    executeSql(tested.getUsersOrderedById(maxResults = 10)) shouldBe Seq(user1, user3)
     val _ = executeSql(tested.createUser(user2))
-    val allUsers = executeSql(tested.getUsers())
-    emptyUsers shouldBe empty
-    allUsers should contain theSameElementsAs Seq(user1, user2)
+    executeSql(tested.getUsersOrderedById(maxResults = 10)) shouldBe Seq(user1, user2, user3)
+  }
+
+  it should "get a page of users (getUsers) ordered by id" in {
+    val user1 = newUniqueUser(userIdPrefix = "user_id_1_")
+    val user2 = newUniqueUser(userIdPrefix = "user_id_2_")
+    val user3 = newUniqueUser(userIdPrefix = "user_id_3_")
+    // Note: user4 doesn't exist and won't be created
+    val user5 = newUniqueUser(userIdPrefix = "user_id_5_")
+    val user6 = newUniqueUser(userIdPrefix = "user_id_6_")
+    val user7 = newUniqueUser(userIdPrefix = "user_id_7_")
+    executeSql(tested.getUsersOrderedById(maxResults = 10)) shouldBe empty
+    // Creating users in a random order
+    val _ = executeSql(tested.createUser(user5))
+    val _ = executeSql(tested.createUser(user1))
+    val _ = executeSql(tested.createUser(user7))
+    val _ = executeSql(tested.createUser(user3))
+    val _ = executeSql(tested.createUser(user6))
+    val _ = executeSql(tested.createUser(user2))
+    // Get first 2 elements
+    executeSql(tested.getUsersOrderedById(maxResults = 2)) shouldBe Seq(user1, user2)
+    // Get 3 users after user1
+    executeSql(tested.getUsersOrderedById(maxResults = 3, after = user1.id)) shouldBe Seq(
+      user2,
+      user3,
+      user5,
+    )
+    // Get up to 10000 users after user1
+    executeSql(tested.getUsersOrderedById(maxResults = 10000, after = user1.id)) shouldBe Seq(
+      user2,
+      user3,
+      user5,
+      user6,
+      user7,
+    )
+    // Get some users after a non-existing user id
+    executeSql(
+      tested.getUsersOrderedById(maxResults = 2, after = Ref.UserId.assertFromString("user_id_4"))
+    ) shouldBe Seq(user5, user6)
+    // Get no users when requesting with after set the last existing user
+    executeSql(tested.getUsersOrderedById(maxResults = 2, after = user7.id)) shouldBe empty
+    // Get no users when requesting with after set beyond the last existing user
+    executeSql(
+      tested.getUsersOrderedById(maxResults = 2, after = Ref.UserId.assertFromString("user_id_8"))
+    ) shouldBe empty
   }
 
   it should "handle adding rights to non-existent user" in {
     val nonExistentUserInternalId = 123
-    val allUsers = executeSql(tested.getUsers())
-    val _ = executeSql(tested.userRightExists(nonExistentUserInternalId, right2))
+    val allUsers = executeSql(tested.getUsersOrderedById(maxResults = 10))
+    val rightExists = executeSql(tested.userRightExists(nonExistentUserInternalId, right2))
     allUsers shouldBe empty
+    rightExists shouldBe false
   }
 
   it should "handle adding duplicate rights" in {
@@ -161,7 +207,10 @@ private[backend] trait StorageBackendTestsUserManagement
     rights2 shouldBe empty
   }
 
-  private def newUniqueUser(emptyPrimaryParty: Boolean = false): User = {
+  private def newUniqueUser(
+      emptyPrimaryParty: Boolean = false,
+      userIdPrefix: String = "user_id_",
+  ): User = {
     val uuid = UUID.randomUUID.toString
     val primaryParty =
       if (emptyPrimaryParty)
@@ -169,7 +218,7 @@ private[backend] trait StorageBackendTestsUserManagement
       else
         Some(Ref.Party.assertFromString(s"primary_party_${uuid}"))
     User(
-      id = Ref.UserId.assertFromString(s"user_id_${uuid}"),
+      id = Ref.UserId.assertFromString(s"$userIdPrefix${uuid}"),
       primaryParty = primaryParty,
     )
   }

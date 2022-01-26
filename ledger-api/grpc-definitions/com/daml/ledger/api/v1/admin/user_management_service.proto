@@ -123,11 +123,23 @@ message DeleteUserResponse {
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message ListUsersRequest {
+
+    // Pagination token to determine the specific page to fetch.
+    string page_token = 2; // TODO:  url-safe base64 encoded protocol buffer,
+
+
+    // Maximum number of results to be returned by the server. Server will return no more than that many results
+    int32 page_size = 3; // NOTE: If the page_size is 0, the server will decide the number of results to be returned.
+
 }
 
 message ListUsersResponse {
     // All users of the participant node.
     repeated User users = 1;
+
+    // Pagination token to retrieve the next page.
+    string next_page_token = 2;
+    // If the value is "", it means no further results for the request.
 }
 
 // Add the rights to the set of rights granted to the user.

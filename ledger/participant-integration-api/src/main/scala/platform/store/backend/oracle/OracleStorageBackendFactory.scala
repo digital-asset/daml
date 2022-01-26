@@ -21,6 +21,7 @@ import com.daml.platform.store.backend.{
   PartyStorageBackend,
   ResetStorageBackend,
   StorageBackendFactory,
+  UserManagementStorageBackend,
 }
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.StringInterning
@@ -61,4 +62,7 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
 
   override val createResetStorageBackend: ResetStorageBackend =
     OracleResetStorageBackend
+
+  override val createUserManagementStorageBackend: UserManagementStorageBackend =
+    OracleUserManagementStorageBackend
 }

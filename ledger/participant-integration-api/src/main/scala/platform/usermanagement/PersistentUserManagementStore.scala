@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   UserExists,
   UserInfo,
   UserNotFound,
-  Users,
+  UsersPage,
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
@@ -161,9 +161,13 @@ class PersistentUserManagementStore(
 
   }
 
-  override def listUsers(): Future[Result[Users]] = {
+  override def listUsers(pageToken: String, maxResults: Int): Future[Result[UsersPage]] = {
     inTransaction(_.listUsers) { connection =>
-      Right(backend.getUsers()(connection))
+      val users: Seq[domain.User] = decodePageToken(pageToken) match {
+        case None => backend.getUsersOrderedById(maxResults)(connection)
+        case Some(after) => backend.getUsersOrderedById(after = after, maxResults)(connection)
+      }
+      Right(UsersPage(users = users))
     }
   }
 

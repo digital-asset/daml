@@ -91,12 +91,12 @@ class CachedUserManagementStoreSpec
 
     for {
       res0 <- tested.createUser(user, rights)
-      res1 <- tested.listUsers()
-      res2 <- tested.listUsers()
+      res1 <- tested.listUsers(pageToken = "", maxResults = 100)
+      res2 <- tested.listUsers(pageToken = "", maxResults = 100)
     } yield {
       val order = inOrder(delegate)
       order.verify(delegate, times(1)).createUser(user, rights)
-      order.verify(delegate, times(2)).listUsers()
+      order.verify(delegate, times(2)).listUsers(pageToken = "", maxResults = 100)
       order.verifyNoMoreInteractions()
       res0 shouldBe Right(())
       res1 shouldBe Right(Seq(user))

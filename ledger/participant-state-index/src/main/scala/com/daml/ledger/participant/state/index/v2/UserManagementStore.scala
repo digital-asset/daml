@@ -3,19 +3,25 @@
 
 package com.daml.ledger.participant.state.index.v2
 
+import java.nio.charset.StandardCharsets
+import java.util.Base64
+
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
 
 trait UserManagementStore {
+
   import UserManagementStore._
 
   // read access
 
   def getUserInfo(id: Ref.UserId): Future[Result[UserInfo]]
 
-  def listUsers(): Future[Result[Users]]
+  //  def listUsers(): Future[Result[Users]]
+
+  def listUsers(pageToken: String, maxResults: Int): Future[Result[UsersPage]]
 
   // write access
 
@@ -37,15 +43,40 @@ trait UserManagementStore {
     getUserInfo(id).map(_.map(_.rights))(ExecutionContext.parasitic)
   }
 
+  // TODO pbatko: test it
+  protected def decodePageToken(pageToken: String): Option[Ref.UserId] = {
+    if (pageToken.isEmpty) {
+      None
+    } else {
+      val bytes = Base64.getUrlDecoder.decode(pageToken.getBytes(StandardCharsets.UTF_8))
+      val str = new String(bytes, StandardCharsets.UTF_8)
+      Some(Ref.UserId.assertFromString(str))
+    }
+  }
 }
 
 object UserManagementStore {
   type Result[T] = Either[Error, T]
   type Users = Seq[User]
 
+  case class UsersPage(users: Seq[User]) {
+    // TODO pbatko: test it
+    def nextPageToken: String =
+      users.lastOption
+        .map(_.id)
+        .map { id =>
+          val bytes = Base64.getUrlEncoder.encode(id.getBytes(StandardCharsets.UTF_8))
+          new String(bytes, StandardCharsets.UTF_8)
+        }
+        .getOrElse("")
+  }
+
   case class UserInfo(user: User, rights: Set[UserRight])
 
   sealed trait Error extends RuntimeException
+
   final case class UserNotFound(userId: Ref.UserId) extends Error
+
   final case class UserExists(userId: Ref.UserId) extends Error
+
 }

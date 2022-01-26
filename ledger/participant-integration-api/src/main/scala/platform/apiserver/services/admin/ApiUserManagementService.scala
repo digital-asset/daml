@@ -30,6 +30,7 @@ private[apiserver] final class ApiUserManagementService(
     loggingContext: LoggingContext,
 ) extends proto.UserManagementServiceGrpc.UserManagementService
     with GrpcApiService {
+
   import ApiUserManagementService._
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
@@ -37,6 +38,7 @@ private[apiserver] final class ApiUserManagementService(
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
   private val fieldValidations = FieldValidations(errorFactories)
+
   import fieldValidations._
 
   override def close(): Unit = ()
@@ -82,14 +84,15 @@ private[apiserver] final class ApiUserManagementService(
         .map(_ => proto.DeleteUserResponse())
     )
 
-  override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] =
+  override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] = {
     userManagementService
-      .listUsers()
+      .listUsers(pageToken = request.pageToken, maxResults = request.pageSize)
       .flatMap(handleResult("list users"))
-      .map(
-        _.map(toProtoUser)
-      )
-      .map(proto.ListUsersResponse(_))
+      .map { page: UserManagementStore.UsersPage =>
+        val protoUsers = page.users.map(toProtoUser)
+        proto.ListUsersResponse(users = protoUsers, nextPageToken = page.nextPageToken)
+      }
+  }
 
   override def grantUserRights(
       request: proto.GrantUserRightsRequest
