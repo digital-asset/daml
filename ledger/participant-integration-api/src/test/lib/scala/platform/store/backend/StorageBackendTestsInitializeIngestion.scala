@@ -3,6 +3,7 @@
 
 package com.daml.platform.store.backend
 
+import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.lf.data.Ref
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
@@ -19,7 +20,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   import StorageBackendTestValues._
 
   val metering =
-    MeteringStorageBackend.TransactionMetering(
+    TransactionMetering(
       someApplicationId,
       1,
       someTime,

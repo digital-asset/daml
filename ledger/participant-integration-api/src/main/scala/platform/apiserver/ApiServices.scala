@@ -105,6 +105,7 @@ private[daml] object ApiServices {
     private val partyManagementService: IndexPartyManagementService = indexService
     private val configManagementService: IndexConfigManagementService = indexService
     private val submissionService: IndexSubmissionService = indexService
+    private val meteringStore: MeteringStore = indexService
 
     private val configurationInitializer = new LedgerConfigurationInitializer(
       indexService = indexService,
@@ -213,7 +214,8 @@ private[daml] object ApiServices {
           None
         }
 
-      val apiMeteringReportService = new ApiMeteringReportService()
+      val apiMeteringReportService =
+        new ApiMeteringReportService(participantId, meteringStore, errorsVersionsSwitcher)
 
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::

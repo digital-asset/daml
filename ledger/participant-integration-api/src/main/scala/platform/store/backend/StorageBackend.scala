@@ -7,9 +7,10 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails, User, 
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.UserId
+import com.daml.lf.data.Ref.{ApplicationId, UserId}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
@@ -431,15 +432,12 @@ object UserManagementStorageBackend {
   case class DbUser(internalId: Int, domainUser: User)
 }
 
-object MeteringStorageBackend {
-  case class TransactionMetering(
-      applicationId: Ref.ApplicationId,
-      actionCount: Int,
-      meteringTimestamp: Timestamp,
-      ledgerOffset: Offset,
-  )
-}
-
 trait MeteringStorageBackend {
-  def entries(connection: Connection): Vector[MeteringStorageBackend.TransactionMetering]
+  def entries(connection: Connection): Vector[TransactionMetering]
+
+  def transactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
+  )(connection: Connection): Vector[TransactionMetering]
 }

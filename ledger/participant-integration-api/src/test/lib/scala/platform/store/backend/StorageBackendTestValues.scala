@@ -7,6 +7,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -243,7 +244,7 @@ private[backend] object StorageBackendTestValues {
     )
 
   def dtoTransactionMetering(
-      metering: MeteringStorageBackend.TransactionMetering
+      metering: TransactionMetering
   ): DbDto.TransactionMetering = {
     import metering._
     DbDto.TransactionMetering(
