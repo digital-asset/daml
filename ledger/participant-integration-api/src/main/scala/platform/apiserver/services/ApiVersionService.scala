@@ -58,7 +58,7 @@ private[apiserver] final class ApiVersionService private (
       userManagement = Some(
         UserManagementFeature(
           supported = enableUserManagement,
-          maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+          maxRightsPerUser = if (enableUserManagement) UserManagementConfig.MaxRightsPerUser else 0,
         )
       ),
       experimental = Some(
