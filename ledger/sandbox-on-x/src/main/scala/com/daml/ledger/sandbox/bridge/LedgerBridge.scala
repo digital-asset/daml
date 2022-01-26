@@ -94,7 +94,7 @@ object LedgerBridge {
       maxDeduplicationDuration =
         // TODO SoX: Enforce cap on this config
         config.maxDeduplicationDuration
-          .getOrElse(Duration.ofMinutes(1L)),
+          .getOrElse(Duration.ofDays(1L)),
     )
 
   private[bridge] def packageUploadSuccess(

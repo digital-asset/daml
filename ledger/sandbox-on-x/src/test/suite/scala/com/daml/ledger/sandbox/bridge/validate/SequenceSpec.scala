@@ -112,7 +112,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     sequenceImpl.ledgerConfiguration shouldBe Some(config)
   }
 
-  it should "reject a transaction on time model violation" in new TestContext {
+  it should "fail on time model check" in new TestContext {
     val Seq((offset, update)) = sequence(input(lateSubmission))
     offset shouldBe toOffset(1L)
 
@@ -123,37 +123,13 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     )
   }
 
-  it should "reject a transaction on unallocated transaction informees" in new TestContext {
+  it should "fail on unallocated transaction informees" in new TestContext {
     val Seq((offset, update)) = sequence(input(txWithUnallocatedParty))
     offset shouldBe toOffset(1L)
     assertCommandRejected(update, "Parties not known on ledger: [new-guy]")
   }
 
-  it should "reject a transaction if there is no ledger configuration" in new TestContext {
-    private val sequenceWithoutLedgerConfig = buildSequence(initialLedgerConfiguration = None)()
-
-    // Assert transaction rejection on missing ledger configuration
-    val Seq((offset, update)) = sequenceWithoutLedgerConfig(create(cId(1), Some(contractKey(1L))))
-    offset shouldBe toOffset(1L)
-    assertCommandRejected(update, "Ledger configuration not found")
-
-    // Upload config to ledger
-    sequenceWithoutLedgerConfig(input(NoOpPreparedSubmission(configUpload))) shouldBe Iterable(
-      toOffset(2L) -> Update.ConfigurationChanged(
-        recordTime = currentRecordTime,
-        submissionId = submissionId,
-        participantId = Ref.ParticipantId.assertFromString(participantName),
-        newConfiguration = config,
-      )
-    )
-
-    // Assert transaction accepted after ledger config upload
-    val Seq((offset3, update3)) = sequenceWithoutLedgerConfig(create(cId(1), Some(contractKey(1L))))
-    offset3 shouldBe toOffset(3L)
-    update3 shouldBe transactionAccepted(3)
-  }
-
-  it should "not validate party allocation if disabled" in new TestContext {
+  it should "validate party allocation if disabled" in new TestContext {
     val Seq((offset, update)) =
       sequenceWithoutPartyAllocationValidation()(input(txWithUnallocatedParty))
     offset shouldBe toOffset(1L)
@@ -229,6 +205,46 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     sequence(Left(rejectionMock)) shouldBe Iterable(toOffset(1L) -> commandRejectedUpdateMock)
   }
 
+  it should "deduplicate commands" in new TestContext {
+    // Command with non-zero deduplication period
+    private val initialSubmission = create(cId(1))
+
+    private val deduplicationPeriod: DeduplicationPeriod.DeduplicationDuration =
+      DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1L))
+
+    private val submissionWithDedupPeriod = create(
+      cId(1),
+      transactionSubmission =
+        tx.copy(submitterInfo = tx.submitterInfo.copy(deduplicationPeriod = deduplicationPeriod)),
+    )
+
+    val Seq((offset1, update1)) = sequence(initialSubmission)
+    offset1 shouldBe toOffset(1L)
+    update1 shouldBe transactionAccepted(1)
+
+    // Assert duplicate command rejected
+    val Seq((offset2, update2)) = sequence(submissionWithDedupPeriod)
+    offset2 shouldBe toOffset(2L)
+    assertCommandRejected(
+      update2,
+      "A command with the given command id has already been successfully processed",
+      deduplicationPeriod,
+    )
+
+    // Advance record time past the deduplication period
+    private val newRecordTime: Timestamp = currentRecordTime.add(deduplicationPeriod.duration)
+    when(timeProviderMock.getCurrentTimestamp).thenReturn(newRecordTime)
+
+    // Assert command is accepted
+    val Seq((offset3, update3)) = sequence(submissionWithDedupPeriod)
+    offset3 shouldBe toOffset(3L)
+    update3 shouldBe transactionAccepted(
+      txId = 3,
+      completionInfo = completionInfo.copy(optDeduplicationPeriod = Some(deduplicationPeriod)),
+      recordTime = newRecordTime,
+    )
+  }
+
   private trait TestContext extends FixtureContext {
     private val bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry))
     val timeProviderMock: TimeProvider = mock[TimeProvider]
@@ -238,12 +254,17 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     val allocatedInformees: Set[IdString.Party] =
       (1 to 3).map(idx => s"party-$idx").map(Ref.Party.assertFromString).toSet
 
-    val initialConfig: Configuration = Configuration(
-      generation = 0L,
-      timeModel = LedgerTimeModel.reasonableDefault,
-      maxDeduplicationTime = Duration.ofSeconds(60L),
+    private val initialLedgerConfiguration: Some[Configuration] = Some(
+      Configuration(
+        generation = 0L,
+        timeModel = LedgerTimeModel.reasonableDefault,
+        maxDeduplicationTime = Duration.ofSeconds(60L),
+      )
     )
-    val sequenceImpl: SequenceImpl = buildSequence()
+
+    val maxDeduplicationDuration: Duration = Duration.ofDays(1L)
+
+    val sequenceImpl: SequenceImpl = buildSequence(validatePartyAllocation = true)
     val sequenceWithoutPartyAllocationValidation: SequenceImpl =
       buildSequence(validatePartyAllocation = false)
     val sequence: Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)] =
@@ -252,13 +273,16 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     val currentRecordTime: Time.Timestamp = Time.Timestamp.assertFromLong(1000L)
     when(timeProviderMock.getCurrentTimestamp).thenReturn(currentRecordTime)
 
+    private val zeroDeduplicationPeriod: DeduplicationPeriod.DeduplicationDuration =
+      DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(0L))
+
     // Transaction submission mocks
     val submitterInfo: SubmitterInfo = SubmitterInfo(
       actAs = List.empty,
       readAs = List.empty,
       applicationId = Ref.ApplicationId.assertFromString("applicationId"),
       commandId = Ref.CommandId.assertFromString("commandId"),
-      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(0L)),
+      deduplicationPeriod = zeroDeduplicationPeriod,
       submissionId = Some(submissionId),
       ledgerConfiguration =
         Configuration(0L, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(0L)),
@@ -382,10 +406,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       Right(noConflictUpTo -> preparedTransactionSubmission)
     }
 
-    def buildSequence(
-        validatePartyAllocation: Boolean = true,
-        initialLedgerConfiguration: Option[Configuration] = Some(initialConfig),
-    ) = new SequenceImpl(
+    def buildSequence(validatePartyAllocation: Boolean) = new SequenceImpl(
       participantId = Ref.ParticipantId.assertFromString(participantName),
       bridgeMetrics = bridgeMetrics,
       timeProvider = timeProviderMock,
@@ -394,6 +415,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       initialLedgerEnd = Offset.beforeBegin,
       initialAllocatedParties = allocatedInformees,
       initialLedgerConfiguration = initialLedgerConfiguration,
+      maxDeduplicationDuration = maxDeduplicationDuration,
     )
 
     def exerciseNonConsuming(
@@ -417,22 +439,33 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       input(preparedTransactionSubmission)
     }
 
-    def transactionAccepted(txId: Int): Update.TransactionAccepted =
+    def transactionAccepted(
+        txId: Int,
+        completionInfo: CompletionInfo = completionInfo,
+        recordTime: Time.Timestamp = currentRecordTime,
+    ): Update.TransactionAccepted =
       Update.TransactionAccepted(
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = CommittedTransaction(txMock),
         transactionId = Ref.TransactionId.assertFromString(txId.toString),
-        recordTime = currentRecordTime,
+        recordTime = recordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
       )
 
-    def assertCommandRejected(update: Update, reason: String): Assertion = update match {
+    def assertCommandRejected(
+        update: Update,
+        reason: String,
+        deduplicationPeriod: DeduplicationPeriod = zeroDeduplicationPeriod,
+    ): Assertion = update match {
       case rejection: Update.CommandRejected =>
         rejection.recordTime shouldBe currentRecordTime
         // Transaction statistics are not populated for rejections
-        rejection.completionInfo shouldBe completionInfo.copy(statistics = None)
+        rejection.completionInfo shouldBe completionInfo.copy(
+          statistics = None,
+          optDeduplicationPeriod = Some(deduplicationPeriod),
+        )
         // TODO SoX: Assert error codes
         rejection.reasonTemplate.message should include(reason)
       case noMatch => fail(s"Expectation mismatch on expected CommandRejected: $noMatch")

@@ -20,7 +20,7 @@ import com.daml.ledger.sandbox.bridge.validate.SequencerState.LastUpdatedAt
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.{AllocateParty, Config, Transaction}
 import com.daml.ledger.sandbox.domain._
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{Transaction => LfTransaction}
@@ -45,6 +45,7 @@ private[validate] class SequenceImpl(
     bridgeMetrics: BridgeMetrics,
     errorFactories: ErrorFactories,
     maxDeduplicationDuration: Duration,
+    wallClockTime: () => Time.Timestamp = () => Timestamp.now(),
 ) extends Sequence {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
@@ -53,7 +54,7 @@ private[validate] class SequenceImpl(
   @volatile private[validate] var allocatedParties = initialAllocatedParties
   @volatile private[validate] var ledgerConfiguration = initialLedgerConfiguration
   @volatile private[validate] var deduplicationState =
-    DeduplicationState.empty(maxDeduplicationDuration, () => timeProvider.getCurrentTimestamp)
+    DeduplicationState.empty(maxDeduplicationDuration, wallClockTime)
 
   override def apply(): Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)] =
     in => {
@@ -155,15 +156,6 @@ private[validate] class SequenceImpl(
 
     withErrorLogger(submitterInfo.submissionId) { implicit errorLogger =>
       for {
-        _ <- deduplicate(
-          changeId = ChangeId(
-            submitterInfo.applicationId,
-            submitterInfo.commandId,
-            submitterInfo.actAs.toSet,
-          ),
-          deduplicationPeriod = txSubmission.submission.submitterInfo.deduplicationPeriod,
-          completionInfo = completionInfo,
-        )
         _ <- checkTimeModel(txSubmission.submission, recordTime, ledgerConfiguration)
         _ <- validateParties(
           allocatedParties,
@@ -175,6 +167,15 @@ private[validate] class SequenceImpl(
           consumedContractsState = sequencerState.consumedContractsState,
           keyInputs = txSubmission.keyInputs,
           inputContracts = txSubmission.inputContracts,
+          completionInfo = completionInfo,
+        )
+        _ <- deduplicate(
+          changeId = ChangeId(
+            submitterInfo.applicationId,
+            submitterInfo.commandId,
+            submitterInfo.actAs.toSet,
+          ),
+          deduplicationPeriod = txSubmission.submission.submitterInfo.deduplicationPeriod,
           completionInfo = completionInfo,
         )
       } yield ()
@@ -190,14 +191,6 @@ private[validate] class SequenceImpl(
               txSubmission.updatedKeys,
               txSubmission.consumedContracts,
             )
-
-          deduplicationState = deduplicationState.newTransactionAccepted(
-            ChangeId(
-              submitterInfo.applicationId,
-              submitterInfo.commandId,
-              submitterInfo.actAs.toSet,
-            )
-          )
 
           transactionAccepted(
             txSubmission.submission,
@@ -253,11 +246,25 @@ private[validate] class SequenceImpl(
   ): Validation[Unit] =
     deduplicationPeriod match {
       case DeduplicationPeriod.DeduplicationDuration(commandDeduplicationDuration) =>
-        val isDuplicate = deduplicationState.isDuplicate(changeId, commandDeduplicationDuration)
-        Either.cond(!isDuplicate, (), DuplicateCommand(changeId, completionInfo))
+        val (newDeduplicationState, isDuplicate) =
+          deduplicationState.deduplicate(changeId, commandDeduplicationDuration)
+
+        deduplicationState = newDeduplicationState
+        Either.cond(
+          !isDuplicate,
+          (),
+          DuplicateCommand(changeId, completionInfo),
+        )
       case _: DeduplicationPeriod.DeduplicationOffset =>
-        // TODO SoX: Handle not supported offset deduplication
-        throw new RuntimeException("Not supported")
+        Left(
+          Rejection
+            .LedgerBridgeInternalError(
+              new RuntimeException(
+                "Deduplication offset periods are not supported in Sandbox-on-X ledger bridge"
+              ),
+              completionInfo,
+            )
+        )
     }
 
   private def validateParties(

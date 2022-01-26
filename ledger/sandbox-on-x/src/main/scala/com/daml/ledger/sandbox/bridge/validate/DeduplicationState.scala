@@ -12,30 +12,34 @@ import scala.collection.immutable.VectorMap
 
 case class DeduplicationState private (
     private[validate] val deduplicationQueue: DeduplicationQueue,
-    deduplicationDuration: Duration,
-    currentTime: () => Time.Timestamp,
+    private val maxDeduplicationDuration: Duration,
+    private val currentTime: () => Time.Timestamp,
 ) {
 
-  def newTransactionAccepted(changeId: ChangeId): DeduplicationState = {
-    val now = currentTime()
-    val expiredTimestamp = expiredThreshold(deduplicationDuration, now)
+  def deduplicate(
+      changeId: ChangeId,
+      commandDeduplicationDuration: Duration,
+  ): (DeduplicationState, Boolean) = {
+    if (commandDeduplicationDuration.compareTo(maxDeduplicationDuration) > 0)
+      throw new RuntimeException(
+        s"Cannot deduplicate for a period ($commandDeduplicationDuration) longer than the max deduplication duration ($maxDeduplicationDuration)."
+      )
+    else {
+      val now = currentTime()
+      val expiredTimestamp = expiredThreshold(maxDeduplicationDuration, now)
 
-    val updatedQueue =
-      deduplicationQueue
-        .updated(changeId, now)
-        .dropWhile(_._2 <= expiredTimestamp)
+      val queueAfterEvictions = deduplicationQueue.dropWhile(_._2 <= expiredTimestamp)
 
-    DeduplicationState(
-      deduplicationQueue = updatedQueue,
-      deduplicationDuration = deduplicationDuration,
-      currentTime = currentTime,
-    )
+      val isDuplicateChangeId = queueAfterEvictions
+        .get(changeId)
+        .exists(_ > expiredThreshold(commandDeduplicationDuration, now))
+
+      if (isDuplicateChangeId)
+        copy(deduplicationQueue = queueAfterEvictions) -> true
+      else
+        copy(deduplicationQueue = queueAfterEvictions.updated(changeId, now)) -> false
+    }
   }
-
-  def isDuplicate(changeId: ChangeId, commandDeduplicationDuration: Duration): Boolean =
-    deduplicationQueue
-      .get(changeId)
-      .exists(_ > expiredThreshold(commandDeduplicationDuration, currentTime()))
 
   private def expiredThreshold(
       deduplicationDuration: Duration,
@@ -53,7 +57,7 @@ object DeduplicationState {
   ): DeduplicationState =
     DeduplicationState(
       deduplicationQueue = VectorMap.empty,
-      deduplicationDuration = deduplicationDuration,
+      maxDeduplicationDuration = deduplicationDuration,
       currentTime = currentTime,
     )
 }
