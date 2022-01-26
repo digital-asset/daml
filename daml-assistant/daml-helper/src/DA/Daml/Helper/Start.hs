@@ -22,13 +22,9 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
-import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe
-import qualified Data.Map.Strict as Map
 import DA.PortFile
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Network.HTTP.Simple as HTTP
 import Network.Socket.Extended (getFreePort)
 import System.Console.ANSI
 import System.FilePath
@@ -36,8 +32,6 @@ import System.Process.Typed
 import System.IO.Extra
 import System.Info.Extra
 import Web.Browser
-import qualified Web.JWT as JWT
-import Data.Aeson
 
 import Options.Applicative.Extended (YesNoAuto, determineAutoM)
 
