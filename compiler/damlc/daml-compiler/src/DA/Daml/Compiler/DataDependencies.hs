@@ -333,10 +333,10 @@ generateSrcFromLf env = noLoc mod
             , synonymDecls
             , dataTypeDecls
             , valueDecls
+            , interfaceDecls
             ]
         instDecls <- sequence instanceDecls
-        ifaceDecls <- sequence interfaceDecls
-        pure $ decls <> catMaybes instDecls <> ifaceDecls
+        pure $ decls <> catMaybes instDecls
 
 
     classMethodNames :: Set T.Text
@@ -512,6 +512,8 @@ generateSrcFromLf env = noLoc mod
         pure $ do
             ctxt <- noLoc <$> do
                 if NM.name dtype `NM.member` LF.moduleInterfaces (envMod env) then do
+                    -- We add the DamlInterface context so LFConversion
+                    -- picks this up as an interface
                     interface <- mkGhcType env "DamlInterface"
                     pure [noLoc interface]
                 else
