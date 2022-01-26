@@ -38,7 +38,10 @@ object IndexMetadata {
       for {
         ledgerId <- dao.lookupLedgerId()
         participantId <- dao.lookupParticipantId()
-        ledgerEnd <- dao.lookupInitialLedgerEnd()
+        ledgerEnd <- ledgerId match {
+          case Some(_) => dao.lookupLedgerEnd().map(x => Some(x.lastOffset))
+          case None => Future.successful(None)
+        }
       } yield metadata(ledgerId, participantId, ledgerEnd)
     }
 

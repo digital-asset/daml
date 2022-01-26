@@ -134,10 +134,10 @@ trait IndexerStabilitySpec
     )
     // Note: we don't know exactly at which ledger end the current indexer has started.
     // We only observe that the ledger end is moving right now.
-    val initialLedgerEnd = parameterStorageBackend.ledgerEndOrBeforeBegin(connection)
+    val initialLedgerEnd = parameterStorageBackend.ledgerEnd(connection)
     val minEvents = 2L
     eventually {
-      val ledgerEnd = parameterStorageBackend.ledgerEndOrBeforeBegin(connection)
+      val ledgerEnd = parameterStorageBackend.ledgerEnd(connection)
       assert(ledgerEnd.lastEventSeqId > initialLedgerEnd.lastEventSeqId + minEvents)
     }
   }

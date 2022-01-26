@@ -25,7 +25,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     )
 
     identity shouldBe None
-    end shouldBe None
+    end shouldBe ParameterStorageBackend.LedgerEnd.beforeBegin
     parties shouldBe empty
     packages shouldBe empty
     events shouldBe empty
@@ -95,7 +95,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     )
 
     identity shouldBe None
-    end shouldBe None
+    end shouldBe ParameterStorageBackend.LedgerEnd.beforeBegin
     parties shouldBe empty
     packages shouldBe empty // Note: resetAll() does delete packages
     events shouldBe empty

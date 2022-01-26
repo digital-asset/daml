@@ -102,18 +102,10 @@ private class JdbcLedgerDao(
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerEnd] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.getLedgerEnd)(
-        parameterStorageBackend.ledgerEndOrBeforeBegin
+        parameterStorageBackend.ledgerEnd
       )
 
   case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
-
-  override def lookupInitialLedgerEnd()(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Offset]] =
-    dbDispatcher
-      .executeSql(metrics.daml.index.db.getInitialLedgerEnd)(
-        parameterStorageBackend.ledgerEnd(_).map(_.lastOffset)
-      )
 
   override def initialize(
       ledgerId: LedgerId,

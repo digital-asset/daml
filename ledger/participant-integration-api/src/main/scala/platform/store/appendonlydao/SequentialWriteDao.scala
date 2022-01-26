@@ -85,7 +85,7 @@ private[appendonlydao] case class SequentialWriteDaoImpl[DB_BATCH](
 
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
-      val ledgerEnd = parameterStorageBackend.ledgerEndOrBeforeBegin(connection)
+      val ledgerEnd = parameterStorageBackend.ledgerEnd(connection)
       lastEventSeqId = ledgerEnd.lastEventSeqId
       lastStringInterningId = ledgerEnd.lastStringInterningId
       lastEventSeqIdInitialized = true

@@ -68,7 +68,7 @@ trait IngestionStorageBackend[DB_BATCH] {
     * @param ledgerEnd the current ledger end, or None if no ledger end exists
     * @param connection to be used when inserting the batch
     */
-  def deletePartiallyIngestedData(ledgerEnd: Option[ParameterStorageBackend.LedgerEnd])(
+  def deletePartiallyIngestedData(ledgerEnd: ParameterStorageBackend.LedgerEnd)(
       connection: Connection
   ): Unit
 }
@@ -86,19 +86,9 @@ trait ParameterStorageBackend {
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
     * @param connection to be used to get the LedgerEnd
-    * @return the current LedgerEnd, or None if no ledger end exists
+    * @return the current LedgerEnd
     */
-  def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
-
-  /** Query the current ledger end, returning a value that points to a point before the ledger begin
-    * if no ledger end exists.
-    * No significant CPU load, mostly blocking JDBC communication with the database backend.
-    *
-    * @param connection to be used to get the LedgerEnd
-    * @return the current LedgerEnd, or a LedgerEnd that points to before the ledger begin if no ledger end exists
-    */
-  final def ledgerEndOrBeforeBegin(connection: Connection): ParameterStorageBackend.LedgerEnd =
-    ledgerEnd(connection).getOrElse(ParameterStorageBackend.LedgerEndBeforeBegin)
+  def ledgerEnd(connection: Connection): ParameterStorageBackend.LedgerEnd
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -129,11 +119,15 @@ trait ParameterStorageBackend {
 }
 
 object ParameterStorageBackend {
-  case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long, lastStringInterningId: Int)
+  case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long, lastStringInterningId: Int) {
+    def lastOffsetOption: Option[Offset] =
+      if (lastOffset == Offset.beforeBegin) None else Some(lastOffset)
+  }
+  object LedgerEnd {
+    val beforeBegin: ParameterStorageBackend.LedgerEnd =
+      ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin, 0)
+  }
   case class IdentityParams(ledgerId: LedgerId, participantId: ParticipantId)
-
-  final val LedgerEndBeforeBegin =
-    ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin, 0)
 }
 
 trait ConfigurationStorageBackend {
