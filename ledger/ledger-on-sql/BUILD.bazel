@@ -218,7 +218,7 @@ da_scala_test_suite(
 [
     (
         da_scala_binary(
-            name = "conformance-test-{}-bin".format(db["name"]),
+            name = "test-server-{}-bin".format(db["name"]),
             main_class = db.get("conformance_test_server_main", "com.daml.ledger.on.sql.Main"),
             visibility = ["//visibility:public"],
             runtime_deps = db.get("runtime_deps", []),
@@ -235,7 +235,7 @@ da_scala_test_suite(
                 "preview",
             ],
             ports = [6865],
-            server = ":conformance-test-{}-bin".format(db["name"]),
+            server = ":test-server-{}-bin".format(db["name"]),
             server_args = [
                 "--contract-id-seeding=testing-weak",
                 "--participant participant-id=conformance-test,port=6865",
@@ -248,7 +248,7 @@ da_scala_test_suite(
         conformance_test(
             name = "benchmark-performance-envelope-{}".format(db["name"]),
             ports = [6865],
-            server = ":conformance-test-{}-bin".format(db["name"]),
+            server = ":test-server-{}-bin".format(db["name"]),
             server_args = [
                 "--contract-id-seeding=testing-weak",
                 "--participant participant-id=example,port=6865",
@@ -266,7 +266,7 @@ da_scala_test_suite(
 ]
 
 da_scala_binary(
-    name = "conformance-test-oracle-bin",
+    name = "test-server-oracle-bin",
     main_class = "com.daml.ledger.on.sql.MainWithEphemeralOracleUser",
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -283,7 +283,7 @@ da_scala_binary(
 conformance_test(
     name = "conformance-test-postgres",
     ports = [6865],
-    server = ":conformance-test-postgresql-bin",
+    server = ":test-server-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
@@ -298,7 +298,7 @@ conformance_test(
 conformance_test(
     name = "conformance-test-oracle",
     ports = [6865],
-    server = ":conformance-test-oracle-bin",
+    server = ":test-server-oracle-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
@@ -313,7 +313,7 @@ conformance_test(
 conformance_test(
     name = "conformance-test-in-memory-fan-out-postgres",
     ports = [6865],
-    server = ":conformance-test-postgresql-bin",
+    server = ":test-server-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
@@ -329,7 +329,7 @@ conformance_test(
 conformance_test(
     name = "conformance-test-in-memory-fan-out-oracle",
     ports = [6865],
-    server = ":conformance-test-oracle-bin",
+    server = ":test-server-oracle-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
@@ -347,7 +347,7 @@ conformance_test(
 conformance_test(
     name = "conformance-test-contract-ids",
     ports = [6865],
-    server = ":conformance-test-sqlite-memory-bin",
+    server = ":test-server-sqlite-memory-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
