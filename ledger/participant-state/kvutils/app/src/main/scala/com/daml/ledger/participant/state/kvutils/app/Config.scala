@@ -3,12 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.io.File
-import java.time.Duration
-import java.util.UUID
-import java.util.concurrent.TimeUnit
-
 import com.daml.caching
+import com.daml.jwt.JwtVerifierConfigurationCli
+import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard}
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.resources.ResourceOwner
@@ -19,11 +16,17 @@ import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
+import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
 
+import java.io.File
+import java.nio.file.Path
+import java.time.Duration
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 final case class Config[Extra](
@@ -50,9 +53,13 @@ final case class Config[Extra](
     metricsReportingInterval: Duration,
     allowedLanguageVersions: VersionRange[LanguageVersion],
     enableInMemoryFanOutForLedgerApi: Boolean,
-    extra: Extra,
     enableSelfServiceErrorCodes: Boolean,
     userManagementConfig: UserManagementConfig,
+    profileDir: Option[Path],
+    stackTraces: Boolean,
+    timeProviderType: TimeProviderType,
+    authService: AuthService,
+    extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
@@ -96,6 +103,10 @@ object Config {
       extra = extra,
       enableSelfServiceErrorCodes = true,
       userManagementConfig = UserManagementConfig.default(enabled = false),
+      profileDir = None,
+      stackTraces = false,
+      timeProviderType = TimeProviderType.WallClock,
+      authService = AuthServiceWildcard,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
@@ -663,6 +674,26 @@ object Config {
           .action((value, config: Config[Extra]) =>
             config.withUserManagementConfig(_.copy(maxUsersPageSize = value))
           )
+        opt[Unit]('s', "static-time")
+          .optional()
+          .action((_, c) => c.copy(timeProviderType = TimeProviderType.Static))
+          .text("Use static time. When not specified, wall-clock-time is used.")
+
+        opt[File]("profile-dir")
+          .optional()
+          .action((dir, config) => config.copy(profileDir = Some(dir.toPath)))
+          .text("Enable profiling and write the profiles into the given directory.")
+
+        opt[Boolean]("stack-traces")
+          .hidden()
+          .optional()
+          .action((enabled, config) => config.copy(stackTraces = enabled))
+          .text(
+            "Enable/disable stack traces. Default is to disable them. " +
+              "Enabling stack traces may have a significant performance impact."
+          )
+
+        JwtVerifierConfigurationCli.parse(this)((v, c) => c.copy(authService = AuthServiceJWT(v)))
       }
     extraOptions(parser)
     parser

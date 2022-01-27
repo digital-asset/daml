@@ -33,11 +33,6 @@ class CliSpec extends CommonCliSpecBase(Cli) {
       checkOption(Array("--jdbcurl", exampleJdbcUrl), _.copy(jdbcUrl = Some(exampleJdbcUrl)))
     }
 
-    "parse the scenario when given" in {
-      val scenario = "myscenario"
-      checkOption(Array("--scenario", scenario), _.copy(scenario = Some(scenario)))
-    }
-
     "parse the contract-id-seeding mode when given" in {
       checkOption(Array("--contract-id-seeding", "strong"), _.copy(seeding = Seeding.Strong))
     }

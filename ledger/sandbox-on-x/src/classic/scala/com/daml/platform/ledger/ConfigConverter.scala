@@ -4,10 +4,11 @@
 package com.daml.ledger.sandbox
 
 import com.daml.caching
+import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.participant.state.kvutils.app._
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
+import com.daml.platform.sandbox.config.SandboxConfig.{DefaultTimeProviderType, EngineMode}
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import scalaz.syntax.tag._
 
@@ -47,15 +48,8 @@ object ConfigConverter {
     val extraBridgeConfig = BridgeConfig(
       conflictCheckingEnabled = true,
       implicitPartyAllocation = sandboxConfig.implicitPartyAllocation,
-      authService =
-        sandboxConfig.authService.getOrElse(BridgeConfigProvider.defaultExtraConfig.authService),
-      timeProviderType =
-        sandboxConfig.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType),
       // TODO SoX-to-sandbox-classic: Dedicated submissionBufferSize CLI param for sanbox-classic
       submissionBufferSize = sandboxConfig.maxParallelSubmissions,
-      // TODO SoX-to-sandbox-classic: Dedicated submissionBufferSize CLI param for sanbox-classic
-      profileDir = sandboxConfig.profileDir,
-      stackTraces = sandboxConfig.stackTraces,
     )
 
     val allowedLanguageVersions = sandboxConfig.engineMode match {
@@ -98,6 +92,10 @@ object ConfigConverter {
       extra = extraBridgeConfig,
       enableSelfServiceErrorCodes = sandboxConfig.enableSelfServiceErrorCodes,
       userManagementConfig = sandboxConfig.userManagementConfig,
+      profileDir = sandboxConfig.profileDir,
+      stackTraces = sandboxConfig.stackTraces,
+      timeProviderType = sandboxConfig.timeProviderType.getOrElse(DefaultTimeProviderType),
+      authService = sandboxConfig.authService.getOrElse(AuthServiceWildcard),
     )
   }
 }
