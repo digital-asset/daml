@@ -32,9 +32,26 @@ private[validation] object Serializability {
 
     def checkType(): Unit = checkType(typeToSerialize)
 
+    def isInterface(typ: Type): Boolean = {
+      typ match {
+        case TTyCon(tycon) =>
+          interface.lookupDataType(tycon) match {
+            case Right(DDataType(_, _, cons)) =>
+              cons match {
+                case DataInterface => true
+                case _ => false
+              }
+            case Left(_) => false
+          }
+        case _ => false
+      }
+    }
+
     def checkType(typ0: Type): Unit = typ0 match {
       case TApp(TBuiltin(BTContractId), tArg) =>
-        checkType(tArg)
+        // While an interface payload I is not serializable,
+        // ContractId I is, so special case this here.
+        if (!isInterface(tArg)) checkType(tArg)
       case TVar(name) =>
         if (!vars(name)) unserializable(URFreeVar(name))
       case TNat(_) =>
@@ -117,7 +134,7 @@ private[validation] object Serializability {
       case DataRecord(fields) =>
         fields.iterator.map(_._2)
       case DataInterface =>
-        Iterator.empty
+        env.unserializable(URInterface)
     }
     typs.foreach(env.checkType)
   }
