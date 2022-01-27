@@ -173,8 +173,8 @@ private[validation] object Serializability {
   ): Unit = {
     val context = ContextDefInterface(tyCon.tycon)
     defInterface.fixedChoices.values.foreach { choice =>
-      Env(version, interface, context, SRChoiceArg, choice.argBinder._2).checkType
-      Env(version, interface, context, SRChoiceRes, choice.returnType).checkType
+      Env(version, interface, context, SRChoiceArg, choice.argBinder._2).checkType()
+      Env(version, interface, context, SRChoiceRes, choice.returnType).checkType()
     }
   }
 
