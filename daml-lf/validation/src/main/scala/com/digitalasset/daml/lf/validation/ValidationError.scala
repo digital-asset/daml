@@ -74,6 +74,9 @@ case object SRChoiceArg extends SerializabilityRequirement {
 case object SRExceptionArg extends SerializabilityRequirement {
   def pretty: String = "exception argument"
 }
+case object SRInterfaceArg extends SerializabilityRequirement {
+  def pretty: String = "interface argument"
+}
 case object SRChoiceRes extends SerializabilityRequirement {
   def pretty: String = "choice result"
 }

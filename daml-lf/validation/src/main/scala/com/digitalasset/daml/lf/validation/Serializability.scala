@@ -148,6 +148,19 @@ private[validation] object Serializability {
     Env(version, interface, context, SRExceptionArg, tyCon).checkType()
   }
 
+  def checkInterface(
+      version: LanguageVersion,
+      interface: PackageInterface,
+      tyCon: TTyCon,
+      defInterface: DefInterface,
+  ): Unit = {
+    val context = ContextDefInterface(tyCon.tycon)
+    defInterface.fixedChoices.values.foreach { choice =>
+      Env(version, interface, context, SRChoiceArg, choice.argBinder._2).checkType
+      Env(version, interface, context, SRChoiceRes, choice.returnType).checkType
+    }
+  }
+
   def checkModule(interface: PackageInterface, pkgId: PackageId, module: Module): Unit = {
     val version = handleLookup(NoContext, interface.lookupPackage(pkgId)).languageVersion
     module.definitions.foreach {
@@ -163,6 +176,10 @@ private[validation] object Serializability {
     module.exceptions.keys.foreach { defName =>
       val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
       checkException(version, interface, tyCon)
+    }
+    module.interfaces.foreach { case (defName, defInterface) =>
+      val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
+      checkInterface(version, interface, tyCon, defInterface)
     }
   }
 }
