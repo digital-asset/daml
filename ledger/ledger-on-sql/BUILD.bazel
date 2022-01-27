@@ -286,7 +286,7 @@ conformance_test(
     server = ":test-server-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--participant participant-id=conformance-test,port=6865",
     ],
     tags = [],
     test_tool_args = [
@@ -301,7 +301,7 @@ conformance_test(
     server = ":test-server-oracle-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--participant participant-id=conformance-test,port=6865",
     ],
     tags = oracle_tags,
     test_tool_args = [
@@ -316,7 +316,7 @@ conformance_test(
     server = ":test-server-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
+        "--participant participant-id=conformance-test,port=6865,ledger-api-transactions-buffer-max-size=10",
         "--buffered-ledger-api-streams-unsafe",
     ],
     tags = [],
@@ -332,27 +332,10 @@ conformance_test(
     server = ":test-server-oracle-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
+        "--participant participant-id=conformance-test,port=6865,ledger-api-transactions-buffer-max-size=10",
         "--buffered-ledger-api-streams-unsafe",
     ],
     tags = oracle_tags,
-    test_tool_args = [
-        "--verbose",
-    ],
-)
-
-# Feature test: contract ids
-# This asserts that the Daml engine in ledger-on-sql only accepts V1 contract ids.
-# These tests do not depend on the ledger backend, and therefore only run on SQLite
-conformance_test(
-    name = "conformance-test-contract-ids",
-    ports = [6865],
-    server = ":test-server-sqlite-memory-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--jdbc-url=jdbc:sqlite:file:conformance-test?mode=memory&cache=shared",
-    ],
     test_tool_args = [
         "--verbose",
     ],
