@@ -351,6 +351,30 @@ haskell_cabal_library(
     )
 
     http_archive(
+        name = "turtle",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "turtle",
+    version = packages["turtle"].version,
+    srcs = glob(["**"]),
+    haddock = False,
+    deps = packages["turtle"].deps,
+    verbose = False,
+    visibility = ["//visibility:public"],
+)
+""",
+        patch_args = ["-p1"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:haskell-turtle.patch",
+        ],
+        sha256 = "ac5c352a2e2a4dec853623f24677f41cdd8cff1140741bf38c8e06f09551e009",
+        strip_prefix = "turtle-1.5.23",
+        urls = ["http://hackage.haskell.org/package/turtle-1.5.23/turtle-1.5.23.tar.gz"],
+    )
+
+    http_archive(
         name = "xml-conduit",
         build_file_content = """
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
@@ -611,6 +635,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "lsp-types": "@lsp-types//:lsp-types",
             "proto3-suite": "@proto3-suite//:proto3-suite",
             "shake": "@shake//:shake",
+            "turtle": "@turtle//:turtle",
             "xml-conduit": "@xml-conduit//:xml-conduit",
             "zip": "@zip//:zip",
         },
