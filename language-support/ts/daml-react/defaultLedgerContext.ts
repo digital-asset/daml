@@ -3,7 +3,7 @@
 
 import { createLedgerContext, FetchResult, QueryResult, LedgerProps, FetchByKeysResult } from "./createLedgerContext";
 import { ContractId, Party, Template } from '@daml/types';
-import Ledger, { Query, StreamCloseEvent } from '@daml/ledger';
+import Ledger, { Query, StreamCloseEvent, User } from '@daml/ledger';
 
 /**
  * @internal
@@ -23,6 +23,11 @@ export function DamlLedger(props: React.PropsWithChildren<LedgerProps>): React.R
  * React hook to get the party currently connected to the ledger.
  */
 export function useParty(): Party { return ledgerContext.useParty(); }
+
+/**
+ * React hook to get the user currently connected to the ledger participant.
+ */
+export function useUser(): User { return ledgerContext.useUser(); }
 
 /**
  * React Hook that returns the Ledger instance to interact with the connected Daml ledger.

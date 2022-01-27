@@ -3,7 +3,7 @@
 
 import React, {useContext, useEffect, useMemo, useState } from 'react';
 import { ContractId,Party, Template } from '@daml/types';
-import Ledger, { CreateEvent, Query, Stream, StreamCloseEvent, QueryResult } from '@daml/ledger';
+import Ledger, { CreateEvent, Query, Stream, StreamCloseEvent, QueryResult, User } from '@daml/ledger';
 
 export { QueryResult } from '@daml/ledger';
 
@@ -13,6 +13,7 @@ export { QueryResult } from '@daml/ledger';
 type DamlLedgerState = {
   reloadToken: unknown;
   triggerReload: () => void;
+  user?: User;
   party: Party;
   ledger: Ledger;
 }
@@ -24,6 +25,7 @@ export type LedgerProps = {
   token: string;
   httpBaseUrl?: string;
   wsBaseUrl?: string;
+  user?: User;
   party: Party;
   reconnectThreshold?: number;
 }
@@ -63,6 +65,7 @@ export type FetchByKeysResult<T extends object, K, I extends string> = {
 export type LedgerContext = {
   DamlLedger: React.FC<LedgerProps>;
   useParty: () => Party;
+  useUser: () => User;
   useLedger: () => Ledger;
   useQuery: <T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]) => QueryResult<T, K, I>;
   useFetch: <T extends object, K, I extends string>(template: Template<T, K, I>, contractId: ContractId<T>) => FetchResult<T, K, I>;
@@ -91,13 +94,13 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
   // not make a new network request although they are required to refresh data.
 
   const ledgerContext = React.createContext<DamlLedgerState | undefined>(undefined);
-  const DamlLedger: React.FC<LedgerProps> = ({token, httpBaseUrl, wsBaseUrl, reconnectThreshold, party, children}) => {
+  const DamlLedger: React.FC<LedgerProps> = ({token, httpBaseUrl, wsBaseUrl, reconnectThreshold, user, party, children}) => {
     const [reloadToken, setReloadToken] = useState(0);
     const ledger = useMemo(() => new Ledger({token, httpBaseUrl, wsBaseUrl, reconnectThreshold}), [token, httpBaseUrl, wsBaseUrl, reconnectThreshold]);
     const state: DamlLedgerState = useMemo(() => ({
       reloadToken,
-      // eslint-disable-next-line @typescript-eslint/restrict-plus-operands
-      triggerReload: (): void => setReloadToken(x => x + 1),
+      triggerReload: (): void => setReloadToken((x:number) => x + 1),
+      user,
       party,
       ledger,
     }), [party, ledger, reloadToken]);
@@ -119,6 +122,14 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
 
   const useLedger = (): Ledger => {
     return useDamlState().ledger;
+  }
+
+  const useUser = (): User => {
+    const user = useDamlState().user;
+    if (!user) {
+      throw Error(`Trying to use 'useUser' for a DamlLedger with a missing 'user' field.`);
+    } else
+      return user
   }
 
   function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
@@ -285,5 +296,5 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
     return (): void => state.triggerReload();
   }
 
-  return { DamlLedger, useParty, useLedger, useQuery, useFetch, useFetchByKey, useStreamQuery, useStreamQueries, useStreamFetchByKey, useStreamFetchByKeys, useReload };
+  return { DamlLedger, useParty, useUser, useLedger, useQuery, useFetch, useFetchByKey, useStreamQuery, useStreamQueries, useStreamFetchByKey, useStreamFetchByKeys, useReload };
 }
