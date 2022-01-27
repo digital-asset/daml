@@ -264,9 +264,9 @@ haskell_binary(
     visibility = ["//visibility:public"],
 )
 """,
-        sha256 = "c198994e25b4b51f0ba4ce2f7e1adbf1ab4e945afb5eb20c7cf56a594f9db73f",
-        strip_prefix = "proto3-suite-444f55ab43b6e8373f754fd6e5c9a0b7c4bd0aab",
-        urls = ["https://github.com/cocreature/proto3-suite/archive/444f55ab43b6e8373f754fd6e5c9a0b7c4bd0aab.tar.gz"],
+        sha256 = "9e62d7c7cb6c85074e882187dbf2cc7e8eb900ee6cf81d156922d120638ce3e3",
+        strip_prefix = "proto3-suite-4c18453a614572944e5b6e26282d91f53e9ceac0",
+        urls = ["https://github.com/awakesecurity/proto3-suite/archive/4c18453a614572944e5b6e26282d91f53e9ceac0.tar.gz"],
         patches = ["@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch"],
         patch_args = ["-p1"],
     )

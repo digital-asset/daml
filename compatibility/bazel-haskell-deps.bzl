@@ -69,6 +69,15 @@ def daml_haskell_deps():
             "utf8-string",
             "uuid",
         ],
+        components = {
+            "attoparsec": [
+                "lib:attoparsec",
+                "lib:attoparsec-internal",
+            ],
+        },
+        components_dependencies = {
+            "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
+        },
         stack = "@stack_windows//:stack.exe" if is_windows else None,
     )
 
