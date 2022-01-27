@@ -101,7 +101,7 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
   override def initialLedgerConfig(config: Config[BridgeConfig]): InitialLedgerConfiguration = {
     val superConfig = super.initialLedgerConfig(config)
     superConfig.copy(configuration =
-      superConfig.configuration.copy(maxDeduplicationTime = Duration.ofHours(1L))
+      superConfig.configuration.copy(maxDeduplicationTime = DefaultMaximumDeduplicationTime)
     )
   }
 
@@ -116,4 +116,6 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     profileDir = None,
     stackTraces = false,
   )
+
+  val DefaultMaximumDeduplicationTime: Duration = Duration.ofHours(1L)
 }
