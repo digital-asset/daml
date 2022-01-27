@@ -155,6 +155,8 @@ conformance_test(
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
         "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
         "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
+        "--exclude=CommandDeduplication",
+        "--exclude=CommandServiceIT:CSduplicate",
     ],
 )
 
