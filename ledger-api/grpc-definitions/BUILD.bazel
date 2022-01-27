@@ -42,7 +42,6 @@ genrule(
         "Any.hs",
         "Duration.hs",
         "Empty.hs",
-        "Timestamp.hs",
         "Wrappers.hs",
     ]],
     cmd = """
@@ -50,7 +49,6 @@ genrule(
             external/com_google_protobuf/src/google/protobuf/any.proto \
             external/com_google_protobuf/src/google/protobuf/duration.proto \
             external/com_google_protobuf/src/google/protobuf/empty.proto \
-            external/com_google_protobuf/src/google/protobuf/timestamp.proto \
             external/com_google_protobuf/src/google/protobuf/wrappers.proto \
         ; do
             $(location @proto3-suite//:compile-proto-file) \

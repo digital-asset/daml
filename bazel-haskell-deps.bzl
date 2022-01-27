@@ -17,11 +17,11 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHC_LIB_REV = "a0b9249a488a13d561a6731a74f72505"
-GHC_LIB_SHA256 = "cfc8f68aa8f457370ad0164468398eba362a2bd73ebbb84f05dee96f93df7e02"
+GHC_LIB_REV = "87743b2b9c05f9b8ac30a4eadef145fa"
+GHC_LIB_SHA256 = "bc3f23e06c15eb474f59027289c3e5e39215c00fa9557e9764b84f381e642b18"
 GHC_LIB_VERSION = "8.8.1"
-GHC_LIB_PARSER_REV = "a0b9249a488a13d561a6731a74f72505"
-GHC_LIB_PARSER_SHA256 = "69a3b783f53b3bff7cc92bb51a4e520f7bb1097d2182745a408a41f5711734b0"
+GHC_LIB_PARSER_REV = "87743b2b9c05f9b8ac30a4eadef145fa"
+GHC_LIB_PARSER_SHA256 = "15a51dd703e52ce78c18adfe90c2dc7614ea8a25ebd2d42ced2134fb94b20111"
 GHC_LIB_PARSER_VERSION = "8.8.1"
 GHCIDE_REV = "4146f08b729e1f4e4a3ac789570e9c0b9010944e"
 GHCIDE_SHA256 = "bd16242397b67ac0d803c7e0452b03396133d9b7aaf2ba3bddd834260a78bd80"
@@ -38,10 +38,6 @@ LSP_TYPES_SHA256 = "7ae8a3bad0e91d4a2af9b93e3ad207e3f4c3dace40d420e0592f6323ac93
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
-
-    # XXX: We do not have access to an integer-simple version of GHC on Windows.
-    # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
-    use_integer_simple = not is_windows
 
     #
     # Vendored Packages
@@ -268,9 +264,9 @@ haskell_binary(
     visibility = ["//visibility:public"],
 )
 """,
-        sha256 = "b294ff0fe24c6c256dc8eca1d44c2a9a928b9a1bc70ddce6a1d059499edea119",
-        strip_prefix = "proto3-suite-0af901f9ef3b9719e08eae4fab8fd700d6c8047a",
-        urls = ["https://github.com/awakesecurity/proto3-suite/archive/0af901f9ef3b9719e08eae4fab8fd700d6c8047a.tar.gz"],
+        sha256 = "c198994e25b4b51f0ba4ce2f7e1adbf1ab4e945afb5eb20c7cf56a594f9db73f",
+        strip_prefix = "proto3-suite-444f55ab43b6e8373f754fd6e5c9a0b7c4bd0aab",
+        urls = ["https://github.com/cocreature/proto3-suite/archive/444f55ab43b6e8373f754fd6e5c9a0b7c4bd0aab.tar.gz"],
         patches = ["@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch"],
         patch_args = ["-p1"],
     )
@@ -458,14 +454,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
                 "shake": ["embed-files"],
                 "zip": ["disable-bzip2", "disable-zstd"],
             },
-            {
-                "blaze-textual": ["integer-simple"],
-                "cryptonite": ["-integer-gmp"],
-                "hashable": ["-integer-gmp"],
-                "integer-logarithms": ["-integer-gmp"],
-                "scientific": ["integer-simple"],
-                "text": ["integer-simple"],
-            } if use_integer_simple else {},
         ),
         haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
@@ -602,6 +590,13 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         ] + (["unix"] if not is_windows else ["Win32"]),
         components = {
             "hpp": ["lib", "exe"],
+            "attoparsec": [
+                "lib:attoparsec",
+                "lib:attoparsec-internal",
+            ],
+        },
+        components_dependencies = {
+            "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
         },
         stack = "@stack_windows//:stack.exe" if is_windows else None,
         vendored_packages = {
@@ -626,19 +621,22 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         extra_deps = {
             "zlib": ["@com_github_madler_zlib//:libz"],
         },
-        flags = {
-            "hashable": ["-integer-gmp"],
-            "integer-logarithms": ["-integer-gmp"],
-            "scientific": ["integer-simple"],
-            "text": ["integer-simple"],
-        } if use_integer_simple else {},
         haddock = False,
         local_snapshot = "//:ghcide-snapshot.yaml",
         stack_snapshot_json = "//:ghcide_snapshot.json",
         packages = [
             "ghcide",
         ],
-        components = {"ghcide": ["lib", "exe"]},
+        components = {
+            "ghcide": ["lib", "exe"],
+            "attoparsec": [
+                "lib:attoparsec",
+                "lib:attoparsec-internal",
+            ],
+        },
+        components_dependencies = {
+            "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
+        },
         stack = "@stack_windows//:stack.exe" if is_windows else None,
         vendored_packages = {
             "zip": "@zip//:zip",

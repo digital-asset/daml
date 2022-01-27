@@ -139,31 +139,31 @@ Show
 Functor
 .......
 
-:ref:`Functors <class-ghc-base-functor-73448>` are the closest thing to "containers" that Daml has. Whenever you see a type with a single type parameter, you are probably looking at a ``Functor``: ``[a]``, ``Optional a``, ``Either Text a``, ``Update a``. Functors are things that can be mapped over and as such, the key function of ``Functor`` is ``fmap``, which does generically what the ``map`` function does for lists.
+:ref:`Functors <class-ghc-base-functor-31205>` are the closest thing to "containers" that Daml has. Whenever you see a type with a single type parameter, you are probably looking at a ``Functor``: ``[a]``, ``Optional a``, ``Either Text a``, ``Update a``. Functors are things that can be mapped over and as such, the key function of ``Functor`` is ``fmap``, which does generically what the ``map`` function does for lists.
 
 Other classic examples of Functors are Sets, Maps, Trees, etc.
 
 Applicative Functor
 ...................
 
-:ref:`Applicative Functors <class-da-internal-prelude-applicative-43914>` are a bit like Actions, which you met in :doc:`5_Restrictions`, except that you can't use the result of one action as the input to another action. The only important Applicative Functor that isn't an action in Daml is the ``Commands`` type submitted in a ``submit`` block in Daml Script. That's why in order to use ``do`` notation in Daml Script, you have to enable the ``ApplicativeDo`` language extension.
+:ref:`Applicative Functors <class-da-internal-prelude-applicative-9257>` are a bit like Actions, which you met in :doc:`5_Restrictions`, except that you can't use the result of one action as the input to another action. The only important Applicative Functor that isn't an action in Daml is the ``Commands`` type submitted in a ``submit`` block in Daml Script. That's why in order to use ``do`` notation in Daml Script, you have to enable the ``ApplicativeDo`` language extension.
 
 Actions
 .......
 
-:ref:`Actions <class-da-internal-prelude-action-24943>` were already covered in :doc:`5_Restrictions`. One way to think of them is as "recipes" for a value, which need to be "executed to get at that value. Actions are always Functors (and Applicative Functors). The intuition for that is simply that ``fmap f x`` is the recipe in ``x`` with the extra instruction to apply the pure function ``f`` to the result.
+:ref:`Actions <class-da-internal-prelude-action-68790>` were already covered in :doc:`5_Restrictions`. One way to think of them is as "recipes" for a value, which need to be "executed to get at that value. Actions are always Functors (and Applicative Functors). The intuition for that is simply that ``fmap f x`` is the recipe in ``x`` with the extra instruction to apply the pure function ``f`` to the result.
 
 The really important Actions in Daml are ``Update`` and ``Script``, but there are many others, like ``[]``, ``Optional``, and ``Either a``.
 
 Semigroups and Monoids
 ......................
 
-:ref:`Semigroups and monoids <class-da-internal-prelude-semigroup-80733>` are about binary operations, but in practice, their important use is for ``Text`` and ``[]``, where they allow concatenation using the ``{<>}`` operator.
+:ref:`Semigroups and monoids <class-da-internal-prelude-semigroup-78998>` are about binary operations, but in practice, their important use is for ``Text`` and ``[]``, where they allow concatenation using the ``{<>}`` operator.
 
 Additive and Multiplicative
 ...........................
 
-:ref:`Additive and Multiplicative <class-ghc-num-additive-5364>` abstract out arithmetic operations, so that ``(+)``, ``(-)``, ``(*)``, and some other functions can be used uniformly between ``Decimal`` and ``Int``.
+:ref:`Additive and Multiplicative <class-ghc-num-additive-25881>` abstract out arithmetic operations, so that ``(+)``, ``(-)``, ``(*)``, and some other functions can be used uniformly between ``Decimal`` and ``Int``.
 
 Important Modules in the Standard Library
 -----------------------------------------

@@ -10,9 +10,9 @@ jobs:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    ghc-lib-sha: '362d4f38a7ac10521393de9b7ad942a77a2605be'
+    ghc-lib-sha: '331b3ef5c943170518943cde88e463643dacfa9b'
     base-sha: '9c787d4d24f2b515934c8503ee2bbd7cfac4da20'
-    patches: 'aa004d2294f756cd990092d2071ef368aa58d9af 833ca63be2ab14871874ccb6974921e8952802e9'
+    patches: '618192fce0d578b8842839e3c23a4e4bd03009db 833ca63be2ab14871874ccb6974921e8952802e9'
     flavor: 'da-ghc-8.8.1'
   steps:
   - checkout: self

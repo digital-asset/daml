@@ -1,36 +1,22 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-resolver: lts-18.0
+resolver: nightly-2022-01-26
 packages:
-  - github: digital-asset/hlint
-    commit: "c8246c1feb932858ff2b5d7e9e900068a974bf57"
-    sha256: "3da24baf789c5f00211a92e24153e6b88102befaa946ada1f707935554500fe2"
-  - aeson-extra-0.4.1.3
-  - ghc-lib-parser-ex-8.8.5.8
+  - aeson-2.0.3.0
   - bytestring-nums-0.3.6
-  - extra-1.7.1
+  - ghc-lib-parser-ex-8.8.5.8
   - github: awakesecurity/gRPC-haskell
     commit: "0cb7999e9e89d0c17c5e1d917e97cc6e450b9346"
     sha256: "531bbd4df2eca160be436074ade336a70cad3a6477df8d00d479440edfe9896b"
   - grpc-haskell-core-0.0.0.0
-  - fuzzy-0.1.0.0
-  - lsp-1.4.0.0
-  - lsp-types-1.4.0.0
-  - lsp-test-0.14.0.2
-  - haskell-src-1.0.3.1
-  - hpp-0.6.3
-  - parser-combinators-1.2.1
-  - github: awakesecurity/proto3-suite
-    commit: "0af901f9ef3b9719e08eae4fab8fd700d6c8047a"
-    sha256: "b294ff0fe24c6c256dc8eca1d44c2a9a928b9a1bc70ddce6a1d059499edea119"
-  - proto3-wire-1.2.0
-  - regex-base-0.94.0.0
-  - regex-tdfa-1.3.1.0
-  - shake-0.18.5
+  - github: digital-asset/hlint
+    commit: "f2f1605955ef8281ba23f6da9c6fee8aa7c9112f"
+    sha256: "9af92133f5d1dc8cd89e9859fe341a99ded8bf2b4acfb32a45e8c2fd344d7236"
+  - proto3-wire-1.2.2
+  - shake-0.19.6
   - simple-smt-0.9.4
-  - stm-conduit-4.0.1
   - modular-arithmetic-2.0.0.1
-  # Core packages, need to be listed for integer-simple flags.
-  - integer-simple-0.1.1.1
-  - text-1.2.3.1
+  - stache-2.3.1
+  - swagger2-2.7
+  - yaml-0.11.7.0

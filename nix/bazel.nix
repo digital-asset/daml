@@ -64,7 +64,7 @@ let shared = rec {
     postFixup = ''touch $out/share/go/ROOT'';
   });
 
-  ghcPkgs = pkgs.haskell.packages.integer-simple.ghc8107;
+  ghcPkgs = pkgs.haskell.packages.integer-simple.ghc902;
 
   ghc = ghcPkgs.ghc;
   # Deliberately not taken from ghcPkgs. This is a fully
@@ -72,6 +72,9 @@ let shared = rec {
   # and upstream nixpkgs does not cache packages for
   # integer-simple.
   hlint = pkgs.hlint;
+
+  ghcPkgs_8_10_7 = pkgs.haskell.packages.integer-simple.ghc8107;
+  ghc_8_10_7 = ghcPkgs_8_10_7.ghc;
 
 
   # Java 8 development

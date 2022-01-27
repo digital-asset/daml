@@ -20,8 +20,6 @@ load("@dadew//:dadew.bzl", "dadew_tool_home")
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
 
-    use_integer_simple = not is_windows
-
     stack_snapshot(
         name = "stackage",
         extra_deps = {
@@ -29,13 +27,6 @@ def daml_haskell_deps():
         },
         stack_snapshot_json =
             "//:stackage_snapshot_windows.json" if is_windows else "//:stackage_snapshot.json",
-        flags = {
-            "cryptonite": ["-integer-gmp"],
-            "hashable": ["-integer-gmp"],
-            "integer-logarithms": ["-integer-gmp"],
-            "scientific": ["integer-simple"],
-            "text": ["integer-simple"],
-        } if use_integer_simple else {},
         haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [

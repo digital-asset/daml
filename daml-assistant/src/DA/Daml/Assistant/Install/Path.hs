@@ -114,7 +114,6 @@ updatePath installOpts output targetPath
                         when (answer `elem` ["Yes", "yes", "y", "Y"]) $ doUpdatePath cfgFile cmd
                       else output setPathManualMsg
                   Yes -> doUpdatePath cfgFile cmd
-                  No -> error "updatePath: impossible case match"
             else output setPathManualMsg
   where
     setPathManualMsg = "Please add " <> targetPath <> " to your PATH."

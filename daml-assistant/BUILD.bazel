@@ -11,6 +11,7 @@ da_haskell_library(
     name = "daml-project-config",
     srcs = glob(["daml-project-config/**/*.hs"]),
     hackage_deps = [
+        "aeson",
         "base",
         "directory",
         "extra",

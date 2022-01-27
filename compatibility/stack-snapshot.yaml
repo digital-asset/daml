@@ -4,6 +4,4 @@
 resolver: nightly-2021-01-05
 packages:
   - aeson-extra-0.4.1.3
-  # Core packages, need to be listed for integer-simple flags.
-  - integer-simple-0.1.1.1
   - text-1.2.3.1
