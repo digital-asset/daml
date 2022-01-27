@@ -269,14 +269,15 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     // fewer rows and throw a StaleOffsetException in the caller.
     val update = existingParties match {
       case hdP +: tlP =>
+        // implied non-empty by existingParties being non-empty
+        val NonEmpty(priorOffsets) = lastOffsets.filter { case (k, _) =>
+          existingParties contains k
+        }
         Some(
           sql"""UPDATE $ledgerOffsetTableName SET last_offset = $newOffset
             WHERE ${Fragments.in(fr"party", cats.data.OneAnd(hdP, tlP))}
                   AND tpid = $tpid
-                  AND last_offset = """ ++ caseLookup(
-            lastOffsets.filter { case (k, _) => existingParties contains k },
-            fr"party",
-          )
+                  AND last_offset = ${caseLookup(priorOffsets, fr"party")}"""
         )
       case _ => None
     }
@@ -331,7 +332,11 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   )(implicit
       log: LogHandler
   ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] =
-    selectContractsMultiTemplate(parties, ISeq((tpid, predicate)), MatchedQueryMarker.Unused)
+    selectContractsMultiTemplate(
+      parties,
+      NonEmpty(ISeq, (tpid, predicate)),
+      MatchedQueryMarker.Unused,
+    )
       .map(_ copy (templateId = ()))
 
   /** Make a query that may indicate
@@ -339,7 +344,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     */
   private[http] def selectContractsMultiTemplate[Mark](
       parties: PartySet,
-      queries: ISeq[(SurrogateTpId, Fragment)],
+      queries: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
       log: LogHandler
