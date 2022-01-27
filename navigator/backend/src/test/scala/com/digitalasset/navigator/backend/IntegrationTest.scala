@@ -6,8 +6,11 @@ package com.daml.navigator
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri}
+import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.settings.ServerSettings
 import akka.util.ByteString
+import com.daml.buildinfo.BuildInfo
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundAll}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
@@ -15,6 +18,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.navigator.config.{Arguments, Config}
 import org.scalatest._
@@ -23,7 +27,8 @@ import org.scalatest.matchers.should.Matchers
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.timer.RetryStrategy
 
-import scala.concurrent.Future
+import java.util.UUID
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
 class IntegrationTest
@@ -35,19 +40,30 @@ class IntegrationTest
   self: Suite =>
 
   private def withNavigator[A](
-      enableUserManagement: Boolean
-  )(testFn: (Uri, LedgerClient) => Future[A]): Future[A] = {
+      userMgmt: Boolean
+  )(testFn: Uri => LedgerClient => Future[A]): Future[A] = {
+    import scala.jdk.FutureConverters
     val args = Arguments(
       port = 0,
       participantPort = serverPort.value,
-      enableUserManagement = enableUserManagement,
+      enableUserManagement = userMgmt,
     )
-    val sys = ActorSystem("navigator")
-    val (graphQL, info, _, getAppState, partyRefresh) = NavigatorBackend.setup(args, Config())(sys)
+    val sys = ActorSystem(s"navigator-${UUID.randomUUID().toString}")
+    val backend = new UIBackend {
+      override def customEndpoints: Set[CustomEndpoint[_]] = Set()
+      override def customRoutes: List[Route] = Nil
+      override def applicationInfo: ApplicationInfo = ApplicationInfo(
+        id = s"Test-Navigator-${UUID.randomUUID().toString}",
+        name = "Test-Navigator",
+        version = BuildInfo.Version,
+      )
+    }
+
+    val (graphQL, info, _, getAppState, partyRefresh) = backend.setup(args, Config())(sys)
     val bindingF = Http()
       .newServerAt("localhost", 0)
       .withSettings(ServerSettings(system).withTransparentHeadRequests(true))
-      .bind(NavigatorBackend.getRoute(system, args, graphQL, info, getAppState))
+      .bind(backend.getRoute(system, args, graphQL, info, getAppState))
     val clientF = LedgerClient(
       channel,
       LedgerClientConfiguration(
@@ -56,7 +72,12 @@ class IntegrationTest
         commandClient = CommandClientConfiguration.default,
       ),
     )
-    val fa = for {
+    sys.registerOnTermination {
+      partyRefresh.foreach(_.cancel())
+      Await.ready(bindingF.flatMap(_.terminate(30.seconds)), 30.seconds)
+    }
+    import FutureConverters._
+    for {
       binding <- bindingF
       client <- clientF
       uri = Uri.from(
@@ -64,74 +85,93 @@ class IntegrationTest
         host = binding.localAddress.getHostName,
         port = binding.localAddress.getPort,
       )
-      a <- testFn(uri, client)
+      a <- testFn(uri)(client)
+      _ <- sys.terminate()
+      _ <- Await.ready(sys.getWhenTerminated.asScala, 30.seconds)
     } yield a
-    fa.transformWith { ta =>
-      partyRefresh.foreach(_.cancel())
-      // Don't close the LedgerClient because all it does is close the channel,
-      // which then causes a subsequent test to fail when creating a LedgerClient using a closed channel
-      // ("io.grpc.StatusRuntimeException: UNAVAILABLE: Channel shutdown invoked")
-      bindingF
-        .flatMap(_.unbind())
-        .flatMap(_ => sys.terminate())
-        .transform(_ => ta)
-    }
+//    fa.transformWith { ta =>
+
+    // Don't close the LedgerClient because all it does is close the channel,
+    // which then causes a subsequent test to fail when creating a LedgerClient using a closed channel
+    // ("io.grpc.StatusRuntimeException: UNAVAILABLE: Channel shutdown invoked")
+//      bindingF
+//        .flatMap(_.unbind())
+//        .flatMap(_ => sys.terminate())
+//        .transform(_ => ta)
+//    }
   }
 
   def getResponseDataBytes(resp: HttpResponse): Future[String] =
     resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
 
+  private def okSessionBody(expectedBody: String)(implicit uri: Uri): Future[Assertion] = {
+    RetryStrategy.constant(20, 1.second) { case (_, _) =>
+      for {
+        resp <- Http().singleRequest(
+          HttpRequest(uri = uri.withPath(Uri.Path("/api/session/")))
+        )
+        respBody <- getResponseDataBytes(resp)
+        _ = resp.status shouldBe StatusCodes.OK
+      } yield {
+        respBody shouldBe expectedBody
+      }
+    }
+  }
+
+  private def allocateParty(partyName: String)(implicit client: LedgerClient) = {
+    client.partyManagementClient
+      .allocateParty(hint = None, displayName = Some(partyName))
+  }
+
+  private def createUser(userName: String, primaryParty: Ref.Party)(implicit
+      client: LedgerClient
+  ): Future[domain.User] = {
+    client.userManagementClient
+      .createUser(
+        domain.User(UserId.assertFromString(userName), Some(primaryParty))
+      )
+  }
+
   "Navigator (parties)" - {
-    "picks up newly allocated parties" in withNavigator(enableUserManagement = false) {
-      case (uri, client) =>
+    "picks up newly allocated parties" in withNavigator(userMgmt = false) {
+      implicit uri => implicit client =>
         for {
-          resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
-          respBody <- getResponseDataBytes(resp)
-          _ = respBody shouldBe """{"method":{"type":"select","users":[]},"type":"sign-in"}"""
-          _ = resp.status shouldBe StatusCodes.OK
-          _ <- client.partyManagementClient
-            .allocateParty(hint = None, displayName = Some("display-name"))
-          _ <- RetryStrategy.constant(20, 1.second) { case (run @ _, duration @ _) =>
-            for {
-              resp <- Http().singleRequest(
-                HttpRequest(uri = uri.withPath(Uri.Path("/api/session/")))
-              )
-              respBody <- getResponseDataBytes(resp)
-            } yield {
-              respBody shouldBe """{"method":{"type":"select","users":["display-name"]},"type":"sign-in"}"""
-            }
-          }
+          _ <- okSessionBody("""{"method":{"type":"select","users":[]},"type":"sign-in"}""")
+          _ <- allocateParty("display-name")
+          _ <- okSessionBody(
+            """{"method":{"type":"select","users":["display-name"]},"type":"sign-in"}"""
+          )
+        } yield succeed
+    }
+  }
+
+  "Navigator (basic user)" - {
+    "picks up newly created users (1 user)" in withNavigator(userMgmt = true) {
+      implicit uri => implicit client =>
+        for {
+          _ <- okSessionBody("""{"method":{"type":"select","users":[]},"type":"sign-in"}""")
+          partyDetails <- allocateParty("primary-party")
+          _ <- createUser("user-name", partyDetails.party)
+          _ <- okSessionBody(
+            """{"method":{"type":"select","users":["user-name"]},"type":"sign-in"}"""
+          )
         } yield succeed
     }
   }
 
   "Navigator (users)" - {
-    "picks up newly created users" in withNavigator(enableUserManagement = true) {
-      case (uri, client) =>
+    "picks up newly created users (2 users, 1 primary party)" in withNavigator(userMgmt = true) {
+      implicit uri => implicit client =>
         for {
-          resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
-          respBody <- getResponseDataBytes(resp)
-          _ = respBody shouldBe """{"method":{"type":"select","users":[]},"type":"sign-in"}"""
-          _ = resp.status shouldBe StatusCodes.OK
-          partyDetails <- client.partyManagementClient
-            .allocateParty(hint = None, displayName = Some("primary-party"))
-
-          _ <- client.userManagementClient
-            .createUser(
-              com.daml.ledger.api.domain
-                .User(UserId.assertFromString("user-name"), Some(partyDetails.party))
-            )
-          _ <- RetryStrategy.constant(20, 1.second) { case (run @ _, duration @ _) =>
-            for {
-              resp <- Http().singleRequest(
-                HttpRequest(uri = uri.withPath(Uri.Path("/api/session/")))
-              )
-              respBody <- getResponseDataBytes(resp)
-            } yield {
-              respBody shouldBe """{"method":{"type":"select","users":["user-name"]},"type":"sign-in"}"""
-            }
-          }
+          _ <- okSessionBody("""{"method":{"type":"select","users":[]},"type":"sign-in"}""")
+          partyDetails <- allocateParty("primary-party")
+          _ <- createUser("user-name-1", partyDetails.party)
+          _ <- createUser("user-name-2", partyDetails.party)
+          _ <- okSessionBody(
+            """{"method":{"type":"select","users":["user-name-1"]},"type":"sign-in"}"""
+          )
         } yield succeed
     }
   }
+
 }
