@@ -687,7 +687,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(_operation: String, userId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"cannot ${_operation} for unknown user \"${userId}\""
+            cause = s"${_operation} failed for unknown user \"${userId}\""
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId
@@ -706,7 +706,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(_operation: String, userId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"cannot ${_operation}, as user \"${userId}\" already exists"
+            cause = s"${_operation} failed, as user \"${userId}\" already exists"
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId
@@ -730,7 +730,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(_operation: String, userId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"cannot ${_operation}, as user \"${userId}\" would have too many rights."
+            cause = s"${_operation} failed, as user \"${userId}\" would have too many rights."
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId

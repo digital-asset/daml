@@ -58,7 +58,7 @@ private[apiserver] final class ApiUserManagementService(
           user = user,
           rights = pRights,
         )
-        .flatMap(handleResult("create user"))
+        .flatMap(handleResult("creating user"))
         .map(_ => request.user.get)
     }
 
@@ -68,7 +68,7 @@ private[apiserver] final class ApiUserManagementService(
     )(userId =>
       userManagementService
         .getUser(userId)
-        .flatMap(handleResult("get user"))
+        .flatMap(handleResult("getting user"))
         .map(toProtoUser)
     )
 
@@ -78,14 +78,14 @@ private[apiserver] final class ApiUserManagementService(
     )(userId =>
       userManagementService
         .deleteUser(userId)
-        .flatMap(handleResult("delete user"))
+        .flatMap(handleResult("deleting user"))
         .map(_ => proto.DeleteUserResponse())
     )
 
   override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] =
     userManagementService
       .listUsers()
-      .flatMap(handleResult("list users"))
+      .flatMap(handleResult("listing users"))
       .map(
         _.map(toProtoUser)
       )
