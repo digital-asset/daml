@@ -6,7 +6,7 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import React, { ComponentType, useState } from 'react';
 import { renderHook, RenderHookResult, act } from '@testing-library/react-hooks';
-import DamlLedger, { useParty, useQuery, useFetch, useFetchByKey, useStreamQuery, useStreamQueries, useStreamFetchByKey, useStreamFetchByKeys, useReload, createLedgerContext } from './index';
+import DamlLedger, { useParty, useUser, useQuery, useFetch, useFetchByKey, useStreamQuery, useStreamQueries, useStreamFetchByKey, useStreamFetchByKeys, useReload, createLedgerContext } from './index';
 import { ContractId, Template } from '@daml/types';
 import { Stream, StreamCloseEvent, Query } from '@daml/ledger';
 import {EventEmitter} from 'events';
@@ -67,9 +67,10 @@ const mockStream = <T>(): [Stream <object, string, string, T>, EventEmitter] =>
 
 const TOKEN = 'test_token';
 const PARTY = 'test_party';
+const USER = {userId: 'test_user'};
 
 function renderDamlHook<P, R>(callback: (props: P) => R): RenderHookResult<P, R> {
-  const wrapper: ComponentType = ({children}) => React.createElement(DamlLedger, {token: TOKEN, party: PARTY, reconnectThreshold: 1337}, children);
+  const wrapper: ComponentType = ({children}) => React.createElement(DamlLedger, {token: TOKEN, party: PARTY, user: USER, reconnectThreshold: 1337}, children);
   return renderHook(callback, {wrapper});
 }
 
@@ -92,6 +93,11 @@ test('DamlLedger', () => {
 test('useParty', () => {
   const {result} = renderDamlHook(() => useParty());
   expect(result.current).toBe(PARTY);
+});
+
+test('useUser', () => {
+  const {result} = renderDamlHook(() => useUser());
+  expect(result.current).toBe(USER);
 });
 
 describe('useQuery', () => {
@@ -540,16 +546,18 @@ function streamk<Q, Ignored, R extends {loading: boolean}>(useFn: (template: Tem
         const innerLedger = createLedgerContext();
         const innerTOKEN = "inner_TOKEN";
         const innerPARTY = "inner_PARTY";
+        const innerUSER = {userId: "inner_USER"};
         const outerLedger = createLedgerContext('Outer');
         const outerTOKEN = "outer_TOKEN";
         const outerPARTY = "outer_PARTY";
+        const outerUSER = { userId: "outer_USER"};
 
-        const innerWrapper: ComponentType = ({children}) => React.createElement(innerLedger.DamlLedger, {token:innerTOKEN, party:innerPARTY}, children);
+        const innerWrapper: ComponentType = ({children}) => React.createElement(innerLedger.DamlLedger, {token:innerTOKEN, party:innerPARTY, user:innerUSER}, children);
         const r1 = renderHook(() => innerLedger.useParty(), {wrapper:innerWrapper});
 
         expect( r1.result.current).toBe(innerPARTY);
 
-        const outerWrapper: ComponentType = ({children}) => React.createElement(outerLedger.DamlLedger, {token:outerTOKEN, party:outerPARTY}, innerWrapper({children}) );
+        const outerWrapper: ComponentType = ({children}) => React.createElement(outerLedger.DamlLedger, {token:outerTOKEN, party:outerPARTY, user:outerUSER}, innerWrapper({children}) );
         const r2 = renderHook(() => outerLedger.useParty(), {wrapper:outerWrapper});
         expect( r2.result.current).toBe(outerPARTY);
 

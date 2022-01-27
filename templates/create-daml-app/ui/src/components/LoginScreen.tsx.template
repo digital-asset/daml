@@ -72,7 +72,8 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
         alert(`Failed to login as '${username}':\n${errorMsg}`);
         throw error;
       });
-      await login({party: primaryParty,
+      await login({user: {userId: username, primaryParty: primaryParty},
+                   party: primaryParty,
                    token: auth.makeToken(username)});
     }
 
@@ -99,7 +100,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
       <DamlHubLoginBtn
         onLogin={creds => {
           if (creds) {
-            login(creds);
+            login({party:creds.party, user: {userId: creds.partyName, primaryParty: creds.party}, token:creds.token});
           }
         }}
         options={{
@@ -118,8 +119,10 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
     (async function () {
       if (isLoading === false && isAuthenticated === true) {
         if (user !== undefined) {
+          const party = user["https://daml.com/ledger-api"];
           const creds: Credentials = {
-            party: user["https://daml.com/ledger-api"],
+            user: {userId: user.email ?? user.name ?? party, primaryParty: party},
+            party: party,
             token: (await getAccessTokenSilently({
                      audience: "https://daml.com/ledger-api"}))};
           login(creds);

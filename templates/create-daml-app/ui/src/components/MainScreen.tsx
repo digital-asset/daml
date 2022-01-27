@@ -4,8 +4,7 @@
 import React from 'react'
 import { Image, Menu } from 'semantic-ui-react'
 import MainView from './MainView';
-import {useLedger} from '@daml/react';
-import {useState, useEffect} from 'react'
+import {useUser} from '@daml/react';
 
 type Props = {
   onLogout: () => void;
@@ -15,14 +14,7 @@ type Props = {
  * React component for the main screen of the `App`.
  */
 const MainScreen: React.FC<Props> = ({onLogout}) => {
-  const ledger = useLedger();
-  const [user, setUser] = useState('');
-  useEffect( () =>{
-    (async () => {
-      const u = await ledger.getUser()
-      setUser(u.userId);
-    } ) ()}
-  , [ledger]);
+  const user = useUser();
 
   return (
     <>
@@ -39,7 +31,7 @@ const MainScreen: React.FC<Props> = ({onLogout}) => {
         </Menu.Item>
         <Menu.Menu position='right' className='test-select-main-menu'>
           <Menu.Item position='right'>
-            You are logged in as {user}.
+            You are logged in as {user.userId}.
           </Menu.Item>
           <Menu.Item
             position='right'
