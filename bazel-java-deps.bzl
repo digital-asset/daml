@@ -21,7 +21,6 @@ load(
 version_specific = {
 }
 
-netty_version = "4.1.67.Final"
 
 # ** Upgrading tcnative in sync with main netty version **
 # Look for "tcnative.version" in top-level pom.xml.
@@ -29,10 +28,31 @@ netty_version = "4.1.67.Final"
 # ```
 # <tcnative.version>2.0.42.Final</tcnative.version>
 # ```
-netty_tcnative_version = "2.0.40.Final"
-grpc_version = "1.42.0"
+
+# Bumping versions of io.grpc:* has a few implications:
+# 1. io.grpc:grpc-protobuf has a dependency on com.google.protobuf:protobuf-java, which in
+#    turn needs to be aligned with the version of protoc we are using (as declared in deps.bzl).
+#    ScalaPB also depends on a specific version of protobuf-java, but it's not strict:
+#    as long as the version we use is greater than or equal to the version required by ScalaPB,
+#    everything should work.
+#
+# 2. To keep TLS for the Ledger API Server working, the following three artifacts need be updated
+# in sync according to https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty
+#
+# * io.grpc:grpc-netty
+# * io.netty:netty-handler
+# * io.netty:netty-tcnative-boringssl-static
+#
+# This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
+# need to be updated with careful consideration.
+
+netty_tcnative_version = "2.0.46.Final"
+netty_version = "4.1.72.Final"
+grpc_version = "1.44.0"
+protobuf_version = "3.19.3"
 akka_version = "2.6.13"
 gatling_version = "3.5.1"
+guava_version = "31.0.1-jre"
 
 def install_java_deps():
     maven_install(
@@ -50,7 +70,7 @@ def install_java_deps():
             "com.github.scopt:scopt_{}:4.0.0".format(scala_major_version),
             "com.google.code.findbugs:jsr305:3.0.2",
             "com.google.code.gson:gson:2.8.2",
-            "com.google.guava:guava:29.0-jre",
+            "com.google.guava:guava:{}".format(guava_version),
             "com.h2database:h2:2.1.210",
             "com.lihaoyi:pprint_{}:0.7.1".format(scala_major_version),
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
@@ -94,23 +114,6 @@ def install_java_deps():
             "io.prometheus:simpleclient_httpserver:0.8.1",
             "io.prometheus:simpleclient_servlet:0.8.1",
 
-            # Bumping versions of io.grpc:* has a few implications:
-            # 1. io.grpc:grpc-protobuf has a dependency on com.google.protobuf:protobuf-java, which in
-            #    turn needs to be aligned with the version of protoc we are using (as declared in deps.bzl).
-            #    ScalaPB also depends on a specific version of protobuf-java, but it's not strict:
-            #    as long as the version we use is greater than or equal to the version required by ScalaPB,
-            #    everything should work.
-            #
-            # 2. To keep TLS for the Ledger API Server working, the following three artifacts need be updated
-            # in sync according to https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty
-            #
-            # * io.grpc:grpc-netty
-            # * io.netty:netty-handler
-            # * io.netty:netty-tcnative-boringssl-static
-            #
-            # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
-            # need to be updated with careful consideration.
-            # grpc
             "io.grpc:grpc-api:{}".format(grpc_version),
             "io.grpc:grpc-core:{}".format(grpc_version),
             "io.grpc:grpc-netty:{}".format(grpc_version),
@@ -125,7 +128,7 @@ def install_java_deps():
             "io.netty:netty-resolver:{}".format(netty_version),
             "io.netty:netty-tcnative-boringssl-static:{}".format(netty_tcnative_version),
             # protobuf
-            "com.google.protobuf:protobuf-java:3.17.3",
+            "com.google.protobuf:protobuf-java:{}".format(protobuf_version),
             # scalapb
             "com.thesamet.scalapb:compilerplugin_{}:{}".format(scala_major_version, scalapb_version),
             "com.thesamet.scalapb:lenses_{}:{}".format(scala_major_version, scalapb_version),
