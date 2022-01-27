@@ -33,7 +33,10 @@ class InMemoryLedgerReader(
               metrics.daml.ledger.log.read,
               state
                 .readLog(
-                  _.view.zipWithIndex.map(_.swap).slice(startExclusive + 1, endInclusive + 1)
+                  _.view.zipWithIndex
+                    .map(_.swap)
+                    .slice(startExclusive + 1, endInclusive + 1)
+                    .toVector // ensure we copy the results so we don't keep a reference to the log
                 )
                 .iterator,
             )
