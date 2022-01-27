@@ -423,6 +423,16 @@ class CommonCliBase(name: LedgerName) {
           config.withUserManagementConfig(_.copy(maximumCacheSize = value))
         )
 
+      opt[Int]("max-users-page-size")
+        .optional()
+        .text(
+          s"Maximum number of users that the server can return in a single page. " +
+            s"Defaults to ${UserManagementConfig.DefaultMaxUsersPageSize} entries."
+        )
+        .action((value, config: SandboxConfig) =>
+          config.withUserManagementConfig(_.copy(maxUsersPageSize = value))
+        )
+
       com.daml.cliopts.Metrics.metricsReporterParse(this)(
         (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),
         (setter, config) =>

@@ -77,13 +77,13 @@ trait UserManagementStorageBackendTemplate extends UserManagementStorageBackend 
       }
   }
 
-  override def getUsersOrderedById(after: UserId, maxResults: Int)(
+  override def getUsersOrderedById(fromExcl: UserId, maxResults: Int)(
       connection: Connection
   ): Vector[domain.User] = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     SQL"""SELECT user_id, primary_party
           FROM participant_users
-          WHERE user_id > ${after: String}
+          WHERE user_id > ${fromExcl: String}
           ORDER BY user_id
           ${limitClause(number = maxResults)}"""
       .asVectorOf(ParticipantUserParser2)(connection)

@@ -670,6 +670,16 @@ object Config {
           .action((value, config: Config[Extra]) =>
             config.withUserManagementConfig(_.copy(maximumCacheSize = value))
           )
+
+        opt[Int]("max-users-page-size")
+          .optional()
+          .text(
+            s"Maximum number of users that the server can return in a single page. " +
+              s"Defaults to ${UserManagementConfig.DefaultMaxUsersPageSize} entries."
+          )
+          .action((value, config: Config[Extra]) =>
+            config.withUserManagementConfig(_.copy(maxUsersPageSize = value))
+          )
       }
     extraOptions(parser)
     parser

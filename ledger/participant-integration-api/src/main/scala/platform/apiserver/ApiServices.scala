@@ -90,6 +90,7 @@ private[daml] object ApiServices {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       ledgerFeatures: LedgerFeatures,
       enableUserManagement: Boolean,
+      maxUsersPageSize: Int,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -205,7 +206,11 @@ private[daml] object ApiServices {
       val maybeApiUserManagementService: Option[UserManagementServiceAuthorization] =
         if (enableUserManagement) {
           val apiUserManagementService =
-            new ApiUserManagementService(userManagementStore, errorsVersionsSwitcher)
+            new ApiUserManagementService(
+              userManagementStore,
+              errorsVersionsSwitcher,
+              maxUsersPageSize = maxUsersPageSize,
+            )
           val authorized =
             new UserManagementServiceAuthorization(apiUserManagementService, authorizer)
           Some(authorized)

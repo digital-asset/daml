@@ -118,6 +118,7 @@ object StandaloneApiServer {
         userManagementStore = userManagementStore,
         ledgerFeatures = ledgerFeatures,
         enableUserManagement = config.enableUserManagement,
+        maxUsersPageSize = config.maxUsersPageSize,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(

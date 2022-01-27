@@ -125,11 +125,11 @@ message DeleteUserResponse {
 message ListUsersRequest {
 
     // Pagination token to determine the specific page to fetch.
-    string page_token = 2; // TODO:  url-safe base64 encoded protocol buffer,
+    string page_token = 2;
 
-
-    // Maximum number of results to be returned by the server. Server will return no more than that many results
-    int32 page_size = 3; // NOTE: If the page_size is 0, the server will decide the number of results to be returned.
+    // Maximum number of results to be returned by the server. The server will return no more than that many results, but it might return fewer.
+    // If 0, the server will decide the number of results to be returned.
+    int32 page_size = 3;
 
 }
 
@@ -138,8 +138,8 @@ message ListUsersResponse {
     repeated User users = 1;
 
     // Pagination token to retrieve the next page.
+    // Empty, if there are no further results.
     string next_page_token = 2;
-    // If the value is "", it means no further results for the request.
 }
 
 // Add the rights to the set of rights granted to the user.

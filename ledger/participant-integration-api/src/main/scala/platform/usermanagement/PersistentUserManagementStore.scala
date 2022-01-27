@@ -27,17 +27,20 @@ object UserManagementConfig {
 
   val DefaultMaximumCacheSize = 100
   val DefaultCacheExpiryAfterWriteInSeconds = 5
+  val DefaultMaxUsersPageSize = 10000
 
   def default(enabled: Boolean): UserManagementConfig = UserManagementConfig(
     enabled = enabled,
     maximumCacheSize = DefaultMaximumCacheSize,
     cacheExpiryAfterWriteInSeconds = DefaultCacheExpiryAfterWriteInSeconds,
+    maxUsersPageSize = DefaultMaxUsersPageSize,
   )
 }
 final case class UserManagementConfig(
     enabled: Boolean,
     maximumCacheSize: Int,
     cacheExpiryAfterWriteInSeconds: Int,
+    maxUsersPageSize: Int,
 )
 
 object PersistentUserManagementStore {
@@ -161,11 +164,14 @@ class PersistentUserManagementStore(
 
   }
 
-  override def listUsers(pageToken: String, maxResults: Int): Future[Result[UsersPage]] = {
+  override def listUsers(
+      fromExcl: Option[Ref.UserId],
+      maxResults: Int,
+  ): Future[Result[UsersPage]] = {
     inTransaction(_.listUsers) { connection =>
-      val users: Seq[domain.User] = decodePageToken(pageToken) match {
+      val users: Seq[domain.User] = fromExcl match {
         case None => backend.getUsersOrderedById(maxResults)(connection)
-        case Some(after) => backend.getUsersOrderedById(after = after, maxResults)(connection)
+        case Some(after) => backend.getUsersOrderedById(after, maxResults)(connection)
       }
       Right(UsersPage(users = users))
     }

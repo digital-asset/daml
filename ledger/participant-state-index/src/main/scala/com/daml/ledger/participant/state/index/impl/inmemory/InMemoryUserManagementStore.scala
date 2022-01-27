@@ -64,9 +64,12 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       effectivelyRevoked
     }
 
-  override def listUsers(pageToken: String, maxResults: Int): Future[Result[UsersPage]] = {
+  override def listUsers(
+      fromExcl: Option[Ref.UserId],
+      maxResults: Int,
+  ): Future[Result[UsersPage]] = {
     withState {
-      val iter: Iterator[UserInfo] = decodePageToken(pageToken) match {
+      val iter: Iterator[UserInfo] = fromExcl match {
         case None => state.valuesIterator
         case Some(after) => state.valuesIteratorFrom(start = after).dropWhile(_.user.id == after)
       }

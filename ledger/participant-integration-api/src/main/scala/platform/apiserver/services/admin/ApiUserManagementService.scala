@@ -3,6 +3,9 @@
 
 package com.daml.platform.apiserver.services.admin
 
+import java.nio.charset.StandardCharsets
+import java.util.Base64
+
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{
   ContextualizedErrorLogger,
@@ -12,6 +15,8 @@ import com.daml.error.{
 import com.daml.ledger.api.domain._
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.participant.state.index.v2.UserManagementStore.UsersPage
+import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
@@ -21,10 +26,12 @@ import scalaz.syntax.traverse._
 import scalaz.std.list._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 private[apiserver] final class ApiUserManagementService(
     userManagementService: UserManagementStore,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    maxUsersPageSize: Int,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -85,13 +92,21 @@ private[apiserver] final class ApiUserManagementService(
     )
 
   override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] = {
-    userManagementService
-      .listUsers(pageToken = request.pageToken, maxResults = request.pageSize)
-      .flatMap(handleResult("list users"))
-      .map { page: UserManagementStore.UsersPage =>
-        val protoUsers = page.users.map(toProtoUser)
-        proto.ListUsersResponse(users = protoUsers, nextPageToken = page.nextPageToken)
+    withValidation(
+      for {
+        fromExcl <- decodePageToken(request.pageToken)
+      } yield {
+        fromExcl
       }
+    ) { fromExcl =>
+      userManagementService
+        .listUsers(fromExcl, Math.min(request.pageSize, maxUsersPageSize))
+        .flatMap(handleResult("list users"))
+        .map { page: UserManagementStore.UsersPage =>
+          val protoUsers = page.users.map(toProtoUser)
+          proto.ListUsersResponse(protoUsers, encodeNextPageToken(page))
+        }
+    }
   }
 
   override def grantUserRights(
@@ -208,4 +223,35 @@ object ApiUserManagementService {
       proto.Right(proto.Right.Kind.CanReadAs(proto.Right.CanReadAs(party)))
   }
 
+  def encodeNextPageToken(page: UsersPage): String =
+    page.lastUserIdOption
+      .map { id =>
+        val bytes = Base64.getUrlEncoder.encode(id.getBytes(StandardCharsets.UTF_8))
+        new String(bytes, StandardCharsets.UTF_8)
+      }
+      .getOrElse("")
+
+  def decodePageToken(pageToken: String)(implicit
+      loggingContext: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[Ref.UserId]] = {
+    if (pageToken.isEmpty) {
+      Right(None)
+    } else {
+      val bytes = pageToken.getBytes(StandardCharsets.UTF_8)
+      Try[Array[Byte]](Base64.getUrlDecoder.decode(bytes))
+        .map(Right(_))
+        .recover { case _: IllegalArgumentException =>
+          Left(
+            LedgerApiErrors.RequestValidation.InvalidArgument
+              .Reject("Failed to decode page token")
+              .asGrpcError
+          )
+        }
+        .get
+        .map { decoded =>
+          val str = new String(decoded, StandardCharsets.UTF_8)
+          Some(Ref.UserId.assertFromString(str))
+        }
+    }
+  }
 }

@@ -42,4 +42,5 @@ case class ApiServerConfig(
     enableInMemoryFanOutForLedgerApi: Boolean,
     enableSelfServiceErrorCodes: Boolean,
     enableUserManagement: Boolean,
+    maxUsersPageSize: Int,
 )

@@ -238,6 +238,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   })
 
   // TODO pbatko: test incorrenct page tokens and negative maxResults
+  // TODO pbatko: test requested page size larger than configured  --max-users-page-size
   userManagementTest(
     "TestPagedListUsers",
     "Exercise paging behavior ListUsers rpc",

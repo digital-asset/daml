@@ -84,10 +84,10 @@ class CachedUserManagementStore(
   }
 
   override def listUsers(
-      pageToken: String,
+      fromExcl: Option[Ref.UserId],
       maxResults: Int,
   ): Future[Result[UserManagementStore.UsersPage]] =
-    delegate.listUsers(pageToken, maxResults)
+    delegate.listUsers(fromExcl, maxResults)
 
   private def invalidateOnSuccess[_](id: UserId): PartialFunction[Try[Result[Any]], Unit] = {
     case Success(Right(_)) => cache.invalidate(id)

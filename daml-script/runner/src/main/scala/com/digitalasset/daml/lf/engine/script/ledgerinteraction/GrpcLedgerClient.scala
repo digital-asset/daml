@@ -376,8 +376,10 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[User]] =
-    grpcClient.userManagementClient.listUsers().map(_.toList)
+  ): Future[List[User]] = {
+    // TODO participant user management: Emulating no-pagination
+    grpcClient.userManagementClient.listUsers(pageToken = "", pageSize = 10000).map(_.toList)
+  }
 
   override def grantUserRights(
       id: UserId,

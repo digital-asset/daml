@@ -334,5 +334,21 @@ final class ConfigSpec
     ).value.userManagementConfig.cacheExpiryAfterWriteInSeconds shouldBe 123
   }
 
+  it should "handle '--max-users-page-size' flag correctly" in {
+    // missing value
+    configParserSimple(
+      Seq("--max-users-page-size")
+    ) shouldBe None
+    // default
+    configParserSimple().value.userManagementConfig.maxUsersPageSize shouldBe 10000
+    // custom value
+    configParserSimple(
+      Seq(
+        "--max-users-page-size",
+        "123",
+      )
+    ).value.userManagementConfig.maxUsersPageSize shouldBe 123
+  }
+
   private def parsingFailure(): Nothing = fail("Config parsing failed.")
 }

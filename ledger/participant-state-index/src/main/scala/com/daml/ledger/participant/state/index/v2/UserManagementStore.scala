@@ -19,9 +19,7 @@ trait UserManagementStore {
 
   def getUserInfo(id: Ref.UserId): Future[Result[UserInfo]]
 
-  //  def listUsers(): Future[Result[Users]]
-
-  def listUsers(pageToken: String, maxResults: Int): Future[Result[UsersPage]]
+  def listUsers(fromExcl: Option[Ref.UserId], maxResults: Int): Future[Result[UsersPage]]
 
   // write access
 
@@ -60,15 +58,7 @@ object UserManagementStore {
   type Users = Seq[User]
 
   case class UsersPage(users: Seq[User]) {
-    // TODO pbatko: test it
-    def nextPageToken: String =
-      users.lastOption
-        .map(_.id)
-        .map { id =>
-          val bytes = Base64.getUrlEncoder.encode(id.getBytes(StandardCharsets.UTF_8))
-          new String(bytes, StandardCharsets.UTF_8)
-        }
-        .getOrElse("")
+    def lastUserIdOption: Option[Ref.UserId] = users.lastOption.map(_.id)
   }
 
   case class UserInfo(user: User, rights: Set[UserRight])

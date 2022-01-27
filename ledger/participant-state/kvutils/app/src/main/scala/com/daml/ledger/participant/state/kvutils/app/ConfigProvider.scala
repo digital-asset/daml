@@ -83,6 +83,7 @@ trait ConfigProvider[ExtraConfig] {
       enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
       enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
       enableUserManagement = config.userManagementConfig.enabled,
+      maxUsersPageSize = config.userManagementConfig.maxUsersPageSize,
     )
 
   def partyConfig(@unused config: Config[ExtraConfig]): PartyConfiguration =

@@ -52,10 +52,14 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       .deleteUser(proto.DeleteUserRequest(userId.toString))
       .map(_ => ())
 
-  def listUsers(token: Option[String] = None): Future[Vector[User]] =
+  def listUsers(
+      token: Option[String] = None,
+      pageToken: String,
+      pageSize: Int,
+  ): Future[Vector[User]] =
     LedgerClient
       .stub(service, token)
-      .listUsers(proto.ListUsersRequest())
+      .listUsers(proto.ListUsersRequest(pageToken = pageToken, pageSize = pageSize))
       .map(_.users.view.map(fromProtoUser).toVector)
 
   def grantUserRights(
