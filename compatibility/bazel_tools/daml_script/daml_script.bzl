@@ -51,6 +51,10 @@ $(location {daml}) build --project-root=$$TMP_DIR -o $$PWD/$(OUTS)
     )
 
 def daml_script_test(compiler_version, runner_version):
+    name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
+        compiler_version = version_to_name(compiler_version),
+        runner_version = version_to_name(runner_version),
+    )
     compiled_dar = "//:script-example-dar-{version}".format(
         version = version_to_name(compiler_version),
     )
@@ -66,43 +70,80 @@ def daml_script_test(compiler_version, runner_version):
         server = "@daml-sdk-{version}//:sandbox-on-x".format(version = runner_version)
         server_args = ["--participant", "participant-id=sandbox,port=6865"]
         server_files = []
-        runner_files = ["$(rootpath {})".format(compiled_dar)]
+        server_files_prefix = ""
     else:
         server = daml_runner
         server_args = ["sandbox"]
         server_files = ["$(rootpath {})".format(compiled_dar)]
-        runner_files = []
+        server_files_prefix = "--dar=" if use_canton else ""
+
+    native.genrule(
+        name = "{}-client-sh".format(name),
+        outs = ["{}-client.sh".format(name)],
+        cmd = """\
+cat >$(OUTS) <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+canonicalize_rlocation() {{
+  # Note (MK): This is a fun one: Let's say $$TEST_WORKSPACE is "compatibility"
+  # and the argument points to a target from an external workspace, e.g.,
+  # @daml-sdk-0.0.0//:daml. Then the short path will point to
+  # ../daml-sdk-0.0.0/daml. Putting things together we end up with
+  # compatibility/../daml-sdk-0.0.0/daml. On Linux and MacOS this works
+  # just fine. However, on windows we need to normalize the path
+  # or rlocation will fail to find the path in the manifest file.
+  rlocation $$(realpath -L -s -m --relative-to=$$PWD $$TEST_WORKSPACE/$$1)
+}}
+runner=$$(canonicalize_rlocation $(rootpath {runner}))
+# Cleanup the trigger runner process but maintain the script runner exit code.
+trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
+
+if [ {upload_dar} -eq 1 ] ; then
+  $$runner ledger upload-dar \\
+    --host localhost \\
+    --port 6865 \\
+    $$(canonicalize_rlocation $(rootpath {dar}))
+fi
+$$runner script \\
+  --ledger-host localhost \\
+  --ledger-port 6865 \\
+  --wall-clock-time \\
+  --dar $$(canonicalize_rlocation $(rootpath {dar})) \\
+  --script-name ScriptExample:test
+EOF
+chmod +x $(OUTS)
+""".format(
+            dar = compiled_dar,
+            runner = daml_runner,
+            upload_dar = "1" if use_sandbox_on_x else "0",
+        ),
+        exec_tools = [
+            compiled_dar,
+            daml_runner,
+        ],
+    )
+    native.sh_binary(
+        name = "{}-client".format(name),
+        srcs = ["{}-client.sh".format(name)],
+        data = [
+            compiled_dar,
+            daml_runner,
+        ],
+    )
 
     client_server_test(
-        name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
-            compiler_version = version_to_name(compiler_version),
-            runner_version = version_to_name(runner_version),
-        ),
-        client = daml_runner,
-        client_args = [
-            "script",
-            "--ledger-host",
-            "localhost",
-            "--ledger-port",
-            "6865",
-            "--wall-clock-time",
-            "--script-name",
-            "ScriptExample:test",
-            "--dar",
-        ],
-        client_files = [
-            "$(rootpath {})".format(compiled_dar),
-        ],
+        name = name,
+        client = "{}-client".format(name),
+        client_args = [],
+        client_files = [],
         data = [
             compiled_dar,
         ],
-        runner = "//bazel_tools/client_server/with-upload-dar:runner",
-        runner_args = ["--port=6865"],
-        runner_files = runner_files,
-        runner_files_prefix = "--dar=",
+        runner = "//bazel_tools/client_server:runner",
+        runner_args = ["6865"],
         server = server,
         server_args = server_args,
         server_files = server_files,
-        server_files_prefix = "--dar=" if use_canton else "",
+        server_files_prefix = server_files_prefix,
         tags = ["exclusive"],
     )
