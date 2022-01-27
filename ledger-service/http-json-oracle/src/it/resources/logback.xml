@@ -13,6 +13,9 @@
     <logger name="io.grpc.netty" level="WARN">
         <appender-ref ref="stderr-appender"/>
     </logger>
+    <logger name="com.daml.http.dbbackend" level="DEBUG">
+        <appender-ref ref="stderr-appender"/>
+    </logger>
     <root level="INFO">
         <appender-ref ref="STDOUT" />
     </root>
