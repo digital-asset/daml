@@ -148,6 +148,7 @@ external = external --deleted by the compiler
 primitive : forall (f : Symbol) b. b
 primitive = primitive -- deleted by the compiler
 
+-- | HIDE Used by desugaring of interface methods
 primitiveInterface : forall (f : Symbol) b. b
 primitiveInterface = primitiveInterface -- deleted by the compiler
 
