@@ -1,0 +1,14 @@
+diff --git a/haskell/c2hs.bzl b/haskell/c2hs.bzl
+index 96dfd503..0fad061c 100644
+--- a/haskell/c2hs.bzl
++++ b/haskell/c2hs.bzl
+@@ -95,7 +95,8 @@ def _c2hs_library_impl(ctx):
+             """
+         # Include libdir in include path just like hsc2hs does.
+         libdir=$({ghc} --print-libdir)
+-        {c2hs} -C-I$libdir/include "$@"
++        # GHC >=9 on Windows stores the includes outside of libdir
++        {c2hs} -C-I$libdir/include -C-I$libdir/../include "$@"
+         """.format(
+                 ghc = hs.tools.ghc.path,
+                 c2hs = c2hs_exe.path,
