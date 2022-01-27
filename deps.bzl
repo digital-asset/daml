@@ -220,9 +220,9 @@ def daml_deps():
         # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.43.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.43.0.tar.gz"],
-            sha256 = "9647220c699cea4dafa92ec0917c25c7812be51a18143af047e20f3fb05adddc",
+            strip_prefix = "grpc-1.44.0-pre2",
+            urls = ["https://github.com/grpc/grpc/archive/v1.44.0-pre2.tar.gz"],
+            sha256 = "37f95f4beafe394e7a8dc96347838268925e7ad2a4fe084e95151df9a6141268",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
@@ -232,19 +232,19 @@ def daml_deps():
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "c6003e1d2e7fefa78a3039f19f383b4f3a61e81be8c19356f85b6461998ad3db",
-            strip_prefix = "protobuf-3.17.3",
+            sha256 = "4dd35e788944b7686aac898f77df4e9a54da0ca694b8801bd6b2a9ffc1b3085e",
+            strip_prefix = "protobuf-3.19.2",
             urls = [
-                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.17.3.tar.gz",
+                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.19.2.tar.gz",
             ],
         )
 
     if "io_grpc_grpc_java" not in native.existing_rules():
         http_archive(
             name = "io_grpc_grpc_java",
-            strip_prefix = "grpc-java-1.35.0",
-            urls = ["https://github.com/grpc/grpc-java/archive/v1.35.0.tar.gz"],
-            sha256 = "537d01bdc5ae2bdb267853a75578d671db3075b33e3a00a93f5a572191d3a7b3",
+            strip_prefix = "grpc-java-1.44.0",
+            urls = ["https://github.com/grpc/grpc-java/archive/v1.44.0.tar.gz"],
+            sha256 = "e3781bcab2a410a7cd138f13b2e6a643e111575f6811b154c570f4d020e87507",
             patch_args = ["-p1"],
         )
 
