@@ -362,9 +362,8 @@ tests Tools{damlc} = testGroup "Packaging" $
             ]
         (exitCode, out, err) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
         out @?= ""
-        assertInfixOf "Created" err
         assertInfixOf "collision between variant A:B and module prefix A.B (from A.B.C)" err
-        exitCode @?= ExitSuccess
+        exitCode @?= ExitFailure 1
 
     , testCase "Manifest name" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")
