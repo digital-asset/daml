@@ -20,3 +20,12 @@ packages:
   - stache-2.3.1
   - swagger2-2.7
   - yaml-0.11.7.0
+
+# We drop the Win32 package from the stack snapshot so that stack considers it a toolchain library.
+# In this case we will use the Win32 provided by the compiler instead of recompiling it.
+# 
+# Recompiling it should be fine for future versions of Win32,
+# but with versions <= 2.13.2.0 we encounter the following issue:
+# https://github.com/haskell/win32/issues/193
+drop-packages:
+  - Win32

@@ -5,3 +5,12 @@ resolver: nightly-2022-01-26
 packages:
   - aeson-extra-0.4.1.3
   - text-1.2.3.1
+
+# We drop the Win32 package from the stack snapshot so that stack considers it a toolchain library.
+# In this case we will use the Win32 provided by the compiler instead of recompiling it.
+# 
+# Recompiling it should be fine for future versions of Win32,
+# but with versions <= 2.13.2.0 we encounter the following issue:
+# https://github.com/haskell/win32/issues/193
+drop-packages:
+  - Win32
