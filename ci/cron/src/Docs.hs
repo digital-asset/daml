@@ -28,11 +28,12 @@ import Control.Exception.Safe
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
 import qualified Data.Aeson as JSON
+import qualified Data.Aeson.Key as JSON
+import qualified Data.Aeson.KeyMap as JSON
 import qualified Data.ByteString.Lazy.UTF8 as LBS
 import Data.Either (isRight)
 import qualified Data.Foldable
 import Data.Function ((&))
-import qualified Data.HashMap.Strict as H
 import qualified Data.List
 import Data.Maybe (fromMaybe)
 import qualified Data.Ord
@@ -195,7 +196,7 @@ fetch_s3_versions opts = do
               let type_annotated_value :: Maybe JSON.Object
                   type_annotated_value = JSON.decode $ LBS.fromString s3_raw
               case type_annotated_value of
-                  Just s3_json -> return $ map (\s -> GitHubRelease prerelease (version s) []) $ H.keys s3_json
+                  Just s3_json -> return $ map (\s -> GitHubRelease prerelease (version $ JSON.toText s) []) $ JSON.keys s3_json
                   Nothing -> Exit.die "Failed to get versions from s3"
 
 data DocOptions = DocOptions

@@ -32,6 +32,7 @@ module DA.Daml.Helper.Util
 import Control.Exception.Safe
 import Control.Monad.Extra
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.KeyMap as KM
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import Data.Foldable
@@ -49,7 +50,6 @@ import System.Process (ProcessHandle, getProcessExitCode, showCommandForUser, te
 import System.Process.Typed
 import qualified Web.JWT as JWT
 import qualified Data.Aeson as A
-import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
 
 import DA.Daml.Project.Config
@@ -228,7 +228,7 @@ waitForHttpServer numTries processHandle sleep url headers = do
 tokenFor :: [T.Text] -> T.Text -> T.Text -> T.Text
 tokenFor parties ledgerId applicationId =
   JWT.encodeSigned
-    (JWT.HMACSecret "secret")
+    (JWT.EncodeHMACSecret "secret")
     mempty
     mempty
       { JWT.unregisteredClaims =
@@ -236,7 +236,7 @@ tokenFor parties ledgerId applicationId =
           Map.fromList
             [ ( "https://daml.com/ledger-api"
               , A.Object $
-                HashMap.fromList
+                KM.fromList
                   [ ("actAs", A.toJSON parties)
                   , ("ledgerId", A.String ledgerId)
                   , ("applicationId", A.String applicationId)
