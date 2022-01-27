@@ -593,7 +593,7 @@ object Ast {
       cons: DataCons,
   ) extends GenDefinition[Nothing]
   object DDataType {
-    val Interface = DDataType(true, ImmArray.empty, DataInterface)
+    val Interface = DDataType(false, ImmArray.empty, DataInterface)
   }
 
   final case class GenDValue[E](
