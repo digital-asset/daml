@@ -420,7 +420,7 @@ test('error on non-existent user id', async () => {
     const invalidUser = "nonexistent";
     const page = await newUiPage();
     const error = await failedLogin(page, invalidUser);
-    expect(error).toMatch(/cannot get user for unknown user \\"nonexistent\\"/);
+    expect(error).toMatch(/getting user failed for unknown user \\"nonexistent\\"/);
     await page.close();
 }, 40_000);
 

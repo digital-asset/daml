@@ -125,8 +125,8 @@ object Assertions {
         if (checkDefiniteAnswerMetadata) assertDefiniteAnswer(exception)
         additionalErrorAssertions(exception)
       case exception: StatusRuntimeException if participant.features.selfServiceErrorCodes =>
-        assertSelfServiceErrorCode(exception, selfServiceErrorCode)
         optPattern.foreach(assertMatches(exception.getMessage, _))
+        assertSelfServiceErrorCode(exception, selfServiceErrorCode)
         if (checkDefiniteAnswerMetadata) assertDefiniteAnswer(exception)
         additionalErrorAssertions(exception)
       case _ =>

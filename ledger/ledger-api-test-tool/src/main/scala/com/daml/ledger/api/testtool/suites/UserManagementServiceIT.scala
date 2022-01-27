@@ -28,15 +28,91 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import io.grpc.Status
 
+import scala.collection.immutable.Iterable
 import scala.concurrent.{ExecutionContext, Future}
 
 final class UserManagementServiceIT extends LedgerTestSuite {
+
+  private val adminPermission =
+    Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))
+  private val actAsPermission1 =
+    Permission(Permission.Kind.CanActAs(Permission.CanActAs("acting-party-1")))
+  private val readAsPermission1 =
+    Permission(Permission.Kind.CanReadAs(Permission.CanReadAs("reading-party-1")))
+  private val userRightsBatch = List(
+    actAsPermission1,
+    Permission(Permission.Kind.CanActAs(Permission.CanActAs("acting-party-2"))),
+    readAsPermission1,
+    Permission(Permission.Kind.CanReadAs(Permission.CanReadAs("reading-party-2"))),
+  )
+  private val AdminUserId = "participant_admin"
+
+  test(
+    "UserManagementUserRightsLimit",
+    "Test user rights per user limit",
+    allocate(NoParties),
+    enabled = _.userManagement.maxRightsPerUser > 0,
+    disabledReason = "requires user management feature with user rights limit",
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    def assertTooManyUserRightsError(t: Throwable): Unit = {
+      assertGrpcError(
+        participant = ledger,
+        t = t,
+        expectedCode = Status.Code.FAILED_PRECONDITION,
+        selfServiceErrorCode = LedgerApiErrors.AdminServices.TooManyUserRights,
+        exceptionMessageSubstring = None,
+      )
+    }
+
+    def createCanActAs(id: Int) =
+      Permission(Permission.Kind.CanActAs(Permission.CanActAs(s"acting-party-$id")))
+
+    val user1 = User(UUID.randomUUID.toString, "")
+    val user2 = User(UUID.randomUUID.toString, "")
+
+    val maxRightsPerUser = ledger.features.userManagement.maxRightsPerUser
+    val permissionsMaxAndOne = (1 to (maxRightsPerUser + 1)).map(createCanActAs)
+    val permissionOne = permissionsMaxAndOne.head
+    val permissionsMax = permissionsMaxAndOne.tail
+
+    for {
+      // cannot create user with #limit+1 rights
+      create1 <- ledger.userManagement
+        .createUser(CreateUserRequest(Some(user1), permissionsMaxAndOne))
+        .mustFail(
+          "creating user with too many rights"
+        )
+      // can create user with #limit rights
+      create2 <- ledger.userManagement.createUser(CreateUserRequest(Some(user1), permissionsMax))
+      // fails adding one more right
+      grant1 <- ledger.userManagement
+        .grantUserRights(GrantUserRightsRequest(user1.id, rights = Seq(permissionOne)))
+        .mustFail(
+          "granting more rights exceeds max number of user rights per user"
+        )
+      // rights already added are intact
+      rights1 <- ledger.userManagement.listUserRights(ListUserRightsRequest(user1.id))
+      // can create other users with #limit rights
+      create3 <- ledger.userManagement.createUser(CreateUserRequest(Some(user2), permissionsMax))
+      // cleanup
+      _ <- ledger.userManagement.deleteUser(DeleteUserRequest(user1.id))
+      _ <- ledger.userManagement.deleteUser(DeleteUserRequest(user2.id))
+
+    } yield {
+      assertTooManyUserRightsError(create1)
+      assertEquals(create2, user1)
+      assertTooManyUserRightsError(grant1)
+      assertEquals(rights1.rights.size, permissionsMaxAndOne.tail.size)
+      assertSameElements(rights1.rights, permissionsMaxAndOne.tail)
+      assertEquals(create3, user2)
+    }
+  })
 
   test(
     "UserManagementCreateUserInvalidArguments",
     "Test argument validation for UserManagement#CreateUser",
     allocate(NoParties),
-    enabled = _.userManagement,
+    enabled = _.userManagement.supported,
     disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val userId = UUID.randomUUID.toString
@@ -93,7 +169,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     "UserManagementGetUserInvalidArguments",
     "Test argument validation for UserManagement#GetUser",
     allocate(NoParties),
-    enabled = _.userManagement,
+    enabled = _.userManagement.supported,
     disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     def getAndCheck(problem: String, userId: String, expectedErrorCode: ErrorCode): Future[Unit] =
@@ -108,20 +184,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       _ <- getAndCheck("invalid user-id", "?", LedgerApiErrors.RequestValidation.InvalidField)
     } yield ()
   })
-
-  private val adminPermission =
-    Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))
-  private val actAsPermission1 =
-    Permission(Permission.Kind.CanActAs(Permission.CanActAs("acting-party-1")))
-  private val readAsPermission1 =
-    Permission(Permission.Kind.CanReadAs(Permission.CanReadAs("reading-party-1")))
-  private val userRightsBatch = List(
-    actAsPermission1,
-    Permission(Permission.Kind.CanActAs(Permission.CanActAs("acting-party-2"))),
-    readAsPermission1,
-    Permission(Permission.Kind.CanReadAs(Permission.CanReadAs("reading-party-2"))),
-  )
-  private val AdminUserId = "participant_admin"
 
   userManagementTest(
     "TestAdminExists",
@@ -224,6 +286,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       res5 <- ledger.userManagement.listUsers(ListUsersRequest())
     } yield {
       def filterUsers(users: Iterable[User]) = users.filter(u => u.id == userId1 || u.id == userId2)
+
       assertSameElements(filterUsers(res1.users), Seq(user1))
       assertEquals(res2, user2)
       assertSameElements(
@@ -344,7 +407,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       shortIdentifier = shortIdentifier,
       description = description,
       allocate(NoParties),
-      enabled = _.userManagement,
+      enabled = _.userManagement.supported,
       disabledReason = "requires user management feature",
     )(implicit ec => { case Participants(Participant(ledger)) =>
       body(ec)(ledger)

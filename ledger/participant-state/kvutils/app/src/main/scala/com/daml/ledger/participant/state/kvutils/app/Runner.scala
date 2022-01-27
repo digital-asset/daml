@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.util.concurrent.{Executors, TimeUnit}
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
@@ -32,10 +34,9 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
-import com.daml.platform.usermanagement.PersistentUserManagementStore
+import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import com.daml.ports.Port
 
-import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.ExecutionContext
 
 final class Runner[T <: ReadWriteService, Extra](
@@ -204,7 +205,8 @@ final class Runner[T <: ReadWriteService, Extra](
                   metrics = metrics,
                   cacheExpiryAfterWriteInSeconds =
                     config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-                  maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+                  maxCacheSize = config.userManagementConfig.maxCacheSize,
+                  maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
                 )(servicesExecutionContext)
                 indexService <- StandaloneIndexService(
                   dbSupport = dbSupport,
