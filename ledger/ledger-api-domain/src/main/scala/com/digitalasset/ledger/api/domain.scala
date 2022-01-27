@@ -429,5 +429,7 @@ object domain {
         val ASYNC_ONLY, ASYNC_AND_CONCURRENT_SYNC, SYNC_ONLY = Value
       }
     }
+
+    sealed case class ContractIds(suffixed: Boolean) extends Feature
   }
 }

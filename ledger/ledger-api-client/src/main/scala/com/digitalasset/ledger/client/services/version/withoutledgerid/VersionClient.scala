@@ -8,10 +8,12 @@ import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationPeriodSu
   DurationSupport,
   OffsetSupport,
 }
+import com.daml.ledger.api.v1.experimental_features.ExperimentalContractIds.ContractIdV1Support
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
+  ExperimentalContractIds,
   ExperimentalFeatures,
   ExperimentalStaticTime,
 }
@@ -62,12 +64,19 @@ private[daml] object VersionClient {
             maybeStaticTime,
             maybeCommandDeduplicationFeatures,
             optionalLedgerId,
-            _, // TODO
+            contractIds,
           ) =>
         (selfServiceErrorCodes.toList map (_ => Feature.SelfServiceErrorCodes)) ++
           (maybeStaticTime collect { case ExperimentalStaticTime(true) => Feature.StaticTime }) ++
           (maybeCommandDeduplicationFeatures.toList flatMap fromProto) ++
-          (optionalLedgerId map { _ => Feature.ExperimentalOptionalLedgerId })
+          (optionalLedgerId map { _ => Feature.ExperimentalOptionalLedgerId }) ++
+          (contractIds flatMap { case ExperimentalContractIds(v1) =>
+            v1 match {
+              case ContractIdV1Support.SUFFIXED => Some(Feature.ContractIds(true))
+              case ContractIdV1Support.NON_SUFFIXED => Some(Feature.ContractIds(false))
+              case _ => None
+            }
+          })
     }
 
   def fromProto(commandDeduplicationFeatures: CommandDeduplicationFeatures): Seq[Feature] = {
