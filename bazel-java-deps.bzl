@@ -21,7 +21,6 @@ load(
 version_specific = {
 }
 
-
 # ** Upgrading tcnative in sync with main netty version **
 # Look for "tcnative.version" in top-level pom.xml.
 # For example for netty version netty-4.1.68.Final look here https://github.com/netty/netty/blob/netty-4.1.68.Final/pom.xml#L511:
@@ -113,7 +112,6 @@ def install_java_deps():
             "io.prometheus:simpleclient_dropwizard:0.8.1",
             "io.prometheus:simpleclient_httpserver:0.8.1",
             "io.prometheus:simpleclient_servlet:0.8.1",
-
             "io.grpc:grpc-api:{}".format(grpc_version),
             "io.grpc:grpc-core:{}".format(grpc_version),
             "io.grpc:grpc-netty:{}".format(grpc_version),
