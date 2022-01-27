@@ -19,7 +19,6 @@ import java.time.{Duration, Instant}
 //           and extract the participant-specific configs in the main config file.
 case class BridgeConfig(
     conflictCheckingEnabled: Boolean,
-    maxDedupSeconds: Int,
     submissionBufferSize: Int,
     implicitPartyAllocation: Boolean,
     timeProviderType: TimeProviderType,
@@ -30,11 +29,6 @@ case class BridgeConfig(
 
 object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
   override def extraConfigParser(parser: OptionParser[Config[BridgeConfig]]): Unit = {
-    parser
-      .opt[Int]("bridge-max-dedup-seconds")
-      .text("Maximum deduplication time in seconds. Defaults to 30.")
-      .action((p, c) => c.copy(extra = c.extra.copy(maxDedupSeconds = p)))
-
     parser
       .opt[Int]("bridge-submission-buffer-size")
       .text("Submission buffer size. Defaults to 500.")
@@ -108,7 +102,6 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
   override val defaultExtraConfig: BridgeConfig = BridgeConfig(
     // TODO SoX: Enabled by default
     conflictCheckingEnabled = false,
-    maxDedupSeconds = 30,
     submissionBufferSize = 500,
     implicitPartyAllocation = false,
     timeProviderType = TimeProviderType.WallClock,

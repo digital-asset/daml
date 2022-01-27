@@ -152,7 +152,9 @@ object SandboxOnXRunner {
 
           readServiceWithSubscriber = new BridgeReadService(
             ledgerId = config.ledgerId,
-            maxDedupSeconds = config.extra.maxDedupSeconds,
+            maximumDeduplicationDuration = config.maxDeduplicationDuration.getOrElse(
+              BridgeConfigProvider.DefaultMaximumDeduplicationTime
+            ),
             stateUpdatesSource,
           )
 
