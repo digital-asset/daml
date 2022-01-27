@@ -1,7 +1,8 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.daml
+package lf
 package value
 
 import com.daml.lf.data.Ref._
@@ -385,10 +386,10 @@ object ValueCoder {
       value: Value,
   ): Either[EncodeError, proto.VersionedValue] =
     for {
-      protoValue <- encodeValue(encodeCid, version, value)
+      bytes <- encodeValue(encodeCid, version, value)
     } yield {
       val builder = proto.VersionedValue.newBuilder()
-      builder.setVersion(encodeValueVersion(version)).setValue(protoValue).build()
+      builder.setVersion(encodeValueVersion(version)).setValue(bytes).build()
     }
 
   /** Serialize a Value to protobuf
@@ -514,7 +515,7 @@ object ValueCoder {
     }
 
     try {
-      Right(go(0, v0).toByteString)
+      SafeProto.toByteString(go(0, v0)).left.map(EncodeError)
     } catch {
       case Err(msg) => Left(EncodeError(msg))
     }
@@ -526,4 +527,5 @@ object ValueCoder {
   ): Either[DecodeError, Value] = {
     decodeValue(decodeCid, proto.VersionedValue.parseFrom(bytes))
   }
+
 }
