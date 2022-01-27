@@ -98,7 +98,6 @@ beforeAll(async () => {
   // Getting Started Guide.
   const startArgs = [
     'start',
-    '--sandbox-kv',
     `--json-api-option=--port-file=${JSON_API_PORT_FILE_NAME}`,
   ];
 
@@ -178,6 +177,7 @@ const newUiPage = async (): Promise<Page> => {
     throw Error('Puppeteer browser has not been launched');
   }
   const page = await browser.newPage();
+  await page.setViewport({ width: 1366, height: 1080});
   page.on('console', message =>
           console.log(`${message.type().substr(0, 3).toUpperCase()} ${message.text()}`))
   await page.goto(`http://localhost:${UI_PORT}`); // ignore the Response
@@ -386,7 +386,7 @@ test('error when adding a user that you are already following', async () => {
   expect(dismissError).toHaveBeenCalled();
 
   await page.close();
-});
+}, 10000);
 
 const failedLogin = async (page: Page, partyName: string) => {
   let error: string | undefined = undefined;
@@ -420,7 +420,7 @@ test('error on non-existent user id', async () => {
     const invalidUser = "nonexistent";
     const page = await newUiPage();
     const error = await failedLogin(page, invalidUser);
-    expect(error).toMatch(/getting user failed for unknown user \\"nonexistent\\"/);
+    expect(error).toMatch(/cannot get user for unknown user \\"nonexistent\\"/);
     await page.close();
 }, 40_000);
 
