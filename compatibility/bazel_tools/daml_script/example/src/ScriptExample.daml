@@ -45,6 +45,8 @@ initialize parties = do
 
 test : Script ()
 test = do
+  debug "Executing script."
+
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
   bank <- allocateParty "Bank"
@@ -63,6 +65,8 @@ test = do
 
   submitMustFail parties.alice $
     createCmd (Coin parties.bank parties.alice)
+
+  debug "Script executed successfully."
 
 initializeFixed : Script ()
 initializeFixed = do
