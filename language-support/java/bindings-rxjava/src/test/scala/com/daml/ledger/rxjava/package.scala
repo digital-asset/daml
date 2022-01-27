@@ -28,6 +28,7 @@ package object rxjava {
   private[rxjava] def untestedEndpoint: Nothing =
     throw new UnsupportedOperationException("Untested endpoint, implement if needed")
   private val akkaSystem = ActorSystem("testActorSystem")
+  sys.addShutdownHook(akkaSystem.terminate(): Unit)
 
   private[rxjava] val authorizer =
     Authorizer(

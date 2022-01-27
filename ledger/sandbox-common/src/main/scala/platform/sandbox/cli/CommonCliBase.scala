@@ -406,8 +406,8 @@ class CommonCliBase(name: LedgerName) {
         .optional()
         .text(
           s"Defaults to ${UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds} seconds. " +
-            // TODO participant user management: Update max delay to 2x the configured value when made use of in throttled stream authorization.
-            "Determines the maximum delay for propagating user management state changes."
+            "Used to set expiry time for user management cache. " +
+            "Also determines the maximum delay for propagating user management state changes which is double its value."
         )
         .action((value, config: SandboxConfig) =>
           config.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = value))

@@ -21,7 +21,7 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 /** @param userRightsCheckIntervalInSeconds - determines the interval at which to check whether user rights state has changed.
-  *                                         Also, double of this value serves as timeout value for subsequent user rights state checks.
+  *                                          Also, double of this value serves as timeout value for subsequent user rights state checks.
   */
 private[auth] final class OngoingAuthorizationObserver[A](
     observer: ServerCallStreamObserver[A],
@@ -29,15 +29,14 @@ private[auth] final class OngoingAuthorizationObserver[A](
     nowF: () => Instant,
     errorFactories: ErrorFactories,
     userManagementStore: UserManagementStore,
-    implicit val ec: ExecutionContext,
     userRightsCheckIntervalInSeconds: Int,
     akkaScheduler: Scheduler,
-)(implicit loggingContext: LoggingContext)
+)(implicit loggingContext: LoggingContext, ec: ExecutionContext)
     extends ServerCallStreamObserver[A] {
-  self =>
 
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
+  private var afterCompletionOrError = false
 
   @volatile private var lastUserRightsCheckTime = nowF()
 
@@ -64,13 +63,11 @@ private[auth] final class OngoingAuthorizationObserver[A](
       .listUserRights(userId)
       .onComplete {
         case Failure(_) | Success(Left(_)) =>
-          self.synchronized(observer.onError(staleStreamAuthError))
-          cancelUserRightsCheckTask()
+          onError(staleStreamAuthError)
         case Success(Right(userRights)) =>
           val updatedClaims = AuthorizationInterceptor.convertUserRightsToClaims(userRights)
           if (updatedClaims.toSet != originalClaims.claims.toSet) {
-            self.synchronized(observer.onError(staleStreamAuthError))
-            cancelUserRightsCheckTask()
+            onError(staleStreamAuthError)
           }
           lastUserRightsCheckTime = nowF()
       }
@@ -90,39 +87,47 @@ private[auth] final class OngoingAuthorizationObserver[A](
 
   override def request(i: Int): Unit = observer.request(i)
 
-  override def setMessageCompression(b: Boolean): Unit =
-    self.synchronized(observer.setMessageCompression(b))
+  override def setMessageCompression(b: Boolean): Unit = synchronized(
+    observer.setMessageCompression(b)
+  )
 
-  override def onNext(v: A): Unit = {
-    val now = nowF()
-    (for {
-      _ <- checkClaimsExpiry(now)
-      _ <- checkUserRightsRefreshTimeout(now)
-    } yield {
-      ()
-    }) match {
-      case Right(_) => self.synchronized(observer.onNext(v))
-      case Left(e) =>
-        cancelUserRightsCheckTask()
-        self.synchronized(observer.onError(e))
+  override def onNext(v: A): Unit = synchronized {
+    if (!afterCompletionOrError) {
+      val now = nowF()
+      (for {
+        _ <- checkClaimsExpiry(now)
+        _ <- checkUserRightsRefreshTimeout(now)
+      } yield {
+        ()
+      }) match {
+        case Right(_) => observer.onNext(v)
+        case Left(e) =>
+          onError(e)
+      }
     }
   }
 
-  override def onError(throwable: Throwable): Unit = {
-    cancelUserRightsCheckTask()
-    self.synchronized(observer.onError(throwable))
+  override def onError(throwable: Throwable): Unit = synchronized {
+    if (!afterCompletionOrError) {
+      afterCompletionOrError = true
+      cancelUserRightsCheckTask()
+      observer.onError(throwable)
+    }
   }
 
-  override def onCompleted(): Unit = {
-    cancelUserRightsCheckTask()
-    self.synchronized(observer.onCompleted())
+  override def onCompleted(): Unit = synchronized {
+    if (!afterCompletionOrError) {
+      afterCompletionOrError = true
+      cancelUserRightsCheckTask()
+      observer.onCompleted()
+    }
   }
 
   private def checkUserRightsRefreshTimeout(now: Instant): Either[StatusRuntimeException, Unit] = {
     if (
       originalClaims.resolvedFromUser &&
-      lastUserRightsCheckTime.isAfter(
-        now.plusSeconds(2 * userRightsCheckIntervalInSeconds.toLong)
+      lastUserRightsCheckTime.isBefore(
+        now.minusSeconds(userRightsCheckIntervalInSeconds.toLong)
       )
     ) {
       Left(staleStreamAuthError)

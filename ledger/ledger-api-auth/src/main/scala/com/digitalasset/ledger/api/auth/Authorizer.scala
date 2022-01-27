@@ -240,10 +240,9 @@ final class Authorizer(
     nowF = now,
     errorFactories = errorFactories,
     userManagementStore = userManagementStore,
-    ec = ec,
     userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
     akkaScheduler = akkaScheduler,
-  )
+  )(loggingContext, ec)
 
   /** Directly access the authenticated claims from the thread-local context.
     *
