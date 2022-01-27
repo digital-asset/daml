@@ -34,6 +34,7 @@ supported_databases = [
             "@maven//:org_xerial_sqlite_jdbc",
         ],
         "conformance_test_tags": oracle_tags,
+        "benchmark_performance_envelope_tags": oracle_tags,
         "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralOracleUser",
     },
 ]
@@ -263,7 +264,7 @@ da_scala_test_suite(
                 "--participant participant-id=example,port=6865",
             ] + db.get("conformance_test_server_args", []),
             tags = db.get("benchmark_performance_envelope_tags", []),
-            test_tool_args = db.get("benchmark_performance_envelope_tags", []) + [
+            test_tool_args = [
                 "--verbose",
                 "--perf-tests=PerformanceEnvelope.Throughput.TwentyOPS",
                 "--perf-tests=PerformanceEnvelope.Latency.1000ms",
