@@ -191,7 +191,6 @@ trait CompletionStorageBackend {
 }
 
 trait ContractStorageBackend {
-  def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId]
   def maximumLedgerTime(ids: Set[ContractId])(connection: Connection): Try[Option[Timestamp]]
   def keyState(key: Key, validAt: Long)(connection: Connection): KeyState
   def contractState(contractId: ContractId, before: Long)(
