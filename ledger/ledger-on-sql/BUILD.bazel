@@ -33,6 +33,7 @@ supported_databases = [
             "@maven//:com_oracle_database_jdbc_ojdbc8",
             "@maven//:org_xerial_sqlite_jdbc",
         ],
+        "conformance_test_tags": oracle_tags,
         "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralOracleUser",
     },
 ]
