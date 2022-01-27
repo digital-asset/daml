@@ -49,7 +49,7 @@ netty_tcnative_version = "2.0.46.Final"
 netty_version = "4.1.72.Final"
 grpc_version = "1.44.0"
 protobuf_version = "3.19.3"
-akka_version = "2.6.13"
+akka_version = "2.6.18"
 gatling_version = "3.5.1"
 guava_version = "31.0.1-jre"
 

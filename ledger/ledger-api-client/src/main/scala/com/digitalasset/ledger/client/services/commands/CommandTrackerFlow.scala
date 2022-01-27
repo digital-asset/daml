@@ -58,7 +58,7 @@ object CommandTrackerFlow {
 
     val trackerExternal = new CommandTracker[Context](maximumCommandTimeout, timeoutDetectionPeriod)
 
-    Flow.fromGraph(GraphDSL.create(commandSubmissionFlow, trackerExternal)(Materialized.apply) {
+    Flow.fromGraph(GraphDSL.createGraph(commandSubmissionFlow, trackerExternal)(Materialized.apply) {
       implicit builder => (submissionFlow, tracker) =>
         import GraphDSL.Implicits._
 

@@ -63,12 +63,13 @@ object StaticTime {
 
     RunnableGraph
       .fromGraph {
-        GraphDSL.create(killSwitchExternal, sinkExternal) { case (killSwitch, futureOfFirstElem) =>
-          // We serve this in a future which completes when the first element has passed through.
-          // Thus we make sure that the object we serve already received time data from the ledger.
-          futureOfFirstElem.map(_ => new StaticTime(timeService, clockRef, killSwitch, ledgerId))(
-            ExecutionContext.parasitic
-          )
+        GraphDSL.createGraph(killSwitchExternal, sinkExternal) {
+          case (killSwitch, futureOfFirstElem) =>
+            // We serve this in a future which completes when the first element has passed through.
+            // Thus we make sure that the object we serve already received time data from the ledger.
+            futureOfFirstElem.map(_ => new StaticTime(timeService, clockRef, killSwitch, ledgerId))(
+              ExecutionContext.parasitic
+            )
         } { implicit b => (killSwitch, sinkHead) =>
           import GraphDSL.Implicits._
           val instantSource = b.add(
