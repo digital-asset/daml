@@ -64,9 +64,9 @@ import SdkVersion (damlStdlib)
 
 -- | Convert to ghcide’s IdeOptions type.
 toCompileOpts :: Options -> Ghcide.IdeOptions
-toCompileOpts options@Options{..} =
+toCompileOpts Options{..} =
     Ghcide.IdeOptions
-      { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor dataDependableExtensions (optUnitId options)
+      { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor dataDependableExtensions
       , optGhcSession = getDamlGhcSession
       , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"

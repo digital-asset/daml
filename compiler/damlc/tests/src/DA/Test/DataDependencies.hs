@@ -519,7 +519,6 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               , "{-# LANGUAGE DataKinds #-}"
               , "module A where"
               , "import DA.Record"
-              , "import DA.Generics"
               , "import DA.Validation"
               -- test typeclass export
               , "class Foo t where"
@@ -566,20 +565,6 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               , "usesHasField = getField @\"a_field\""
               , "usesHasFieldEmpty : (HasField \"\" a b) => a -> b"
               , "usesHasFieldEmpty = getField @\"\""
-              -- Test that deriving Generic doesn't blow everything up
-              , "data X t = X t deriving Generic"
-              -- Test that indirect references to an erased type don't
-              -- stick around with a dangling reference, including via
-              -- typeclass specializations.
-              , "class MyGeneric t where"
-              , "class MyGeneric t => YourGeneric t where"
-              , "instance {-# OVERLAPPABLE #-} DA.Generics.Generic t rep => MyGeneric t"
-              , "instance {-# OVERLAPPABLE #-} Generic Int (D1 ('MetaData ('MetaData0 \"\" \"\" \"\" 'True)) (K1 R ())) where"
-              , "  from = error \"\""
-              , "  to = error \"\""
-              , "instance YourGeneric Int"
-                  -- ^ tests detection of Generic reference via
-                  -- specialization of MyGeneric instance
 
               -- [Issue #7256] Tests that orphan superclass instances are dependended on correctly.
               -- E.g. Applicative Validation is an orphan instance implemented in DA.Validation.
