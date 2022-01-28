@@ -76,6 +76,9 @@ class IntegrationTest
       ),
     )
     import FutureConverters._
+    import scalaz.syntax.traverse._
+    import scalaz.std.list._
+    import scalaz.std.scalaFuture._
     for {
       binding <- bindingF
       client <- clientF
@@ -86,11 +89,19 @@ class IntegrationTest
       )
       a <- testFn(uri)(client)
       _ <- Future(partyRefresh.foreach(_.cancel()))
+      _ <- binding.unbind()
       _ <- binding.terminate(30.seconds)
       _ <- binding.whenTerminated
       _ <- sys.terminate()
       _ <- Await.ready(sys.getWhenTerminated.asScala, 30.seconds)
       _ = logger.info(s"Stopped actor system ${sys.name}")
+      // Cleanup the users
+      users <- client.userManagementClient.listUsers()
+      _ <- users.toList.traverse(user =>
+        if (user.id != "participant_admin") client.userManagementClient.deleteUser(user.id)
+        else Future.unit
+      )
+      _ = logger.info(s"Removed all users from ledger as part of cleanup.")
     } yield a
 //    fa.transformWith { ta =>
 
@@ -171,7 +182,7 @@ class IntegrationTest
           _ <- createUser("user-name-1", partyDetails.party)
           _ <- createUser("user-name-2", partyDetails.party)
           _ <- okSessionBody(
-            """{"method":{"type":"select","users":["user-name-1"]},"type":"sign-in"}"""
+            """{"method":{"type":"select","users":["user-name-1","user-name-2"]},"type":"sign-in"}"""
           )
         } yield succeed
     }
