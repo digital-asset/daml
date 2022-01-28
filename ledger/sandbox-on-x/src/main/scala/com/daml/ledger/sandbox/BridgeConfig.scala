@@ -110,5 +110,5 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     stackTraces = false,
   )
 
-  val DefaultMaximumDeduplicationTime: Duration = Duration.ofHours(1L)
+  val DefaultMaximumDeduplicationTime: Duration = Duration.ofMinutes(5L)
 }
