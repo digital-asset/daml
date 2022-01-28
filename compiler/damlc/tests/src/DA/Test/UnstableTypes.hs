@@ -39,33 +39,23 @@ main = do
                       , LF.getIsSerializable (LF.dataSerializable ty)
                       ]
               if | "daml-prim" == takeBaseName dalf ->
-                   serializableTypes @?= sort (damlPrimTypes (LF.packageLfVersion pkg))
+                   serializableTypes @?= sort damlPrimTypes
                  | "daml-stdlib" `isPrefixOf` takeBaseName dalf ->
-                   serializableTypes @?= sort (damlStdlibTypes (LF.packageLfVersion pkg))
+                   serializableTypes @?= sort damlStdlibTypes
                  | otherwise ->
                    assertFailure ("Unknown package: " <> show dalf)
               pure ()
         | dalf <- dalfs
         ]
 
-damlPrimTypes :: LF.Version -> [(LF.ModuleName, LF.TypeConName)]
-damlPrimTypes _ver = map (bimap LF.ModuleName LF.TypeConName)
+damlPrimTypes :: [(LF.ModuleName, LF.TypeConName)]
+damlPrimTypes = map (bimap LF.ModuleName LF.TypeConName)
     [ (["GHC", "Stack", "Types"], ["CallStack"])
     , (["GHC", "Stack", "Types"], ["SrcLoc"])
     ]
 
-damlStdlibTypes :: LF.Version -> [(LF.ModuleName, LF.TypeConName)]
-damlStdlibTypes ver
-    | ver == LF.version1_6 = anyTypes <> damlStdlibTypes LF.version1_7
-    | otherwise = types
-  where
-    anyTypes = map (bimap LF.ModuleName LF.TypeConName)
-        [ (["DA", "Internal", "Any"], ["AnyChoice"])
-        , (["DA", "Internal", "Any"], ["AnyContractKey"])
-        , (["DA", "Internal", "Any"], ["AnyTemplate"])
-        , (["DA", "Internal", "Any"], ["TemplateTypeRep"])
-        ]
-    types = map (bimap LF.ModuleName LF.TypeConName)
-        [ (["DA", "Random"], ["Minstd"])
-        , (["DA", "Stack"], ["SrcLoc"])
-        ]
+damlStdlibTypes :: [(LF.ModuleName, LF.TypeConName)]
+damlStdlibTypes = map (bimap LF.ModuleName LF.TypeConName)
+    [ (["DA", "Random"], ["Minstd"])
+    , (["DA", "Stack"], ["SrcLoc"])
+    ]
