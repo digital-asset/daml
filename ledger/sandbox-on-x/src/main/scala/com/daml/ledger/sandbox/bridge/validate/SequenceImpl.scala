@@ -259,15 +259,7 @@ private[validate] class SequenceImpl(
           DuplicateCommand(changeId, completionInfo),
         )
       case _: DeduplicationPeriod.DeduplicationOffset =>
-        Left(
-          Rejection
-            .LedgerBridgeInternalError(
-              new RuntimeException(
-                "Deduplication offset periods are not supported in Sandbox-on-X ledger bridge"
-              ),
-              completionInfo,
-            )
-        )
+        Left(Rejection.OffsetDeduplicationPeriodUnsupported(completionInfo))
     }
 
   private def validateParties(

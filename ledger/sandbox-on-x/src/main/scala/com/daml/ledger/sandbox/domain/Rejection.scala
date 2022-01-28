@@ -64,6 +64,14 @@ private[sandbox] object Rejection {
       .rpcStatus(completionInfo.submissionId)
   }
 
+  final case class OffsetDeduplicationPeriodUnsupported(completionInfo: CompletionInfo)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ) extends Rejection {
+    override def toStatus: Status = LedgerApiErrors.UnsupportedFeature
+      .Reject("offset-type deduplication period")
+      .rpcStatus(completionInfo.submissionId)
+  }
+
   final case class TransactionInternallyInconsistentKey(
       key: GlobalKey,
       completionInfo: CompletionInfo,

@@ -52,6 +52,7 @@ object ErrorCategory {
       InvalidGivenCurrentSystemStateResourceMissing,
       InvalidGivenCurrentSystemStateSeekAfterEnd,
       BackgroundProcessDegradationWarning,
+      InternalUnsupportedOperation,
     )
 
   def fromInt(ii: Int): Option[ErrorCategory] = all.find(_.asInt == ii)
@@ -332,8 +333,28 @@ object ErrorCategory {
       )
       with ErrorCategory
 
-  implicit val orderingErrorType: Ordering[ErrorCategory] = Ordering.by[ErrorCategory, Int](_.rank)
+  @Description(
+    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request.
+      |Such an error can arise expectedly if the operator submits an admin request against a participant that does not, partly or fully,
+      |support the targeted feature. This error can also arise when a user request ends up leveraging, unexpectedly, an unsupported feature."""
+  )
+  @RetryStrategy("""Errors in this category are non-retryable.""")
+  @Resolution(
+    """This error is caused by a ledger-level misconfiguration or by an implementation bug.
+      |Resolution requires ledger operator intervention or vendor support."""
+  )
+  object InternalUnsupportedOperation
+      extends ErrorCategoryImpl(
+        grpcCode = Some(Code.UNIMPLEMENTED),
+        logLevel = Level.ERROR,
+        retryable = None,
+        securitySensitive = true,
+        asInt = 14,
+        rank = 1,
+      )
+      with ErrorCategory
 
+  implicit val orderingErrorType: Ordering[ErrorCategory] = Ordering.by[ErrorCategory, Int](_.rank)
 }
 
 // TODO error codes: `who` is not used?

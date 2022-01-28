@@ -28,6 +28,25 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   val EarliestOffsetMetadataKey = "earliest_offset"
 
   @Explanation(
+    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request."""
+  )
+  @Resolution(
+    """This error is caused by a ledger-level misconfiguration or by an implementation bug.
+      |Resolution requires ledger operator intervention or vendor support."""
+  )
+  object UnsupportedFeature
+      extends ErrorCode(
+        id = "UNSUPPORTED_FEATURE",
+        ErrorCategory.InternalUnsupportedOperation,
+      ) {
+
+    case class Reject(unsupportedFeature: String)(implicit errorLogger: ContextualizedErrorLogger)
+        extends LoggingTransactionErrorImpl(
+          cause = s"The request exercised an unsupported ledger feature: $unsupportedFeature"
+        )
+  }
+
+  @Explanation(
     """This error occurs when a participant rejects a command due to excessive load.
         |Load can be caused by the following factors:
         |1. when commands are submitted to the participant through its Ledger API,
