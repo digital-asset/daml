@@ -15,8 +15,9 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
 import org.slf4j.event.Level
-
 import java.time.{Duration, Instant}
+
+import scala.concurrent.duration._
 
 @Explanation(
   "Errors raised by or forwarded by the Ledger API."
@@ -286,8 +287,30 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
   }
 
-  @Explanation("Authentication errors.")
+  @Explanation("Authentication and authorization errors.")
   object AuthorizationChecks extends ErrorGroup() {
+
+    @Explanation("""The stream was aborted because the authenticated user's rights changed,
+        |and the user might thus no longer be authorized to this stream.
+        |""")
+    @Resolution(
+      "The application should automatically retry fetching the stream. It will either succeed, or fail with an explicit denial of authentication or permission."
+    )
+    object StaleUserManagementBasedStreamClaims
+        extends ErrorCode(
+          id = "STALE_STREAM_AUTHORIZATION",
+          ErrorCategory.ContentionOnSharedResources,
+        ) {
+      case class Reject()(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl("Stale stream authorization. Retry quickly.") {
+        override def retryable: Option[ErrorCategoryRetry] = Some(
+          ErrorCategoryRetry(who = "application", duration = 0.seconds)
+        )
+      }
+
+    }
+
     @Explanation(
       """This rejection is given if the submitted command does not contain a JWT token on a participant enforcing JWT authentication."""
     )

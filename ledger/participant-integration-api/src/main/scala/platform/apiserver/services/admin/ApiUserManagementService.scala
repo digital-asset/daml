@@ -29,7 +29,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 private[apiserver] final class ApiUserManagementService(
-    userManagementService: UserManagementStore,
+    userManagementStore: UserManagementStore,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
     maxUsersPageSize: Int,
 )(implicit
@@ -62,7 +62,7 @@ private[apiserver] final class ApiUserManagementService(
         pRights <- fromProtoRights(request.rights)
       } yield (User(pUserId, pOptPrimaryParty), pRights)
     } { case (user, pRights) =>
-      userManagementService
+      userManagementStore
         .createUser(
           user = user,
           rights = pRights,
@@ -75,7 +75,7 @@ private[apiserver] final class ApiUserManagementService(
     withValidation(
       requireUserId(request.userId, "user_id")
     )(userId =>
-      userManagementService
+      userManagementStore
         .getUser(userId)
         .flatMap(handleResult("getting user"))
         .map(toProtoUser)
@@ -85,7 +85,7 @@ private[apiserver] final class ApiUserManagementService(
     withValidation(
       requireUserId(request.userId, "user_id")
     )(userId =>
-      userManagementService
+      userManagementStore
         .deleteUser(userId)
         .flatMap(handleResult("deleting user"))
         .map(_ => proto.DeleteUserResponse())
@@ -99,7 +99,7 @@ private[apiserver] final class ApiUserManagementService(
         fromExcl
       }
     ) { fromExcl =>
-      userManagementService
+      userManagementStore
         .listUsers(fromExcl, Math.min(request.pageSize, maxUsersPageSize))
         .flatMap(handleResult("listing users"))
         .map { page: UserManagementStore.UsersPage =>
@@ -118,7 +118,7 @@ private[apiserver] final class ApiUserManagementService(
         rights <- fromProtoRights(request.rights)
       } yield (userId, rights)
     ) { case (userId, rights) =>
-      userManagementService
+      userManagementStore
         .grantRights(
           id = userId,
           rights = rights,
@@ -137,7 +137,7 @@ private[apiserver] final class ApiUserManagementService(
         rights <- fromProtoRights(request.rights)
       } yield (userId, rights)
     ) { case (userId, rights) =>
-      userManagementService
+      userManagementStore
         .revokeRights(
           id = userId,
           rights = rights,
@@ -153,7 +153,7 @@ private[apiserver] final class ApiUserManagementService(
     withValidation(
       requireUserId(request.userId, "user_id")
     )(userId =>
-      userManagementService
+      userManagementStore
         .listUserRights(userId)
         .flatMap(handleResult("list user rights"))
         .map(_.view.map(toProtoRight).toList)

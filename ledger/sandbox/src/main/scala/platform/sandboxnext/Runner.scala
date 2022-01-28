@@ -292,6 +292,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
               v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
             ),
           ),
+          userManagementConfig = config.userManagementConfig,
         )
         _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
       } yield {

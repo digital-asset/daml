@@ -107,12 +107,19 @@ da_scala_binary(
             srcs = suites_sources(lf_version),
             scala_deps = [
                 "@maven//:com_chuusai_shapeless",
+                "@maven//:com_typesafe_akka_akka_actor",
+                "@maven//:com_typesafe_akka_akka_stream",
             ],
             scaladoc = False,
             visibility = [
                 "//:__subpackages__",
             ],
             deps = [
+                "//ledger-api/rs-grpc-bridge",
+                "//ledger-service/jwt",
+                "//ledger/ledger-api-client",
+                "//ledger/ledger-api-domain",
+                "@maven//:com_auth0_java_jwt",
                 ":ledger-api-test-tool-%s-lib" % lf_version,
                 "//daml-lf/data",
                 "//language-support/scala/bindings",

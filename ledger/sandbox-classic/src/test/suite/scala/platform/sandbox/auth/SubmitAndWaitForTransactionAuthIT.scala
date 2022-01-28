@@ -14,9 +14,9 @@ final class SubmitAndWaitForTransactionAuthIT
   override def serviceCallName: String = "CommandService#SubmitAndWaitForTransaction"
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    submitAndWaitForTransaction(token)
+    submitAndWaitForTransaction(token, party = mainActor)
 
   override def serviceCallWithoutApplicationId(token: Option[String]): Future[Any] =
-    submitAndWaitForTransaction(token, "")
+    submitAndWaitForTransaction(token, "", party = mainActor)
 
 }
