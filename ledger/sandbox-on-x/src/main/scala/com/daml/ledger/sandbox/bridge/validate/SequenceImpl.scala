@@ -54,7 +54,7 @@ private[validate] class SequenceImpl(
   @volatile private[validate] var allocatedParties = initialAllocatedParties
   @volatile private[validate] var ledgerConfiguration = initialLedgerConfiguration
   @volatile private[validate] var deduplicationState =
-    DeduplicationState.empty(maxDeduplicationDuration, wallClockTime)
+    DeduplicationState.empty(maxDeduplicationDuration, wallClockTime, bridgeMetrics)
 
   override def apply(): Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)] =
     in => {

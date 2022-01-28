@@ -3,8 +3,11 @@
 
 package com.daml.ledger.sandbox.bridge.validate
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v2.ChangeId
+import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.lf.data.{Ref, Time}
+import com.daml.metrics.Metrics
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -17,11 +20,13 @@ class DeduplicateStateSpec extends AnyFlatSpec with Matchers {
   behavior of classOf[DeduplicationState].getSimpleName
 
   private val initialTime = Time.Timestamp.now()
+  private val bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry))
 
   it should "deduplicate commands within the requested deduplication window" in {
     val deduplicationState = DeduplicationState.empty(
       deduplicationDuration = Duration.ofMinutes(3L),
       currentTime = currentTimeMock,
+      bridgeMetrics = bridgeMetrics,
     )
 
     deduplicationState
@@ -50,6 +55,7 @@ class DeduplicateStateSpec extends AnyFlatSpec with Matchers {
     val deduplicationState = DeduplicationState.empty(
       deduplicationDuration = Duration.ofMinutes(2L),
       currentTime = currentTimeMock,
+      bridgeMetrics = bridgeMetrics,
     )
 
     deduplicationState
@@ -88,6 +94,7 @@ class DeduplicateStateSpec extends AnyFlatSpec with Matchers {
         .empty(
           deduplicationDuration = maxDeduplicationDuration,
           currentTime = currentTimeMock,
+          bridgeMetrics = bridgeMetrics,
         )
         .deduplicate(changeId(1337), commandDeduplicationDuration)
     ) match {

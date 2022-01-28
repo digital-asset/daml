@@ -4,6 +4,7 @@
 package com.daml.ledger.sandbox.bridge.validate
 
 import com.daml.ledger.participant.state.v2.ChangeId
+import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.DeduplicationState.DeduplicationQueue
 import com.daml.lf.data.Time
 
@@ -14,12 +15,14 @@ case class DeduplicationState private (
     private[validate] val deduplicationQueue: DeduplicationQueue,
     private val maxDeduplicationDuration: Duration,
     private val currentTime: () => Time.Timestamp,
+    private val bridgeMetrics: BridgeMetrics,
 ) {
 
   def deduplicate(
       changeId: ChangeId,
       commandDeduplicationDuration: Duration,
   ): (DeduplicationState, Boolean) = {
+    bridgeMetrics.SequencerState.deduplicationQueueLength.update(deduplicationQueue.size)
     if (commandDeduplicationDuration.compareTo(maxDeduplicationDuration) > 0)
       throw new RuntimeException(
         s"Cannot deduplicate for a period ($commandDeduplicationDuration) longer than the max deduplication duration ($maxDeduplicationDuration)."
@@ -54,10 +57,12 @@ object DeduplicationState {
   private[validate] def empty(
       deduplicationDuration: Duration,
       currentTime: () => Time.Timestamp,
+      bridgeMetrics: BridgeMetrics,
   ): DeduplicationState =
     DeduplicationState(
       deduplicationQueue = VectorMap.empty,
       maxDeduplicationDuration = deduplicationDuration,
       currentTime = currentTime,
+      bridgeMetrics = bridgeMetrics,
     )
 }
