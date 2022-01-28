@@ -157,7 +157,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   lazy val delayMechanism: DelayMechanism = if (features.staticTime) {
     new StaticTimeDelayMechanism(this)
-  } else new TimeDelayMechanism()
+  } else
+    new TimeDelayMechanism()
 
   override def toString: String = s"participant $endpointId"
 
