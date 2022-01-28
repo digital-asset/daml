@@ -57,7 +57,7 @@ jobs:
     timeoutInMinutes: 720
     pool:
       name: windows-pool
-      demands: assignment -equals default
+      demands: assignment -equals pinned
     steps:
       - checkout: self
       - template: ../compatibility-windows.yml

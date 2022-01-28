@@ -14,12 +14,112 @@ locals {
       size       = 6,
       assignment = "default",
       disk_size  = 400,
+      pinning    = "",
     },
     {
       name       = "ci-w2"
-      size       = 0,
-      assignment = "default",
+      size       = 1,
+      assignment = "pinned",
       disk_size  = 400,
+      pinning    = <<EOF
+
+# Set workdir <> job mappings
+New-Item -ItemType Directory -Path 'D:\a'
+New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping'
+New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2'
+New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\33'
+New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\33\e55e0f7708a35956d0fcb3ec3f6087d9e2e1cd4b'
+Set-Content -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\33\e55e0f7708a35956d0fcb3ec3f6087d9e2e1cd4b\SourceFolder.json' `
+  -Value '{
+  "build_artifactstagingdirectory": "1\\a",
+  "agent_builddirectory": "1",
+  "collectionUrl": "https://dev.azure.com/digitalasset/",
+  "definitionName": "digital-asset.daml-daily-compat",
+  "repositoryTrackingInfo": [
+    {
+      "identifier": "self",
+      "repositoryType": "GitHub",
+      "repositoryUrl": "https://github.com/digital-asset/daml",
+      "sourcesDirectory": "1\\s\\daml"
+    }
+  ],
+  "fileFormatVersion": 3,
+  "lastRunOn": "01/26/2022 06:02:24 +00:00",
+  "repositoryType": "GitHub",
+  "lastMaintenanceAttemptedOn": "",
+  "lastMaintenanceCompletedOn": "",
+  "build_sourcesdirectory": "1\\s",
+  "common_testresultsdirectory": "1\\TestResults",
+  "collectionId": "cb88e308-485c-40f9-81b5-dcabba9e55d2",
+  "definitionId": "33",
+  "hashKey": "e55e0f7708a35956d0fcb3ec3f6087d9e2e1cd4b",
+  "repositoryUrl": "https://github.com/digital-asset/daml",
+  "system": "build"
+}'
+New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\39'
+New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\39\55f020fa694a8855ee0847c05346f0bcf9a1308d'
+Set-Content -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\39\55f020fa694a8855ee0847c05346f0bcf9a1308d\SourceFolder.json' `
+  -Value '{
+  "build_artifactstagingdirectory": "2\\a",
+  "agent_builddirectory": "2",
+  "collectionUrl": "https://dev.azure.com/digitalasset/",
+  "definitionName": "PRs",
+  "repositoryTrackingInfo": [
+    {
+      "identifier": "self",
+      "repositoryType": "GitHub",
+      "repositoryUrl": "https://github.com/digital-asset/daml",
+      "sourcesDirectory": "2\\s\\daml"
+    }
+  ],
+  "fileFormatVersion": 3,
+  "lastRunOn": "01/26/2022 15:46:13 +00:00",
+  "repositoryType": "GitHub",
+  "lastMaintenanceAttemptedOn": "",
+  "lastMaintenanceCompletedOn": "",
+  "build_sourcesdirectory": "2\\s",
+  "common_testresultsdirectory": "2\\TestResults",
+  "collectionId": "cb88e308-485c-40f9-81b5-dcabba9e55d2",
+  "definitionId": "39",
+  "hashKey": "55f020fa694a8855ee0847c05346f0bcf9a1308d",
+  "repositoryUrl": "https://github.com/digital-asset/daml",
+  "system": "build"
+}'
+New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\4'
+New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\4\7d0e386214448f3482003fba798ec97e2a2d504f'
+Set-Content -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\4\7d0e386214448f3482003fba798ec97e2a2d504f\SourceFolder.json' `
+  -Value '{
+  "build_artifactstagingdirectory": "3\\a",
+  "agent_builddirectory": "3",
+  "collectionUrl": "https://dev.azure.com/digitalasset/",
+  "definitionName": "digital-asset.daml",
+  "repositoryTrackingInfo": [
+    {
+      "identifier": "self",
+      "repositoryType": "GitHub",
+      "repositoryUrl": "https://github.com/digital-asset/daml",
+      "sourcesDirectory": "3\\s\\daml"
+    }
+  ],
+  "fileFormatVersion": 3,
+  "lastRunOn": "01/28/2022 11:43:49 +00:00",
+  "repositoryType": "GitHub",
+  "lastMaintenanceAttemptedOn": "",
+  "lastMaintenanceCompletedOn": "",
+  "build_sourcesdirectory": "3\\s",
+  "common_testresultsdirectory": "3\\TestResults",
+  "collectionId": "cb88e308-485c-40f9-81b5-dcabba9e55d2",
+  "definitionId": "4",
+  "hashKey": "7d0e386214448f3482003fba798ec97e2a2d504f",
+  "repositoryUrl": "https://github.com/digital-asset/daml",
+  "system": "build"
+}'
+Set-Content -Path 'D:\a\SourceRootMapping\Mappings.json' -Value '{
+  "lastBuildFolderCreatedOn": "01/28/2022 11:43:49 +00:00",
+  "lastBuildFolderNumber": 3
+}'
+# end folder pinning
+EOF
     },
   ]
 }
@@ -163,7 +263,7 @@ echo "== Installing the VSTS agent"
 
 New-Item -ItemType Directory -Path 'C:\agent'
 Set-Content -Path 'C:\agent\.capabilities' -Value 'assignment=${local.w[count.index].assignment}'
-
+${local.w[count.index].pinning}
 $MachineName = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object CSName | ForEach{ $_.CSName }
 choco install azure-pipelines-agent --no-progress --yes --params "'/Token:${local.vsts_token} /Pool:${local.vsts_pool} /Url:https://dev.azure.com/${local.vsts_account}/ /LogonAccount:$Account /LogonPassword:$Password /Work:D:\a /AgentName:$MachineName /Replace'"
 echo OK
