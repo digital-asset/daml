@@ -13,13 +13,6 @@ trait DelayMechanism {
   def delayBy(duration: Duration): Future[Unit]
 }
 
-object DelayMechanism {
-  def apply(ledger: ParticipantTestContext)(implicit ec: ExecutionContext): DelayMechanism =
-    if (ledger.features.staticTime) {
-      new StaticTimeDelayMechanism(ledger)
-    } else new TimeDelayMechanism()
-}
-
 class TimeDelayMechanism()(implicit ec: ExecutionContext) extends DelayMechanism {
   override def delayBy(duration: Duration): Future[Unit] = Delayed.by(duration)(())
 }

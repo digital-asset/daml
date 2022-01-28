@@ -8,6 +8,11 @@ import java.time.{Clock, Instant}
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
+import com.daml.ledger.api.testtool.infrastructure.time.{
+  DelayMechanism,
+  StaticTimeDelayMechanism,
+  TimeDelayMechanism,
+}
 import com.daml.ledger.api.testtool.infrastructure.{
   Endpoint,
   Identification,
@@ -149,6 +154,10 @@ private[testtool] final class ParticipantTestContext private[participant] (
   private[this] val workflowId: String = s"$applicationId-$identifierSuffix"
   val nextKeyId: () => String = nextIdGenerator("key")
   val nextUserId: () => String = nextIdGenerator("user", lowerCase = true)
+
+  val delayMechanism: DelayMechanism = if (features.staticTime) {
+    new StaticTimeDelayMechanism(this)
+  } else new TimeDelayMechanism()
 
   override def toString: String = s"participant $endpointId"
 

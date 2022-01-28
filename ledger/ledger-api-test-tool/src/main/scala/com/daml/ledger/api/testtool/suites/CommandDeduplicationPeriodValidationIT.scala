@@ -174,7 +174,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
             )
         )
     }
-    val isOffsetNativlySupported =
+    val isOffsetNativelySupported =
       ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport.isOffsetNativeSupport
     for {
       start <- ledger.currentEnd()
@@ -199,7 +199,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
         // Canton returns INVALID_DEDUPLICATION_PERIOD with earliest_offset metadata
         // KV returns PARTICIPANT_PRUNED_DATA_ACCESSED with earliest_offset metadata
         selfServiceErrorCode =
-          if (isOffsetNativlySupported)
+          if (isOffsetNativelySupported)
             LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
           else LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
         None,
@@ -208,28 +208,34 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       _ <-
         // Because KV treats deduplication offsets as inclusive, and because the participant pruning offset is inclusive
         // we cannot simply use the received offset as a deduplication period, but we have to find the first completion after the given offset
-        if (isOffsetNativlySupported) {
+        if (isOffsetNativelySupported) {
           submitAndWaitWithDeduplication(
-            DeduplicationPeriod.DeduplicationOffset(
-              earliestOffset
-            )
+            DeduplicationPeriod.DeduplicationOffset(earliestOffset)
           )
         } else {
-          for {
-            completionOpt <-
-              ledger.findCompletion(
-                ledger.completionStreamRequest(
-                  LedgerOffset.of(LedgerOffset.Value.Absolute(earliestOffset))
-                )(party)
-              )(_ => true)
-            completion = assertDefined(completionOpt, "No completion found")
-            _ <- submitAndWaitWithDeduplication(
-              DeduplicationPeriod.DeduplicationOffset(completion.offset.getAbsolute)
-            )
-          } yield {}
+          findFirstOffsetAfterGivenOffset(ledger, earliestOffset)(party).flatMap(offset =>
+            submitAndWaitWithDeduplication(DeduplicationPeriod.DeduplicationOffset(offset))
+          )
         }
     } yield {}
   })
+
+  private def findFirstOffsetAfterGivenOffset(ledger: ParticipantTestContext, offset: String)(
+      party: Primitive.Party
+  )(implicit ec: ExecutionContext) = {
+    ledger
+      .findCompletion(
+        ledger.completionStreamRequest(
+          LedgerOffset.of(LedgerOffset.Value.Absolute(offset))
+        )(party)
+      )(_ => true)
+      .map { completionOpt =>
+        {
+          val completion = assertDefined(completionOpt, "No completion found")
+          completion.offset.getAbsolute
+        }
+      }
+  }
 
   private def assertSyncFailedRequest(
       ledger: ParticipantTestContext,

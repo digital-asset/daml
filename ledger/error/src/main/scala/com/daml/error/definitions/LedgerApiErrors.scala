@@ -431,7 +431,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       ) extends LoggingTransactionErrorImpl(cause = cause) {
 
         override def context: Map[String, String] =
-          super.context ++ Map("earliest_offset" -> _earliestOffset)
+          super.context + ("earliest_offset" -> _earliestOffset)
       }
     }
 

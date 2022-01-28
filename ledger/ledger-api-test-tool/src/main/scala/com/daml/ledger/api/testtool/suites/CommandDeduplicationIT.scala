@@ -20,7 +20,6 @@ import com.daml.ledger.api.testtool.infrastructure.assertions.CommandDeduplicati
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.{
   CompletionResponse,
-  Features,
   ParticipantTestContext,
 }
 import com.daml.ledger.api.testtool.infrastructure.time.DelayMechanism
@@ -227,7 +226,7 @@ final class CommandDeduplicationIT(
           generateVariations(List.fill(numberOfCalls)(List(true, false))).zip(parties)
         forAllParallel(allGeneratedVariations) {
           case (firstCall :: secondCall :: thirdCall :: fourthCall :: Nil, party) =>
-            mixedClientsCommandDeduplicationTestCase(ledger, party, DelayMechanism(ledger), skews)(
+            mixedClientsCommandDeduplicationTestCase(ledger, party, ledger.delayMechanism, skews)(
               firstCall,
               secondCall,
               thirdCall,
@@ -488,7 +487,7 @@ final class CommandDeduplicationIT(
             maxRetryDuration = deduplicationDurationFromPeriod + skews + 10.seconds,
             description =
               s"The deduplication period expires and the request is accepted for the commands ${request.getCommands}.",
-            delayMechanism = DelayMechanism(ledger),
+            delayMechanism = ledger.delayMechanism,
           ) {
             submitRequestAndAssertCompletionAccepted(
               ledger,
@@ -562,7 +561,7 @@ final class CommandDeduplicationIT(
           )
           // Wait for any ledgers that might adjust based on time skews
           // This is done so that we can validate that the third command is accepted
-          _ <- delayForOffsetIfRequired(ledger, DelayMechanism(ledger), ledger.features)
+          _ <- delayForOffsetIfRequired(ledger)
           // Submit command again using the first offset as the deduplication offset
           response2 <- submitRequestAndAssertAsyncDeduplication(
             ledger,
@@ -611,11 +610,9 @@ final class CommandDeduplicationIT(
   )
 
   private def delayForOffsetIfRequired(
-      participantTestContext: ParticipantTestContext,
-      delayMechanism: DelayMechanism,
-      features: Features,
+      ledger: ParticipantTestContext
   )(implicit ec: ExecutionContext): Future[Unit] =
-    features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport match {
+    ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport match {
       case OffsetSupport.OFFSET_NATIVE_SUPPORT =>
         Future.unit
       case OffsetSupport.OFFSET_CONVERT_TO_DURATION =>
@@ -624,10 +621,10 @@ final class CommandDeduplicationIT(
         //
         // the duration is extended with up to minSkew + maxSkew when using pre-execution,
         // as we use maxRecordTime and minRecordTime to calculate the interval between the two commands
-        participantTestContext
+        ledger
           .getTimeModel()
           .flatMap(response => {
-            delayMechanism.delayBy(
+            ledger.delayMechanism.delayBy(
               response.getTimeModel.getMaxSkew.asScala +
                 2 * response.getTimeModel.getMinSkew.asScala
             )

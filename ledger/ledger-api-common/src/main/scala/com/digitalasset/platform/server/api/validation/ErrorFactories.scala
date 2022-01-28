@@ -3,12 +3,16 @@
 
 package com.daml.platform.server.api.validation
 
+import java.sql.{SQLNonTransientException, SQLTransientException}
+import java.time.{Duration, Instant}
+
 import com.daml.error.ErrorCode.ApiException
 import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref.TransactionId
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
@@ -24,10 +28,6 @@ import io.grpc.Status.Code
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
-import java.sql.{SQLNonTransientException, SQLTransientException}
-import java.time.{Duration, Instant}
-
-import com.daml.ledger.offset.Offset
 
 import scala.annotation.nowarn
 
