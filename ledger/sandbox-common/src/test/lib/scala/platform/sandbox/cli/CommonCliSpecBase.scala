@@ -390,7 +390,7 @@ abstract class CommonCliSpecBase(
       // default
       checkOption(
         Array.empty,
-        _.withUserManagementConfig(_.copy(maximumCacheSize = 100)),
+        _.withUserManagementConfig(_.copy(maxCacheSize = 100)),
       )
       // custom value
       checkOption(
@@ -398,7 +398,7 @@ abstract class CommonCliSpecBase(
           "--user-management-max-cache-size",
           "123",
         ),
-        _.withUserManagementConfig(_.copy(maximumCacheSize = 123)),
+        _.withUserManagementConfig(_.copy(maxCacheSize = 123)),
       )
     }
 

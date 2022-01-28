@@ -57,7 +57,9 @@ class CachedUserManagementStore(
   }
 
   override def createUser(user: User, rights: Set[domain.UserRight]): Future[Result[Unit]] =
-    delegate.createUser(user, rights)
+    delegate
+      .createUser(user, rights)
+      .andThen(invalidateOnSuccess(user.id))
 
   override def deleteUser(id: UserId): Future[Result[Unit]] = {
     delegate

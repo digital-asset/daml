@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, ExecuteCommandRequest } from 'vscode-languageclient';
+import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, ExecuteCommandRequest } from 'vscode-languageclient/node';
 import { Uri, ViewColumn, window, QuickPickOptions, ExtensionContext, WorkspaceConfiguration } from 'vscode';
 import * as which from 'which';
 import * as util from 'util';
@@ -310,7 +310,7 @@ function keepAlive() {
 
 namespace DamlKeepAliveRequest {
     export let type =
-      new RequestType<void, void, void, void>('daml/keepAlive');
+      new RequestType<void, void, void>('daml/keepAlive');
 }
 
 // Custom notifications
@@ -325,7 +325,7 @@ interface VirtualResourceChangedParams {
 
 namespace DamlVirtualResourceDidChangeNotification {
     export let type =
-      new NotificationType<VirtualResourceChangedParams, void>(
+      new NotificationType<VirtualResourceChangedParams>(
         'daml/virtualResource/didChange'
       );
 }
@@ -340,7 +340,7 @@ interface VirtualResourceNoteParams {
 
 namespace DamlVirtualResourceNoteNotification {
     export let type =
-      new NotificationType<VirtualResourceNoteParams, void>(
+      new NotificationType<VirtualResourceNoteParams>(
         'daml/virtualResource/note'
       );
 }

@@ -33,16 +33,6 @@ class ContractStorageBackendTemplate(
 ) extends ContractStorageBackend {
   import com.daml.platform.store.Conversions.ArrayColumnToIntArray._
 
-  override def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId] =
-    contractKey(
-      resultColumns = List("contract_id"),
-      resultParser = contractId("contract_id"),
-    )(
-      readers = None,
-      key = key,
-      validAt = ledgerEndCache()._2,
-    )(connection)
-
   private def emptyContractIds: Throwable =
     new IllegalArgumentException(
       "Cannot lookup the maximum ledger time for an empty set of contract identifiers"

@@ -319,6 +319,33 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
       }
 
     }
+
+    "reject unserializable interface definitions" in {
+
+      val pkg =
+        p"""
+          module NegativeTestCase {
+            interface (this: Token) = {
+              precondition False;
+              choice GetContractId (self) (u:Unit) : ContractId NegativeTestCase:Token
+                , controllers Nil @Party
+                to upure @(ContractId NegativeTestCase:Token) self;
+            } ;
+          }
+
+          module PositiveTestCase {
+            interface (this: Token) = {
+              precondition False;
+              choice GetToken (self) (u:Unit) : PositiveTestCase:Token
+                , controllers Nil @Party
+                to upure @(PositiveTestCase:Token) this;
+            } ;
+          }
+        """
+
+      check(pkg, "NegativeTestCase")
+      an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, "PositiveTestCase"))
+    }
   }
 
   private val defaultPkg =

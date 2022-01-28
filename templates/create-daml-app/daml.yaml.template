@@ -10,9 +10,6 @@ dependencies:
 - daml-prim
 - daml-stdlib
 - daml-trigger
-sandbox-options:
-- --wall-clock-time
-- --ledgerid=__PROJECT_NAME__-sandbox
 start-navigator: false
 codegen:
   js:

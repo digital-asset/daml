@@ -664,11 +664,11 @@ object Config {
         opt[Int]("user-management-max-cache-size")
           .optional()
           .text(
-            s"Defaults to ${UserManagementConfig.DefaultMaximumCacheSize} entries. " +
+            s"Defaults to ${UserManagementConfig.DefaultMaxCacheSize} entries. " +
               "Determines the maximum in-memory cache size for user management state."
           )
           .action((value, config: Config[Extra]) =>
-            config.withUserManagementConfig(_.copy(maximumCacheSize = value))
+            config.withUserManagementConfig(_.copy(maxCacheSize = value))
           )
 
         opt[Int]("max-users-page-size")

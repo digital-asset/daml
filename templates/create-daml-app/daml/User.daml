@@ -6,6 +6,7 @@ module User where
 -- MAIN_TEMPLATE_BEGIN
 template User with
     username: Party
+    public: Party
     following: [Party]
   where
     signatory username
@@ -25,3 +26,22 @@ template User with
         archive self
         create this with following = userToFollow :: following
     -- FOLLOW_END
+
+-- ALIAS_BEGIN
+template Alias with
+    username: Party
+    alias: Text
+    public: Party
+  where
+    signatory public
+
+    key (username, public): (Party, Party)
+    maintainer key._2
+
+    nonconsuming choice Change: ContractId Alias with
+        newAlias: Text
+      controller username
+      do
+        archive self
+        create this with alias = newAlias
+-- ALIAS_END

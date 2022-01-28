@@ -634,8 +634,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         } if use_integer_simple else {},
         haddock = False,
         local_snapshot = "//:ghcide-snapshot.yaml",
-        stack_snapshot_json =
-            "//:ghcide_snapshot_windows.json" if is_windows else "//:ghcide_snapshot.json",
+        stack_snapshot_json = "//:ghcide_snapshot.json",
         packages = [
             "ghcide",
         ],
@@ -644,4 +643,4 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         vendored_packages = {
             "zip": "@zip//:zip",
         },
-    )
+    ) if not is_windows else None

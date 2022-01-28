@@ -3,6 +3,7 @@
 package com.daml.platform.store.appendonlydao
 
 import akka.NotUsed
+import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlContextualizedErrorLogger
@@ -26,9 +27,8 @@ import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.Metrics
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -38,17 +38,9 @@ import com.daml.platform.store.backend.{
   ReadStorageBackend,
 }
 import com.daml.platform.store.cache.LedgerEndCache
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interning.StringInterning
 import com.daml.platform.store.utils.QueueBasedConcurrencyLimiter
-import java.sql.Connection
-
-import akka.stream.Materializer
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -63,10 +55,8 @@ private class JdbcLedgerDao(
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
     acsIdQueueLimit: Int,
-    performPostCommitValidation: Boolean,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
-    validatePartyAllocation: Boolean,
     enricher: Option[ValueEnricher],
     sequentialIndexer: SequentialWriteDao,
     participantId: Ref.ParticipantId,
@@ -157,47 +147,12 @@ private class JdbcLedgerDao(
       dbDispatcher.executeSql(
         metrics.daml.index.db.storeConfigurationEntryDbMetrics
       ) { implicit conn =>
-        val optCurrentConfig =
-          readStorageBackend.configurationStorageBackend.ledgerConfiguration(conn)
-        val optExpectedGeneration: Option[Long] =
-          optCurrentConfig.map { case (_, c) => c.generation + 1 }
-        val finalRejectionReason: Option[String] =
-          optExpectedGeneration match {
-            case Some(expGeneration)
-                if rejectionReason.isEmpty && expGeneration != configuration.generation =>
-              // If we're not storing a rejection and the new generation is not succ of current configuration, then
-              // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
-              // pattern as with transactions.
-              Some(
-                s"Generation mismatch: expected=$expGeneration, actual=${configuration.generation}"
-              )
-
-            case _ =>
-              // Rejection reason was set, or we have no previous configuration generation, in which case we accept any
-              // generation.
-              rejectionReason
-          }
-
-        val update = finalRejectionReason match {
-          case None =>
-            state.Update.ConfigurationChanged(
-              recordTime = recordedAt,
-              submissionId = Ref.SubmissionId.assertFromString(submissionId),
-              participantId =
-                Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
-              newConfiguration = configuration,
-            )
-
-          case Some(reason) =>
-            state.Update.ConfigurationChangeRejected(
-              recordTime = recordedAt,
-              submissionId = Ref.SubmissionId.assertFromString(submissionId),
-              participantId =
-                Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
-              proposedConfiguration = configuration,
-              rejectionReason = reason,
-            )
-        }
+        val update = state.Update.ConfigurationChanged(
+          recordTime = recordedAt,
+          submissionId = Ref.SubmissionId.assertFromString(submissionId),
+          participantId = Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
+          newConfiguration = configuration,
+        )
 
         sequentialIndexer.store(conn, offset, Some(update))
         PersistenceResponse.Ok
@@ -271,20 +226,6 @@ private class JdbcLedgerDao(
     }
   }
 
-  private def validate(
-      ledgerEffectiveTime: Timestamp,
-      transaction: CommittedTransaction,
-      divulged: Iterable[state.DivulgedContract],
-  )(implicit connection: Connection): Option[PostCommitValidation.Rejection] =
-    Timed.value(
-      metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
-      postCommitValidation.validate(
-        transaction = transaction,
-        transactionLedgerEffectiveTime = ledgerEffectiveTime,
-        divulged = divulged.iterator.map(_.contractId).toSet,
-      ),
-    )
-
   override def storeRejection(
       completionInfo: Option[state.CompletionInfo],
       recordTime: Timestamp,
@@ -306,88 +247,6 @@ private class JdbcLedgerDao(
         )
         PersistenceResponse.Ok
       }
-
-  override def storeInitialState(
-      ledgerEntries: Vector[(Offset, LedgerEntry)],
-      newLedgerEnd: Offset,
-  )(implicit loggingContext: LoggingContext): Future[Unit] = {
-    logger.info("Storing initial state")
-    dbDispatcher.executeSql(metrics.daml.index.db.storeInitialStateFromScenario) {
-      implicit connection =>
-        ledgerEntries.foreach { case (offset, entry) =>
-          entry match {
-            case tx: LedgerEntry.Transaction =>
-              val completionInfo = for {
-                actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs)
-                applicationId <- tx.applicationId
-                commandId <- tx.commandId
-                submissionId <- tx.submissionId
-              } yield state.CompletionInfo(
-                actAs,
-                applicationId,
-                commandId,
-                None,
-                Some(submissionId),
-                None, // TODO Ledger Metering
-              )
-
-              sequentialIndexer.store(
-                connection,
-                offset,
-                Some(
-                  state.Update.TransactionAccepted(
-                    optCompletionInfo = completionInfo,
-                    transactionMeta = state.TransactionMeta(
-                      ledgerEffectiveTime = tx.ledgerEffectiveTime,
-                      workflowId = tx.workflowId,
-                      submissionTime = null, // not used for DbDto generation
-                      submissionSeed = null, // not used for DbDto generation
-                      optUsedPackages = None, // not used for DbDto generation
-                      optNodeSeeds = None, // not used for DbDto generation
-                      optByKeyNodes = None, // not used for DbDto generation
-                    ),
-                    transaction = tx.transaction,
-                    transactionId = tx.transactionId,
-                    recordTime = tx.recordedAt,
-                    divulgedContracts = Nil,
-                    blindingInfo = None,
-                  )
-                ),
-              )
-            case LedgerEntry.Rejection(
-                  recordTime,
-                  commandId,
-                  applicationId,
-                  submissionId,
-                  actAs,
-                  reason,
-                ) =>
-              sequentialIndexer.store(
-                connection,
-                offset,
-                Some(
-                  state.Update.CommandRejected(
-                    recordTime = recordTime,
-                    completionInfo = state
-                      .CompletionInfo(
-                        actAs,
-                        applicationId,
-                        commandId,
-                        None,
-                        submissionId,
-                        None, // TODO Ledger Metering
-                      ),
-                    reasonTemplate = reason.toParticipantStateRejectionReason(errorFactories)(
-                      new DamlContextualizedErrorLogger(logger, loggingContext, submissionId)
-                    ),
-                  )
-                ),
-              )
-          }
-        }
-        sequentialIndexer.store(connection, newLedgerEnd, None)
-    }
-  }
 
   private val PageSize = 100
 
@@ -688,16 +547,6 @@ private class JdbcLedgerDao(
       metrics,
     )
 
-  private val postCommitValidation =
-    if (performPostCommitValidation)
-      new PostCommitValidation.BackedBy(
-        readStorageBackend.partyStorageBackend,
-        readStorageBackend.contractStorageBackend,
-        validatePartyAllocation,
-      )
-    else
-      PostCommitValidation.Skip
-
   /** This is a combined store transaction method to support sandbox-classic and tests
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
     */
@@ -718,48 +567,29 @@ private class JdbcLedgerDao(
         sequentialIndexer.store(
           conn,
           offset,
-          validate(ledgerEffectiveTime, transaction, divulgedContracts) match {
-            case None =>
-              Some(
-                state.Update.TransactionAccepted(
-                  optCompletionInfo = completionInfo,
-                  transactionMeta = state.TransactionMeta(
-                    ledgerEffectiveTime = ledgerEffectiveTime,
-                    workflowId = workflowId,
-                    submissionTime = null, // not used for DbDto generation
-                    submissionSeed = null, // not used for DbDto generation
-                    optUsedPackages = None, // not used for DbDto generation
-                    optNodeSeeds = None, // not used for DbDto generation
-                    optByKeyNodes = None, // not used for DbDto generation
-                  ),
-                  transaction = transaction,
-                  transactionId = transactionId,
-                  recordTime = recordTime,
-                  divulgedContracts = divulgedContracts.toList,
-                  blindingInfo = blindingInfo,
-                )
-              )
-
-            case Some(reason) =>
-              completionInfo.map(info =>
-                state.Update.CommandRejected(
-                  recordTime = recordTime,
-                  completionInfo = info,
-                  reasonTemplate = reason.toStateV2RejectionReason(errorFactories)(
-                    new DamlContextualizedErrorLogger(
-                      logger,
-                      loggingContext,
-                      info.submissionId,
-                    )
-                  ),
-                )
-              )
-          },
+          Some(
+            state.Update.TransactionAccepted(
+              optCompletionInfo = completionInfo,
+              transactionMeta = state.TransactionMeta(
+                ledgerEffectiveTime = ledgerEffectiveTime,
+                workflowId = workflowId,
+                submissionTime = null, // not used for DbDto generation
+                submissionSeed = null, // not used for DbDto generation
+                optUsedPackages = None, // not used for DbDto generation
+                optNodeSeeds = None, // not used for DbDto generation
+                optByKeyNodes = None, // not used for DbDto generation
+              ),
+              transaction = transaction,
+              transactionId = transactionId,
+              recordTime = recordTime,
+              divulgedContracts = divulgedContracts.toList,
+              blindingInfo = blindingInfo,
+            )
+          ),
         )
         PersistenceResponse.Ok
       }
   }
-
 }
 
 private[platform] object JdbcLedgerDao {
@@ -802,10 +632,8 @@ private[platform] object JdbcLedgerDao {
         acsContractFetchingParallelism,
         acsGlobalParallelism,
         acsIdQueueLimit,
-        false,
         metrics,
         lfValueTranslationCache,
-        false,
         enricher,
         SequentialWriteDao.noop,
         participantId,
@@ -849,10 +677,8 @@ private[platform] object JdbcLedgerDao {
         acsContractFetchingParallelism,
         acsGlobalParallelism,
         acsIdQueueLimit,
-        false,
         metrics,
         lfValueTranslationCache,
-        false,
         enricher,
         sequentialWriteDao,
         participantId,
@@ -861,54 +687,6 @@ private[platform] object JdbcLedgerDao {
         dbSupport.storageBackendFactory.createDeduplicationStorageBackend,
         errorFactories,
         materializer = materializer,
-      ),
-      metrics,
-    )
-
-  def validatingWrite(
-      dbSupport: DbSupport,
-      sequentialWriteDao: SequentialWriteDao,
-      eventsPageSize: Int,
-      eventsProcessingParallelism: Int,
-      acsIdPageSize: Int,
-      acsIdFetchingParallelism: Int,
-      acsContractFetchingParallelism: Int,
-      acsGlobalParallelism: Int,
-      acsIdQueueLimit: Int,
-      servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslationCache.Cache,
-      validatePartyAllocation: Boolean = false,
-      enricher: Option[ValueEnricher],
-      participantId: Ref.ParticipantId,
-      errorFactories: ErrorFactories,
-      ledgerEndCache: LedgerEndCache,
-      stringInterning: StringInterning,
-      materializer: Materializer,
-  ): LedgerDao =
-    new MeteredLedgerDao(
-      new JdbcLedgerDao(
-        dbSupport.dbDispatcher,
-        servicesExecutionContext,
-        eventsPageSize,
-        eventsProcessingParallelism,
-        acsIdPageSize,
-        acsIdFetchingParallelism,
-        acsContractFetchingParallelism,
-        acsGlobalParallelism,
-        acsIdQueueLimit,
-        true,
-        metrics,
-        lfValueTranslationCache,
-        validatePartyAllocation,
-        enricher,
-        sequentialWriteDao,
-        participantId,
-        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
-        dbSupport.storageBackendFactory.createParameterStorageBackend,
-        dbSupport.storageBackendFactory.createDeduplicationStorageBackend,
-        errorFactories,
-        materializer,
       ),
       metrics,
     )

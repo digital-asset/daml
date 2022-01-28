@@ -25,6 +25,9 @@ let uiProc: ChildProcess | undefined = undefined;
 // Chrome browser that we run in headless mode
 let browser: Browser | undefined = undefined;
 
+let publicUser: string = '';
+let publicParty: string = '';
+
 // Function to generate unique party names for us.
 let nextPartyId = 1;
 const getParty = async () : [string, string] => {
@@ -44,7 +47,7 @@ const getParty = async () : [string, string] => {
       "id": user,
       "primary_party": party,
     },
-    "rights": [{"can_act_as": {"party": party}}]
+    "rights": [{"can_act_as": {"party": party}}, {"can_read_as": {"party": publicParty}}]
   };
   const grpcurlUserArgs = [
     "-plaintext",
@@ -107,6 +110,8 @@ beforeAll(async () => {
 
   console.debug("daml start API are running");
 
+  [publicUser, publicParty] = await getParty();
+
   // Run `npm start` in another shell.
   // Disable automatically opening a browser using the env var described here:
   // https://github.com/facebook/create-react-app/issues/873#issuecomment-266318338
@@ -155,7 +160,7 @@ test('create and look up user using ledger library', async () => {
   const ledger = new Ledger({token});
   const users0 = await ledger.query(User.User);
   expect(users0).toEqual([]);
-  const userPayload = {username: party, following: []};
+  const userPayload = {username: party, following: [], public: publicParty};
   const userContract1 = await ledger.create(User.User, userPayload);
   const userContract2 = await ledger.fetchByKey(User.User, party);
   expect(userContract1).toEqual(userContract2);
@@ -212,8 +217,10 @@ const logout = async (page: Page) => {
 
 // Follow a user using the text input in the follow panel.
 const follow = async (page: Page, userToFollow: string) => {
-  await page.click('.test-select-follow-input');
-  await page.type('.test-select-follow-input', userToFollow);
+  const followInput = await page.waitForSelector('.test-select-follow-input');
+  await followInput.click();
+  await followInput.type(userToFollow);
+  await followInput.press('Enter');
   await page.click('.test-select-follow-button');
 
   // Wait for the request to complete, either successfully or after the error
@@ -413,7 +420,7 @@ test('error on non-existent user id', async () => {
     const invalidUser = "nonexistent";
     const page = await newUiPage();
     const error = await failedLogin(page, invalidUser);
-    expect(error).toMatch(/cannot get user for unknown user \\"nonexistent\\"/);
+    expect(error).toMatch(/getting user failed for unknown user \\"nonexistent\\"/);
     await page.close();
 }, 40_000);
 

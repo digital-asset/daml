@@ -41,7 +41,7 @@ html
 
 .rst-content code
   color: $text-dark
-  background-color: $blue-lighter
+  background-color: $turqoise
   font-family: $code-font-family
   font-size: 14px
   position: relative
@@ -302,7 +302,6 @@ html
 .wy-nav-top
   display: none
   background: $link-color
-  color: $white
   padding: $gutter / 4 $gutter / 2
   position: relative
   text-align: center
@@ -356,6 +355,7 @@ footer
   color: $footer-color
 
   p
+    font-size: 12px
     margin-bottom: $base-line-height / 2
 
   span.commit code
@@ -507,7 +507,6 @@ body
 
     p
       margin-bottom: 18px
-      line-height: inherit
       font-weight: $weight-body
 
       &:last-child
@@ -712,8 +711,6 @@ body
     top: 0
     position: absolute
     right: 30px
-    font-size: 20pt
-    font-weight: $weight-body
     display: flex
     align-items: center
     color: $text-dark
@@ -736,22 +733,17 @@ body
         padding-left: 45px
         align-items: baseline
         border-top: none
-        color: $text-dark
         position: relative
         top: initial
         left: initial
         right: initial
-        font-size: 20pt
         margin-top: 0
 
         +media($desktop-wide)
-          font-size: 20pt
 
         .nice-select
-          font-size: 20pt
 
           +media($desktop-wide)
-            font-size: 20pt
 
           &:after
             background-size: 20px
@@ -764,9 +756,7 @@ body
       border: none
       outline: none
       box-shadow: none
-      color: $text-dark
       text-transform: uppercase
-      font-weight: $weight-title
       padding: 0
 
       &:after
@@ -793,8 +783,7 @@ body
 
 
 .wy-nav-side
-  background-color: $menu-background-color
-
+  background-color: $nav-background-color
   padding-top: 30px
 
   +media($mobile)
@@ -886,7 +875,7 @@ body
         a.reference
           color: $nav-caption
           height: 44px
-          font-size: 18px
+          font-size: 16px
           padding-left: 0.7 * $gutter / 18 * 16
 
           display: block
@@ -1248,7 +1237,7 @@ body
           margin-top: 8px
 
           .highlighted
-            color: $blue-lighter
+            color: $turqoise
             background: $serach-highlighted
             display: inline-block
             font-weight: $weight-body
@@ -1315,7 +1304,6 @@ body
     z-index: 200
     width: 100%
     height: 100%
-    background-color: $white
 
     +media($tablet)
       -webkit-box-shadow: -2px 2px 3px 0px $gray-lighter
@@ -1438,7 +1426,6 @@ body
       padding-top: 24px
       padding-bottom: 19px
       display: block
-      background: $white
       width: 100%
       z-index: 300
 
@@ -1462,7 +1449,6 @@ body
       padding-right: 30px
       padding-top: 60px
       width: 380px
-      background-color: $white
 
 
 +media($tablet)
@@ -1890,7 +1876,7 @@ body
 
         li
           margin-top: $base-line-height / 4
-          color: #4E5F8B
+          color: $gray
           position: relative
 
           p
@@ -1966,7 +1952,7 @@ body
           transform: translate(-2em, -50%)
           width: 100%
           height: 100%
-          background-color: $blue-lighter !important
+          background-color: $turqoise !important
           color: $text-dark
           z-index: -1
           border-radius: 3em

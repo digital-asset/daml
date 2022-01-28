@@ -446,6 +446,9 @@ getParticipantAdmin () = do
   participant_admin <- validateUserId "participant_admin"
   pure $ User participant_admin None
 
+userExists : UserId -> Script Bool
+userExists u = do try do _ <- getUser u; pure True catch UserNotFound _ -> pure False
+
 testUserManagement = do
   participantAdmin <- getParticipantAdmin ()
   users <- listUsers
@@ -454,7 +457,9 @@ testUserManagement = do
   u2 <- validateUserId "u2"
   let user1 = User u1 None
   let user2 = User u2 None
+  False <- userExists u1
   createUser user1 []
+  True <- userExists u1
   createUser user2 []
   u <- getUser u1
   u === user1

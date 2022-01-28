@@ -222,7 +222,7 @@ conformance_test(
     ],
     lf_versions = lf_version_configuration_versions,
     ports = [6865],
-    server = "//ledger/ledger-on-memory:app",
+    server = "//ledger/ledger-on-sql:test-server-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
@@ -259,7 +259,7 @@ conformance_test(
     ],
     lf_versions = lf_version_configuration_versions,
     ports = [6865],
-    server = "//ledger/ledger-on-memory:app",
+    server = "//ledger/ledger-on-sql:test-server-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",

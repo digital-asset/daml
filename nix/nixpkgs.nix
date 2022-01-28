@@ -24,29 +24,6 @@ let
         sha256 = "0hzd6pljc8z5fwins5a05rwpx2w7wmlb6gb8973c676i7i895ps9";
       };
     });
-   haskell = pkgs.haskell // {
-     packages = pkgs.haskell.packages // {
-       integer-simple = pkgs.haskell.packages.integer-simple // {
-        ghc8107 = pkgs.haskell.packages.integer-simple.ghc8107.override {
-          ghc = pkgs.haskell.compiler.integer-simple.ghc8107.overrideAttrs (old: {
-            # We need to include darwin.cctools in PATH to make sure GHC finds
-            # otool.
-            postInstall = ''
-    # Install the bash completion file.
-    install -D -m 444 utils/completion/ghc.bash $out/share/bash-completion/completions/ghc
-
-    # Patch scripts to include "readelf" and "cat" in $PATH.
-    for i in "$out/bin/"*; do
-      test ! -h $i || continue
-      egrep --quiet '^#!' <(head -n 1 $i) || continue
-      sed -i -e '2i export PATH="$PATH:${pkgs.lib.makeBinPath ([ pkgs.targetPackages.stdenv.cc.bintools pkgs.coreutils ] ++ pkgs.lib.optional pkgs.targetPlatform.isDarwin pkgs.darwin.cctools) }"' $i
-    done
-  '';
-          });
-        };
-       };
-     };
-    };
 
     bazel_4 = pkgs.bazel_4.overrideAttrs(oldAttrs: {
       patches = oldAttrs.patches ++ [

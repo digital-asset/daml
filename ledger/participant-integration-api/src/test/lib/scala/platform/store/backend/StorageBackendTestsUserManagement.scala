@@ -6,7 +6,7 @@ package com.daml.platform.store.backend
 import java.sql.SQLException
 import java.util.UUID
 
-import com.daml.ledger.api.domain.User
+import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.lf.data.Ref
 import org.scalatest.flatspec.AnyFlatSpec
@@ -28,6 +28,40 @@ private[backend] trait StorageBackendTestsUserManagement
   private val right3 = CanReadAs(Ref.Party.assertFromString("party_read_as_1"))
 
   private def tested = backend.userManagement
+
+  it should "count number of user rights per user" in {
+    val userA = newUniqueUser()
+    val userB = newUniqueUser()
+    val idA: Int = executeSql(tested.createUser(userA))
+    val idB: Int = executeSql(tested.createUser(userB))
+    def countA: Int = executeSql(tested.countUserRights(idA))
+    def countB: Int = executeSql(tested.countUserRights(idB))
+    val _ = executeSql(tested.addUserRight(idB, UserRight.ParticipantAdmin))
+    val _ =
+      executeSql(tested.addUserRight(idB, UserRight.CanActAs(Ref.Party.assertFromString("act1"))))
+    val _ =
+      executeSql(tested.addUserRight(idB, UserRight.CanReadAs(Ref.Party.assertFromString("read1"))))
+    countA shouldBe 0
+    countB shouldBe 3
+    val _ = executeSql(tested.addUserRight(idA, UserRight.ParticipantAdmin))
+    countA shouldBe 1
+    countB shouldBe 3
+    val _ =
+      executeSql(tested.addUserRight(idA, UserRight.CanActAs(Ref.Party.assertFromString("act1"))))
+    val _ =
+      executeSql(tested.addUserRight(idA, UserRight.CanActAs(Ref.Party.assertFromString("act2"))))
+    val _ =
+      executeSql(tested.addUserRight(idA, UserRight.CanReadAs(Ref.Party.assertFromString("read1"))))
+    val _ =
+      executeSql(tested.addUserRight(idA, UserRight.CanReadAs(Ref.Party.assertFromString("read2"))))
+    countA shouldBe 5
+    countB shouldBe 3
+    val _ = executeSql(
+      tested.deleteUserRight(idA, UserRight.CanActAs(Ref.Party.assertFromString("act2")))
+    )
+    countA shouldBe 4
+    countB shouldBe 3
+  }
 
   it should "use invalid party string to mark absence of party" in {
     intercept[IllegalArgumentException](

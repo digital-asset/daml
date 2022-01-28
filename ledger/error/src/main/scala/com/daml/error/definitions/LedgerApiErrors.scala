@@ -591,7 +591,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           throwableO = Some(t),
         )
 
-    case class CommandTrackerInternalError(
+    case class Generic(
         message: String,
         override val throwableO: Option[Throwable] = None,
     )(implicit
@@ -687,7 +687,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(_operation: String, userId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"cannot ${_operation} for unknown user \"${userId}\""
+            cause = s"${_operation} failed for unknown user \"${userId}\""
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId
@@ -706,7 +706,31 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(_operation: String, userId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"cannot ${_operation}, as user \"${userId}\" already exists"
+            cause = s"${_operation} failed, as user \"${userId}\" already exists"
+          ) {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          ErrorResource.User -> userId
+        )
+      }
+    }
+
+    @Explanation(
+      """|A user can have only a limited number of user rights.
+                    |There was an attempt to create a user with too many rights or grant too many rights to a user."""
+    )
+    @Resolution(
+      """|Retry with a smaller number of rights or delete some of the already existing rights of this user.
+                   |Contact the participant operator if the limit is too low."""
+    )
+    object TooManyUserRights
+        extends ErrorCode(
+          id = "TOO_MANY_USER_RIGHTS",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(_operation: String, userId: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = s"${_operation} failed, as user \"${userId}\" would have too many rights."
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId

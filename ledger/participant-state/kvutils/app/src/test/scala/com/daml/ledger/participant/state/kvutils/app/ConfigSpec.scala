@@ -308,14 +308,14 @@ final class ConfigSpec
       Seq("--user-management-max-cache-size")
     ) shouldBe None
     // default
-    configParserSimple().value.userManagementConfig.maximumCacheSize shouldBe 100
+    configParserSimple().value.userManagementConfig.maxCacheSize shouldBe 100
     // custom value
     configParserSimple(
       Seq(
         "--user-management-max-cache-size",
         "123",
       )
-    ).value.userManagementConfig.maximumCacheSize shouldBe 123
+    ).value.userManagementConfig.maxCacheSize shouldBe 123
   }
 
   it should "handle '--user-management-cache-expiry' flag correctly" in {
