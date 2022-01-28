@@ -8,6 +8,7 @@ import java.time.Duration
 import java.util.regex.Pattern
 
 import ch.qos.logback.classic.Level
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
@@ -697,14 +698,18 @@ class ErrorFactoriesSpec
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail(
             "PARTICIPANT_PRUNED_DATA_ACCESSED",
-            Map("category" -> "9", "definite_answer" -> "false", "earliest_offset" -> "00"),
+            Map(
+              "category" -> "9",
+              "definite_answer" -> "false",
+              LedgerApiErrors.EarliestOffsetMetadataKey -> "00",
+            ),
           ),
           expectedCorrelationIdRequestInfo,
         ),
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(expectedLocationLogMarkerRegex),
+          expectedMarkerRegex(s"${LedgerApiErrors.EarliestOffsetMetadataKey}=00"),
         ),
       )
     }

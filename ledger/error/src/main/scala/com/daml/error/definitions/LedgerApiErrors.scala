@@ -22,6 +22,9 @@ import java.time.{Duration, Instant}
   "Errors raised by or forwarded by the Ledger API."
 )
 object LedgerApiErrors extends LedgerApiErrorGroup {
+
+  val EarliestOffsetMetadataKey = "earliest_offset"
+
   @Explanation(
     """This error occurs when a participant rejects a command due to excessive load.
         |Load can be caused by the following factors:
@@ -431,7 +434,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       ) extends LoggingTransactionErrorImpl(cause = cause) {
 
         override def context: Map[String, String] =
-          super.context + ("earliest_offset" -> _earliestOffset)
+          super.context + (EarliestOffsetMetadataKey -> _earliestOffset)
       }
     }
 

@@ -204,7 +204,10 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
           else LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
         None,
       )
-      earliestOffset = extractErrorInfoMetadataValue(failure, "earliest_offset")
+      earliestOffset = extractErrorInfoMetadataValue(
+        failure,
+        LedgerApiErrors.EarliestOffsetMetadataKey,
+      )
       _ <-
         // Because KV treats deduplication offsets as inclusive, and because the participant pruning offset is inclusive
         // we cannot simply use the received offset as a deduplication period, but we have to find the first completion after the given offset
