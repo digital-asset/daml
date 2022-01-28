@@ -153,7 +153,10 @@ object Assertions {
       case Some(value) =>
         value
       case None =>
-        fail(s"The error metadata did not contain the key $key. Metadata was: [$metadata]")
+        fail(
+          s"The error metadata did not contain the key $key. Metadata was: [$metadata]",
+          exception,
+        )
     }
   }
 

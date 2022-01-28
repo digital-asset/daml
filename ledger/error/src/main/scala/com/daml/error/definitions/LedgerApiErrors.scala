@@ -426,9 +426,13 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "PARTICIPANT_PRUNED_DATA_ACCESSED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      case class Reject(override val cause: String)(implicit
+      case class Reject(override val cause: String, _earliestOffset: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = cause)
+      ) extends LoggingTransactionErrorImpl(cause = cause) {
+
+        override def context: Map[String, String] =
+          super.context ++ Map("earliest_offset" -> _earliestOffset)
+      }
     }
 
     @Explanation(

@@ -17,6 +17,7 @@ import com.daml.error.{
   ErrorsAssertions,
 }
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories._
@@ -682,7 +683,12 @@ class ErrorFactoriesSpec
 
     "return a participantPrunedDataAccessed error" in {
       val msg = s"PARTICIPANT_PRUNED_DATA_ACCESSED(9,$truncatedCorrelationId): my message"
-      assertVersionedError(_.participantPrunedDataAccessed("my message"))(
+      assertVersionedError(
+        _.participantPrunedDataAccessed(
+          "my message",
+          Offset.fromHexString(Ref.HexString.assertFromString("00")),
+        )
+      )(
         v1_code = Code.NOT_FOUND,
         v1_message = "my message",
         v1_details = Seq.empty,
@@ -691,7 +697,7 @@ class ErrorFactoriesSpec
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail(
             "PARTICIPANT_PRUNED_DATA_ACCESSED",
-            Map("category" -> "9", "definite_answer" -> "false"),
+            Map("category" -> "9", "definite_answer" -> "false", "earliest_offset" -> "00"),
           ),
           expectedCorrelationIdRequestInfo,
         ),

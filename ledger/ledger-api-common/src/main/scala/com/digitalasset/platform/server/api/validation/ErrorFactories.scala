@@ -24,9 +24,11 @@ import io.grpc.Status.Code
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
-
 import java.sql.{SQLNonTransientException, SQLTransientException}
 import java.time.{Duration, Instant}
+
+import com.daml.ledger.offset.Offset
+
 import scala.annotation.nowarn
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
@@ -490,7 +492,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       ),
     )
 
-  def participantPrunedDataAccessed(message: String)(implicit
+  def participantPrunedDataAccessed(message: String, earliestOffset: Offset)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
@@ -502,7 +504,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .build()
       ),
       v2 = LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed
-        .Reject(message)
+        .Reject(message, earliestOffset.toHexString)
         .asGrpcError,
     )
 

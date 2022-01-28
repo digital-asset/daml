@@ -131,6 +131,7 @@ da_scala_test_suite(
         "//ledger-api/testing-utils",
         "//ledger/error",
         "//ledger/error:error-test-lib",
+        "//ledger/ledger-offset",
         "//ledger/ledger-api-akka",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-domain",
