@@ -153,7 +153,6 @@ default_compile_arguments = {
     "unused_dependency_checker_mode": "error",
 }
 
-silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_{}".format(scala_version_suffix)
 kind_projector_plugin = "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix)
 
 default_initial_heap_size = "128m"
