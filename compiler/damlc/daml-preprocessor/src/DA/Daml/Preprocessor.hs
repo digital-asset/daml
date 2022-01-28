@@ -10,7 +10,6 @@ module DA.Daml.Preprocessor
   ) where
 
 import           DA.Daml.Preprocessor.Records
-import           DA.Daml.Preprocessor.Generics
 import           DA.Daml.Preprocessor.EnumType
 import           DA.Daml.StablePackages (stablePackageByModuleName)
 import           DA.Daml.UtilGHC (convertModuleName)
@@ -64,7 +63,6 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.Record"
     , "DA.TextMap"
     , "DA.Map"
-    , "DA.Generics"
     , "DA.Text"
     , "DA.Numeric"
     , "DA.Stack"
@@ -96,15 +94,14 @@ shouldSkipPreprocessor name =
     || isExperimental name
 
 -- | Apply all necessary preprocessors
-damlPreprocessor :: ES.EnumSet GHC.Extension -> Maybe GHC.UnitId -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
-damlPreprocessor dataDependableExtensions mbUnitId dflags x
+damlPreprocessor :: ES.EnumSet GHC.Extension -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
+damlPreprocessor dataDependableExtensions dflags x
     | maybe False shouldSkipPreprocessor name = noPreprocessor dflags x
     | otherwise = IdePreprocessedSource
         { preprocWarnings = concat
             [ checkDamlHeader x
             , checkVariantUnitConstructors x
             , checkLanguageExtensions dataDependableExtensions dflags x
-            , checkImportsWrtDataDependencies x
             , checkKinds x
             ]
         , preprocErrors = concat
@@ -118,7 +115,6 @@ damlPreprocessor dataDependableExtensions mbUnitId dflags x
             rewriteLets
             . recordDotPreprocessor
             . importDamlPreprocessor
-            . genericsPreprocessor mbUnitId
             $ enumTypePreprocessor "GHC.Types" x
         }
     where
@@ -352,19 +348,6 @@ checkLanguageExtensions dataDependableExtensions dflags x =
     -- used on the command line. Thus, we always put the warning at the location
     -- of the module name.
     modNameLoc = maybe GHC.noSrcSpan GHC.getLoc (GHC.hsmodName (GHC.unLoc x))
-
-checkImportsWrtDataDependencies :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
-checkImportsWrtDataDependencies x =
-    [ (loc, warning)
-    | GHC.L loc GHC.ImportDecl{ideclName = GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x
-    , GHC.moduleNameString m == "DA.Generics"
-    ]
-  where
-    warning = unlines
-        [ "Modules importing DA.Generics do not work with data-dependencies."
-        , "This will prevent the whole package from being extensible or upgradable"
-        , "using other versions of the SDK. Use DA.Generics at your own risk."
-        ]
 
 -- Extract all data constructors with their locations
 universeConDecl :: GHC.ParsedSource -> [GHC.LConDecl GHC.GhcPs]
