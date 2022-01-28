@@ -292,6 +292,15 @@ convertPrim _ "UExerciseInterface"
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
+convertPrim _ "UExerciseByKey"
+    (TApp proxy (TCon template) :-> key :-> TCon choice :-> TUpdate _returnTy) =
+    ETmLam (mkVar "_", TApp proxy (TCon template)) $
+    ETmLam (mkVar "key", key) $
+    ETmLam (mkVar "arg", TCon choice) $
+    EUpdate $ UExerciseByKey template choiceName (EVar (mkVar "key")) (EVar (mkVar "arg"))
+  where
+    choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
+
 convertPrim _ "ULookupByKey" (key :-> TUpdate (TOptional (TContractId (TCon template)))) =
     ETmLam (mkVar "key", key) $ EUpdate $
         ULookupByKey $ RetrieveByKey template (EVar $ mkVar "key")

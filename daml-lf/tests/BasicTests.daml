@@ -379,6 +379,15 @@ template FailedFetchByKey
          None <- lookupByKey @WithKey key
          fetchByKey @WithKey key
 
+template ExerciseByKey
+  with
+    p : Party
+  where
+    signatory p
+    choice Exercise : Int
+      controller p
+      do
+        exerciseByKey @WithKey (p, 42) SumToK with n = 0
 
 test_failedAuths = scenario do
   alice <- getParty "alice"

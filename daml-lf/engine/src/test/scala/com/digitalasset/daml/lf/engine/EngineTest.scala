@@ -611,6 +611,50 @@ class EngineTest
     }
   }
 
+  "DAML exercise-by-key" should {
+    val seed = hash("exercise-by-key")
+    val now = Time.Timestamp.now()
+
+    "create a Exercise node with flag byKey without Fetch REMY" in {
+
+      val tmplId = Identifier(basicTestsPkgId, "BasicTests:ExerciseByKey")
+      val cmds = ImmArray(
+        speedy.Command.CreateAndExercise(
+          templateId = tmplId,
+          createArgument =
+            SRecord(null, ImmArray(Ref.Name.assertFromString("name")), ArrayList(SParty(alice))),
+          choiceId = ChoiceName.assertFromString("Exercise"),
+          choiceArgument = SUnit,
+        )
+      )
+      val submitters = Set(alice)
+
+      val result = suffixLenientEngine
+        .interpretCommands(
+          validating = false,
+          submitters = submitters,
+          readAs = Set.empty,
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(seed),
+        )
+        .consume(lookupContract, lookupPackage, lookupKey)
+
+      inside(result) { case Right((tx, _)) =>
+        inside(tx.roots.map(tx.nodes)) { case ImmArray(create: Node.Create, exe: Node.Exercise) =>
+          create.templateId shouldBe tmplId
+          exe.templateId shouldBe tmplId
+          inside(exe.children.map(tx.nodes)) { case ImmArray(exeByKey: Node.Exercise) =>
+            exeByKey.templateId shouldBe Identifier(basicTestsPkgId, "BasicTests:WithKey")
+            exeByKey.children shouldBe ImmArray.empty
+            exeByKey.byKey shouldBe true
+          }
+        }
+      }
+    }
+  }
+
   "fecth-by-key" should {
     val seed = hash("fetch-by-key")
 
