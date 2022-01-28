@@ -264,6 +264,7 @@ object SandboxOnXRunner {
           v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
         ),
       ),
+      userManagementConfig = config.userManagementConfig,
     )
 
   private def buildIndexerServer(

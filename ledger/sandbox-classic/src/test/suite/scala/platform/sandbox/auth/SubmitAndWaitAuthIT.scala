@@ -14,8 +14,8 @@ final class SubmitAndWaitAuthIT
   override def serviceCallName: String = "CommandService#SubmitAndWait"
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    submitAndWait(token)
+    submitAndWait(token, party = mainActor)
 
   override def serviceCallWithoutApplicationId(token: Option[String]): Future[Any] =
-    submitAndWait(token, "")
+    submitAndWait(token, "", party = mainActor)
 }
