@@ -73,4 +73,10 @@ else
         done
         )
     done
+    for base in non-repudiation-core non-repudiation-client; do
+        for end in .jar .pom -sources.jar -javadoc.jar; do
+            push assembly/daml $base-${RELEASE_TAG}${end}${sign}
+        done
+    done
+    push assembly/daml $NON_REPUDIATION
 fi
