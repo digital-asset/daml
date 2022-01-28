@@ -20,6 +20,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
+import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 private[validate] class ConflictCheckingLedgerBridge(
@@ -63,6 +64,7 @@ private[bridge] object ConflictCheckingLedgerBridge {
       errorFactories: ErrorFactories,
       validatePartyAllocation: Boolean,
       servicesThreadPoolSize: Int,
+      maxDeduplicationDuration: Duration,
   )(implicit
       servicesExecutionContext: ExecutionContext
   ): ConflictCheckingLedgerBridge =
@@ -80,6 +82,7 @@ private[bridge] object ConflictCheckingLedgerBridge {
         validatePartyAllocation = validatePartyAllocation,
         bridgeMetrics = bridgeMetrics,
         errorFactories = errorFactories,
+        maxDeduplicationDuration = maxDeduplicationDuration,
       ),
       servicesThreadPoolSize = servicesThreadPoolSize,
     )
