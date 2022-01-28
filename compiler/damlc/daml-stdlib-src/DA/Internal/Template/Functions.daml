@@ -196,13 +196,7 @@ class HasFromAnyContractKey t k | t -> k where
   -- | HIDE
   _fromAnyContractKey : proxy t -> Any -> Optional k
 
--- | Constraint satisfied by choices from templates with key.
-type ChoiceByKey t k c r =
-  ( TemplateKey t k
-  , HasExerciseByKey t k c r
-  )
-
--- | Exposes `exerciseByKey` function. Part of the `ChoiceByKey` constraint.
+-- | Exposes `exerciseByKey` function.
 class HasExerciseByKey t k c r | t -> k, t c -> r where
    -- | HIDE
    _exerciseByKey : proxy t -> k -> c -> Update r
