@@ -129,6 +129,30 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     assertCommandRejected(update, "Parties not known on ledger: [new-guy]")
   }
 
+  it should "reject a transaction if there is no ledger configuration" in new TestContext {
+    private val sequenceWithoutLedgerConfig = buildSequence(initialLedgerConfiguration = None)()
+
+    // Assert transaction rejection on missing ledger configuration
+    val Seq((offset, update)) = sequenceWithoutLedgerConfig(create(cId(1), Some(contractKey(1L))))
+    offset shouldBe toOffset(1L)
+    assertCommandRejected(update, "Ledger configuration not found")
+
+    // Upload config to ledger
+    sequenceWithoutLedgerConfig(input(NoOpPreparedSubmission(configUpload))) shouldBe Iterable(
+      toOffset(2L) -> Update.ConfigurationChanged(
+        recordTime = currentRecordTime,
+        submissionId = submissionId,
+        participantId = Ref.ParticipantId.assertFromString(participantName),
+        newConfiguration = config,
+      )
+    )
+
+    // Assert transaction accepted after ledger config upload
+    val Seq((offset3, update3)) = sequenceWithoutLedgerConfig(create(cId(1), Some(contractKey(1L))))
+    offset3 shouldBe toOffset(3L)
+    update3 shouldBe transactionAccepted(3)
+  }
+
   it should "validate party allocation if disabled" in new TestContext {
     val Seq((offset, update)) =
       sequenceWithoutPartyAllocationValidation()(input(txWithUnallocatedParty))
@@ -264,7 +288,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
 
     val maxDeduplicationDuration: Duration = Duration.ofDays(1L)
 
-    val sequenceImpl: SequenceImpl = buildSequence(validatePartyAllocation = true)
+    val sequenceImpl: SequenceImpl = buildSequence()
     val sequenceWithoutPartyAllocationValidation: SequenceImpl =
       buildSequence(validatePartyAllocation = false)
     val sequence: Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)] =
@@ -406,7 +430,10 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       Right(noConflictUpTo -> preparedTransactionSubmission)
     }
 
-    def buildSequence(validatePartyAllocation: Boolean) = new SequenceImpl(
+    def buildSequence(
+        validatePartyAllocation: Boolean = true,
+        initialLedgerConfiguration: Option[Configuration] = initialLedgerConfiguration,
+    ) = new SequenceImpl(
       participantId = Ref.ParticipantId.assertFromString(participantName),
       bridgeMetrics = bridgeMetrics,
       timeProvider = timeProviderMock,
