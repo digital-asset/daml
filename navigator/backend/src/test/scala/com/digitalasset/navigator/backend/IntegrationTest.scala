@@ -188,4 +188,20 @@ class IntegrationTest
     }
   }
 
+  "Navigator (users)" - {
+    "picks up newly created users (2 users, 2 primary parties)" in withNavigator(userMgmt = true) {
+      implicit uri => implicit client =>
+        for {
+          _ <- okSessionBody("""{"method":{"type":"select","users":[]},"type":"sign-in"}""")
+          partyDetails <- allocateParty("primary-party")
+          _ <- createUser("user-name-1", partyDetails.party)
+          partyDetails2 <- allocateParty("primary-party2")
+          _ <- createUser("user-name-2", partyDetails2.party)
+          _ <- okSessionBody(
+            """{"method":{"type":"select","users":["user-name-1","user-name-2"]},"type":"sign-in"}"""
+          )
+        } yield succeed
+    }
+  }
+
 }
