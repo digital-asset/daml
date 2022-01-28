@@ -152,7 +152,9 @@ object SandboxOnXRunner {
 
           readServiceWithSubscriber = new BridgeReadService(
             ledgerId = config.ledgerId,
-            maxDedupSeconds = config.extra.maxDedupSeconds,
+            maximumDeduplicationDuration = config.maxDeduplicationDuration.getOrElse(
+              BridgeConfigProvider.DefaultMaximumDeduplicationTime
+            ),
             stateUpdatesSource,
           )
 
@@ -255,8 +257,8 @@ object SandboxOnXRunner {
               CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
             )
           ),
-          deduplicationType = CommandDeduplicationType.SYNC_ONLY,
-          maxDeduplicationDurationEnforced = false,
+          deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
+          maxDeduplicationDurationEnforced = true,
         ),
         contractIdFeatures = ExperimentalContractIds.of(
           v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED

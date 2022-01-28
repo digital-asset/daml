@@ -60,7 +60,6 @@ object ConfigConverter {
       // TODO SoX-to-sandbox-classic: Dedicated submissionBufferSize CLI param for sanbox-classic
       submissionBufferSize = sandboxConfig.maxParallelSubmissions,
       // TODO SoX-to-sandbox-classic: Dedicated submissionBufferSize CLI param for sanbox-classic
-      maxDedupSeconds = BridgeConfigProvider.defaultExtraConfig.maxDedupSeconds,
       profileDir = sandboxConfig.profileDir,
       stackTraces = sandboxConfig.stackTraces,
     )

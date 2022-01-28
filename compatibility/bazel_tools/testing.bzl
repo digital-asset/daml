@@ -715,6 +715,19 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # Sandbox-on-X doesn't use participant-side command deduplication starting with next release,
+        # hence older tests will fail to assert it.
+        "end": "2.0.0-snapshot.20220126.9029.1",
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20220126.9029.1",
+                "exclusions": [
+                    "CommandDeduplicationIT:ParticipantCommandDeduplication",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
