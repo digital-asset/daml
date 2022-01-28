@@ -70,6 +70,7 @@ class PlatformSubscriber(
   // ----------------------------------------------------------------------------------------------
   // Lifecycle
   // ----------------------------------------------------------------------------------------------
+  @scala.annotation.nowarn("msg=discarded non-Unit value")
   override def preStart(): Unit = {
     log.debug("Starting actor for '{}'", party.name)
 
@@ -80,20 +81,24 @@ class PlatformSubscriber(
     } yield {
       Started(tracker)
     }
-
-    started onComplete {
-      case Success(value) =>
-        log.debug("Started actor for '{}'", party.name)
-        self ! value
-      case Failure(error) =>
-        // Failed to start up, giving up
-        log.error(
-          "Failed to start actor for party '{}': {}. Please fix any issues and restart this application.",
-          party.name,
-          error,
-        )
-        context.become(failed(error))
-    }
+    import scalaz.std.scalaFuture._
+    import scalaz.syntax.monadError._
+    import scalaz.{-\/, \/-}
+    val it =
+      started.attempt.map {
+        case \/-(value) =>
+          log.debug("Started actor for '{}'", party.name)
+          self ! value
+        case -\/(error) =>
+          // Failed to start up, giving up
+          log.error(
+            "Failed to start actor for party '{}': {}. Please fix any issues and restart this application.",
+            party.name,
+            error,
+          )
+          context.become(failed(error))
+      }
+    scala.concurrent.Await.ready(it, scala.concurrent.duration.Duration.fromNanos(300000000000L))
   }
 
   override def postStop(): Unit = {

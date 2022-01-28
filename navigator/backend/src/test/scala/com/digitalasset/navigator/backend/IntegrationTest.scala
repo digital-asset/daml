@@ -26,6 +26,7 @@ import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.timer.RetryStrategy
+import org.slf4j.LoggerFactory
 
 import java.util.UUID
 import scala.concurrent.{Await, Future}
@@ -38,6 +39,8 @@ class IntegrationTest
     with SuiteResourceManagementAroundAll
     with Matchers {
   self: Suite =>
+
+  private val logger = LoggerFactory.getLogger(getClass)
 
   private def withNavigator[A](
       userMgmt: Boolean
@@ -72,10 +75,6 @@ class IntegrationTest
         commandClient = CommandClientConfiguration.default,
       ),
     )
-    sys.registerOnTermination {
-      partyRefresh.foreach(_.cancel())
-      Await.ready(bindingF.flatMap(_.terminate(30.seconds)), 30.seconds)
-    }
     import FutureConverters._
     for {
       binding <- bindingF
@@ -86,8 +85,12 @@ class IntegrationTest
         port = binding.localAddress.getPort,
       )
       a <- testFn(uri)(client)
+      _ <- Future(partyRefresh.foreach(_.cancel()))
+      _ <- binding.terminate(30.seconds)
+      _ <- binding.whenTerminated
       _ <- sys.terminate()
       _ <- Await.ready(sys.getWhenTerminated.asScala, 30.seconds)
+      _ = logger.info(s"Stopped actor system ${sys.name}")
     } yield a
 //    fa.transformWith { ta =>
 
