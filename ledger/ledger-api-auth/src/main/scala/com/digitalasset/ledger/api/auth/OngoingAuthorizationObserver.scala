@@ -36,6 +36,13 @@ private[auth] final class OngoingAuthorizationObserver[A](
 
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
+  /** Guards against propagating calls to delegate observer after either
+    * [[onComplete]] or [[onError]] has already been called once.
+    * We need this because [[onError]] can be invoked two concurrent sources:
+    * 1) scheduled user rights state change task (see [[cancellableO]]),
+    * 2) upstream component that is translating upstream Akka stream into [[onNext]] and other signals.
+    */
   private var afterCompletionOrError = false
 
   @volatile private var lastUserRightsCheckTime = nowF()
@@ -46,6 +53,10 @@ private[auth] final class OngoingAuthorizationObserver[A](
     )
   )(Ref.UserId.assertFromString)
 
+  /** Scheduling a task that periodically checks
+    * whether user rights state has changed.
+    * If user rights state has changed it aborts the stream by calling [[onError]]
+    */
   private val cancellableO: Option[Cancellable] = {
     if (originalClaims.resolvedFromUser) {
       val delay = userRightsCheckIntervalInSeconds.seconds
@@ -124,10 +135,15 @@ private[auth] final class OngoingAuthorizationObserver[A](
   }
 
   private def checkUserRightsRefreshTimeout(now: Instant): Either[StatusRuntimeException, Unit] = {
+
+    /** Safety switch to abort the stream if the user-rights-state-check task
+      * fails to refresh within 2*[[userRightsCheckIntervalInSeconds]] seconds.
+      * In normal conditions we expected the refresh delay to be about [[userRightsCheckIntervalInSeconds]] seconds.
+      */
     if (
       originalClaims.resolvedFromUser &&
       lastUserRightsCheckTime.isBefore(
-        now.minusSeconds(userRightsCheckIntervalInSeconds.toLong)
+        now.minusSeconds(2 * userRightsCheckIntervalInSeconds.toLong)
       )
     ) {
       Left(staleStreamAuthError)

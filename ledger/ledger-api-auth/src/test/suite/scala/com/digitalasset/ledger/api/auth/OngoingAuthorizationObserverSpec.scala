@@ -43,8 +43,8 @@ class OngoingAuthorizationObserverSpec
       mockScheduler.scheduleWithFixedDelay(any[FiniteDuration], any[FiniteDuration])(any[Runnable])(
         any[ExecutionContext]
       )
-    )
-      .thenReturn(cancellableMock)
+    ).thenReturn(cancellableMock)
+    val userRightsCheckIntervalInSeconds = 10
     val tested = new OngoingAuthorizationObserver(
       observer = delegate,
       originalClaims = ClaimSet.Claims.Empty.copy(resolvedFromUser = true),
@@ -52,13 +52,13 @@ class OngoingAuthorizationObserverSpec
       errorFactories = mock[ErrorFactories],
       userManagementStore = mock[UserManagementStore],
       // This is also the user rights state refresh timeout
-      userRightsCheckIntervalInSeconds = 10,
+      userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
       akkaScheduler = mockScheduler,
     )(loggingContext, executionContext)
 
-    // After 10 seconds pass we expect onError to be called due to lack of user rights state refresh task inactivity
+    // After 20 seconds pass we expect onError to be called due to lack of user rights state refresh task inactivity
     tested.onNext(1)
-    clock.fastForward(Duration.ofSeconds(9))
+    clock.fastForward(Duration.ofSeconds(2.toLong * userRightsCheckIntervalInSeconds - 1))
     tested.onNext(2)
     clock.fastForward(Duration.ofSeconds(2))
     // Next onNext detects the user rights state refresh task inactivity
