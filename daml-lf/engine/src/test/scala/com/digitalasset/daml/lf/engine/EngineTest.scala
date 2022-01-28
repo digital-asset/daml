@@ -641,8 +641,6 @@ class EngineTest
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
-      remy.log(result)
-
       inside(result) { case Right((tx, _)) =>
         inside(tx.roots.map(tx.nodes)) { case ImmArray(create: Node.Create, exe: Node.Exercise) =>
           create.templateId shouldBe tmplId
