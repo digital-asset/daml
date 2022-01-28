@@ -155,7 +155,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
   val nextKeyId: () => String = nextIdGenerator("key")
   val nextUserId: () => String = nextIdGenerator("user", lowerCase = true)
 
-  val delayMechanism: DelayMechanism = if (features.staticTime) {
+  lazy val delayMechanism: DelayMechanism = if (features.staticTime) {
     new StaticTimeDelayMechanism(this)
   } else new TimeDelayMechanism()
 
