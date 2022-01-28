@@ -95,6 +95,13 @@ private[apiserver] final class ApiUserManagementService(
     withValidation(
       for {
         fromExcl <- decodePageToken(request.pageToken)
+        _ <- Either.cond(
+          request.pageSize > 0,
+          (),
+          LedgerApiErrors.RequestValidation.InvalidArgument
+            .Reject("Max page size must be non-negative")
+            .asGrpcError,
+        )
       } yield {
         fromExcl
       }
@@ -243,20 +250,30 @@ object ApiUserManagementService {
       Right(None)
     } else {
       val bytes = pageToken.getBytes(StandardCharsets.UTF_8)
-      Try[Array[Byte]](Base64.getUrlDecoder.decode(bytes))
-        .map(Right(_))
-        .recover { case _: IllegalArgumentException =>
-          Left(
+      for {
+        decodedBytes <- Try[Array[Byte]](Base64.getUrlDecoder.decode(bytes))
+          .map(Right(_))
+          .recover { case _: IllegalArgumentException =>
+            Left(
+              LedgerApiErrors.RequestValidation.InvalidArgument
+                .Reject("Invalid page token")
+                .asGrpcError
+            )
+          }
+          .get
+        decodedStr = new String(decodedBytes, StandardCharsets.UTF_8)
+        userId <- Ref.UserId
+          .fromString(decodedStr)
+          .map(Some(_))
+          .left
+          .map(_ =>
             LedgerApiErrors.RequestValidation.InvalidArgument
-              .Reject("Failed to decode page token")
+              .Reject("Invalid page token")
               .asGrpcError
           )
-        }
-        .get
-        .map { decoded =>
-          val str = new String(decoded, StandardCharsets.UTF_8)
-          Some(Ref.UserId.assertFromString(str))
-        }
+      } yield {
+        userId
+      }
     }
   }
 }

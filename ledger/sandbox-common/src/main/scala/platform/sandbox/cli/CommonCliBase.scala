@@ -426,7 +426,7 @@ class CommonCliBase(name: LedgerName) {
       opt[Int]("max-users-page-size")
         .optional()
         .text(
-          s"Maximum number of users that the server can return in a single page. " +
+          s"Maximum number of users that the server can return in a single response. " +
             s"Defaults to ${UserManagementConfig.DefaultMaxUsersPageSize} entries."
         )
         .action((value, config: SandboxConfig) =>

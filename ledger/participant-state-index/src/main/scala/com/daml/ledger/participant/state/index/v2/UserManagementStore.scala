@@ -3,9 +3,6 @@
 
 package com.daml.ledger.participant.state.index.v2
 
-import java.nio.charset.StandardCharsets
-import java.util.Base64
-
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.Ref
 
@@ -41,16 +38,6 @@ trait UserManagementStore {
     getUserInfo(id).map(_.map(_.rights))(ExecutionContext.parasitic)
   }
 
-  // TODO pbatko: test it
-  protected def decodePageToken(pageToken: String): Option[Ref.UserId] = {
-    if (pageToken.isEmpty) {
-      None
-    } else {
-      val bytes = Base64.getUrlDecoder.decode(pageToken.getBytes(StandardCharsets.UTF_8))
-      val str = new String(bytes, StandardCharsets.UTF_8)
-      Some(Ref.UserId.assertFromString(str))
-    }
-  }
 }
 
 object UserManagementStore {

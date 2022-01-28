@@ -277,7 +277,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       _ <- ledger.userManagement.createUser(
         CreateUserRequest(Some(user1), Nil)
       )
-      // NOTE: Requesting page size of 100 to ensure we get all the users
       request = ListUsersRequest(pageSize = 100, pageToken = "")
       res1 <- ledger.userManagement.listUsers(request)
       res2 <- ledger.userManagement.createUser(
@@ -300,8 +299,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     }
   })
 
-  // TODO pbatko: test incorrenct page tokens and negative maxResults
-  // TODO pbatko: test requested page size larger than configured  --max-users-page-size
   userManagementTest(
     "TestPagedListUsers",
     "Exercise paging behavior ListUsers rpc",
@@ -340,6 +337,18 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       res4 <- ledger.userManagement.listUsers(
         ListUsersRequest(pageSize = 100, pageToken = res3.nextPageToken)
       )
+      // Using not base64 encoded string as a page token
+      onBadTokenError <- ledger.userManagement
+        .listUsers(
+          ListUsersRequest(pageSize = 100, pageToken = UUID.randomUUID().toString)
+        )
+        .mustFail("using not base64 encoded string")
+      // Using negative pageSize
+      onNegativePageSizeError <- ledger.userManagement
+        .listUsers(
+          ListUsersRequest(pageSize = -100, pageToken = "")
+        )
+        .mustFail("using negative page size")
       //
     } yield {
       assert(res1.nextPageToken.nonEmpty, s"First next page token should be non-empty")
@@ -357,6 +366,20 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         "",
       )
       assert(res4.users.isEmpty, s"Last page should be empty but was: ${res4.users}")
+      assertGrpcError(
+        participant = ledger,
+        t = onBadTokenError,
+        expectedCode = Status.Code.INVALID_ARGUMENT,
+        selfServiceErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+        exceptionMessageSubstring = None,
+      )
+      assertGrpcError(
+        participant = ledger,
+        t = onNegativePageSizeError,
+        expectedCode = Status.Code.INVALID_ARGUMENT,
+        selfServiceErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+        exceptionMessageSubstring = None,
+      )
 
     }
   })
