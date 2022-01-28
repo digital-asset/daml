@@ -146,6 +146,11 @@ class IntegrationTest
       )
   }
 
+  private def deleteUser(userName: String)(implicit
+      client: LedgerClient
+  ): Future[Unit] =
+    client.userManagementClient.deleteUser(UserId.assertFromString(userName))
+
   "Navigator (parties)" - {
     "picks up newly allocated parties" in withNavigator(userMgmt = false) {
       implicit uri => implicit client =>
@@ -186,9 +191,7 @@ class IntegrationTest
           )
         } yield succeed
     }
-  }
 
-  "Navigator (users)" - {
     "picks up newly created users (2 users, 2 primary parties)" in withNavigator(userMgmt = true) {
       implicit uri => implicit client =>
         for {
@@ -201,6 +204,22 @@ class IntegrationTest
             """{"method":{"type":"select","users":["user-name-1","user-name-2"]},"type":"sign-in"}"""
           )
         } yield succeed
+    }
+
+    "drops deleted users" in withNavigator(userMgmt = true) { implicit uri => implicit client =>
+      for {
+        _ <- okSessionBody("""{"method":{"type":"select","users":[]},"type":"sign-in"}""")
+        partyDetails <- allocateParty("primary-party")
+        _ <- createUser("user-name-1", partyDetails.party)
+        _ <- createUser("user-name-2", partyDetails.party)
+        _ <- okSessionBody(
+          """{"method":{"type":"select","users":["user-name-1","user-name-2"]},"type":"sign-in"}"""
+        )
+        _ <- deleteUser("user-name-1")
+        _ <- okSessionBody(
+          """{"method":{"type":"select","users":["user-name-2"]},"type":"sign-in"}"""
+        )
+      } yield succeed
     }
   }
 
