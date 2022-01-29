@@ -128,7 +128,7 @@ object LedgerBridge {
     val party = s.hint.getOrElse(UUID.randomUUID().toString)
     Update.PartyAddedToParticipant(
       party = Ref.Party.assertFromString(party),
-      displayName = s.displayName.getOrElse(party),
+      displayName = s.displayName.getOrElse(""),
       participantId = participantId,
       recordTime = currentTimestamp,
       submissionId = Some(s.submissionId),
