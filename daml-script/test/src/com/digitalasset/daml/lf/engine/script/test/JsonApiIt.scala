@@ -58,8 +58,7 @@ import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
-import com.daml.platform.sandbox.AbstractSandboxFixture
-import com.daml.platform.sandboxnext
+import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
 import com.daml.ports.Port
 import io.grpc.Channel
 import org.scalatest._
@@ -153,8 +152,8 @@ trait JsonApiFixture
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
             _.map(info => Some(info.jdbcUrl))
           )
-        serverPort <- new sandboxnext.Runner(config.copy(jdbcUrl = jdbcUrl))
-        channel <- GrpcClientResource.owner(serverPort)
+        sandboxServer <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
+        channel <- GrpcClientResource.owner(sandboxServer.port)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
             implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(

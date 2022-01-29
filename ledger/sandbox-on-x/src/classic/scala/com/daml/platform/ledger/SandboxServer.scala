@@ -55,7 +55,7 @@ final class SandboxServer(
   )
 
   // Only used in testing; hopefully we can get rid of it soon.
-  val port =
+  val port: Port =
     Await.result(apiServerResource.asFuture.map(_.port)(ExecutionContext.parasitic), AsyncTolerance)
 
   override def close(): Unit = Await.result(apiServerResource.release(), AsyncTolerance)
