@@ -30,12 +30,6 @@ sandbox_classic_deps = [
     "@maven//:ch_qos_logback_logback_classic",
 ]
 
-alias(
-    name = "sandbox-classic",
-    actual = "sandbox-classic-ce",
-    visibility = ["//visibility:public"],
-)
-
 # TODO sandbox-classic cleanup: De-alias
 alias(
     name = "sandbox-classic-scala-tests-lib",
@@ -44,7 +38,7 @@ alias(
 )
 
 da_scala_library(
-    name = "sandbox-classic-ce",
+    name = "sandbox-classic",
     srcs = glob(["src/main/**/*.scala"]),
     # Do not include logback.xml into the library: let the user
     # of the sandbox-as-a-library decide how to log.
