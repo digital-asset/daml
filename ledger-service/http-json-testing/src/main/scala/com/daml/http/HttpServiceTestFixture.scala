@@ -5,7 +5,6 @@ package com.daml.http
 
 import java.io.File
 import java.time.Instant
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -48,9 +47,8 @@ import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.{SandboxBackend, SandboxServer}
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandboxnext.Runner
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.typesafe.scalalogging.LazyLogging
@@ -175,20 +173,21 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       )
       jdbcUrl <- urlResource.asFuture
       ledger <- Future(
-        new Runner(
-          ledgerConfig(
-            Port.Dynamic,
-            dars,
-            ledgerId,
-            useTls = useTls,
-            authService = authService,
-            jdbcUrl = jdbcUrl,
+        SandboxServer
+          .owner(
+            ledgerConfig(
+              Port.Dynamic,
+              dars,
+              ledgerId,
+              useTls = useTls,
+              authService = authService,
+              jdbcUrl = jdbcUrl,
+            )
           )
-        )
           .acquire()
       )
-      port <- ledger.asFuture
-    } yield (ledger, port)
+      server <- ledger.asFuture
+    } yield (ledger, server.port)
 
     val clientF: Future[DamlLedgerClient] = for {
       (_, ledgerPort) <- ledgerF

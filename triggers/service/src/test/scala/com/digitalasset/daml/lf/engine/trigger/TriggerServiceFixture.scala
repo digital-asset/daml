@@ -8,7 +8,6 @@ import java.net.InetAddress
 import java.time.{Clock, Instant, LocalDateTime, ZoneId, Duration => JDuration}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 import java.util.{Date, UUID}
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -20,9 +19,9 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.auth.middleware.oauth2.{
+  SecretString,
   Config => MiddlewareConfig,
   Server => MiddlewareServer,
-  SecretString,
 }
 import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
 import com.daml.bazeltools.BazelRunfiles
@@ -51,8 +50,7 @@ import com.daml.lf.speedy.Compiler
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandboxnext.{Runner => SandboxRunner}
+import com.daml.platform.sandbox.{SandboxBackend, SandboxServer}
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
@@ -313,7 +311,8 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         // of which is that the ledger and index databases will be out of sync.
         jdbcUrl <- SandboxBackend.H2Database.owner
           .map(info => Some(info.jdbcUrl))
-        port <- new SandboxRunner(sandboxConfig.copy(jdbcUrl = jdbcUrl))
+        server <- SandboxServer.owner(sandboxConfig.copy(jdbcUrl = jdbcUrl))
+        port = server.port
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),
       acquisitionTimeout = 1.minute,

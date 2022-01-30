@@ -108,7 +108,6 @@ da_scala_test_suite(
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
-        "//ledger/sandbox",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/sandbox-on-x:sandbox-classic-server",
