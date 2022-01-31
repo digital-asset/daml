@@ -6,7 +6,6 @@ package com.daml.codegen
 import java.io.File
 import java.time.Instant
 import java.util.UUID
-
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.codegen.util.TestUtil.{TestContext, requiredResource}
 import com.daml.ledger.api.domain.LedgerId
@@ -29,7 +28,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.services.SandboxFixture
+import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}
 import com.daml.sample.{EventDecoder, MyMain, MySecondMain}

@@ -5,7 +5,6 @@ package com.daml.platform.sandbox.perf
 
 import java.io.File
 import java.util.concurrent.Executors
-
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
@@ -13,12 +12,13 @@ import com.daml.lf.archive.UniversalArchiveReader
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
+import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType.Static
 import com.daml.ports.Port
 import com.daml.testing.postgresql.PostgresResource
 
+import java.time.Duration
 import scala.concurrent.ExecutionContext
 
 object LedgerFactories {
@@ -27,13 +27,14 @@ object LedgerFactories {
     UniversalArchiveReader.assertReadFile(file).all.head.pkgId
 
   private def sandboxConfig(jdbcUrl: Option[String], darFiles: List[File]) =
-    sandbox.DefaultConfig.copy(
+    SandboxConfig.defaultConfig.copy(
       port = Port.Dynamic,
       damlPackages = darFiles,
       ledgerIdMode =
         LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString("ledger-server"))),
       jdbcUrl = jdbcUrl,
       timeProviderType = Some(Static),
+      delayBeforeSubmittingLedgerConfiguration = Duration.ZERO,
     )
 
   val mem = "InMemory"
