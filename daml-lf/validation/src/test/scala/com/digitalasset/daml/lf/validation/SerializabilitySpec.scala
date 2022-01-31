@@ -324,12 +324,32 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
       val pkg =
         p"""
-          module NegativeTestCase {
+          module NegativeTestCase1 {
             interface (this: Token) = {
               precondition False;
-              choice GetContractId (self) (u:Unit) : ContractId NegativeTestCase:Token
+              choice GetContractId (self) (u:Unit) : ContractId NegativeTestCase1:Token
                 , controllers Nil @Party
-                to upure @(ContractId NegativeTestCase:Token) self;
+                to upure @(ContractId NegativeTestCase1:Token) self;
+            } ;
+          }
+
+          module NegativeTestCase2 {
+            interface (this: Token) = {
+              precondition False;
+              choice ReturnContractId (self) (u:ContractId NegativeTestCase2:Token) : ContractId NegativeTestCase2:Token
+                , controllers Nil @Party
+                to upure @(ContractId NegativeTestCase2:Token) self;
+            } ;
+          }
+
+          module NegativeTestCase3 {
+            record @serializable TokenId = {unTokenId : ContractId NegativeTestCase3:Token};
+
+            interface (this: Token) = {
+              precondition False;
+              choice ReturnContractId (self) (u:NegativeTestCase3:TokenId) : ContractId NegativeTestCase3:Token
+                , controllers Nil @Party
+                to upure @(ContractId NegativeTestCase3:Token) self;
             } ;
           }
 
@@ -343,7 +363,9 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
           }
         """
 
-      check(pkg, "NegativeTestCase")
+      check(pkg, "NegativeTestCase1")
+      check(pkg, "NegativeTestCase2")
+      check(pkg, "NegativeTestCase3")
       an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, "PositiveTestCase"))
     }
   }
