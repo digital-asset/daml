@@ -85,6 +85,8 @@ Independently of how the outcome is communicated, command deduplication generate
   Neither deduplication durations up to the :ref:`maximum deduplication time <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_time>` nor deduplication offsets published within that time SHOULD result in this error.
   Participants may accept longer periods at their discretion.
 
+- The gRPC status code ``FAILED_PRECONDITION`` with error code id :ref:`PARTICIPANT_PRUNED_DATA_ACCESSED <error_code_PARTICIPANT_PRUNED_DATA_ACCESSED>`, when specifying a deduplication period represented by an offset, indicates that the specified deduplication offset has been pruned.
+  The field ``earliest_offset`` in the metadata specifies the last pruned offset.
 
 For deduplication to work as intended, all submissions for the same ledger change must be submitted via the same participant.
 Whether a submission is considered a duplicate is determined by completion events, and by default a participant outputs only the completion events for submissions that were requested via the very same participant.
@@ -229,7 +231,16 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
        - Set the deduplication offset to ``earliest_offset`` or the deduplication duration to ``longest_duration`` and retry from :ref:`Step 2 <dedup-bounded-step-offset>`,  obtaining the completion offset ``OFF1``.
 	 This may lead to accepting the change twice within the originally intended deduplication period.
 
-	 
+
+   - * ``FAILED_PRECONDITION`` / :ref:`PARTICIPANT_PRUNED_DATA_ACCESSED <error_code_PARTICIPANT_PRUNED_DATA_ACCESSED>`
+
+     * The specified deduplication offset has been pruned by the participant.
+       ``earliest_offset`` contains the last pruned offset.
+
+        Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :ref:`completions <com.daml.ledger.api.v1.CompletionStreamRequest>`, starting from the last pruned offset by setting :ref:`offset <com.daml.ledger.api.v1.CompletionStreamRequest.offset>` to the value of
+        ``earliest_offset``, and use the first received :ref:`offset <com.daml.ledger.api.v1.Checkpoint.offset>` as a deduplication offset.
+
+
    - * ``ABORTED`` / :ref:`SUBMISSION_ALREADY_IN_FLIGHT <error_code_SUBMISSION_ALREADY_IN_FLIGHT>`
      
        This error occurs only as an RPC response, not inside a completion event.
@@ -376,7 +387,3 @@ The above strategy can fail in the following scenarios:
 ..
   Command deduplication on the JSON API
   *************************************
-
-
-
-
