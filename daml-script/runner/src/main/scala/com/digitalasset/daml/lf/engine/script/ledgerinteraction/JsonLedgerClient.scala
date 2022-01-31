@@ -503,15 +503,13 @@ class JsonLedgerClient(
   }
 
   def recoverNotFound[A](e: Future[Option[A]]): Future[Option[A]] = {
-    e.recover {
-      case FailedJsonApiRequest(_, _, status, _) if status.intValue == 404 =>
-        None
+    e.recover { case FailedJsonApiRequest(_, _, StatusCodes.NotFound, _) =>
+      None
     }
   }
   def recoverAlreadyExists[A](e: Future[Option[A]]): Future[Option[A]] = {
-    e.recover {
-      case FailedJsonApiRequest(_, _, status, _) if status.intValue == 409 =>
-        None
+    e.recover { case FailedJsonApiRequest(_, _, StatusCodes.Conflict, _) =>
+      None
     }
   }
 
