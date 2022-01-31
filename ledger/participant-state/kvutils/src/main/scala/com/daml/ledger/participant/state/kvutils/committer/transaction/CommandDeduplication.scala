@@ -60,11 +60,11 @@ private[transaction] object CommandDeduplication {
                 "Deduplication period must be set"
               )
           }
-        val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
-        val dedupEntry = commitContext.get(dedupKey)
-        val maybeDedupValue = dedupEntry
-          .filter(_.hasCommandDedup)
-          .map(_.getCommandDedup)
+        val maybeDedupValue =
+          commitContext
+            .get(commandDedupKey(transactionEntry.submitterInfo))
+            .filter(_.hasCommandDedup)
+            .map(_.getCommandDedup)
         val isNotADuplicate =
           isTheCommandNotADuplicate(commitContext, commandDeduplicationDuration, maybeDedupValue)
         if (isNotADuplicate) {
@@ -89,8 +89,8 @@ private[transaction] object CommandDeduplication {
           commitContext: CommitContext,
           commandDeduplicationDuration: Duration,
           maybeDedupValue: Option[DamlCommandDedupValue],
-      ) = {
-        val recordTimeOrMinimumRecordTime = commitContext.recordTime match {
+      ): Boolean = {
+        val minimumRecordTime = commitContext.recordTime match {
           case Some(recordTime) =>
             // During the normal execution, in the deduplication state value we stored the record time
             // This allows us to compare the record times directly
@@ -106,35 +106,28 @@ private[transaction] object CommandDeduplication {
               )
               .toInstant
         }
-        maybeDedupValue
-          .flatMap(commandDeduplication =>
-            commandDeduplication.getTimeCase match {
-              // Backward-compatibility, will not be set for new entries
-              case TimeCase.DEDUPLICATED_UNTIL =>
-                Some(parseTimestamp(commandDeduplication.getDeduplicatedUntil))
-              // Set during normal execution, no time skews are added
-              case TimeCase.RECORD_TIME =>
-                val storedDuplicateRecordTime =
-                  parseTimestamp(commandDeduplication.getRecordTime)
-                Some(
-                  storedDuplicateRecordTime
-                    .add(commandDeduplicationDuration)
-                )
-              // Set during pre-execution, time skews are already accounted for
-              case TimeCase.RECORD_TIME_BOUNDS =>
-                val maxRecordTime =
-                  parseTimestamp(commandDeduplication.getRecordTimeBounds.getMaxRecordTime)
-                Some(
-                  maxRecordTime
-                    .add(commandDeduplicationDuration)
-                )
-              case TimeCase.TIME_NOT_SET =>
-                None
-            }
-          )
-          .forall(deduplicatedUntil =>
-            recordTimeOrMinimumRecordTime.isAfter(deduplicatedUntil.toInstant)
-          )
+        val maybeDeduplicatedUntil = maybeDedupValue.flatMap(commandDeduplication =>
+          commandDeduplication.getTimeCase match {
+            // Backward-compatibility, will not be set for new entries
+            case TimeCase.DEDUPLICATED_UNTIL =>
+              Some(parseTimestamp(commandDeduplication.getDeduplicatedUntil))
+            // Set during normal execution, no time skews are added
+            case TimeCase.RECORD_TIME =>
+              val storedDuplicateRecordTime =
+                parseTimestamp(commandDeduplication.getRecordTime)
+              Some(storedDuplicateRecordTime.add(commandDeduplicationDuration))
+            // Set during pre-execution, time skews are already accounted for
+            case TimeCase.RECORD_TIME_BOUNDS =>
+              val maxRecordTime =
+                parseTimestamp(commandDeduplication.getRecordTimeBounds.getMaxRecordTime)
+              Some(maxRecordTime.add(commandDeduplicationDuration))
+            case TimeCase.TIME_NOT_SET =>
+              None
+          }
+        )
+        maybeDeduplicatedUntil.forall(deduplicatedUntil =>
+          minimumRecordTime.isAfter(deduplicatedUntil.toInstant)
+        )
       }
 
       private def preExecutionDuplicateRejection(

@@ -44,6 +44,7 @@ class CommandDeduplicationSpec
     with Matchers
     with MockitoSugar
     with OptionValues {
+
   import CommandDeduplicationSpec._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
@@ -55,16 +56,16 @@ class CommandDeduplicationSpec
     CommandDeduplication.setDeduplicationEntryStep(theDefaultConfig)
   private val timestamp: Timestamp = Timestamp.now()
 
-  "deduplicateCommand" should {
-    Map(
-      "pre-execution" -> ((dedupValueBuilder: Timestamp => Option[DamlStateValue]) => {
+  "deduplicateCommand" when {
+    Map[String, (Timestamp => Option[DamlStateValue]) => (Timestamp, CommitContext)](
+      "pre-execution" -> (dedupValueBuilder => {
         val dedupValue = dedupValueBuilder(timestamp)
         val commitContext = createCommitContext(None, Map(aDedupKey -> dedupValue))
         commitContext.minimumRecordTime = Some(timestamp)
         commitContext.maximumRecordTime = Some(Timestamp.Epoch)
         timestamp -> commitContext
       }),
-      "normal-execution" -> ((dedupValueBuilder: Timestamp => Option[DamlStateValue]) => {
+      "normal-execution" -> (dedupValueBuilder => {
         val dedupValue = dedupValueBuilder(timestamp)
         val commitContext = createCommitContext(Some(timestamp), Map(aDedupKey -> dedupValue))
         timestamp -> commitContext
@@ -84,7 +85,6 @@ class CommandDeduplicationSpec
         }
 
         "using deduplicate until" should {
-
           "continue if record time is after deduplication time in case a deduplication entry is found" in {
             val (_, context) = contextBuilder(timestamp =>
               Some(
@@ -118,14 +118,16 @@ class CommandDeduplicationSpec
 
         "using record time" should {
           forAll(
-            Table(
+            Table[
+              String,
+              Timestamp => DamlCommandDedupValue.Builder => DamlCommandDedupValue.Builder,
+            ](
               "identifier" -> "time setter",
-              "record time" -> ((timestamp: Timestamp) =>
-                (builder: DamlCommandDedupValue.Builder) =>
-                  builder.setRecordTime(buildTimestamp(timestamp))
+              "record time" -> (timestamp =>
+                builder => builder.setRecordTime(buildTimestamp(timestamp))
               ),
-              "record time bounds" -> ((timestamp: Timestamp) =>
-                (builder: DamlCommandDedupValue.Builder) =>
+              "record time bounds" -> (timestamp =>
+                builder =>
                   builder.setRecordTimeBounds(
                     buildPreExecutionDeduplicationBounds(
                       timestamp.subtract(deduplicationDuration),
