@@ -50,7 +50,7 @@ class Foldable t where
   foldl1 : (a -> a -> a) -> t a -> a
   foldl1 f xs = O.fromSomeNote "foldl1: empty input" (foldl mf None xs)
     where
-      mf m x = Some (case m of None -> x; Some y -> f x y)
+      mf m x = Some (case m of None -> x; Some y -> f y x)
 
   -- | List of elements of a structure, from left to right.
   toList : t a -> [a]
