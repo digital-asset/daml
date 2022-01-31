@@ -99,7 +99,7 @@ private[backend] trait StorageBackendTestsMetering
     it should "only include after from date that have been ingested" in {
       check(2, None, None)
     }
-    it should "only include rows that exited before any to timestamp" in {
+    it should "only include rows that existed before any to timestamp" in {
       check(2, toIdx = Some(4), None)
     }
     it should "only include rows for any given application" in {

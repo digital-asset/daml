@@ -84,7 +84,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
 
   "the metering report service" should {
 
-    "generate report based with optional parameters unset" in {
+    "generate report with optional parameters unset" in {
 
       val store = mock[MeteringStore]
 
