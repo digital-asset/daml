@@ -200,7 +200,9 @@ da_scala_test_suite(
 
 da_scala_test_suite(
     name = "sandbox-on-x-it-tests",
-    size = "small",
+    # Sandbox-on-X has high end-to-end submission latency.
+    # TODO Downsize to `small` once the latency is optimized
+    size = "medium",
     srcs = glob(
         ["src/test/it/**/*.scala"],
     ),
