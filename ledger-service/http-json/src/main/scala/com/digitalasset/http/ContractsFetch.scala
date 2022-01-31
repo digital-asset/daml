@@ -115,23 +115,6 @@ private class ContractsFetch(
     }
   }
 
-  def fetchAndPersist(
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-      parties: domain.PartySet,
-      templateIds: List[domain.TemplateId.RequiredPkg],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] =
-    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
-      _.cata(
-        fetchToAbsEnd(FetchContext(jwt, ledgerId, parties), templateIds, _),
-        fconn.pure(LedgerBegin),
-      )
-    }
-
   private[this] def fetchToAbsEnd(
       fetchContext: FetchContext,
       templateIds: List[domain.TemplateId.RequiredPkg],

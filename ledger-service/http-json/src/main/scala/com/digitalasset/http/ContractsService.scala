@@ -325,15 +325,15 @@ class ContractsService(
               resolveTemplateId(lc)(jwt, ledgerId)(templateId).map(_.toOption.flatten)
             )
             res <- OptionT(unsafeRunAsync {
-              import doobie.implicits._, cats.syntax.apply._
               timed(
                 metrics.daml.HttpJsonApi.Db.fetchByIdFetch,
-                fetch.fetchAndPersist(jwt, ledgerId, parties, List(resolved)),
-              ) *>
-                timed(
-                  metrics.daml.HttpJsonApi.Db.fetchByIdQuery,
-                  ContractDao.fetchById(parties, resolved, contractId),
-                )
+                fetch.fetchAndPersistBracket(jwt, ledgerId, parties, List(resolved)) { _ =>
+                  timed(
+                    metrics.daml.HttpJsonApi.Db.fetchByIdQuery,
+                    ContractDao.fetchById(parties, resolved, contractId),
+                  )
+                },
+              )
             })
           } yield res
           dbQueried.orElse {
@@ -353,19 +353,19 @@ class ContractsService(
           for {
             resolved <- resolveTemplateId(lc)(jwt, ledgerId)(templateId).map(_.toOption.flatten.get)
             found <- unsafeRunAsync {
-              import doobie.implicits._, cats.syntax.apply._
               timed(
                 metrics.daml.HttpJsonApi.Db.fetchByKeyFetch,
-                fetch.fetchAndPersist(jwt, ledgerId, parties, List(resolved)),
-              ) *>
-                timed(
-                  metrics.daml.HttpJsonApi.Db.fetchByKeyQuery,
-                  ContractDao.fetchByKey(
-                    parties,
-                    resolved,
-                    Hash.assertHashContractKey(toLedgerApiValue(resolved), contractKey),
-                  ),
-                )
+                fetch.fetchAndPersistBracket(jwt, ledgerId, parties, List(resolved)) { _ =>
+                  timed(
+                    metrics.daml.HttpJsonApi.Db.fetchByKeyQuery,
+                    ContractDao.fetchByKey(
+                      parties,
+                      resolved,
+                      Hash.assertHashContractKey(toLedgerApiValue(resolved), contractKey),
+                    ),
+                  )
+                },
+              )
             }
           } yield found
         }
@@ -412,14 +412,15 @@ class ContractsService(
           import doobie.implicits._
           import ctx.{jwt, parties, templateIds, ledgerId}
           for {
-            _ <- timed(
-              metrics.daml.HttpJsonApi.Db.searchFetch,
-              fetch.fetchAndPersist(jwt, ledgerId, parties, templateIds.toList),
-            )
             cts <- timed(
-              metrics.daml.HttpJsonApi.Db.searchQuery,
-              templateIds.toVector
-                .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
+              metrics.daml.HttpJsonApi.Db.searchFetch,
+              fetch.fetchAndPersistBracket(jwt, ledgerId, parties, templateIds.toList) { _ =>
+                timed(
+                  metrics.daml.HttpJsonApi.Db.searchQuery,
+                  templateIds.toVector
+                    .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
+                )
+              },
             )
           } yield cts.flatten
         }
