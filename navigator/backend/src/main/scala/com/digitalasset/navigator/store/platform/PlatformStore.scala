@@ -193,7 +193,12 @@ class PlatformStore(
     case UpdatedUsers(users) =>
       // Note: you cannot log in as a user without a primary party
       val usersWithPrimaryParties = users.flatMap { user =>
-        user.primaryParty.map(p => (user.id, p))
+        user.primaryParty.map(p => (user.id: String, p))
+      }.toMap
+
+      state.parties.foreach { case (userId, party) =>
+        if (!usersWithPrimaryParties.contains(userId))
+          self ! Unsubscribe(userId, party)
       }
 
       usersWithPrimaryParties.foreach { case (userId, party) =>
@@ -208,6 +213,14 @@ class PlatformStore(
         } else {
           log.debug(s"Ignoring non-local party ${partyDetails.party}")
         }
+      }
+
+    case Unsubscribe(displayName, partyState) =>
+      if (state.parties.contains(displayName)) {
+        log.info(s"Stopping actor for ${partyState.name} (aka $displayName)")
+        context.child(partyState.actorName).foreach(context.stop)
+        val updatedParties = state.parties - displayName
+        context.become(connected(state.copy(parties = updatedParties)))
       }
 
     case Subscribe(displayName, partyState) =>

@@ -36,6 +36,9 @@ object Store {
   /** Request to subscribe a party to the store (without response to sender). */
   case class Subscribe(displayName: String, partyState: PartyState)
 
+  /** Request to unsubscribe a party to the store (without response to sender). */
+  case class Unsubscribe(displayName: String, partyState: PartyState)
+
   /** Request to create a contract instance for a template and respond with a `scala.util.Try[CommandId]`. */
   case class CreateContract(party: PartyState, templateId: TemplateStringId, argument: ApiRecord)
 
