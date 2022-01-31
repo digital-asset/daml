@@ -22,13 +22,21 @@ assistant. We first create the project and build the DAR.
   cd profile-tutorial
   daml build
 
-Next we load the DAR into Sandbox with a special ``--profile-dir``
+Next we load the DAR into Sandbox with a special ``profile-dir``
 option. Sandbox will behave as usual but all profile results will be
-written to that directory.
+written to that directory. For this, we first create a configuration
+file that sets the ``profile-dir`` for Sandbox:
+
+.. code-block:: none
+   :caption: profile.conf
+
+   canton.participants.sandbox.features.profile-dir = profile-results
+
+We then pass
 
 .. code-block:: sh
 
-   daml sandbox .daml/dist/profile-tutorial-0.0.1.dar --profile-dir profile-results
+   daml sandbox .daml/dist/profile-tutorial-0.0.1.dar -c profile.conf
 
 To actually produce some profile results, we have to create
 transactions. For the purposes of this tutorial, the Daml Script
