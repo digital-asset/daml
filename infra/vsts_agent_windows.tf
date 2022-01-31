@@ -24,6 +24,8 @@ locals {
       pinning    = <<EOF
 
 # Set workdir <> job mappings
+# This is taken verbatim from a machine that started without any custom content
+# under SourceRootMapping, and had run all three jobs.
 New-Item -ItemType Directory -Path 'D:\a'
 New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping'
 New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2'
