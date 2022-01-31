@@ -18,8 +18,8 @@ locals {
     },
     {
       name       = "ci-w2"
-      size       = 1,
-      assignment = "pinned",
+      size       = 6,
+      assignment = "default",
       disk_size  = 400,
       pinning    = <<EOF
 
