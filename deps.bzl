@@ -220,9 +220,9 @@ def daml_deps():
         # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.44.0-pre2",
-            urls = ["https://github.com/grpc/grpc/archive/v1.44.0-pre2.tar.gz"],
-            sha256 = "37f95f4beafe394e7a8dc96347838268925e7ad2a4fe084e95151df9a6141268",
+            strip_prefix = "grpc-1.43.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.43.0.tar.gz"],
+            sha256 = "9647220c699cea4dafa92ec0917c25c7812be51a18143af047e20f3fb05adddc",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
