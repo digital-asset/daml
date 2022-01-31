@@ -22,70 +22,7 @@ locals {
       disk_size  = 400,
     },
   ]
-}
-
-resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
-  count    = length(local.w)
-  provider = google-beta
-  name     = local.w[count.index].name
-
-  # keep the name short. windows hostnames are limited to 12(?) chars.
-  # -5 for the random postfix:
-  base_instance_name = local.w[count.index].name
-
-  region      = "us-east1"
-  target_size = local.w[count.index].size
-
-  version {
-    name              = local.w[count.index].name
-    instance_template = google_compute_instance_template.vsts-agent-windows[count.index].self_link
-  }
-
-  # uncomment when we get a provider >3.55
-  #distribution_policy_target_shape = "ANY"
-
-  update_policy {
-    type           = "PROACTIVE"
-    minimal_action = "REPLACE"
-
-    # minimum is the number of availability zones (3)
-    max_surge_fixed = 3
-
-    # calculated with: serial console last timestamp after boot - VM start
-    # 09:54:28 - 09:45:55 = 513 seconds
-    min_ready_sec = 520
-
-    instance_redistribution_type = "NONE"
-  }
-}
-
-resource "google_compute_instance_template" "vsts-agent-windows" {
-  count        = length(local.w)
-  name_prefix  = "${local.w[count.index].name}-"
-  machine_type = "c2-standard-8"
-  labels       = local.machine-labels
-
-  disk {
-    disk_size_gb = local.w[count.index].disk_size
-    disk_type    = "pd-ssd"
-
-    # find the image name with `gcloud compute images list`
-    source_image = "windows-cloud/windows-2016"
-  }
-
-  # Drive D:\ for the agent work folder
-  disk {
-    disk_size_gb = local.w[count.index].disk_size
-    disk_type    = "pd-ssd"
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-
-  metadata = {
-    // Prepare the machine
-    windows-startup-script-ps1 = <<SYSPREP_SPECIALIZE
+  windows-startup-script-ps1 = <<SYSPREP_SPECIALIZE
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
@@ -116,8 +53,8 @@ Invoke-WebRequest https://dl.google.com/cloudagents/windows/StackdriverLogging-v
 iex (New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')
 
 # Install git, bash
-& choco install git --no-progress --yes 2>&1 | %%{ "$_" }
-& choco install windows-sdk-10.1 --no-progress --yes 2>&1 | %%{ "$_" }
+& choco install git --no-progress --yes 2>&1 | %%%{ "$_" }
+& choco install windows-sdk-10.1 --no-progress --yes 2>&1 | %%%{ "$_" }
 
 # Add tools to the PATH
 $OldPath = (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment' -Name PATH).path
@@ -135,7 +72,7 @@ format fs=ntfs quick
 assign letter="D"
 "@
 $partition | Set-Content C:\diskpart.txt
-& diskpart /s C:\diskpart.txt 2>&1 | %%{ "$_" }
+& diskpart /s C:\diskpart.txt 2>&1 | %%%{ "$_" }
 
 # Create a temporary and random password for the VSTS user, forget about it once this script has finished running
 $Username = "u"
@@ -157,12 +94,12 @@ net stop winrm
 sc.exe config winrm start=auto
 net start winrm
 
-& choco install dotnetcore-3.1-sdk --no-progress --yes 2>&1 | %%{ "$_" }
+& choco install dotnetcore-3.1-sdk --no-progress --yes 2>&1 | %%%{ "$_" }
 
 echo "== Installing the VSTS agent"
 
 New-Item -ItemType Directory -Path 'C:\agent'
-Set-Content -Path 'C:\agent\.capabilities' -Value 'assignment=${local.w[count.index].assignment}'
+Set-Content -Path 'C:\agent\.capabilities' -Value 'assignment=%s'
 
 # Set workdir <> job mappings
 # This is taken verbatim from a machine that started without any custom content
@@ -267,8 +204,71 @@ $MachineName = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object 
 choco install azure-pipelines-agent --no-progress --yes --params "'/Token:${local.vsts_token} /Pool:${local.vsts_pool} /Url:https://dev.azure.com/${local.vsts_account}/ /LogonAccount:$Account /LogonPassword:$Password /Work:D:\a /AgentName:$MachineName /Replace'"
 echo OK
 SYSPREP_SPECIALIZE
+}
 
-    windows-shutdown-script-ps1 = "c://agent/config remove --unattended --auth PAT --token '${secret_resource.vsts-token.value}'"
+resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
+  count    = length(local.w)
+  provider = google-beta
+  name     = local.w[count.index].name
+
+  # keep the name short. windows hostnames are limited to 12(?) chars.
+  # -5 for the random postfix:
+  base_instance_name = local.w[count.index].name
+
+  region      = "us-east1"
+  target_size = local.w[count.index].size
+
+  version {
+    name              = local.w[count.index].name
+    instance_template = google_compute_instance_template.vsts-agent-windows[count.index].self_link
+  }
+
+  # uncomment when we get a provider >3.55
+  #distribution_policy_target_shape = "ANY"
+
+  update_policy {
+    type           = "PROACTIVE"
+    minimal_action = "REPLACE"
+
+    # minimum is the number of availability zones (3)
+    max_surge_fixed = 3
+
+    # calculated with: serial console last timestamp after boot - VM start
+    # 09:54:28 - 09:45:55 = 513 seconds
+    min_ready_sec = 520
+
+    instance_redistribution_type = "NONE"
+  }
+}
+
+resource "google_compute_instance_template" "vsts-agent-windows" {
+  count        = length(local.w)
+  name_prefix  = "${local.w[count.index].name}-"
+  machine_type = "c2-standard-8"
+  labels       = local.machine-labels
+
+  disk {
+    disk_size_gb = local.w[count.index].disk_size
+    disk_type    = "pd-ssd"
+
+    # find the image name with `gcloud compute images list`
+    source_image = "windows-cloud/windows-2016"
+  }
+
+  # Drive D:\ for the agent work folder
+  disk {
+    disk_size_gb = local.w[count.index].disk_size
+    disk_type    = "pd-ssd"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  metadata = {
+    // Prepare the machine
+    windows-startup-script-ps1  = nonsensitive(format(local.windows-startup-script-ps1, local.w[count.index].assignment))
+    windows-shutdown-script-ps1 = nonsensitive("c://agent/config remove --unattended --auth PAT --token '${secret_resource.vsts-token.value}'")
   }
 
   network_interface {

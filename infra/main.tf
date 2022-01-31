@@ -58,7 +58,7 @@ locals {
     target          = "infra"
   }
 
-  machine-labels = merge(local.labels, map("env", "production"))
+  machine-labels = merge(local.labels, tomap({ "env" = "production" }))
 
   project = "da-dev-gcp-daml-language"
   region  = "us-east4"
