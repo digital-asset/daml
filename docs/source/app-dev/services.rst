@@ -235,17 +235,6 @@ You need to include this identity string when submitting commands. Commands with
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.LedgerIdentityService>`.
 
-.. _ledger-configuration-service:
-
-Ledger configuration service
-============================
-
-Use the **ledger configuration service** to subscribe to changes in ledger configuration.
-
-This configuration includes the maximum command deduplication period (see `Command Deduplication <#command-submission-service-deduplication>`__ for details).
-
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.LedgerConfigurationService>`.
-
 .. _version-service:
 
 Version service

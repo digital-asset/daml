@@ -7,7 +7,6 @@ import com.daml.ledger.api.health.ReportsHealth
 
 trait IndexService
     extends IndexPackagesService
-    with IndexConfigurationService
     with IndexCompletionsService
     with IndexTransactionsService
     with IndexActiveContractsService

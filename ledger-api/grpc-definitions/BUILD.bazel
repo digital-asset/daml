@@ -102,7 +102,6 @@ ledger_api_haskellpb_sources = [
     "Commands.hs",
     "Completion.hs",
     "Event.hs",
-    "LedgerConfigurationService.hs",
     "LedgerIdentityService.hs",
     "LedgerOffset.hs",
     "PackageService.hs",

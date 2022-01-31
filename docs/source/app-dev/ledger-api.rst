@@ -40,7 +40,6 @@ all cases, the Ledger API exposes the same services:
   - Use the :ref:`party management service <party-service>` to allocate and find information about parties on the Daml ledger.
   - Use the :ref:`package service <package-service>` to query the Daml packages deployed to the ledger.
   - Use the :ref:`ledger identity service <ledger-identity-service>` to retrieve the Ledger ID of the ledger the application is connected to.
-  - Use the :ref:`ledger configuration service <ledger-configuration-service>` to retrieve some dynamic properties of the ledger, like maximum deduplication time for commands.
   - Use the :ref:`version service <version-service>` to retrieve information about the Ledger API version.
 - Testing services (on Sandbox only, *not* for production ledgers)
 

@@ -65,7 +65,6 @@ sharedSandboxTests testDar = testGroupWithSandbox testDar Nothing "shared sandbo
     , tGetTransactionByEventId
     , tGetTransactionById
     , tGetActiveContracts
-    , tGetLedgerConfiguration
     , tGetTime
     , tSetTime
     , tSubmitAndWait
@@ -320,15 +319,6 @@ tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandb
         -- All but the last offset are meaningless
         assertBool "off3 > off1" (off3 > off1)
         assertEqual "active" ev active
-
-tGetLedgerConfiguration :: SandboxTest
-tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run withSandbox $ \_darMetadata _testId -> do
-    lid <- getLedgerIdentity
-    xs <- getLedgerConfiguration lid
-    Just (Right config) <- liftIO $ timeout 1 (takeStream xs)
-    let expected = LedgerConfiguration {
-            maxDeduplicationTime = Duration {durationSeconds = 86400, durationNanos = 0}}
-    liftIO $ assertEqual "config" expected config
 
 tUploadDarFileBad :: SandboxTest
 tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $ \_darMetadata _testId -> do

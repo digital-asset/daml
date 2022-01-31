@@ -63,8 +63,6 @@ ledgerIdMismatch:
     CommandCompletionService:
       - completionStream
       - completionEnd
-    LedgerConfigurationService:
-      - getLedgerConfiguration
     PackageService:
       - listPackages
       - getPackage

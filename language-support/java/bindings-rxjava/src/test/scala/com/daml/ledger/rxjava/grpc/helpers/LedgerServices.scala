@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorSystem
 import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
-import com.daml.ledger.rxjava.{CommandCompletionClient, LedgerConfigurationClient, PackageClient}
+import com.daml.ledger.rxjava.{CommandCompletionClient, PackageClient}
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
@@ -25,7 +25,6 @@ import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
 }
-import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.daml.ledger.api.v1.package_service.{
   GetPackageResponse,
   GetPackageStatusResponse,
@@ -205,18 +204,6 @@ final class LedgerServices(val ledgerId: String) {
     }
   }
 
-  def withConfigurationClient(
-      responses: Seq[GetLedgerConfigurationResponse],
-      authService: AuthService = AuthServiceWildcard,
-      accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
-  )(f: (LedgerConfigurationClient, LedgerConfigurationServiceImpl) => Any): Any = {
-    val (service, impl) =
-      LedgerConfigurationServiceImpl.createWithRef(responses, authorizer)(executionContext)
-    withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new LedgerConfigurationClientImpl(ledgerId, channel, esf, accessToken), impl)
-    }
-  }
-
   def withLedgerIdentityClient(
       authService: AuthService = AuthServiceWildcard,
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
@@ -262,7 +249,6 @@ final class LedgerServices(val ledgerId: String) {
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
       getTimeResponses: List[GetTimeResponse],
-      getLedgerConfigurationResponses: Seq[GetLedgerConfigurationResponse],
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
       getPackageStatusResponse: Future[GetPackageStatusResponse],
@@ -280,7 +266,6 @@ final class LedgerServices(val ledgerId: String) {
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse,
       getTimeResponses,
-      getLedgerConfigurationResponses,
       listPackagesResponse,
       getPackageResponse,
       getPackageStatusResponse,

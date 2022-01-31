@@ -16,7 +16,6 @@ import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
 }
-import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.daml.ledger.api.v1.package_service._
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
@@ -83,10 +82,6 @@ class DamlLedgerClientTest
         damlLedgerClient.getCommandSubmissionClient,
         ledgerServicesImpls.commandSubmissionServiceImpl,
       )
-      testLedgerConfigurationClient(
-        damlLedgerClient.getLedgerConfigurationClient,
-        ledgerServicesImpls.ledgerConfigurationServiceImpl,
-      )
       testTimeClientGet(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
       expectPermissionDenied {
         testTimeClientSet(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
@@ -117,10 +112,6 @@ class DamlLedgerClientTest
     testCommandSubmissionClient(
       damlLedgerClient.getCommandSubmissionClient,
       ledgerServicesImpls.commandSubmissionServiceImpl,
-    )
-    testLedgerConfigurationClient(
-      damlLedgerClient.getLedgerConfigurationClient,
-      ledgerServicesImpls.ledgerConfigurationServiceImpl,
     )
     testTimeClientGet(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
     testTimeClientSet(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
@@ -240,18 +231,6 @@ class DamlLedgerClientTest
     }
   }
 
-  private def testLedgerConfigurationClient(
-      ledgerConfigurationClient: LedgerConfigurationClient,
-      ledgerConfigurationServiceImpl: LedgerConfigurationServiceImpl,
-  ): Assertion = {
-    withClue("LedgerConfigurationClient") {
-      ledgerConfigurationClient.getLedgerConfiguration
-        .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-        .blockingFirst()
-      ledgerConfigurationServiceImpl.getLastRequest.value.ledgerId shouldBe ledgerServices.ledgerId
-    }
-  }
-
   private def testPackageClient(
       packageClient: PackageClient,
       packageServiceImpl: PackageServiceImpl,
@@ -290,7 +269,6 @@ class DamlLedgerClientTest
       Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance),
       List(genGetTimeResponse),
-      Seq(GetLedgerConfigurationResponse.defaultInstance),
       Future.successful(ListPackagesResponse(Seq("id1"))),
       Future.successful(GetPackageResponse(HashFunction.SHA256, ByteString.EMPTY)),
       Future.successful(GetPackageStatusResponse(PackageStatus.values.head)),

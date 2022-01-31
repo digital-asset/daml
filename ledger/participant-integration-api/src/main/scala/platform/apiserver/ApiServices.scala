@@ -163,9 +163,6 @@ private[daml] object ApiServices {
       val apiPackageService =
         ApiPackageService.create(ledgerId, packagesService, errorsVersionsSwitcher)
 
-      val apiConfigurationService =
-        ApiLedgerConfigurationService.create(ledgerId, configurationService, errorsVersionsSwitcher)
-
       val (completionService, grpcCompletionService) =
         ApiCommandCompletionService.create(
           ledgerId,
@@ -220,7 +217,6 @@ private[daml] object ApiServices {
         List(
           new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
           new PackageServiceAuthorization(apiPackageService, authorizer),
-          new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
           new TransactionServiceAuthorization(apiTransactionService, authorizer),
           new CommandCompletionServiceAuthorization(grpcCompletionService, authorizer),
           new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),

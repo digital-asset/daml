@@ -23,8 +23,6 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
-import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc
-import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
 import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
@@ -55,9 +53,6 @@ private[infrastructure] final class LedgerServices(
 
   val commandSubmission: CommandSubmissionService =
     CommandSubmissionServiceGrpc.stub(participant).withInterceptors(commandInterceptors: _*)
-
-  val configuration: LedgerConfigurationService =
-    LedgerConfigurationServiceGrpc.stub(participant)
 
   val health: Health =
     HealthGrpc.stub(participant)

@@ -84,8 +84,6 @@ The following table summarizes the rights required to access each Ledger API end
 +-------------------------------------+----------------------------+--------------------------------------------------------+
 | Health                              | All                        | no access token required for health checking           |
 +-------------------------------------+----------------------------+--------------------------------------------------------+
-| LedgerConfigurationService          | GetLedgerConfiguration     | public                                                 |
-+-------------------------------------+----------------------------+--------------------------------------------------------+
 | MeteringReportService               | All                        | participant_admin                                      |
 +-------------------------------------+----------------------------+--------------------------------------------------------+
 | PackageService                      | All                        | public                                                 |

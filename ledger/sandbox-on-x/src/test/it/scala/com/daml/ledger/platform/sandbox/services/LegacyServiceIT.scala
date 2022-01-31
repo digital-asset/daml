@@ -30,10 +30,6 @@ import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitRequest,
 }
-import com.daml.ledger.api.v1.ledger_configuration_service.{
-  GetLedgerConfigurationRequest,
-  LedgerConfigurationServiceGrpc,
-}
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc,
@@ -114,15 +110,6 @@ class LegacyServiceIT
         val submission =
           CommandSubmissionServiceGrpc.blockingStub(channel).withInterceptors(legacyCallInterceptor)
         submission.submit(SubmitRequest())
-      }
-    }
-
-    "offer com.digitalasset.ledger.api.v1.LedgerConfigurationService" in {
-      expectNotUnimplemented {
-        val configuration = LedgerConfigurationServiceGrpc
-          .blockingStub(channel)
-          .withInterceptors(legacyCallInterceptor)
-        configuration.getLedgerConfiguration(GetLedgerConfigurationRequest(randomLedgerId)).toList
       }
     }
 

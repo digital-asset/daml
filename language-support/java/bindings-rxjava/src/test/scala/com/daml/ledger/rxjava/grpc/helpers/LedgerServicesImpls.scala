@@ -14,7 +14,6 @@ import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
 }
-import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.daml.ledger.api.v1.package_service.{
   GetPackageResponse,
   GetPackageStatusResponse,
@@ -34,7 +33,6 @@ case class LedgerServicesImpls(
     commandSubmissionServiceImpl: CommandSubmissionServiceImpl,
     commandCompletionServiceImpl: CommandCompletionServiceImpl,
     commandServiceImpl: CommandServiceImpl,
-    ledgerConfigurationServiceImpl: LedgerConfigurationServiceImpl,
     timeServiceImpl: TimeServiceImpl,
     packageServiceImpl: PackageServiceImpl,
 )
@@ -53,7 +51,6 @@ object LedgerServicesImpls {
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
       getTimeResponses: List[GetTimeResponse],
-      getLedgerConfigurationResponses: Seq[GetLedgerConfigurationResponse],
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
       getPackageStatusResponse: Future[GetPackageStatusResponse],
@@ -75,8 +72,6 @@ object LedgerServicesImpls {
       submitAndWaitForTransactionTreeResponse,
       authorizer,
     )(ec)
-    val (lcServiceDef, lcService) =
-      LedgerConfigurationServiceImpl.createWithRef(getLedgerConfigurationResponses, authorizer)(ec)
     val (timeServiceDef, timeService) =
       TimeServiceImpl.createWithRef(getTimeResponses, authorizer)(ec)
     val (packageServiceDef, packageService) =
@@ -94,7 +89,6 @@ object LedgerServicesImpls {
       csServiceDef,
       ccServiceDef,
       cServiceDef,
-      lcServiceDef,
       timeServiceDef,
       packageServiceDef,
     )
@@ -105,7 +99,6 @@ object LedgerServicesImpls {
       csService,
       ccService,
       cService,
-      lcService,
       timeService,
       packageService,
     )

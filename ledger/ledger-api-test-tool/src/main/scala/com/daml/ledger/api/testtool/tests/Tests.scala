@@ -44,7 +44,6 @@ object Tests {
       new DivulgenceIT,
       new HealthServiceIT,
       new IdentityIT,
-      new LedgerConfigurationServiceIT,
       new MultiPartySubmissionIT,
       new PackageManagementServiceIT,
       new PackageServiceIT,

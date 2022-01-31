@@ -23,8 +23,6 @@ public interface LedgerClient {
 
   PackageClient getPackageClient();
 
-  LedgerConfigurationClient getLedgerConfigurationClient();
-
   TimeClient getTimeClient();
 
   UserManagementClient getUserManagementClient();

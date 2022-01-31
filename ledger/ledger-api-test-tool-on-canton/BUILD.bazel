@@ -91,7 +91,6 @@ conformance_test(
             "RaceConditionIT:RWArchiveVsFailedLookupByKey",  # finding a lookup failure after contract creation
             # dynamic config management not supported by Canton
             "ConfigManagementServiceIT",
-            "LedgerConfigurationServiceIT",
             # Excluding tests that require contract key uniqueness
             "ContractKeysIT:CKFetchOrLookup",
             "ContractKeysIT:CKMaintainerScoped",

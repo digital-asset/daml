@@ -341,11 +341,6 @@ Ledger identity service
 
 Use the **ledger identity service** to get the identity string of the `ledger <#ledger-daml-ledger>`__ that your application is connected to. See :ref:`ledger-identity-service`.
 
-Ledger configuration service
-----------------------------
-
-Use the **ledger configuration service** to subscribe to changes in `ledger <#ledger-daml-ledger>`__ configuration. See :ref:`ledger-configuration-service`.
-
 Ledger API libraries
 ====================
 

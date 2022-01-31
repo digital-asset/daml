@@ -63,11 +63,6 @@ import com.daml.ledger.api.v1.commands.{Command, Commands, ExerciseByKeyCommand}
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
-import com.daml.ledger.api.v1.ledger_configuration_service.{
-  GetLedgerConfigurationRequest,
-  GetLedgerConfigurationResponse,
-  LedgerConfiguration,
-}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service._
 import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, GetTimeResponse, SetTimeRequest}
@@ -751,16 +746,6 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def nextCheckpoint(from: LedgerOffset, parties: Party*): Future[Checkpoint] =
     nextCheckpoint(completionStreamRequest(from)(parties: _*))
-
-  def configuration(overrideLedgerId: Option[String] = None): Future[LedgerConfiguration] =
-    new StreamConsumer[GetLedgerConfigurationResponse](
-      services.configuration
-        .getLedgerConfiguration(
-          new GetLedgerConfigurationRequest(overrideLedgerId.getOrElse(ledgerId)),
-          _,
-        )
-    ).first()
-      .map(_.fold(sys.error("No ledger configuration available."))(_.getLedgerConfiguration))
 
   def checkHealth(): Future[HealthCheckResponse] =
     services.health.check(HealthCheckRequest())

@@ -13,7 +13,6 @@ module DA.Ledger.Convert (
     raiseCompletionStreamResponse,
     raiseGetActiveContractsResponse,
     raiseAbsLedgerOffset,
-    raiseGetLedgerConfigurationResponse,
     raiseGetTimeResponse,
     raiseTimestamp,
     raisePackageId,
@@ -34,7 +33,6 @@ import qualified Google.Protobuf.Empty as LL
 import qualified Google.Protobuf.Timestamp as LL
 import qualified Com.Daml.Ledger.Api.V1.ActiveContractsService as LL
 import qualified Com.Daml.Ledger.Api.V1.CommandCompletionService as LL
-import qualified Com.Daml.Ledger.Api.V1.LedgerConfigurationService as LL
 import qualified Com.Daml.Ledger.Api.V1.Testing.TimeService as LL
 import qualified Com.Daml.Ledger.Api.V1.Commands as LL
 import qualified Com.Daml.Ledger.Api.V1.Completion as LL
@@ -225,18 +223,6 @@ raiseGetTimeResponse :: LL.GetTimeResponse -> Perhaps Timestamp
 raiseGetTimeResponse = \case
     LL.GetTimeResponse{..} -> do
         perhaps "current_time" getTimeResponseCurrentTime >>= raiseTimestamp
-
-raiseGetLedgerConfigurationResponse :: LL.GetLedgerConfigurationResponse -> Perhaps LedgerConfiguration
-raiseGetLedgerConfigurationResponse x =
-    perhaps "ledgerConfiguration" (LL.getLedgerConfigurationResponseLedgerConfiguration x)
-    >>= raiseLedgerConfiguration
-
-
-raiseLedgerConfiguration :: LL.LedgerConfiguration -> Perhaps LedgerConfiguration
-raiseLedgerConfiguration = \case
-    LL.LedgerConfiguration{..} -> do
-        maxDeduplicationTime <- perhaps "max_deduplication_time" ledgerConfigurationMaxDeduplicationTime
-        return $ LedgerConfiguration {maxDeduplicationTime}
 
 raiseGetActiveContractsResponse :: LL.GetActiveContractsResponse -> Perhaps (AbsOffset,Maybe WorkflowId,[Event])
 raiseGetActiveContractsResponse = \case
