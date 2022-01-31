@@ -36,13 +36,13 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   )
   object UnsupportedFeature
       extends ErrorCode(
-        id = "UNSUPPORTED_FEATURE",
+        id = "UNSUPPORTED_OPERATION",
         ErrorCategory.InternalUnsupportedOperation,
       ) {
 
     case class Reject(unsupportedFeature: String)(implicit errorLogger: ContextualizedErrorLogger)
         extends LoggingTransactionErrorImpl(
-          cause = s"The request exercised an unsupported ledger feature: $unsupportedFeature"
+          cause = s"The request exercised an unsupported operation: $unsupportedFeature"
         )
   }
 
