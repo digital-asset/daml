@@ -502,13 +502,13 @@ class JsonLedgerClient(
     }
   }
 
-  def recoverNotFound[A](e: Future[Option[A]]): Future[Option[A]] = {
-    e.recover { case FailedJsonApiRequest(_, _, StatusCodes.NotFound, _) =>
+  def recoverNotFound[A](e: Future[A]): Future[Option[A]] = {
+    e.map(Some(_)).recover { case FailedJsonApiRequest(_, _, StatusCodes.NotFound, _) =>
       None
     }
   }
-  def recoverAlreadyExists[A](e: Future[Option[A]]): Future[Option[A]] = {
-    e.recover { case FailedJsonApiRequest(_, _, StatusCodes.Conflict, _) =>
+  def recoverAlreadyExists[A](e: Future[A]): Future[Option[A]] = {
+    e.map(Some(_)).recover { case FailedJsonApiRequest(_, _, StatusCodes.Conflict, _) =>
       None
     }
   }
@@ -530,7 +530,7 @@ class JsonLedgerClient(
           rights,
           isAdmin = false,
         ),
-      ).map(_ => Some(()))
+      ).map(_ => ())
     }
   }
 
@@ -543,7 +543,7 @@ class JsonLedgerClient(
       requestSuccess[UserIdRequest, User](
         uri.path./("v1")./("user"),
         UserIdRequest(id),
-      ).map(user => Some(user))
+      )
     }
 
   override def deleteUser(id: UserId)(implicit
@@ -555,7 +555,7 @@ class JsonLedgerClient(
       requestSuccess[UserIdRequest, TrueResponse](
         uri.path./("v1")./("user")./("delete"),
         UserIdRequest(id),
-      ).map(_ => Some(()))
+      ).map(_ => ())
     }
 
   override def listUsers()(implicit
@@ -578,7 +578,7 @@ class JsonLedgerClient(
       requestSuccess[UserIdAndRightsRequest, List[UserRight]](
         uri.path./("v1")./("user")./("rights")./("grant"),
         UserIdAndRightsRequest(id, rights),
-      ).map { x => Some(x) }
+      )
     }
 
   override def revokeUserRights(
@@ -593,7 +593,7 @@ class JsonLedgerClient(
       requestSuccess[UserIdAndRightsRequest, List[UserRight]](
         uri.path./("v1")./("user")./("rights")./("revoke"),
         UserIdAndRightsRequest(id, rights),
-      ).map { x => Some(x) }
+      )
     }
 
   override def listUserRights(id: UserId)(implicit
@@ -605,7 +605,7 @@ class JsonLedgerClient(
       requestSuccess[UserIdRequest, List[UserRight]](
         uri.path./("v1")./("user")./("rights"),
         UserIdRequest(id),
-      ).map { x => Some(x) }
+      )
     }
 }
 
