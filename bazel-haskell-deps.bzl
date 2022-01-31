@@ -568,7 +568,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "stm-chans",
             "stm-conduit",
             "syb",
-            "system-filepath",
             "tagged",
             "tar",
             "tar-conduit",

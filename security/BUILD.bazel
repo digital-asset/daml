@@ -13,7 +13,6 @@ da_haskell_binary(
         "filepath",
         "megaparsec",
         "split",
-        "system-filepath",
         "text",
     ],
     src_strip_prefix = "src",
