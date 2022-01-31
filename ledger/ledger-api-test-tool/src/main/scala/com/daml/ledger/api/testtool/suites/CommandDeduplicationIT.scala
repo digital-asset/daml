@@ -219,14 +219,19 @@ final class CommandDeduplicationIT(
             currentElement.flatMap(value => generateVariations(tail).map(value :: _))
         }
 
-      runWithTimeModel(configuredParticipants) { skews =>
+      runWithTimeModel(configuredParticipants) { minMaxSkewSum =>
         val numberOfCalls = 4
         // cover all the different generated variations of submit and submitAndWait
         val allGeneratedVariations =
           generateVariations(List.fill(numberOfCalls)(List(true, false))).zip(parties)
         forAllParallel(allGeneratedVariations) {
           case (firstCall :: secondCall :: thirdCall :: fourthCall :: Nil, party) =>
-            mixedClientsCommandDeduplicationTestCase(ledger, party, ledger.delayMechanism, skews)(
+            mixedClientsCommandDeduplicationTestCase(
+              ledger,
+              party,
+              ledger.delayMechanism,
+              minMaxSkewSum,
+            )(
               firstCall,
               secondCall,
               thirdCall,
@@ -464,7 +469,7 @@ final class CommandDeduplicationIT(
             DeduplicationPeriod.DeduplicationDuration(deduplicationDuration.asProtobuf)
         )
       val firstAcceptedSubmissionId = newSubmissionId()
-      runWithTimeModel(configuredParticipants) { skews =>
+      runWithTimeModel(configuredParticipants) { minMaxSkewSum =>
         for {
           completionResponse <- submitRequestAndAssertCompletionAccepted(
             ledger,
@@ -481,10 +486,10 @@ final class CommandDeduplicationIT(
           deduplicationDurationFromPeriod = extractDurationFromDeduplicationPeriod(
             deduplicationCompletionResponse = optDeduplicationCompletionResponse,
             defaultDuration = deduplicationDuration,
-            skews = skews,
+            skews = minMaxSkewSum,
           )
           eventuallyAcceptedCompletionResponse <- succeedsEventually(
-            maxRetryDuration = deduplicationDurationFromPeriod + skews + 10.seconds,
+            maxRetryDuration = deduplicationDurationFromPeriod + minMaxSkewSum + 10.seconds,
             description =
               s"The deduplication period expires and the request is accepted for the commands ${request.getCommands}.",
             delayMechanism = ledger.delayMechanism,
@@ -964,8 +969,9 @@ final class CommandDeduplicationIT(
       participants,
       _.update(_.minSkew := skew, _.maxSkew := skew),
     ) { timeModel =>
-      val skews = asFiniteDuration(timeModel.getMinSkew.asScala + timeModel.getMaxSkew.asScala)
-      testWithDelayMechanism(skews)
+      val minMaxSkewSum =
+        asFiniteDuration(timeModel.getMinSkew.asScala + timeModel.getMaxSkew.asScala)
+      testWithDelayMechanism(minMaxSkewSum)
     }
   }
 
