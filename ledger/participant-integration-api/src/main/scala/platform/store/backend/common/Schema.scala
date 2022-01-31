@@ -283,11 +283,6 @@ private[backend] object AppendOnlySchema {
         "deduplication_start" -> fieldStrategy.bigintOptional(_ => _.deduplication_start),
       )
 
-    val commandSubmissionDeletes: Table[DbDto.CommandDeduplication] =
-      fieldStrategy.delete("participant_command_submissions")(
-        "deduplication_key" -> fieldStrategy.string(_ => _.deduplication_key)
-      )
-
     val stringInterningTable: Table[DbDto.StringInterningDto] =
       fieldStrategy.insert("string_interning")(
         "internal_id" -> fieldStrategy.int(_ => _.internalId),
@@ -323,7 +318,6 @@ private[backend] object AppendOnlySchema {
       packages.executeUpdate,
       partyEntries.executeUpdate,
       commandCompletions.executeUpdate,
-      commandSubmissionDeletes.executeUpdate,
       stringInterningTable.executeUpdate,
       createFilter.executeUpdate,
       transactionMetering.executeUpdate,
@@ -350,7 +344,6 @@ private[backend] object AppendOnlySchema {
           packages.prepareData(collect[Package], stringInterning),
           partyEntries.prepareData(collect[PartyEntry], stringInterning),
           commandCompletions.prepareData(collect[CommandCompletion], stringInterning),
-          commandSubmissionDeletes.prepareData(collect[CommandDeduplication], stringInterning),
           stringInterningTable.prepareData(collect[StringInterningDto], stringInterning),
           createFilter.prepareData(collect[CreateFilter], stringInterning),
           transactionMetering.prepareData(collect[TransactionMetering], stringInterning),

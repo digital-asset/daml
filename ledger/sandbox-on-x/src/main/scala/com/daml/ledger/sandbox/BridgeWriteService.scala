@@ -37,8 +37,6 @@ class BridgeWriteService(
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
-  override def isApiDeduplicationEnabled: Boolean = false
-
   override def close(): Unit = {
     logger.info("Shutting down BridgeWriteService.")
     queue.complete()

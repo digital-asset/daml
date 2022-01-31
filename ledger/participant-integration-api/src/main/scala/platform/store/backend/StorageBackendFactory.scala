@@ -16,7 +16,6 @@ trait StorageBackendFactory {
   def createConfigurationStorageBackend(ledgerEndCache: LedgerEndCache): ConfigurationStorageBackend
   def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend
   def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend
-  def createDeduplicationStorageBackend: DeduplicationStorageBackend
   def createCompletionStorageBackend(stringInterning: StringInterning): CompletionStorageBackend
   def createContractStorageBackend(
       ledgerEndCache: LedgerEndCache,

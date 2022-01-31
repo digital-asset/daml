@@ -6,13 +6,7 @@ package com.daml.platform.apiserver
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.domain.{
-  CommandId,
-  ConfigurationEntry,
-  LedgerId,
-  LedgerOffset,
-  TransactionId,
-}
+import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerId, LedgerOffset, TransactionId}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -180,20 +174,6 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
       loggingContext: LoggingContext
   ): Source[(LedgerOffset.Absolute, ConfigurationEntry), NotUsed] =
     delegate.configurationEntries(startExclusive)
-
-  override def deduplicateCommand(
-      commandId: CommandId,
-      submitter: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[v2.CommandDeduplicationResult] =
-    delegate.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil)
-
-  override def stopDeduplicatingCommand(
-      commandId: CommandId,
-      submitter: List[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    delegate.stopDeduplicatingCommand(commandId, submitter)
 
   override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext

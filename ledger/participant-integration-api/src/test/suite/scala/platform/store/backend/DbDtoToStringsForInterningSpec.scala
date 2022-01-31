@@ -150,9 +150,6 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       deduplication_duration_nanos = Some(1),
       deduplication_start = Some(1),
     ),
-    DbDto.CommandDeduplication(
-      deduplication_key = "74"
-    ),
     DbDto.ConfigurationEntry(
       ledger_offset = "75",
       recorded_at = 1,

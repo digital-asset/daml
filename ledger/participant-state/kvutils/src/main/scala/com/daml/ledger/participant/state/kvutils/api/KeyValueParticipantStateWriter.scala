@@ -31,7 +31,6 @@ class KeyValueParticipantStateWriter(
 ) extends WriteService {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  override def isApiDeduplicationEnabled: Boolean = false
 
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 

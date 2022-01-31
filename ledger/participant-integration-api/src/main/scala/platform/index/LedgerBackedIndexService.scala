@@ -10,7 +10,6 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
-  CommandId,
   LedgerId,
   LedgerOffset,
   PackageEntry,
@@ -320,21 +319,6 @@ private[platform] final class LedgerBackedIndexService(
       .flatMapConcat(ledger.configurationEntries(_).map { case (offset, config) =>
         toAbsolute(offset) -> config.toDomain
       })
-
-  /** Deduplicate commands */
-  override def deduplicateCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
-    ledger.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil)
-
-  override def stopDeduplicatingCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    ledger.stopDeduplicatingCommand(commandId, submitters)
 
   /** Participant pruning command */
   override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit

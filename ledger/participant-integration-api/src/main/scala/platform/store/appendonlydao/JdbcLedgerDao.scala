@@ -7,18 +7,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
-import com.daml.ledger.participant.state.index.v2.{
-  CommandDeduplicationDuplicate,
-  CommandDeduplicationNew,
-  CommandDeduplicationResult,
-  PackageDetails,
-}
+import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
@@ -34,11 +28,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.backend.{
-  DeduplicationStorageBackend,
-  ParameterStorageBackend,
-  ReadStorageBackend,
-}
+import com.daml.platform.store.backend.{ParameterStorageBackend, ReadStorageBackend}
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interning.StringInterning
@@ -64,7 +54,6 @@ private class JdbcLedgerDao(
     participantId: Ref.ParticipantId,
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
-    deduplicationStorageBackend: DeduplicationStorageBackend,
     errorFactories: ErrorFactories,
     materializer: Materializer,
 ) extends LedgerDao {
@@ -366,47 +355,6 @@ private class JdbcLedgerDao(
       }
     }
 
-  override def deduplicateCommand(
-      commandId: domain.CommandId,
-      submitters: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
-    dbDispatcher.executeSql(metrics.daml.index.db.deduplicateCommandDbMetrics) { conn =>
-      val key = DeduplicationKeyMaker.make(commandId, submitters)
-      // Insert a new deduplication entry, or update an expired entry
-      val updated = deduplicationStorageBackend.upsertDeduplicationEntry(
-        key = key,
-        submittedAt = submittedAt,
-        deduplicateUntil = deduplicateUntil,
-      )(conn)
-
-      if (updated == 1) {
-        // New row inserted, this is the first time the command is submitted
-        CommandDeduplicationNew
-      } else {
-        // Deduplication row already exists
-        CommandDeduplicationDuplicate(deduplicationStorageBackend.deduplicatedUntil(key)(conn))
-      }
-    }
-
-  override def removeExpiredDeduplicationData(
-      currentTime: Timestamp
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.removeExpiredDeduplicationDataDbMetrics)(
-      deduplicationStorageBackend.removeExpiredDeduplicationData(currentTime)
-    )
-
-  override def stopDeduplicatingCommand(
-      commandId: domain.CommandId,
-      submitters: List[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Future[Unit] = {
-    val key = DeduplicationKeyMaker.make(commandId, submitters)
-    dbDispatcher.executeSql(metrics.daml.index.db.stopDeduplicatingCommandDbMetrics)(
-      deduplicationStorageBackend.stopDeduplicatingCommand(key)
-    )
-  }
-
   /** Prunes the events and command completions tables.
     *
     * @param pruneUpToInclusive         Offset up to which to prune archived history inclusively.
@@ -652,7 +600,6 @@ private[platform] object JdbcLedgerDao {
         participantId,
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
-        dbSupport.storageBackendFactory.createDeduplicationStorageBackend,
         errorFactories,
         materializer = materializer,
       ),
@@ -697,7 +644,6 @@ private[platform] object JdbcLedgerDao {
         participantId,
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         dbSupport.storageBackendFactory.createParameterStorageBackend,
-        dbSupport.storageBackendFactory.createDeduplicationStorageBackend,
         errorFactories,
         materializer = materializer,
       ),
