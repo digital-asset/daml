@@ -1,0 +1,79 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+module QualifiedInterface where
+
+import qualified Interface
+import DA.Assert ((===))
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer, owner
+    implements Interface.Token where
+      let getOwner = owner
+      let getAmount = amount
+      let setAmount = \x -> toInterface @Interface.Token (this with amount = x)
+        -- TODO https://github.com/digital-asset/daml/issues/12051
+        --  (maybe) support `let setAmount x = ...` syntax.
+
+      let splitImpl = \splitAmount -> do
+            assert (splitAmount < amount)
+            cid1 <- create this with amount = splitAmount
+            cid2 <- create this with amount = amount - splitAmount
+            pure (toInterfaceContractId @Interface.Token cid1, toInterfaceContractId @Interface.Token cid2)
+
+      let transferImpl = \newOwner -> do
+            cid <- create this with owner = newOwner
+            pure (toInterfaceContractId @Interface.Token cid)
+
+      let noopImpl = \nothing -> do
+            [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism.
+            pure ()
+
+main = scenario do
+  p <- getParty "Alice"
+  p `submitMustFail` do
+    create Asset with
+      issuer = p
+      owner = p
+      amount = -1
+  p `submit` do
+    cidAsset1 <- create Asset with
+      issuer = p
+      owner = p
+      amount = 15
+    let cidToken1 = toInterfaceContractId @Interface.Token cidAsset1
+    _ <- exercise cidToken1 (Interface.Noop ())
+    (cidToken2, cidToken3) <- exercise cidToken1 (Interface.Split 10)
+    token2 <- fetch cidToken2
+    -- Party is duplicated because p is both observer & issuer
+    signatory token2 === [p, p]
+    Interface.getAmount token2 === 10
+    case fromInterface token2 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 10
+    token3 <- fetch cidToken3
+    Interface.getAmount token3 === 5
+    case fromInterface token3 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 5
+
+    cidToken4 <- exercise cidToken3 (Interface.GetRich 20)
+    token4 <- fetch cidToken4
+    Interface.getAmount token4 === 25
+    case fromInterface token4 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 25
+
+    pure ()
+
+-- @ENABLE-SCENARIOS
