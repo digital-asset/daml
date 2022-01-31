@@ -54,7 +54,7 @@ class ApiUserManagementServiceSpec
     )
   }
 
-  it should "return invalid argument error when token is not a base64 but not a valid user id string" in {
+  it should "return invalid argument error when token is base64 but not a valid user id string" in {
     val notValidUserId = "not a valid user id"
     Ref.UserId.fromString(notValidUserId).isLeft shouldBe true
     val badPageToken = new String(

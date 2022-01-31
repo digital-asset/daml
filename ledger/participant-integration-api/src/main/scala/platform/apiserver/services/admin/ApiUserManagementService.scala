@@ -95,19 +95,20 @@ private[apiserver] final class ApiUserManagementService(
     withValidation(
       for {
         fromExcl <- decodePageToken(request.pageToken)
-        _ <- Either.cond(
-          request.pageSize > 0,
-          (),
+        rawPageSize <- Either.cond(
+          request.pageSize >= 0,
+          request.pageSize,
           LedgerApiErrors.RequestValidation.InvalidArgument
             .Reject("Max page size must be non-negative")
             .asGrpcError,
         )
+        pageSize = if (rawPageSize == 0) 1 else Math.min(request.pageSize, maxUsersPageSize)
       } yield {
-        fromExcl
+        (fromExcl, pageSize)
       }
-    ) { fromExcl =>
+    ) { case (fromExcl, pageSize) =>
       userManagementStore
-        .listUsers(fromExcl, Math.min(request.pageSize, maxUsersPageSize))
+        .listUsers(fromExcl, pageSize)
         .flatMap(handleResult("listing users"))
         .map { page: UserManagementStore.UsersPage =>
           val protoUsers = page.users.map(toProtoUser)

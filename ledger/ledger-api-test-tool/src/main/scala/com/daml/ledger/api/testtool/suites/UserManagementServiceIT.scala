@@ -349,7 +349,10 @@ final class UserManagementServiceIT extends LedgerTestSuite {
           ListUsersRequest(pageSize = -100, pageToken = "")
         )
         .mustFail("using negative page size")
-      //
+      // 0 pageSize
+      responseZeroPageSize <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageSize = 0, pageToken = "")
+      )
     } yield {
       assert(res1.nextPageToken.nonEmpty, s"First next page token should be non-empty")
       assertLength("first page", 2, res1.users)
@@ -380,7 +383,10 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         selfServiceErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
         exceptionMessageSubstring = None,
       )
-
+      assert(
+        responseZeroPageSize.nextPageToken.nonEmpty,
+        "Non-empty page token when pageSize is 0 (and there are some users)",
+      )
     }
   })
 

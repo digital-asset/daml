@@ -125,6 +125,7 @@ message DeleteUserResponse {
 message ListUsersRequest {
 
     // Pagination token to determine the specific page to fetch.
+    // Leave empty to fetch the first page.
     string page_token = 2;
 
     // Maximum number of results to be returned by the server. The server will return no more than that many results, but it might return fewer.

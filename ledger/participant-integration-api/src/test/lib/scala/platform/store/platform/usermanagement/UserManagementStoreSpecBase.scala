@@ -1,11 +1,9 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.usermanagement
+package com.daml.platform.store.platform.usermanagement
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   UserExists,
@@ -16,49 +14,17 @@ import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Party, UserId}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
-import com.daml.platform.testing.LogCollectorAssertions
-import org.scalatest.{Assertion, EitherValues}
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
-
-import scala.concurrent.Future
+import org.scalatest.{Assertion, EitherValues}
 import scala.language.implicitConversions
 
-class UserManagementStoreSpec_InMemoryUserManagementStore extends UserManagementStoreSpecBase {
+import scala.concurrent.Future
 
-  override def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion] = {
-    val tested = new InMemoryUserManagementStore(
-      createAdmin = false
-    )
-    f(tested)
-  }
-
-}
-
-class UserManagementStoreSpec_CachedUserManagementStore extends UserManagementStoreSpecBase {
-
-  override def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion] = {
-    val delegate = new InMemoryUserManagementStore(
-      createAdmin = false
-    )
-    val tested = new CachedUserManagementStore(
-      delegate,
-      expiryAfterWriteInSeconds = 10,
-      maximumCacheSize = 100,
-      new Metrics(new MetricRegistry),
-    )
-    f(tested)
-  }
-
-}
-
-trait UserManagementStoreSpecBase
-    extends AsyncFreeSpec
-    with TestResourceContext
-    with Matchers
-    with LogCollectorAssertions
-    with EitherValues {
+/** Common tests for implementations of [[UserManagementStore]]
+  */
+trait UserManagementStoreSpecBase extends TestResourceContext with Matchers with EitherValues {
+  self: AsyncFreeSpec =>
 
   implicit val lc: LoggingContext = LoggingContext.ForTesting
 

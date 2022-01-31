@@ -6,6 +6,7 @@ package com.daml.platform.usermanagement
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   UserInfo,
   UserNotFound,
@@ -14,12 +15,17 @@ import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
+import com.daml.platform.store.platform.usermanagement.UserManagementStoreSpecBase
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.Assertion
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.concurrent.Future
+
 class CachedUserManagementStoreSpec
     extends AsyncFreeSpec
+    with UserManagementStoreSpecBase
     with TestResourceContext
     with Matchers
     with MockitoSugar
@@ -153,4 +159,7 @@ class CachedUserManagementStoreSpec
     )
   }
 
+  override def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion] = {
+    f(createTested(new InMemoryUserManagementStore(createAdmin = false)))
+  }
 }
