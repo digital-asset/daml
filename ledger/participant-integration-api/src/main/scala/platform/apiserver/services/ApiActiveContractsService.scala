@@ -53,7 +53,7 @@ private[apiserver] final class ApiActiveContractsService private (
       )
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
-      .watchTermination()(logger.logTermination)
+      .via(logger.logTermination)
 
   override def bindService(): ServerServiceDefinition =
     ActiveContractsServiceGrpc.bindService(this, executionContext)

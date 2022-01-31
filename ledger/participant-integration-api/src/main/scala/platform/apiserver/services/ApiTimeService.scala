@@ -78,7 +78,7 @@ private[apiserver] final class ApiTimeService private (
             case Some(t) => List(GetTimeResponse(Some(fromInstant(t))))
           }
           .via(logger.logErrorsOnStream)
-          .watchTermination()(logger.logTermination)
+          .via(logger.logTermination)
       },
     )
   }

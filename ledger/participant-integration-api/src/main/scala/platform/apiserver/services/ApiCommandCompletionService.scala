@@ -75,7 +75,7 @@ private[apiserver] final class ApiCommandCompletionService private (
                 )
                 .via(logger.logErrorsOnStream)
                 .via(StreamMetrics.countElements(metrics.daml.lapi.streams.completions))
-                .watchTermination()(logger.logTermination)
+                .via(logger.logTermination)
             },
         )
     }

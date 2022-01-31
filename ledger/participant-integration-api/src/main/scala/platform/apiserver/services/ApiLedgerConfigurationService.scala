@@ -46,7 +46,7 @@ private[apiserver] final class ApiLedgerConfigurationService private (
         )
       )
       .via(logger.logErrorsOnStream)
-      .watchTermination()(logger.logTermination)
+      .via(logger.logTermination)
   }
 
   override def bindService(): ServerServiceDefinition =
