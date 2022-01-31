@@ -1238,7 +1238,7 @@ HTTP Response
 Creating a New User
 ********************
 
-This endpoint exposes the Ledger API's :ref:`CreateUser RPC <com.daml.ledger.api.v1.admin.user_management_service.CreateUserRequest>`.
+This endpoint exposes the Ledger API's :ref:`CreateUser RPC <com.daml.ledger.api.v1.admin.createuserrequest>`.
 
 HTTP Request
 ============
@@ -1272,7 +1272,7 @@ HTTP Request
       ]
     }
 
-Please refer to :ref:`CreateUser RPC <com.daml.ledger.api.v1.admin.user_management_service.CreateUserRequest>` documentation for information about the meaning of the fields.
+Please refer to :ref:`CreateUser RPC <com.daml.ledger.api.v1.admin.createuserrequest>` documentation for information about the meaning of the fields.
 
 Only the userId fields in the request is required, this means that an JSON object containing only it is a valid request to create a new user.
 
@@ -1290,7 +1290,7 @@ HTTP Response
 Get Authenticated User Information
 **********************************
 
-This endpoint exposes the Ledger API's :ref:`GetUser RPC <com.daml.ledger.api.v1.admin.user_management_service.GetUserRequest>`.
+This endpoint exposes the Ledger API's :ref:`GetUser RPC <com.daml.ledger.api.v1.admin.getuserrequest>`.
 
 The user ID will always be filled out with the user specified via the currently used user token.
 
@@ -1317,7 +1317,7 @@ HTTP Response
 Get Specific User Information
 *****************************
 
-This endpoint exposes the Ledger API's :ref:`GetUser RPC <com.daml.ledger.api.v1.admin.user_management_service.GetUserRequest>`.
+This endpoint exposes the Ledger API's :ref:`GetUser RPC <com.daml.ledger.api.v1.admin.getuserrequest>`.
 
 HTTP Request
 ============
@@ -1334,7 +1334,7 @@ HTTP Request
     }
 
 
-Please refer to :ref:`GetUser RPC <com.daml.ledger.api.v1.admin.user_management_service.GetUserRequest>` documentation for information about the meaning of the fields.
+Please refer to :ref:`GetUser RPC <com.daml.ledger.api.v1.admin.getuserrequest>` documentation for information about the meaning of the fields.
 
 HTTP Response
 =============
@@ -1352,7 +1352,7 @@ HTTP Response
 Delete Specific User
 ********************
 
-This endpoint exposes the Ledger API's :ref:`DeleteUser RPC <com.daml.ledger.api.v1.admin.user_management_service.DeleteUserRequest>`.
+This endpoint exposes the Ledger API's :ref:`DeleteUser RPC <com.daml.ledger.api.v1.admin.DeleteUserRequest>`.
 
 HTTP Request
 ============
@@ -1369,7 +1369,7 @@ HTTP Request
     }
 
 
-Please refer to :ref:`DeleteUser RPC <com.daml.ledger.api.v1.admin.user_management_service.DeleteUserRequest>` documentation for information about the meaning of the fields.
+Please refer to :ref:`DeleteUser RPC <com.daml.ledger.api.v1.admin.DeleteUserRequest>` documentation for information about the meaning of the fields.
 
 HTTP Response
 =============
@@ -1384,7 +1384,7 @@ HTTP Response
 List Users
 **********
 
-This endpoint exposes the Ledger API's :ref:`ListUsers RPC <com.daml.ledger.api.v1.admin.user_management_service.ListUsersRequest>`.
+This endpoint exposes the Ledger API's :ref:`ListUsers RPC <com.daml.ledger.api.v1.admin.ListUsersRequest>`.
 
 HTTP Request
 ============
@@ -1414,7 +1414,7 @@ HTTP Response
 Grant User Rights
 *****************
 
-This endpoint exposes the Ledger API's :ref:`GrantUserRights RPC <com.daml.ledger.api.v1.admin.user_management_service.GrantUserRightsRequest>`.
+This endpoint exposes the Ledger API's :ref:`GrantUserRights RPC <com.daml.ledger.api.v1.admin.GrantUserRightsRequest>`.
 
 HTTP Request
 ============
@@ -1447,7 +1447,7 @@ HTTP Request
       ]
     }
 
-Please refer to :ref:`GrantUserRights RPC <com.daml.ledger.api.v1.admin.user_management_service.GrantUserRightsRequest>` documentation for information about the meaning of the fields.
+Please refer to :ref:`GrantUserRights RPC <com.daml.ledger.api.v1.admin.GrantUserRightsRequest>` documentation for information about the meaning of the fields.
 
 HTTP Response
 =============
@@ -1480,7 +1480,7 @@ Returns the rights that were newly granted.
 Revoke User Rights
 ******************
 
-This endpoint exposes the Ledger API's :ref:`RevokeUserRights RPC <com.daml.ledger.api.v1.admin.user_management_service.RevokeUserRightsRequest>`.
+This endpoint exposes the Ledger API's :ref:`RevokeUserRights RPC <com.daml.ledger.api.v1.admin.RevokeUserRightsRequest>`.
 
 HTTP Request
 ============
@@ -1513,7 +1513,7 @@ HTTP Request
       ]
     }
 
-Please refer to :ref:`RevokeUserRights RPC <com.daml.ledger.api.v1.admin.user_management_service.RevokeUserRightsRequest>` documentation for information about the meaning of the fields.
+Please refer to :ref:`RevokeUserRights RPC <com.daml.ledger.api.v1.admin.RevokeUserRightsRequest>` documentation for information about the meaning of the fields.
 
 HTTP Response
 =============
@@ -1546,7 +1546,7 @@ Returns the rights that were actually granted.
 List Authenticated User Rights
 ******************************
 
-This endpoint exposes the Ledger API's :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.user_management_service.ListUserRightsRequest>`.
+This endpoint exposes the Ledger API's :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.ListUserRightsRequest>`.
 
 The user ID will always be filled out with the user specified via the currently used user token.
 
@@ -1585,7 +1585,7 @@ HTTP Response
 List Specific User Rights
 *************************
 
-This endpoint exposes the Ledger API's :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.user_management_service.ListUserRightsRequest>`.
+This endpoint exposes the Ledger API's :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.ListUserRightsRequest>`.
 
 HTTP Request
 ============
@@ -1601,7 +1601,7 @@ HTTP Request
       "userId": "Carol"
     }
 
-Please refer to :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.user_management_service.ListUserRightsRequest>` documentation for information about the meaning of the fields.
+Please refer to :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.ListUserRightsRequest>` documentation for information about the meaning of the fields.
 
 HTTP Response
 =============
