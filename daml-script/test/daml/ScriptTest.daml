@@ -457,15 +457,17 @@ expectUserNotFound script = try do _ <- script; undefined catch UserNotFound _ -
 
 testUserManagementForParty : Party -> Script ()
 testUserManagementForParty p1 = do
-  participantAdmin <- getParticipantAdmin ()
   True <- isValidUserId "good"
   False <- isValidUserId "BAD"
-  u1 <- validateUserId "user1"
-  u2 <- validateUserId "user2"
+  participantAdmin <- getParticipantAdmin ()
+  users <- listUsers
+  users === [participantAdmin]
+  u1 <- validateUserId "u1"
+  u2 <- validateUserId "u2"
   let user1 = User u1 (Some p1)
   let user2 = User u2 None
-  userIdToText u1 === "user1"
-  userIdToText u2 === "user2"
+  userIdToText u1 === "u1"
+  userIdToText u2 === "u2"
   users <- listUsers
   users === [participantAdmin]
   False <- userExists u1
@@ -480,17 +482,17 @@ testUserManagementForParty p1 = do
   u === user1
   u <- getUser u2
   u === user2
+  nonexistent <- validateUserId "nonexistent"
+  expectUserNotFound (getUser nonexistent)
+  expectUserNotFound (deleteUser nonexistent)
   users <- listUsers
   sort users === [participantAdmin, user1, user2]
   deleteUser u1
   users <- listUsers
-  users === [participantAdmin, user2]
+  sort users === [participantAdmin, user2]
   deleteUser u2
   users <- listUsers
   users === [participantAdmin]
-  nonexistent <- validateUserId "nonexistent"
-  expectUserNotFound (getUser nonexistent)
-  expectUserNotFound (deleteUser nonexistent)
   pure ()
 
 testUserRightManagementForParties : Party -> Party -> Script ()
