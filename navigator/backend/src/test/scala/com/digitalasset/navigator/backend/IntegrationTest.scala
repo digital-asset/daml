@@ -101,7 +101,7 @@ class IntegrationTest
         if (user.id != "participant_admin") client.userManagementClient.deleteUser(user.id)
         else Future.unit
       )
-      _ = logger.info(s"Removed all users from ledger as part of cleanup.")
+      _ = logger.info("Removed all users from ledger as part of cleanup.")
     } yield a
 //    fa.transformWith { ta =>
 
