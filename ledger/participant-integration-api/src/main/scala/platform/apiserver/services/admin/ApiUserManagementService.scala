@@ -102,7 +102,9 @@ private[apiserver] final class ApiUserManagementService(
             .Reject("Max page size must be non-negative")
             .asGrpcError,
         )
-        pageSize = if (rawPageSize == 0) 1 else Math.min(request.pageSize, maxUsersPageSize)
+        pageSize =
+          if (rawPageSize == 0) maxUsersPageSize
+          else Math.min(request.pageSize, maxUsersPageSize)
       } yield {
         (fromExcl, pageSize)
       }
