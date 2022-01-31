@@ -3,7 +3,7 @@
 
 package com.daml.logging
 
-import akka.NotUsed
+import akka.{Done, NotUsed}
 import akka.stream.scaladsl.Flow
 import com.daml.grpc.GrpcException
 import com.daml.logging.entries.LoggingEntries
@@ -11,7 +11,8 @@ import io.grpc.Status
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.concurrent.TrieMap
-import scala.util.{Failure, Try}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 object ContextualizedLogger {
@@ -90,6 +91,15 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
         debug(msg)
         item
       }
+    }
+
+  def logTermination[Mat](implicit loggingContext: LoggingContext, ec: ExecutionContext): (Mat, Future[Done]) => Mat =
+    (mat, done) => {
+      done.onComplete {
+        case Success(_) => info(s"The stream has been closed")
+        case _ => ()
+      }
+      mat
     }
 
 }
