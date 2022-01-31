@@ -38,8 +38,13 @@ object WorkflowConfigParser {
         "max_item_rate",
       )(StreamConfig.RateObjectives.apply)
 
-    implicit val offsetDecoder: Decoder[LedgerOffset] =
-      Decoder.decodeString.map(LedgerOffset.defaultInstance.withAbsolute)
+    implicit val offsetDecoder: Decoder[LedgerOffset] = {
+      Decoder.decodeString.map {
+        case "ledger-begin" => LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
+        case "ledger-end" => LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)
+        case absolute => LedgerOffset.defaultInstance.withAbsolute(absolute)
+      }
+    }
 
     implicit val partyFilterDecoder: Decoder[StreamConfig.PartyFilter] =
       Decoder.forProduct2(
