@@ -1850,7 +1850,6 @@ private[lf] object SBuiltin {
       List(
         "ANSWER" -> SBExperimentalAnswer,
         "TO_TYPE_REP" -> SBExperimentalToTypeRep,
-        "RESOLVE_VIRTUAL_CREATE" -> new SBResolveVirtual(CreateDefRef),
         "RESOLVE_VIRTUAL_SIGNATORY" -> new SBResolveVirtual(SignatoriesDefRef),
         "RESOLVE_VIRTUAL_OBSERVER" -> new SBResolveVirtual(ObserversDefRef),
       ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap

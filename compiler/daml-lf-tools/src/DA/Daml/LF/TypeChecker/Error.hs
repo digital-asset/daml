@@ -147,6 +147,7 @@ data Error
   | EUnknownInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
   | ETemplateDoesNotImplementInterface !(Qualified TypeConName) !(Qualified TypeConName)
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
+  | EUnknownExperimental !T.Text !Type
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -432,6 +433,8 @@ instance Pretty Error where
       "Template " <> pretty tpl <> " does not implement interface " <> pretty iface
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
+    EUnknownExperimental name ty ->
+      "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
 
 prettyConsuming :: Bool -> Doc ann
 prettyConsuming consuming = if consuming then "consuming" else "non-consuming"
