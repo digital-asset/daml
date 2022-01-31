@@ -34,15 +34,15 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     """This error is caused by a ledger-level misconfiguration or by an implementation bug.
       |Resolution requires ledger operator intervention or vendor support."""
   )
-  object UnsupportedFeature
+  object UnsupportedOperation
       extends ErrorCode(
         id = "UNSUPPORTED_OPERATION",
         ErrorCategory.InternalUnsupportedOperation,
       ) {
 
-    case class Reject(unsupportedFeature: String)(implicit errorLogger: ContextualizedErrorLogger)
+    case class Reject(_message: String)(implicit errorLogger: ContextualizedErrorLogger)
         extends LoggingTransactionErrorImpl(
-          cause = s"The request exercised an unsupported operation: $unsupportedFeature"
+          cause = s"The request exercised an unsupported operation: ${_message}"
         )
   }
 

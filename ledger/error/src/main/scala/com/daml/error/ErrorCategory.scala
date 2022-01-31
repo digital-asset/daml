@@ -334,9 +334,7 @@ object ErrorCategory {
       with ErrorCategory
 
   @Description(
-    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request.
-      |Such an error can arise expectedly if the operator submits an admin request against a participant that does not, partly or fully,
-      |support the targeted feature. This error can also arise when a user request ends up leveraging, unexpectedly, an unsupported feature."""
+    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request."""
   )
   @RetryStrategy("""Errors in this category are non-retryable.""")
   @Resolution(

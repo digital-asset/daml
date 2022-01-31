@@ -67,8 +67,8 @@ private[sandbox] object Rejection {
   final case class OffsetDeduplicationPeriodUnsupported(completionInfo: CompletionInfo)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = LedgerApiErrors.UnsupportedFeature
-      .Reject("offset-type deduplication period")
+    override def toStatus: Status = LedgerApiErrors.UnsupportedOperation
+      .Reject("Command deduplication period of type offset is not supported.")
       .rpcStatus(completionInfo.submissionId)
   }
 
