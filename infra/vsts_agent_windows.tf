@@ -11,7 +11,7 @@ locals {
   w = [
     {
       name       = "ci-w1",
-      size       = 6,
+      size       = 0,
       assignment = "default",
       disk_size  = 400,
       pinning    = "",
