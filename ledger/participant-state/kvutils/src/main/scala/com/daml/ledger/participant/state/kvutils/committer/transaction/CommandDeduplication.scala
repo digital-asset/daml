@@ -44,12 +44,22 @@ private[transaction] object CommandDeduplication {
           transactionEntry: DamlTransactionEntrySummary,
       )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
         val commandDeduplicationDuration =
-          if (transactionEntry.submitterInfo.hasDeduplicationDuration)
-            parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration)
-          else
-            throw Err.InternalError(
-              "Deduplication period not supported, only durations are supported"
-            )
+          transactionEntry.submitterInfo.getDeduplicationPeriodCase match {
+            case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_DURATION =>
+              parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration)
+            case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATE_UNTIL =>
+              throw Err.InternalError(
+                "Deduplication timestamp not supported, only durations are supported"
+              )
+            case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATION_OFFSET =>
+              throw Err.InternalError(
+                "Deduplication offset not supported, only durations are supported"
+              )
+            case DamlSubmitterInfo.DeduplicationPeriodCase.DEDUPLICATIONPERIOD_NOT_SET =>
+              throw Err.InternalError(
+                "Deduplication period must be set"
+              )
+          }
         val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
         val dedupEntry = commitContext.get(dedupKey)
         val maybeDedupValue = dedupEntry
