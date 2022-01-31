@@ -292,7 +292,12 @@ cantonConfig CantonOptions{..} =
                     (
                      [ storage
                      , "admin-api" Aeson..= port cantonAdminApi
-                     , "ledger-api" Aeson..= port cantonLedgerApi
+                     , "ledger-api" Aeson..= Aeson.object
+                         [ "port" Aeson..= cantonLedgerApi
+                         , "user-management-service" Aeson..= Aeson.object [ "enabled" Aeson..= True ]
+                         -- Can be dropped once user mgmt is enabled by default
+                         ]
+
                      ] <>
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
                      | StaticTime True <- [cantonStaticTime]
