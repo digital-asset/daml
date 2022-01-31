@@ -40,24 +40,6 @@ private[backend] class MeteringStorageBackendTemplate(ledgerEndCache: LedgerEndC
 
   }
 
-  override def entries(
-      connection: Connection
-  ): Vector[TransactionMetering] = {
-    SQL"""
-      select
-        application_id,
-        action_count,
-        metering_timestamp,
-        ledger_offset
-      from
-        transaction_metering
-      where
-        ledger_offset <= ${ledgerEndCache()._1.toHexString.toString}
-      order by ledger_offset, application_id asc
-    """
-      .asVectorOf(transactionMeteringParser)(connection)
-  }
-
   override def transactionMetering(
       from: Time.Timestamp,
       to: Option[Time.Timestamp],

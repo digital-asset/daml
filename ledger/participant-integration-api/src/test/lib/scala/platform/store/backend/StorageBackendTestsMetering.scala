@@ -37,7 +37,7 @@ private[backend] trait StorageBackendTestsMetering
       executeSql(backend.parameter.initializeParameters(someIdentityParams))
       executeSql(ingest(Vector(dtoTransactionMetering(metering)), _))
       executeSql(updateLedgerEnd(toOffset, 5L))
-      val Vector(actual) = executeSql(backend.metering.entries)
+      val Vector(actual) = executeSql(backend.metering.transactionMetering(Timestamp.Epoch, None, None))
       actual shouldBe expected
 
     }

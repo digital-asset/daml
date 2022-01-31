@@ -433,7 +433,6 @@ object UserManagementStorageBackend {
 }
 
 trait MeteringStorageBackend {
-  def entries(connection: Connection): Vector[TransactionMetering]
 
   def transactionMetering(
       from: Timestamp,

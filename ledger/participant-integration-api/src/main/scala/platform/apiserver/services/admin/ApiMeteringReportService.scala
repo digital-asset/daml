@@ -65,8 +65,9 @@ private[apiserver] final class ApiMeteringReportService(
           Ref.ApplicationId.fromString(t).map(Some.apply)
         )
     } yield {
+      val reportTime = clock()
       store.getTransactionMetering(from, to, applicationId).map { metering =>
-        generator.generate(request, metering, clock())
+        generator.generate(request, metering, reportTime)
       }
     }) match {
       case Right(f) => f

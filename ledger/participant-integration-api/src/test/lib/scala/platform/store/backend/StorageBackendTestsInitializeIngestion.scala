@@ -5,6 +5,7 @@ package com.daml.platform.store.backend
 
 import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -118,7 +119,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
 
-    val metering1 = executeSql(backend.metering.entries)
+    val metering1 = executeSql(backend.metering.transactionMetering(Timestamp.Epoch, None, None))
 
     // Restart the indexer - should delete data from the partial insert above
     val end2 = executeSql(backend.parameter.ledgerEnd)
@@ -153,7 +154,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
 
-    val metering2 = executeSql(backend.metering.entries)
+    val metering2 = executeSql(backend.metering.transactionMetering(Timestamp.Epoch, None, None))
 
     parties1 should have length 1
     packages1 should have size 1
