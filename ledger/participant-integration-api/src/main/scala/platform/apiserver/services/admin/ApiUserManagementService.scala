@@ -13,6 +13,7 @@ import com.daml.error.{
   ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.domain._
+import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserResponse, GetUserResponse}
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.lf.data.Ref
@@ -52,7 +53,7 @@ private[apiserver] final class ApiUserManagementService(
   override def bindService(): ServerServiceDefinition =
     proto.UserManagementServiceGrpc.bindService(this, executionContext)
 
-  override def createUser(request: proto.CreateUserRequest): Future[proto.User] =
+  override def createUser(request: proto.CreateUserRequest): Future[CreateUserResponse] =
     withValidation {
       for {
         pUser <- requirePresence(request.user, "user")
@@ -67,17 +68,17 @@ private[apiserver] final class ApiUserManagementService(
           rights = pRights,
         )
         .flatMap(handleResult("creating user"))
-        .map(_ => request.user.get)
+        .map(_ => CreateUserResponse(Some(request.user.get)))
     }
 
-  override def getUser(request: proto.GetUserRequest): Future[proto.User] =
+  override def getUser(request: proto.GetUserRequest): Future[GetUserResponse] =
     withValidation(
       requireUserId(request.userId, "user_id")
     )(userId =>
       userManagementStore
         .getUser(userId)
         .flatMap(handleResult("getting user"))
-        .map(toProtoUser)
+        .map(u => GetUserResponse(Some(toProtoUser(u))))
     )
 
   override def deleteUser(request: proto.DeleteUserRequest): Future[proto.DeleteUserResponse] =
