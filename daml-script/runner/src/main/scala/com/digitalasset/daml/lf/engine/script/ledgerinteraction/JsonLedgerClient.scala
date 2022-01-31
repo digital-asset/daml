@@ -522,7 +522,7 @@ class JsonLedgerClient(
       mat: Materializer,
   ): Future[Option[Unit]] = {
     recoverAlreadyExists {
-      requestSuccess[CreateUserRequest, TrueResponse](
+      requestSuccess[CreateUserRequest, ObjectResponse](
         uri.path./("v1")./("user")./("create"),
         CreateUserRequest(
           userId = user.id,
@@ -552,7 +552,7 @@ class JsonLedgerClient(
       mat: Materializer,
   ): Future[Option[Unit]] =
     recoverNotFound {
-      requestSuccess[UserIdRequest, TrueResponse](
+      requestSuccess[UserIdRequest, ObjectResponse](
         uri.path./("v1")./("user")./("delete"),
         UserIdRequest(id),
       ).map(_ => ())
@@ -778,7 +778,9 @@ object JsonLedgerClient {
   )
   final case class AllocatePartyResponse(identifier: Ref.Party)
 
-  final case class TrueResponse()
+// Any JS object, we validate that it’s an object to catch issues in our request but we ignore all fields
+// for forwards compatibility.
+  final case class ObjectResponse()
 
   object JsonProtocol extends SprayJsonSupport with DefaultJsonProtocol {
     implicit def optionReader[A: JsonReader]: JsonReader[Option[A]] =
@@ -1000,10 +1002,10 @@ object JsonLedgerClient {
       UserIdAndRightsRequest
     )
 
-    implicit val trueResponseReader: RootJsonReader[TrueResponse] = v => {
+    implicit val objectResponse: RootJsonReader[ObjectResponse] = v => {
       v match {
-        case JsTrue => TrueResponse()
-        case _ => deserializationError("TrueResponse")
+        case JsObject(_) => ObjectResponse()
+        case _ => deserializationError("ObjectResponse")
       }
     }
 
