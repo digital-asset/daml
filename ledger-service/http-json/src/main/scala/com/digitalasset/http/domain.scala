@@ -174,7 +174,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   final case class CreateUserRequest(
       userId: String,
       primaryParty: Option[String],
-      rights: List[UserRight],
+      rights: Option[List[UserRight]],
   )
 
   final case class ListUserRightsRequest(userId: String)
