@@ -39,13 +39,13 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
   private val IntParser0: RowParser[Int] =
     int("dummy") map { i => i }
 
-  override def createUser(user: domain.User)(
+  override def createUser(user: domain.User, createdAt: Long)(
       connection: Connection
   ): Int = {
     val internalId: Try[Int] =
       SQL"""
-         INSERT INTO participant_users (user_id, primary_party)
-         VALUES (${user.id: String}, ${user.primaryParty: Option[String]})
+         INSERT INTO participant_users (user_id, primary_party, created_at)
+         VALUES (${user.id: String}, ${user.primaryParty: Option[String]}, $createdAt)
        """.executeInsert1("internal_id")(SqlParser.scalar[Int].single)(connection)
     internalId.get
   }
@@ -112,18 +112,19 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     res.length == 1
   }
 
-  override def addUserRight(internalId: Int, right: UserRight)(
+  override def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(
       connection: Connection
   ): Boolean = {
     val (userRight: Int, forParty: Option[Ref.Party]) = fromUserRight(right)
     val rowsUpdated: Int =
       SQL"""
-         INSERT INTO participant_user_rights (user_internal_id, user_right, for_party)
+         INSERT INTO participant_user_rights (user_internal_id, user_right, for_party, granted_at)
          VALUES (
             ${internalId},
             ${userRight},
-            ${forParty: Option[String]}
-            )
+            ${forParty: Option[String]},
+            $grantedAt
+         )
          """.executeUpdate()(connection)
     rowsUpdated == 1
   }

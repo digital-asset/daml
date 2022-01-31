@@ -4,6 +4,7 @@
 package com.daml.platform.usermanagement
 
 import java.sql.Connection
+import java.time.Instant
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
@@ -98,9 +99,10 @@ class PersistentUserManagementStore(
   ): Future[Result[Unit]] = {
     inTransaction(_.createUser) { implicit connection: Connection =>
       withoutUser(user.id) {
-        val internalId = backend.createUser(user)(connection)
+        val now = epochMicroseconds()
+        val internalId = backend.createUser(user, createdAt = now)(connection)
         rights.foreach(right =>
-          backend.addUserRight(internalId = internalId, right = right)(
+          backend.addUserRight(internalId = internalId, right = right, grantedAt = now)(
             connection
           )
         )
@@ -136,11 +138,13 @@ class PersistentUserManagementStore(
   ): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.grantRights) { implicit connection =>
       withUser(id = id) { user =>
+        val now = epochMicroseconds()
         val addedRights = rights.filter { right =>
           if (!backend.userRightExists(internalId = user.internalId, right = right)(connection)) {
             backend.addUserRight(
               internalId = user.internalId,
               right = right,
+              grantedAt = now,
             )(connection)
           } else {
             false
@@ -226,4 +230,8 @@ class PersistentUserManagementStore(
     rights.take(5).mkString("", ", ", closingBracket)
   }
 
+  private def epochMicroseconds(): Long = {
+    val now = Instant.now()
+    (now.getEpochSecond * 1000 * 1000) + (now.getNano / 1000)
+  }
 }

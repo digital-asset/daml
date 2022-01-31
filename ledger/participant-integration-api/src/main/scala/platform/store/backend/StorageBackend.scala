@@ -401,7 +401,7 @@ trait StringInterningStorageBackend {
 
 trait UserManagementStorageBackend {
 
-  def createUser(user: User)(connection: Connection): Int
+  def createUser(user: User, createdAt: Long)(connection: Connection): Int
 
   def deleteUser(id: UserId)(connection: Connection): Boolean
 
@@ -411,7 +411,7 @@ trait UserManagementStorageBackend {
 
   /** @return true if the right didn't exist and we have just added it.
     */
-  def addUserRight(internalId: Int, right: UserRight)(
+  def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(
       connection: Connection
   ): Boolean
 
