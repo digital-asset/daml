@@ -59,11 +59,6 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   )(implicit loggingContext: LoggingContext): Source[domain.PackageEntry, NotUsed] =
     delegate.packageEntries(startExclusive)
 
-  override def getLedgerConfiguration()(implicit
-      loggingContext: LoggingContext
-  ): Source[v2.LedgerConfiguration, NotUsed] =
-    delegate.getLedgerConfiguration()
-
   override def currentLedgerEnd()(implicit
       loggingContext: LoggingContext
   ): Future[LedgerOffset.Absolute] =

@@ -25,22 +25,6 @@ import scala.concurrent.ExecutionContext
 class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
 
   test(
-    "ValidDeduplicationDuration",
-    "Submission returns OK if deduplication time is within the accepted interval",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    // Submission using the maximum allowed deduplication time
-    val request = ledger.submitRequest(party, Dummy(party).create.command)
-    for {
-      config <- ledger.configuration()
-      maxDedupTime = config.maxDeduplicationTime.get
-      _ <- ledger.submit(request.update(_.commands.deduplicationTime := maxDedupTime))
-    } yield {
-      // No assertions to make, since the command went through as expected
-    }
-  })
-
-  test(
     "NegativeDeduplicationDuration",
     "Submission with negative deduplication durations are rejected",
     allocate(SingleParty),
@@ -78,53 +62,6 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       expectedCode = Status.Code.INVALID_ARGUMENT,
       expectedError = LedgerApiErrors.RequestValidation.NonHexOffset,
     )
-  })
-
-  test(
-    "DeduplicationDurationExceedsMaxDeduplicationDuration",
-    "Submission returns expected error codes if deduplication time is too big",
-    allocate(SingleParty),
-    enabled = _.commandDeduplicationFeatures.maxDeduplicationDurationEnforced,
-    disabledReason = "Maximum deduplication duration is not enforced by the ledger",
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitRequest(party, Dummy(party).create.command)
-    val expectedCode =
-      expectedInvalidDeduplicationPeriodCode(ledger)
-    val expectedError =
-      expectedInvalidDeduplicationPeriodError(ledger)
-    for {
-      config <- ledger.configuration()
-      maxDedupTime = config.maxDeduplicationTime.get
-      failure <- ledger
-        .submit(
-          request.update(
-            _.commands.deduplicationTime := maxDedupTime.update(
-              _.seconds := maxDedupTime.seconds + 1
-            )
-          )
-        )
-        .mustFail("submitting a command with a deduplication time that is too big")
-      _ = assertGrpcErrorRegex(
-        ledger,
-        failure,
-        expectedCode,
-        expectedError,
-        optPattern = Some(
-          Pattern.compile(
-            "The given deduplication .+ exceeds the maximum deduplication .+"
-          )
-        ),
-      )
-      metadataLongestDuration = extractErrorInfoMetadataValue(failure, "longest_duration")
-      // we expect that the request is accepted and the metadata value is valid
-      _ <- ledger.submit(
-        request.update(
-          _.commands.deduplicationDuration := DurationConversion.toProto(
-            Duration.parse(metadataLongestDuration)
-          )
-        )
-      )
-    } yield {}
   })
 
   test(
@@ -268,16 +205,5 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
         Some(Pattern.compile(expectedMessage)),
       )
     }
-  }
-
-  private def expectedInvalidDeduplicationPeriodCode(ledger: ParticipantTestContext) = {
-    if (ledger.features.selfServiceErrorCodes) Status.Code.FAILED_PRECONDITION
-    else Status.Code.INVALID_ARGUMENT
-  }
-
-  private def expectedInvalidDeduplicationPeriodError(ledger: ParticipantTestContext) = {
-    if (ledger.features.selfServiceErrorCodes)
-      LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
-    else LedgerApiErrors.RequestValidation.InvalidField
   }
 }

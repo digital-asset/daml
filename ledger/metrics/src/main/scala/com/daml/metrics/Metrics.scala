@@ -659,7 +659,6 @@ final class Metrics(val registry: MetricRegistry) {
         val getLfArchive: Timer = registry.timer(Prefix :+ "get_lf_archive")
         val getLfPackage: Timer = registry.timer(Prefix :+ "get_lf_package")
         val packageEntries: Timer = registry.timer(Prefix :+ "package_entries")
-        val getLedgerConfiguration: Timer = registry.timer(Prefix :+ "get_ledger_configuration")
         val currentLedgerEnd: Timer = registry.timer(Prefix :+ "current_ledger_end")
         val getCompletions: Timer = registry.timer(Prefix :+ "get_completions")
         val getCompletionsLimited: Timer = registry.timer(Prefix :+ "get_completions_limited")

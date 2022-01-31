@@ -64,14 +64,6 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       delegate.packageEntries(startExclusive),
     )
 
-  override def getLedgerConfiguration()(implicit
-      loggingContext: LoggingContext
-  ): Source[v2.LedgerConfiguration, NotUsed] =
-    Timed.source(
-      metrics.daml.services.index.getLedgerConfiguration,
-      delegate.getLedgerConfiguration(),
-    )
-
   override def currentLedgerEnd()(implicit
       loggingContext: LoggingContext
   ): Future[LedgerOffset.Absolute] =

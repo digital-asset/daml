@@ -95,7 +95,6 @@ private[daml] object ApiServices {
       esf: ExecutionSequencerFactory,
       loggingContext: LoggingContext,
   ) extends ResourceOwner[ApiServices] {
-    private val configurationService: IndexConfigurationService = indexService
     private val identityService: IdentityProvider = indexService
     private val packagesService: IndexPackagesService = indexService
     private val activeContractsService: IndexActiveContractsService = indexService
