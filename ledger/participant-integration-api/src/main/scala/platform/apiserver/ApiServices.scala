@@ -43,8 +43,10 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.telemetry.TelemetryContext
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
-
 import java.time.Duration
+
+import com.daml.platform.usermanagement.UserManagementConfig
+
 import scala.collection.immutable
 import scala.concurrent.duration.{Duration => ScalaDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -89,8 +91,7 @@ private[daml] object ApiServices {
       enableSelfServiceErrorCodes: Boolean,
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       ledgerFeatures: LedgerFeatures,
-      enableUserManagement: Boolean,
-      maxUsersPageSize: Int,
+      userManagementConfig: UserManagementConfig,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -158,7 +159,7 @@ private[daml] object ApiServices {
         ApiVersionService.create(
           enableSelfServiceErrorCodes,
           ledgerFeatures,
-          enableUserManagement = enableUserManagement,
+          userManagementConfig = userManagementConfig,
         )
 
       val apiPackageService =
@@ -204,12 +205,12 @@ private[daml] object ApiServices {
       val apiHealthService = new GrpcHealthService(healthChecks, errorsVersionsSwitcher)
 
       val maybeApiUserManagementService: Option[UserManagementServiceAuthorization] =
-        if (enableUserManagement) {
+        if (userManagementConfig.enabled) {
           val apiUserManagementService =
             new ApiUserManagementService(
               userManagementStore,
               errorsVersionsSwitcher,
-              maxUsersPageSize = maxUsersPageSize,
+              maxUsersPageSize = userManagementConfig.maxUsersPageSize,
             )
           val authorized =
             new UserManagementServiceAuthorization(apiUserManagementService, authorizer)

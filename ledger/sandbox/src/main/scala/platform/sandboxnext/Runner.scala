@@ -225,8 +225,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           maxTransactionsInMemoryFanOutBufferSize = 0L,
           enableInMemoryFanOutForLedgerApi = false,
           enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
-          enableUserManagement = config.userManagementConfig.enabled,
-          maxUsersPageSize = config.userManagementConfig.maxUsersPageSize,
+          userManagementConfig = config.userManagementConfig,
         )
         dbSupport <- DbSupport.owner(
           jdbcUrl = apiServerConfig.jdbcUrl,

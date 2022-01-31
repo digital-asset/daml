@@ -123,8 +123,7 @@ object StandaloneApiServer {
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
         ledgerFeatures = ledgerFeatures,
-        enableUserManagement = config.enableUserManagement,
-        maxUsersPageSize = config.maxUsersPageSize,
+        userManagementConfig = config.userManagementConfig,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(
@@ -135,7 +134,7 @@ object StandaloneApiServer {
         config.tlsConfig,
         AuthorizationInterceptor(
           authService,
-          Option.when(config.enableUserManagement)(userManagementStore),
+          Option.when(config.userManagementConfig.enabled)(userManagementStore),
           servicesExecutionContext,
           errorCodesVersionSwitcher,
         ) :: otherInterceptors,

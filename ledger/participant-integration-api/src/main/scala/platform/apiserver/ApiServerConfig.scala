@@ -8,10 +8,12 @@ import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.{IndexConfiguration, InitialLedgerConfiguration}
 import com.daml.ports.Port
-
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
+
+import com.daml.platform.usermanagement.UserManagementConfig
+
 import scala.concurrent.duration.FiniteDuration
 
 case class ApiServerConfig(
@@ -41,6 +43,5 @@ case class ApiServerConfig(
     maxTransactionsInMemoryFanOutBufferSize: Long,
     enableInMemoryFanOutForLedgerApi: Boolean,
     enableSelfServiceErrorCodes: Boolean,
-    enableUserManagement: Boolean,
-    maxUsersPageSize: Int,
+    userManagementConfig: UserManagementConfig,
 )

@@ -301,7 +301,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
 
   userManagementTest(
     "TestPagedListUsers",
-    "Exercise paging behavior ListUsers rpc",
+    "Exercise paging behavior of ListUsers rpc",
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
@@ -386,6 +386,38 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assert(
         responseZeroPageSize.nextPageToken.nonEmpty,
         "Non-empty page token when pageSize is 0 (and there are some users)",
+      )
+    }
+  })
+
+  test(
+    "TestMaxUsersPageSize",
+    "Exercise max users page size behavior of ListUsers rpc",
+    allocate(NoParties),
+    enabled = _.userManagement.maxUsersPageSize > 0,
+    disabledReason = "requires user management feature with users page size limit",
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val maxUsersPageSize = ledger.features.userManagement.maxUsersPageSize
+    val users = 1.to(maxUsersPageSize + 1).map(_ => User(ledger.nextUserId(), ""))
+    for {
+      // create users
+      _ <- Future.sequence(
+        users.map(u => ledger.userManagement.createUser(CreateUserRequest(Some(u), Nil)))
+      )
+      // request page size greater than the server's limit
+      page <- ledger.userManagement
+        .listUsers(
+          ListUsersRequest(pageSize = maxUsersPageSize + 1, pageToken = "")
+        )
+      // cleanup
+      _ <- Future.sequence(
+        users.map(u => ledger.userManagement.deleteUser(DeleteUserRequest(u.id)))
+      )
+
+    } yield {
+      assert(
+        page.users.size <= maxUsersPageSize,
+        s"page size must be within limit. actual size: ${page.users.size}, server's limit: $maxUsersPageSize",
       )
     }
   })
