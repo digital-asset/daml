@@ -5,7 +5,7 @@ package com.daml.sandbox
 
 import com.daml.cliopts.GlobalLogLevel
 import com.daml.ledger.resources.ResourceContext
-import com.daml.platform.sandbox.SandboxServer
+import com.daml.ledger.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.resources.ProgramResource
 
