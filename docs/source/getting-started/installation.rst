@@ -7,7 +7,7 @@ Installing the SDK
 1. Install the dependencies
 ***************************
 
-The Daml Connect SDK currently runs on Windows, macOS and Linux.
+The Daml SDK currently runs on Windows, macOS and Linux.
 
 You need to install:
 
@@ -38,10 +38,10 @@ To install the SDK on Mac or Linux open a terminal and run:
 The installer will setup the ``PATH`` variable for you. In order for it to take effect, you will have to
 log out and log in again.
 
-Installing the Enterprise Edition
+Installing Daml Enterprise
 *********************************
 
-If you have a license for the enterprise edition of Daml Connect, you
+If you have a license for Daml Enterprise, you
 can install it as follows:
 
 On Windows, download the installer from Artifactory_ instead of Github
@@ -59,7 +59,7 @@ This will be used by the assistant to download other versions automatically from
 
 If you already have an existing installation, you only need to add
 this entry to ``daml-config.yaml``. To overwrite a previously
-installed version with the corresponding enterprise edition, use
+installed version with the corresponding Daml Enterprise version, use
 ``daml install --force VERSION``.
 
 Next steps

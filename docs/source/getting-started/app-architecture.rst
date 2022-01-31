@@ -25,7 +25,7 @@ In your terminal, navigate to the root ``create-daml-app`` directory and run::
   daml studio
 
 This should open the Visual Studio Code editor at the root of the project.
-(You may get a new tab pop up with release notes for the latest version of Daml Connect - just close this.)
+(You may get a new tab pop up with release notes for the latest version of Daml - just close this.)
 Using the file *Explorer* on the left sidebar, navigate to the ``daml`` folder and double-click on the ``User.daml`` file.
 
 The Daml code defines the *data* and *workflow* of the application.
