@@ -79,4 +79,8 @@ else
         done
     done
     push assembly/daml $NON_REPUDIATION
+    push assembly/daml $TRIGGER_SERVICE
+    push assembly/daml $HTTP_JSON
+    push assembly/daml $TRIGGER_RUNNER
+    push assembly/daml $SCRIPT_RUNNER
 fi
