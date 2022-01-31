@@ -97,6 +97,7 @@ private[apiserver] final class ApiTransactionService private (
       .via(logger.debugStream(transactionsLoggable))
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
+      .watchTermination()(logger.logTermination)
   }
 
   override def getTransactionTrees(
@@ -122,6 +123,7 @@ private[apiserver] final class ApiTransactionService private (
       .via(logger.debugStream(transactionTreesLoggable))
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
+      .watchTermination()(logger.logTermination)
   }
 
   override def getTransactionByEventId(
