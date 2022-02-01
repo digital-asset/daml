@@ -26,15 +26,6 @@ genrule(
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       # The script export tests rely on this but we don’t want to expose
       # it in the template so we copy it in here.
-#      cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
-#initializeFixed : Script ()
-#initializeFixed = do
-#  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-#  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
-#  bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
-#  let parties = LedgerParties{{..}}
-#  initialize parties
-#EOF
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
