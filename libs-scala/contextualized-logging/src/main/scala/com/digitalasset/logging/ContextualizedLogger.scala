@@ -37,7 +37,9 @@ object ContextualizedLogger {
   def get(clazz: Class[_]): ContextualizedLogger =
     createFor(clazz.getName.stripSuffix("$"))
 
-  private[logging] class TerminationLogger[T](leveledLogger: LeveledLogger)(implicit loggingContext: LoggingContext) extends GraphStage[FlowShape[T, T]] {
+  private[logging] class TerminationLogger[T](leveledLogger: LeveledLogger)(implicit
+      loggingContext: LoggingContext
+  ) extends GraphStage[FlowShape[T, T]] {
 
     val in: Inlet[T] = Inlet[T]("in")
     val out: Outlet[T] = Outlet[T]("out")
@@ -128,7 +130,7 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
       }
     }
 
-  def logTermination[T](implicit loggingContext: LoggingContext): GraphStage[FlowShape[T,T]] =
+  def logTermination[T](implicit loggingContext: LoggingContext): GraphStage[FlowShape[T, T]] =
     new ContextualizedLogger.TerminationLogger[T](info)
 
 }
