@@ -28,6 +28,7 @@ da_scala_library(
         "//daml-lf:__subpackages__",
         "//daml-script:__subpackages__",
         "//ledger:__subpackages__",
+        "//runtime-components/daml-script-service:__subpackages__",
         "//triggers:__subpackages__",
     ],
     deps = [

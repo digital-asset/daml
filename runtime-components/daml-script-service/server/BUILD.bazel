@@ -1,0 +1,86 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+)
+
+da_scala_library(
+    name = "server",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    data = [
+        "//daml-script/test:script-test.dar",
+        "//daml-script/test:script-test-1.dev.dar",
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
+    ],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-script/runner:script-runner-lib",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/lf-value-json",
+        "//ledger/ledger-api-common",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "@maven//:io_netty_netty_handler",
+    ],
+)
+
+da_scala_test(
+    name = "test",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    resources = [
+        "src/test/resources/logback-test.xml",
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_parsing",
+        "@maven//:io_spray_spray_json",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+    ],
+    deps = [
+        ":server",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-script/runner:script-runner-lib",
+        "//daml-script/test:test-utils",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-resources",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+    ],
+)

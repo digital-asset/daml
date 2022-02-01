@@ -24,6 +24,7 @@ da_scala_library(
         "//language-support:__subpackages__",
         "//ledger-service:__subpackages__",
         "//navigator:__subpackages__",
+        "//runtime-components/daml-script-service:__subpackages__",
     ],
     deps = [
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
