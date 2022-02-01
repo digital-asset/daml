@@ -74,6 +74,12 @@ private[validation] object ExprIterable {
         iterator(body)
       case EFromRequiredInterface(requiredIface @ _, requiringIface @ _, body) =>
         iterator(body)
+      case EToTypeRep(iface @ _, body) =>
+        iterator(body)
+      case EResolveVirtualSignatory(iface @ _, body) =>
+        iterator(body)
+      case EResolveVirtualObserver(iface @ _, body) =>
+        iterator(body)
     }
   }
 

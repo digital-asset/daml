@@ -562,6 +562,12 @@ private[lf] final class Compiler(
         compile(env, body)
       case EFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, body @ _) =>
         SBFromRequiredInterface(requiringIfaceId)(compile(env, body))
+      case EToTypeRep(ifaceId, body @ _) =>
+        SBToTypeRep(ifaceId)(compile(env, body))
+      case EResolveVirtualSignatory(ifaceId, body @ _) =>
+        SBResolveVirtualSignatory(ifaceId)(compile(env, body))
+      case EResolveVirtualObserver(ifaceId, body @ _) =>
+        SBResolveVirtualObserver(ifaceId)(compile(env, body))
       case EExperimental(name, _) =>
         SBExperimental(name)
 

@@ -175,6 +175,24 @@ object Ast {
   final case class ECallInterface(interfaceId: TypeConName, methodName: MethodName, value: Expr)
       extends Expr
 
+  /** Obtain the type representation of a contract. */
+  final case class EToTypeRep(
+      ifaceId: TypeConName,
+      body: Expr,
+  ) extends Expr
+
+  /** Obtain the signatories of a contract through an interface. */
+  final case class EResolveVirtualSignatory(
+      ifaceId: TypeConName,
+      body: Expr,
+  ) extends Expr
+
+  /** Obtain the observers of a contract through an interface. */
+  final case class EResolveVirtualObserver(
+      ifaceId: TypeConName,
+      body: Expr,
+  ) extends Expr
+
   //
   // Kinds
   //

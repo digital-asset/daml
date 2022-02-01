@@ -1220,6 +1220,12 @@ private[lf] object SBuiltin {
   final case class SBResolveCreateByInterface(ifaceId: TypeConName)
       extends SBResolveVirtual(ref => CreateByInterfaceDefRef(ref, ifaceId))
 
+  final case class SBResolveVirtualSignatory(ifaceId: TypeConName)
+      extends SBResolveVirtual(SignatoriesDefRef)
+
+  final case class SBResolveVirtualObserver(ifaceId: TypeConName)
+      extends SBResolveVirtual(ObserversDefRef)
+
   // Convert an interface to a given template type if possible. Since interfaces have the
   // same representation as the underlying template, we only need to perform a check
   // that the record type matches the template type.
@@ -1642,6 +1648,17 @@ private[lf] object SBuiltin {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
       val any = getSAny(args, 0)
       if (any.ty == expectedTy) SOptional(Some(any.value)) else SValue.SValue.None
+    }
+  }
+
+  /** $to_type_rep
+    *    :: t
+    *    -> TypeRep (where t = TTyCon(_))
+    */
+  final case class SBToTypeRep(tycon: TypeConName) extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): STypeRep = {
+      val id = getSRecord(args, 0).id
+      STypeRep(Ast.TTyCon(id))
     }
   }
 

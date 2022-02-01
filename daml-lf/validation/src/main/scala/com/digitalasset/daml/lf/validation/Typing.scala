@@ -1181,6 +1181,18 @@ private[validation] object Typing {
         val method = handleLookup(ctx, interface.lookupInterfaceMethod(iface, methodName))
         checkExpr(value, TTyCon(iface))
         method.returnType
+      case EToTypeRep(ifaceId, body) =>
+        discard(handleLookup(ctx, interface.lookupInterface(ifaceId)))
+        checkExpr(body, TTyCon(ifaceId))
+        TTypeRep
+      case EResolveVirtualSignatory(ifaceId, body) =>
+        discard(handleLookup(ctx, interface.lookupInterface(ifaceId)))
+        checkExpr(body, TTyCon(ifaceId))
+        TList(TParty)
+      case EResolveVirtualObserver(ifaceId, body) =>
+        discard(handleLookup(ctx, interface.lookupInterface(ifaceId)))
+        checkExpr(body, TTyCon(ifaceId))
+        TList(TParty)
       case EExperimental(_, typ) =>
         typ
     }

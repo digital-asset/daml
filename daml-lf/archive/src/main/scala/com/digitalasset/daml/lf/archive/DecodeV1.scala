@@ -1160,6 +1160,30 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             body = decodeExpr(fromRequiredInterface.getExpr, definition),
           )
 
+        case PLF.Expr.SumCase.TO_TYPE_REP =>
+          assertSince(LV.Features.interfaces, "Expr.to_type_rep")
+          val toTypeRep = lfExpr.getToTypeRep
+          EToTypeRep(
+            ifaceId = decodeTypeConName(toTypeRep.getInterfaceType),
+            body = decodeExpr(toTypeRep.getExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.RESOLVE_VIRTUAL_SIGNATORY =>
+          assertSince(LV.Features.interfaces, "Expr.resolve_virtual_signatory")
+          val resolveVirtualSignatory = lfExpr.getResolveVirtualSignatory
+          EResolveVirtualSignatory(
+            ifaceId = decodeTypeConName(resolveVirtualSignatory.getInterfaceType),
+            body = decodeExpr(resolveVirtualSignatory.getExpr, definition),
+          )
+
+        case PLF.Expr.SumCase.RESOLVE_VIRTUAL_OBSERVER =>
+          assertSince(LV.Features.interfaces, "Expr.resolve_virtual_observer")
+          val resolveVirtualObserver = lfExpr.getResolveVirtualObserver
+          EResolveVirtualObserver(
+            ifaceId = decodeTypeConName(resolveVirtualObserver.getInterfaceType),
+            body = decodeExpr(resolveVirtualObserver.getExpr, definition),
+          )
+
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Expr.SUM_NOT_SET")
 
