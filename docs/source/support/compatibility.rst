@@ -87,7 +87,7 @@ Given the Ledger API Compatibility above, network upgrades are seamless if they 
 As an example, from an application standpoint, the only effect of upgrading Daml for Postgres 1.4.0 to Daml for Postgres 1.6.0 is an uptick in the Ledger API version. There may be significant changes to components or database schemas, but these are not public APIs. 
 
 SDK, Runtime Component, and Library Compatibility: Daml Upgradeability
-******************************************************************************
+**********************************************************************
 
 As long as a major Ledger API version is supported (see :ref:`ledger-api-support`), there will be supported version of Daml able to target all minor versions of that major version. This has the obvious caveat that new features may not be available with old Ledger API versions.
 
