@@ -4,7 +4,7 @@
 package com.daml.logging
 
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
-import akka.{Done, NotUsed}
+import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import com.daml.grpc.GrpcException
@@ -13,8 +13,7 @@ import io.grpc.Status
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Try}
 import scala.util.control.NonFatal
 
 object ContextualizedLogger {
