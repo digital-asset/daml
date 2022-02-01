@@ -103,7 +103,7 @@ class Endpoints(
   // TL;DR JUST PUT THIS THING AFTER YOUR FINAL PATH MATCHING
   private def logRequestResponseHelper(
       logIncomingRequest: (HttpRequest, RemoteAddress) => Future[Unit],
-      logResponse: HttpResponse => Future[Unit],
+      logResponse: HttpResponse => HttpResponse,
   ): Directive0 =
     extractRequest & extractClientIP tflatMap { case (request, remoteAddress) =>
       mapRouteResultFuture { responseF =>
@@ -111,7 +111,8 @@ class Endpoints(
           _ <- logIncomingRequest(request, remoteAddress)
           response <- responseF
           _ <- response match {
-            case Complete(httpResponse) => logResponse(httpResponse)
+            case Complete(httpResponse) =>
+              Future.successful(logResponse(httpResponse))
             case _ =>
               Future.failed(
                 new RuntimeException(
@@ -137,21 +138,20 @@ class Endpoints(
           .header[`Content-Type`]
           .map(_.contentType)
           .contains(ContentTypes.`application/json`)
-      )
-        httpMessage
-          .entity()
+      ) {
+        httpMessage.entity
           .toStrict(maxTimeToCollectRequest)
           .map(it =>
             withEnrichedLoggingContext(
               LoggingContextOf.label[RequestEntity],
               s"${bodyKind}_body" -> it.data.utf8String.parseJson,
             )
-              .run(implicit lc => logger.info(msg))
+              .run { implicit lc => logger.info(msg) }
           )
           .recover { case ex =>
             logger.error("Failed to extract body for logging", ex)
           }
-      else Future.successful(logger.info(msg))
+      } else Future.successful(logger.info(msg))
     logRequestResponseHelper(
       (request, remoteAddress) =>
         logWithHttpMessageBodyIfAvailable(
@@ -159,12 +159,33 @@ class Endpoints(
           mkRequestLogMsg(request, remoteAddress),
           "request",
         ),
-      httpResponse =>
-        logWithHttpMessageBodyIfAvailable(
-          httpResponse,
-          mkResponseLogMsg(httpResponse),
-          "response",
-        ),
+      httpResponse => {
+        val msg = mkResponseLogMsg(httpResponse)
+        if (
+          httpResponse
+            .header[`Content-Type`]
+            .map(_.contentType)
+            .contains(ContentTypes.`application/json`)
+        ) {
+          import akka.stream.scaladsl._
+          httpResponse
+            .transformEntityDataBytes(
+              Flow.fromFunction(it =>
+                withEnrichedLoggingContext(
+                  LoggingContextOf.label[RequestEntity],
+                  s"response_body" -> it.utf8String.parseJson,
+                )
+                  .run { implicit lc =>
+                    logger.info(msg)
+                    it
+                  }
+              )
+            )
+        } else {
+          logger.info(msg)
+          httpResponse
+        }
+      },
     )
   }
 
@@ -174,7 +195,10 @@ class Endpoints(
     logRequestResponseHelper(
       (request, remoteAddress) =>
         Future.successful(logger.info(mkRequestLogMsg(request, remoteAddress))),
-      httpResponse => Future.successful(logger.info(mkResponseLogMsg(httpResponse))),
+      httpResponse => {
+        logger.info(mkResponseLogMsg(httpResponse))
+        httpResponse
+      },
     )
 
   val logRequestAndResultFn: LoggingContextOf[InstanceUUID with RequestID] => Directive0 =
@@ -182,7 +206,7 @@ class Endpoints(
     else lc => logRequestAndResultSimple(lc)
 
   def logRequestAndResult(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): Directive0 =
-    logRequestAndResultFn(lc)
+    toStrictEntity(maxTimeToCollectRequest) & logRequestAndResultFn(lc)
 
   def all(implicit
       lc0: LoggingContextOf[InstanceUUID],
