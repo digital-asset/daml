@@ -82,6 +82,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         signatories Cons @Party [M:Dummy {signatory} this] (Nil @Party);
         observers Nil @Party;
         agreement "";
+        choice Archive (self) (arg: Unit): Unit, 
+          controllers Cons @Party [M:Dummy {signatory} this] (Nil @Party)
+          to upure @Unit ();
       };   
     }
     
@@ -394,9 +397,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Set(alice),
         )
         inside(res) {
-          case Success(
-                Left(SErrorDamlException(IE.CreateEmptyContractKeyMaintainers(T, _, _)))
-              ) =>
+          case Success(Left(SErrorDamlException(IE.CreateEmptyContractKeyMaintainers(T, _, _)))) =>
             msgs shouldBe Seq(
               "starts test",
               "precondition",
@@ -536,7 +537,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a wrongly type non-cached global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a wrongly typed non-cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -618,7 +619,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a wrongly type cached global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a wrongly typed cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -633,6 +634,23 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
               msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a wrongly typed inactive global contract
+        "wrongly typed inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) (cId: ContractId M:T) -> 
+               ubind x: M:Dummy <- exercise @M:Dummy Archive cId () in
+               Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
+               """,
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getWronglyTypedContract,
+          )
+          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
+            msgs shouldBe Seq("starts test")
           }
         }
 
@@ -713,6 +731,25 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
               msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of an wrongly typed inactive local contract
+        "wrongly typed inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(sig : Party) (exercisingParty : Party) ->
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig } 
+             in ubind x: Unit <- exercise @M:Dummy Archive cId1 ()
+             in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
+             in 
+               Test:exercise_by_id exercisingParty cId1 (M:Either:Left @Int64 @Int64 0)
+             """,
+            Array(SParty(alice), SParty(alice)),
+            Set(alice),
+          )
+          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
+            msgs shouldBe Seq("starts test")
           }
         }
 
@@ -921,7 +958,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of a wrongly type cached global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of a wrongly typed cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -961,6 +998,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "choice controllers",
               "choice observers",
             )
+
           }
         }
       }
@@ -1006,10 +1044,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(gKey)))) =>
             gKey.templateId shouldBe T
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-            )
+            msgs shouldBe Seq("starts test", "maintainers")
           }
         }
 
@@ -1189,7 +1224,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly type non-cached global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly typed non-cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1262,7 +1297,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly type cached global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly typed cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1276,6 +1311,22 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
               msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly typed inactive cached global contract
+        "wrongly typed inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetchingParty: Party) (cId: ContractId M:T) -> 
+               ubind x: M:Dummy <- exercise @M:Dummy Archive cId ()
+               in Test:fetch_by_id fetchingParty cId""",
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getWronglyTypedContract,
+          )
+          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
+            msgs shouldBe Seq("starts test")
           }
         }
 
@@ -1345,6 +1396,23 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
               msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of an wrongly inactive typed local contract
+        "wrongly typed inactive  contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(sig : Party) (fetchingParty: Party) ->
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig } 
+             in ubind x: Unit <- exercise @M:Dummy Archive cId1 () 
+             in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
+             in Test:fetch_by_id fetchingParty cId2""",
+            Array(SParty(alice), SParty(alice)),
+            Set(alice),
+          )
+          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
+            msgs shouldBe Seq("starts test")
           }
         }
 
@@ -1670,11 +1738,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getKey = getKey,
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-              "queries key",
-            )
+            msgs shouldBe Seq("starts test", "maintainers", "queries key")
           }
         }
       }
