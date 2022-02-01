@@ -3,8 +3,8 @@
 
 .. _connect-helm-chart:
 
-Helm Chart
-==================
+Daml Helm Chart
+===============
 
 As of 1.18.0, we provide an Early Access version of the Helm Chart for
 Daml Enterprise customers. This page contains documentation for that Helm
