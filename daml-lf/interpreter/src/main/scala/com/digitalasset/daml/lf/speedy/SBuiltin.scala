@@ -1032,11 +1032,11 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 0)
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
-          if (cached.templateId != templateId)
-            throw SErrorDamlException(IE.WronglyTypedContract(coid, templateId, cached.templateId))
           onLedger.ptx.consumedBy
             .get(coid)
             .foreach(nid => throw SErrorDamlException(IE.ContractNotActive(coid, templateId, nid)))
+          if (cached.templateId != templateId)
+            throw SErrorDamlException(IE.WronglyTypedContract(coid, templateId, cached.templateId))
           machine.returnValue = cached.value
         case None =>
           throw SpeedyHungry(
