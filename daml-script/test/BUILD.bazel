@@ -24,8 +24,6 @@ genrule(
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
-      # The script export tests rely on this but we don’t want to expose
-      # it in the template so we copy it in here.
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
