@@ -598,7 +598,7 @@ We document two paths forward here: one that relies on the Helm chart included
 in Daml Enterprise, and a manual setup using only the Open Source SDK.
 
 Using the Daml Helm Chart
-****************************
+*************************
 
 For simplicity, we assume that you have access to a server with a public IP
 address that both you and Auth0 can reach. Furthermore, we assume that you have
