@@ -19,28 +19,22 @@ genrule(
     outs = ["script-test.dar"],
     cmd = """
       set -eoux pipefail
-      echo "tmp dir"
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
-      echo "copying files"
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       # The script export tests rely on this but we don’t want to expose
       # it in the template so we copy it in here.
-      echo "listing dirs"
-      ls $$TMP_DIR/daml/
-      echo "cat scriptexample"
-#       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
-# initializeFixed : Script ()
-# initializeFixed = do
-#   alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-#   bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
-#   bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
-#   let parties = LedgerParties{{..}}
-#   initialize parties
-# EOF
-      echo "copying dar"
+      cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
+initializeFixed : Script ()
+initializeFixed = do
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
+  let parties = LedgerParties{{..}}
+  initialize parties
+EOF
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -52,9 +46,7 @@ dependencies:
   - daml-prim
   - daml-script.dar
 EOF
-      echo "build"
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test.dar)
-      echo "drop temp dir"
       rm -rf $$TMP_DIR
     """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
