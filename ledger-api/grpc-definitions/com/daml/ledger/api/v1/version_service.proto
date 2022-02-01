@@ -62,8 +62,8 @@ message UserManagementFeature {
   bool supported = 1;
   // The maximum number of rights that can be assigned to a single user.
   // Value of 0 means that no rights per user limit is enforced.
-  uint32 max_rights_per_user = 2;
+  int32 max_rights_per_user = 2;
   // The maximum number of users the server can return in a single response (page).
   // Value of 0 means that no page size limit is enforced.
-  uint32 max_users_page_size = 3;
+  int32 max_users_page_size = 3;
 }
