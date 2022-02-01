@@ -6,11 +6,12 @@ import Conduit
 import Control.Exception.Extra
 import Control.Monad
 import Data.Aeson
+import qualified Data.Aeson.Key as A
+import qualified Data.Aeson.KeyMap as KM
 import Data.Aeson.Extra.Merge
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as BS
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
-import qualified Data.HashMap.Strict as HMS
 import Data.List.Extra
 import Data.Proxy (Proxy (..))
 import Data.Tagged (Tagged (..))
@@ -172,24 +173,24 @@ patchTsDependencies uiDir packageJsonFile = do
   packageJson0 <- readJsonFile packageJsonFile
   case packageJson0 of
     Object packageJson ->
-      case HMS.lookup "dependencies" packageJson of
+      case KM.lookup "dependencies" packageJson of
         Just (Object dependencies) -> do
-          let depNames = HMS.keys dependencies
+          let depNames = KM.keys dependencies
           let patchedDeps =
-                HMS.fromList
+                KM.fromList
                   [ (depName, String $ T.pack $ "file:" <> libRelPath)
                   | tsLib <- allTsLibraries
                   , let libName = tsLibraryName tsLib
                   , let libPath = uiDir </> libName
                   , let libRelPath =
                           makeRelative (takeDirectory packageJsonFile) libPath
-                  , let depName = T.pack $ "@" <> replace "-" "/" libName
+                  , let depName = A.fromString $ "@" <> replace "-" "/" libName
                   , depName `elem` depNames
-                  ] `HMS.union`
+                  ] `KM.union`
                 dependencies
           let newPackageJson =
                 Object $
-                HMS.insert "dependencies" (Object patchedDeps) packageJson
+                KM.insert "dependencies" (Object patchedDeps) packageJson
           p <- getPermissions packageJsonFile
           setPermissions packageJsonFile (setOwnerWritable True p)
           BSL.writeFile packageJsonFile (encode newPackageJson)

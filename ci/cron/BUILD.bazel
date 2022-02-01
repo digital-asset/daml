@@ -39,6 +39,7 @@ da_haskell_binary(
         "stm-conduit",
         "text",
         "time",
+        "typed-process",
         "unordered-containers",
         "utf8-string",
         "vector",
