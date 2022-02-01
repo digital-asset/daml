@@ -1,10 +1,12 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.archive.testing
+package com.daml.lf
+package archive.testing
+
+import com.daml.SafeProto
 
 import java.security.MessageDigest
-
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -35,7 +37,7 @@ object Encode {
 
   final def encodeArchive(pkg: (PackageId, Package), version: LanguageVersion): PLF.Archive = {
 
-    val payload = encodePayloadOfVersion(pkg, version).toByteString
+    val payload = data.assertRight(SafeProto.toByteString(encodePayloadOfVersion(pkg, version)))
     val hash = PackageId.assertFromString(
       MessageDigest.getInstance("SHA-256").digest(payload.toByteArray).map("%02x" format _).mkString
     )

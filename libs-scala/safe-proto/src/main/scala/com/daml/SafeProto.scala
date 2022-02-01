@@ -28,7 +28,7 @@ object SafeProto {
       case e: RuntimeException
           if e.isInstanceOf[NegativeArraySizeException] ||
             e.getCause != null && e.getCause.isInstanceOf[CodedOutputStream.OutOfSpaceException] =>
-        Left(s"the ${message.getClass.getName} message is too big to be serialized")
+        Left(s"the ${message.getClass.getName} message is too large to be serialized")
     }
 
   def toByteString(message: AbstractMessageLite[_, _]): Either[String, ByteString] =

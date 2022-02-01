@@ -18,7 +18,7 @@ da_scala_library(
 da_scala_test_suite(
     name = "safe-protot-test",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    max_heap_size = "4g",
+    max_heap_size = "3g",
     deps = [
         ":safe-proto",
         "@maven//:com_google_protobuf_protobuf_java",
