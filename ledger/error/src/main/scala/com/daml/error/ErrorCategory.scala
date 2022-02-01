@@ -339,7 +339,7 @@ object ErrorCategory {
   @RetryStrategy("""Errors in this category are non-retryable.""")
   @Resolution(
     """This error is caused by a ledger-level misconfiguration or by an implementation bug.
-      |Resolution requires ledger operator intervention or vendor support."""
+      |Resolution requires participant operator intervention."""
   )
   object InternalUnsupportedOperation
       extends ErrorCategoryImpl(

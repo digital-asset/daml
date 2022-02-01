@@ -31,8 +31,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request."""
   )
   @Resolution(
-    """This error is caused by a ledger-level misconfiguration or by an implementation bug.
-      |Resolution requires ledger operator intervention or vendor support."""
+    """This error is caused by a participant node misconfiguration or by an implementation bug.
+      |Resolution requires participant operator intervention."""
   )
   object UnsupportedOperation
       extends ErrorCode(
