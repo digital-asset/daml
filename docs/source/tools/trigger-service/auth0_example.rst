@@ -143,7 +143,7 @@ Enter the `details page <auth0-user-details_>`_ of the newly created user.
 .. _auth0-user-details: https://auth0.com/docs/users/view-user-details
 
 Start Daml
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~
 
 Next, configure the relevant Daml components to use Auth0 as the IAM.
 
