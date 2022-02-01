@@ -7,13 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{
-  CommandId,
-  ConfigurationEntry,
-  LedgerId,
-  LedgerOffset,
-  TransactionId,
-}
+import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerId, LedgerOffset, TransactionId}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -200,26 +194,6 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
     Timed.source(
       metrics.daml.services.index.configurationEntries,
       delegate.configurationEntries(startExclusive),
-    )
-
-  override def deduplicateCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[v2.CommandDeduplicationResult] =
-    Timed.future(
-      metrics.daml.services.index.deduplicateCommand,
-      delegate.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil),
-    )
-
-  override def stopDeduplicatingCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    Timed.future(
-      metrics.daml.services.index.stopDeduplicateCommand,
-      delegate.stopDeduplicatingCommand(commandId, submitters),
     )
 
   override def prune(

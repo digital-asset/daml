@@ -165,17 +165,6 @@ trait PackageStorageBackend {
   )(connection: Connection): Vector[(Offset, PackageLedgerEntry)]
 }
 
-trait DeduplicationStorageBackend {
-  def deduplicatedUntil(deduplicationKey: String)(connection: Connection): Timestamp
-  def upsertDeduplicationEntry(
-      key: String,
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(connection: Connection)(implicit loggingContext: LoggingContext): Int
-  def removeExpiredDeduplicationData(currentTime: Timestamp)(connection: Connection): Unit
-  def stopDeduplicatingCommand(deduplicationKey: String)(connection: Connection): Unit
-}
-
 trait CompletionStorageBackend {
   def commandCompletions(
       startExclusive: Offset,

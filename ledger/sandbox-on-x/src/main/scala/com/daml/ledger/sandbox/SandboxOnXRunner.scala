@@ -231,7 +231,6 @@ object SandboxOnXRunner {
       ledgerId = config.ledgerId,
       config = apiServerConfig,
       commandConfig = config.commandConfig,
-      submissionConfig = config.submissionConfig,
       partyConfig = PartyConfiguration(config.extra.implicitPartyAllocation),
       optWriteService = Some(writeService),
       authService = config.extra.authService,

@@ -35,7 +35,6 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   InitialLedgerConfiguration,
   PartyConfiguration,
-  SubmissionConfiguration,
 }
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
@@ -79,7 +78,6 @@ private[daml] object ApiServices {
       initialLedgerConfiguration: Option[InitialLedgerConfiguration],
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
-      submissionConfig: SubmissionConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -104,7 +102,6 @@ private[daml] object ApiServices {
     private val completionsService: IndexCompletionsService = indexService
     private val partyManagementService: IndexPartyManagementService = indexService
     private val configManagementService: IndexConfigManagementService = indexService
-    private val submissionService: IndexSubmissionService = indexService
     private val meteringStore: MeteringStore = indexService
 
     private val configurationInitializer = new LedgerConfigurationInitializer(
@@ -260,7 +257,6 @@ private[daml] object ApiServices {
         val apiSubmissionService = ApiSubmissionService.create(
           ledgerId,
           writeService,
-          submissionService,
           partyManagementService,
           timeProvider,
           timeProviderType,
@@ -269,8 +265,7 @@ private[daml] object ApiServices {
           commandExecutor,
           checkOverloaded,
           ApiSubmissionService.Configuration(
-            partyConfig.implicitPartyAllocation,
-            submissionConfig.enableDeduplication,
+            partyConfig.implicitPartyAllocation
           ),
           metrics,
           errorsVersionsSwitcher,

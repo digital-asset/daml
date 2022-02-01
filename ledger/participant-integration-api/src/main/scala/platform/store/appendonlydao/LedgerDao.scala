@@ -6,7 +6,7 @@ package com.daml.platform.store.appendonlydao
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDetails}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -19,7 +19,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -163,50 +163,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed]
 
-  /** Deduplicates commands.
-    *
-    * @param commandId The command Id
-    * @param submitters The submitting parties
-    * @param submittedAt The time when the command was submitted
-    * @param deduplicateUntil The time until which the command should be deduplicated
-    * @return whether the command is a duplicate or not
-    */
-  def deduplicateCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult]
-
-  /** Remove all expired deduplication entries. This method has to be called
-    * periodically to ensure that the deduplication cache does not grow unboundedly.
-    *
-    * @param currentTime The current time. This should use the same source of time as
-    *                    the `deduplicateUntil` argument of [[deduplicateCommand]].
-    *
-    * @return when DAO has finished removing expired entries. Clients do not
-    *         need to wait for the operation to finish, it is safe to concurrently
-    *         call deduplicateCommand().
-    */
-  def removeExpiredDeduplicationData(
-      currentTime: Timestamp
-  )(implicit loggingContext: LoggingContext): Future[Unit]
-
-  /** Stops deduplicating the given command. This method should be called after
-    * a command is rejected by the submission service, or after a transaction is
-    * rejected by the ledger. Without removing deduplication entries for failed
-    * commands, applications would have to wait for the end of the (long) deduplication
-    * window before they could send a retry.
-    *
-    * @param commandId The command Id
-    * @param submitters The submitting parties
-    * @return
-    */
-  def stopDeduplicatingCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Future[Unit]
-
   /** Prunes participant events and completions in archived history and remembers largest
     * pruning offset processed thus far.
     *
@@ -223,7 +179,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       to: Option[Timestamp],
       applicationId: Option[Ref.ApplicationId],
   )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]]
-
 }
 
 // TODO sandbox-classic clean-up: This interface and its implementation is only used in the JdbcLedgerDao suite

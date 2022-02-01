@@ -69,7 +69,6 @@ object ConfigConverter {
           maybeLedgerId.getOrElse(LedgerIdGenerator.generateRandomId(ledgerName).unwrap)
       },
       commandConfig = sandboxConfig.commandConfig,
-      submissionConfig = sandboxConfig.submissionConfig,
       tlsConfig = sandboxConfig.tlsConfig,
       participants = Seq(
         singleCombinedParticipant

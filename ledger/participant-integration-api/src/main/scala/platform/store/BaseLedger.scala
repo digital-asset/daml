@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{CommandId, LedgerId}
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -20,7 +20,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, ContractStore}
+import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -179,24 +179,6 @@ private[platform] abstract class BaseLedger(
       loggingContext: LoggingContext
   ): Source[(Offset, ConfigurationEntry), NotUsed] =
     dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getConfigurationEntries))
-
-  override def deduplicateCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
-    ledgerDao.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil)
-
-  override def removeExpiredDeduplicationData(currentTime: Timestamp)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
-    ledgerDao.removeExpiredDeduplicationData(currentTime)
-
-  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Ref.Party])(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
-    ledgerDao.stopDeduplicatingCommand(commandId, submitters)
 
   override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
