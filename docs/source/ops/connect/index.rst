@@ -4,7 +4,7 @@
 .. _ops-connect_index:
 
 Operating Daml
-======================
+==============
 
 
 .. toctree::
