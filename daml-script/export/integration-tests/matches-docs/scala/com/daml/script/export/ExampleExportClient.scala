@@ -86,7 +86,7 @@ object ExampleExportClient {
     RunnerMain.main(
       RunnerConfig(
         darPath = clientConfig.darPath,
-        scriptIdentifier = "ScriptExample:initializeUser",
+        scriptIdentifier = "ScriptExample:initializeFixed",
         ledgerHost = Some("localhost"),
         ledgerPort = Some(clientConfig.targetPort),
         participantConfig = None,

@@ -532,10 +532,12 @@ testUserRightManagementForParties p1 p2 = do
   pure ()
 
 testUserManagement = do
+  clearUsers
   p1 <- allocateParty "p1"
   testUserManagementForParty p1
 
 testUserRightManagement = do
+  clearUsers
   p1 <- allocateParty "p1"
   p2 <- allocateParty "p2"
   testUserRightManagementForParties p1 p2
@@ -547,3 +549,10 @@ jsonUserManagement p1 = do
 jsonUserRightManagement : Party -> Script ()
 jsonUserRightManagement p1 = do
   testUserRightManagementForParties p1 p1
+
+clearUsers : Script ()
+clearUsers = do
+  admin <- validateUserId "participant_admin"
+  users <- listUsers
+  forA_ users $ \u ->
+    when (u.userId /= admin) $ deleteUser u.userId
