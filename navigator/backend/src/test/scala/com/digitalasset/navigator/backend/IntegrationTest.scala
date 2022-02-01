@@ -26,6 +26,7 @@ import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.timer.RetryStrategy
+import org.slf4j.LoggerFactory
 
 import java.util.UUID
 import scala.concurrent.{Await, Future}
@@ -38,6 +39,8 @@ class IntegrationTest
     with SuiteResourceManagementAroundAll
     with Matchers {
   self: Suite =>
+
+  private val logger = LoggerFactory.getLogger(getClass)
 
   private def withNavigator[A](
       userMgmt: Boolean
@@ -72,6 +75,9 @@ class IntegrationTest
         commandClient = CommandClientConfiguration.default,
       ),
     )
+    // Don't close the LedgerClient on termination, because all it does is close the channel,
+    // which then causes a subsequent test to fail when creating a LedgerClient using a closed channel
+    // ("io.grpc.StatusRuntimeException: UNAVAILABLE: Channel shutdown invoked")
     sys.registerOnTermination {
       partyRefresh.foreach(_.cancel())
       Await.ready(bindingF.flatMap(_.terminate(30.seconds)), 30.seconds)
@@ -88,21 +94,16 @@ class IntegrationTest
       a <- testFn(uri)(client)
       _ <- sys.terminate()
       _ <- Await.ready(sys.getWhenTerminated.asScala, 30.seconds)
+      _ = logger.info(s"Terminated actor system ${sys.name}")
+      // Reset sandbox enough to avoid users leaking between tests: delete all users except admin
+      users <- client.userManagementClient.listUsers()
+      _ <- Future.traverse(users)(user =>
+        if (user.id != "participant_admin") client.userManagementClient.deleteUser(user.id)
+        else Future.unit
+      )
+      _ = logger.info("Removed all users from ledger as part of cleanup.")
     } yield a
-//    fa.transformWith { ta =>
-
-    // Don't close the LedgerClient because all it does is close the channel,
-    // which then causes a subsequent test to fail when creating a LedgerClient using a closed channel
-    // ("io.grpc.StatusRuntimeException: UNAVAILABLE: Channel shutdown invoked")
-//      bindingF
-//        .flatMap(_.unbind())
-//        .flatMap(_ => sys.terminate())
-//        .transform(_ => ta)
-//    }
   }
-
-  def getResponseDataBytes(resp: HttpResponse): Future[String] =
-    resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
 
   private def okSessionBody(expectedBody: String)(implicit uri: Uri): Future[Assertion] = {
     RetryStrategy.constant(20, 1.second) { case (_, _) =>
@@ -110,7 +111,9 @@ class IntegrationTest
         resp <- Http().singleRequest(
           HttpRequest(uri = uri.withPath(Uri.Path("/api/session/")))
         )
-        respBody <- getResponseDataBytes(resp)
+        respBody <- resp.entity.dataBytes
+          .runFold(ByteString.empty)((b, a) => b ++ a)
+          .map(_.utf8String)
         _ = resp.status shouldBe StatusCodes.OK
       } yield {
         respBody shouldBe expectedBody
@@ -168,7 +171,21 @@ class IntegrationTest
           _ <- createUser("user-name-1", partyDetails.party)
           _ <- createUser("user-name-2", partyDetails.party)
           _ <- okSessionBody(
-            """{"method":{"type":"select","users":["user-name-1"]},"type":"sign-in"}"""
+            """{"method":{"type":"select","users":["user-name-1","user-name-2"]},"type":"sign-in"}"""
+          )
+        } yield succeed
+    }
+
+    "picks up newly created users (2 users, 2 primary parties)" in withNavigator(userMgmt = true) {
+      implicit uri => implicit client =>
+        for {
+          _ <- okSessionBody("""{"method":{"type":"select","users":[]},"type":"sign-in"}""")
+          partyDetails <- allocateParty("primary-party")
+          _ <- createUser("user-name-1", partyDetails.party)
+          partyDetails2 <- allocateParty("primary-party2")
+          _ <- createUser("user-name-2", partyDetails2.party)
+          _ <- okSessionBody(
+            """{"method":{"type":"select","users":["user-name-1","user-name-2"]},"type":"sign-in"}"""
           )
         } yield succeed
     }
