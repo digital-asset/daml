@@ -45,7 +45,7 @@ Ledger API
 The Ledger API is the primary interface that offers forward and backward compatibility between Daml Networks and Applications (including Daml components). As you can see in the diagram above, all interaction between components above the Participant Node and the Participant Node or Daml Network happen through the Ledger API. The Ledger API is a public API and offers the lowest level of access to Daml Ledgers supported for application use.
 
 Daml Components
-************
+***************
 
 Runtime Components
 ==================
