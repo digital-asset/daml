@@ -39,7 +39,7 @@ The installer will setup the ``PATH`` variable for you. In order for it to take 
 log out and log in again.
 
 Installing Daml Enterprise
-*********************************
+**************************
 
 If you have a license for Daml Enterprise, you
 can install it as follows:
