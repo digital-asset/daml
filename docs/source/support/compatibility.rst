@@ -34,7 +34,7 @@ Participant Nodes advertise the Ledger API version they support via the :ref:`ve
 As a concrete example, Daml for Postgres 1.4.0 has the Participant Node integrated, and exposes Ledger API version 1.4.0 and the Daml for VMware Blockchain 1.0 Participant Nodes expose Ledger API version 1.6.0. So any application that runs on Daml for Postgres 1.4.0 will also run on Daml for VMware Blockchain 1.0.
 
 List of Ledger API Versions supported by Daml
-=====================================================
+=============================================
 
 The below lists with which Daml version a new Ledger API version was introduced.
 
