@@ -59,9 +59,9 @@ CREATE TABLE participant_user_rights (
     UNIQUE (user_internal_id, user_right, for_party2)
 );
 
-INSERT INTO participant_users(user_id, primary_party, created_at) VALUES ('participant_admin', NULL, CAST((1000 * 1000 * EXTRACT(epoch FROM CURRENT_TIMESTAMP)) AS BIGINT));
+INSERT INTO participant_users(user_id, primary_party, created_at) VALUES ('participant_admin', NULL, 0);
 INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, granted_at)
-    SELECT internal_id, 1, NULL, CAST((1000 * 1000 * EXTRACT(epoch FROM CURRENT_TIMESTAMP)) AS BIGINT)
+    SELECT internal_id, 1, NULL, 0
     FROM participant_users
     WHERE user_id = 'participant_admin';
 

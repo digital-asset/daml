@@ -26,8 +26,8 @@ CREATE UNIQUE INDEX participant_user_rights_user_internal_id_user_right_idx
     ON participant_user_rights (user_internal_id, user_right)
     WHERE for_party IS NULL;
 
-INSERT INTO participant_users(user_id, primary_party, created_at) VALUES ('participant_admin', NULL, (1000 * 1000 * EXTRACT(epoch FROM CURRENT_TIMESTAMP))::bigint);
+INSERT INTO participant_users(user_id, primary_party, created_at) VALUES ('participant_admin', NULL, 0);
 INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, granted_at)
-    SELECT internal_id, 1, NULL, (1000 * 1000 * EXTRACT(epoch FROM CURRENT_TIMESTAMP))::bigint
+    SELECT internal_id, 1, NULL, 0
     FROM participant_users
     WHERE user_id = 'participant_admin';

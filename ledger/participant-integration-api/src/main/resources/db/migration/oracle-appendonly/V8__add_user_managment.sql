@@ -17,31 +17,12 @@ CREATE TABLE participant_user_rights (
 );
 
 INSERT INTO participant_users(user_id, primary_party, created_at)
-SELECT 'participant_admin',
-        NULL,
-        days * 24 * 3600 * 1000 * 1000 +
-        hours * 3600 * 1000 * 1000 +
-        minutes * 60 * 1000 * 1000 +
-        seconds * 1000 * 1000
-FROM
-    (
-    SELECT
-        EXTRACT(day FROM diff) days,
-        EXTRACT(hour FROM diff) hours,
-        EXTRACT(minute FROM diff) minutes,
-        EXTRACT(second FROM diff) seconds
-    FROM
-        (
-        SELECT sys_extract_utc(current_timestamp) - to_timestamp('1-1-1970 00:00:00','MM-DD-YYYY HH24:Mi:SS') AS diff FROM dual
-        )
-    )
-;
+VALUES ('participant_admin', NULL, 0);
 
 INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, granted_at)
 SELECT internal_id,
        1,
        NULL,
-       created_at
+       0
 FROM participant_users
-WHERE user_id = 'participant_admin'
-;
+WHERE user_id = 'participant_admin';
