@@ -98,8 +98,8 @@ initializeUser = do
   bank <- validateUserId "bank"
   alice <- validateUserId "alice"
   bob <- validateUserId "bob"
-  _ <- createUser (User bank (Some parties.bank))
-  _ <- createUser (User alice (Some parties.alice))
-  _ <- createUser (User bob (Some parties.bob))
+  _ <- createUser (User bank (Some parties.bank)) [CanActAs parties.bank]
+  _ <- createUser (User alice (Some parties.alice)) [CanActAs parties.alice]
+  _ <- createUser (User bob (Some parties.bob)) [CanActAs parties.bob]
   initialize parties
 -- INITIALIZE_USER_END
