@@ -18,6 +18,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -169,4 +170,11 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
   def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit]
+
+  def getTransactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[Ref.ApplicationId],
+  )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]]
+
 }

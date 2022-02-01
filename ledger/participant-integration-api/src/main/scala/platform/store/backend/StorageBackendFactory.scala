@@ -45,6 +45,7 @@ trait StorageBackendFactory {
       completionStorageBackend = createCompletionStorageBackend(stringInterning),
       contractStorageBackend = createContractStorageBackend(ledgerEndCache, stringInterning),
       eventStorageBackend = createEventStorageBackend(ledgerEndCache, stringInterning),
+      meteringStorageBackend = createMeteringStorageBackend(ledgerEndCache),
     )
 }
 
@@ -64,4 +65,5 @@ case class ReadStorageBackend(
     completionStorageBackend: CompletionStorageBackend,
     contractStorageBackend: ContractStorageBackend,
     eventStorageBackend: EventStorageBackend,
+    meteringStorageBackend: MeteringStorageBackend,
 )

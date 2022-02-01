@@ -10,9 +10,14 @@ import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDeta
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationResult,
+  MeteringStore,
+  PackageDetails,
+}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
@@ -127,6 +132,18 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       metrics.daml.index.db.prune,
       ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
     )
+
+  /** Returns all TransactionMetering records matching given criteria */
+  override def getTransactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
+  )(implicit loggingContext: LoggingContext): Future[Vector[MeteringStore.TransactionMetering]] = {
+    Timed.future(
+      metrics.daml.index.db.prune,
+      ledgerDao.getTransactionMetering(from, to, applicationId),
+    )
+  }
 }
 
 private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)

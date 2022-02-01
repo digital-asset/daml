@@ -30,9 +30,10 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.daml.lf.data.Ref.{ApplicationId, Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
@@ -345,5 +346,17 @@ private[platform] final class LedgerBackedIndexService(
     startExclusive
       .map(off => Future.fromTry(ApiOffset.fromString(off.value)))
       .getOrElse(Future.successful(Offset.beforeBegin))
+
+  override def getTransactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
+  )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]] = {
+    ledger.getTransactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
+    )
+  }
 
 }

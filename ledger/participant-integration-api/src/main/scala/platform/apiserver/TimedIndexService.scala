@@ -26,9 +26,9 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.ledger.participant.state.index.v2.{IndexService, MeteringStore}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{ApplicationId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
@@ -244,4 +244,15 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
+
+  override def getTransactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
+  )(implicit loggingContext: LoggingContext): Future[Vector[MeteringStore.TransactionMetering]] = {
+    Timed.future(
+      metrics.daml.services.index.getTransactionMetering,
+      delegate.getTransactionMetering(from, to, applicationId),
+    )
+  }
 }

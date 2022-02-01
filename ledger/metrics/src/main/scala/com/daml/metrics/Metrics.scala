@@ -373,6 +373,7 @@ final class Metrics(val registry: MetricRegistry) {
       val stopDeduplicatingCommand: Timer =
         registry.timer(Prefix :+ "stop_deduplicating_command")
       val prune: Timer = registry.timer(Prefix :+ "prune")
+      val getTransactionMetering: Timer = registry.timer(Prefix :+ "get_transaction_metering")
 
       val publishTransaction: Timer = registry.timer(Prefix :+ "publish_transaction")
       val publishPartyAllocation: Timer = registry.timer(Prefix :+ "publish_party_allocation")
@@ -681,6 +682,7 @@ final class Metrics(val registry: MetricRegistry) {
         val deduplicateCommand: Timer = registry.timer(Prefix :+ "deduplicate_command")
         val stopDeduplicateCommand: Timer = registry.timer(Prefix :+ "stop_deduplicating_command")
         val prune: Timer = registry.timer(Prefix :+ "prune")
+        val getTransactionMetering: Timer = registry.timer(Prefix :+ "get_transaction_metering")
 
         object streamsBuffer {
           private val Prefix: MetricName = index.Prefix :+ "streams_buffer"

@@ -32,6 +32,7 @@ import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, LedgerReadDao}
+import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -202,6 +203,14 @@ private[platform] abstract class BaseLedger(
   ): Future[Unit] = {
     pruneBuffers(pruneUpToInclusive)
     ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
+  }
+
+  override def getTransactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[Ref.ApplicationId],
+  )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]] = {
+    ledgerDao.getTransactionMetering(from, to, applicationId)
   }
 
   override def close(): Unit = ()
