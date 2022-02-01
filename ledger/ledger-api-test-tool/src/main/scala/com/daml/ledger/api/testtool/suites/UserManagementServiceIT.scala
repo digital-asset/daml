@@ -28,7 +28,6 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import io.grpc.Status
 
-import scala.collection.immutable.Iterable
 import scala.concurrent.{ExecutionContext, Future}
 
 final class UserManagementServiceIT extends LedgerTestSuite {
@@ -46,6 +45,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     Permission(Permission.Kind.CanReadAs(Permission.CanReadAs("reading-party-2"))),
   )
   private val AdminUserId = "participant_admin"
+  private val AdminUser = User(AdminUserId, "")
 
   test(
     "UserManagementUserRightsLimit",
@@ -94,9 +94,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       rights1 <- ledger.userManagement.listUserRights(ListUserRightsRequest(user1.id))
       // can create other users with #limit rights
       create3 <- ledger.userManagement.createUser(CreateUserRequest(Some(user2), permissionsMax))
-      // cleanup
-      _ <- ledger.userManagement.deleteUser(DeleteUserRequest(user1.id))
-      _ <- ledger.userManagement.deleteUser(DeleteUserRequest(user2.id))
 
     } yield {
       assertTooManyUserRightsError(create1)
@@ -193,7 +190,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       get1 <- ledger.userManagement.getUser(GetUserRequest(AdminUserId))
       rights1 <- ledger.userManagement.listUserRights(ListUserRightsRequest(AdminUserId))
     } yield {
-      assertEquals(get1, User(AdminUserId, ""))
+      assertEquals(get1, AdminUser)
       assertEquals(rights1, ListUserRightsResponse(Seq(adminPermission)))
     }
   })
@@ -286,16 +283,15 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       res4 <- ledger.userManagement.deleteUser(DeleteUserRequest(userId2))
       res5 <- ledger.userManagement.listUsers(request)
     } yield {
-      def filterUsers(users: Iterable[User]) = users.filter(u => u.id == userId1 || u.id == userId2)
 
-      assertSameElements(filterUsers(res1.users), Seq(user1))
+      assertSameElements(res1.users, Seq(AdminUser, user1))
       assertEquals(res2, user2)
       assertSameElements(
-        filterUsers(res3.users),
-        Set(user1, user2),
+        res3.users,
+        Set(AdminUser, user1, user2),
       )
       assertEquals(res4, DeleteUserResponse())
-      assertSameElements(filterUsers(res5.users), Seq(user1))
+      assertSameElements(res5.users, Seq(AdminUser, user1))
     }
   })
 
@@ -355,13 +351,13 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       )
     } yield {
       assert(res1.nextPageToken.nonEmpty, s"First next page token should be non-empty")
-      assertLength("first page", 2, res1.users)
+      assertEquals("first page", res1.users, Vector(AdminUser, user1))
 
       assert(res2.nextPageToken.nonEmpty, s"Second next page token should be non-empty")
-      assertLength("second page", 3, res2.users)
+      assertEquals("second page", res2.users, Vector(user2, user3, user4))
 
       assert(res3.nextPageToken.nonEmpty, s"Third next page token should be non-empty")
-      assert(res2.users.nonEmpty, s"Third page should be non-empty")
+      assertEquals("third page", res3.users, Vector(user5, user6))
 
       assertEquals(
         s"Last next page token should be empty but was: ${res4.nextPageToken}",
@@ -409,11 +405,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         .listUsers(
           ListUsersRequest(pageSize = maxUsersPageSize + 1, pageToken = "")
         )
-      // cleanup
-      _ <- Future.sequence(
-        users.map(u => ledger.userManagement.deleteUser(DeleteUserRequest(u.id)))
-      )
-
     } yield {
       assert(
         page.users.size <= maxUsersPageSize,
