@@ -1120,11 +1120,17 @@ private[lf] object SBuiltin {
       }
 
       onLedger.cachedContracts.get(coid) match {
-        case Some(cached) => {
+        case Some(cached) =>
+          onLedger.ptx.consumedBy
+            .get(coid)
+            .foreach(nid =>
+              throw SErrorDamlException(
+                IE.ContractNotActive(coid, expectedTemplateIdOpt.getOrElse(ifaceId), nid)
+              )
+            )
           checkTemplateId(cached.templateId) {
             machine.returnValue = cached.value
           }
-        }
         case None =>
           throw SpeedyHungry(
             SResultNeedContract(
