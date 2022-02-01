@@ -139,6 +139,14 @@ CREATE TABLE participant_command_completions
 
 CREATE INDEX participant_command_completions_idx ON participant_command_completions(completion_offset, application_id);
 
+CREATE TABLE participant_command_submissions
+(
+    -- The deduplication key
+    deduplication_key NVARCHAR2(1000) primary key not null,
+    -- The time the command will stop being deduplicated
+    deduplicate_until NUMBER                      not null
+);
+
 ---------------------------------------------------------------------------------------------------
 -- Events table: divulgence
 ---------------------------------------------------------------------------------------------------

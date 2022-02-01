@@ -2,4 +2,4 @@
 --  SPDX-License-Identifier: Apache-2.0
 
 -- Participant-side deduplication not supported anymore
-DROP TABLE participant_command_submissions;
+DROP TABLE participant_command_submissions PURGE;

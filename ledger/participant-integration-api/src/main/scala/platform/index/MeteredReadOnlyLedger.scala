@@ -18,7 +18,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2. MeteringStore
+import com.daml.ledger.participant.state.index.v2.MeteringStore
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ApplicationId
