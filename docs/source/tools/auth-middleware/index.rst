@@ -12,7 +12,7 @@ Auth Middleware
 Daml ledgers only validate authorization tokens. The issuance of those tokens however is something defined by the ledger operator and can vary significantly even if the same ledger is being used. This poses a challenge for application developers aiming to develop applications that need to be able to acquire and refresh authorization tokens but don’t want to tie themselves to any particular mechanism for token issuance.
 The auth middleware aims to address this problem by providing an API that decouples Daml applications from these details.
 The ledger operator can provide an auth middleware that is suitable for their authentication and authorization mechanism.
-Daml Connect includes an implementation of an auth middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_. If this implementation is not compatible with your mechanism for token issuance, you can implement your own auth middleware provided it conforms to the same API.
+Daml includes an implementation of an auth middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_. If this implementation is not compatible with your mechanism for token issuance, you can implement your own auth middleware provided it conforms to the same API.
 
 Features
 ~~~~~~~~
@@ -71,7 +71,7 @@ Request Authorization
 
 The application directs the user to this endoint if the ``/auth`` endpoint returned 401 Unauthorized.
 This will request authentication and authorization of the user from the IAM for the given claims.
-E.g. in the OAuth 2.0 based implementation included in DAML Connect, this will start an Authorization Code Grant flow.
+E.g. in the OAuth 2.0 based implementation included in DAML, this will start an Authorization Code Grant flow.
 
 If authorization is granted this will store the access and optional refresh token in a cookie. The request can define a callback URI, if specified this endpoint will redirect to the callback URI at the end of the flow. Otherwise, it will respond with a status code that indicates whether authorization was successful or not.
 

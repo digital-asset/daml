@@ -20,7 +20,7 @@ When you're in the community Forum or on Stack Overflow, please keep to our `Cod
 Support expectations
 ********************
 
-For community users (ie on our Forum and Stack Overflow):
+For Daml Open Source users:
 
 - **Timing**: You can enjoy the support of the community, which is provided for you out of their own good will and free time. On top of that, a Digital Asset employee will try to reply to unanswered questions within two business days.
 

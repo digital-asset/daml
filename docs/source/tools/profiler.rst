@@ -4,8 +4,8 @@
 Daml Profiler
 #############
 
-The Daml Profiler is only available in the
-`Daml Connect Enterprise Edition <https://www.digitalasset.com/products/daml-connect>`_.
+The Daml Profiler is only available in
+`Daml Enterprise <https://www.digitalasset.com/products/daml-connect>`_.
 
 The Daml Profiler allows you to to profile execution of your Daml code
 which can help spot bottlenecks and opportunities for optimization.

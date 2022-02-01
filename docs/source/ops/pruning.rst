@@ -10,7 +10,7 @@ In addition, privacy demands [1]_ may require removing Personally Identifiable I
 
 To satisfy these requirements, the :ref:`Pruning Service <com.daml.ledger.api.v1.admin.ParticipantPruningService>` Ledger API endpoint [2]_ allows Daml Participants to support pruning of Daml contracts and transactions that were respectively archived and submitted before or at a given ledger offset.
 
-Please refer to the specific Daml Driver information for details about its pruning support.
+Please refer to the specific Daml driver information for details about its pruning support.
 
 .. [1] For example, as enabled by provisions about the "right to be forgotten" of legislation such as
        `EU's GDPR <https://gdpr-info.eu/>`_.
