@@ -253,7 +253,7 @@ easy-to-reconstruct cache. This assume that, in this setup, the data store of
 the Ledger API server is, itself, properly backed up.
 
 Securing Daml
----------------------
+-------------
 
 The Helm chart assumes that the Kubernetes environment itself is trusted, and
 as such does not encrypt connections between components. Full TLS encryption
