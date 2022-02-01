@@ -68,12 +68,7 @@ class BridgeWriteService(
         CompletableFuture.completedFuture(
           SubmissionResult.SynchronousError(
             Rejection
-              .LedgerBridgeInternalError(
-                new RuntimeException(
-                  "Deduplication offset periods are not supported in Sandbox-on-X ledger bridge"
-                ),
-                submitterInfo.toCompletionInfo(),
-              )
+              .OffsetDeduplicationPeriodUnsupported(submitterInfo.toCompletionInfo())
               .toStatus
           )
         )

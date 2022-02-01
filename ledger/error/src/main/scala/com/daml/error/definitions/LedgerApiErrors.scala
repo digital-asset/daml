@@ -28,6 +28,25 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   val EarliestOffsetMetadataKey = "earliest_offset"
 
   @Explanation(
+    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request."""
+  )
+  @Resolution(
+    """This error is caused by a participant node misconfiguration or by an implementation bug.
+      |Resolution requires participant operator intervention."""
+  )
+  object UnsupportedOperation
+      extends ErrorCode(
+        id = "UNSUPPORTED_OPERATION",
+        ErrorCategory.InternalUnsupportedOperation,
+      ) {
+
+    case class Reject(_message: String)(implicit errorLogger: ContextualizedErrorLogger)
+        extends LoggingTransactionErrorImpl(
+          cause = s"The request exercised an unsupported operation: ${_message}"
+        )
+  }
+
+  @Explanation(
     """This error occurs when a participant rejects a command due to excessive load.
         |Load can be caused by the following factors:
         |1. when commands are submitted to the participant through its Ledger API,
