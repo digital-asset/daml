@@ -18,7 +18,7 @@ genrule(
         ],
     outs = ["script-test.dar"],
     cmd = """
-      set -eou pipefail
+      set -eoux pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
