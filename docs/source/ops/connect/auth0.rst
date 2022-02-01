@@ -673,7 +673,7 @@ running. You should be able to log in with Auth0, exchange messages, and set up
 an auto-reply trigger, all by connecting your browser to ``https://$DOMAIN/``.
 
 Manually Setting Up the Daml Components
-******************************************
+***************************************
 
 For simplicity, we assume that all of the Daml components will run on a single
 machine (they can find each other on ``localhost``) and that this machine has
