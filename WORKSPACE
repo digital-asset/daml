@@ -685,9 +685,9 @@ proto_library(
     visibility = ["//visibility:public"],
 )
 """,
-    sha256 = "e2dc7ad98f2bc1a78442a3e20eeef0381be008c18bf22f0dcb56283981977e01",
+    sha256 = "42c14d407dd1e6018a302c0fb0fc805b3d36304b62aa4a1fc06267bca8f4f42f",
     strip_prefix = "ScalaPB-{}".format(scalapb_version),
-    urls = ["https://github.com/scalapb/ScalaPB/archive/refs/tags/v{}.zip".format(scalapb_version)],
+    urls = ["https://github.com/scalapb/ScalaPB/archive/refs/tags/v{}.tar.gz".format(scalapb_version)],
 )
 
 load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")
