@@ -637,7 +637,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a wrongly typed inactive global contract
+        // This checks that type checking is done after checking activeness.
         "wrongly typed inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -734,7 +734,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of an wrongly typed inactive local contract
+        // This checks that type checking is done after checking activeness.
         "wrongly typed inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1314,7 +1314,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly typed inactive cached global contract
+        // This checks that type checking is done after checking activeness.
         "wrongly typed inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1399,8 +1399,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of an wrongly inactive typed local contract
-        "wrongly typed inactive  contract" in {
+        // This checks that type checking is done after checking activeness.
+        "wrongly typed inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (fetchingParty: Party) ->
