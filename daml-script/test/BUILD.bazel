@@ -31,15 +31,15 @@ genrule(
       echo "listing dirs"
       ls $$TMP_DIR/daml/
       echo "cat scriptexample"
-      cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
-initializeFixed : Script ()
-initializeFixed = do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
-  bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
-  let parties = LedgerParties{{..}}
-  initialize parties
-EOF
+#       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
+# initializeFixed : Script ()
+# initializeFixed = do
+#   alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+#   bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+#   bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
+#   let parties = LedgerParties{{..}}
+#   initialize parties
+# EOF
       echo "copying dar"
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
