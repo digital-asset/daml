@@ -135,7 +135,7 @@ message ListUsersRequest {
 }
 
 message ListUsersResponse {
-    // All users of the participant node.
+    // A subset of users of the participant node that fit into this page.
     repeated User users = 1;
 
     // Pagination token to retrieve the next page.
