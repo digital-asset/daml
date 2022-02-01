@@ -478,24 +478,6 @@ damlStartTests getDamlStart =
                         (threadDelay 500000)
                         ("http://localhost:" <> show navigatorPort)
                         []
-        subtest "Navigator startup via daml ledger outside project directory" $ do
-            DamlStartResource {sandboxPort} <- getDamlStart
-            withTempDir $ \tmpDir -> do
-                navigatorPort :: Int <- fromIntegral <$> getFreePort
-                withDamlServiceIn tmpDir "ledger navigator"
-                    ["--host"
-                    , "localhost"
-                    , "--port"
-                    , show sandboxPort
-                    , "--port"
-                    , show navigatorPort
-                    ] $ \ ph -> do
-                        -- waitForHttpServer will only return once we get a 200 response so we
-                        -- don’t need to do anything else.
-                        waitForHttpServer 240 ph
-                            (threadDelay 500000)
-                            ("http://localhost:" <> show navigatorPort)
-                            []
 
         subtest "hot reload" $ do
             DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
