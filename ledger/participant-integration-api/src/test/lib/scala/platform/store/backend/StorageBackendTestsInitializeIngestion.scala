@@ -119,7 +119,8 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
 
-    val metering1 = executeSql(backend.metering.transactionMetering(Timestamp.Epoch, None, None))
+    val metering1 =
+      executeSql(backend.metering.read.transactionMetering(Timestamp.Epoch, None, None))
 
     // Restart the indexer - should delete data from the partial insert above
     val end2 = executeSql(backend.parameter.ledgerEnd)
@@ -154,7 +155,8 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
 
-    val metering2 = executeSql(backend.metering.transactionMetering(Timestamp.Epoch, None, None))
+    val metering2 =
+      executeSql(backend.metering.read.transactionMetering(Timestamp.Epoch, None, None))
 
     parties1 should have length 1
     packages1 should have size 1

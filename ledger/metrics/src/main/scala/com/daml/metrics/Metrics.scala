@@ -515,6 +515,11 @@ final class Metrics(val registry: MetricRegistry) {
           "loadStringInterningEntries"
         )
 
+        val meteringAggregator: DatabaseMetrics = createDbMetrics("metering_aggregator")
+        val initializeMeteringAggregator: DatabaseMetrics = createDbMetrics(
+          "initialize_metering_aggregator"
+        )
+
         object translation {
           private val Prefix: MetricName = db.Prefix :+ "translation"
           val cache = new CacheMetrics(registry, Prefix :+ "cache")
