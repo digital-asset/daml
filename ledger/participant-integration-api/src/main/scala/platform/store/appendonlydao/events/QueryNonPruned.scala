@@ -59,8 +59,9 @@ case class QueryNonPrunedImpl(
         result
 
       case Some(pruningOffsetUpToInclusive) =>
-        throw errorFactories.participantPrunedDataAccessed(message =
-          error(pruningOffsetUpToInclusive)
+        throw errorFactories.participantPrunedDataAccessed(
+          message = error(pruningOffsetUpToInclusive),
+          pruningOffsetUpToInclusive,
         )(
           new DamlContextualizedErrorLogger(logger, loggingContext, None)
         )

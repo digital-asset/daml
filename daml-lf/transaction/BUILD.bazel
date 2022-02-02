@@ -58,7 +58,33 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//libs-scala/nameof",
+        "//libs-scala/safe-proto",
         "//libs-scala/scala-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_test(
+    name = "value-test",
+    srcs = glob([
+        "src/test/**/value/*.scala",
+        "src/test/**/EitherAssertions.scala",
+    ]),
+    max_heap_size = "3g",
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":transaction",
+        ":value_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/transaction-test-lib",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -69,7 +95,6 @@ da_scala_test(
     srcs = glob([
         "src/test/**/EitherAssertions.scala",
         "src/test/**/crypto/*.scala",
-        "src/test/**/value/*.scala",
         "src/test/**/transaction/*.scala",
     ]),
     scala_deps = [
@@ -77,7 +102,6 @@ da_scala_test(
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
     scalacopts = lf_scalacopts,
     deps = [

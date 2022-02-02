@@ -3,10 +3,7 @@
 
 package com.daml.platform.index
 
-import akka.Done
-import akka.actor.Cancellable
 import akka.stream._
-import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.error.definitions.IndexErrors.IndexDbException
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
@@ -14,7 +11,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -38,7 +34,7 @@ import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] object ReadOnlySqlLedger {
 
@@ -192,8 +188,7 @@ private[index] abstract class ReadOnlySqlLedger(
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: Dispatcher[Offset],
-)(implicit mat: Materializer, loggingContext: LoggingContext)
-    extends BaseLedger(
+) extends BaseLedger(
       ledgerId,
       ledgerDao,
       ledgerDaoTransactionsReader,
@@ -201,31 +196,5 @@ private[index] abstract class ReadOnlySqlLedger(
       pruneBuffers,
       dispatcher,
     ) {
-
-  // Periodically remove all expired deduplication cache entries.
-  // The current approach is not ideal for multiple ReadOnlySqlLedgers sharing
-  // the same database (as is the case for a horizontally scaled ledger API server).
-  // In that case, an external process periodically clearing expired entries would be better.
-  //
-  // Deduplication entries are added by the submission service, which might use
-  // a different clock than the current clock (e.g., horizontally scaled ledger API server).
-  // This is not an issue, because applications are not expected to submit towards the end
-  // of the deduplication time window.
-  private val (deduplicationCleanupKillSwitch, deduplicationCleanupDone) =
-    Source
-      .tick[Unit](0.millis, 10.minutes, ())
-      .mapAsync[Unit](1)(_ => ledgerDao.removeExpiredDeduplicationData(Timestamp.now()))
-      .viaMat(KillSwitches.single)(Keep.right[Cancellable, UniqueKillSwitch])
-      .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
-      .run()
-
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
-
-  override def close(): Unit = {
-    deduplicationCleanupKillSwitch.shutdown()
-
-    Await.result(deduplicationCleanupDone, 10.seconds)
-
-    super.close()
-  }
 }

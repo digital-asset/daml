@@ -26,7 +26,8 @@ import System.Exit
 import System.IO
 import Control.Exception.Safe
 import qualified Data.Aeson as A
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.Key as A
+import qualified Data.Aeson.KeyMap as A
 import Data.Char
 import Data.Maybe
 import Data.List.Extra
@@ -376,6 +377,6 @@ argWhitelist = S.fromList
     , "test-script"
     ]
 
-mkLogTable :: [(T.Text, A.Value)] -> A.Value
-mkLogTable fields = A.Object . HM.fromList $
-    ("source", A.String "daml-assistant") : fields
+mkLogTable :: [(A.Key, A.Value)] -> A.Value
+mkLogTable fields = A.Object . A.fromList $
+    (A.fromString "source", A.String "daml-assistant") : fields

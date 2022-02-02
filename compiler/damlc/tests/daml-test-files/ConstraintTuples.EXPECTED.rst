@@ -1,4 +1,4 @@
-.. _module-constrainttuples-44760:
+.. _module-constrainttuples-79635:
 
 Module ConstraintTuples
 -----------------------
@@ -6,50 +6,50 @@ Module ConstraintTuples
 Data Types
 ^^^^^^^^^^
 
-.. _type-constrainttuples-eq2-31733:
+.. _type-constrainttuples-eq2-29566:
 
-**type** `Eq2 <type-constrainttuples-eq2-31733_>`_ a b
-  \= (`Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ a, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ b)
+**type** `Eq2 <type-constrainttuples-eq2-29566_>`_ a b
+  \= (`Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ a, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ b)
 
-.. _type-constrainttuples-eq3-75180:
+.. _type-constrainttuples-eq3-18799:
 
-**type** `Eq3 <type-constrainttuples-eq3-75180_>`_ a b c
-  \= (`Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ a, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ b, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ c)
+**type** `Eq3 <type-constrainttuples-eq3-18799_>`_ a b c
+  \= (`Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ a, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ b, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ c)
 
-.. _type-constrainttuples-eq4-2935:
+.. _type-constrainttuples-eq4-25412:
 
-**type** `Eq4 <type-constrainttuples-eq4-2935_>`_ a b c d
-  \= (`Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ a, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ b, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ c, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ d)
+**type** `Eq4 <type-constrainttuples-eq4-25412_>`_ a b c d
+  \= (`Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ a, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ b, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ c, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ d)
 
 Functions
 ^^^^^^^^^
 
-.. _function-constrainttuples-eq2-12289:
+.. _function-constrainttuples-eq2-16370:
 
-`eq2 <function-constrainttuples-eq2-12289_>`_
-  \: `Eq2 <type-constrainttuples-eq2-31733_>`_ a b \=\> a \-\> a \-\> b \-\> b \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-8654>`_
+`eq2 <function-constrainttuples-eq2-16370_>`_
+  \: `Eq2 <type-constrainttuples-eq2-29566_>`_ a b \=\> a \-\> a \-\> b \-\> b \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-66265>`_
 
-.. _function-constrainttuples-eq2tick-62955:
+.. _function-constrainttuples-eq2tick-63686:
 
-`eq2' <function-constrainttuples-eq2tick-62955_>`_
-  \: (`Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ a, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ b) \=\> a \-\> a \-\> b \-\> b \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-8654>`_
+`eq2' <function-constrainttuples-eq2tick-63686_>`_
+  \: (`Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ a, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ b) \=\> a \-\> a \-\> b \-\> b \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-66265>`_
 
-.. _function-constrainttuples-eq3-55736:
+.. _function-constrainttuples-eq3-5603:
 
-`eq3 <function-constrainttuples-eq3-55736_>`_
-  \: `Eq3 <type-constrainttuples-eq3-75180_>`_ a b c \=\> a \-\> a \-\> b \-\> b \-\> c \-\> c \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-8654>`_
+`eq3 <function-constrainttuples-eq3-5603_>`_
+  \: `Eq3 <type-constrainttuples-eq3-18799_>`_ a b c \=\> a \-\> a \-\> b \-\> b \-\> c \-\> c \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-66265>`_
 
-.. _function-constrainttuples-eq3tick-75648:
+.. _function-constrainttuples-eq3tick-36081:
 
-`eq3' <function-constrainttuples-eq3tick-75648_>`_
-  \: (`Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ a, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ b, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ c) \=\> a \-\> a \-\> b \-\> b \-\> c \-\> c \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-8654>`_
+`eq3' <function-constrainttuples-eq3tick-36081_>`_
+  \: (`Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ a, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ b, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ c) \=\> a \-\> a \-\> b \-\> b \-\> c \-\> c \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-66265>`_
 
-.. _function-constrainttuples-eq4-56779:
+.. _function-constrainttuples-eq4-77456:
 
-`eq4 <function-constrainttuples-eq4-56779_>`_
-  \: `Eq4 <type-constrainttuples-eq4-2935_>`_ a b c d \=\> a \-\> a \-\> b \-\> b \-\> c \-\> c \-\> d \-\> d \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-8654>`_
+`eq4 <function-constrainttuples-eq4-77456_>`_
+  \: `Eq4 <type-constrainttuples-eq4-25412_>`_ a b c d \=\> a \-\> a \-\> b \-\> b \-\> c \-\> c \-\> d \-\> d \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-66265>`_
 
-.. _function-constrainttuples-eq4tick-50089:
+.. _function-constrainttuples-eq4tick-59016:
 
-`eq4' <function-constrainttuples-eq4tick-50089_>`_
-  \: (`Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ a, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ b, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ c, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ d) \=\> a \-\> a \-\> b \-\> b \-\> c \-\> c \-\> d \-\> d \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-8654>`_
+`eq4' <function-constrainttuples-eq4tick-59016_>`_
+  \: (`Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ a, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ b, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ c, `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ d) \=\> a \-\> a \-\> b \-\> b \-\> c \-\> c \-\> d \-\> d \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-66265>`_

@@ -79,7 +79,6 @@ case class TestBackend(
     configuration: ConfigurationStorageBackend,
     party: PartyStorageBackend,
     packageBackend: PackageStorageBackend,
-    deduplication: DeduplicationStorageBackend,
     completion: CompletionStorageBackend,
     contract: ContractStorageBackend,
     event: EventStorageBackend,
@@ -104,7 +103,6 @@ object TestBackend {
       configuration = storageBackendFactory.createConfigurationStorageBackend(ledgerEndCache),
       party = storageBackendFactory.createPartyStorageBackend(ledgerEndCache),
       packageBackend = storageBackendFactory.createPackageStorageBackend(ledgerEndCache),
-      deduplication = storageBackendFactory.createDeduplicationStorageBackend,
       completion = storageBackendFactory.createCompletionStorageBackend(stringInterning),
       contract =
         storageBackendFactory.createContractStorageBackend(ledgerEndCache, stringInterning),

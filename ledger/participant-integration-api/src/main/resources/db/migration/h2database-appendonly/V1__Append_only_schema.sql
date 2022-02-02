@@ -125,14 +125,6 @@ CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, l
 CREATE INDEX idx_party_entries_party_id_and_ledger_offset ON party_entries(party_id, ledger_offset);
 
 ---------------------------------------------------------------------------------------------------
--- Submissions table
----------------------------------------------------------------------------------------------------
-CREATE TABLE participant_command_submissions (
-    deduplication_key VARCHAR PRIMARY KEY NOT NULL,
-    deduplicate_until BIGINT NOT NULL
-);
-
----------------------------------------------------------------------------------------------------
 -- Completions table
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_command_completions (

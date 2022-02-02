@@ -44,12 +44,12 @@ Most built-in types have the same name in Daml-LF as in Daml. These are the exac
    * - ``ContractId``
      - ``ContractId``
 
-Be aware that only the Daml primitive types exported by the :ref:`Prelude <module-prelude-6842>` module map to the Daml-LF primitive types above. That means that, if you define your own type named ``Party``, it will not translate to the Daml-LF primitive ``Party``.
+Be aware that only the Daml primitive types exported by the :ref:`Prelude <module-prelude-72703>` module map to the Daml-LF primitive types above. That means that, if you define your own type named ``Party``, it will not translate to the Daml-LF primitive ``Party``.
 
 Tuple types
 ***********
 
-Daml tuple type constructors take types ``T1, T2, …, TN`` to the type ``(T1, T2, …, TN)``. These are exposed in the Daml surface language through the :ref:`Prelude <module-prelude-6842>` module.
+Daml tuple type constructors take types ``T1, T2, …, TN`` to the type ``(T1, T2, …, TN)``. These are exposed in the Daml surface language through the :ref:`Prelude <module-prelude-72703>` module.
 
 The equivalent Daml-LF type constructors are ``daml-prim:DA.Types:TupleN``, for each particular N (where 2 <= N <= 20). This qualified name refers to the package name (``ghc-prim``) and the module name (``GHC.Tuple``).
 

@@ -47,6 +47,7 @@ import           Data.Maybe (listToMaybe)
 import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
 import qualified Data.IntSet as IntSet
+import qualified Data.Text as T
 import           Safe.Exact (zipExactMay)
 
 import           DA.Daml.LF.Ast
@@ -767,7 +768,20 @@ typeOf' = \case
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
-  EExperimental _ ty -> pure ty
+  EExperimental name ty -> do
+    checkFeature featureExperimental
+    checkExperimentalType name ty
+    pure ty
+
+checkExperimentalType :: MonadGamma m => T.Text -> Type -> m ()
+checkExperimentalType "ANSWER" (TUnit :-> TInt64) = pure ()
+checkExperimentalType "TO_TYPE_REP" (TCon _iface :-> TTypeRep) = pure ()
+checkExperimentalType "RESOLVE_VIRTUAL_SIGNATORY"
+  (TCon iface1 :-> TCon iface2 :-> TList TParty) | iface1 == iface2 = pure ()
+checkExperimentalType "RESOLVE_VIRTUAL_OBSERVER"
+  (TCon iface1 :-> TCon iface2 :-> TList TParty) | iface1 == iface2 = pure ()
+checkExperimentalType name ty =
+  throwWithContext (EUnknownExperimental name ty)
 
 typeOf :: MonadGamma m => Expr -> m Type
 typeOf expr = do
@@ -932,8 +946,8 @@ checkIfaceImplementation Template{tplImplements} tplTcon TemplateImplements{..} 
       Just InterfaceMethod{ifmType} ->
         checkExpr tpiMethodExpr (TCon tplTcon :-> ifmType)
 
-_checkFeature :: MonadGamma m => Feature -> m ()
-_checkFeature feature = do
+checkFeature :: MonadGamma m => Feature -> m ()
+checkFeature feature = do
     version <- getLfVersion
     unless (version `supports` feature) $
         throwWithContext $ EUnsupportedFeature feature

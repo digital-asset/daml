@@ -17,7 +17,7 @@ import com.daml.error.{
 }
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
-import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
@@ -45,7 +45,6 @@ import io.grpc.{Status, StatusRuntimeException}
 import scala.annotation.nowarn
 import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 private[apiserver] object ApiSubmissionService {
@@ -53,7 +52,6 @@ private[apiserver] object ApiSubmissionService {
   def create(
       ledgerId: LedgerId,
       writeService: state.WriteService,
-      submissionService: IndexSubmissionService,
       partyManagementService: IndexPartyManagementService,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
@@ -71,7 +69,6 @@ private[apiserver] object ApiSubmissionService {
     new GrpcCommandSubmissionService(
       service = new ApiSubmissionService(
         writeService,
-        submissionService,
         partyManagementService,
         timeProvider,
         timeProviderType,
@@ -94,15 +91,13 @@ private[apiserver] object ApiSubmissionService {
     )
 
   final case class Configuration(
-      implicitPartyAllocation: Boolean,
-      enableDeduplication: Boolean,
+      implicitPartyAllocation: Boolean
   )
 
 }
 
 private[apiserver] final class ApiSubmissionService private[services] (
     writeService: state.WriteService,
-    submissionService: IndexSubmissionService,
     partyManagementService: IndexPartyManagementService,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
@@ -137,16 +132,8 @@ private[apiserver] final class ApiSubmissionService private[services] (
       val evaluatedCommand = ledgerConfigurationSubscription
         .latestConfiguration() match {
         case Some(ledgerConfiguration) =>
-          if (writeService.isApiDeduplicationEnabled && configuration.enableDeduplication) {
-            deduplicateAndRecordOnLedger(
-              seedService.nextSeed(),
-              request.commands,
-              ledgerConfiguration,
-            )
-          } else {
-            evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
-              .transform(handleSubmissionResult)
-          }
+          evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
+            .transform(handleSubmissionResult)
         case None =>
           Future.failed(
             errorFactories.missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer =
@@ -156,47 +143,6 @@ private[apiserver] final class ApiSubmissionService private[services] (
       }
       evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
     }
-
-  private def deduplicateAndRecordOnLedger(
-      seed: crypto.Hash,
-      commands: ApiCommands,
-      ledgerConfig: Configuration,
-  )(implicit
-      loggingContext: LoggingContext,
-      telemetryContext: TelemetryContext,
-      contextualizedErrorLogger: ContextualizedErrorLogger,
-  ): Future[Unit] =
-    Future
-      .fromTry(
-        DeduplicationPeriod.deduplicateUntil(
-          commands.submittedAt,
-          commands.deduplicationPeriod,
-        )
-      )
-      .flatMap(deduplicateUntil =>
-        submissionService
-          .deduplicateCommand(
-            commands.commandId,
-            commands.actAs.toList,
-            commands.submittedAt,
-            deduplicateUntil,
-          )
-          .flatMap {
-            case CommandDeduplicationNew =>
-              evaluateAndSubmit(seed, commands, ledgerConfig)
-                .transform(handleSubmissionResult)
-                .recoverWith { case NonFatal(originalCause) =>
-                  submissionService
-                    .stopDeduplicatingCommand(commands.commandId, commands.actAs.toList)
-                    .transform(_ => Failure(originalCause))
-                }
-            case _: CommandDeduplicationDuplicate =>
-              metrics.daml.commands.deduplicatedCommands.mark()
-              Future.failed(
-                errorFactories.duplicateCommandException(None)
-              )
-          }
-      )
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
       loggingContext: LoggingContext
@@ -370,5 +316,4 @@ private[apiserver] final class ApiSubmissionService private[services] (
     )
 
   override def close(): Unit = ()
-
 }

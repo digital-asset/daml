@@ -1,13 +1,13 @@
-# <a name="module-exportlist-81980"></a>Module ExportList
+# <a name="module-exportlist-67331"></a>Module ExportList
 
 ## Templates
 
-<a name="type-exportlist-template0-22237"></a>**template** [Template0](#type-exportlist-template0-22237)
+<a name="type-exportlist-template0-67442"></a>**template** [Template0](#type-exportlist-template0-67442)
 
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
-> | tfield0                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311) |  |
-> | tfield0'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311) |  |
+> | tfield0                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
+> | tfield0'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > 
 > * **Choice Archive**
 >   
@@ -17,12 +17,12 @@
 >   
 >   (no fields)
 
-<a name="type-exportlist-template1-34256"></a>**template** [Template1](#type-exportlist-template1-34256)
+<a name="type-exportlist-template1-69519"></a>**template** [Template1](#type-exportlist-template1-69519)
 
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
-> | tfield1                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311) |  |
-> | tfield1'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311) |  |
+> | tfield1                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
+> | tfield1'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > 
 > * **Choice Archive**
 >   
@@ -32,12 +32,12 @@
 >   
 >   (no fields)
 
-<a name="type-exportlist-template2-3915"></a>**template** [Template2](#type-exportlist-template2-3915)
+<a name="type-exportlist-template2-27508"></a>**template** [Template2](#type-exportlist-template2-27508)
 
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
-> | tfield2                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311) |  |
-> | tfield2'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311) |  |
+> | tfield2                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
+> | tfield2'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > 
 > * **Choice Archive**
 >   
@@ -47,12 +47,12 @@
 >   
 >   (no fields)
 
-<a name="type-exportlist-template3-57838"></a>**template** [Template3](#type-exportlist-template3-57838)
+<a name="type-exportlist-template3-29585"></a>**template** [Template3](#type-exportlist-template3-29585)
 
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
-> | tfield3                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311) |  |
-> | tfield3'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311) |  |
+> | tfield3                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
+> | tfield3'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > 
 > * **Choice Archive**
 >   
@@ -64,75 +64,75 @@
 
 ## Typeclasses
 
-<a name="class-exportlist-class1-82332"></a>**class** [Class1](#class-exportlist-class1-82332) t **where**
+<a name="class-exportlist-class1-47331"></a>**class** [Class1](#class-exportlist-class1-47331) t **where**
 
 
-<a name="class-exportlist-class2-52219"></a>**class** [Class2](#class-exportlist-class2-52219) t **where**
+<a name="class-exportlist-class2-27364"></a>**class** [Class2](#class-exportlist-class2-27364) t **where**
 
 
-<a name="class-exportlist-class3-53534"></a>**class** [Class3](#class-exportlist-class3-53534) t **where**
+<a name="class-exportlist-class3-68865"></a>**class** [Class3](#class-exportlist-class3-68865) t **where**
 
-> <a name="function-exportlist-member3-30944"></a>[member3](#function-exportlist-member3-30944)
+> <a name="function-exportlist-member3-18707"></a>[member3](#function-exportlist-member3-18707)
 > 
 > > : t
 
-<a name="class-exportlist-class4-65325"></a>**class** [Class4](#class-exportlist-class4-65325) t **where**
+<a name="class-exportlist-class4-14138"></a>**class** [Class4](#class-exportlist-class4-14138) t **where**
 
-> <a name="function-exportlist-member4-58699"></a>[member4](#function-exportlist-member4-58699)
+> <a name="function-exportlist-member4-25320"></a>[member4](#function-exportlist-member4-25320)
 > 
 > > : t
 > 
-> <a name="function-exportlist-member4tick-28729"></a>[member4'](#function-exportlist-member4tick-28729)
+> <a name="function-exportlist-member4tick-39232"></a>[member4'](#function-exportlist-member4tick-39232)
 > 
 > > : t
 
 ## Data Types
 
-<a name="type-exportlist-data1-25282"></a>**data** [Data1](#type-exportlist-data1-25282)
+<a name="type-exportlist-data1-71597"></a>**data** [Data1](#type-exportlist-data1-71597)
 
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-39480) "field1" [Data1](#type-exportlist-data1-25282) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728)
+> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "field1" [Data1](#type-exportlist-data1-71597) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
-<a name="type-exportlist-data2-68729"></a>**data** [Data2](#type-exportlist-data2-68729)
+<a name="type-exportlist-data2-35142"></a>**data** [Data2](#type-exportlist-data2-35142)
 
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-39480) "field2" [Data2](#type-exportlist-data2-68729) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728)
+> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "field2" [Data2](#type-exportlist-data2-35142) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
-<a name="type-exportlist-data3-43604"></a>**data** [Data3](#type-exportlist-data3-43604)
+<a name="type-exportlist-data3-37219"></a>**data** [Data3](#type-exportlist-data3-37219)
 
-> <a name="constr-exportlist-constr3-90820"></a>[Constr3](#constr-exportlist-constr3-90820)
+> <a name="constr-exportlist-constr3-11999"></a>[Constr3](#constr-exportlist-constr3-11999)
 > 
 > > (no fields)
 > 
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-39480) "field3" [Data3](#type-exportlist-data3-43604) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728)
+> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "field3" [Data3](#type-exportlist-data3-37219) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
-<a name="type-exportlist-data4-87051"></a>**data** [Data4](#type-exportlist-data4-87051)
+<a name="type-exportlist-data4-52140"></a>**data** [Data4](#type-exportlist-data4-52140)
 
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-39480) "field4" [Data4](#type-exportlist-data4-87051) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728)
+> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "field4" [Data4](#type-exportlist-data4-52140) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
-<a name="type-exportlist-data5-40974"></a>**data** [Data5](#type-exportlist-data5-40974)
+<a name="type-exportlist-data5-28529"></a>**data** [Data5](#type-exportlist-data5-28529)
 
-> <a name="constr-exportlist-constr5-35310"></a>[Constr5](#constr-exportlist-constr5-35310)
+> <a name="constr-exportlist-constr5-98773"></a>[Constr5](#constr-exportlist-constr5-98773)
 > 
 > > | Field                                                                          | Type                                                                           | Description |
 > > | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
-> > | field5                                                                         | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728) |  |
+> > | field5                                                                         | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
 > 
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-39480) "field5" [Data5](#type-exportlist-data5-40974) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728)
+> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "field5" [Data5](#type-exportlist-data5-28529) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
-<a name="type-exportlist-data6-26325"></a>**data** [Data6](#type-exportlist-data6-26325)
+<a name="type-exportlist-data6-43450"></a>**data** [Data6](#type-exportlist-data6-43450)
 
-> <a name="constr-exportlist-constr6-63065"></a>[Constr6](#constr-exportlist-constr6-63065)
+> <a name="constr-exportlist-constr6-5386"></a>[Constr6](#constr-exportlist-constr6-5386)
 > 
 > > | Field                                                                          | Type                                                                           | Description |
 > > | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
-> > | field6                                                                         | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728) |  |
+> > | field6                                                                         | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
 > 
-> <a name="constr-exportlist-constr6tick-67971"></a>[Constr6'](#constr-exportlist-constr6tick-67971)
+> <a name="constr-exportlist-constr6tick-99942"></a>[Constr6'](#constr-exportlist-constr6tick-99942)
 > 
 > 
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-39480) "field6" [Data6](#type-exportlist-data6-26325) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728)
+> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "field6" [Data6](#type-exportlist-data6-43450) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
 ## Functions
 
-<a name="function-exportlist-function1-77714"></a>[function1](#function-exportlist-function1-77714)
+<a name="function-exportlist-function1-57949"></a>[function1](#function-exportlist-function1-57949)
 
-> : [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-68728)
+> : [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)

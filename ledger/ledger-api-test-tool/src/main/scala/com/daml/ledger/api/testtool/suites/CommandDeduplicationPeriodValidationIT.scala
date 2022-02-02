@@ -14,6 +14,7 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
@@ -47,7 +48,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     val deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(
       DurationConversion.toProto(Duration.ofSeconds(-1))
     )
-    assertFailedRequest(
+    assertSyncFailedRequest(
       ledger,
       party,
       deduplicationPeriod,
@@ -67,7 +68,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     val deduplicationPeriod = DeduplicationPeriod.DeduplicationOffset(
       "invalid_offset"
     )
-    assertFailedRequest(
+    assertSyncFailedRequest(
       ledger,
       party,
       deduplicationPeriod,
@@ -139,7 +140,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       deduplicationPeriod = DeduplicationPeriod.DeduplicationOffset(
         Ref.HexString.assertFromString(end.getAbsolute.toLowerCase)
       )
-      _ <- assertFailedRequest(
+      _ <- assertSyncFailedRequest(
         ledger,
         party,
         deduplicationPeriod,
@@ -161,30 +162,85 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     disabledReason = "The ledger does not support deduplication periods represented by offsets",
     runConcurrently = false, // Pruning is involved
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    def submitAndWaitWithDeduplication(
+        deduplicationPeriod: DeduplicationPeriod.DeduplicationOffset
+    ) = {
+      ledger
+        .submitAndWait(
+          ledger
+            .submitAndWaitRequest(party, Dummy(party).create.command)
+            .update(
+              _.commands.deduplicationPeriod := deduplicationPeriod
+            )
+        )
+    }
+    val isOffsetNativelySupported =
+      ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport.isOffsetNativeSupport
     for {
+      start <- ledger.currentEnd()
       firstCreate <- ledger.create(party, Dummy(party))
-      firstExercise <- ledger.exercise(party, firstCreate.exerciseDummyChoice1)
-      end <- ledger.currentEnd()
+      _ <- ledger.exercise(party, firstCreate.exerciseDummyChoice1)
       secondCreate <- ledger.create(party, Dummy(party))
+      _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
+      end <- ledger.currentEnd()
       _ <- ledger.exercise(party, secondCreate.exerciseDummyChoice1)
       _ <- ledger.create(party, Dummy(party)) // move ledger end
+      _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
       _ <- ledger.prune(pruneUpTo = end)
-      deduplicationPeriod = DeduplicationPeriod.DeduplicationOffset(
-        Ref.HexString.assertFromString(firstExercise.offset)
-      )
-      _ <- assertFailedRequest(
+      failure <- submitAndWaitWithDeduplication(
+        DeduplicationPeriod.DeduplicationOffset(
+          start.getAbsolute
+        )
+      ).mustFail("using an offset which was pruned")
+      _ = assertGrpcErrorRegex(
         ledger,
-        party,
-        deduplicationPeriod,
-        failReason = "Submitting a command with a pruned offset",
-        expectedMessage = ".*",
-        expectedCode = Status.Code.INVALID_ARGUMENT,
-        expectedError = LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
+        failure,
+        expectedCode = Status.Code.FAILED_PRECONDITION,
+        // Canton returns INVALID_DEDUPLICATION_PERIOD with earliest_offset metadata
+        // KV returns PARTICIPANT_PRUNED_DATA_ACCESSED with earliest_offset metadata
+        selfServiceErrorCode =
+          if (isOffsetNativelySupported)
+            LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
+          else LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
+        None,
       )
+      earliestOffset = extractErrorInfoMetadataValue(
+        failure,
+        LedgerApiErrors.EarliestOffsetMetadataKey,
+      )
+      _ <-
+        // Because KV treats deduplication offsets as inclusive, and because the participant pruning offset is inclusive
+        // we cannot simply use the received offset as a deduplication period, but we have to find the first completion after the given offset
+        if (isOffsetNativelySupported) {
+          submitAndWaitWithDeduplication(
+            DeduplicationPeriod.DeduplicationOffset(earliestOffset)
+          )
+        } else {
+          findFirstOffsetAfterGivenOffset(ledger, earliestOffset)(party).flatMap(offset =>
+            submitAndWaitWithDeduplication(DeduplicationPeriod.DeduplicationOffset(offset))
+          )
+        }
     } yield {}
   })
 
-  private def assertFailedRequest(
+  private def findFirstOffsetAfterGivenOffset(ledger: ParticipantTestContext, offset: String)(
+      party: Primitive.Party
+  )(implicit ec: ExecutionContext) = {
+    ledger
+      .findCompletion(
+        ledger.completionStreamRequest(
+          LedgerOffset.of(LedgerOffset.Value.Absolute(offset))
+        )(party)
+      )(_ => true)
+      .map { completionOpt =>
+        {
+          val completion = assertDefined(completionOpt, "No completion found")
+          completion.offset.getAbsolute
+        }
+      }
+  }
+
+  private def assertSyncFailedRequest(
       ledger: ParticipantTestContext,
       party: Primitive.Party,
       deduplicationPeriod: DeduplicationPeriod,

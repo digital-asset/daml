@@ -9,6 +9,7 @@ import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.cli.CommonCliSpecBase
 import com.daml.platform.sandbox.cli.CommonCliSpecBase.exampleJdbcUrl
+import com.daml.sandbox.Cli
 
 class CliSpec extends CommonCliSpecBase(Cli) {
 

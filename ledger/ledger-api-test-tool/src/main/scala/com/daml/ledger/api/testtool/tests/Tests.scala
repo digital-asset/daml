@@ -24,13 +24,12 @@ object Tests {
   }
 
   def default(
-      timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor,
-      staticTime: Boolean = Defaults.StaticTime,
+      timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor
   ): Vector[LedgerTestSuite] =
     Vector(
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
-      new CommandDeduplicationIT(timeoutScaleFactor, staticTime),
+      new CommandDeduplicationIT(timeoutScaleFactor),
       new CommandDeduplicationParallelIT,
       new CommandDeduplicationPeriodValidationIT,
       new CommandServiceIT,

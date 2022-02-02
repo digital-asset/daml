@@ -24,6 +24,28 @@ import scala.concurrent.duration._
   "Errors raised by or forwarded by the Ledger API."
 )
 object LedgerApiErrors extends LedgerApiErrorGroup {
+
+  val EarliestOffsetMetadataKey = "earliest_offset"
+
+  @Explanation(
+    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request."""
+  )
+  @Resolution(
+    """This error is caused by a participant node misconfiguration or by an implementation bug.
+      |Resolution requires participant operator intervention."""
+  )
+  object UnsupportedOperation
+      extends ErrorCode(
+        id = "UNSUPPORTED_OPERATION",
+        ErrorCategory.InternalUnsupportedOperation,
+      ) {
+
+    case class Reject(_message: String)(implicit errorLogger: ContextualizedErrorLogger)
+        extends LoggingTransactionErrorImpl(
+          cause = s"The request exercised an unsupported operation: ${_message}"
+        )
+  }
+
   @Explanation(
     """This error occurs when a participant rejects a command due to excessive load.
         |Load can be caused by the following factors:
@@ -456,9 +478,13 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "PARTICIPANT_PRUNED_DATA_ACCESSED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      case class Reject(override val cause: String)(implicit
+      case class Reject(override val cause: String, _earliestOffset: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = cause)
+      ) extends LoggingTransactionErrorImpl(cause = cause) {
+
+        override def context: Map[String, String] =
+          super.context + (EarliestOffsetMetadataKey -> _earliestOffset)
+      }
     }
 
     @Explanation(

@@ -17,11 +17,11 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHC_LIB_REV = "7efdbb093dad0ad7a5dfd47785bf1eba"
-GHC_LIB_SHA256 = "6a53c9808da2232bc9f331cb26686637f7bf6888072288d98176c9da299b9bb1"
+GHC_LIB_REV = "3ef58e2259fe20f4b4740c6d33e29d22"
+GHC_LIB_SHA256 = "e40f0bfa98544dbf510aef0972945bad0ec4a62f667283d8bf0792598f9e2951"
 GHC_LIB_VERSION = "8.8.1"
-GHC_LIB_PARSER_REV = "7efdbb093dad0ad7a5dfd47785bf1eba"
-GHC_LIB_PARSER_SHA256 = "b08884e7d3b9fec2baa667aefdb75f93fb253c5d66572085ab3dc2c1595a1d35"
+GHC_LIB_PARSER_REV = "3ef58e2259fe20f4b4740c6d33e29d22"
+GHC_LIB_PARSER_SHA256 = "4184527540d6e50bac1b628e3e7737c19d4d8259fa96805b947d800673a35c4f"
 GHC_LIB_PARSER_VERSION = "8.8.1"
 GHCIDE_REV = "4146f08b729e1f4e4a3ac789570e9c0b9010944e"
 GHCIDE_SHA256 = "bd16242397b67ac0d803c7e0452b03396133d9b7aaf2ba3bddd834260a78bd80"
@@ -38,10 +38,6 @@ LSP_TYPES_SHA256 = "7ae8a3bad0e91d4a2af9b93e3ad207e3f4c3dace40d420e0592f6323ac93
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
-
-    # XXX: We do not have access to an integer-simple version of GHC on Windows.
-    # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
-    use_integer_simple = not is_windows
 
     #
     # Vendored Packages
@@ -247,14 +243,16 @@ haskell_library(
         build_file_content = """
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
+deps = [p for p in packages["proto3-suite"].deps if p.name != "swagger2"]
 haskell_cabal_library(
     name = "proto3-suite",
     version = packages["proto3-suite"].version,
     srcs = glob(["src/**", "test-files/*.bin", "tests/*", "proto3-suite.cabal"]),
     haddock = False,
-    deps = packages["proto3-suite"].deps,
+    deps = deps,
     verbose = False,
     visibility = ["//visibility:public"],
+    flags = ["-swagger"],
 )
 # XXX: haskell_cabal_binary inexplicably fails with
 #   realgcc.exe: error: CreateProcess: No such file or directory
@@ -264,13 +262,13 @@ haskell_binary(
     name = "compile-proto-file",
     srcs = ["tools/compile-proto-file/Main.hs"],
     compiler_flags = ["-w", "-optF=-w"],
-    deps = [":proto3-suite"] + packages["proto3-suite"].deps,
+    deps = [":proto3-suite"] + deps,
     visibility = ["//visibility:public"],
 )
 """,
-        sha256 = "b294ff0fe24c6c256dc8eca1d44c2a9a928b9a1bc70ddce6a1d059499edea119",
-        strip_prefix = "proto3-suite-0af901f9ef3b9719e08eae4fab8fd700d6c8047a",
-        urls = ["https://github.com/awakesecurity/proto3-suite/archive/0af901f9ef3b9719e08eae4fab8fd700d6c8047a.tar.gz"],
+        sha256 = "1649ebbe49ee34901ea920c860ad6f21188340a981c4c8d7521df101e75aa8ab",
+        strip_prefix = "proto3-suite-d4a288068587f8738c84465a9ca113a3fe845ffc",
+        urls = ["https://github.com/cocreature/proto3-suite/archive/d4a288068587f8738c84465a9ca113a3fe845ffc.tar.gz"],
         patches = ["@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch"],
         patch_args = ["-p1"],
     )
@@ -352,6 +350,30 @@ haskell_cabal_library(
         sha256 = "1ba2f2a6b8d85da76c41f526c98903cbb107f8642e506c072c1e7e3c20fe5e7a",
         strip_prefix = "js-flot-{}".format(JS_FLOT_VERSION),
         urls = ["http://hackage.haskell.org/package/js-flot-{version}/js-flot-{version}.tar.gz".format(version = JS_FLOT_VERSION)],
+    )
+
+    http_archive(
+        name = "turtle",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "turtle",
+    version = packages["turtle"].version,
+    srcs = glob(["**"]),
+    haddock = False,
+    deps = packages["turtle"].deps,
+    verbose = False,
+    visibility = ["//visibility:public"],
+)
+""",
+        patch_args = ["-p1"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:haskell-turtle.patch",
+        ],
+        sha256 = "ac5c352a2e2a4dec853623f24677f41cdd8cff1140741bf38c8e06f09551e009",
+        strip_prefix = "turtle-1.5.23",
+        urls = ["http://hackage.haskell.org/package/turtle-1.5.23/turtle-1.5.23.tar.gz"],
     )
 
     http_archive(
@@ -457,15 +479,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
                 "hlint": ["ghc-lib"],
                 "shake": ["embed-files"],
                 "zip": ["disable-bzip2", "disable-zstd"],
+                "proto3-suite": ["-swagger"],
             },
-            {
-                "blaze-textual": ["integer-simple"],
-                "cryptonite": ["-integer-gmp"],
-                "hashable": ["-integer-gmp"],
-                "integer-logarithms": ["-integer-gmp"],
-                "scientific": ["integer-simple"],
-                "text": ["integer-simple"],
-            } if use_integer_simple else {},
         ),
         haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
@@ -568,7 +583,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "stm-chans",
             "stm-conduit",
             "syb",
-            "system-filepath",
             "tagged",
             "tar",
             "tar-conduit",
@@ -602,6 +616,13 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         ] + (["unix"] if not is_windows else ["Win32"]),
         components = {
             "hpp": ["lib", "exe"],
+            "attoparsec": [
+                "lib:attoparsec",
+                "lib:attoparsec-internal",
+            ],
+        },
+        components_dependencies = {
+            "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
         },
         stack = "@stack_windows//:stack.exe" if is_windows else None,
         vendored_packages = {
@@ -616,6 +637,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "lsp-types": "@lsp-types//:lsp-types",
             "proto3-suite": "@proto3-suite//:proto3-suite",
             "shake": "@shake//:shake",
+            "turtle": "@turtle//:turtle",
             "xml-conduit": "@xml-conduit//:xml-conduit",
             "zip": "@zip//:zip",
         },
@@ -626,19 +648,22 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         extra_deps = {
             "zlib": ["@com_github_madler_zlib//:libz"],
         },
-        flags = {
-            "hashable": ["-integer-gmp"],
-            "integer-logarithms": ["-integer-gmp"],
-            "scientific": ["integer-simple"],
-            "text": ["integer-simple"],
-        } if use_integer_simple else {},
         haddock = False,
         local_snapshot = "//:ghcide-snapshot.yaml",
         stack_snapshot_json = "//:ghcide_snapshot.json",
         packages = [
             "ghcide",
         ],
-        components = {"ghcide": ["lib", "exe"]},
+        components = {
+            "ghcide": ["lib", "exe"],
+            "attoparsec": [
+                "lib:attoparsec",
+                "lib:attoparsec-internal",
+            ],
+        },
+        components_dependencies = {
+            "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
+        },
         stack = "@stack_windows//:stack.exe" if is_windows else None,
         vendored_packages = {
             "zip": "@zip//:zip",

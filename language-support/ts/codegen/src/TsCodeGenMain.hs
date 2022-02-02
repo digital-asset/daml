@@ -17,6 +17,7 @@ import qualified Data.Text.Extended as T
 import qualified Data.Text.IO as T
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Data.Aeson hiding (Options)
+import qualified Data.Aeson.Key as Aeson
 import Data.Aeson.Encode.Pretty
 
 import Control.Exception
@@ -969,7 +970,7 @@ packageJsonDependencies :: Scope -> [Dependency] -> Value
 packageJsonDependencies (Scope scope) dependencies = object $
     [ "@mojotech/json-type-validation" .= jtvVersion
     ] ++
-    [ (scope <> "/" <> pkgName) .= ("file:../" <> pkgName) | Dependency pkgName <- dependencies ]
+    [ Aeson.fromText (scope <> "/" <> pkgName) .= ("file:../" <> pkgName) | Dependency pkgName <- dependencies ]
 
 packageJsonPeerDependencies:: SdkVersion ->  Value
 packageJsonPeerDependencies sdkVersion = object
