@@ -85,7 +85,7 @@ object Store {
       applicationId: String,
       ledgerId: String,
       ledgerTime: TimeProviderWithType,
-      // the keys of this map are passed to the frontend as possible user ids to log in as
+      // `partyActors`'s keys are passed to the frontend as possible user ids to log in as
       partyActors: Map[String, PartyActorResponse],
   ) extends ApplicationStateInfo
 

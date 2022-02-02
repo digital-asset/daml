@@ -5,7 +5,7 @@ package com.daml.navigator
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri}
+import akka.http.scaladsl.model.{HttpRequest, StatusCodes, Uri}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.settings.ServerSettings
 import akka.util.ByteString
@@ -135,6 +135,13 @@ class IntegrationTest
       )
   }
 
+  private def createUser(userName: String)(implicit client: LedgerClient): Future[domain.User] = {
+    client.userManagementClient
+      .createUser(
+        domain.User(UserId.assertFromString(userName), None)
+      )
+  }
+
   "Navigator (parties)" - {
     "picks up newly allocated parties" in withNavigator(userMgmt = false) {
       implicit uri => implicit client =>
@@ -188,6 +195,18 @@ class IntegrationTest
             """{"method":{"type":"select","users":["user-name-1","user-name-2"]},"type":"sign-in"}"""
           )
         } yield succeed
+    }
+
+    "can only log in if user has a primary party (1 user, 0 primary parties)" in withNavigator(
+      userMgmt = true
+    ) { implicit uri => implicit client =>
+      for {
+        _ <- okSessionBody("""{"method":{"type":"select","users":[]},"type":"sign-in"}""")
+        _ <- createUser("user-name-1")
+        _ <- okSessionBody(
+          """{"method":{"type":"select","users":[]},"type":"sign-in"}"""
+        )
+      } yield succeed
     }
   }
 

@@ -161,32 +161,38 @@ class PlatformStore(
       stash()
   }
 
-  @SuppressWarnings(
-    Array(
-      "org.wartremover.warts.JavaSerializable",
-      "org.wartremover.warts.Product",
-      "org.wartremover.warts.Serializable",
-    )
-  ) // for the andThen below
   def connected(state: StateConnected): Receive = {
     case UpdateUsersOrParties =>
-      state.ledgerClient.versionClient
-        .getApiFeatures(state.ledgerClient.ledgerId)
-        .filter(features => // if we have user management (and it's not disabled)....
-          enableUserManagement && features.contains(Feature.UserManagement)
-        )
-        .andThen {
-          case Success(_) => // .. then only list users on the login screen
+      // If user management is enabled for navigator (the default),
+      // and the ledger supports it, only display users on the login screen.
+      // Otherwise, we fall back to legacy behavior of logging in as a party.
+      val hasUserManagement =
+        if (!enableUserManagement) Future.successful(false)
+        else
+          state.ledgerClient.versionClient
+            .getApiFeatures(state.ledgerClient.ledgerId)
+            .map { features =>
+              val hasUserManagement = features.contains(Feature.UserManagement)
+              if (!hasUserManagement) {
+                log.warning("User management is enabled but ledger does not expose this feature.")
+              }
+              hasUserManagement
+            }
+
+      hasUserManagement
+        .flatMap {
+          case true =>
             state.ledgerClient.userManagementClient
               .listUsers() // don't pass token here -- it's already set on startup (LedgerClientConfiguration)
-              .map(UpdatedUsers(_))
-              .pipeTo(self)
-          case Failure(_) => // ... else fallback to parties
+              .map(details => UpdatedUsers(details): Any)
+          //                                   ^^^^^
+          // make wartremover happy about the lub of UpdatedUsers and UpdatedParties
+          case false =>
             state.ledgerClient.partyManagementClient
               .listKnownParties()
-              .map(UpdatedParties(_))
-              .pipeTo(self)
+              .map(details => UpdatedParties(details): Any)
         }
+        .pipeTo(self)
 
       ()
 
@@ -194,6 +200,14 @@ class PlatformStore(
       // Note: you cannot log in as a user without a primary party
       val usersWithPrimaryParties = users.flatMap { user =>
         user.primaryParty.map(p => (user.id, p))
+      }
+
+      users.filter(_.primaryParty.isEmpty) match {
+        case usersWithoutPrimaryParty if !usersWithoutPrimaryParty.isEmpty =>
+          log.warning(
+            s"Users without primary party (counted ${usersWithoutPrimaryParty.length})" +
+              s" cannot be used for login ${usersWithoutPrimaryParty.take(10).map(_.id.toString).mkString("(e.g., ", ", ", ")")}."
+          )
       }
 
       usersWithPrimaryParties.foreach { case (userId, party) =>
@@ -271,7 +285,8 @@ class PlatformStore(
         }
         .map(_.toMap)
         .recover { case error =>
-          log.error(error.getMessage); Map.empty[String, PartyActorResponse]
+          log.error(error.getMessage)
+          Map.empty[String, PartyActorResponse]
         }
         .foreach { userIdToPartyActorResponse =>
           snd ! ApplicationStateConnected(
