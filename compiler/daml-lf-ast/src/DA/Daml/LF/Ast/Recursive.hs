@@ -55,9 +55,9 @@ data ExprF expr
   | ECallInterfaceF !(Qualified TypeConName) !MethodName !expr
   | EToRequiredInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | EFromRequiredInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
-  | EToTypeRepF !(Qualified TypeConName) !expr
-  | EResolveVirtualSignatoryF !(Qualified TypeConName) !expr
-  | EResolveVirtualObserverF !(Qualified TypeConName) !expr
+  | EInterfaceTemplateTypeRepF !(Qualified TypeConName) !expr
+  | ESignatoryInterfaceF !(Qualified TypeConName) !expr
+  | EObserverInterfaceF !(Qualified TypeConName) !expr
   | EExperimentalF !T.Text !Type
   deriving (Foldable, Functor, Traversable)
 
@@ -214,9 +214,9 @@ instance Recursive Expr where
     ECallInterface a b c -> ECallInterfaceF a b c
     EToRequiredInterface a b c -> EToRequiredInterfaceF a b c
     EFromRequiredInterface a b c -> EFromRequiredInterfaceF a b c
-    EToTypeRep a b -> EToTypeRepF a b
-    EResolveVirtualSignatory a b -> EResolveVirtualSignatoryF a b
-    EResolveVirtualObserver a b -> EResolveVirtualObserverF a b
+    EInterfaceTemplateTypeRep a b -> EInterfaceTemplateTypeRepF a b
+    ESignatoryInterface a b -> ESignatoryInterfaceF a b
+    EObserverInterface a b -> EObserverInterfaceF a b
     EExperimental a b -> EExperimentalF a b
 
 instance Corecursive Expr where
@@ -256,7 +256,7 @@ instance Corecursive Expr where
     ECallInterfaceF a b c -> ECallInterface a b c
     EToRequiredInterfaceF a b c -> EToRequiredInterface a b c
     EFromRequiredInterfaceF a b c -> EFromRequiredInterface a b c
-    EToTypeRepF a b -> EToTypeRep a b
-    EResolveVirtualSignatoryF a b -> EResolveVirtualSignatory a b
-    EResolveVirtualObserverF a b -> EResolveVirtualObserver a b
+    EInterfaceTemplateTypeRepF a b -> EInterfaceTemplateTypeRep a b
+    ESignatoryInterfaceF a b -> ESignatoryInterface a b
+    EObserverInterfaceF a b -> EObserverInterface a b
     EExperimentalF a b -> EExperimental a b

@@ -135,12 +135,12 @@ private[daml] class AstRewriter(
           EToRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
         case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
           EFromRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
-        case EToTypeRep(ifaceId, body) =>
-          EToTypeRep(apply(ifaceId), apply(body))
-        case EResolveVirtualSignatory(ifaceId, body) =>
-          EResolveVirtualSignatory(apply(ifaceId), apply(body))
-        case EResolveVirtualObserver(ifaceId, body) =>
-          EResolveVirtualObserver(apply(ifaceId), apply(body))
+        case EInterfaceTemplateTypeRep(ifaceId, body) =>
+          EInterfaceTemplateTypeRep(apply(ifaceId), apply(body))
+        case ESignatoryInterface(ifaceId, body) =>
+          ESignatoryInterface(apply(ifaceId), apply(body))
+        case EObserverInterface(ifaceId, body) =>
+          EObserverInterface(apply(ifaceId), apply(body))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {

@@ -710,18 +710,18 @@ encodeExpr' = \case
         expr_FromRequiredInterfaceRequiringInterface <- encodeQualTypeConName ty2
         expr_FromRequiredInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumFromRequiredInterface P.Expr_FromRequiredInterface{..}
-    EToTypeRep ty val -> do
-        expr_ToTypeRepInterfaceType <- encodeQualTypeConName ty
-        expr_ToTypeRepExpr <- encodeExpr val
-        pureExpr $ P.ExprSumToTypeRep P.Expr_ToTypeRep{..}
-    EResolveVirtualSignatory ty val -> do
-        expr_ResolveVirtualSignatoryInterfaceType <- encodeQualTypeConName ty
-        expr_ResolveVirtualSignatoryExpr <- encodeExpr val
-        pureExpr $ P.ExprSumResolveVirtualSignatory P.Expr_ResolveVirtualSignatory{..}
-    EResolveVirtualObserver ty val -> do
-        expr_ResolveVirtualObserverInterfaceType <- encodeQualTypeConName ty
-        expr_ResolveVirtualObserverExpr <- encodeExpr val
-        pureExpr $ P.ExprSumResolveVirtualObserver P.Expr_ResolveVirtualObserver{..}
+    EInterfaceTemplateTypeRep ty val -> do
+        expr_InterfaceTemplateTypeRepInterface <- encodeQualTypeConName ty
+        expr_InterfaceTemplateTypeRepExpr <- encodeExpr val
+        pureExpr $ P.ExprSumInterfaceTemplateTypeRep P.Expr_InterfaceTemplateTypeRep{..}
+    ESignatoryInterface ty val -> do
+        expr_SignatoryInterfaceInterface <- encodeQualTypeConName ty
+        expr_SignatoryInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumSignatoryInterface P.Expr_SignatoryInterface{..}
+    EObserverInterface ty val -> do
+        expr_ObserverInterfaceInterface <- encodeQualTypeConName ty
+        expr_ObserverInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumObserverInterface P.Expr_ObserverInterface{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty

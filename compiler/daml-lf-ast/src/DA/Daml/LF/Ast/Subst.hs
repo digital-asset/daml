@@ -202,11 +202,11 @@ applySubstInExpr subst@Subst{..} = \case
         (applySubstInExpr subst e)
     EFromRequiredInterface t1 t2 e -> EFromRequiredInterface t1 t2
         (applySubstInExpr subst e)
-    EToTypeRep ty e -> EToTypeRep ty
+    EInterfaceTemplateTypeRep ty e -> EInterfaceTemplateTypeRep ty
         (applySubstInExpr subst e)
-    EResolveVirtualSignatory ty e -> EResolveVirtualSignatory ty
+    ESignatoryInterface ty e -> ESignatoryInterface ty
         (applySubstInExpr subst e)
-    EResolveVirtualObserver ty e -> EResolveVirtualObserver ty
+    EObserverInterface ty e -> EObserverInterface ty
         (applySubstInExpr subst e)
     EUpdate u -> EUpdate
         (applySubstInUpdate subst u)

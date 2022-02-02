@@ -246,18 +246,18 @@ alphaExpr' env = \case
             && alphaTypeCon t1b t2b
             && alphaExpr' env e1 e2
         _ -> False
-    EToTypeRep ty1 expr1 -> \case
-        EToTypeRep ty2 expr2
+    EInterfaceTemplateTypeRep ty1 expr1 -> \case
+        EInterfaceTemplateTypeRep ty2 expr2
             -> alphaTypeCon ty1 ty2
             && alphaExpr' env expr1 expr2
         _ -> False
-    EResolveVirtualSignatory ty1 expr1 -> \case
-        EResolveVirtualSignatory ty2 expr2
+    ESignatoryInterface ty1 expr1 -> \case
+        ESignatoryInterface ty2 expr2
             -> alphaTypeCon ty1 ty2
             && alphaExpr' env expr1 expr2
         _ -> False
-    EResolveVirtualObserver ty1 expr1 -> \case
-        EResolveVirtualObserver ty2 expr2
+    EObserverInterface ty1 expr1 -> \case
+        EObserverInterface ty2 expr2
             -> alphaTypeCon ty1 ty2
             && alphaExpr' env expr1 expr2
         _ -> False

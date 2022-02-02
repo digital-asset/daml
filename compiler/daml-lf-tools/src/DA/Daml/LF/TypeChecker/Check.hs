@@ -765,13 +765,13 @@ typeOf' = \case
       throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
     checkExpr expr (TCon requiredIface)
     pure (TOptional (TCon requiringIface))
-  EToTypeRep iface expr -> do
+  EInterfaceTemplateTypeRep iface expr -> do
     checkExpr expr (TCon iface)
     pure TTypeRep
-  EResolveVirtualSignatory iface expr -> do
+  ESignatoryInterface iface expr -> do
     checkExpr expr (TCon iface)
     pure (TList TParty)
-  EResolveVirtualObserver iface expr -> do
+  EObserverInterface iface expr -> do
     checkExpr expr (TCon iface)
     pure (TList TParty)
   EUpdate upd -> typeOfUpdate upd

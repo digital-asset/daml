@@ -953,25 +953,25 @@ message Expr {
 
   // Obtain the type representation of a contract through an interface
   // *Available in versions >= 1.dev*
-  message ToTypeRep {
+  message InterfaceTemplateTypeRep {
     // interface type
-    TypeConName interface_type = 1;
+    TypeConName interface = 1;
     // interface argument
     Expr expr = 2;
   }
 
   // Obtain the signatories of a contract through an interface
-  message ResolveVirtualSignatory {
+  message SignatoryInterface {
     // Interface type
-    TypeConName interface_type = 1;
+    TypeConName interface = 1;
     // Interface argument
     Expr expr = 2;
   }
 
   // Obtain the observers of a contract through an interface
-  message ResolveVirtualObserver {
+  message ObserverInterface {
     // Interface type
-    TypeConName interface_type = 1;
+    TypeConName interface = 1;
     // Interface argument
     Expr expr = 2;
   }
@@ -1103,14 +1103,14 @@ message Expr {
     ToRequiredInterface to_required_interface = 39;
     FromRequiredInterface from_required_interface = 40;
 
-    // Obtain the type representation of a contract through an interface.
+    // Obtain the type representation of a contract's template through an interface.
     // *Available in versions >= 1.dev*
-    ToTypeRep to_type_rep = 41;
+    InterfaceTemplateTypeRep interface_template_type_rep = 41;
 
     // Obtain a contract's signatories/observers through an interface.
     // *Available in versions >= 1.dev*
-    ResolveVirtualSignatory resolve_virtual_signatory = 42;
-    ResolveVirtualObserver resolve_virtual_observer = 43;
+    SignatoryInterface signatory_interface = 42;
+    ObserverInterface observer_interface = 43;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }

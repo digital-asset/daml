@@ -1160,28 +1160,28 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             body = decodeExpr(fromRequiredInterface.getExpr, definition),
           )
 
-        case PLF.Expr.SumCase.TO_TYPE_REP =>
-          assertSince(LV.Features.interfaces, "Expr.to_type_rep")
-          val toTypeRep = lfExpr.getToTypeRep
-          EToTypeRep(
-            ifaceId = decodeTypeConName(toTypeRep.getInterfaceType),
-            body = decodeExpr(toTypeRep.getExpr, definition),
+        case PLF.Expr.SumCase.INTERFACE_TEMPLATE_TYPE_REP =>
+          assertSince(LV.Features.interfaces, "Expr.interface_template_type_rep")
+          val interfaceTemplateTypeRep = lfExpr.getInterfaceTemplateTypeRep
+          EInterfaceTemplateTypeRep(
+            ifaceId = decodeTypeConName(interfaceTemplateTypeRep.getInterface),
+            body = decodeExpr(interfaceTemplateTypeRep.getExpr, definition),
           )
 
-        case PLF.Expr.SumCase.RESOLVE_VIRTUAL_SIGNATORY =>
-          assertSince(LV.Features.interfaces, "Expr.resolve_virtual_signatory")
-          val resolveVirtualSignatory = lfExpr.getResolveVirtualSignatory
-          EResolveVirtualSignatory(
-            ifaceId = decodeTypeConName(resolveVirtualSignatory.getInterfaceType),
-            body = decodeExpr(resolveVirtualSignatory.getExpr, definition),
+        case PLF.Expr.SumCase.SIGNATORY_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.signatory_interface")
+          val signatoryInterface = lfExpr.getSignatoryInterface
+          ESignatoryInterface(
+            ifaceId = decodeTypeConName(signatoryInterface.getInterface),
+            body = decodeExpr(signatoryInterface.getExpr, definition),
           )
 
-        case PLF.Expr.SumCase.RESOLVE_VIRTUAL_OBSERVER =>
-          assertSince(LV.Features.interfaces, "Expr.resolve_virtual_observer")
-          val resolveVirtualObserver = lfExpr.getResolveVirtualObserver
-          EResolveVirtualObserver(
-            ifaceId = decodeTypeConName(resolveVirtualObserver.getInterfaceType),
-            body = decodeExpr(resolveVirtualObserver.getExpr, definition),
+        case PLF.Expr.SumCase.OBSERVER_INTERFACE =>
+          assertSince(LV.Features.interfaces, "Expr.observer_interface")
+          val observerInterface = lfExpr.getObserverInterface
+          EObserverInterface(
+            ifaceId = decodeTypeConName(observerInterface.getInterface),
+            body = decodeExpr(observerInterface.getExpr, definition),
           )
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>

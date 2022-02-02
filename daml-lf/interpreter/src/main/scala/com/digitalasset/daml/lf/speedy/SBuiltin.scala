@@ -1220,10 +1220,10 @@ private[lf] object SBuiltin {
   final case class SBResolveCreateByInterface(ifaceId: TypeConName)
       extends SBResolveVirtual(ref => CreateByInterfaceDefRef(ref, ifaceId))
 
-  final case class SBResolveVirtualSignatory(ifaceId: TypeConName)
+  final case class SBSignatoryInterface(ifaceId: TypeConName)
       extends SBResolveVirtual(SignatoriesDefRef)
 
-  final case class SBResolveVirtualObserver(ifaceId: TypeConName)
+  final case class SBObserverInterface(ifaceId: TypeConName)
       extends SBResolveVirtual(ObserversDefRef)
 
   // Convert an interface to a given template type if possible. Since interfaces have the
@@ -1651,11 +1651,11 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $to_type_rep
+  /** $interface_template_type_rep
     *    :: t
     *    -> TypeRep (where t = TTyCon(_))
     */
-  final case class SBToTypeRep(tycon: TypeConName) extends SBuiltinPure(1) {
+  final case class SBInterfaceTemplateTypeRep(tycon: TypeConName) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): STypeRep = {
       val id = getSRecord(args, 0).id
       STypeRep(Ast.TTyCon(id))
