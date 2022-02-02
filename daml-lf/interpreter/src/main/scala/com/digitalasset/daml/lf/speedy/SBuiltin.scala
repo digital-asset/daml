@@ -1861,20 +1861,10 @@ private[lf] object SBuiltin {
         machine.returnValue = SInt64(42L)
     }
 
-    private object SBExperimentalToTypeRep extends SBuiltinPure(1) {
-      override private[speedy] def executePure(args: util.ArrayList[SValue]): STypeRep = {
-        val id = getSRecord(args, 0).id
-        STypeRep(Ast.TTyCon(id))
-      }
-    }
-
     //TODO: move this into the speedy compiler code
     private val mapping: Map[String, compileTime.SExpr] =
       List(
         "ANSWER" -> SBExperimentalAnswer,
-        "TO_TYPE_REP" -> SBExperimentalToTypeRep,
-        "RESOLVE_VIRTUAL_SIGNATORY" -> new SBResolveVirtual(SignatoriesDefRef),
-        "RESOLVE_VIRTUAL_OBSERVER" -> new SBResolveVirtual(ObserversDefRef),
       ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap
 
     def apply(name: String): compileTime.SExpr =
