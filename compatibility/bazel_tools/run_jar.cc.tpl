@@ -61,7 +61,9 @@ int main(int argc, char **argv) {
     std::cout << "adding path\n";
     cmdLine += converter.from_bytes(path.c_str());
     std::cout << "adding rest of cmdline\n";
-    cmdLine += std::wstring(index);
+    if (index) {
+        cmdLine += std::wstring(index);
+    }
     std::cout << "finished cmdline\n";
     std::wcout << cmdLine << L"\n";
     const int MAX_CMDLINE_LENGTH = 32768;
