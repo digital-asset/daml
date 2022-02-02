@@ -54,18 +54,12 @@ int main(int argc, char **argv) {
     LPWSTR oldCmdLine = GetCommandLineW();
     wchar_t *index = wcschr(oldCmdLine, ' ');
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-    std::cout << "initializing with java\n";
     std::wstring cmdLine = converter.from_bytes(java.c_str());
-    std::cout << "appending literal\n";
     cmdLine += L" -jar ";
-    std::cout << "adding path\n";
     cmdLine += converter.from_bytes(path.c_str());
-    std::cout << "adding rest of cmdline\n";
     if (index) {
         cmdLine += std::wstring(index);
     }
-    std::cout << "finished cmdline\n";
-    std::wcout << cmdLine << L"\n";
     const int MAX_CMDLINE_LENGTH = 32768;
     wchar_t result[MAX_CMDLINE_LENGTH];
     wcsncpy(result, cmdLine.c_str(), MAX_CMDLINE_LENGTH - 1);
