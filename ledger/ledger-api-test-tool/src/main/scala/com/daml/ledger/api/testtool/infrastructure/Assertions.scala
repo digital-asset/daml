@@ -7,12 +7,10 @@ import java.util.regex.Pattern
 
 import com.daml.error.ErrorCode
 import com.daml.error.utils.ErrorDetails
-import com.daml.grpc.{GrpcException, GrpcStatus}
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.timer.RetryStrategy
 import com.google.rpc.ErrorInfo
 import io.grpc.protobuf.StatusProto
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.StatusRuntimeException
 import munit.{ComparisonFailException, Assertions => MUnit}
 
 import scala.annotation.tailrec
@@ -66,20 +64,17 @@ object Assertions {
     )
   }
 
+  //KTODO: remove this two-level function
   /** Asserts GRPC error codes depending on the self-service error codes feature in the Ledger API. */
   def assertGrpcError(
-      participant: ParticipantTestContext,
       t: Throwable,
-      expectedCode: Status.Code,
       selfServiceErrorCode: ErrorCode,
       exceptionMessageSubstring: Option[String],
       checkDefiniteAnswerMetadata: Boolean = false,
       additionalErrorAssertions: Throwable => Unit = _ => (),
   ): Unit =
     assertGrpcErrorRegex(
-      participant,
       t,
-      expectedCode,
       selfServiceErrorCode,
       exceptionMessageSubstring
         .map(msgSubstring => Pattern.compile(Pattern.quote(msgSubstring))),
@@ -94,10 +89,8 @@ object Assertions {
     */
   @tailrec
   def assertGrpcErrorRegex(
-      participant: ParticipantTestContext,
       t: Throwable,
-      expectedCode: Status.Code,
-      selfServiceErrorCode: ErrorCode,
+      selfServiceErrorCode: ErrorCode, //KTODO: rename to errorCode
       optPattern: Option[Pattern],
       checkDefiniteAnswerMetadata: Boolean = false,
       additionalErrorAssertions: Throwable => Unit = _ => (),
@@ -105,32 +98,19 @@ object Assertions {
     t match {
       case RetryStrategy.FailedRetryException(cause) =>
         assertGrpcErrorRegex(
-          participant,
           cause,
-          expectedCode,
           selfServiceErrorCode,
           optPattern,
           checkDefiniteAnswerMetadata,
           additionalErrorAssertions,
         )
-      case exception @ GrpcException(GrpcStatus(code, maybeMessage), _)
-          if !participant.features.selfServiceErrorCodes =>
-        if (code != expectedCode) fail(s"Expected code [$expectedCode], but got [$code].")
-        (optPattern, maybeMessage) match {
-          case (Some(pattern), Some(message)) => assertMatches(message, pattern)
-          case (Some(pattern), None) =>
-            fail(s"Expected message matching pattern [$pattern], but message was empty")
-          case _ => ()
-        }
-        if (checkDefiniteAnswerMetadata) assertDefiniteAnswer(exception)
-        additionalErrorAssertions(exception)
-      case exception: StatusRuntimeException if participant.features.selfServiceErrorCodes =>
+      case exception: StatusRuntimeException =>
         optPattern.foreach(assertMatches(exception.getMessage, _))
         assertSelfServiceErrorCode(exception, selfServiceErrorCode)
         if (checkDefiniteAnswerMetadata) assertDefiniteAnswer(exception)
         additionalErrorAssertions(exception)
       case _ =>
-        fail("Exception is neither a StatusRuntimeException nor a StatusException", t)
+        fail("Exception is not a StatusRuntimeException", t)
     }
 
   private def assertMatches(message: String, pattern: Pattern): Unit =
@@ -176,6 +156,7 @@ object Assertions {
       }
   }
 
+  //KTODO: rename this
   def assertSelfServiceErrorCode(
       statusRuntimeException: StatusRuntimeException,
       expectedErrorCode: ErrorCode,

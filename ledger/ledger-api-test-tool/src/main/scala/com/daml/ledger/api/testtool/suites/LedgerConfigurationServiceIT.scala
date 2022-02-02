@@ -7,7 +7,6 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import io.grpc.Status
 
 class LedgerConfigurationServiceIT extends LedgerTestSuite {
   test("ConfigSucceeds", "Return a valid configuration for a valid request", allocate(NoParties))(
@@ -32,9 +31,7 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
           .mustFail("retrieving ledger configuration with an invalid ledger ID")
       } yield {
         assertGrpcError(
-          ledger,
           failure,
-          Status.Code.NOT_FOUND,
           LedgerApiErrors.RequestValidation.LedgerIdMismatch,
           Some(s"Ledger ID '$invalidLedgerId' not found."),
         )

@@ -18,7 +18,6 @@ import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.ledger.test.semantic.DivulgenceTests._
-import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -39,9 +38,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         .mustFail("pruning without specifying an offset")
     } yield {
       assertGrpcError(
-        participant,
         failure,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.RequestValidation.InvalidArgument,
         Some("prune_up_to not specified"),
       )
@@ -59,9 +56,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         .mustFail("pruning, specifying a non-hexadecimal offset")
     } yield {
       assertGrpcError(
-        participant,
         cannotPruneNonHexOffset,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.RequestValidation.NonHexOffset,
         Some("prune_up_to needs to be a hexadecimal string and not"),
       )
@@ -82,9 +77,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         .mustFail("pruning, specifying an offset after the ledger end")
     } yield {
       assertGrpcError(
-        participant,
         cannotPruneOffsetBeyondEnd,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.RequestValidation.OffsetOutOfRange,
         Some("prune_up_to needs to be before ledger end"),
       )
@@ -126,9 +119,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         s"transaction trees not pruned at expected offset",
       )
       assertGrpcErrorRegex(
-        participant,
         cannotReadAnymore,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
         Some(
           Pattern.compile(
@@ -174,9 +165,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         s"flat transactions not pruned at expected offset",
       )
       assertGrpcErrorRegex(
-        participant,
         cannotReadAnymore,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
         Some(
           Pattern.compile(
@@ -229,9 +218,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         s"first checkpoint offset ${firstCheckpointsAfterPrune.offset} after pruning does not match expected offset $offsetOfFirstSurvivingCheckpoint",
       )
       assertGrpcErrorRegex(
-        participant,
         cannotReadAnymore,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
         Some(
           Pattern.compile(
@@ -301,9 +288,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     } yield {
       prunedTransactionTrees.foreach(
         assertGrpcError(
-          participant,
           _,
-          Status.Code.NOT_FOUND,
           LedgerApiErrors.RequestValidation.NotFound.Transaction,
           Some("Transaction not found, or not visible."),
         )
@@ -350,9 +335,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     } yield {
       prunedFlatTransactions.foreach(
         assertGrpcError(
-          participant,
           _,
-          Status.Code.NOT_FOUND,
           LedgerApiErrors.RequestValidation.NotFound.Transaction,
           Some("Transaction not found, or not visible."),
         )
@@ -395,9 +378,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     } yield {
       prunedEventsViaTree.foreach(
         assertGrpcError(
-          participant,
           _,
-          Status.Code.NOT_FOUND,
           LedgerApiErrors.RequestValidation.NotFound.Transaction,
           Some("Transaction not found, or not visible."),
         )
@@ -440,9 +421,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     } yield {
       prunedEventsViaFlat.foreach(
         assertGrpcError(
-          participant,
           _,
-          Status.Code.NOT_FOUND,
           LedgerApiErrors.RequestValidation.NotFound.Transaction,
           Some("Transaction not found, or not visible."),
         )

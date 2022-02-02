@@ -62,7 +62,7 @@
 - target: //language-support/scala/bindings:bindings
   type: jar-scala
 - target: //language-support/scala/bindings-akka:bindings-akka
-  type: jar-scala
+  type: jar-scalledger/ledger-api-test-tool/src/main/scala/com/daml/ledger/api/testtool/suites/CommandDeduplicationPeriodValidationIT.scalaa
 - target: //language-support/scala/codegen:codegen
   type: jar-scala
 - target: //ledger-api/grpc-definitions:ledger_api_proto_jar

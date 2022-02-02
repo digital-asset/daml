@@ -353,17 +353,6 @@ abstract class CommonCliSpecBase(
       )
     }
 
-    "parse gRPC error codes compatibility mode flag" in {
-      checkOption(
-        Array("--use-pre-1.18-error-codes"),
-        _.copy(enableSelfServiceErrorCodes = false),
-      )
-      checkOption(
-        Array(),
-        _.copy(enableSelfServiceErrorCodes = true),
-      )
-    }
-
     "handle '--enable-user-management' flag correctly" in {
       checkOptionFail(
         Array("--enable-user-management")

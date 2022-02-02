@@ -15,7 +15,6 @@ import com.daml.ledger.client.binding.Primitive.ContractId
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test
 import com.daml.ledger.test.model.Test.CallablePayout
-import io.grpc.Status
 import scalaz.Tag
 
 import java.util.regex.Pattern
@@ -74,16 +73,12 @@ final class ContractKeysIT extends LedgerTestSuite {
         .mustFail("looking up by key with a party that cannot see the contract")
     } yield {
       assertGrpcError(
-        beta,
         fetchFailure,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
       )
       assertGrpcErrorRegex(
-        beta,
         lookupByKeyFailure,
-        Status.Code.ABORTED,
         LedgerApiErrors.ConsistencyErrors.InconsistentContractKey,
         Some(Pattern.compile("Inconsistent|Contract key lookup with different results")),
         checkDefiniteAnswerMetadata = true,
@@ -125,24 +120,18 @@ final class ContractKeysIT extends LedgerTestSuite {
         .mustFail("looking up a contract by key with a party that cannot see it")
     } yield {
       assertGrpcError(
-        beta,
         fetchFailure,
-        Status.Code.ABORTED,
         LedgerApiErrors.ConsistencyErrors.ContractNotFound,
         Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
-        beta,
         fetchByKeyFailure,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
       )
       assertGrpcErrorRegex(
-        beta,
         lookupByKeyFailure,
-        Status.Code.ABORTED,
         LedgerApiErrors.ConsistencyErrors.InconsistentContractKey,
         Some(Pattern.compile("Inconsistent|Contract key lookup with different results")),
         checkDefiniteAnswerMetadata = true,
@@ -215,41 +204,31 @@ final class ContractKeysIT extends LedgerTestSuite {
         .mustFail("creating a contract where a maintainer is not a signatory")
     } yield {
       assertGrpcErrorRegex(
-        alpha,
         duplicateKeyFailure,
-        Status.Code.ABORTED,
         LedgerApiErrors.ConsistencyErrors.DuplicateContractKey,
         Some(Pattern.compile("Inconsistent|contract key is not unique")),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
-        beta,
         bobLooksUpTextKeyFailure,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some("requires authorizers"),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
-        beta,
         bobLooksUpBogusTextKeyFailure,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some("requires authorizers"),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
-        alpha,
         aliceFailedFetch,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
-        alpha,
         maintainerNotSignatoryFailed,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some("are not a subset of the signatories"),
         checkDefiniteAnswerMetadata = true,
@@ -312,9 +291,7 @@ final class ContractKeysIT extends LedgerTestSuite {
 
     } yield {
       assertGrpcError(
-        ledger,
         failedFetch,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
@@ -391,17 +368,13 @@ final class ContractKeysIT extends LedgerTestSuite {
         .mustFail("exercising after consuming")
     } yield {
       assertGrpcError(
-        ledger,
         failureBeforeCreation,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("dependency error: couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
-        ledger,
         failureAfterConsuming,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("dependency error: couldn't find key"),
         checkDefiniteAnswerMetadata = true,
@@ -437,17 +410,13 @@ final class ContractKeysIT extends LedgerTestSuite {
         )
       } yield {
         assertGrpcError(
-          ledger2,
           failedLookup,
-          Status.Code.INVALID_ARGUMENT,
           LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
           Some("not visible"),
           checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
-          ledger2,
           failedFetch,
-          Status.Code.INVALID_ARGUMENT,
           LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
           Some("not visible"),
           checkDefiniteAnswerMetadata = true,

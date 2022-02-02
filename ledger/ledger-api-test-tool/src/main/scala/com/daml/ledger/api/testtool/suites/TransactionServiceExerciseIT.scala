@@ -16,7 +16,6 @@ import com.daml.ledger.test.model.Test.CreateAndFetch._
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.DummyFactory._
 import com.daml.ledger.test.model.Test._
-import io.grpc.Status
 import scalaz.Tag
 
 class TransactionServiceExerciseIT extends LedgerTestSuite {
@@ -130,9 +129,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
         .mustFail("exercising with a failing assertion")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
         Some("Assertion failed"),
         checkDefiniteAnswerMetadata = true,

@@ -10,7 +10,6 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.platform.testing.{TimeoutException, WithTimeout}
-import io.grpc.Status
 
 import java.util.regex.Pattern
 import scala.concurrent.duration.DurationInt
@@ -71,9 +70,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
         .mustFail("subscribing to completions past the ledger end")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.OUT_OF_RANGE,
         LedgerApiErrors.RequestValidation.OffsetAfterLedgerEnd,
         Some("is after ledger end"),
       )
@@ -109,9 +106,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       failure <- ledger.submit(wrongRequest).mustFail("submitting an invalid choice")
     } yield {
       assertGrpcErrorRegex(
-        ledger,
         failure,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
         Some(
           Pattern.compile(
@@ -135,9 +130,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     for {
       failure <- ledger.submit(request).mustFail("submitting with an invalid ledger ID")
     } yield assertGrpcError(
-      ledger,
       failure,
-      Status.Code.NOT_FOUND,
       LedgerApiErrors.RequestValidation.LedgerIdMismatch,
       Some(s"Ledger ID '$invalidLedgerId' not found."),
       checkDefiniteAnswerMetadata = true,
@@ -154,9 +147,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       failure <- ledger.submit(emptyRequest).mustFail("submitting an empty command")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.RequestValidation.MissingField,
         Some("commands"),
         checkDefiniteAnswerMetadata = true,

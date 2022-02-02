@@ -13,7 +13,6 @@ import com.daml.ledger.test.model.Test.Agreement._
 import com.daml.ledger.test.model.Test.AgreementFactory._
 import com.daml.ledger.test.model.Test.TriProposal._
 import com.daml.ledger.test.model.Test._
-import io.grpc.Status
 
 class TransactionServiceAuthorizationIT extends LedgerTestSuite {
   test(
@@ -95,9 +94,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
               .mustFail("exercising with missing authorizers")
           } yield {
             assertGrpcError(
-              beta,
               failure,
-              Status.Code.INVALID_ARGUMENT,
               LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
               Some("requires authorizers"),
               checkDefiniteAnswerMetadata = true,
@@ -135,9 +132,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
               .mustFail("exercising with failing assertion")
           } yield {
             assertGrpcError(
-              beta,
               failure,
-              Status.Code.INVALID_ARGUMENT,
               LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
               Some("Assertion failed"),
               checkDefiniteAnswerMetadata = true,

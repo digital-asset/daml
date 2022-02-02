@@ -5,7 +5,6 @@ package com.daml.ledger.api.testtool.suites
 
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.ErrorCode
-import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{
@@ -19,7 +18,7 @@ import com.daml.ledger.api.testtool.suites.ContractIdIT._
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive.ContractId
 import com.daml.ledger.test.semantic.ContractIdTests._
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.StatusRuntimeException
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -97,9 +96,7 @@ final class ContractIdIT extends LedgerTestSuite {
                 else
                   ("cannot parse ContractId", parseErrorCode)
               assertGrpcError(
-                alpha,
                 err,
-                Status.Code.INVALID_ARGUMENT,
                 errorCode,
                 Some(s"""$prefix "$example""""),
                 checkDefiniteAnswerMetadata = true,
@@ -129,22 +126,13 @@ final class ContractIdIT extends LedgerTestSuite {
                 )
                 .transformWith(Future.successful)
           } yield result match {
-            // Assert V1 error code
-            case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
-                if !alpha.features.selfServiceErrorCodes && msg.contains(
-                  s"Contract could not be found with id $example"
-                ) =>
-              Success(())
-
-            // Assert self-service error code
             case Failure(exception: StatusRuntimeException)
-                if alpha.features.selfServiceErrorCodes &&
-                  Try(
-                    assertSelfServiceErrorCode(
-                      statusRuntimeException = exception,
-                      expectedErrorCode = LedgerApiErrors.ConsistencyErrors.ContractNotFound,
-                    )
-                  ).isSuccess =>
+                if Try(
+                  assertSelfServiceErrorCode(
+                    statusRuntimeException = exception,
+                    expectedErrorCode = LedgerApiErrors.ConsistencyErrors.ContractNotFound,
+                  )
+                ).isSuccess =>
               Success(())
 
             case Success(_) => Failure(new UnknownError("Unexpected Success"))
