@@ -521,6 +521,7 @@ testUserRightManagementForParties p1 p2 = do
   revoked === [CanActAs p1, CanReadAs p2]
   rights <- listUserRights u1
   rights === []
+
   nonexistent <- validateUserId "nonexistent"
   expectUserNotFound (listUserRights nonexistent)
   expectUserNotFound (revokeUserRights nonexistent [])
@@ -556,3 +557,15 @@ clearUsers = do
   users <- listAllUsers
   forA_ users $ \u ->
     when (u.userId /= admin) $ deleteUser u.userId
+  deleteUser u1
+
+testUserListPagination = do
+  participantAdmin <- getParticipantAdmin ()
+  let names = [ "u" <> show n | n <- [1..500] ]
+  ids <- mapA validateUserId names
+  let users = [ User id None | id <- ids ]
+  sequence [ createUser user [] | user <- users ]
+  users2 <- listUsers
+  sort users2 === sort (users ++ [participantAdmin])
+  sequence [ deleteUser id | id <- ids ]
+  pure ()
