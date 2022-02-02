@@ -17,8 +17,14 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
   private val lockCurrentState = new StampedLock()
   @volatile private var lastLogEntryIndex = 0
 
-  def readLog[A](action: ImmutableLog => A): A =
-    action(log) // `log` is mutable, but the interface is immutable
+  def readLog[A](action: ImmutableLog => A): A = {
+    val stamp = blocking {
+      lockCurrentState.readLock()
+    }
+    val result = action(log) // `log` is mutable, but the interface is immutable
+    lockCurrentState.unlock(stamp)
+    result
+  }
 
   def newHeadSinceLastWrite(): Int = lastLogEntryIndex
 
@@ -47,12 +53,10 @@ object InMemoryState {
   type MutableState = mutable.Map[Raw.StateKey, Raw.Envelope] with ImmutableState
 
   // The first element will never be read because begin offsets are exclusive.
-  private val Beginning =
-    LedgerRecord(Offset.beforeBegin, Raw.LogEntryId.empty, Raw.Envelope.empty)
+  private val Beginning = LedgerRecord(Offset.beforeBegin, Raw.LogEntryId.empty, Raw.Envelope.empty)
 
-  def empty =
-    new InMemoryState(
-      log = mutable.ArrayBuffer(Beginning),
-      state = mutable.Map.empty,
-    )
+  def empty = new InMemoryState(
+    log = mutable.ArrayBuffer(Beginning),
+    state = mutable.Map.empty,
+  )
 }
