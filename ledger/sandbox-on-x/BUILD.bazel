@@ -346,7 +346,6 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--static-time",
     ],
 )
 
