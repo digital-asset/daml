@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
     std::cout << "adding rest of cmdline\n";
     cmdLine += std::wstring(index);
     std::cout << "finished cmdline\n";
-    std::cout << cmdLine << "\n";
+    std::wcout << cmdLine << L"\n";
     const int MAX_CMDLINE_LENGTH = 32768;
     wchar_t result[MAX_CMDLINE_LENGTH];
     wcsncpy(result, cmdLine.c_str(), MAX_CMDLINE_LENGTH - 1);
