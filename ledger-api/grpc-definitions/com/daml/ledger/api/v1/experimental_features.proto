@@ -16,11 +16,15 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // See the feature message definitions for descriptions.
 message ExperimentalFeatures {
-  reserved 1;
+  ExperimentalSelfServiceErrorCodes self_service_error_codes = 1;
   ExperimentalStaticTime static_time = 2;
   CommandDeduplicationFeatures command_deduplication = 3;
   ExperimentalOptionalLedgerId optional_ledger_id = 4;
   ExperimentalContractIds contract_ids = 5;
+}
+
+// GRPC self-service error codes are returned by the Ledger API.
+message ExperimentalSelfServiceErrorCodes {
 }
 
 // Ledger is in the static time mode and exposes a time service.

@@ -11,6 +11,7 @@ import com.daml.error.{
 import com.daml.ledger.api.v1.experimental_features.{
   ExperimentalFeatures,
   ExperimentalOptionalLedgerId,
+  ExperimentalSelfServiceErrorCodes,
   ExperimentalStaticTime,
 }
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
@@ -71,6 +72,8 @@ private[apiserver] final class ApiVersionService private (
       ),
       experimental = Some(
         ExperimentalFeatures.of(
+          selfServiceErrorCodes =
+            Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes()),
           staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime)),
           commandDeduplication = Some(ledgerFeatures.commandDeduplicationFeatures),
           optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
