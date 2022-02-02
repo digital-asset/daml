@@ -33,6 +33,7 @@ import scalaz.syntax.tag._
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
+import scala.annotation.nowarn
 
 final class CommandsValidator(
     ledgerId: LedgerId,
@@ -227,7 +228,7 @@ final class CommandsValidator(
 
   /** We validate only using current time because we set the currentTime as submitTime so no need to check both
     */
-  @scala.annotation.nowarn(
+  @nowarn(
     "msg=class DeduplicationTime in object DeduplicationPeriod is deprecated"
   )
   def validateDeduplicationPeriod(
