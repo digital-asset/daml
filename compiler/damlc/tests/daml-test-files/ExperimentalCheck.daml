@@ -1,0 +1,11 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_EXPERIMENTAL
+-- @ERROR Unknown experimental primitive "DOES_NOT_EXIST" : Unit
+
+-- | Check that experimental primitives are verified in damlc.
+module ExperimentalCheck where
+
+test : ()
+test = GHC.Types.primitive @"$DOES_NOT_EXIST"

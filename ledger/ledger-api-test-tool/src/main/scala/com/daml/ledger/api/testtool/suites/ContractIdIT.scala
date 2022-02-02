@@ -43,6 +43,7 @@ final class ContractIdIT extends LedgerTestSuite {
       accepted = true,
       isSupported = features => features.contractIds.v1.isNonSuffixed,
       disabledReason = "non-suffixed V1 contract IDs are not supported",
+      failsInPreprocessing = true,
     ),
     TestConfiguration(
       description = "non-suffixed v1",
@@ -50,6 +51,7 @@ final class ContractIdIT extends LedgerTestSuite {
       accepted = false,
       isSupported = features => !features.contractIds.v1.isNonSuffixed,
       disabledReason = "non-suffixed V1 contract IDs are supported",
+      failsInPreprocessing = true,
     ),
     TestConfiguration(
       description = "suffixed v1",
@@ -57,12 +59,19 @@ final class ContractIdIT extends LedgerTestSuite {
       accepted = true,
     ),
   ).foreach {
-    case TestConfiguration(cidDescription, example, accepted, isSupported, disabledReason) =>
+    case TestConfiguration(
+          cidDescription,
+          example,
+          accepted,
+          isSupported,
+          disabledReason,
+          failsInPreprocessing,
+        ) =>
       val result = if (accepted) "Accept" else "Reject"
 
       def test(
           description: String,
-          errorCode: ErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+          parseErrorCode: ErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
       )(
           update: ExecutionContext => (
               ParticipantTestContext,
@@ -79,12 +88,20 @@ final class ContractIdIT extends LedgerTestSuite {
           update(ec)(alpha, party).map {
             case Success(_) if accepted => ()
             case Failure(err: Throwable) if !accepted =>
+              val (prefix, errorCode) =
+                if (failsInPreprocessing)
+                  (
+                    "Illegal Contract ID",
+                    LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
+                  )
+                else
+                  ("cannot parse ContractId", parseErrorCode)
               assertGrpcError(
                 alpha,
                 err,
                 Status.Code.INVALID_ARGUMENT,
                 errorCode,
-                Some(s"""cannot parse ContractId "$example""""),
+                Some(s"""$prefix "$example""""),
                 checkDefiniteAnswerMetadata = true,
               )
               ()
@@ -100,7 +117,7 @@ final class ContractIdIT extends LedgerTestSuite {
           .transformWith(Future.successful)
       }
 
-      test("exercise target", errorCode = LedgerApiErrors.RequestValidation.InvalidField) {
+      test("exercise target", parseErrorCode = LedgerApiErrors.RequestValidation.InvalidField) {
         implicit ec => (alpha, party) =>
           for {
             contractCid <- alpha.create(party, Contract(party))
@@ -209,5 +226,8 @@ object ContractIdIT {
       accepted: Boolean,
       isSupported: Features => Boolean = _ => true,
       disabledReason: String = "",
+      // Invalid v1 cids (e.g. no suffix when one is required) fail during command preprocessing
+      // while invalid v0 cids fail earlier.
+      failsInPreprocessing: Boolean = false,
   )
 }

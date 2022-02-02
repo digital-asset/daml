@@ -27,6 +27,8 @@ trait IndexerStabilitySpec
 
   // To be overriden by the spec implementation
   def jdbcUrl: String
+  // This will be used to pick lock IDs for DB locking
+  def lockIdSeed: Int
 
   // The default EC is coming from AsyncTestSuite and is serial, do not use it
   implicit val ec: ExecutionContext = system.dispatcher
@@ -47,6 +49,7 @@ trait IndexerStabilitySpec
         updatesPerSecond,
         indexerCount,
         jdbcUrl,
+        lockIdSeed,
         materializer,
       )
       .use[Unit] { indexers =>
@@ -131,10 +134,10 @@ trait IndexerStabilitySpec
     )
     // Note: we don't know exactly at which ledger end the current indexer has started.
     // We only observe that the ledger end is moving right now.
-    val initialLedgerEnd = parameterStorageBackend.ledgerEndOrBeforeBegin(connection)
+    val initialLedgerEnd = parameterStorageBackend.ledgerEnd(connection)
     val minEvents = 2L
     eventually {
-      val ledgerEnd = parameterStorageBackend.ledgerEndOrBeforeBegin(connection)
+      val ledgerEnd = parameterStorageBackend.ledgerEnd(connection)
       assert(ledgerEnd.lastEventSeqId > initialLedgerEnd.lastEventSeqId + minEvents)
     }
   }

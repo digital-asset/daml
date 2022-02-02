@@ -25,6 +25,9 @@ let uiProc: ChildProcess | undefined = undefined;
 // Chrome browser that we run in headless mode
 let browser: Browser | undefined = undefined;
 
+let publicUser: string = '';
+let publicParty: string = '';
+
 // Function to generate unique party names for us.
 let nextPartyId = 1;
 const getParty = async () : [string, string] => {
@@ -44,7 +47,7 @@ const getParty = async () : [string, string] => {
       "id": user,
       "primary_party": party,
     },
-    "rights": [{"can_act_as": {"party": party}}]
+    "rights": [{"can_act_as": {"party": party}}, {"can_read_as": {"party": publicParty}}]
   };
   const grpcurlUserArgs = [
     "-plaintext",
@@ -95,7 +98,6 @@ beforeAll(async () => {
   // Getting Started Guide.
   const startArgs = [
     'start',
-    '--sandbox-kv',
     `--json-api-option=--port-file=${JSON_API_PORT_FILE_NAME}`,
   ];
 
@@ -106,6 +108,8 @@ beforeAll(async () => {
   await waitOn({resources: [`file:${jsonApiPortFilePath}`]});
 
   console.debug("daml start API are running");
+
+  [publicUser, publicParty] = await getParty();
 
   // Run `npm start` in another shell.
   // Disable automatically opening a browser using the env var described here:
@@ -155,13 +159,13 @@ test('create and look up user using ledger library', async () => {
   const ledger = new Ledger({token});
   const users0 = await ledger.query(User.User);
   expect(users0).toEqual([]);
-  const userPayload = {username: party, following: []};
+  const userPayload = {username: party, following: [], public: publicParty};
   const userContract1 = await ledger.create(User.User, userPayload);
   const userContract2 = await ledger.fetchByKey(User.User, party);
   expect(userContract1).toEqual(userContract2);
   const users = await ledger.query(User.User);
   expect(users[0]).toEqual(userContract1);
-});
+}, 20_000);
 
 // The tests following use the headless browser to interact with the app.
 // We select the relevant DOM elements using CSS class names that we embedded
@@ -173,6 +177,7 @@ const newUiPage = async (): Promise<Page> => {
     throw Error('Puppeteer browser has not been launched');
   }
   const page = await browser.newPage();
+  await page.setViewport({ width: 1366, height: 1080});
   page.on('console', message =>
           console.log(`${message.type().substr(0, 3).toUpperCase()} ${message.text()}`))
   await page.goto(`http://localhost:${UI_PORT}`); // ignore the Response
@@ -212,8 +217,10 @@ const logout = async (page: Page) => {
 
 // Follow a user using the text input in the follow panel.
 const follow = async (page: Page, userToFollow: string) => {
-  await page.click('.test-select-follow-input');
-  await page.type('.test-select-follow-input', userToFollow);
+  const followInput = await page.waitForSelector('.test-select-follow-input');
+  await followInput.click();
+  await followInput.type(userToFollow);
+  await followInput.press('Enter');
   await page.click('.test-select-follow-button');
 
   // Wait for the request to complete, either successfully or after the error
@@ -379,7 +386,7 @@ test('error when adding a user that you are already following', async () => {
   expect(dismissError).toHaveBeenCalled();
 
   await page.close();
-});
+}, 10000);
 
 const failedLogin = async (page: Page, partyName: string) => {
   let error: string | undefined = undefined;

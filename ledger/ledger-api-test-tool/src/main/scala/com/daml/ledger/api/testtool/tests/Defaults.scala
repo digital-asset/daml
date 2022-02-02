@@ -15,6 +15,4 @@ object Defaults {
   // We therefore limit the maximum number of concurrent tests, to avoid overwhelming the ledger.
   val ConcurrentRuns: Int = sys.runtime.availableProcessors min 4
 
-  val StaticTime: Boolean = false
-
 }

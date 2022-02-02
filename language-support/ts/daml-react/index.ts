@@ -3,6 +3,6 @@
 
 export { createLedgerContext, FetchResult, LedgerContext, QueryResult, FetchByKeysResult } from './createLedgerContext';
 
-import { DamlLedger, useParty, useLedger, useQuery, useFetch, useFetchByKey, useStreamQuery, useStreamQueries, useStreamFetchByKey, useStreamFetchByKeys, useReload } from "./defaultLedgerContext";
-export { useParty, useLedger, useQuery, useFetch, useFetchByKey, useStreamQuery, useStreamQueries, useStreamFetchByKey, useStreamFetchByKeys, useReload };
+import { DamlLedger, useParty, useUser, useLedger, useQuery, useFetch, useFetchByKey, useStreamQuery, useStreamQueries, useStreamFetchByKey, useStreamFetchByKeys, useReload } from "./defaultLedgerContext";
+export { useParty, useUser, useLedger, useQuery, useFetch, useFetchByKey, useStreamQuery, useStreamQueries, useStreamFetchByKey, useStreamFetchByKeys, useReload };
 export default DamlLedger;

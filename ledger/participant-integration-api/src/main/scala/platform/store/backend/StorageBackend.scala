@@ -3,16 +3,14 @@
 
 package com.daml.platform.store.backend
 
-import java.sql.Connection
-import javax.sql.DataSource
-
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails, User, UserRight}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.UserId
+import com.daml.lf.data.Ref.{ApplicationId, UserId}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
@@ -26,6 +24,8 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.platform.store.interning.StringInterning
 import com.daml.scalautil.NeverEqualsOverride
 
+import java.sql.Connection
+import javax.sql.DataSource
 import scala.annotation.unused
 import scala.util.Try
 
@@ -69,7 +69,7 @@ trait IngestionStorageBackend[DB_BATCH] {
     * @param ledgerEnd the current ledger end, or None if no ledger end exists
     * @param connection to be used when inserting the batch
     */
-  def deletePartiallyIngestedData(ledgerEnd: Option[ParameterStorageBackend.LedgerEnd])(
+  def deletePartiallyIngestedData(ledgerEnd: ParameterStorageBackend.LedgerEnd)(
       connection: Connection
   ): Unit
 }
@@ -87,19 +87,9 @@ trait ParameterStorageBackend {
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
     * @param connection to be used to get the LedgerEnd
-    * @return the current LedgerEnd, or None if no ledger end exists
+    * @return the current LedgerEnd
     */
-  def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
-
-  /** Query the current ledger end, returning a value that points to a point before the ledger begin
-    * if no ledger end exists.
-    * No significant CPU load, mostly blocking JDBC communication with the database backend.
-    *
-    * @param connection to be used to get the LedgerEnd
-    * @return the current LedgerEnd, or a LedgerEnd that points to before the ledger begin if no ledger end exists
-    */
-  final def ledgerEndOrBeforeBegin(connection: Connection): ParameterStorageBackend.LedgerEnd =
-    ledgerEnd(connection).getOrElse(ParameterStorageBackend.LedgerEndBeforeBegin)
+  def ledgerEnd(connection: Connection): ParameterStorageBackend.LedgerEnd
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -130,11 +120,15 @@ trait ParameterStorageBackend {
 }
 
 object ParameterStorageBackend {
-  case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long, lastStringInterningId: Int)
+  case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long, lastStringInterningId: Int) {
+    def lastOffsetOption: Option[Offset] =
+      if (lastOffset == Offset.beforeBegin) None else Some(lastOffset)
+  }
+  object LedgerEnd {
+    val beforeBegin: ParameterStorageBackend.LedgerEnd =
+      ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin, 0)
+  }
   case class IdentityParams(ledgerId: LedgerId, participantId: ParticipantId)
-
-  final val LedgerEndBeforeBegin =
-    ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin, 0)
 }
 
 trait ConfigurationStorageBackend {
@@ -171,17 +165,6 @@ trait PackageStorageBackend {
   )(connection: Connection): Vector[(Offset, PackageLedgerEntry)]
 }
 
-trait DeduplicationStorageBackend {
-  def deduplicatedUntil(deduplicationKey: String)(connection: Connection): Timestamp
-  def upsertDeduplicationEntry(
-      key: String,
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(connection: Connection)(implicit loggingContext: LoggingContext): Int
-  def removeExpiredDeduplicationData(currentTime: Timestamp)(connection: Connection): Unit
-  def stopDeduplicatingCommand(deduplicationKey: String)(connection: Connection): Unit
-}
-
 trait CompletionStorageBackend {
   def commandCompletions(
       startExclusive: Offset,
@@ -198,7 +181,6 @@ trait CompletionStorageBackend {
 }
 
 trait ContractStorageBackend {
-  def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId]
   def maximumLedgerTime(ids: Set[ContractId])(connection: Connection): Try[Option[Timestamp]]
   def keyState(key: Key, validAt: Long)(connection: Connection): KeyState
   def contractState(contractId: ContractId, before: Long)(
@@ -431,8 +413,19 @@ trait UserManagementStorageBackend {
 
   def getUserRights(internalId: Int)(connection: Connection): Set[UserRight]
 
+  def countUserRights(internalId: Int)(connection: Connection): Int
+
 }
 
 object UserManagementStorageBackend {
   case class DbUser(internalId: Int, domainUser: User)
+}
+
+trait MeteringStorageBackend {
+
+  def transactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
+  )(connection: Connection): Vector[TransactionMetering]
 }

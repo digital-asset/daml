@@ -45,7 +45,9 @@ class DamlLedgerClientTest
       val damlLedgerClient = DamlLedgerClient
         .newBuilder("localhost", server.getPort)
         .withExpectedLedgerId(ledgerServices.ledgerId)
-        .build()
+        .build(): @annotation.nowarn(
+        "cat=deprecation&origin=com\\.daml\\.ledger\\.rxjava\\.DamlLedgerClient\\.Builder\\.withExpectedLedgerId"
+      )
       testDamlLedgerClient(damlLedgerClient, impls)
     }
   }
@@ -63,7 +65,9 @@ class DamlLedgerClientTest
         .newBuilder("localhost", server.getPort)
         .withExpectedLedgerId(ledgerServices.ledgerId)
         .withAccessToken(somePartyReadWriteToken)
-        .build()
+        .build(): @annotation.nowarn(
+        "cat=deprecation&origin=com\\.daml\\.ledger\\.rxjava\\.DamlLedgerClient\\.Builder\\.withExpectedLedgerId"
+      )
       damlLedgerClient.connect()
       damlLedgerClient.getLedgerId shouldBe ledgerServices.ledgerId
       testActiveContractSetClient(

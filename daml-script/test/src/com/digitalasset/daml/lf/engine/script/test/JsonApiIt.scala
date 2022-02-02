@@ -419,6 +419,28 @@ final class JsonApiIt
         assert(result == SUnit)
       }
     }
+    "user management" in {
+      for {
+        clients <- getClients()
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonUserManagement"),
+        )
+      } yield {
+        assert(result == SUnit)
+      }
+    }
+    "user management rights" in {
+      for {
+        clients <- getClients()
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonUserRightManagement"),
+        )
+      } yield {
+        assert(result == SUnit)
+      }
+    }
     "party management" in {
       for {
         clients <- getClients(parties = List(), admin = true)

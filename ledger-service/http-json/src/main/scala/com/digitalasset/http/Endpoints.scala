@@ -484,12 +484,12 @@ class Endpoints(
 
   def deleteUser(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[Boolean]] =
+  ): ET[domain.SyncResponse[spray.json.JsObject]] =
     proxyWithCommandET { (jwt, deleteUserRequest: domain.DeleteUserRequest) =>
       for {
         userId <- parseUserId(deleteUserRequest.userId)
         _ <- EitherT.rightT(userManagementClient.deleteUser(userId, Some(jwt.value)))
-      } yield domain.OkResponse(true): domain.SyncResponse[Boolean]
+      } yield emptyObjectResponse
     }(req)
 
   def listUsers(req: HttpRequest)(implicit
@@ -596,7 +596,7 @@ class Endpoints(
 
   def createUser(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[Boolean]] =
+  ): ET[domain.SyncResponse[spray.json.JsObject]] =
     proxyWithCommand { (jwt, createUserRequest: domain.CreateUserRequest) =>
       {
         import scalaz.std.option._
@@ -609,7 +609,9 @@ class Endpoints(
             primaryParty <- createUserRequest.primaryParty.traverse(it =>
               Ref.Party.fromString(it).disjunction
             )
-            rights <- domain.UserRights.toLedgerUserRights(createUserRequest.rights)
+            rights <- domain.UserRights.toLedgerUserRights(
+              createUserRequest.rights.getOrElse(List.empty)
+            )
           } yield (username, primaryParty, rights)
         for {
           info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
@@ -623,7 +625,7 @@ class Endpoints(
               Some(jwt.value),
             )
           )
-        } yield domain.OkResponse(true): domain.SyncResponse[Boolean]
+        } yield emptyObjectResponse
       }.run
     }(req)
 
@@ -926,6 +928,9 @@ class Endpoints(
       UserId.fromString(rawUserId).disjunction.leftMap(InvalidUserInput)
     )
   }
+
+  private val emptyObjectResponse: domain.SyncResponse[spray.json.JsObject] =
+    domain.OkResponse(spray.json.JsObject())
 }
 
 object Endpoints {

@@ -48,7 +48,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
 import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny => `sj enrichAny`}
 
-import scala.collection.Factory
 import scala.collection.mutable.HashSet
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -953,7 +952,7 @@ class WebSocketService(
               .fromLedgerApi(ce)
               .liftErr(ServerError)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError)),
-        )(implicitly[Factory[ServerError, Seq[ServerError]]])
+        )(Seq)
         StepAndErrors(
           errors ++ aerrors,
           dstep mapInserts { inserts: Vector[domain.ActiveContract[LfV]] =>

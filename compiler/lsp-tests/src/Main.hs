@@ -18,9 +18,9 @@ import Data.Foldable (toList)
 import Data.List.Extra
 import qualified Data.Text as T
 import qualified Language.LSP.Test as LspTest
-import Language.LSP.Types
+import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelative (..))
 import Language.LSP.Types.Capabilities
-import Language.LSP.Types.Lens hiding (id)
+import Language.LSP.Types.Lens hiding (id, to)
 import Network.URI
 import SdkVersion
 import System.Directory
@@ -36,7 +36,7 @@ import DA.Daml.Lsp.Test.Util
 import qualified Language.LSP.Test as LSP
 
 fullCaps' :: ClientCapabilities
-fullCaps' = fullCaps { _window = Just $ WindowClientCapabilities $ Just True }
+fullCaps' = fullCaps { _window = Just $ WindowClientCapabilities (Just True) Nothing Nothing }
 
 main :: IO ()
 main = do

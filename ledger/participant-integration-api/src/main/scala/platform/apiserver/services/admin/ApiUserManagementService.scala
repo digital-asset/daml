@@ -23,7 +23,7 @@ import scalaz.std.list._
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiUserManagementService(
-    userManagementService: UserManagementStore,
+    userManagementStore: UserManagementStore,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     executionContext: ExecutionContext,
@@ -53,12 +53,12 @@ private[apiserver] final class ApiUserManagementService(
         pRights <- fromProtoRights(request.rights)
       } yield (User(pUserId, pOptPrimaryParty), pRights)
     } { case (user, pRights) =>
-      userManagementService
+      userManagementStore
         .createUser(
           user = user,
           rights = pRights,
         )
-        .flatMap(handleResult("create user"))
+        .flatMap(handleResult("creating user"))
         .map(_ => request.user.get)
     }
 
@@ -66,9 +66,9 @@ private[apiserver] final class ApiUserManagementService(
     withValidation(
       requireUserId(request.userId, "user_id")
     )(userId =>
-      userManagementService
+      userManagementStore
         .getUser(userId)
-        .flatMap(handleResult("get user"))
+        .flatMap(handleResult("getting user"))
         .map(toProtoUser)
     )
 
@@ -76,16 +76,16 @@ private[apiserver] final class ApiUserManagementService(
     withValidation(
       requireUserId(request.userId, "user_id")
     )(userId =>
-      userManagementService
+      userManagementStore
         .deleteUser(userId)
-        .flatMap(handleResult("delete user"))
+        .flatMap(handleResult("deleting user"))
         .map(_ => proto.DeleteUserResponse())
     )
 
   override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] =
-    userManagementService
+    userManagementStore
       .listUsers()
-      .flatMap(handleResult("list users"))
+      .flatMap(handleResult("listing users"))
       .map(
         _.map(toProtoUser)
       )
@@ -100,7 +100,7 @@ private[apiserver] final class ApiUserManagementService(
         rights <- fromProtoRights(request.rights)
       } yield (userId, rights)
     ) { case (userId, rights) =>
-      userManagementService
+      userManagementStore
         .grantRights(
           id = userId,
           rights = rights,
@@ -119,7 +119,7 @@ private[apiserver] final class ApiUserManagementService(
         rights <- fromProtoRights(request.rights)
       } yield (userId, rights)
     ) { case (userId, rights) =>
-      userManagementService
+      userManagementStore
         .revokeRights(
           id = userId,
           rights = rights,
@@ -135,7 +135,7 @@ private[apiserver] final class ApiUserManagementService(
     withValidation(
       requireUserId(request.userId, "user_id")
     )(userId =>
-      userManagementService
+      userManagementStore
         .listUserRights(userId)
         .flatMap(handleResult("list user rights"))
         .map(_.view.map(toProtoRight).toList)
@@ -152,6 +152,11 @@ private[apiserver] final class ApiUserManagementService(
       case Left(UserManagementStore.UserExists(id)) =>
         Future.failed(
           LedgerApiErrors.AdminServices.UserAlreadyExists.Reject(operation, id.toString).asGrpcError
+        )
+
+      case Left(UserManagementStore.TooManyUserRights(id)) =>
+        Future.failed(
+          LedgerApiErrors.AdminServices.TooManyUserRights.Reject(operation, id: String).asGrpcError
         )
 
       case scala.util.Right(t) =>

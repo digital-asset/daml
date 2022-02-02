@@ -3,12 +3,16 @@
 
 package com.daml.platform.server.api.validation
 
+import java.sql.{SQLNonTransientException, SQLTransientException}
+import java.time.{Duration, Instant}
+
 import com.daml.error.ErrorCode.ApiException
 import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref.TransactionId
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
@@ -25,8 +29,6 @@ import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
 
-import java.sql.{SQLNonTransientException, SQLTransientException}
-import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
@@ -43,7 +45,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           GrpcStatus.buildStatus(Map.empty, statusBuilder)
         },
         v2 = LedgerApiErrors.InternalError
-          .CommandTrackerInternalError(
+          .Generic(
             message = s"$message: ${t.getClass.getSimpleName}: ${t.getMessage}",
             throwableO = Some(t),
           )
@@ -93,7 +95,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
             .build()
         },
         v2 = LedgerApiErrors.InternalError
-          .CommandTrackerInternalError(
+          .Generic(
             "Missing status in completion response.",
             throwableO = None,
           )
@@ -490,7 +492,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       ),
     )
 
-  def participantPrunedDataAccessed(message: String)(implicit
+  def participantPrunedDataAccessed(message: String, earliestOffset: Offset)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
@@ -502,7 +504,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .build()
       ),
       v2 = LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed
-        .Reject(message)
+        .Reject(message, earliestOffset.toHexString)
         .asGrpcError,
     )
 
@@ -535,7 +537,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .setMessage(msg)
         grpcError(builder.build())
       },
-      v2 = LedgerApiErrors.InternalError.CommandTrackerInternalError(msg).asGrpcError,
+      v2 = LedgerApiErrors.InternalError.Generic(msg).asGrpcError,
     )
 
   private def invalidArgumentV1(

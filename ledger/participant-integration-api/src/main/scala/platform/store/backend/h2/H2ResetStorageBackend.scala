@@ -18,7 +18,6 @@ object H2ResetStorageBackend extends ResetStorageBackend {
       truncate table package_entries;
       truncate table parameters;
       truncate table participant_command_completions;
-      truncate table participant_command_submissions;
       truncate table participant_events_divulgence;
       truncate table participant_events_create;
       truncate table participant_events_consuming_exercise;
@@ -28,9 +27,11 @@ object H2ResetStorageBackend extends ResetStorageBackend {
       truncate table participant_events_create_filter;
       truncate table participant_users;
       truncate table participant_user_rights;
+      truncate table transaction_metering;
       set referential_integrity true;
     """
       .execute()(connection)
     ()
   }
+
 }

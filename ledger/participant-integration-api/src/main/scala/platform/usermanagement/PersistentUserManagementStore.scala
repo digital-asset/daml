@@ -9,6 +9,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   Result,
+  TooManyUserRights,
   UserExists,
   UserInfo,
   UserNotFound,
@@ -20,40 +21,50 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.UserManagementStorageBackend
+import com.daml.platform.usermanagement.PersistentUserManagementStore.TooManyUserRightsRuntimeException
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object UserManagementConfig {
 
-  val DefaultMaximumCacheSize = 100
+  val DefaultMaxCacheSize = 100
   val DefaultCacheExpiryAfterWriteInSeconds = 5
+  val MaxRightsPerUser = 1000
 
   def default(enabled: Boolean): UserManagementConfig = UserManagementConfig(
     enabled = enabled,
-    maximumCacheSize = DefaultMaximumCacheSize,
+    maxCacheSize = DefaultMaxCacheSize,
     cacheExpiryAfterWriteInSeconds = DefaultCacheExpiryAfterWriteInSeconds,
   )
 }
 final case class UserManagementConfig(
     enabled: Boolean,
-    maximumCacheSize: Int,
+    maxCacheSize: Int,
     cacheExpiryAfterWriteInSeconds: Int,
 )
 
 object PersistentUserManagementStore {
+
+  /** Intended to be thrown within a DB transaction to abort it.
+    * The resulting failed future will get mapped to a successful future containing scala.util.Left
+    */
+  final case class TooManyUserRightsRuntimeException(userId: Ref.UserId) extends RuntimeException
+
   def cached(
       dbSupport: DbSupport,
       metrics: Metrics,
       cacheExpiryAfterWriteInSeconds: Int,
-      maximumCacheSize: Int,
+      maxCacheSize: Int,
+      maxRightsPerUser: Int,
   )(implicit executionContext: ExecutionContext): UserManagementStore = {
     new CachedUserManagementStore(
       delegate = new PersistentUserManagementStore(
         dbSupport = dbSupport,
         metrics = metrics,
+        maxRightsPerUser = maxRightsPerUser,
       ),
       expiryAfterWriteInSeconds = cacheExpiryAfterWriteInSeconds,
-      maximumCacheSize = maximumCacheSize,
+      maximumCacheSize = maxCacheSize,
       metrics = metrics,
     )
   }
@@ -62,6 +73,7 @@ object PersistentUserManagementStore {
 class PersistentUserManagementStore(
     dbSupport: DbSupport,
     metrics: Metrics,
+    maxRightsPerUser: Int,
 ) extends UserManagementStore {
 
   private val backend = dbSupport.storageBackendFactory.createUserManagementStorageBackend
@@ -92,6 +104,11 @@ class PersistentUserManagementStore(
             connection
           )
         )
+        if (backend.countUserRights(internalId)(connection) > maxRightsPerUser) {
+          throw TooManyUserRightsRuntimeException(user.id)
+        } else {
+          ()
+        }
         ()
       }
     }.map(tapSuccess { _ =>
@@ -129,7 +146,11 @@ class PersistentUserManagementStore(
             false
           }
         }
-        addedRights
+        if (backend.countUserRights(user.internalId)(connection) > maxRightsPerUser) {
+          throw TooManyUserRightsRuntimeException(user.domainUser.id)
+        } else {
+          addedRights
+        }
       }
     }.map(tapSuccess { grantedRights =>
       logger.info(
@@ -169,8 +190,12 @@ class PersistentUserManagementStore(
 
   private def inTransaction[T](
       dbMetric: metrics.daml.userManagement.type => DatabaseMetrics
-  )(thunk: Connection => T): Future[T] = {
-    dbDispatcher.executeSql(dbMetric(metrics.daml.userManagement))(thunk)
+  )(thunk: Connection => Result[T]): Future[Result[T]] = {
+    dbDispatcher
+      .executeSql(dbMetric(metrics.daml.userManagement))(thunk)
+      .recover { case TooManyUserRightsRuntimeException(userId) =>
+        Left(TooManyUserRights(userId))
+      }(ExecutionContext.parasitic)
   }
 
   private def withUser[T](

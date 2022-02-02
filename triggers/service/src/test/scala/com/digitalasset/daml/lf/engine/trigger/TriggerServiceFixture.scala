@@ -458,9 +458,9 @@ trait TriggerDaoOracleFixture
   private lazy val jdbcConfig_ =
     JdbcConfig(
       "oracle.jdbc.OracleDriver",
-      oracleJdbcUrl,
-      oracleUser,
-      oraclePwd,
+      oracleJdbcUrlWithoutCredentials,
+      oracleUserName,
+      oracleUserPwd,
       ConnectionPool.PoolSize.Production,
     )
   // TODO For whatever reason we need a larger pool here, otherwise

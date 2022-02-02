@@ -17,9 +17,11 @@ import com.daml.ledger.participant.state.v2.{ReadService, Update}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
+import java.time.Duration
+
 class BridgeReadService(
     ledgerId: LedgerId,
-    maxDedupSeconds: Int,
+    maximumDeduplicationDuration: Duration,
     stateUpdatesSource: Source[(Offset, Update), NotUsed],
 )(implicit
     loggingContext: LoggingContext
@@ -36,7 +38,7 @@ class BridgeReadService(
         config = Configuration(
           generation = 1L,
           timeModel = LedgerTimeModel.reasonableDefault,
-          maxDeduplicationTime = java.time.Duration.ofSeconds(maxDedupSeconds.toLong),
+          maxDeduplicationTime = maximumDeduplicationDuration,
         ),
         initialRecordTime = Timestamp.now(),
       )

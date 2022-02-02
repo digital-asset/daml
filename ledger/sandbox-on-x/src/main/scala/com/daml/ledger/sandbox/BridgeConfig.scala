@@ -7,18 +7,18 @@ import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard}
 import com.daml.ledger.participant.state.kvutils.app.{Config, ConfigProvider}
 import com.daml.platform.apiserver.TimeServiceBackend
+import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.platform.services.time.TimeProviderType
 import scopt.OptionParser
 
 import java.io.File
 import java.nio.file.Path
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 // TODO SoX: Keep only ledger-bridge-related configurations in this class
 //           and extract the participant-specific configs in the main config file.
 case class BridgeConfig(
     conflictCheckingEnabled: Boolean,
-    maxDedupSeconds: Int,
     submissionBufferSize: Int,
     implicitPartyAllocation: Boolean,
     timeProviderType: TimeProviderType,
@@ -29,11 +29,6 @@ case class BridgeConfig(
 
 object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
   override def extraConfigParser(parser: OptionParser[Config[BridgeConfig]]): Unit = {
-    parser
-      .opt[Int]("bridge-max-dedup-seconds")
-      .text("Maximum deduplication time in seconds. Defaults to 30.")
-      .action((p, c) => c.copy(extra = c.extra.copy(maxDedupSeconds = p)))
-
     parser
       .opt[Int]("bridge-submission-buffer-size")
       .text("Submission buffer size. Defaults to 500.")
@@ -80,6 +75,14 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     JwtVerifierConfigurationCli.parse(parser)((v, c) =>
       c.copy(extra = c.extra.copy(authService = AuthServiceJWT(v)))
     )
+
+    parser.checkConfig(c =>
+      Either.cond(
+        c.maxDeduplicationDuration.forall(_.compareTo(Duration.ofHours(1L)) <= 0),
+        (),
+        "Maximum supported deduplication duration is one hour",
+      )
+    )
     ()
   }
 
@@ -89,10 +92,16 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
       case TimeProviderType.WallClock => None
     }
 
+  override def initialLedgerConfig(config: Config[BridgeConfig]): InitialLedgerConfiguration = {
+    val superConfig = super.initialLedgerConfig(config)
+    superConfig.copy(configuration =
+      superConfig.configuration.copy(maxDeduplicationTime = DefaultMaximumDeduplicationTime)
+    )
+  }
+
   override val defaultExtraConfig: BridgeConfig = BridgeConfig(
     // TODO SoX: Enabled by default
     conflictCheckingEnabled = false,
-    maxDedupSeconds = 30,
     submissionBufferSize = 500,
     implicitPartyAllocation = false,
     timeProviderType = TimeProviderType.WallClock,
@@ -100,4 +109,6 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
     profileDir = None,
     stackTraces = false,
   )
+
+  val DefaultMaximumDeduplicationTime: Duration = Duration.ofMinutes(5L)
 }

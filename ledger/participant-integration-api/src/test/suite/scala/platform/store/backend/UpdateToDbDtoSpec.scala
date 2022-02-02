@@ -3,10 +3,8 @@
 
 package com.daml.platform.store.backend
 
-import java.time.Duration
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
-import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
@@ -19,31 +17,23 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.platform.index.index.StatusDetails
-import com.daml.platform.store.appendonlydao.{DeduplicationKeyMaker, JdbcLedgerDao}
 import com.daml.platform.store.appendonlydao.events.Raw.TreeEvent
-import com.daml.platform.store.appendonlydao.events.{
-  CompressionStrategy,
-  ContractId,
-  Create,
-  Exercise,
-  FieldCompressionStrategy,
-  LfValueSerialization,
-  Raw,
-}
+import com.daml.platform.store.appendonlydao.events._
+import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.google.protobuf.ByteString
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
-import org.scalactic.TripleEquals._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
-  import UpdateToDbDtoSpec._
   import TransactionBuilder.Implicits._
+  import UpdateToDbDtoSpec._
 
   "UpdateToDbDto" should {
 
@@ -266,13 +256,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_seconds = None,
           deduplication_duration_nanos = None,
           deduplication_start = None,
-        ),
-        DbDto.CommandDeduplication(
-          DeduplicationKeyMaker.make(
-            domain.CommandId(completionInfo.commandId),
-            completionInfo.actAs,
-          )
-        ),
+        )
       )
     }
 
@@ -1294,13 +1278,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               deduplication_duration_seconds = expectedDeduplicationDurationSeconds,
               deduplication_duration_nanos = expectedDeduplicationDurationNanos,
               deduplication_start = None,
-            ),
-            DbDto.CommandDeduplication(
-              DeduplicationKeyMaker.make(
-                domain.CommandId(completionInfo.commandId),
-                completionInfo.actAs,
-              )
-            ),
+            )
           )
       }
     }
@@ -1463,7 +1441,7 @@ object UpdateToDbDtoSpec {
     commandId = someCommandId,
     optDeduplicationPeriod = None,
     submissionId = Some(someSubmissionId),
-    statistics = None, // TODO Ledger Metering
+    statistics = None,
   )
   private val someTransactionMeta = state.TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
@@ -1475,18 +1453,5 @@ object UpdateToDbDtoSpec {
     optByKeyNodes = None,
   )
 
-  // DbDto case classes contain serialized values in Arrays (sometimes wrapped in Options),
-  // because this representation can efficiently be passed to Jdbc.
-  // Using Arrays means DbDto instances are not comparable, so we have to define a custom equality operator.
-  implicit private val DbDtoEq: org.scalactic.Equality[DbDto] = {
-    case (a: DbDto, b: DbDto) =>
-      (a.productPrefix === b.productPrefix) &&
-        (a.productArity == b.productArity) &&
-        (a.productIterator zip b.productIterator).forall {
-          case (x: Array[_], y: Array[_]) => x sameElements y
-          case (Some(x: Array[_]), Some(y: Array[_])) => x sameElements y
-          case (x, y) => x === y
-        }
-    case (_, _) => false
-  }
+  implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = DbDtoEq.DbDtoEq
 }

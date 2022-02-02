@@ -48,8 +48,10 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
         parameters
       """
 
-  override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
-    SqlGetLedgerEnd.as(LedgerEndParser.singleOpt)(connection).flatten
+  override def ledgerEnd(connection: Connection): ParameterStorageBackend.LedgerEnd =
+    SqlGetLedgerEnd
+      .as(LedgerEndParser.singleOpt)(connection)
+      .getOrElse(ParameterStorageBackend.LedgerEnd.beforeBegin)
 
   private val TableName: String = "parameters"
   private val LedgerIdColumnName: String = "ledger_id"
@@ -64,34 +66,31 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
   private val ParticipantIdParser: RowParser[ParticipantId] =
     Conversions.participantId(ParticipantIdColumnName).map(ParticipantId(_))
 
-  private val LedgerEndOffsetParser: RowParser[Option[Offset]] =
-    offset(LedgerEndColumnName).?
+  private val LedgerEndOffsetParser: RowParser[Offset] = {
+    // Note: the ledger_end is a non-optional column,
+    // however some databases treat Offset.beforeBegin (the empty string) as NULL
+    offset(LedgerEndColumnName).?.map(_.getOrElse(Offset.beforeBegin))
+  }
 
-  private val LedgerEndSequentialIdParser: RowParser[Option[Long]] =
-    long(LedgerEndSequentialIdColumnName).?
+  private val LedgerEndSequentialIdParser: RowParser[Long] =
+    long(LedgerEndSequentialIdColumnName)
 
-  private val LedgerEndStringInterningIdParser: RowParser[Option[Int]] =
-    int(LedgerEndStringInterningIdColumnName).?
+  private val LedgerEndStringInterningIdParser: RowParser[Int] =
+    int(LedgerEndStringInterningIdColumnName)
 
   private val LedgerIdentityParser: RowParser[ParameterStorageBackend.IdentityParams] =
     LedgerIdParser ~ ParticipantIdParser map { case ledgerId ~ participantId =>
       ParameterStorageBackend.IdentityParams(ledgerId, participantId)
     }
 
-  private val LedgerEndParser: RowParser[Option[ParameterStorageBackend.LedgerEnd]] =
+  private val LedgerEndParser: RowParser[ParameterStorageBackend.LedgerEnd] =
     LedgerEndOffsetParser ~ LedgerEndSequentialIdParser ~ LedgerEndStringInterningIdParser map {
-      case Some(lastOffset) ~ Some(lastEventSequentialId) ~ Some(lastStringInterningId) =>
-        Some(
-          ParameterStorageBackend.LedgerEnd(
-            lastOffset,
-            lastEventSequentialId,
-            lastStringInterningId,
-          )
+      case lastOffset ~ lastEventSequentialId ~ lastStringInterningId =>
+        ParameterStorageBackend.LedgerEnd(
+          lastOffset,
+          lastEventSequentialId,
+          lastStringInterningId,
         )
-      case _ =>
-        // Note: offset and event sequential id are always written together.
-        // Cases where only one of them is defined are not handled here.
-        None
     }
 
   override def initializeParameters(
@@ -106,8 +105,22 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
         logger.info(
           s"Initializing new database for ledgerId '${params.ledgerId}' and participantId '${params.participantId}'"
         )
+        import com.daml.platform.store.Conversions.OffsetToStatement
+        val ledgerEnd = ParameterStorageBackend.LedgerEnd.beforeBegin
         discard(
-          SQL"insert into #$TableName(#$LedgerIdColumnName, #$ParticipantIdColumnName) values(${ledgerId.unwrap}, ${participantId.unwrap: String})"
+          SQL"""insert into #$TableName(
+              #$LedgerIdColumnName,
+              #$ParticipantIdColumnName,
+              #$LedgerEndColumnName,
+              #$LedgerEndSequentialIdColumnName,
+              #$LedgerEndStringInterningIdColumnName
+            ) values(
+              ${ledgerId.unwrap},
+              ${participantId.unwrap: String},
+              ${ledgerEnd.lastOffset},
+              ${ledgerEnd.lastEventSeqId},
+              ${ledgerEnd.lastStringInterningId}
+            )"""
             .execute()(connection)
         )
       case Some(ParameterStorageBackend.IdentityParams(`ledgerId`, `participantId`)) =>

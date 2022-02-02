@@ -4,9 +4,12 @@
 package com.daml.ledger
 
 import com.daml.error.ErrorCodesVersionSwitcher
-
 import java.time.Clock
 import java.util.UUID
+
+import akka.actor.ActorSystem
+
+import scala.concurrent.ExecutionContext
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.auth.{
   AuthServiceStatic,
@@ -18,11 +21,14 @@ import com.daml.ledger.api.auth.{
   ClaimReadAsParty,
   ClaimSet,
 }
+import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 
 package object rxjava {
 
   private[rxjava] def untestedEndpoint: Nothing =
     throw new UnsupportedOperationException("Untested endpoint, implement if needed")
+  private val akkaSystem = ActorSystem("testActorSystem")
+  sys.addShutdownHook(akkaSystem.terminate(): Unit)
 
   private[rxjava] val authorizer =
     Authorizer(
@@ -30,6 +36,10 @@ package object rxjava {
       "testLedgerId",
       "testParticipantId",
       new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
+      new InMemoryUserManagementStore(),
+      ExecutionContext.parasitic,
+      userRightsCheckIntervalInSeconds = 1,
+      akkaScheduler = akkaSystem.scheduler,
     )
 
   private[rxjava] val emptyToken = "empty"

@@ -69,7 +69,6 @@ data Command
     | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
     | LedgerReset {flags :: LedgerFlags}
     | LedgerExport { flags :: LedgerFlags, remainingArguments :: [String] }
-    | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
     | LedgerMeteringReport { flags :: LedgerFlags, from :: IsoTime, to :: Maybe IsoTime, application :: Maybe ApplicationId, compactOutput :: Bool }
@@ -78,6 +77,7 @@ data Command
         , portFileM :: Maybe FilePath
         , darPaths :: [FilePath]
         , remainingArguments :: [String]
+        , shutdownStdinClose :: Bool
         }
 
 data AppTemplate
@@ -260,9 +260,6 @@ commandParser = subparser $ fold
             , command "fetch-dar" $ info
                 (ledgerFetchDarCmd <**> helper)
                 (progDesc "Fetch DAR from ledger into file")
-            , command "navigator" $ info
-                (ledgerNavigatorCmd <**> helper)
-                (forwardOptions <> progDesc "Launch Navigator on ledger")
             , command "metering-report" $ info
                 (ledgerMeteringReportCmd <**> helper)
                 (forwardOptions <> progDesc "Report on Ledger Use")                
@@ -335,10 +332,6 @@ commandParser = subparser $ fold
         scriptOptions = LedgerExport
           <$> ledgerFlags (ShowJsonApi False)
           <*> (("script":) <$> many (argument str (metavar "ARG" <> help "Arguments forwarded to export.")))
-
-    ledgerNavigatorCmd = LedgerNavigator
-        <$> ledgerFlags (ShowJsonApi False)
-        <*> many (argument str (metavar "ARG" <> help "Extra arguments to navigator."))
 
     app :: ReadM ApplicationId
     app = fmap (ApplicationId . pack) str
@@ -442,6 +435,7 @@ commandParser = subparser $ fold
         darPaths <- many $ option str (long "dar" <> metavar "PATH"
             <> help "DAR file to upload to sandbox")
         remainingArguments <- many (argument str (metavar "ARG"))
+        shutdownStdinClose <- stdinCloseOpt
         pure CantonSandbox {..}
 
     cantonSandboxCmdInfo =
@@ -483,10 +477,10 @@ runCommand = \case
     LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
     LedgerReset {..} -> runLedgerReset flags
     LedgerExport {..} -> runLedgerExport flags remainingArguments
-    LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments
     LedgerMeteringReport {..} -> runLedgerMeteringReport flags from to application compactOutput
     CantonSandbox {..} ->
+        (if shutdownStdinClose then withCloseOnStdin else id) $
         withCantonPortFile cantonOptions $ \cantonOptions cantonPortFile ->
             withCantonSandbox cantonOptions remainingArguments $ \ph -> do
                 putStrLn "Starting Canton sandbox."

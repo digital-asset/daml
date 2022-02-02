@@ -9,9 +9,9 @@ CREATE ALIAS array_intersection FOR "com.daml.platform.store.backend.h2.H2Functi
 CREATE TABLE parameters (
   ledger_id VARCHAR NOT NULL,
   participant_id VARCHAR NOT NULL,
-  ledger_end VARCHAR,
-  ledger_end_sequential_id BIGINT,
-  ledger_end_string_interning_id INTEGER,
+  ledger_end VARCHAR NOT NULL,
+  ledger_end_sequential_id BIGINT NOT NULL,
+  ledger_end_string_interning_id INTEGER NOT NULL,
   participant_pruned_up_to_inclusive VARCHAR,
   participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR
 );
@@ -123,14 +123,6 @@ CREATE TABLE party_entries (
 CREATE INDEX idx_party_entries ON party_entries (submission_id);
 CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, ledger_offset);
 CREATE INDEX idx_party_entries_party_id_and_ledger_offset ON party_entries(party_id, ledger_offset);
-
----------------------------------------------------------------------------------------------------
--- Submissions table
----------------------------------------------------------------------------------------------------
-CREATE TABLE participant_command_submissions (
-    deduplication_key VARCHAR PRIMARY KEY NOT NULL,
-    deduplicate_until BIGINT NOT NULL
-);
 
 ---------------------------------------------------------------------------------------------------
 -- Completions table
@@ -546,3 +538,12 @@ CREATE TABLE participant_events_create_filter (
 CREATE INDEX idx_participant_events_create_filter_party_template_seq_id_idx ON participant_events_create_filter(party_id, template_id, event_sequential_id);
 CREATE INDEX idx_participant_events_create_filter_party_seq_id_idx ON participant_events_create_filter(party_id, event_sequential_id);
 CREATE INDEX idx_participant_events_create_seq_id_idx ON participant_events_create_filter(event_sequential_id);
+
+CREATE TABLE transaction_metering (
+    application_id VARCHAR NOT NULL,
+    action_count INTEGER NOT NULL,
+    metering_timestamp BIGINT NOT NULL,
+    ledger_offset VARCHAR NOT NULL
+);
+
+CREATE INDEX transaction_metering_ledger_offset ON transaction_metering(ledger_offset);

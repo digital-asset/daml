@@ -74,6 +74,9 @@ case object SRChoiceArg extends SerializabilityRequirement {
 case object SRExceptionArg extends SerializabilityRequirement {
   def pretty: String = "exception argument"
 }
+case object SRInterfaceArg extends SerializabilityRequirement {
+  def pretty: String = "interface argument"
+}
 case object SRChoiceRes extends SerializabilityRequirement {
   def pretty: String = "choice result"
 }
@@ -150,6 +153,9 @@ case object URRoundingMode extends UnserializabilityReason {
 }
 case object URBigNumeric extends UnserializabilityReason {
   def pretty: String = "BigNumeric"
+}
+case object URInterface extends UnserializabilityReason {
+  def pretty: String = "Interface"
 }
 
 abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {

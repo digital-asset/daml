@@ -406,8 +406,8 @@ class CommonCliBase(name: LedgerName) {
         .optional()
         .text(
           s"Defaults to ${UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds} seconds. " +
-            // TODO participant user management: Update max delay to 2x the configured value when made use of in throttled stream authorization.
-            "Determines the maximum delay for propagating user management state changes."
+            "Used to set expiry time for user management cache. " +
+            "Also determines the maximum delay for propagating user management state changes which is double its value."
         )
         .action((value, config: SandboxConfig) =>
           config.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = value))
@@ -416,11 +416,11 @@ class CommonCliBase(name: LedgerName) {
       opt[Int]("user-management-max-cache-size")
         .optional()
         .text(
-          s"Defaults to ${UserManagementConfig.DefaultMaximumCacheSize} entries. " +
+          s"Defaults to ${UserManagementConfig.DefaultMaxCacheSize} entries. " +
             "Determines the maximum in-memory cache size for user management state."
         )
         .action((value, config: SandboxConfig) =>
-          config.withUserManagementConfig(_.copy(maximumCacheSize = value))
+          config.withUserManagementConfig(_.copy(maxCacheSize = value))
         )
 
       com.daml.cliopts.Metrics.metricsReporterParse(this)(

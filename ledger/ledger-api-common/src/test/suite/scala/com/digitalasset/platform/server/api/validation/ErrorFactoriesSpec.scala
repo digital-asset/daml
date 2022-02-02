@@ -8,15 +8,17 @@ import java.time.Duration
 import java.util.regex.Pattern
 
 import ch.qos.logback.classic.Level
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
+  ErrorAssertionsWithLogCollectorAssertions,
   ErrorCodesVersionSwitcher,
-  ErrorsAssertions,
 }
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories._
@@ -31,6 +33,7 @@ import org.scalatest.BeforeAndAfter
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
+import scala.concurrent.duration._
 
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
@@ -43,7 +46,7 @@ class ErrorFactoriesSpec
     with MockitoSugar
     with BeforeAndAfter
     with LogCollectorAssertions
-    with ErrorsAssertions {
+    with ErrorAssertionsWithLogCollectorAssertions {
 
   private val logger = ContextualizedLogger.get(getClass)
   private val loggingContext = LoggingContext.ForTesting
@@ -83,7 +86,7 @@ class ErrorFactoriesSpec
         expectedMessage = msg,
         expectedDetails = Seq[ErrorDetails.ErrorDetail](
           expectedCorrelationIdRequestInfo,
-          ErrorDetails.RetryInfoDetail(1),
+          ErrorDetails.RetryInfoDetail(1.second),
           ErrorDetails.ErrorInfoDetail(
             "INDEX_DB_SQL_TRANSIENT_ERROR",
             Map("category" -> "1", "definite_answer" -> "false"),
@@ -161,7 +164,7 @@ class ErrorFactoriesSpec
               ),
             ),
             expectedCorrelationIdRequestInfo,
-            ErrorDetails.RetryInfoDetail(1),
+            ErrorDetails.RetryInfoDetail(1.second),
           ),
           v2_logEntry = ExpectedLogEntry(
             Level.WARN,
@@ -194,7 +197,7 @@ class ErrorFactoriesSpec
               ),
             ),
             expectedCorrelationIdRequestInfo,
-            ErrorDetails.RetryInfoDetail(1),
+            ErrorDetails.RetryInfoDetail(1.second),
           ),
           v2_logEntry = ExpectedLogEntry(
             Level.INFO,
@@ -223,7 +226,7 @@ class ErrorFactoriesSpec
               Map("category" -> "3", "definite_answer" -> "false"),
             ),
             expectedCorrelationIdRequestInfo,
-            ErrorDetails.RetryInfoDetail(1),
+            ErrorDetails.RetryInfoDetail(1.second),
           ),
           v2_logEntry = ExpectedLogEntry(
             Level.INFO,
@@ -399,7 +402,7 @@ class ErrorFactoriesSpec
             Map("category" -> "3", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
-          ErrorDetails.RetryInfoDetail(1),
+          ErrorDetails.RetryInfoDetail(1.second),
         ),
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
@@ -682,7 +685,12 @@ class ErrorFactoriesSpec
 
     "return a participantPrunedDataAccessed error" in {
       val msg = s"PARTICIPANT_PRUNED_DATA_ACCESSED(9,$truncatedCorrelationId): my message"
-      assertVersionedError(_.participantPrunedDataAccessed("my message"))(
+      assertVersionedError(
+        _.participantPrunedDataAccessed(
+          "my message",
+          Offset.fromHexString(Ref.HexString.assertFromString("00")),
+        )
+      )(
         v1_code = Code.NOT_FOUND,
         v1_message = "my message",
         v1_details = Seq.empty,
@@ -691,14 +699,18 @@ class ErrorFactoriesSpec
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail(
             "PARTICIPANT_PRUNED_DATA_ACCESSED",
-            Map("category" -> "9", "definite_answer" -> "false"),
+            Map(
+              "category" -> "9",
+              "definite_answer" -> "false",
+              LedgerApiErrors.EarliestOffsetMetadataKey -> "00",
+            ),
           ),
           expectedCorrelationIdRequestInfo,
         ),
         v2_logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
-          Some(expectedLocationLogMarkerRegex),
+          expectedMarkerRegex(s"${LedgerApiErrors.EarliestOffsetMetadataKey}=00"),
         ),
       )
     }
@@ -742,7 +754,7 @@ class ErrorFactoriesSpec
               Map("category" -> "1", "definite_answer" -> "false", "service_name" -> serviceName),
             ),
             expectedCorrelationIdRequestInfo,
-            ErrorDetails.RetryInfoDetail(1),
+            ErrorDetails.RetryInfoDetail(1.second),
           ),
           v2_logEntry = ExpectedLogEntry(
             Level.INFO,

@@ -10,9 +10,9 @@ jobs:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    ghc-lib-sha: '362d4f38a7ac10521393de9b7ad942a77a2605be'
+    ghc-lib-sha: '905f51296d979d79da511bed9ab2da7cb9429c9f'
     base-sha: '9c787d4d24f2b515934c8503ee2bbd7cfac4da20'
-    patches: 'aa004d2294f756cd990092d2071ef368aa58d9af 833ca63be2ab14871874ccb6974921e8952802e9'
+    patches: '95f84b61f4f22570fc78313ecf54b522743a3f41 833ca63be2ab14871874ccb6974921e8952802e9'
     flavor: 'da-ghc-8.8.1'
   steps:
   - checkout: self
@@ -67,9 +67,9 @@ jobs:
                          --gen-flavor=$(flavor) \
                          --version-suffix= \
             | tee log"
-      export NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/cc855b133100a956d4587079e27c5704cbc8342b.tar.gz
-      # We need GHC 8.10.4 for running ghc-lib-gen and GHC 8.6.5 to build GHC.
-      nix-shell -p stack -p gmp -p autoconf269 -p automake -p coreutils -p perl -p m4 -p 'haskell.packages.ghc8104.ghcWithPackages(_: [])' 'haskell.packages.ghc865Binary.ghcWithPackages(_: [])' --command "$STACK_CMD"
+      export NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/defafc9a220440180a34f923be9772d9c89a8197.tar.gz
+      # We need GHC 8.10.7 for running ghc-lib-gen and GHC 8.6.5 to build GHC.
+      nix-shell -p stack -p gmp -p autoconf269 -p automake -p coreutils -p perl -p m4 -p 'haskell.packages.ghc8107.ghcWithPackages(_: [])' 'haskell.packages.ghc865Binary.ghcWithPackages(_: [])' --command "$STACK_CMD"
       VERSION=$(cat log | tail -1)
 
       GCS_KEY=$(mktemp)

@@ -16,7 +16,6 @@ trait StorageBackendFactory {
   def createConfigurationStorageBackend(ledgerEndCache: LedgerEndCache): ConfigurationStorageBackend
   def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend
   def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend
-  def createDeduplicationStorageBackend: DeduplicationStorageBackend
   def createCompletionStorageBackend(stringInterning: StringInterning): CompletionStorageBackend
   def createContractStorageBackend(
       ledgerEndCache: LedgerEndCache,
@@ -32,6 +31,7 @@ trait StorageBackendFactory {
   def createResetStorageBackend: ResetStorageBackend
   def createStringInterningStorageBackend: StringInterningStorageBackend
   def createUserManagementStorageBackend: UserManagementStorageBackend
+  def createMeteringStorageBackend(ledgerEndCache: LedgerEndCache): MeteringStorageBackend
 
   final def readStorageBackend(
       ledgerEndCache: LedgerEndCache,
@@ -44,6 +44,7 @@ trait StorageBackendFactory {
       completionStorageBackend = createCompletionStorageBackend(stringInterning),
       contractStorageBackend = createContractStorageBackend(ledgerEndCache, stringInterning),
       eventStorageBackend = createEventStorageBackend(ledgerEndCache, stringInterning),
+      meteringStorageBackend = createMeteringStorageBackend(ledgerEndCache),
     )
 }
 
@@ -63,4 +64,5 @@ case class ReadStorageBackend(
     completionStorageBackend: CompletionStorageBackend,
     contractStorageBackend: ContractStorageBackend,
     eventStorageBackend: EventStorageBackend,
+    meteringStorageBackend: MeteringStorageBackend,
 )

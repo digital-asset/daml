@@ -77,7 +77,7 @@ runSession :: Verbose -> SessionConfig -> IO ()
 runSession (Verbose verbose) SessionConfig{..} =
     LSP.runSessionWithConfig cnf ideShellCommand fullCaps' ideRoot $ traverse_ interpretCommand ideCommands
     where cnf = LSP.defaultConfig { LSP.logStdErr = verbose, LSP.logMessages = verbose }
-          fullCaps' = LSP.fullCaps { _window = Just $ WindowClientCapabilities $ Just True }
+          fullCaps' = LSP.fullCaps { _window = Just $ WindowClientCapabilities (Just True) Nothing Nothing }
 
 progressStart :: LSP.Session ProgressToken
 progressStart = LSP.satisfyMaybe $ \case
@@ -102,12 +102,12 @@ interpretCommand = \case
             done <- progressDone
             guard $ done == start
     Repeat count cmds -> replicateM_ count $ traverse_ interpretCommand cmds
-    InsertLine f l t -> do
+    InsertLine f (fromIntegral -> l) t -> do
         uri <- LSP.getDocUri f
         let p = Position l 0
         LSP.changeDoc (TextDocumentIdentifier uri)
             [TextDocumentContentChangeEvent (Just $ Range p p) Nothing (t <> "\n")]
-    DeleteLine f l -> do
+    DeleteLine f (fromIntegral -> l) -> do
         uri <- LSP.getDocUri f
         let pStart = Position l 0
         let pEnd = Position (l + 1) 0

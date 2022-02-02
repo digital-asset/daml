@@ -707,9 +707,40 @@ excluded_test_tool_tests = [
             {
                 "end": "2.0.0-snapshot.20220118.8919.1",
                 "exclusions": [
+                    "CommandDeduplicationParallelIT",
                     "CommandDeduplicationPeriodValidationIT",
                     "CompletionDeduplicationInfoITCommandService",
                     "CompletionDeduplicationInfoITCommandSubmissionService",
+                ],
+            },
+        ],
+    },
+    {
+        # Sandbox-on-X doesn't use participant-side command deduplication starting with next release,
+        # hence older tests will fail to assert it.
+        "start": "1.17.0",
+        "end": "1.18.1",
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20220126.9029.1",
+                "exclusions": [
+                    "CommandDeduplicationIT:ParticipantCommandDeduplication",
+                ],
+            },
+        ],
+    },
+    {
+        # Sandbox-on-X doesn't use participant-side command deduplication starting with next release,
+        # hence older tests will fail to assert it.
+        "start": "1.18.0",
+        "end": "1.18.1",
+        "platform_ranges": [
+            {
+                "start": "2.0.0-snapshot.20220126.9029.1",
+                "exclusions": [
+                    "CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationMixedClients",
+                    "CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateSubmitterBasic",
+                    "CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationBasic",
                 ],
             },
         ],

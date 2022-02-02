@@ -54,6 +54,8 @@ let uiProc: ChildProcess | undefined = undefined;
 // Chrome browser that we run in headless mode
 let browser: Browser | undefined = undefined;
 
+let publicParty: string | undefined = undefined;
+
 // Function to generate unique party names for us.
 // This should be replaced by the party management service once that is exposed
 // in the HTTP JSON API.
@@ -170,6 +172,7 @@ beforeAll(async () => {
   );
   await waitOn({ resources: [`file:../${JSON_API_PORT_FILE_NAME}`] });
 
+  publicParty = getParty();
 
   uiProc =
     spawn(npmExeName, ["start"], {
@@ -206,7 +209,7 @@ test("create and look up user using ledger library", async () => {
   const ledger = new Ledger({ token });
   const users0 = await ledger.query(User.User);
   expect(users0).toEqual([]);
-  const user = { username: party, following: [] };
+  const user = { username: party, following: [], public: publicParty };
   const userContract1 = await ledger.create(User.User, user);
   const userContract2 = await ledger.fetchByKey(User.User, party);
   expect(userContract1).toEqual(userContract2);
@@ -269,9 +272,11 @@ const logout = async (page: Page) => {
 
 // Follow a user using the text input in the follow panel.
 const follow = async (page: Page, userToFollow: string) => {
-  await page.click(".test-select-follow-input");
-  await page.type(".test-select-follow-input", userToFollow);
-  await page.click(".test-select-follow-button");
+  const followInput = await page.waitForSelector('.test-select-follow-input');
+  await followInput.click();
+  await followInput.type(userToFollow);
+  await followInput.press('Tab');
+  await page.click('.test-select-follow-button');
 
   // Wait for the request to complete, either successfully or after the error
   // dialog has been handled.

@@ -13,6 +13,8 @@ def client_server_test(
         name,
         runner = "//bazel_tools/client_server/runner_with_port_file",
         runner_args = [],
+        runner_files = [],
+        runner_files_prefix = "",
         client = None,
         client_args = [],
         client_files = [],
@@ -62,6 +64,9 @@ def client_server_test(
         cmd = """\
 runner=$$(canonicalize_rlocation $$(get_exe $(rootpaths {runner})))
 runner_args="{runner_args}"
+for file in {runner_files}; do
+    runner_args+=" {runner_files_prefix}$$(canonicalize_rlocation $$file)"
+done
 client=$$(canonicalize_rlocation $$(get_exe $(rootpaths {client})))
 server=$$(canonicalize_rlocation $$(get_exe $(rootpaths {server})))
 server_args="{server_args}"
@@ -81,6 +86,8 @@ $$runner $$client "$$client_args" $$server "$$server_args" "$$runner_args"
 """.format(
             runner = runner,
             runner_args = _escape_args(runner_args),
+            runner_files = _escape_args(runner_files),
+            runner_files_prefix = runner_files_prefix,
             client = client,
             client_args = _escape_args(client_args),
             client_files = _escape_args(client_files),

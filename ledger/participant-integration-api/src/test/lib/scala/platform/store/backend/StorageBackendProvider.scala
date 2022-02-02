@@ -21,6 +21,7 @@ import org.scalatest.Suite
   */
 private[backend] trait StorageBackendProvider {
   protected def jdbcUrl: String
+  protected def lockIdSeed: Int
   protected def backend: TestBackend
 
   protected final def ingest(dbDtos: Vector[DbDto], connection: Connection): Unit = {
@@ -48,7 +49,7 @@ private[backend] trait StorageBackendProvider {
   }
 
   protected final def updateLedgerEndCache(connection: Connection): Unit = {
-    val ledgerEnd = backend.parameter.ledgerEndOrBeforeBegin(connection)
+    val ledgerEnd = backend.parameter.ledgerEnd(connection)
     backend.ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
   }
 }
@@ -61,14 +62,14 @@ trait StorageBackendProviderPostgres extends StorageBackendProvider with Postgre
 
 private[backend] trait StorageBackendProviderH2 extends StorageBackendProvider { this: Suite =>
   override protected def jdbcUrl: String = "jdbc:h2:mem:storage_backend_provider;db_close_delay=-1"
+  override protected def lockIdSeed: Int =
+    throw new UnsupportedOperationException //  DB Locking is not supported for H2
   override protected val backend: TestBackend = TestBackend(H2StorageBackendFactory)
 }
 
 private[backend] trait StorageBackendProviderOracle
     extends StorageBackendProvider
     with OracleAroundAll { this: Suite =>
-  override protected def jdbcUrl: String =
-    s"jdbc:oracle:thin:$oracleUser/$oraclePwd@localhost:$oraclePort/ORCLPDB1"
   override protected val backend: TestBackend = TestBackend(OracleStorageBackendFactory)
 }
 
@@ -78,7 +79,6 @@ case class TestBackend(
     configuration: ConfigurationStorageBackend,
     party: PartyStorageBackend,
     packageBackend: PackageStorageBackend,
-    deduplication: DeduplicationStorageBackend,
     completion: CompletionStorageBackend,
     contract: ContractStorageBackend,
     event: EventStorageBackend,
@@ -90,6 +90,7 @@ case class TestBackend(
     ledgerEndCache: MutableLedgerEndCache,
     stringInterningSupport: MockStringInterning,
     userManagement: UserManagementStorageBackend,
+    metering: MeteringStorageBackend,
 )
 
 object TestBackend {
@@ -102,7 +103,6 @@ object TestBackend {
       configuration = storageBackendFactory.createConfigurationStorageBackend(ledgerEndCache),
       party = storageBackendFactory.createPartyStorageBackend(ledgerEndCache),
       packageBackend = storageBackendFactory.createPackageStorageBackend(ledgerEndCache),
-      deduplication = storageBackendFactory.createDeduplicationStorageBackend,
       completion = storageBackendFactory.createCompletionStorageBackend(stringInterning),
       contract =
         storageBackendFactory.createContractStorageBackend(ledgerEndCache, stringInterning),
@@ -115,6 +115,7 @@ object TestBackend {
       ledgerEndCache = ledgerEndCache,
       stringInterningSupport = stringInterning,
       userManagement = storageBackendFactory.createUserManagementStorageBackend,
+      metering = storageBackendFactory.createMeteringStorageBackend(ledgerEndCache),
     )
   }
 }

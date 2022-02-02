@@ -5,7 +5,7 @@ package com.daml.telemetry
 
 import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.context.Context
-import io.opentelemetry.context.propagation.TextMapPropagator
+import io.opentelemetry.context.propagation.{TextMapGetter, TextMapSetter}
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -32,7 +32,7 @@ object Tracing {
 
   /** Helper object used by TextMapPropagator.inject().
     */
-  object TracingMetadataSetter extends TextMapPropagator.Setter[mutable.Map[String, String]] {
+  object TracingMetadataSetter extends TextMapSetter[mutable.Map[String, String]] {
     override def set(carrier: mutable.Map[String, String], key: String, value: String): Unit = {
       carrier += ((key, value))
     }
@@ -40,7 +40,7 @@ object Tracing {
 
   /** Helper object used by TextMapPropagator.extract().
     */
-  object TracingMetadataGetter extends TextMapPropagator.Getter[Map[String, String]] {
+  object TracingMetadataGetter extends TextMapGetter[Map[String, String]] {
     override def get(carrier: Map[String, String], key: String): String = {
       carrier.get(key).orNull
     }

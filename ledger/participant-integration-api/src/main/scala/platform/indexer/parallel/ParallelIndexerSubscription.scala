@@ -3,9 +3,6 @@
 
 package com.daml.platform.indexer.parallel
 
-import java.sql.Connection
-import java.util.concurrent.TimeUnit
-
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
@@ -20,15 +17,11 @@ import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.backend.{
-  DbDto,
-  DbDtoToStringsForInterning,
-  IngestionStorageBackend,
-  ParameterStorageBackend,
-  UpdateToDbDto,
-}
+import com.daml.platform.store.backend._
 import com.daml.platform.store.interning.{InternizingStringInterningView, StringInterning}
 
+import java.sql.Connection
+import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 
 private[platform] case class ParallelIndexerSubscription[DB_BATCH](
@@ -68,6 +61,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
               translation = translation,
               compressionStrategy = compressionStrategy,
             ),
+            UpdateToMeteringDbDto(),
           )
         ),
         seqMapperZero =
@@ -131,6 +125,7 @@ object ParallelIndexerSubscription {
   def inputMapper(
       metrics: Metrics,
       toDbDto: Offset => state.Update => Iterator[DbDto],
+      toMeteringDbDto: Iterable[(Offset, state.Update)] => Vector[DbDto.TransactionMetering],
   )(implicit
       loggingContext: LoggingContext
   ): Iterable[((Offset, state.Update), Long)] => Batch[Vector[DbDto]] = { input =>
@@ -141,9 +136,15 @@ object ParallelIndexerSubscription {
           logger.info(s"Storing ${update.description}")
       }
     }
-    val batch = input.iterator.flatMap { case ((offset, update), _) =>
+
+    val mainBatch = input.iterator.flatMap { case ((offset, update), _) =>
       toDbDto(offset)(update)
     }.toVector
+
+    val meteringBatch = toMeteringDbDto(input.map(_._1))
+
+    val batch = mainBatch ++ meteringBatch
+
     Batch(
       lastOffset = input.last._1._1,
       lastSeqEventId = 0, // will be filled later in the sequential step

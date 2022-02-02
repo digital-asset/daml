@@ -18,11 +18,7 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  IndexConfiguration,
-  SubmissionConfiguration,
-}
+import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
@@ -34,7 +30,6 @@ final case class Config[Extra](
     mode: Mode,
     ledgerId: String,
     commandConfig: CommandConfiguration,
-    submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
@@ -78,7 +73,6 @@ object Config {
       mode = Mode.Run,
       ledgerId = UUID.randomUUID().toString,
       commandConfig = CommandConfiguration.default,
-      submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
       participants = Vector.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
@@ -417,17 +411,6 @@ object Config {
               s" Default is ${CommandConfiguration.DefaultTrackerRetentionPeriod}."
           )
 
-        opt[Unit]("disable-deduplication-unsafe")
-          .optional()
-          .hidden()
-          .action((_, config) =>
-            config
-              .copy(submissionConfig = config.submissionConfig.copy(enableDeduplication = false))
-          )
-          .text(
-            "Disable participant-side command deduplication."
-          )
-
         opt[Duration]("max-deduplication-duration")
           .optional()
           .hidden()
@@ -654,8 +637,8 @@ object Config {
           .optional()
           .text(
             s"Defaults to ${UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds} seconds. " +
-              // TODO participant user management: Update max delay to 2x the configured value when made use of in throttled stream authorization.
-              "Determines the maximum delay for propagating user management state changes."
+              "Used to set expiry time for user management cache. " +
+              "Also determines the maximum delay for propagating user management state changes which is double its value."
           )
           .action((value, config: Config[Extra]) =>
             config.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = value))
@@ -664,11 +647,11 @@ object Config {
         opt[Int]("user-management-max-cache-size")
           .optional()
           .text(
-            s"Defaults to ${UserManagementConfig.DefaultMaximumCacheSize} entries. " +
+            s"Defaults to ${UserManagementConfig.DefaultMaxCacheSize} entries. " +
               "Determines the maximum in-memory cache size for user management state."
           )
           .action((value, config: Config[Extra]) =>
-            config.withUserManagementConfig(_.copy(maximumCacheSize = value))
+            config.withUserManagementConfig(_.copy(maxCacheSize = value))
           )
       }
     extraOptions(parser)

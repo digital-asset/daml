@@ -22,13 +22,9 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
-import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe
-import qualified Data.Map.Strict as Map
 import DA.PortFile
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Network.HTTP.Simple as HTTP
 import Network.Socket.Extended (getFreePort)
 import System.Console.ANSI
 import System.FilePath
@@ -36,8 +32,6 @@ import System.Process.Typed
 import System.IO.Extra
 import System.Info.Extra
 import Web.Browser
-import qualified Web.JWT as JWT
-import Data.Aeson
 
 import Options.Applicative.Extended (YesNoAuto, determineAutoM)
 
@@ -142,22 +136,8 @@ withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) extraArgs a = do
             ] ++ extraArgs
     withSdkJar args "json-api-logback.xml" $ \ph -> do
         putStrLn "Waiting for JSON API to start: "
-        -- The secret doesn’t matter here
-        let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
-                { JWT.unregisteredClaims = JWT.ClaimsMap $
-                      Map.fromList [("https://daml.com/ledger-api", Object $ HashMap.fromList
-                        [("actAs", toJSON ["Alice" :: T.Text]), ("ledgerId", "sandbox"), ("applicationId", "foobar")])]
-                        -- TODO https://github.com/digital-asset/daml/issues/12145
-                        --   Drop the ledgerId field once it becomes optional.
-                }
-        -- For now, we have a dummy authorization header here to wait for startup since we cannot get a 200
-        -- response otherwise. We probably want to add some method to detect successful startup without
-        -- any authorization
-        let headers =
-                [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
-                ] :: HTTP.RequestHeaders
         waitForHttpServer 240 (unsafeProcessHandle ph) (putStr "." *> threadDelay 500000)
-            ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
+            ("http://localhost:" <> show jsonApiPort <> "/readyz") []
         a ph
 
 data JsonApiConfig = JsonApiConfig

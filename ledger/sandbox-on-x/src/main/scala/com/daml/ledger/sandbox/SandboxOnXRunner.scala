@@ -40,9 +40,9 @@ import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
-import com.daml.platform.usermanagement.PersistentUserManagementStore
-
+import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import java.util.concurrent.{Executors, TimeUnit}
+
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 
@@ -152,7 +152,9 @@ object SandboxOnXRunner {
 
           readServiceWithSubscriber = new BridgeReadService(
             ledgerId = config.ledgerId,
-            maxDedupSeconds = config.extra.maxDedupSeconds,
+            maximumDeduplicationDuration = config.maxDeduplicationDuration.getOrElse(
+              BridgeConfigProvider.DefaultMaximumDeduplicationTime
+            ),
             stateUpdatesSource,
           )
 
@@ -229,7 +231,6 @@ object SandboxOnXRunner {
       ledgerId = config.ledgerId,
       config = apiServerConfig,
       commandConfig = config.commandConfig,
-      submissionConfig = config.submissionConfig,
       partyConfig = PartyConfiguration(config.extra.implicitPartyAllocation),
       optWriteService = Some(writeService),
       authService = config.extra.authService,
@@ -243,7 +244,8 @@ object SandboxOnXRunner {
         dbSupport = dbSupport,
         metrics = metrics,
         cacheExpiryAfterWriteInSeconds = config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-        maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+        maxCacheSize = config.userManagementConfig.maxCacheSize,
+        maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
       )(servicesExecutionContext),
       ledgerFeatures = LedgerFeatures(
         staticTime = timeServiceBackend.isDefined,
@@ -254,13 +256,14 @@ object SandboxOnXRunner {
               CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
             )
           ),
-          deduplicationType = CommandDeduplicationType.SYNC_ONLY,
-          maxDeduplicationDurationEnforced = false,
+          deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
+          maxDeduplicationDurationEnforced = true,
         ),
         contractIdFeatures = ExperimentalContractIds.of(
           v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
         ),
       ),
+      userManagementConfig = config.userManagementConfig,
     )
 
   private def buildIndexerServer(

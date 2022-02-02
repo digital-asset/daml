@@ -497,7 +497,7 @@ Integrate with the ledger
 
 A distributed ledger only forms the core of a full Daml application.
 
-To build automations and integrations around the ledger, Daml Connect has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
+To build automations and integrations around the ledger, Daml has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
 
 
 To compile the Java integration for the quickstart application, we first need to run the Java codegen on the DAR we built before::

@@ -3,6 +3,10 @@
 
 package com.daml.ledger.api.auth
 
+import java.time.Instant
+
+import akka.actor.Scheduler
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
@@ -10,16 +14,14 @@ import com.daml.error.{
 }
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
-import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
-import java.time.Instant
-
-import com.daml.error.definitions.LedgerApiErrors
 import io.grpc.StatusRuntimeException
+import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import scalapb.lenses.Lens
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /** A simple helper that allows services to use authorization claims
@@ -30,6 +32,10 @@ final class Authorizer(
     ledgerId: String,
     participantId: String,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    userManagementStore: UserManagementStore,
+    ec: ExecutionContext,
+    userRightsCheckIntervalInSeconds: Int,
+    akkaScheduler: Scheduler,
 )(implicit loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
@@ -226,16 +232,17 @@ final class Authorizer(
     }
 
   private def ongoingAuthorization[Res](
-      scso: ServerCallStreamObserver[Res],
+      observer: ServerCallStreamObserver[Res],
       claims: ClaimSet.Claims,
   ) = new OngoingAuthorizationObserver[Res](
-    scso,
-    claims,
-    _.notExpired(now()),
-    authorizationError => {
-      errorFactories.permissionDenied(authorizationError.reason)
-    },
-  )
+    observer = observer,
+    originalClaims = claims,
+    nowF = now,
+    errorFactories = errorFactories,
+    userManagementStore = userManagementStore,
+    userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
+    akkaScheduler = akkaScheduler,
+  )(loggingContext, ec)
 
   /** Directly access the authenticated claims from the thread-local context.
     *
@@ -263,7 +270,7 @@ final class Authorizer(
   private def authorizeWithReq[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
       authorized: (ClaimSet.Claims, Req) => Either[StatusRuntimeException, Req]
   ): (Req, StreamObserver[Res]) => Unit = (request, observer) => {
-    val scso = assertServerCall(observer)
+    val serverCallStreamObserver = assertServerCall(observer)
     authenticatedClaimsFromContext()
       .fold(
         ex => {
@@ -278,10 +285,10 @@ final class Authorizer(
             case Right(modifiedRequest) =>
               call(
                 modifiedRequest,
-                if (claims.expiration.isDefined)
-                  ongoingAuthorization(scso, claims)
+                if (claims.expiration.isDefined || claims.resolvedFromUser)
+                  ongoingAuthorization(serverCallStreamObserver, claims)
                 else
-                  scso,
+                  serverCallStreamObserver,
               )
             case Left(ex) =>
               observer.onError(ex)
@@ -324,8 +331,21 @@ object Authorizer {
       ledgerId: String,
       participantId: String,
       errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+      userManagementStore: UserManagementStore,
+      ec: ExecutionContext,
+      userRightsCheckIntervalInSeconds: Int,
+      akkaScheduler: Scheduler,
   ): Authorizer =
     LoggingContext.newLoggingContext { loggingContext =>
-      new Authorizer(now, ledgerId, participantId, errorCodesVersionSwitcher)(loggingContext)
+      new Authorizer(
+        now = now,
+        ledgerId = ledgerId,
+        participantId = participantId,
+        errorCodesVersionSwitcher = errorCodesVersionSwitcher,
+        userManagementStore = userManagementStore,
+        ec = ec,
+        userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
+        akkaScheduler = akkaScheduler,
+      )(loggingContext)
     }
 }

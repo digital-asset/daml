@@ -68,8 +68,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           controllers TRACE @(List Party) "choice controllers" (Cons @Party [M:T {signatory} this] (Nil @Party)),
           observers TRACE @(List Party) "choice observers" (Nil @Party)
           to upure @M:Nested (TRACE @M:Nested "choice body" (M:buildNested (case arg of M:Either:Right i -> i | _ -> 0)));
-        choice Archive (self) (p: Party): Unit, 
-          controllers Cons @Party [p] (Nil @Party)
+        choice Archive (self) (arg: Unit): Unit, 
+          controllers Cons @Party [M:T {signatory} this] (Nil @Party)
           to upure @Unit (TRACE @Unit "archive" ());
         key @M:TKey
            (TRACE @M:TKey "key" (M:T {key} this))
@@ -82,6 +82,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         signatories Cons @Party [M:Dummy {signatory} this] (Nil @Party);
         observers Nil @Party;
         agreement "";
+        choice Archive (self) (arg: Unit): Unit, 
+          controllers Cons @Party [M:Dummy {signatory} this] (Nil @Party)
+          to upure @Unit ();
       };   
     }
     
@@ -259,9 +262,19 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     GlobalKeyWithMaintainers(GlobalKey.assertBuild(T, keyValue), Set(alice)) -> cId
   )
 
-  private val seed = crypto.Hash.hashPrivateKey("seed")
+  private[this] val dummyContract = Versioned(
+    TransactionVersion.StableVersions.max,
+    Value.ContractInstance(
+      Dummy,
+      ValueRecord(None, ImmArray(None -> ValueParty(alice))),
+      "",
+    ),
+  )
+  private[this] val getWronglyTypedContract = Map(cId -> dummyContract)
 
-  private def evalUpdateApp(
+  private[this] val seed = crypto.Hash.hashPrivateKey("seed")
+
+  private[this] def evalUpdateApp(
       pkgs: CompiledPackages,
       e: Expr,
       args: Array[SValue],
@@ -384,9 +397,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Set(alice),
         )
         inside(res) {
-          case Success(
-                Left(SErrorDamlException(IE.CreateEmptyContractKeyMaintainers(T, _, _)))
-              ) =>
+          case Success(Left(SErrorDamlException(IE.CreateEmptyContractKeyMaintainers(T, _, _)))) =>
             msgs shouldBe Seq(
               "starts test",
               "precondition",
@@ -526,23 +537,14 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a wrongly type non-cached global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a wrongly typed non-cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (cId: ContractId M:T) -> Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)""",
             Array(SParty(alice), SContractId(cId)),
             Set(alice),
-            getContract = Map(
-              cId -> Versioned(
-                TransactionVersion.StableVersions.max,
-                Value.ContractInstance(
-                  Dummy,
-                  ValueRecord(None, ImmArray(None -> ValueParty(alice))),
-                  "",
-                ),
-              )
-            ),
+            getContract = getWronglyTypedContract,
           )
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
@@ -604,11 +606,11 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(sig: Party) (exercisingParty : Party) (cId: ContractId M:T)  -> 
-             ubind x: Unit <- exercise @M:T Archive cId sig in 
+            e"""\(exercisingParty : Party) (cId: ContractId M:T)  -> 
+             ubind x: Unit <- exercise @M:T Archive cId () in 
                Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
              """,
-            Array(SParty(alice), SParty(alice), SContractId(cId)),
+            Array(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getContract,
           )
@@ -617,7 +619,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a wrongly type cached global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a wrongly typed cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -627,20 +629,28 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                """,
             Array(SParty(alice), SContractId(cId)),
             Set(alice),
-            getContract = Map(
-              cId -> Versioned(
-                TransactionVersion.StableVersions.max,
-                Value.ContractInstance(
-                  Dummy,
-                  ValueRecord(None, ImmArray(None -> ValueParty(alice))),
-                  "",
-                ),
-              )
-            ),
+            getContract = getWronglyTypedContract,
           )
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
               msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // This checks that type checking is done after checking activeness.
+        "wrongly typed inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(exercisingParty : Party) (cId: ContractId M:T) -> 
+               ubind x: M:Dummy <- exercise @M:Dummy Archive cId () in
+               Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
+               """,
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getWronglyTypedContract,
+          )
+          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
+            msgs shouldBe Seq("starts test")
           }
         }
 
@@ -693,7 +703,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             e"""\(sig : Party) (obs : Party) (exercisingParty : Party) ->
              ubind 
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } ;
-               x: Unit <- exercise @M:T Archive cId sig
+               x: Unit <- exercise @M:T Archive cId ()
              in 
                Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
              """,
@@ -721,6 +731,25 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
               msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // This checks that type checking is done after checking activeness.
+        "wrongly typed inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(sig : Party) (exercisingParty : Party) ->
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig } 
+             in ubind x: Unit <- exercise @M:Dummy Archive cId1 ()
+             in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
+             in 
+               Test:exercise_by_id exercisingParty cId1 (M:Either:Left @Int64 @Int64 0)
+             """,
+            Array(SParty(alice), SParty(alice)),
+            Set(alice),
+          )
+          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
+            msgs shouldBe Seq("starts test")
           }
         }
 
@@ -847,16 +876,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             e"""\(exercisingParty : Party) (sig: Party) -> Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
             Array(SParty(alice), SParty(alice)),
             Set(alice),
-            getContract = Map(
-              cId -> Versioned(
-                TransactionVersion.StableVersions.max,
-                Value.ContractInstance(
-                  Dummy,
-                  ValueRecord(None, ImmArray(None -> ValueParty(alice))),
-                  "",
-                ),
-              )
-            ),
+            getContract = getWronglyTypedContract,
             getKey = getKey,
           )
           inside(res) {
@@ -924,7 +944,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig: Party) (exercisingParty : Party) (cId: ContractId M:T)  -> 
-             ubind x: Unit <- exercise @M:T Archive cId sig in
+             ubind x: Unit <- exercise @M:T Archive cId () in
                Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
              """,
             Array(SParty(alice), SParty(alice), SContractId(cId)),
@@ -938,7 +958,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of a wrongly type cached global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of a wrongly typed cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -948,16 +968,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                """,
             Array(SParty(alice), SContractId(cId), SParty(alice)),
             Set(alice),
-            getContract = Map(
-              cId -> Versioned(
-                TransactionVersion.StableVersions.max,
-                Value.ContractInstance(
-                  Dummy,
-                  ValueRecord(None, ImmArray(None -> ValueParty(alice))),
-                  "",
-                ),
-              )
-            ),
+            getContract = getWronglyTypedContract,
             getKey = getKey,
           )
           inside(res) {
@@ -987,6 +998,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "choice controllers",
               "choice observers",
             )
+
           }
         }
       }
@@ -1023,7 +1035,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             e"""\(sig : Party) (obs : Party) (exercisingParty : Party) ->
              ubind 
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } ;
-               x: Unit <- exercise @M:T Archive cId sig
+               x: Unit <- exercise @M:T Archive cId ()
              in 
                Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
              """,
@@ -1032,10 +1044,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(gKey)))) =>
             gKey.templateId shouldBe T
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-            )
+            msgs shouldBe Seq("starts test", "maintainers")
           }
         }
 
@@ -1215,23 +1224,14 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly type non-cached global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly typed non-cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""Test:fetch_by_id""",
             Array(SParty(alice), SContractId(cId)),
             Set(alice),
-            getContract = Map(
-              cId -> Versioned(
-                TransactionVersion.StableVersions.max,
-                Value.ContractInstance(
-                  Dummy,
-                  ValueRecord(None, ImmArray(None -> ValueParty(alice))),
-                  "",
-                ),
-              )
-            ),
+            getContract = getWronglyTypedContract,
           )
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
@@ -1285,10 +1285,10 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(sig: Party) (fetchingParty: Party) (cId: ContractId M:T)  -> 
-             ubind x: Unit <- exercise @M:T Archive cId sig
+            e"""\(fetchingParty: Party) (cId: ContractId M:T)  -> 
+             ubind x: Unit <- exercise @M:T Archive cId ()
              in Test:fetch_by_id fetchingParty cId""",
-            Array(SParty(alice), SParty(alice), SContractId(cId)),
+            Array(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getContract,
           )
@@ -1297,7 +1297,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly type cached global contract
+        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly typed cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1306,20 +1306,27 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                in Test:fetch_by_id fetchingParty cId""",
             Array(SParty(alice), SContractId(cId)),
             Set(alice),
-            getContract = Map(
-              cId -> Versioned(
-                TransactionVersion.StableVersions.max,
-                Value.ContractInstance(
-                  Dummy,
-                  ValueRecord(None, ImmArray(None -> ValueParty(alice))),
-                  "",
-                ),
-              )
-            ),
+            getContract = getWronglyTypedContract,
           )
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
               msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // This checks that type checking is done after checking activeness.
+        "wrongly typed inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(fetchingParty: Party) (cId: ContractId M:T) -> 
+               ubind x: M:Dummy <- exercise @M:Dummy Archive cId ()
+               in Test:fetch_by_id fetchingParty cId""",
+            Array(SParty(alice), SContractId(cId)),
+            Set(alice),
+            getContract = getWronglyTypedContract,
+          )
+          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
+            msgs shouldBe Seq("starts test")
           }
         }
 
@@ -1365,7 +1372,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             e"""\(sig : Party) (obs : Party) (fetchingParty: Party) ->
              ubind 
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } ;
-               x: Unit <- exercise @M:T Archive cId sig
+               x: Unit <- exercise @M:T Archive cId ()
              in Test:fetch_by_id fetchingParty cId""",
             Array(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
@@ -1389,6 +1396,23 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) {
             case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy)))) =>
               msgs shouldBe Seq("starts test")
+          }
+        }
+
+        // This checks that type checking is done after checking activeness.
+        "wrongly typed inactive contract" in {
+          val (res, msgs) = evalUpdateApp(
+            pkgs,
+            e"""\(sig : Party) (fetchingParty: Party) ->
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig } 
+             in ubind x: Unit <- exercise @M:Dummy Archive cId1 () 
+             in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
+             in Test:fetch_by_id fetchingParty cId2""",
+            Array(SParty(alice), SParty(alice)),
+            Set(alice),
+          )
+          inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
+            msgs shouldBe Seq("starts test")
           }
         }
 
@@ -1459,16 +1483,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             e"""\(fetchingParty:Party) (sig: Party) -> Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
             Array(SParty(alice), SParty(alice)),
             Set(alice),
-            getContract = Map(
-              cId -> Versioned(
-                TransactionVersion.StableVersions.max,
-                Value.ContractInstance(
-                  Dummy,
-                  ValueRecord(None, ImmArray(None -> ValueParty(alice))),
-                  "",
-                ),
-              )
-            ),
+            getContract = getWronglyTypedContract,
             getKey = getKey,
           )
           inside(res) {
@@ -1530,7 +1545,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(cId: ContractId M:T) (fetchingParty: Party) (sig: Party) -> 
-             ubind x: Unit <- exercise @M:T Archive cId sig
+             ubind x: Unit <- exercise @M:T Archive cId ()
              in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
             Array(SContractId(cId), SParty(alice), SParty(alice)),
             Set(alice),
@@ -1586,7 +1601,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             e"""\(sig : Party) (obs : Party) (fetchingParty: Party) ->
              ubind 
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 };
-               x: Unit <- exercise @M:T Archive cId sig
+               x: Unit <- exercise @M:T Archive cId ()
              in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
             Array(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
@@ -1723,11 +1738,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             getKey = getKey,
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq(
-              "starts test",
-              "maintainers",
-              "queries key",
-            )
+            msgs shouldBe Seq("starts test", "maintainers", "queries key")
           }
         }
       }
@@ -1757,7 +1768,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(cId: ContractId M:T) (lookingParty: Party) (sig: Party) -> 
-             ubind x: Unit <- exercise @M:T Archive cId sig
+             ubind x: Unit <- exercise @M:T Archive cId ()
              in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
             Array(SContractId(cId), SParty(alice), SParty(alice)),
             Set(alice),
@@ -1812,7 +1823,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             e"""\(sig : Party) (obs : Party) (lookingParty: Party) ->
              ubind 
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 };
-               x: Unit <- exercise @M:T Archive cId sig
+               x: Unit <- exercise @M:T Archive cId ()
              in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
             Array(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),

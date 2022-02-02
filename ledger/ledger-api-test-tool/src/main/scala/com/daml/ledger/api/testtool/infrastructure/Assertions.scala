@@ -125,8 +125,8 @@ object Assertions {
         if (checkDefiniteAnswerMetadata) assertDefiniteAnswer(exception)
         additionalErrorAssertions(exception)
       case exception: StatusRuntimeException if participant.features.selfServiceErrorCodes =>
-        assertSelfServiceErrorCode(exception, selfServiceErrorCode)
         optPattern.foreach(assertMatches(exception.getMessage, _))
+        assertSelfServiceErrorCode(exception, selfServiceErrorCode)
         if (checkDefiniteAnswerMetadata) assertDefiniteAnswer(exception)
         additionalErrorAssertions(exception)
       case _ =>
@@ -153,7 +153,10 @@ object Assertions {
       case Some(value) =>
         value
       case None =>
-        fail(s"The error metadata did not contain the key $key. Metadata was: [$metadata]")
+        fail(
+          s"The error metadata did not contain the key $key. Metadata was: [$metadata]",
+          exception,
+        )
     }
   }
 
@@ -187,15 +190,15 @@ object Assertions {
         )
       )
     val expectedErrorId = expectedErrorCode.id
-    val expectedRetryabilitySeconds = expectedErrorCode.category.retryable.map(_.duration.toSeconds)
+    val expectedRetryability = expectedErrorCode.category.retryable.map(_.duration)
 
     val actualStatusCode = status.getCode
     val actualErrorDetails = ErrorDetails.from(status.getDetailsList.asScala.toSeq)
     val actualErrorId = actualErrorDetails
       .collectFirst { case err: ErrorDetails.ErrorInfoDetail => err.reason }
       .getOrElse(fail("Actual error id is not defined"))
-    val actualRetryabilitySeconds = actualErrorDetails
-      .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.retryDelayInSeconds }
+    val actualRetryability = actualErrorDetails
+      .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.duration }
 
     if (actualErrorId != expectedErrorId)
       fail(s"Actual error id ($actualErrorId) does not match expected error id ($expectedErrorId}")
@@ -208,8 +211,8 @@ object Assertions {
 
     Assertions.assertEquals(
       s"Error retryability details mismatch",
-      actualRetryabilitySeconds,
-      expectedRetryabilitySeconds,
+      actualRetryability,
+      expectedRetryability,
     )
   }
 

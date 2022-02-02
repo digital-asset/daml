@@ -307,11 +307,14 @@ settings =
   [ ("target arch", "ArchUnknown")
   , ("target os", "OSUnknown")
   , ("target word size", "8")
+  , ("target word big endian", "NO")
   , ("Unregisterised", "YES")
   , ("target has GNU nonexec stack", "YES")
   , ("target has .ident directive", "YES")
   , ("target has subsections via symbols", "YES")
   , ("cross compiling", "NO")
+  , ("Leading underscore", "NO")
+  , ("Tables next to code", "YES")
   ]
 
 -- Register a dar dependency in the package database
@@ -380,6 +383,7 @@ baseImports =
           , "DA.Internal.Template.Functions"
           , "DA.Internal.LF"
           , "DA.Internal.Prelude"
+          , "DA.Internal.Desugar"
           , "DA.Internal.Down"
           , "DA.NonEmpty.Types"
           , "DA.Semigroup.Types"
@@ -418,7 +422,7 @@ getGhcPkgPath :: IO FilePath
 getGhcPkgPath =
     if isWindows
         then locateRunfiles "rules_haskell_ghc_windows_amd64/bin"
-        else locateRunfiles "ghc_nix/lib/ghc-8.10.7/bin"
+        else locateRunfiles "ghc_nix/lib/ghc-9.0.2/bin"
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a

@@ -9,6 +9,7 @@ import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpola
 import com.daml.platform.store.backend.ResetStorageBackend
 
 object OracleResetStorageBackend extends ResetStorageBackend {
+
   override def resetAll(connection: Connection): Unit =
     List(
       "configuration_entries",
@@ -16,7 +17,6 @@ object OracleResetStorageBackend extends ResetStorageBackend {
       "package_entries",
       "parameters",
       "participant_command_completions",
-      "participant_command_submissions",
       "participant_events_divulgence",
       "participant_events_create",
       "participant_events_consuming_exercise",
@@ -26,5 +26,7 @@ object OracleResetStorageBackend extends ResetStorageBackend {
       "participant_events_create_filter",
       "participant_users",
       "participant_user_rights",
+      "transaction_metering",
     ).map(table => SQL"truncate table #$table cascade").foreach(_.execute()(connection))
+
 }

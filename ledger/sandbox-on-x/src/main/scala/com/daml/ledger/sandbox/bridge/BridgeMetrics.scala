@@ -30,6 +30,7 @@ class BridgeMetrics(metrics: Metrics) {
     val keyStateSize: Histogram = registry.histogram(Prefix :+ "keys")
     val consumedContractsStateSize: Histogram = registry.histogram(Prefix :+ "consumed_contracts")
     val sequencerQueueLength: Histogram = registry.histogram(Prefix :+ "queue")
+    val deduplicationQueueLength: Histogram = registry.histogram(Prefix :+ "deduplication_queue")
   }
 
   object InputQueue {

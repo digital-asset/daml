@@ -4,7 +4,7 @@
 package com.daml
 package ledger.sandbox.domain
 
-import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
+import com.daml.ledger.participant.state.v2.{ChangeId, CompletionInfo, Update}
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import error.ContextualizedErrorLogger
 import error.definitions.LedgerApiErrors
@@ -17,6 +17,8 @@ import platform.store.appendonlydao.events.ContractId
 import com.google.protobuf.any.Any
 import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
+
+import java.time.Duration
 
 private[sandbox] sealed trait Rejection extends Product with Serializable {
   def toStatus: Status
@@ -59,7 +61,15 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status = LedgerApiErrors.InternalError
       .UnexpectedOrUnknownException(_err)
-      .rpcStatus(None)
+      .rpcStatus(completionInfo.submissionId)
+  }
+
+  final case class OffsetDeduplicationPeriodUnsupported(completionInfo: CompletionInfo)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ) extends Rejection {
+    override def toStatus: Status = LedgerApiErrors.UnsupportedOperation
+      .Reject("command deduplication with periods specified using offsets")
+      .rpcStatus(completionInfo.submissionId)
   }
 
   final case class TransactionInternallyInconsistentKey(
@@ -116,6 +126,34 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status =
       errorFactories.CommandRejections.partiesNotKnownToLedger(unallocatedParties)
+  }
+
+  final case class DuplicateCommand(
+      changeId: ChangeId,
+      completionInfo: CompletionInfo,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ) extends Rejection {
+    override def toStatus: Status =
+      LedgerApiErrors.ConsistencyErrors.DuplicateCommand
+        .Reject(_definiteAnswer = false, None, Some(changeId))
+        .rpcStatus(completionInfo.submissionId)
+  }
+
+  final case class MaxDeduplicationDurationExceeded(
+      duration: Duration,
+      maxDeduplicationDuration: Duration,
+      completionInfo: CompletionInfo,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ) extends Rejection {
+    override def toStatus: Status =
+      LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
+        .Reject(
+          s"The given deduplication duration of $duration exceeds the maximum deduplication time of $maxDeduplicationDuration",
+          Some(maxDeduplicationDuration),
+        )
+        .rpcStatus(None)
   }
 
   final case class NoLedgerConfiguration(

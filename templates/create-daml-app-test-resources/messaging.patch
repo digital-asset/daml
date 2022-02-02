@@ -1,11 +1,11 @@
-diff --git templates/create-daml-app/daml/User.daml templates/create-daml-app/daml/User.daml
+diff --git templates/create-daml-app/daml/User.daml templates/create-daml-app-test-resources/daml/User.daml
+index a1789d5..a007b95 100644
 --- templates/create-daml-app/daml/User.daml
-+++ templates/create-daml-app/daml/User.daml
-@@ -25,3 +25,22 @@ template User with
-         archive self
++++ templates/create-daml-app-test-resources/daml/User.daml
+@@ -27,6 +27,16 @@ template User with
          create this with following = userToFollow :: following
      -- FOLLOW_END
-+
+ 
 +    -- SENDMESSAGE_BEGIN
 +    nonconsuming choice SendMessage: ContractId Message with
 +        sender: Party
@@ -15,6 +15,14 @@ diff --git templates/create-daml-app/daml/User.daml templates/create-daml-app/da
 +        assertMsg "Designated user must follow you back to send a message" (elem sender following)
 +        create Message with sender, receiver = username, content
 +    -- SENDMESSAGE_END
++
+ -- ALIAS_BEGIN
+ template Alias with
+     username: Party
+@@ -46,3 +56,12 @@ template Alias with
+         archive self
+         create this with alias = newAlias
+ -- ALIAS_END
 +
 +-- MESSAGE_BEGIN
 +template Message with

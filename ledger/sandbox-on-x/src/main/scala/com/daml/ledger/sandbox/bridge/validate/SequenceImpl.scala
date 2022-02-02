@@ -5,22 +5,22 @@ package com.daml.ledger.sandbox.bridge.validate
 
 import com.daml.api.util.TimeProvider
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
-import com.daml.ledger.sandbox.bridge.LedgerBridge._
-import com.daml.ledger.sandbox.bridge.LedgerBridge.{fromOffset, toOffset}
-import SequencerState.LastUpdatedAt
+import com.daml.ledger.participant.state.v2.{ChangeId, CompletionInfo, Update}
+import com.daml.ledger.sandbox.bridge.LedgerBridge.{fromOffset, toOffset, _}
 import com.daml.ledger.sandbox.bridge._
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge.{
   Sequence,
   Validation,
   _,
 }
+import com.daml.ledger.sandbox.bridge.validate.SequencerState.LastUpdatedAt
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.{AllocateParty, Config, Transaction}
 import com.daml.ledger.sandbox.domain._
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{Transaction => LfTransaction}
@@ -29,6 +29,7 @@ import com.daml.metrics.Timed
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
+import java.time.Duration
 import scala.util.chaining._
 
 /** Conflict checking with the in-flight commands,
@@ -43,6 +44,7 @@ private[validate] class SequenceImpl(
     validatePartyAllocation: Boolean,
     bridgeMetrics: BridgeMetrics,
     errorFactories: ErrorFactories,
+    maxDeduplicationDuration: Duration,
 ) extends Sequence {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
@@ -50,6 +52,8 @@ private[validate] class SequenceImpl(
   @volatile private[validate] var sequencerState = SequencerState.empty(bridgeMetrics)
   @volatile private[validate] var allocatedParties = initialAllocatedParties
   @volatile private[validate] var ledgerConfiguration = initialLedgerConfiguration
+  @volatile private[validate] var deduplicationState =
+    DeduplicationState.empty(maxDeduplicationDuration, bridgeMetrics)
 
   override def apply(): Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)] =
     in => {
@@ -86,7 +90,6 @@ private[validate] class SequenceImpl(
     case s: Submission.UploadPackages =>
       Some(packageUploadSuccess(s, timeProvider.getCurrentTimestamp))
     case _: Submission.Transaction =>
-      // TODO SoX: Handle gracefully
       throw new RuntimeException("Unexpected Submission.Transaction")
   }
 
@@ -145,17 +148,21 @@ private[validate] class SequenceImpl(
       newOffset: LastUpdatedAt,
       recordTime: Timestamp,
       txSubmission: PreparedTransactionSubmission,
-  ) = {
-    val submitterInfo = txSubmission.submission.submitterInfo
+  ): Update =
+    withErrorLogger(txSubmission.submission.submitterInfo.submissionId) { implicit errorLogger =>
+      val submitterInfo = txSubmission.submission.submitterInfo
+      val completionInfo = submitterInfo.toCompletionInfo()
 
-    withErrorLogger(submitterInfo.submissionId) { implicit errorLogger =>
       for {
-        _ <- checkTimeModel(txSubmission.submission, recordTime, ledgerConfiguration)
-        completionInfo = submitterInfo.toCompletionInfo()
+        _ <- checkTimeModel(
+          transaction = txSubmission.submission,
+          recordTime = recordTime,
+          ledgerConfiguration = ledgerConfiguration,
+        )
         _ <- validateParties(
-          allocatedParties,
-          txSubmission.transactionInformees,
-          completionInfo,
+          allocatedParties = allocatedParties,
+          transactionInformees = txSubmission.transactionInformees,
+          completionInfo = completionInfo,
         )
         _ <- conflictCheckWithInFlight(
           keysState = sequencerState.keyState,
@@ -164,24 +171,30 @@ private[validate] class SequenceImpl(
           inputContracts = txSubmission.inputContracts,
           completionInfo = completionInfo,
         )
-      } yield ()
-    }(txSubmission.submission.loggingContext, logger)
-      .fold(
-        _.toCommandRejectedUpdate(recordTime),
-        { _ =>
-          // Update the sequencer state
-          sequencerState = sequencerState
-            .dequeue(noConflictUpTo)
-            .enqueue(newOffset, txSubmission.updatedKeys, txSubmission.consumedContracts)
-
-          transactionAccepted(
-            txSubmission.submission,
-            offsetIdx,
-            timeProvider.getCurrentTimestamp,
-          )
-        },
+        recordTime = timeProvider.getCurrentTimestamp
+        updatedDeduplicationState <- deduplicate(
+          changeId = ChangeId(
+            submitterInfo.applicationId,
+            submitterInfo.commandId,
+            submitterInfo.actAs.toSet,
+          ),
+          deduplicationPeriod = submitterInfo.deduplicationPeriod,
+          completionInfo = completionInfo,
+          recordTime = recordTime,
+        )
+        _ = updateStatesOnSuccessfulValidation(
+          noConflictUpTo,
+          newOffset,
+          txSubmission,
+          updatedDeduplicationState,
+        )
+      } yield transactionAccepted(
+        txSubmission.submission,
+        offsetIdx,
+        recordTime,
       )
-  }
+    }(txSubmission.submission.loggingContext, logger)
+      .fold(_.toCommandRejectedUpdate(recordTime), identity)
 
   private def conflictCheckWithInFlight(
       keysState: Map[Key, (Option[ContractId], LastUpdatedAt)],
@@ -219,6 +232,28 @@ private[validate] class SequenceImpl(
           }
     }
 
+  private def deduplicate(
+      changeId: ChangeId,
+      deduplicationPeriod: DeduplicationPeriod,
+      completionInfo: CompletionInfo,
+      recordTime: Time.Timestamp,
+  )(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Validation[DeduplicationState] =
+    deduplicationPeriod match {
+      case DeduplicationPeriod.DeduplicationDuration(commandDeduplicationDuration) =>
+        val (newDeduplicationState, isDuplicate) =
+          deduplicationState.deduplicate(changeId, commandDeduplicationDuration, recordTime)
+
+        Either.cond(
+          !isDuplicate,
+          newDeduplicationState,
+          DuplicateCommand(changeId, completionInfo),
+        )
+      case _: DeduplicationPeriod.DeduplicationOffset =>
+        Left(Rejection.OffsetDeduplicationPeriodUnsupported(completionInfo))
+    }
+
   private def validateParties(
       allocatedParties: Set[Ref.Party],
       transactionInformees: Set[Ref.Party],
@@ -252,5 +287,21 @@ private[validate] class SequenceImpl(
           .left
           .map(Rejection.InvalidLedgerTime(completionInfo, _)(errorFactories))
       )
+  }
+
+  private def updateStatesOnSuccessfulValidation(
+      noConflictUpTo: LastUpdatedAt,
+      newOffset: LastUpdatedAt,
+      txSubmission: PreparedTransactionSubmission,
+      updatedDeduplicationState: DeduplicationState,
+  ): Unit = {
+    sequencerState = sequencerState
+      .dequeue(noConflictUpTo)
+      .enqueue(
+        newOffset,
+        txSubmission.updatedKeys,
+        txSubmission.consumedContracts,
+      )
+    deduplicationState = updatedDeduplicationState
   }
 }

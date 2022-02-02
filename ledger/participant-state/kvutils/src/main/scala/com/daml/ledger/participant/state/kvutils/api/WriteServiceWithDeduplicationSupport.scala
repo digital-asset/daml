@@ -109,9 +109,6 @@ class WriteServiceWithDeduplicationSupport(
       telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult] =
     delegate.submitConfiguration(maxRecordTime, submissionId, config)
-
-  override def isApiDeduplicationEnabled: Boolean = delegate.isApiDeduplicationEnabled
-
 }
 
 object WriteServiceWithDeduplicationSupport {

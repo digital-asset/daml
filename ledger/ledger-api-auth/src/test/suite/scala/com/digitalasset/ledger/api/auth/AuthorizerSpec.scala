@@ -9,12 +9,20 @@ import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import java.time.Instant
-import scala.concurrent.Future
+
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import org.mockito.MockitoSugar
+
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class AuthorizerSpec extends AsyncFlatSpec with Matchers {
+class AuthorizerSpec
+    extends AsyncFlatSpec
+    with Matchers
+    with MockitoSugar
+    with AkkaBeforeAndAfterAll {
   private val className = classOf[Authorizer].getSimpleName
   private val dummyRequest = 1337L
   private val expectedSuccessfulResponse = "expectedSuccessfulResponse"
@@ -77,5 +85,9 @@ class AuthorizerSpec extends AsyncFlatSpec with Matchers {
     "some-ledger-id",
     "participant-id",
     new ErrorCodesVersionSwitcher(selfServiceErrorCodes),
+    mock[UserManagementStore],
+    mock[ExecutionContext],
+    userRightsCheckIntervalInSeconds = 1,
+    akkaScheduler = system.scheduler,
   )
 }

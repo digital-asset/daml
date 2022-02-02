@@ -55,15 +55,11 @@ private[platform] case class InitializeParallelIngestion(
       _ <- dbDispatcher.executeSql(metrics.daml.parallelIndexer.initialization)(
         ingestionStorageBackend.deletePartiallyIngestedData(ledgerEnd)
       )
-      _ <- ledgerEnd match {
-        case Some(ledgerEnd) => updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
-        case None => Future.unit
-      }
-      ledgerEndOrBeforeBegin = ledgerEnd.getOrElse(ParameterStorageBackend.LedgerEndBeforeBegin)
+      _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
     } yield InitializeParallelIngestion.Initialized(
-      initialEventSeqId = ledgerEndOrBeforeBegin.lastEventSeqId,
-      initialStringInterningId = ledgerEndOrBeforeBegin.lastStringInterningId,
-      readServiceSource = readService.stateUpdates(beginAfter = ledgerEnd.map(_.lastOffset)),
+      initialEventSeqId = ledgerEnd.lastEventSeqId,
+      initialStringInterningId = ledgerEnd.lastStringInterningId,
+      readServiceSource = readService.stateUpdates(beginAfter = ledgerEnd.lastOffsetOption),
     )
   }
 

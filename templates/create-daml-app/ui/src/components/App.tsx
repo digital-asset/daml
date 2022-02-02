@@ -20,6 +20,7 @@ const App: React.FC = () => {
     ? <DamlLedger
         token={credentials.token}
         party={credentials.party}
+        user={credentials.user}
       >
       <MainScreen onLogout={() => {
         if (authConfig.provider === 'daml-hub') {

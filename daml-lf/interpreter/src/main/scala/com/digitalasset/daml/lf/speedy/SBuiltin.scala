@@ -1032,11 +1032,11 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 0)
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) =>
-          if (cached.templateId != templateId)
-            throw SErrorDamlException(IE.WronglyTypedContract(coid, templateId, cached.templateId))
           onLedger.ptx.consumedBy
             .get(coid)
             .foreach(nid => throw SErrorDamlException(IE.ContractNotActive(coid, templateId, nid)))
+          if (cached.templateId != templateId)
+            throw SErrorDamlException(IE.WronglyTypedContract(coid, templateId, cached.templateId))
           machine.returnValue = cached.value
         case None =>
           throw SpeedyHungry(
@@ -1120,11 +1120,17 @@ private[lf] object SBuiltin {
       }
 
       onLedger.cachedContracts.get(coid) match {
-        case Some(cached) => {
+        case Some(cached) =>
+          onLedger.ptx.consumedBy
+            .get(coid)
+            .foreach(nid =>
+              throw SErrorDamlException(
+                IE.ContractNotActive(coid, expectedTemplateIdOpt.getOrElse(ifaceId), nid)
+              )
+            )
           checkTemplateId(cached.templateId) {
             machine.returnValue = cached.value
           }
-        }
         case None =>
           throw SpeedyHungry(
             SResultNeedContract(
@@ -1850,7 +1856,6 @@ private[lf] object SBuiltin {
       List(
         "ANSWER" -> SBExperimentalAnswer,
         "TO_TYPE_REP" -> SBExperimentalToTypeRep,
-        "RESOLVE_VIRTUAL_CREATE" -> new SBResolveVirtual(CreateDefRef),
         "RESOLVE_VIRTUAL_SIGNATORY" -> new SBResolveVirtual(SignatoriesDefRef),
         "RESOLVE_VIRTUAL_OBSERVER" -> new SBResolveVirtual(ObserversDefRef),
       ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap

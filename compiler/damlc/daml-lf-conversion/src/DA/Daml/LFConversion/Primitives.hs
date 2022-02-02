@@ -292,6 +292,15 @@ convertPrim _ "UExerciseInterface"
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
+convertPrim _ "UExerciseByKey"
+    (TApp proxy (TCon template) :-> key :-> TCon choice :-> TUpdate _returnTy) =
+    ETmLam (mkVar "_", TApp proxy (TCon template)) $
+    ETmLam (mkVar "key", key) $
+    ETmLam (mkVar "arg", TCon choice) $
+    EUpdate $ UExerciseByKey template choiceName (EVar (mkVar "key")) (EVar (mkVar "arg"))
+  where
+    choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
+
 convertPrim _ "ULookupByKey" (key :-> TUpdate (TOptional (TContractId (TCon template)))) =
     ETmLam (mkVar "key", key) $ EUpdate $
         ULookupByKey $ RetrieveByKey template (EVar $ mkVar "key")
@@ -357,7 +366,7 @@ convertPrim _ "ESignatoryInterface" (TCon interface :-> TList TParty) =
 
 convertPrim _ "EObserverInterface" (TCon interface :-> TList TParty) =
     ETmLam (mkVar "this", TCon interface) $
-    EExperimental "RESOLVE_VIRTUAL_OBSERVERS"
+    EExperimental "RESOLVE_VIRTUAL_OBSERVER"
         (TCon interface :-> TCon interface :-> TList TParty)
         `ETmApp` EVar (mkVar "this") `ETmApp` EVar (mkVar "this")
 
