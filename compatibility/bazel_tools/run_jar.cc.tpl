@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
     wchar_t *index = wcschr(oldCmdLine, ' ');
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
     std::wstring cmdLine = converter.from_bytes(java.c_str());
-    cmdLine += std::wstring(" -jar ");
+    cmdLine += L" -jar ";
     cmdLine += converter.from_bytes(path.c_str());
     cmdLine += std::wstring(index);
     const int MAX_CMDLINE_LENGTH = 32768;
