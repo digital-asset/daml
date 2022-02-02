@@ -358,6 +358,10 @@ convertPrim _ "EToAnyContractKey"
     ETmLam (mkVar "key", key) $
     EToAny key (EVar $ mkVar "key")
 
+convertPrim _ "EToTypeRep" (TCon interface :-> TTypeRep) =
+    ETmLam (mkVar "this", TCon interface) $
+    EToTypeRep interface (EVar (mkVar "this"))
+
 convertPrim _ "ESignatoryInterface" (TCon interface :-> TList TParty) =
     ETmLam (mkVar "this", TCon interface) $
     EResolveVirtualSignatory interface (EVar (mkVar "this"))
