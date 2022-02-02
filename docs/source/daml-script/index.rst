@@ -204,7 +204,7 @@ read/written as JSON, following the :doc:`/json-api/lf-value-specification`.
 The ``--output-file`` option instructs ``daml script`` to write the
 result of the given ``--script-name`` to the given filename (creating
 the file if it does not exist; overwriting it otherwise). This is most
-usfeful if the given program has a type ``Script b``, where ``b`` is a
+useful if the given program has a type ``Script b``, where ``b`` is a
 meaningful value. In our example, we can use this to write out the
 party ids that have been allocated by ``allocateParties``:
 
