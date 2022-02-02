@@ -192,8 +192,8 @@ class PersistentUserManagementStore(
   ): Future[Result[UsersPage]] = {
     inTransaction(_.listUsers) { connection =>
       val users: Seq[domain.User] = fromExcl match {
-        case None => backend.getUsersOrderedById(maxResults)(connection)
-        case Some(after) => backend.getUsersOrderedById(after, maxResults)(connection)
+        case None => backend.getUsersOrderedById(None, maxResults)(connection)
+        case Some(fromExcl) => backend.getUsersOrderedById(Some(fromExcl), maxResults)(connection)
       }
       Right(UsersPage(users = users))
     }

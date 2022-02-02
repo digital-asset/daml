@@ -407,9 +407,9 @@ trait UserManagementStorageBackend {
 
   def getUser(id: UserId)(connection: Connection): Option[UserManagementStorageBackend.DbUser]
 
-  def getUsersOrderedById(after: UserId, maxResults: Int)(connection: Connection): Vector[User]
-
-  def getUsersOrderedById(maxResults: Int)(connection: Connection): Vector[User]
+  def getUsersOrderedById(fromExcl: Option[UserId] = None, maxResults: Int)(
+      connection: Connection
+  ): Vector[User]
 
   /** @return true if the right didn't exist and we have just added it.
     */

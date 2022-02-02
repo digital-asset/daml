@@ -56,11 +56,11 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       token: Option[String] = None,
       pageToken: String,
       pageSize: Int,
-  ): Future[Vector[User]] =
+  ): Future[(Vector[User], String)] =
     LedgerClient
       .stub(service, token)
       .listUsers(proto.ListUsersRequest(pageToken = pageToken, pageSize = pageSize))
-      .map(_.users.view.map(fromProtoUser).toVector)
+      .map(res => res.users.view.map(fromProtoUser).toVector -> res.nextPageToken)
 
   def grantUserRights(
       userId: UserId,

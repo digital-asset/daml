@@ -97,26 +97,33 @@ private[backend] trait StorageBackendTestsUserManagement
   }
 
   it should "get all users (getUsers) ordered by id" in {
-    val user1 = newUniqueUser(userIdPrefix = "user_id_1_")
-    val user2 = newUniqueUser(userIdPrefix = "user_id_2_")
-    val user3 = newUniqueUser(userIdPrefix = "user_id_3_")
-    executeSql(tested.getUsersOrderedById(maxResults = 10)) shouldBe empty
+    val user1 = newUniqueUser(userId = "user_id_1")
+    val user2 = newUniqueUser(userId = "user_id_2")
+    val user3 = newUniqueUser(userId = "user_id_3")
+    executeSql(tested.getUsersOrderedById(fromExcl = None, maxResults = 10)) shouldBe empty
     val _ = executeSql(tested.createUser(user3))
     val _ = executeSql(tested.createUser(user1))
-    executeSql(tested.getUsersOrderedById(maxResults = 10)) shouldBe Seq(user1, user3)
+    executeSql(tested.getUsersOrderedById(fromExcl = None, maxResults = 10)) shouldBe Seq(
+      user1,
+      user3,
+    )
     val _ = executeSql(tested.createUser(user2))
-    executeSql(tested.getUsersOrderedById(maxResults = 10)) shouldBe Seq(user1, user2, user3)
+    executeSql(tested.getUsersOrderedById(fromExcl = None, maxResults = 10)) shouldBe Seq(
+      user1,
+      user2,
+      user3,
+    )
   }
 
   it should "get a page of users (getUsers) ordered by id" in {
-    val user1 = newUniqueUser(userIdPrefix = "user_id_1_")
-    val user2 = newUniqueUser(userIdPrefix = "user_id_2_")
-    val user3 = newUniqueUser(userIdPrefix = "user_id_3_")
+    val user1 = newUniqueUser(userId = "user_id_1")
+    val user2 = newUniqueUser(userId = "user_id_2")
+    val user3 = newUniqueUser(userId = "user_id_3")
     // Note: user4 doesn't exist and won't be created
-    val user5 = newUniqueUser(userIdPrefix = "user_id_5_")
-    val user6 = newUniqueUser(userIdPrefix = "user_id_6_")
-    val user7 = newUniqueUser(userIdPrefix = "user_id_7_")
-    executeSql(tested.getUsersOrderedById(maxResults = 10)) shouldBe empty
+    val user5 = newUniqueUser(userId = "user_id_5")
+    val user6 = newUniqueUser(userId = "user_id_6")
+    val user7 = newUniqueUser(userId = "user_id_7")
+    executeSql(tested.getUsersOrderedById(fromExcl = None, maxResults = 10)) shouldBe empty
     // Creating users in a random order
     val _ = executeSql(tested.createUser(user5))
     val _ = executeSql(tested.createUser(user1))
@@ -125,15 +132,20 @@ private[backend] trait StorageBackendTestsUserManagement
     val _ = executeSql(tested.createUser(user6))
     val _ = executeSql(tested.createUser(user2))
     // Get first 2 elements
-    executeSql(tested.getUsersOrderedById(maxResults = 2)) shouldBe Seq(user1, user2)
+    executeSql(tested.getUsersOrderedById(fromExcl = None, maxResults = 2)) shouldBe Seq(
+      user1,
+      user2,
+    )
     // Get 3 users after user1
-    executeSql(tested.getUsersOrderedById(maxResults = 3, after = user1.id)) shouldBe Seq(
+    executeSql(tested.getUsersOrderedById(maxResults = 3, fromExcl = Some(user1.id))) shouldBe Seq(
       user2,
       user3,
       user5,
     )
     // Get up to 10000 users after user1
-    executeSql(tested.getUsersOrderedById(maxResults = 10000, after = user1.id)) shouldBe Seq(
+    executeSql(
+      tested.getUsersOrderedById(maxResults = 10000, fromExcl = Some(user1.id))
+    ) shouldBe Seq(
       user2,
       user3,
       user5,
@@ -142,19 +154,25 @@ private[backend] trait StorageBackendTestsUserManagement
     )
     // Get some users after a non-existing user id
     executeSql(
-      tested.getUsersOrderedById(maxResults = 2, after = Ref.UserId.assertFromString("user_id_4"))
+      tested.getUsersOrderedById(
+        maxResults = 2,
+        fromExcl = Some(Ref.UserId.assertFromString("user_id_4")),
+      )
     ) shouldBe Seq(user5, user6)
     // Get no users when requesting with after set the last existing user
-    executeSql(tested.getUsersOrderedById(maxResults = 2, after = user7.id)) shouldBe empty
+    executeSql(tested.getUsersOrderedById(maxResults = 2, fromExcl = Some(user7.id))) shouldBe empty
     // Get no users when requesting with after set beyond the last existing user
     executeSql(
-      tested.getUsersOrderedById(maxResults = 2, after = Ref.UserId.assertFromString("user_id_8"))
+      tested.getUsersOrderedById(
+        maxResults = 2,
+        fromExcl = Some(Ref.UserId.assertFromString("user_id_8")),
+      )
     ) shouldBe empty
   }
 
   it should "handle adding rights to non-existent user" in {
     val nonExistentUserInternalId = 123
-    val allUsers = executeSql(tested.getUsersOrderedById(maxResults = 10))
+    val allUsers = executeSql(tested.getUsersOrderedById(maxResults = 10, fromExcl = None))
     val rightExists = executeSql(tested.userRightExists(nonExistentUserInternalId, right2))
     allUsers shouldBe empty
     rightExists shouldBe false
@@ -243,7 +261,7 @@ private[backend] trait StorageBackendTestsUserManagement
 
   private def newUniqueUser(
       emptyPrimaryParty: Boolean = false,
-      userIdPrefix: String = "user_id_",
+      userId: String = "",
   ): User = {
     val uuid = UUID.randomUUID.toString
     val primaryParty =
@@ -251,8 +269,9 @@ private[backend] trait StorageBackendTestsUserManagement
         None
       else
         Some(Ref.Party.assertFromString(s"primary_party_${uuid}"))
+    val userIdStr = if (userId != "") userId else s"user_id_${uuid}"
     User(
-      id = Ref.UserId.assertFromString(s"$userIdPrefix${uuid}"),
+      id = Ref.UserId.assertFromString(userIdStr),
       primaryParty = primaryParty,
     )
   }

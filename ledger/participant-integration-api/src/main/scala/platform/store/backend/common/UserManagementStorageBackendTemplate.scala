@@ -18,9 +18,7 @@ import com.daml.platform.store.backend.UserManagementStorageBackend
 
 import scala.util.Try
 
-object DefaultUserManagementStorageBackend extends UserManagementStorageBackendTemplate
-
-trait UserManagementStorageBackendTemplate extends UserManagementStorageBackend {
+object UserManagementStorageBackendTemplate extends UserManagementStorageBackend {
 
   private val ParticipantUserParser: RowParser[(Int, String, Option[String])] =
     int("internal_id") ~ str("user_id") ~ str("primary_party").? map {
@@ -40,11 +38,6 @@ trait UserManagementStorageBackendTemplate extends UserManagementStorageBackend 
 
   private val IntParser0: RowParser[Int] =
     int("dummy") map { i => i }
-
-  protected def limitClause(number: Int): ComposableQuery.CompositeSql = {
-    import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    cSQL"LIMIT $number"
-  }
 
   override def createUser(user: domain.User)(
       connection: Connection
@@ -77,27 +70,19 @@ trait UserManagementStorageBackendTemplate extends UserManagementStorageBackend 
       }
   }
 
-  override def getUsersOrderedById(fromExcl: UserId, maxResults: Int)(
+  override def getUsersOrderedById(fromExcl: Option[UserId], maxResults: Int)(
       connection: Connection
   ): Vector[domain.User] = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+    val whereClause = fromExcl match {
+      case None => cSQL""
+      case Some(id: String) => cSQL"WHERE user_id > ${id}"
+    }
     SQL"""SELECT user_id, primary_party
           FROM participant_users
-          WHERE user_id > ${fromExcl: String}
+          $whereClause
           ORDER BY user_id
-          ${limitClause(number = maxResults)}"""
-      .asVectorOf(ParticipantUserParser2)(connection)
-      .map { case (userId, primaryPartyRaw) =>
-        toDomainUser(userId, dbStringToPartyString(primaryPartyRaw))
-      }
-  }
-
-  override def getUsersOrderedById(maxResults: Int)(connection: Connection): Vector[domain.User] = {
-    import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    SQL"""SELECT user_id, primary_party
-          FROM participant_users
-          ORDER BY user_id
-          ${limitClause(number = maxResults)}"""
+          ${QueryStrategy.limitClause(Some(maxResults))}"""
       .asVectorOf(ParticipantUserParser2)(connection)
       .map { case (userId, primaryPartyRaw) =>
         toDomainUser(userId, dbStringToPartyString(primaryPartyRaw))

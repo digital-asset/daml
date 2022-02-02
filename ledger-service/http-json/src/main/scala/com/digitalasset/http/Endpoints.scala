@@ -499,7 +499,9 @@ class Endpoints(
       jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
       users <- EitherT.rightT(
         // TODO participant user management: Emulating no-pagination
-        userManagementClient.listUsers(Some(jwt.value), pageToken = "", pageSize = 10000)
+        userManagementClient.listUsers(Some(jwt.value), pageToken = "", pageSize = 10000).map {
+          case (users, _) => users
+        }
       )
     } yield domain.OkResponse(users.map(domain.UserDetails.fromUser).toList)
 

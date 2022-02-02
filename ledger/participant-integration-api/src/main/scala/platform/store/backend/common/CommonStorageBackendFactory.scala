@@ -26,7 +26,7 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
     StringInterningStorageBackendTemplate
 
   override val createUserManagementStorageBackend: UserManagementStorageBackend =
-    DefaultUserManagementStorageBackend
+    UserManagementStorageBackendTemplate
 
   override def createMeteringStorageBackend(
       ledgerEndCache: LedgerEndCache

@@ -378,7 +378,9 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       mat: Materializer,
   ): Future[List[User]] = {
     // TODO https://github.com/digital-asset/daml/issues/12663 participant user management: Emulating no-pagination
-    grpcClient.userManagementClient.listUsers(pageToken = "", pageSize = 10000).map(_.toList)
+    grpcClient.userManagementClient.listUsers(pageToken = "", pageSize = 10000).map {
+      case (users, _) => users.toList
+    }
   }
 
   override def grantUserRights(
