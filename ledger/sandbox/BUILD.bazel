@@ -281,7 +281,6 @@ conformance_test(
         "--static-time",
     ],
     test_tool_args = [
-        "--static-time",
         "--open-world",
         "--exclude=ClosedWorldIT",
     ],

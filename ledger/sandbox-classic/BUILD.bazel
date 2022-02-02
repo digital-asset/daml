@@ -218,7 +218,6 @@ server_conformance_test(
         "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
-        "--static-time",
         "--exclude=ClosedWorldIT",
     ],
 )

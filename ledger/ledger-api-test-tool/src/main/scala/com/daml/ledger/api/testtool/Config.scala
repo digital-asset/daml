@@ -31,7 +31,6 @@ final case class Config(
     partyAllocation: PartyAllocationConfiguration,
     ledgerClockGranularity: FiniteDuration,
     uploadDars: Boolean,
-    staticTime: Boolean,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config = {
     val base = tlsConfig.getOrElse(TlsConfiguration.Empty)
@@ -61,6 +60,5 @@ object Config {
     partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
     ledgerClockGranularity = tests.Defaults.LedgerClockGranularity,
     uploadDars = true,
-    staticTime = tests.Defaults.StaticTime,
   )
 }

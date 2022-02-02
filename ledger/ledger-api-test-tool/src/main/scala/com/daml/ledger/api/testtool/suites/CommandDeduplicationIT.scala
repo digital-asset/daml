@@ -47,8 +47,7 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 final class CommandDeduplicationIT(
-    timeoutScaleFactor: Double,
-    staticTime: Boolean,
+    timeoutScaleFactor: Double
 ) extends LedgerTestSuite {
 
   private[this] val logger: Logger = LoggerFactory.getLogger(getClass.getName)
@@ -206,7 +205,7 @@ final class CommandDeduplicationIT(
     "DeduplicationMixedClients",
     "Deduplicate commands within the deduplication time window using the command client and the command submission client",
     allocate(Parties(16)),
-    enabled = _ => !staticTime,
+    enabled = !_.staticTime,
     disabledReason = "Cannot work in static time as we run multiple test cases in parallel",
     runConcurrently = false, // updates the time model
     timeoutScale = 3,
