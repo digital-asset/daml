@@ -14,19 +14,23 @@ import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
 private[memory] class InMemoryState private (log: MutableLog, state: MutableState) {
+  // Ensure that mutable state does not change while reading.
+  // `StampedLock` supports many read locks, or one write lock.
   private val lockCurrentState = new StampedLock()
   @volatile private var lastLogEntryIndex = 0
+
+  def newHeadSinceLastWrite(): Int = lastLogEntryIndex
 
   def readLog[A](action: ImmutableLog => A): A = {
     val stamp = blocking {
       lockCurrentState.readLock()
     }
-    val result = action(log) // `log` is mutable, but the interface is immutable
-    lockCurrentState.unlock(stamp)
-    result
+    try {
+      action(log) // `log` is mutable, but the interface is immutable
+    } finally {
+      lockCurrentState.unlock(stamp)
+    }
   }
-
-  def newHeadSinceLastWrite(): Int = lastLogEntryIndex
 
   def write[A](action: (MutableLog, MutableState) => Future[A])(implicit
       executionContext: ExecutionContext
