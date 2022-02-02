@@ -24,7 +24,7 @@ import com.daml.ledger.javaapi.data._
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.fixture.{SandboxFixture => SandboxOnXFixture}
+import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.google.protobuf.Empty
@@ -35,7 +35,7 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
-trait SandboxFixture extends SandboxOnXFixture {
+trait SandboxTestLedger extends SandboxFixture {
   self: Suite =>
 
   protected val damlPackages: List[File] = List(
