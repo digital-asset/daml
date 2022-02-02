@@ -5,7 +5,7 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 
-import anorm.SqlParser.{int, str}
+import anorm.SqlParser.{int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.UserRight
@@ -20,10 +20,10 @@ import scala.util.Try
 
 object UserManagementStorageBackendTemplate extends UserManagementStorageBackend {
 
-  private val ParticipantUserParser: RowParser[(Int, String, Option[String])] =
-    int("internal_id") ~ str("user_id") ~ str("primary_party").? map {
-      case internalId ~ userId ~ primaryParty =>
-        (internalId, userId, primaryParty)
+  private val ParticipantUserParser: RowParser[(Int, String, Option[String], Long)] =
+    int("internal_id") ~ str("user_id") ~ str("primary_party").? ~ long("created_at") map {
+      case internalId ~ userId ~ primaryParty ~ createdAt =>
+        (internalId, userId, primaryParty, createdAt)
     }
 
   private val ParticipantUserParser2: RowParser[(String, Option[String])] =
@@ -31,9 +31,10 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
       (userId, primaryParty)
     }
 
-  private val UserRightParser: RowParser[(Int, Option[String])] =
-    int("user_right") ~ str("for_party").? map { case user_right ~ for_party =>
-      (user_right, for_party)
+  private val UserRightParser: RowParser[(Int, Option[String], Long)] =
+    int("user_right") ~ str("for_party").? ~ long("granted_at") map {
+      case userRight ~ forParty ~ grantedAt =>
+        (userRight, forParty, grantedAt)
     }
 
   private val IntParser0: RowParser[Int] =
@@ -59,13 +60,14 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
        WHERE user_id = ${id: String}
        """
       .as(ParticipantUserParser.singleOpt)(connection)
-      .map { case (internalId, userId, primaryPartyRaw) =>
+      .map { case (internalId, userId, primaryPartyRaw, createdAt) =>
         UserManagementStorageBackend.DbUser(
           internalId = internalId,
           domainUser = domain.User(
             id = Ref.UserId.assertFromString(userId),
             primaryParty = dbStringToPartyString(primaryPartyRaw),
           ),
+          createdAt = createdAt,
         )
       }
   }
@@ -129,17 +131,22 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     rowsUpdated == 1
   }
 
-  override def getUserRights(internalId: Int)(connection: Connection): Set[domain.UserRight] = {
-    val rec: Seq[(Int, Option[String])] =
+  override def getUserRights(
+      internalId: Int
+  )(connection: Connection): Set[UserManagementStorageBackend.DbUserRight] = {
+    val rec =
       SQL"""
-         SELECT ur.user_right, ur.for_party
+         SELECT ur.user_right, ur.for_party, ur.granted_at
          FROM participant_user_rights ur
          WHERE ur.user_internal_id = ${internalId}
          """.asVectorOf(UserRightParser)(connection)
-    rec.map { case (userRight, forPartyRaw) =>
-      makeUserRight(
-        value = userRight,
-        partyRaw = forPartyRaw,
+    rec.map { case (userRight, forPartyRaw, grantedAt) =>
+      UserManagementStorageBackend.DbUserRight(
+        makeUserRight(
+          value = userRight,
+          partyRaw = forPartyRaw,
+        ),
+        grantedAt = grantedAt,
       )
     }.toSet
   }

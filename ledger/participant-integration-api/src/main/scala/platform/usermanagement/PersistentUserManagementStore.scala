@@ -88,7 +88,7 @@ class PersistentUserManagementStore(
     inTransaction(_.getUserInfo) { implicit connection =>
       withUser(id) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
-        UserInfo(dbUser.domainUser, rights)
+        UserInfo(dbUser.domainUser, rights.map(_.domainRight))
       }
     }
   }

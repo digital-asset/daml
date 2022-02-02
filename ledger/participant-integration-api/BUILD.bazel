@@ -152,8 +152,6 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_mockito_mockito_scala",
-        "@maven//:org_playframework_anorm_anorm",
-        "@maven//:org_playframework_anorm_anorm_tokenizer",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",

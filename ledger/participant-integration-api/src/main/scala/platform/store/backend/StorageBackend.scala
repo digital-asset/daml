@@ -421,14 +421,17 @@ trait UserManagementStorageBackend {
 
   def userRightExists(internalId: Int, right: UserRight)(connection: Connection): Boolean
 
-  def getUserRights(internalId: Int)(connection: Connection): Set[UserRight]
+  def getUserRights(internalId: Int)(
+      connection: Connection
+  ): Set[UserManagementStorageBackend.DbUserRight]
 
   def countUserRights(internalId: Int)(connection: Connection): Int
 
 }
 
 object UserManagementStorageBackend {
-  case class DbUser(internalId: Int, domainUser: User)
+  case class DbUser(internalId: Int, domainUser: User, createdAt: Long)
+  case class DbUserRight(domainRight: UserRight, grantedAt: Long)
 }
 
 object MeteringStorageBackend {
