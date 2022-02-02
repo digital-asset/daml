@@ -140,17 +140,17 @@ patches we backport to the 1.0 release branch).
 
     1. Open two browser windows (you want to see them simultaneously ideally) at `localhost:3000`.
 
-    1. Log in as `Alice` in the first window, log in as `Bob` in the second window.
+    1. Log in as `alice` in the first window, log in as `bob` in the second window.
 
-    1. In the first window, where you are logged in as `Alice`,
-       follow `Bob` by typing their name in the text input and pressing enter.
-       Verify that `Bob` appears in the
-       list of users `Alice` is following. Verify in the other
+    1. In the first window, where you are logged in as `Alice`, follow
+       `Bob` by typing their name in the drop down (note that it will
+       be `Bob` not `bob`, the former is the global alias, the latter
+       is the participant-local username).  Verify that `Bob` appears
+       in the list of users `Alice` is following. Verify in the other
        browser window that `Alice` shows up in `Bob`’s network.
 
     1. In the second window, where you are logged in as `Bob`,
-       follow `Alice` by clicking on the "add user" logo to right of
-       `Alice` name below the "The Network" heading.
+       follow `Alice` by selecting it in the drop down.
        Verify that `Alice` appears in
        the list of users `Bob` is following. Verify in the other
        browser window that `Bob` shows up in `Alice`’s network.
@@ -187,15 +187,16 @@ patches we backport to the 1.0 release branch).
 
     1. Make `Alice` follow `Bob`.
 
-    1. From `Bob`, select `Alice` in the `Select a follower` drop down,
+    1. From `Bob`, select the only available party (currently a long random-looking string) in the `Select a follower` drop down,
        insert `hi alice` in the message field and click on `Send`.
 
     1. Verify that `Alice` has received the message in the other window.
 
     1. Make `Bob` follow `Alice`.
 
-    1. From `Alice`, select `Bob` in the drop down insert `hi bob` in
-       the message field and click on `Send`.
+    1. From `Alice`, select the only available party (currently a long
+       random-looking string) in the `Select a follower` drop down,
+       insert `hi bob` in the message field and click on `Send`.
 
     1. Verify that `Bob` has received the message in the other window.
 
