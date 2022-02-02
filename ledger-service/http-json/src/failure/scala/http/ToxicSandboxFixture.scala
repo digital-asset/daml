@@ -7,7 +7,8 @@ import java.net.InetAddress
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.testing.utils.{OwnedResource, SuiteResource, Resource => TestResource}
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxBackend, SandboxServer}
+import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxBackend}
+import com.daml.ledger.sandbox.SandboxServer
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.timer.RetryStrategy

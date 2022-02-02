@@ -47,6 +47,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
+import com.daml.ledger.sandbox.SandboxServer
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -58,7 +59,7 @@ import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
-import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
+import com.daml.platform.sandbox.AbstractSandboxFixture
 import com.daml.ports.Port
 import io.grpc.Channel
 import org.scalatest._
