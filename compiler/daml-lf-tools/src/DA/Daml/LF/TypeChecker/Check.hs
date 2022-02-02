@@ -766,12 +766,15 @@ typeOf' = \case
     checkExpr expr (TCon requiredIface)
     pure (TOptional (TCon requiringIface))
   EInterfaceTemplateTypeRep iface expr -> do
+    void $ inWorld (lookupInterface iface)
     checkExpr expr (TCon iface)
     pure TTypeRep
   ESignatoryInterface iface expr -> do
+    void $ inWorld (lookupInterface iface)
     checkExpr expr (TCon iface)
     pure (TList TParty)
   EObserverInterface iface expr -> do
+    void $ inWorld (lookupInterface iface)
     checkExpr expr (TCon iface)
     pure (TList TParty)
   EUpdate upd -> typeOfUpdate upd
