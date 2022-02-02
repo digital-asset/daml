@@ -78,7 +78,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
       assert(response2.timeModel.contains(newTimeModel), "Setting the new time model failed")
       assert(
         response3.timeModel.equals(response1.timeModel),
-        "Restoring the original time model failed",
+        "Restoring the original time model succeeded",
       )
     }
   })
