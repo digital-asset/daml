@@ -675,6 +675,15 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <$> mayDecode "expr_FromRequiredInterfaceRequiredInterface" expr_FromRequiredInterfaceRequiredInterface decodeTypeConName
     <*> mayDecode "expr_FromRequiredInterfaceRequiringInterface" expr_FromRequiredInterfaceRequiringInterface decodeTypeConName
     <*> mayDecode "expr_FromRequiredInterfaceExpr" expr_FromRequiredInterfaceExpr decodeExpr
+  LF1.ExprSumToTypeRep LF1.Expr_ToTypeRep {..} -> EToTypeRep
+    <$> mayDecode "expr_ToTypeRepInterfaceType" expr_ToTypeRepInterfaceType decodeTypeConName
+    <*> mayDecode "expr_ToTypeRepExpr" expr_ToTypeRepExpr decodeExpr
+  LF1.ExprSumResolveVirtualSignatory LF1.Expr_ResolveVirtualSignatory {..} -> EResolveVirtualSignatory
+    <$> mayDecode "expr_ResolveVirtualSignatoryInterfaceType" expr_ResolveVirtualSignatoryInterfaceType decodeTypeConName
+    <*> mayDecode "expr_ResolveVirtualSignatoryExpr" expr_ResolveVirtualSignatoryExpr decodeExpr
+  LF1.ExprSumResolveVirtualObserver LF1.Expr_ResolveVirtualObserver {..} -> EResolveVirtualObserver
+    <$> mayDecode "expr_ResolveVirtualObserverInterfaceType" expr_ResolveVirtualObserverInterfaceType decodeTypeConName
+    <*> mayDecode "expr_ResolveVirtualObserverExpr" expr_ResolveVirtualObserverExpr decodeExpr
   LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty
