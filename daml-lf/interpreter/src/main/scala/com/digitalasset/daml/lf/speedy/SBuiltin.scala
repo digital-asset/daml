@@ -1864,7 +1864,7 @@ private[lf] object SBuiltin {
     //TODO: move this into the speedy compiler code
     private val mapping: Map[String, compileTime.SExpr] =
       List(
-        "ANSWER" -> SBExperimentalAnswer,
+        "ANSWER" -> SBExperimentalAnswer
       ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap
 
     def apply(name: String): compileTime.SExpr =
