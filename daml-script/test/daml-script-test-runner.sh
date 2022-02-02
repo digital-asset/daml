@@ -40,10 +40,11 @@ EXPECTED="$(cat <<'EOF'
 MultiTest:listKnownPartiesTest SUCCESS
 MultiTest:multiTest SUCCESS
 MultiTest:partyIdHintTest SUCCESS
+ScriptExample:allocateParties SUCCESS
 ScriptExample:initializeFixed SUCCESS
-ScriptExample:initializeFromQuery SUCCESS
-ScriptExample:queryParties SUCCESS
+ScriptExample:initializeUser SUCCESS
 ScriptExample:test SUCCESS
+ScriptTest:clearUsers SUCCESS
 ScriptTest:failingTest FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: FAILED_PRECONDITION: DAML_INTERPRETATION_ERROR(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction:
 ScriptTest:listKnownPartiesTest SUCCESS
 ScriptTest:multiPartySubmission SUCCESS

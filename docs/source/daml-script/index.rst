@@ -152,12 +152,12 @@ uniquely. If you call ``allocateParty`` twice with the same display
 name, it will create 2 different parties. This is very convenient for
 testing since a new party cannot see any old contracts on the ledger
 so using new parties for each test removes the need to reset the
-ledger.
+ledger. We factor out party allocation into a functions so we can reuse it in later sections.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml
    :language: daml
-   :start-after: -- TEST_ALLOCATE_BEGIN
-   :end-before: -- TEST_ALLOCATE_END
+   :start-after: -- ALLOCATE_PARTIES_BEGIN
+   :end-before: -- ALLOCATE_PARTIES_END
 
 We now call the ``initialize`` function that we defined before on the
 parties that we have just allocated.
@@ -166,16 +166,6 @@ parties that we have just allocated.
    :language: daml
    :start-after: -- TEST_INITIALIZE_BEGIN
    :end-before: -- TEST_INITIALIZE_END
-
-Another option for getting access to the relevant party ids is to use
-``listKnownParties`` to pick out the party with a given display
-name. This is mainly useful in demo scenarios because display names
-are not guaranteed to be unique.
-
-.. literalinclude:: ./template-root/src/ScriptExample.daml
-   :language: daml
-   :start-after: -- INITIALIZE_QUERY_BEGIN
-   :end-before: -- INITIALIZE_QUERY_END
 
 Queries
 -------
@@ -211,27 +201,34 @@ inspect its outputs, ideally without having to recompile it. To that end, the
 ``--output-file``. Both flags take a filename, and said file will be
 read/written as JSON, following the :doc:`/json-api/lf-value-specification`.
 
-The ``--output-file`` option instructs ``daml script`` to write the result of
-the given ``--script-name`` to the given filename (creating the file if it does
-not exist; overwriting it otherwise). This is most usfeful if the given program
-has a type ``Script b``, where ``b`` is a meaningful value, which is not the
-case here: all of our ``Script`` programs have type ``Script ()``.
+The ``--output-file`` option instructs ``daml script`` to write the
+result of the given ``--script-name`` to the given filename (creating
+the file if it does not exist; overwriting it otherwise). This is most
+useful if the given program has a type ``Script b``, where ``b`` is a
+meaningful value. In our example, we can use this to write out the
+party ids that have been allocated by ``allocateParties``:
 
-If the ``--input-file`` flag is specified, the ``--script-name`` flag must
-point to a function of one argument returning a ``Script``, and the function
-will be called with the result of parsing the input file as its argument. For
-example, we can initialize our ledger using the ``initialize`` function defined
-above. It takes a ``LedgerParties`` argument, so a valid file for
-``--input-file`` would look like:
+``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:allocateParties --ledger-host localhost --ledger-port 6865 --output-file ledger-parties.json``
+
+The resulting file will look similar to the following but the actual
+party ids will be different each time you run it:
 
 .. literalinclude:: ./template-root/ledger-parties.json
    :language: daml
 
-Using that file, we can initialize our ledger passing it in via ``--input-file``:
+Next, we want to call the ``initialize`` function with those parties
+using the ``--input-file`` flag.  If the ``--input-file`` flag is
+specified, the ``--script-name`` flag must point to a function of one
+argument returning a ``Script``, and the function will be called with
+the result of parsing the input file as its argument. For example, we
+can initialize our ledger using the ``initialize`` function defined
+above. It takes a ``LedgerParties`` argument, so a valid file for
+``--input-file`` would look like:
+
+Using the previosuly created ``-ledger-parties.json`` file, we can
+initialize our ledger as follows:
 
 ``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:initialize --ledger-host localhost --ledger-port 6865 --input-file ledger-parties.json``
-
-If you open Navigator, you can now see the contracts that have been created.
 
 .. _script-ledger-initialization:
 
@@ -239,20 +236,18 @@ Using Daml Script for Ledger Initialization
 ===========================================
 
 You can use Daml script to initialize a ledger on startup. To do so,
-specify an ``init-script: ScriptExample:initializeFixed`` field in
-your ``daml.yaml``. This will automatically be picked up by ``daml
-start`` and used to initialize sandbox. Since it is often useful to
-create a party with a specific party identifier during development, you can
-use the ``allocatePartyWithHint`` function which accepts not only the
-display name but also a hint for the party identifier. On Sandbox, the hint
-will be used directly as the party identifier of the newly allocated
-party. This allows us to implement ``initializeFixed`` as a small
-wrapper around the ``initialize`` function we defined above:
+specify an ``init-script: ScriptExample:initializeUser`` field in your
+``daml.yaml``. This will automatically be picked up by ``daml start``
+and used to initialize sandbox. During development not being able to
+control party ids can often be inconvenient. Here, we rely on
+:ref:`users <user-service>` which do put us in control of
+their id. User ids can be used in Navigator, triggers & other tools
+instead of party ids.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml
    :language: daml
-   :start-after: -- INITIALIZE_FIXED_BEGIN
-   :end-before: -- INITIALIZE_FIXED_END
+   :start-after: -- INITIALIZE_USER_BEGIN
+   :end-before: -- INITIALIZE_USER_END
 
 Migrating from Scenarios
 ------------------------
