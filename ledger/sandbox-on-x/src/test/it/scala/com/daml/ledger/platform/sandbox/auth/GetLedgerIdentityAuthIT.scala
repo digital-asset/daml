@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
   LedgerIdentityServiceGrpc,
 }
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
 final class GetLedgerIdentityAuthIT extends PublicServiceCallAuthTests {
@@ -16,6 +17,8 @@ final class GetLedgerIdentityAuthIT extends PublicServiceCallAuthTests {
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
     stub(LedgerIdentityServiceGrpc.stub(channel), token)
-      .getLedgerIdentity(GetLedgerIdentityRequest())
+      .getLedgerIdentity(GetLedgerIdentityRequest()): @nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+    )
 
 }

@@ -13,12 +13,14 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
 }
 import io.grpc.ServerServiceDefinition
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 final class LedgerIdentityServiceImpl(ledgerId: String)
     extends LedgerIdentityService
     with FakeAutoCloseable {
 
+  @nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*")
   override def getLedgerIdentity(
       request: GetLedgerIdentityRequest
   ): Future[GetLedgerIdentityResponse] = {
@@ -33,6 +35,8 @@ object LedgerIdentityServiceImpl {
   ): (ServerServiceDefinition, LedgerIdentityServiceImpl) = {
     val impl = new LedgerIdentityServiceImpl(ledgerId)
     val authImpl = new LedgerIdentityServiceAuthorization(impl, authorizer)
-    (LedgerIdentityServiceGrpc.bindService(authImpl, ec), impl)
+    (LedgerIdentityServiceGrpc.bindService(authImpl, ec), impl): @nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+    )
   }
 }

@@ -17,6 +17,7 @@ import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.StatusRuntimeException
 import io.grpc.netty.NettyChannelBuilder
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
@@ -115,13 +116,17 @@ abstract class TlsIT(shortIdentifierPrefix: String) extends LedgerTestSuite {
               .sslContext(sslContext),
             shutdownTimeout = 2.seconds,
           )
-        } yield LedgerIdentityServiceGrpc.blockingStub(channel)
+        } yield LedgerIdentityServiceGrpc.blockingStub(channel): @nowarn(
+          "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+        )
 
         // when
         val response: Future[String] = serviceStubOwner.use { identityService =>
           val response = identityService.getLedgerIdentity(new GetLedgerIdentityRequest())
           Future.successful(response.ledgerId)
-        }(ResourceContext(ec))
+        }(ResourceContext(ec)): @nowarn(
+          "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+        )
 
         // then
         response.transform[Unit] {
