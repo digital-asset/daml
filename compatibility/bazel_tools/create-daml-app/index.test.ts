@@ -13,7 +13,7 @@
 // `daml start` which is what users use.
 
 import child_process from "child_process";
-import { ChildProcess, spawn, SpawnOptions } from "child_process";
+import { ChildProcess, execFileSync, spawn, SpawnOptions } from "child_process";
 import { promises as fs } from "fs";
 import puppeteer, { Browser, Page } from "puppeteer";
 import waitOn from "wait-on";
@@ -127,13 +127,20 @@ beforeAll(async () => {
   await removeFile(`../${SANDBOX_PORT_FILE_NAME}`);
   await removeFile(`../${JSON_API_PORT_FILE_NAME}`);
 
-  const sandboxOptions = [
-    (process.env.SANDBOX_VERSION[0] == "1") ? "sandbox" : "sandbox-kv",
+  const kvSandboxOptions = [
+    "sandbox",
     `--ledgerid=${SANDBOX_LEDGER_ID}`,
     `--port=0`,
     `--port-file=${SANDBOX_PORT_FILE_NAME}`,
     DAR_PATH,
   ];
+
+
+  const sandboxOnXOptions = [
+    `--ledger-id=${SANDBOX_LEDGER_ID}`,
+    `--participant=participant-id=sandbox,port=0,port-file=${SANDBOX_PORT_FILE_NAME}`
+  ];
+  const sandboxOptions = process.env.SANDBOX_VERSION[0] == "1" ? kvSandboxOptions : sandboxOnXOptions;
 
   sandbox = spawn(process.env.DAML_SANDBOX, sandboxOptions, {
     cwd: "..",
@@ -146,6 +153,7 @@ beforeAll(async () => {
   const sandboxPort = parseInt(
     await fs.readFile(SANDBOX_PORT_FILE_PATH, "utf8")
   );
+  execFileSync(process.env.DAML, ["ledger", "upload-dar", "--host=localhost", `--port=${sandboxPort}`, DAR_PATH])
 
   const jsonApiOptions = [
     "json-api",
