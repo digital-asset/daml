@@ -14,13 +14,13 @@ import scala.collection.immutable.VectorMap
 case class DeduplicationState private (
     private[validate] val deduplicationQueue: DeduplicationQueue,
     private val maxDeduplicationDuration: Duration,
-    private val currentTime: () => Time.Timestamp,
     private val bridgeMetrics: BridgeMetrics,
 ) {
 
   def deduplicate(
       changeId: ChangeId,
       commandDeduplicationDuration: Duration,
+      recordTime: Time.Timestamp,
   ): (DeduplicationState, Boolean) = {
     bridgeMetrics.SequencerState.deduplicationQueueLength.update(deduplicationQueue.size)
     if (commandDeduplicationDuration.compareTo(maxDeduplicationDuration) > 0)
@@ -28,19 +28,18 @@ case class DeduplicationState private (
         s"Cannot deduplicate for a period ($commandDeduplicationDuration) longer than the max deduplication duration ($maxDeduplicationDuration)."
       )
     else {
-      val now = currentTime()
-      val expiredTimestamp = expiredThreshold(maxDeduplicationDuration, now)
+      val expiredTimestamp = expiredThreshold(maxDeduplicationDuration, recordTime)
 
       val queueAfterEvictions = deduplicationQueue.dropWhile(_._2 <= expiredTimestamp)
 
       val isDuplicateChangeId = queueAfterEvictions
         .get(changeId)
-        .exists(_ > expiredThreshold(commandDeduplicationDuration, now))
+        .exists(_ >= expiredThreshold(commandDeduplicationDuration, recordTime))
 
       if (isDuplicateChangeId)
         copy(deduplicationQueue = queueAfterEvictions) -> true
       else
-        copy(deduplicationQueue = queueAfterEvictions.updated(changeId, now)) -> false
+        copy(deduplicationQueue = queueAfterEvictions.updated(changeId, recordTime)) -> false
     }
   }
 
@@ -56,13 +55,11 @@ object DeduplicationState {
 
   private[validate] def empty(
       deduplicationDuration: Duration,
-      currentTime: () => Time.Timestamp,
       bridgeMetrics: BridgeMetrics,
   ): DeduplicationState =
     DeduplicationState(
       deduplicationQueue = VectorMap.empty,
       maxDeduplicationDuration = deduplicationDuration,
-      currentTime = currentTime,
       bridgeMetrics = bridgeMetrics,
     )
 }
