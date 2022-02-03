@@ -368,7 +368,7 @@ Submitting commands, writing to the ledger
 
 For example, a command might get rejected because the transactions aren't `well-authorized <#authorization-signing>`__; because the contract isn't `active <#active-contract-archived-contract>`__ (perhaps someone else archived it); or for other reasons.
 
-This is echoed in `scenarios <#scenario>`__, where you can mock an application by having parties submit transactions/updates to the ledger. You can use ``submit`` or ``submitMustFail`` to express what should succeed and what shouldn't.
+This is echoed in :ref:`Daml script <daml-script>`, where you can mock an application by having parties submit transactions/updates to the ledger. You can use ``submit`` or ``submitMustFail`` to express what should succeed and what shouldn't.
 
 Commands
 --------
