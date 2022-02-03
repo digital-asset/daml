@@ -12,7 +12,7 @@ pr:
 
 jobs:
 - template: build.yml
-- template: ci/check-for-release-job.yml
+- template: check-for-release-job.yml
 
 
 - job: check_standard_change_label
