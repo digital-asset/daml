@@ -430,7 +430,7 @@ abstract class CommonCliSpecBase(
       // default
       checkOption(
         Array.empty,
-        _.withUserManagementConfig(_.copy(maxUsersPageSize = 10000)),
+        _.withUserManagementConfig(_.copy(maxUsersPageSize = 1000)),
       )
       // custom value
       checkOption(

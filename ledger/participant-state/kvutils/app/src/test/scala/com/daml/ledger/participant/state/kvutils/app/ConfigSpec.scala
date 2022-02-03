@@ -340,7 +340,7 @@ final class ConfigSpec
       Seq("--max-users-page-size")
     ) shouldBe None
     // default
-    configParserSimple().value.userManagementConfig.maxUsersPageSize shouldBe 10000
+    configParserSimple().value.userManagementConfig.maxUsersPageSize shouldBe 1000
     // custom value
     configParserSimple(
       Seq(
