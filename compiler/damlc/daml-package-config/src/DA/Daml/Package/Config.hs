@@ -21,6 +21,7 @@ import DA.Daml.Project.Types
 import Control.Exception.Safe (throwIO)
 import Control.Monad (when)
 import qualified Data.Aeson as A
+import qualified Data.Aeson.Key as A
 import qualified Data.Aeson.Encoding as A
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -136,4 +137,4 @@ instance A.ToJSON Ghc.UnitId where
 
 instance A.ToJSONKey Ghc.UnitId where
     toJSONKey =
-        A.ToJSONKeyText (T.pack . Ghc.unitIdString) (A.text . T.pack . Ghc.unitIdString)
+        A.ToJSONKeyText (A.fromString . Ghc.unitIdString) (A.text . T.pack . Ghc.unitIdString)

@@ -7,7 +7,7 @@ Setting Up Auth0
 ================
 
 In this section, we will walk through a complete setup of an entire Daml
-Connect system using Auth0 as its authentication provider.
+system using Auth0 as its authentication provider.
 
 .. note::
 
@@ -65,7 +65,7 @@ In order to follow along this guide, you will need:
 - An application you want to deploy on your Daml system. This is not, strictly
   speaking, required, but the whole experience is going to be a lot less
   satisfying if you don't end up with something actually running on your Daml
-  Connect system. In this guide, we'll use the `create-daml-app` template,
+  system. In this guide, we'll use the `create-daml-app` template,
   which as of Daml SDK 1.17.0 supports Auth0 out-of-the-box on its UI side.
 
 Generating Party Allocation Credentials
@@ -593,17 +593,16 @@ in the folder that contains both ``nginx`` and ``my-project``:
 
 And that's it for building the application. We now have a DAR file that is
 ready to be deployed to a ledger, as well as a Docker container ready to serve
-our frontend. All we need now is to get a Daml Connect system up and running.
+our frontend. All we need now is to get a Daml system up and running.
 We document two paths forward here: one that relies on the Helm chart included
-in Daml Connect Enterprise Edition, and a manual setup using only the Community
-Edition SDK.
+in Daml Enterprise, and a manual setup using only the Open Source SDK.
 
-Using the Connect Helm Chart
-****************************
+Using the Daml Helm Chart
+*************************
 
 For simplicity, we assume that you have access to a server with a public IP
 address that both you and Auth0 can reach. Furthermore, we assume that you have
-access to Enterprise Edition credentials to download the Docker images.  We
+access to Daml Enterprise credentials to download the Docker images.  We
 also assume you can create a local cluster with ``minikube`` on the remote
 machine. Finally, we assume that you have downloaded the Helm chart in a folder
 called ``daml-connect``.
@@ -673,8 +672,8 @@ domain on which your server is exposed. And voilà! Your application is up and
 running. You should be able to log in with Auth0, exchange messages, and set up
 an auto-reply trigger, all by connecting your browser to ``https://$DOMAIN/``.
 
-Manually Setting Up the Connect Components
-******************************************
+Manually Setting Up the Daml Components
+***************************************
 
 For simplicity, we assume that all of the Daml components will run on a single
 machine (they can find each other on ``localhost``) and that this machine has

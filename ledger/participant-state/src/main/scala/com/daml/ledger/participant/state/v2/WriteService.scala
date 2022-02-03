@@ -105,9 +105,4 @@ trait WriteService
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult]
-
-  /** Indicates whether command deduplication should be enabled when using this [[WriteService]]
-    * This is temporary until we fully transition from [[com.daml.ledger.participant.state.v1.WriteService]] to [[WriteService]]
-    */
-  def isApiDeduplicationEnabled: Boolean = false
 }

@@ -15,7 +15,6 @@ import com.daml.platform.store.backend.{
   ContractStorageBackend,
   DBLockStorageBackend,
   DataSourceStorageBackend,
-  DeduplicationStorageBackend,
   EventStorageBackend,
   IngestionStorageBackend,
   PartyStorageBackend,
@@ -32,9 +31,6 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
 
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
     new PartyStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache)
-
-  override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
-    OracleDeduplicationStorageBackend
 
   override def createCompletionStorageBackend(
       stringInterning: StringInterning

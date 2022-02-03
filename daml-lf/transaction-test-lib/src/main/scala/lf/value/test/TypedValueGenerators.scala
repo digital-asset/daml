@@ -278,7 +278,7 @@ object TypedValueGenerators {
         },
       )
 
-    def enum(
+    def enumeration(
         name: Ref.Identifier,
         members: Seq[Ref.Name],
     ): (DefDataType.FWT, EnumAddend[members.type]) =

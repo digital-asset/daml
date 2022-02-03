@@ -132,7 +132,7 @@ class ApiCodecCompressedSpec
 
     val colorId = defRef("Color")
     val (colorGD, colorGT) =
-      VA.enum(colorId, Seq("Red", "Green", "Blue") map Ref.Name.assertFromString)
+      VA.enumeration(colorId, Seq("Red", "Green", "Blue") map Ref.Name.assertFromString)
 
     val typeLookup: NavigatorModelAliases.DamlLfTypeLookup =
       Map(

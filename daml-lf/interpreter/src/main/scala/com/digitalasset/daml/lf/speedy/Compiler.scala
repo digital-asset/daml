@@ -562,6 +562,14 @@ private[lf] final class Compiler(
         compile(env, body)
       case EFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, body @ _) =>
         SBFromRequiredInterface(requiringIfaceId)(compile(env, body))
+      case EInterfaceTemplateTypeRep(ifaceId, body @ _) =>
+        SBInterfaceTemplateTypeRep(ifaceId)(compile(env, body))
+      case ESignatoryInterface(ifaceId, body @ _) =>
+        val arg = compile(env, body)
+        SBSignatoryInterface(ifaceId)(arg, arg)
+      case EObserverInterface(ifaceId, body @ _) =>
+        val arg = compile(env, body)
+        SBObserverInterface(ifaceId)(arg, arg)
       case EExperimental(name, _) =>
         SBExperimental(name)
 

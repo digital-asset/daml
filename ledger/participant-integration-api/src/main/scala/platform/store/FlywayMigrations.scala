@@ -17,7 +17,7 @@ import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
-private[platform] class FlywayMigrations(
+private[daml] class FlywayMigrations(
     jdbcUrl: String,
     additionalMigrationPaths: Seq[String] = Seq.empty,
 )(implicit resourceContext: ResourceContext, loggingContext: LoggingContext) {

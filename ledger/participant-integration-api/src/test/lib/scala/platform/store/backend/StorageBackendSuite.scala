@@ -16,7 +16,6 @@ trait StorageBackendSuite
     with StorageBackendTestsPruning
     with StorageBackendTestsDBLockForSuite
     with StorageBackendTestsIntegrity
-    with StorageBackendTestsDeduplication
     with StorageBackendTestsTimestamps
     with StorageBackendTestsStringInterning
     with StorageBackendTestsUserManagement

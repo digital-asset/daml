@@ -3,6 +3,7 @@
 
 package com.daml.lf.kv.archives
 
+import com.daml.SafeProto
 import com.daml.lf.archive.{ArchiveParser, Decode, Error => ArchiveError}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
@@ -21,12 +22,15 @@ object ArchiveConversions {
 
   def parsePackageIdsAndRawArchives(
       archives: List[com.daml.daml_lf_dev.DamlLf.Archive]
-  ): Either[ArchiveError.Parsing, Map[Ref.PackageId, RawArchive]] =
+  ): Either[ArchiveError, Map[Ref.PackageId, RawArchive]] =
     archives.partitionMap { archive =>
-      Ref.PackageId.fromString(archive.getHash).map(_ -> RawArchive(archive.toByteString))
+      for {
+        pkgId <- Ref.PackageId.fromString(archive.getHash).left.map(ArchiveError.Parsing)
+        bytes <- SafeProto.toByteString(archive).left.map(ArchiveError.Encoding)
+      } yield pkgId -> RawArchive(bytes)
     } match {
       case (Nil, hashesAndRawArchives) => Right(hashesAndRawArchives.toMap)
-      case (errors, _) => Left(ArchiveError.Parsing(errors.head))
+      case (errors, _) => Left(errors.head)
     }
 
   def decodePackages(

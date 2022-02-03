@@ -73,7 +73,7 @@ Running with persistence
 ************************
 
 Note: Running Sandbox with persistence is deprecated as of SDK 1.8.0 (16th Dec 2020). You can use the
-Daml Driver for PostgreSQL instead.
+Daml driver for PostgreSQL instead.
 
 By default, Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. If you want to keep the state, you can use a Postgres database for persistence. This allows you to shut down Sandbox and start it up later, continuing where it left off.
 

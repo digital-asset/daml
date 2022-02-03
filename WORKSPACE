@@ -433,13 +433,13 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
-    version = "8.10.7",
+    version = "9.0.2",
 )
 
 # Used by Windows
 haskell_register_ghc_bindists(
     compiler_flags = common_ghc_flags,
-    version = "8.10.7",
+    version = "9.0.2",
 ) if is_windows else None
 
 nixpkgs_package(
@@ -685,9 +685,9 @@ proto_library(
     visibility = ["//visibility:public"],
 )
 """,
-    sha256 = "e2dc7ad98f2bc1a78442a3e20eeef0381be008c18bf22f0dcb56283981977e01",
+    sha256 = "2ddce4c5927fa8dd80069fba2fb60199f5b2b95e81e8da69b132665fae6c638c",
     strip_prefix = "ScalaPB-{}".format(scalapb_version),
-    urls = ["https://github.com/scalapb/ScalaPB/archive/refs/tags/v{}.zip".format(scalapb_version)],
+    urls = ["https://github.com/scalapb/ScalaPB/archive/refs/tags/v{}.tar.gz".format(scalapb_version)],
 )
 
 load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")

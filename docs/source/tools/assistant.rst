@@ -13,7 +13,7 @@ Daml Assistant (``daml``)
 
   This builds the Daml project according to the project config file ``daml.yaml`` (see `Configuration files`_ below).
 
-  In particular, it will download and install the specified version of the Daml Connect SDK (the ``sdk-version`` field in ``daml.yaml``) if missing, and use that SDK version to resolve dependencies and compile the Daml project.
+  In particular, it will download and install the specified version of the Daml SDK (the ``sdk-version`` field in ``daml.yaml``) if missing, and use that SDK version to resolve dependencies and compile the Daml project.
 
 - Launch the tools in the SDK:
 
@@ -61,7 +61,7 @@ By default it's blank, and you usually won't need to edit it. It recognizes the 
    This setting is only used to inform you when an update is available.
 
    Set ``update-check: <number>`` to check for new versions every N seconds. Set ``update-check: never`` to never check for new versions.
-- ``artifactory-api-key``: If you have a license for Daml Connect EE,
+- ``artifactory-api-key``: If you have a license for Daml EE,
   you can use this to specify the Artifactory API key displayed in
   your user profile. The assistant will use this to download the EE
   edition.
@@ -211,7 +211,7 @@ Managing releases
 
 You can manage SDK versions manually by using ``daml install``.
 
-To download and install SDK of the latest stable Daml Connect version::
+To download and install SDK of the latest stable Daml version::
 
   daml install latest
 

@@ -30,7 +30,6 @@ da_haskell_library(
         "proto3-wire",
         "split",
         "stm",
-        "system-filepath",
         "text",
         "time",
         "transformers",

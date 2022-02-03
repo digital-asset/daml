@@ -21,11 +21,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  PartyConfiguration,
-  SubmissionConfiguration,
-}
+import com.daml.platform.configuration.{CommandConfiguration, PartyConfiguration}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.{Port, PortFiles}
@@ -47,7 +43,6 @@ object StandaloneApiServer {
       config: ApiServerConfig,
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
-      submissionConfig: SubmissionConfiguration,
       optWriteService: Option[state.WriteService],
       authService: AuthService,
       healthChecks: HealthChecks,
@@ -112,7 +107,6 @@ object StandaloneApiServer {
         initialLedgerConfiguration = config.initialLedgerConfiguration,
         commandConfig = commandConfig,
         partyConfig = partyConfig,
-        submissionConfig = submissionConfig,
         optTimeServiceBackend = timeServiceBackend,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,

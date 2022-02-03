@@ -3,6 +3,7 @@
 
 package com.daml.lf.kv.transactions
 
+import com.daml.SafeProto
 import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
 import com.daml.lf.kv.ConversionError
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
@@ -25,9 +26,11 @@ object TransactionConversions {
   def encodeTransaction(
       tx: VersionedTransaction
   ): Either[ValueCoder.EncodeError, RawTransaction] =
-    TransactionCoder
-      .encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx)
-      .map(transaction => RawTransaction(transaction.toByteString))
+    for {
+      msg <-
+        TransactionCoder.encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx)
+      bytes <- SafeProto.toByteString(msg).left.map(ValueCoder.EncodeError(_))
+    } yield RawTransaction(bytes)
 
   def decodeTransaction(
       rawTx: RawTransaction
@@ -63,7 +66,7 @@ object TransactionConversions {
   def reconstructTransaction(
       transactionVersion: String,
       nodesWithIds: Seq[TransactionNodeIdWithNode],
-  ): Either[ConversionError.ParseError, RawTransaction] = {
+  ): Either[ConversionError, RawTransaction] = {
     import scalaz.std.either._
     import scalaz.std.list._
     import scalaz.syntax.traverse._
@@ -94,7 +97,14 @@ object TransactionConversions {
       }
       .toList
       .sequence_
-      .map(_ => RawTransaction(transactionBuilder.build.toByteString))
+      .flatMap(_ =>
+        SafeProto.toByteString(transactionBuilder.build()) match {
+          case Right(bytes) =>
+            Right(RawTransaction(bytes))
+          case Left(msg) =>
+            Left(ConversionError.EncodeError(ValueCoder.EncodeError(msg)))
+        }
+      )
   }
 
   /** Decodes and extracts outputs of a submitted transaction, that is the IDs and keys of contracts created or updated
@@ -210,7 +220,7 @@ object TransactionConversions {
             }
         }
 
-        goNodesToKeep(transaction.getRootsList.asScala.to(FrontStack), Set.empty).map {
+        goNodesToKeep(transaction.getRootsList.asScala.to(FrontStack), Set.empty).flatMap {
           nodesToKeep =>
             val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
 
@@ -239,7 +249,14 @@ object TransactionConversions {
               .addAllNodes(filteredNodes.asJavaCollection)
               .setVersion(transaction.getVersion)
               .build()
-            RawTransaction(newTransaction.toByteString)
+
+            SafeProto.toByteString(newTransaction) match {
+              case Right(bytes) =>
+                Right(RawTransaction(bytes))
+              case Left(msg) =>
+                // Should not happen as removing nodes should results into a smaller transaction.
+                Left(ConversionError.InternalError(msg))
+            }
         }
     }
 }

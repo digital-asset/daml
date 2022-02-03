@@ -334,7 +334,7 @@ class IdeLedgerClient(
   ): Future[Option[Unit]] =
     Future.successful(userManagementStore.deleteUser(id))
 
-  override def listUsers()(implicit
+  override def listAllUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,

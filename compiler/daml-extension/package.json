@@ -154,6 +154,7 @@
         "vsce": "^2.6.3"
     },
     "resolutions": {
-        "**/markdown-it": "^12.3.2"
+        "**/markdown-it": "^12.3.2",
+        "**/simple-get": "^4.0.1"
     }
 }

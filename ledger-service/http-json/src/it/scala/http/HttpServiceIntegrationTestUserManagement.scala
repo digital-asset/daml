@@ -259,14 +259,15 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     participantAdminJwt
   ) { (uri, _, _, _, _) =>
     import spray.json._
-    import spray.json.DefaultJsonProtocol._
     val alice = getUniqueParty("Alice")
     val createUserRequest = domain.CreateUserRequest(
       "nice.user2",
       Some(alice.unwrap),
-      List[domain.UserRight](
-        domain.CanActAs(alice),
-        domain.ParticipantAdmin,
+      Some(
+        List[domain.UserRight](
+          domain.CanActAs(alice),
+          domain.ParticipantAdmin,
+        )
       ),
     )
     for {
@@ -275,11 +276,39 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         createUserRequest.toJson,
         headers = authorizationHeader(participantAdminJwt),
       )
-      assertion <- {
-        status shouldBe StatusCodes.OK
-        getResult(output).convertTo[Boolean] shouldBe true
-      }
-    } yield assertion
+    } yield {
+      status shouldBe StatusCodes.OK
+      getResult(output) shouldBe JsObject()
+    }
+  }
+
+  "creating a user with default values should be possible via the user/create endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, _, _) =>
+    import spray.json._
+    val username = getUniqueUserName("nice.user")
+    for {
+      (status, output) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/create")),
+        JsObject("userId" -> JsString(username)),
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ <- status shouldBe StatusCodes.OK
+      (status2, output2) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user")),
+        domain.GetUserRequest(username).toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ <- status2 shouldBe StatusCodes.OK
+      _ <- getResult(output2).convertTo[UserDetails] shouldEqual UserDetails(username, None)
+      (status3, output3) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/rights")),
+        domain.ListUserRightsRequest(username).toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ <- status3 shouldBe StatusCodes.OK
+    } yield getResult(output3)
+      .convertTo[List[domain.UserRight]] shouldEqual List.empty
   }
 
   "getting all users should be possible via the users endpoint" in withHttpServiceAndClient(
@@ -295,9 +324,11 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       domain.CreateUserRequest(
         name,
         Some(alice.unwrap),
-        List[domain.UserRight](
-          domain.CanActAs(alice),
-          domain.ParticipantAdmin,
+        Some(
+          List[domain.UserRight](
+            domain.CanActAs(alice),
+            domain.ParticipantAdmin,
+          )
         ),
       )
     )
@@ -325,14 +356,15 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     participantAdminJwt
   ) { (uri, _, _, _, _) =>
     import spray.json._
-    import spray.json.DefaultJsonProtocol._
     val alice = getUniqueParty("Alice")
     val createUserRequest = domain.CreateUserRequest(
       getUniqueUserName("nice.user"),
       Some(alice.unwrap),
-      List[domain.UserRight](
-        domain.CanActAs(alice),
-        domain.ParticipantAdmin,
+      Some(
+        List[domain.UserRight](
+          domain.CanActAs(alice),
+          domain.ParticipantAdmin,
+        )
       ),
     )
     for {
@@ -343,7 +375,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       )
       _ <- {
         status1 shouldBe StatusCodes.OK
-        getResult(output1).convertTo[Boolean] shouldBe true
+        getResult(output1) shouldBe JsObject()
       }
       (status2, output2) <- postRequest(
         uri.withPath(Uri.Path(s"/v1/user")),
@@ -363,14 +395,15 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     participantAdminJwt
   ) { (uri, _, _, _, _) =>
     import spray.json._
-    import spray.json.DefaultJsonProtocol._
     val alice = getUniqueParty("Alice")
     val createUserRequest = domain.CreateUserRequest(
       getUniqueUserName("nice.user"),
       Some(alice.unwrap),
-      List[domain.UserRight](
-        domain.CanActAs(alice),
-        domain.ParticipantAdmin,
+      Some(
+        List[domain.UserRight](
+          domain.CanActAs(alice),
+          domain.ParticipantAdmin,
+        )
       ),
     )
     for {
@@ -381,7 +414,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       )
       _ <- {
         status1 shouldBe StatusCodes.OK
-        getResult(output1).convertTo[Boolean] shouldBe true
+        getResult(output1) shouldBe JsObject()
       }
       (status2, output2) <- getRequest(
         uri.withPath(Uri.Path(s"/v1/user")),
@@ -405,9 +438,11 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     val createUserRequest = domain.CreateUserRequest(
       getUniqueUserName("nice.user"),
       Some(alice.unwrap),
-      List[domain.UserRight](
-        domain.CanActAs(alice),
-        domain.ParticipantAdmin,
+      Some(
+        List[domain.UserRight](
+          domain.CanActAs(alice),
+          domain.ParticipantAdmin,
+        )
       ),
     )
     for {
@@ -418,7 +453,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       )
       _ <- {
         status1 shouldBe StatusCodes.OK
-        getResult(output1).convertTo[Boolean] shouldBe true
+        getResult(output1) shouldBe JsObject()
       }
       (status2, _) <- postRequest(
         uri.withPath(Uri.Path(s"/v1/user/delete")),

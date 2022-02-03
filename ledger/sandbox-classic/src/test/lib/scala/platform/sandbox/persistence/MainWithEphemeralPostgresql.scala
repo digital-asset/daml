@@ -3,7 +3,7 @@
 
 package com.daml.platform.sandbox.persistence
 
-import com.daml.platform.sandbox.SandboxMain
+import com.daml.sandbox.SandboxMain
 import com.daml.testing.postgresql.PostgresAround
 
 object MainWithEphemeralPostgresql extends PostgresAround {

@@ -1,31 +1,31 @@
-# <a name="module-deriving-95364"></a>Module Deriving
+# <a name="module-deriving-95739"></a>Module Deriving
 
 ## Data Types
 
-<a name="type-deriving-formula-84903"></a>**data** [Formula](#type-deriving-formula-84903) t
+<a name="type-deriving-formula-60264"></a>**data** [Formula](#type-deriving-formula-60264) t
 
-> <a name="constr-deriving-tautology-41024"></a>[Tautology](#constr-deriving-tautology-41024)
+> <a name="constr-deriving-tautology-1247"></a>[Tautology](#constr-deriving-tautology-1247)
 > 
 > 
-> <a name="constr-deriving-contradiction-93645"></a>[Contradiction](#constr-deriving-contradiction-93645)
+> <a name="constr-deriving-contradiction-64078"></a>[Contradiction](#constr-deriving-contradiction-64078)
 > 
 > 
-> <a name="constr-deriving-proposition-99264"></a>[Proposition](#constr-deriving-proposition-99264) t
+> <a name="constr-deriving-proposition-76435"></a>[Proposition](#constr-deriving-proposition-76435) t
 > 
 > 
-> <a name="constr-deriving-negation-52326"></a>[Negation](#constr-deriving-negation-52326) ([Formula](#type-deriving-formula-84903) t)
+> <a name="constr-deriving-negation-39767"></a>[Negation](#constr-deriving-negation-39767) ([Formula](#type-deriving-formula-60264) t)
 > 
 > 
-> <a name="constr-deriving-conjunction-36676"></a>[Conjunction](#constr-deriving-conjunction-36676) \[[Formula](#type-deriving-formula-84903) t\]
+> <a name="constr-deriving-conjunction-55851"></a>[Conjunction](#constr-deriving-conjunction-55851) \[[Formula](#type-deriving-formula-60264) t\]
 > 
 > 
-> <a name="constr-deriving-disjunction-94592"></a>[Disjunction](#constr-deriving-disjunction-94592) \[[Formula](#type-deriving-formula-84903) t\]
+> <a name="constr-deriving-disjunction-19371"></a>[Disjunction](#constr-deriving-disjunction-19371) \[[Formula](#type-deriving-formula-60264) t\]
 > 
 > 
-> **instance** [Functor](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-base-functor-73448) [Formula](#type-deriving-formula-84903)
+> **instance** [Functor](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-base-functor-31205) [Formula](#type-deriving-formula-60264)
 > 
-> **instance** [Eq](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216) t =\> [Eq](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216) ([Formula](#type-deriving-formula-84903) t)
+> **instance** [Eq](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713) t =\> [Eq](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713) ([Formula](#type-deriving-formula-60264) t)
 > 
-> **instance** [Ord](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-ord-70960) t =\> [Ord](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-ord-70960) ([Formula](#type-deriving-formula-84903) t)
+> **instance** [Ord](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-ord-6395) t =\> [Ord](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-ord-6395) ([Formula](#type-deriving-formula-60264) t)
 > 
-> **instance** [Show](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-56447) t =\> [Show](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-56447) ([Formula](#type-deriving-formula-84903) t)
+> **instance** [Show](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360) t =\> [Show](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360) ([Formula](#type-deriving-formula-60264) t)

@@ -170,7 +170,33 @@ object Cli {
         }
 
         def offset(stringValue: String): LedgerOffset =
-          LedgerOffset.defaultInstance.withAbsolute(stringValue)
+          stringValue match {
+            case "ledger-begin" =>
+              LedgerOffset.defaultInstance.withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
+            case "ledger-end" =>
+              LedgerOffset.defaultInstance.withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)
+            case _ =>
+              LedgerOffset.defaultInstance.withAbsolute(stringValue)
+          }
+
+        def transactionObjectives(
+            maxDelaySeconds: Option[Long],
+            minConsumptionSpeed: Option[Double],
+            minItemRate: Option[Double],
+            maxItemRate: Option[Double],
+        ): Option[WorkflowConfig.StreamConfig.TransactionObjectives] =
+          (maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate) match {
+            case (None, None, None, None) => None
+            case _ =>
+              Some(
+                WorkflowConfig.StreamConfig.TransactionObjectives(
+                  maxDelaySeconds = maxDelaySeconds,
+                  minConsumptionSpeed = minConsumptionSpeed,
+                  minItemRate = minItemRate,
+                  maxItemRate = maxItemRate,
+                )
+              )
+          }
 
         def transactionsConfig
             : Either[String, WorkflowConfig.StreamConfig.TransactionsStreamConfig] = for {
@@ -187,14 +213,8 @@ object Cli {
           filters = filters,
           beginOffset = beginOffset,
           endOffset = endOffset,
-          objectives = Some(
-            WorkflowConfig.StreamConfig.TransactionObjectives(
-              maxDelaySeconds = maxDelaySeconds,
-              minConsumptionSpeed = minConsumptionSpeed,
-              minItemRate = minItemRate,
-              maxItemRate = maxItemRate,
-            )
-          ),
+          objectives =
+            transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
         )
 
         def transactionTreesConfig
@@ -213,15 +233,24 @@ object Cli {
             filters = filters,
             beginOffset = beginOffset,
             endOffset = endOffset,
-            objectives = Some(
-              WorkflowConfig.StreamConfig.TransactionObjectives(
-                maxDelaySeconds = maxDelaySeconds,
-                minConsumptionSpeed = minConsumptionSpeed,
-                minItemRate = minItemRate,
-                maxItemRate = maxItemRate,
-              )
-            ),
+            objectives =
+              transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
           )
+
+        def rateObjectives(
+            minItemRate: Option[Double],
+            maxItemRate: Option[Double],
+        ): Option[WorkflowConfig.StreamConfig.RateObjectives] =
+          (minItemRate, maxItemRate) match {
+            case (None, None) => None
+            case _ =>
+              Some(
+                WorkflowConfig.StreamConfig.RateObjectives(
+                  minItemRate = minItemRate,
+                  maxItemRate = maxItemRate,
+                )
+              )
+          }
 
         def activeContractsConfig
             : Either[String, WorkflowConfig.StreamConfig.ActiveContractsStreamConfig] = for {
@@ -232,12 +261,7 @@ object Cli {
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
-          objectives = Some(
-            WorkflowConfig.StreamConfig.RateObjectives(
-              minItemRate = minItemRate,
-              maxItemRate = maxItemRate,
-            )
-          ),
+          objectives = rateObjectives(minItemRate, maxItemRate),
         )
 
         def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =
@@ -253,12 +277,7 @@ object Cli {
             party = party,
             applicationId = applicationId,
             beginOffset = beginOffset,
-            objectives = Some(
-              WorkflowConfig.StreamConfig.RateObjectives(
-                minItemRate = minItemRate,
-                maxItemRate = maxItemRate,
-              )
-            ),
+            objectives = rateObjectives(minItemRate, maxItemRate),
           )
 
         val config = stringField("stream-type").flatMap[String, WorkflowConfig.StreamConfig] {

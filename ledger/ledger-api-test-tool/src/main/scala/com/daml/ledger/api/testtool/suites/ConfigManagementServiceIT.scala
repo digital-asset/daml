@@ -63,16 +63,6 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
       // Verify that we've restored the original time model
       response3 <- ledger.getTimeModel()
 
-      // Try to set a time model with an expired MRT.
-      t3 <- ledger.time()
-      expiredMRTFailure <- ledger
-        .setTimeModel(
-          mrt = t3.minusSeconds(10),
-          generation = response3.configurationGeneration,
-          newTimeModel = oldTimeModel,
-        )
-        .mustFail("setting a time model with an expired MRT")
-
       // Above operation finished on a timeout, but may still succeed asynchronously.
       // Stabilize the ledger state before leaving the test case.
       _ <- stabilize(ledger)
@@ -88,15 +78,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
       assert(response2.timeModel.contains(newTimeModel), "Setting the new time model failed")
       assert(
         response3.timeModel.equals(response1.timeModel),
-        "Restoring the original time model failed",
-      )
-
-      assertGrpcError(
-        ledger,
-        expiredMRTFailure,
-        Status.Code.ABORTED,
-        LedgerApiErrors.RequestTimeOut,
-        exceptionMessageSubstring = None,
+        "Restoring the original time model succeeded",
       )
     }
   })

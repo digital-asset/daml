@@ -1,4 +1,4 @@
-.. _module-iou12-32397:
+.. _module-iou12-76192:
 
 Module Iou12
 ------------
@@ -6,9 +6,9 @@ Module Iou12
 Templates
 ^^^^^^^^^
 
-.. _type-iou12-iou-45923:
+.. _type-iou12-iou-72962:
 
-**template** `Iou <type-iou12-iou-45923_>`_
+**template** `Iou <type-iou12-iou-72962_>`_
 
   .. list-table::
      :widths: 15 10 30
@@ -18,19 +18,19 @@ Templates
        - Type
        - Description
      * - issuer
-       - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_
+       - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
        - 
      * - owner
-       - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_
+       - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
        - 
      * - currency
-       - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-57703>`_
+       - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
        - only 3\-letter symbols are allowed
      * - amount
-       - `Decimal <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-54602>`_
+       - `Decimal <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135>`_
        - must be positive
      * - regulators
-       - \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_\]
+       - \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
        - ``regulators`` may observe any use of the ``Iou``
   
   + **Choice Archive**
@@ -51,7 +51,7 @@ Templates
          - Type
          - Description
        * - otherCid
-         - `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-47171>`_ `Iou <type-iou12-iou-45923_>`_
+         - `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_
          - Must have same owner, issuer, and currency\. The regulators may differ, and are taken from the original ``Iou``\.
   
   + **Choice Split**
@@ -66,7 +66,7 @@ Templates
          - Type
          - Description
        * - splitAmount
-         - `Decimal <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-54602>`_
+         - `Decimal <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135>`_
          - must be between zero and original amount
   
   + **Choice Transfer**
@@ -81,16 +81,16 @@ Templates
          - Type
          - Description
        * - newOwner
-         - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-50311>`_
+         - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
          - 
 
 Functions
 ^^^^^^^^^
 
-.. _function-iou12-main-35518:
+.. _function-iou12-main-28537:
 
-`main <function-iou12-main-35518_>`_
-  \: `Scenario <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-scenario-45418>`_ ()
+`main <function-iou12-main-28537_>`_
+  \: `Scenario <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-scenario-98127>`_ ()
   
   A single test scenario covering all functionality that ``Iou`` implements\.
   This description contains a link(http://example.com), some bogus \<inline html\>,

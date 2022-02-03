@@ -89,6 +89,7 @@ da_scala_test_suite(
     deps = [
         ":ledger-api-bench-tool-lib",
         "//language-support/scala/bindings",
+        "//ledger/ledger-api-common",
         "//ledger/metrics",
         "@maven//:com_typesafe_config",
         "@maven//:io_dropwizard_metrics_metrics_core",

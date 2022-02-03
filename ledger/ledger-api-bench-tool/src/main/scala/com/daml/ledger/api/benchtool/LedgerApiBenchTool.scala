@@ -11,7 +11,6 @@ import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.{Logger, LoggerFactory}
-import pprint.PPrinter
 
 import java.util.concurrent.{
   ArrayBlockingQueue,
@@ -146,6 +145,6 @@ object LedgerApiBenchTool {
     )
 
   private val logger: Logger = LoggerFactory.getLogger(getClass)
-  private val printer: PPrinter = pprint.PPrinter(200, 1000)
+  private val printer = pprint.PPrinter.BlackWhite
   private def prettyPrint(x: Any): String = printer(x).toString()
 }
