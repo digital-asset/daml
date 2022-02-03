@@ -331,7 +331,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       )
       // Requesting last non-empty page of users
       res3 <- ledger.userManagement.listUsers(
-        ListUsersRequest(pageSize = 100, pageToken = res2.nextPageToken)
+        ListUsersRequest(pageSize = 1000, pageToken = res2.nextPageToken)
       )
       // Requesting last page that is empty
       res4 <- ledger.userManagement.listUsers(

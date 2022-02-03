@@ -29,7 +29,7 @@ object UserManagementConfig {
 
   val DefaultMaxCacheSize = 100
   val DefaultCacheExpiryAfterWriteInSeconds = 5
-  val DefaultMaxUsersPageSize = 10000
+  val DefaultMaxUsersPageSize = 1000
 
   val MaxRightsPerUser = 1000
 
