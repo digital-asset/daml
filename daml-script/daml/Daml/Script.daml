@@ -866,11 +866,11 @@ getUser' userId participant = checkUserNotFound userId $ lift $ Free $ GetUser G
   locations = getCallStack callStack
   userId
 
--- | List all users.
+-- | List all users. This function may make multiple calls to underlying paginated ledger API.
 listAllUsers : Script [User]
 listAllUsers = listAllUsers' None
 
--- | List all users on the given participant.
+-- | List all users on the given participant. This function may make multiple calls to underlying paginated ledger API.
 listAllUsersOn : ParticipantName -> Script [User]
 listAllUsersOn participant = listAllUsers' (Some participant)
 
