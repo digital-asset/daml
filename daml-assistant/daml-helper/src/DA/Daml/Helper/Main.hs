@@ -428,7 +428,10 @@ commandParser = subparser $ fold
             cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value 6868)
             cantonPortFileM <- optional $ option str (long "canton-port-file" <> metavar "PATH"
                 <> help "File to write canton participant ports when ready")
-            cantonStaticTime <- StaticTime <$> switch (long "static-time")
+            cantonStaticTime <- StaticTime <$>
+                (flag' True (long "static-time") <|>
+                 flag' False (long "wall-clock-time") <|>
+                 pure False)
             pure CantonOptions{..}
         portFileM <- optional $ option str (long "port-file" <> metavar "PATH"
             <> help "File to write ledger API port when ready")
