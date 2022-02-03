@@ -77,12 +77,13 @@ What this display means:
 
 - The big title reading ``Token_Test:Token`` is the identifier of the type of contract that's listed below. ``Token_Test`` is the module name, ``Token`` the template name.
 
-- The first columns, labelled vertically, show which parties know about which contracts. In this simple script, the sole party "Alice" knows about the contract she created.
+- The first column shows the ID of the contract. This will be explained later.
 
-- The second column shows the ID of the contract. This will be explained later.
+- The second column shows the status of the contract, either ``active`` or ``archived``.
 
-- The third column shows the status of the contract, either ``active`` or ``archived``.
-- The remaining columns show the contract arguments, with one column per field. As expected, field ``owner`` is ``'Alice'``. The single quotation marks indicate that ``Alice`` is a party.
+- The next section of columns show the contract arguments, with one column per field. As expected, field ``owner`` is ``'Alice'``. The single quotation marks indicate that ``Alice`` is a party.
+
+- The remaining columns, labelled vertically, show which parties know about which contracts. In this simple script, the sole party "Alice" knows about the contract she created.
 
 To run the same test from the command line, save your module in a file ``Token_Test.daml`` and run ``daml damlc -- test --files Token_Test.daml``. If your file contains more than one script, all of them will be run.
 
