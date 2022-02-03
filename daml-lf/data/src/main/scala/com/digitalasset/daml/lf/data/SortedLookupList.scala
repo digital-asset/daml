@@ -38,7 +38,7 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
 
   override def equals(obj: Any): Boolean = {
     obj match {
-      case other: SortedLookupList[X] if other canEqual this => other.toImmArray == entries
+      case other: SortedLookupList[_] if other canEqual this => other.toImmArray == entries
       case _ => false
     }
   }

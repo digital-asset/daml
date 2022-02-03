@@ -10,22 +10,22 @@ import com.daml.platform.store.interning.StringInterning
 
 private[h2] object H2Schema {
   private val H2FieldStrategy = new FieldStrategy {
-    override def intArray[FROM, _](
+    override def intArray[FROM](
         extractor: StringInterning => FROM => Iterable[Int]
     ): Field[FROM, Iterable[Int], _] =
       IntArray(extractor)
 
-    override def intArrayOptional[FROM, _](
+    override def intArrayOptional[FROM](
         extractor: StringInterning => FROM => Option[Iterable[Int]]
     ): Field[FROM, Option[Iterable[Int]], _] =
       IntArrayOptional(extractor)
 
-    override def bytea[FROM, _](
+    override def bytea[FROM](
         extractor: StringInterning => FROM => Array[Byte]
     ): Field[FROM, Array[Byte], _] =
       H2Bytea(extractor)
 
-    override def byteaOptional[FROM, _](
+    override def byteaOptional[FROM](
         extractor: StringInterning => FROM => Option[Array[Byte]]
     ): Field[FROM, Option[Array[Byte]], _] =
       H2ByteaOptional(extractor)

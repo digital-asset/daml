@@ -20,69 +20,69 @@ private[backend] object AppendOnlySchema {
   type Batch = Array[Array[Array[_]]]
 
   private[backend] trait FieldStrategy {
-    def string[FROM, _](extractor: StringInterning => FROM => String): Field[FROM, String, _] =
+    def string[FROM](extractor: StringInterning => FROM => String): Field[FROM, String, _] =
       StringField(extractor)
 
-    def stringOptional[FROM, _](
+    def stringOptional[FROM](
         extractor: StringInterning => FROM => Option[String]
     ): Field[FROM, Option[String], _] =
       StringOptional(extractor)
 
-    def stringArray[FROM, _](
+    def stringArray[FROM](
         extractor: StringInterning => FROM => Iterable[String]
     ): Field[FROM, Iterable[String], _] =
       StringArray(extractor)
 
-    def stringArrayOptional[FROM, _](
+    def stringArrayOptional[FROM](
         extractor: StringInterning => FROM => Option[Iterable[String]]
     ): Field[FROM, Option[Iterable[String]], _] =
       StringArrayOptional(extractor)
 
-    def intArray[FROM, _](
+    def intArray[FROM](
         extractor: StringInterning => FROM => Iterable[Int]
     ): Field[FROM, Iterable[Int], _] =
       IntArray(extractor)
 
-    def intArrayOptional[FROM, _](
+    def intArrayOptional[FROM](
         extractor: StringInterning => FROM => Option[Iterable[Int]]
     ): Field[FROM, Option[Iterable[Int]], _] =
       IntArrayOptional(extractor)
 
-    def bytea[FROM, _](
+    def bytea[FROM](
         extractor: StringInterning => FROM => Array[Byte]
     ): Field[FROM, Array[Byte], _] =
       Bytea(extractor)
 
-    def byteaOptional[FROM, _](
+    def byteaOptional[FROM](
         extractor: StringInterning => FROM => Option[Array[Byte]]
     ): Field[FROM, Option[Array[Byte]], _] =
       ByteaOptional(extractor)
 
-    def bigint[FROM, _](extractor: StringInterning => FROM => Long): Field[FROM, Long, _] =
+    def bigint[FROM](extractor: StringInterning => FROM => Long): Field[FROM, Long, _] =
       Bigint(extractor)
 
-    def bigintOptional[FROM, _](
+    def bigintOptional[FROM](
         extractor: StringInterning => FROM => Option[Long]
     ): Field[FROM, Option[Long], _] =
       BigintOptional(extractor)
 
-    def smallintOptional[FROM, _](
+    def smallintOptional[FROM](
         extractor: StringInterning => FROM => Option[Int]
     ): Field[FROM, Option[Int], _] =
       SmallintOptional(extractor)
 
-    def int[FROM, _](extractor: StringInterning => FROM => Int): Field[FROM, Int, _] =
+    def int[FROM](extractor: StringInterning => FROM => Int): Field[FROM, Int, _] =
       Integer(extractor)
 
-    def intOptional[FROM, _](
+    def intOptional[FROM](
         extractor: StringInterning => FROM => Option[Int]
     ): Field[FROM, Option[Int], _] =
       IntOptional(extractor)
 
-    def boolean[FROM, _](extractor: StringInterning => FROM => Boolean): Field[FROM, Boolean, _] =
+    def boolean[FROM](extractor: StringInterning => FROM => Boolean): Field[FROM, Boolean, _] =
       BooleanField(extractor)
 
-    def booleanOptional[FROM, _](
+    def booleanOptional[FROM](
         extractor: StringInterning => FROM => Option[Boolean]
     ): Field[FROM, Option[Boolean], _] =
       BooleanOptional(extractor)

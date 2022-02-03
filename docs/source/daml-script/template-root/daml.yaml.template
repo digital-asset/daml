@@ -1,10 +1,6 @@
 sdk-version: __VERSION__
 name: script-example
 source: src
-parties:
-  - Alice
-  - Bob
-  - Bank
 version: 0.0.1
 # script-dependencies-begin
 dependencies:
@@ -12,5 +8,3 @@ dependencies:
   - daml-stdlib
   - daml-script
 # script-dependencies-end
-sandbox-options:
-  - --wall-clock-time

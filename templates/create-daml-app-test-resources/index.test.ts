@@ -165,7 +165,7 @@ test('create and look up user using ledger library', async () => {
   expect(userContract1).toEqual(userContract2);
   const users = await ledger.query(User.User);
   expect(users[0]).toEqual(userContract1);
-});
+}, 20_000);
 
 // The tests following use the headless browser to interact with the app.
 // We select the relevant DOM elements using CSS class names that we embedded
