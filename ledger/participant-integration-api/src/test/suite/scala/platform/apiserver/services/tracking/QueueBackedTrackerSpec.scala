@@ -178,6 +178,8 @@ class QueueBackedTrackerSpec
             override def offer(elem: QueueInput): QueueOfferResult =
               throw new IllegalArgumentException("test")
 
+            override def size(): Int = 0
+
             override def complete(): Unit = ()
 
             override def fail(ex: Throwable): Unit = ()

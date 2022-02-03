@@ -22,6 +22,8 @@ object InstrumentedSource {
       capacityCounter.dec(bufferSize.toLong)
     }
 
+    override def size(): Int = bufferSize
+
     override def fail(ex: Throwable): Unit = delegate.fail(ex)
 
     override def offer(elem: T): QueueOfferResult = {
