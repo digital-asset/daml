@@ -336,24 +336,20 @@ For example:
 
 .. literalinclude:: daml-studio/daml/NotVisibleFailure.daml
   :language: daml
-  :start-after: -- BEGIN_NOT_VISIBLE_TEMPLATE
-  :end-before: -- END_NOT_VISIBLE_TEMPLATE
+  :start-after: -- BEGIN_NOT_VISIBLE_EXAMPLE
+  :end-before: -- END_NOT_VISIBLE_EXAMPLE
 
-.. literalinclude:: daml-studio/daml/NotVisibleFailure.daml
-  :language: daml
-  :start-after: -- BEGIN_NOT_VISIBLE_SCENARIO
-  :end-before: -- END_NOT_VISIBLE_SCENARIO
-
-In the above scenario the 'Example' contract is created by 'Alice' and makes no mention of
+In the above script the 'Example' contract is created by 'Alice' and makes no mention of
 the party 'Bob' and hence does not cause the contract to be disclosed to 'Bob'. When 'Bob' tries
 to exercise the contract the following error would occur:
 
 .. code-block:: none
 
     Scenario execution failed:
-      Attempt to fetch or exercise a contract not visible to the committer.
+      Attempt to fetch or exercise a contract not visible to the reading parties.
       Contract:  #0:0 (NotVisibleFailure:Example)
-      Committer: 'Bob'
+      actAs: 'Bob'
+      readAs:
       Disclosed to: 'Alice'
 
     Ledger time: 1970-01-01T00:00:00Z
