@@ -326,15 +326,18 @@ class ContractsService(
               resolveTemplateId(lc)(jwt, ledgerId)(templateId).map(_.toOption.flatten)
             )
             res <- OptionT(unsafeRunAsync {
+              import doobie.implicits._, cats.syntax.apply._
+              // a single contractId is either present or not; we would only need
+              // to fetchAndPersistBracket if we were looking up multiple cids
+              // in the same HTTP request, and they would all have to be bracketed once -SC
               timed(
                 metrics.daml.HttpJsonApi.Db.fetchByIdFetch,
-                fetch.fetchAndPersistBracket(jwt, ledgerId, parties, List(resolved)) { _ =>
-                  timed(
-                    metrics.daml.HttpJsonApi.Db.fetchByIdQuery,
-                    ContractDao.fetchById(parties, resolved, contractId),
-                  )
-                },
-              )
+                fetch.fetchAndPersist(jwt, ledgerId, parties, List(resolved)),
+              ) *>
+                timed(
+                  metrics.daml.HttpJsonApi.Db.fetchByIdQuery,
+                  ContractDao.fetchById(parties, resolved, contractId),
+                )
             })
           } yield res
           dbQueried.orElse {
@@ -354,19 +357,26 @@ class ContractsService(
           for {
             resolved <- resolveTemplateId(lc)(jwt, ledgerId)(templateId).map(_.toOption.flatten.get)
             found <- unsafeRunAsync {
+              import doobie.implicits._, cats.syntax.apply._
+              // it is possible for the contract under a given key to have been
+              // replaced concurrently with a contract unobservable by parties, i.e.
+              // the DB contains two contracts with the same key.  However, this doesn't
+              // ever yield an _inconsistent_ result, merely one that is slightly back-in-time,
+              // which is true of all json-api responses.  Again, if we were checking for
+              // multiple template/contract-key pairs in a single request, they would all
+              // have to be contained within a single fetchAndPersistBracket -SC
               timed(
                 metrics.daml.HttpJsonApi.Db.fetchByKeyFetch,
-                fetch.fetchAndPersistBracket(jwt, ledgerId, parties, List(resolved)) { _ =>
-                  timed(
-                    metrics.daml.HttpJsonApi.Db.fetchByKeyQuery,
-                    ContractDao.fetchByKey(
-                      parties,
-                      resolved,
-                      Hash.assertHashContractKey(toLedgerApiValue(resolved), contractKey),
-                    ),
-                  )
-                },
-              )
+                fetch.fetchAndPersist(jwt, ledgerId, parties, List(resolved)),
+              ) *>
+                timed(
+                  metrics.daml.HttpJsonApi.Db.fetchByKeyQuery,
+                  ContractDao.fetchByKey(
+                    parties,
+                    resolved,
+                    Hash.assertHashContractKey(toLedgerApiValue(resolved), contractKey),
+                  ),
+                )
             }
           } yield found
         }
