@@ -31,7 +31,7 @@ import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, OneAnd, OptionT, Show, \/, \/-}
+import scalaz.{~>, -\/, OneAnd, OptionT, Show, \/, \/-}
 import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -40,6 +40,7 @@ import scalaz.std.scalaFuture._
 
 import com.codahale.metrics.Timer
 import doobie.free.{connection => fconn}
+import fconn.ConnectionIO
 
 class ContractsService(
     resolveTemplateId: PackageService.ResolveTemplateId,
@@ -412,16 +413,21 @@ class ContractsService(
           import doobie.implicits._
           import ctx.{jwt, parties, templateIds, ledgerId}
           for {
-            cts <- timed(
-              metrics.daml.HttpJsonApi.Db.searchFetch,
-              fetch.fetchAndPersistBracket(jwt, ledgerId, parties, templateIds.toList) { _ =>
-                timed(
-                  metrics.daml.HttpJsonApi.Db.searchQuery,
-                  templateIds.toVector
-                    .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
-                )
-              },
-            )
+            cts <- fetch.fetchAndPersistBracket(
+              jwt,
+              ledgerId,
+              parties,
+              templateIds.toList,
+              Lambda[ConnectionIO ~> ConnectionIO](
+                timed(metrics.daml.HttpJsonApi.Db.searchFetch, _)
+              ),
+            ) { _ =>
+              timed(
+                metrics.daml.HttpJsonApi.Db.searchQuery,
+                templateIds.toVector
+                  .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
+              )
+            }
           } yield cts.flatten
         }
 
