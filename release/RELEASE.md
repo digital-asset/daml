@@ -76,9 +76,11 @@ patches we backport to the 1.0 release branch).
    >
    > [ad-hoc]: https://github.com/DACH-NY/daml-language-ad-hoc
    >
-   > `ad-hoc.sh` prints IP address, username and password for the created Windows VM.
+   > `ad-hoc.sh create windows` prints IP address, username and password for the created Windows VM.
    > Save this output. You will need this information later when you create an RDP connection.
-   >
+   > 
+   > ‼️ After connecting, it's going to take some time for the machine to be configured (see notes below).
+   > 
    > If you're on a Mac, you can use Microsoft Remote Desktop to connect; on
    > Linux, you can use Remmina.
    >
@@ -90,15 +92,13 @@ patches we backport to the 1.0 release branch).
    > The ad-hoc machines take a bit of time to be available after being reported as
    > created, so be patient for a bit if your first connection attempt(s) fail.
    >
-   > Windows machines come with both Internet Explorer and Firefox installed.
-   > Do not make the mistake of trying to use Internet Explorer.
+   > NOTE 1: **Use Firefox for testing.** Windows machines come with both Internet Explorer and Firefox installed. Do not make the mistake of trying to use Internet Explorer.
    >
    > Ad-hoc machines also come with Node, VSCode and OpenJDK preinstalled, so
    > you don't need to worry about those.
    >
-   > The script that installs Firefox, Node, VSCode and OpenJDK runs once the
-   > machine is available for login. If you can't find the software you need
-   > immediately, just wait for a couple of minutes.
+   > NOTE 2: After logging in, **it takes some time for the machine to be configured.** The script that installs Firefox, Node, VSCode and OpenJDK runs once the
+   > machine is available for login. The software you need should appear within about 10 minutes.
    >
    > All of the commands mentioned in this document can be run from a simple
    > DOS prompt (start menu -> type "cmd" -> click "Command prompt").
