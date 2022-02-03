@@ -128,7 +128,7 @@ jobs:
 
         case "$(status)" in
           Succeeded*)
-            msg="has succeeded! Next step is to approve & merge."
+            msg="has succeeded! Next step is to approve & merge. This is probably a good time to start your Windows testing machine."
             ;;
           Failed*)
             msg="has failed. Please investigate."
