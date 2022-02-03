@@ -29,7 +29,8 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
-        release=$(./release.sh snapshot HEAD 0.0.0 | awk '{print $2}')
+        prefix=$(head -1 LATEST | awk '{print $2}' | sed -e 's/\([^-]*\).*/\1/')
+        release=$(./release.sh snapshot HEAD $prefix | awk '{print $2}')
 
         setvar is_release true
         setvar trigger_sha "$(branch_sha)"
