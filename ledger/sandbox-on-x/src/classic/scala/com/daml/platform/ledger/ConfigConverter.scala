@@ -1,11 +1,10 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.sandbox
+package com.daml.ledger.sandbox
 
 import com.daml.caching
 import com.daml.ledger.participant.state.kvutils.app._
-import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider}
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
@@ -16,7 +15,7 @@ import scala.jdk.DurationConverters._
 object ConfigConverter {
   private val DefaultH2SandboxJdbcUrl = "jdbc:h2:mem:sandbox;db_close_delay=-1"
 
-  def toSandboxOnXConfig(
+  private[sandbox] def toSandboxOnXConfig(
       sandboxConfig: SandboxConfig,
       maybeLedgerId: Option[String],
       ledgerName: LedgerName,
@@ -70,7 +69,6 @@ object ConfigConverter {
           maybeLedgerId.getOrElse(LedgerIdGenerator.generateRandomId(ledgerName).unwrap)
       },
       commandConfig = sandboxConfig.commandConfig,
-      submissionConfig = sandboxConfig.submissionConfig,
       tlsConfig = sandboxConfig.tlsConfig,
       participants = Seq(
         singleCombinedParticipant

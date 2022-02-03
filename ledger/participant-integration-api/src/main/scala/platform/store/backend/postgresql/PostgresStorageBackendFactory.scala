@@ -15,7 +15,6 @@ import com.daml.platform.store.backend.{
   ContractStorageBackend,
   DBLockStorageBackend,
   DataSourceStorageBackend,
-  DeduplicationStorageBackend,
   EventStorageBackend,
   IngestionStorageBackend,
   PartyStorageBackend,
@@ -34,9 +33,6 @@ object PostgresStorageBackendFactory
 
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
     new PartyStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache)
-
-  override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
-    PostgresDeduplicationStorageBackend
 
   override def createCompletionStorageBackend(
       stringInterning: StringInterning

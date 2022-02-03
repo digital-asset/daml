@@ -11,7 +11,7 @@ The first sections of this guide cover use of the Navigator with the SDK. Refer 
 Navigator functionality
 ***********************
 
-Connect Navigator to any Daml Ledger and use it to:
+Connect the Navigator to any Daml Ledger and use it to:
 
 - View templates
 - View active and archived contracts

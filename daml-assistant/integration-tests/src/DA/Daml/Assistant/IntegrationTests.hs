@@ -141,7 +141,6 @@ damlStart tmpDir = do
     let startProc =
             (shell $ unwords
                 [ "daml start"
-                , "--sandbox-canton"
                 , "--start-navigator=no"
                 , "--sandbox-port", show sandboxPort
                 , "--json-api-port", show jsonApiPort
@@ -371,7 +370,7 @@ damlToolTests =
 damlStartTests :: IO DamlStartResource -> TestTree
 damlStartTests getDamlStart =
     -- We use testCaseSteps to make sure each of these tests runs in sequence, not in parallel.
-    testCaseSteps "daml start --sandbox-canton" $ \step -> do
+    testCaseSteps "daml start" $ \step -> do
         let subtest :: forall t. String -> IO t -> IO t
             subtest m p = step m >> p
         subtest "sandbox and json-api come up" $ do
@@ -478,24 +477,6 @@ damlStartTests getDamlStart =
                         (threadDelay 500000)
                         ("http://localhost:" <> show navigatorPort)
                         []
-        subtest "Navigator startup via daml ledger outside project directory" $ do
-            DamlStartResource {sandboxPort} <- getDamlStart
-            withTempDir $ \tmpDir -> do
-                navigatorPort :: Int <- fromIntegral <$> getFreePort
-                withDamlServiceIn tmpDir "ledger navigator"
-                    ["--host"
-                    , "localhost"
-                    , "--port"
-                    , show sandboxPort
-                    , "--port"
-                    , show navigatorPort
-                    ] $ \ ph -> do
-                        -- waitForHttpServer will only return once we get a 200 response so we
-                        -- don’t need to do anything else.
-                        waitForHttpServer 240 ph
-                            (threadDelay 500000)
-                            ("http://localhost:" <> show navigatorPort)
-                            []
 
         subtest "hot reload" $ do
             DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
@@ -583,8 +564,7 @@ damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
                 , "start-navigator: false"
                 ]
         withDamlServiceIn tmpDir "start"
-            [ "--sandbox-canton"
-            , "--sandbox-port=0"
+            [ "--sandbox-port=0"
             , "--json-api-port=0"
             , "--json-api-option=--port-file=jsonapi.port"
             ] $ \ ph -> do

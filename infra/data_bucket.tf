@@ -93,5 +93,5 @@ resource "google_service_account_key" "assembly-keys" {
 }
 
 output "assembly_keys" {
-  value = { for k, v in google_service_account_key.assembly-keys : k => v.private_key }
+  value = { for k, v in google_service_account_key.assembly-keys : k => nonsensitive(v.private_key) }
 }

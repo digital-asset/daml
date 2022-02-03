@@ -37,8 +37,6 @@ class BridgeWriteService(
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
-  override def isApiDeduplicationEnabled: Boolean = false
-
   override def close(): Unit = {
     logger.info("Shutting down BridgeWriteService.")
     queue.complete()
@@ -68,12 +66,7 @@ class BridgeWriteService(
         CompletableFuture.completedFuture(
           SubmissionResult.SynchronousError(
             Rejection
-              .LedgerBridgeInternalError(
-                new RuntimeException(
-                  "Deduplication offset periods are not supported in Sandbox-on-X ledger bridge"
-                ),
-                submitterInfo.toCompletionInfo(),
-              )
+              .OffsetDeduplicationPeriodUnsupported(submitterInfo.toCompletionInfo())
               .toStatus
           )
         )

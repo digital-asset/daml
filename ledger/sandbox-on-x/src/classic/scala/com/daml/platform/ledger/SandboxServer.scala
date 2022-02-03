@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.sandbox
+package com.daml.ledger.sandbox
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -11,16 +11,16 @@ import com.daml.ledger.participant.state.kvutils.app.Config
 import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
+import com.daml.ledger.sandbox.SandboxServer._
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.{newLoggingContext, newLoggingContextWith}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
 import com.daml.platform.apiserver.ApiServer
-import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
+import com.daml.platform.sandbox.logging
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{FlywayMigrations, IndexMetadata}
 import com.daml.ports.Port
@@ -55,7 +55,7 @@ final class SandboxServer(
   )
 
   // Only used in testing; hopefully we can get rid of it soon.
-  private[sandbox] val port =
+  val port =
     Await.result(apiServerResource.asFuture.map(_.port)(ExecutionContext.parasitic), AsyncTolerance)
 
   override def close(): Unit = Await.result(apiServerResource.release(), AsyncTolerance)

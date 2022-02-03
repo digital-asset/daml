@@ -20,14 +20,9 @@ import com.daml.ledger.api.testtool.infrastructure.assertions.CommandDeduplicati
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.{
   CompletionResponse,
-  Features,
   ParticipantTestContext,
 }
-import com.daml.ledger.api.testtool.infrastructure.time.{
-  DelayMechanism,
-  StaticTimeDelayMechanism,
-  TimeDelayMechanism,
-}
+import com.daml.ledger.api.testtool.infrastructure.time.DelayMechanism
 import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -52,8 +47,7 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 final class CommandDeduplicationIT(
-    timeoutScaleFactor: Double,
-    staticTime: Boolean,
+    timeoutScaleFactor: Double
 ) extends LedgerTestSuite {
 
   private[this] val logger: Logger = LoggerFactory.getLogger(getClass.getName)
@@ -211,7 +205,7 @@ final class CommandDeduplicationIT(
     "DeduplicationMixedClients",
     "Deduplicate commands within the deduplication time window using the command client and the command submission client",
     allocate(Parties(16)),
-    enabled = _ => !staticTime,
+    enabled = !_.staticTime,
     disabledReason = "Cannot work in static time as we run multiple test cases in parallel",
     runConcurrently = false, // updates the time model
     timeoutScale = 3,
@@ -224,14 +218,19 @@ final class CommandDeduplicationIT(
             currentElement.flatMap(value => generateVariations(tail).map(value :: _))
         }
 
-      runWithTimeModel(configuredParticipants) { delay =>
+      runWithTimeModel(configuredParticipants) { minMaxSkewSum =>
         val numberOfCalls = 4
         // cover all the different generated variations of submit and submitAndWait
         val allGeneratedVariations =
           generateVariations(List.fill(numberOfCalls)(List(true, false))).zip(parties)
         forAllParallel(allGeneratedVariations) {
           case (firstCall :: secondCall :: thirdCall :: fourthCall :: Nil, party) =>
-            mixedClientsCommandDeduplicationTestCase(ledger, party, delay)(
+            mixedClientsCommandDeduplicationTestCase(
+              ledger,
+              party,
+              ledger.delayMechanism,
+              minMaxSkewSum,
+            )(
               firstCall,
               secondCall,
               thirdCall,
@@ -248,6 +247,7 @@ final class CommandDeduplicationIT(
       ledger: ParticipantTestContext,
       party: Party,
       delay: DelayMechanism,
+      skews: FiniteDuration,
   )(firstCall: Boolean, secondCall: Boolean, thirdCall: Boolean, fourthCall: Boolean)(implicit
       ec: ExecutionContext
   ) = {
@@ -313,10 +313,10 @@ final class CommandDeduplicationIT(
       deduplicationDurationFromPeriod = extractDurationFromDeduplicationPeriod(
         deduplicationCompletionResponse = duplicateResponse,
         defaultDuration = deduplicationDuration,
-        delayMechanism = delay,
+        skews = skews,
       )
       eventuallyAccepted <- succeedsEventually(
-        maxRetryDuration = deduplicationDurationFromPeriod + delay.skews + 10.seconds,
+        maxRetryDuration = deduplicationDurationFromPeriod + skews + 10.seconds,
         description =
           s"Deduplication period expires and request is accepted for command ${submitRequest.getCommands}.",
         delayMechanism = delay,
@@ -468,7 +468,7 @@ final class CommandDeduplicationIT(
             DeduplicationPeriod.DeduplicationDuration(deduplicationDuration.asProtobuf)
         )
       val firstAcceptedSubmissionId = newSubmissionId()
-      runWithTimeModel(configuredParticipants) { delay =>
+      runWithTimeModel(configuredParticipants) { minMaxSkewSum =>
         for {
           completionResponse <- submitRequestAndAssertCompletionAccepted(
             ledger,
@@ -485,13 +485,13 @@ final class CommandDeduplicationIT(
           deduplicationDurationFromPeriod = extractDurationFromDeduplicationPeriod(
             deduplicationCompletionResponse = optDeduplicationCompletionResponse,
             defaultDuration = deduplicationDuration,
-            delayMechanism = delay,
+            skews = minMaxSkewSum,
           )
           eventuallyAcceptedCompletionResponse <- succeedsEventually(
-            maxRetryDuration = deduplicationDurationFromPeriod + delay.skews + 10.seconds,
+            maxRetryDuration = deduplicationDurationFromPeriod + minMaxSkewSum + 10.seconds,
             description =
               s"The deduplication period expires and the request is accepted for the commands ${request.getCommands}.",
-            delayMechanism = delay,
+            delayMechanism = ledger.delayMechanism,
           ) {
             submitRequestAndAssertCompletionAccepted(
               ledger,
@@ -543,7 +543,7 @@ final class CommandDeduplicationIT(
       val request = ledger
         .submitRequest(party, DummyWithAnnotation(party, "Duplicate command").create.command)
       val acceptedSubmissionId = newSubmissionId()
-      runWithTimeModel(configuredParticipants) { delay =>
+      runWithTimeModel(configuredParticipants) { _ =>
         val dummyRequest = ledger.submitRequest(
           party,
           DummyWithAnnotation(party, "Dummy command to generate a completion offset").create.command,
@@ -565,7 +565,7 @@ final class CommandDeduplicationIT(
           )
           // Wait for any ledgers that might adjust based on time skews
           // This is done so that we can validate that the third command is accepted
-          _ <- delayForOffsetIfRequired(ledger, delay, ledger.features)
+          _ <- delayForOffsetIfRequired(ledger)
           // Submit command again using the first offset as the deduplication offset
           response2 <- submitRequestAndAssertAsyncDeduplication(
             ledger,
@@ -614,11 +614,9 @@ final class CommandDeduplicationIT(
   )
 
   private def delayForOffsetIfRequired(
-      participantTestContext: ParticipantTestContext,
-      delayMechanism: DelayMechanism,
-      features: Features,
+      ledger: ParticipantTestContext
   )(implicit ec: ExecutionContext): Future[Unit] =
-    features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport match {
+    ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport match {
       case OffsetSupport.OFFSET_NATIVE_SUPPORT =>
         Future.unit
       case OffsetSupport.OFFSET_CONVERT_TO_DURATION =>
@@ -627,10 +625,10 @@ final class CommandDeduplicationIT(
         //
         // the duration is extended with up to minSkew + maxSkew when using pre-execution,
         // as we use maxRecordTime and minRecordTime to calculate the interval between the two commands
-        participantTestContext
+        ledger
           .getTimeModel()
           .flatMap(response => {
-            delayMechanism.delayBy(
+            ledger.delayMechanism.delayBy(
               response.getTimeModel.getMaxSkew.asScala +
                 2 * response.getTimeModel.getMinSkew.asScala
             )
@@ -961,7 +959,7 @@ final class CommandDeduplicationIT(
   private def newSubmissionId(): SubmissionId = SubmissionIdGenerator.Random.generate()
 
   private def runWithTimeModel(participants: Seq[ParticipantTestContext])(
-      testWithDelayMechanism: DelayMechanism => Future[Unit]
+      testWithDelayMechanism: FiniteDuration => Future[Unit]
   )(implicit ec: ExecutionContext): Future[Unit] = {
     // deduplication duration is adjusted by min skew and max skew when running using pre-execution
     // to account for this we adjust the time model
@@ -970,19 +968,9 @@ final class CommandDeduplicationIT(
       participants,
       _.update(_.minSkew := skew, _.maxSkew := skew),
     ) { timeModel =>
-      val anyParticipant = participants.head
-      val skews = asFiniteDuration(timeModel.getMinSkew.asScala + timeModel.getMaxSkew.asScala)
-      testWithDelayMechanism(delayMechanism(anyParticipant, skews))
-    }
-  }
-
-  private def delayMechanism(ledger: ParticipantTestContext, skews: FiniteDuration)(implicit
-      ec: ExecutionContext
-  ) = {
-    if (staticTime) {
-      new StaticTimeDelayMechanism(ledger, skews)
-    } else {
-      new TimeDelayMechanism(skews)
+      val minMaxSkewSum =
+        asFiniteDuration(timeModel.getMinSkew.asScala + timeModel.getMaxSkew.asScala)
+      testWithDelayMechanism(minMaxSkewSum)
     }
   }
 
@@ -1062,7 +1050,7 @@ final class CommandDeduplicationIT(
   private def extractDurationFromDeduplicationPeriod(
       deduplicationCompletionResponse: Option[CompletionResponse],
       defaultDuration: FiniteDuration,
-      delayMechanism: DelayMechanism,
+      skews: FiniteDuration,
   ): FiniteDuration =
     deduplicationCompletionResponse
       .map(_.completion.deduplicationPeriod)
@@ -1074,7 +1062,7 @@ final class CommandDeduplicationIT(
         case CompletionDeduplicationPeriod.DeduplicationDuration(value) =>
           value.asScala
       }
-      .getOrElse(defaultDuration + delayMechanism.skews)
+      .getOrElse(defaultDuration + skews)
       .asInstanceOf[FiniteDuration]
 
 }

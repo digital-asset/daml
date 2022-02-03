@@ -118,8 +118,8 @@ testsForRemoteDataDependencies damlc dar =
                     lock <- readFile lockFp
                     lines lock @?=
                         [ "dependencies:"
-                        , "- pkgId: " <> mainPkgId
-                        , "  name: pkg-manager-test"
+                        , "- name: pkg-manager-test"
+                        , "  pkgId: " <> mainPkgId
                         , "  version: 1.0.0"
                         ]
                   -- a second call shouldn't make any network connections. So let's set the sandbox

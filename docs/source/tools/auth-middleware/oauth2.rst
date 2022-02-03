@@ -6,7 +6,7 @@
 OAuth 2.0 Auth Middleware
 #########################
 
-Daml Connect includes an implementation of an auth middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_.
+Daml includes an implementation of an auth middleware that supports `OAuth 2.0 Authorization Code Grant <https://oauth.net/2/grant-types/authorization-code/>`_.
 The implementation aims to be configurable to support different OAuth 2.0 providers and to allow custom mappings from Daml ledger claims to OAuth 2.0 scopes.
 
 OAuth 2.0 Configuration

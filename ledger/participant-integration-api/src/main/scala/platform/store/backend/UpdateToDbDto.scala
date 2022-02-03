@@ -5,7 +5,6 @@ package com.daml.platform.store.backend
 
 import java.util.UUID
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
-import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.CompletionInfo
@@ -15,7 +14,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.platform.index.index.StatusDetails
-import com.daml.platform.store.appendonlydao.{DeduplicationKeyMaker, JdbcLedgerDao}
+import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.appendonlydao.events._
 
 object UpdateToDbDto {
@@ -34,13 +33,7 @@ object UpdateToDbDto {
             rejection_status_message = Some(u.reasonTemplate.message),
             rejection_status_details =
               Some(StatusDetails.of(u.reasonTemplate.status.details).toByteArray),
-          ),
-          DbDto.CommandDeduplication(
-            DeduplicationKeyMaker.make(
-              domain.CommandId(u.completionInfo.commandId),
-              u.completionInfo.actAs,
-            )
-          ),
+          )
         )
 
       case u: ConfigurationChanged =>

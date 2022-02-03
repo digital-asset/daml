@@ -20,7 +20,6 @@ module DA.Daml.Helper.Ledger (
     runLedgerUploadDar,
     runLedgerFetchDar,
     runLedgerExport,
-    runLedgerNavigator,
     runLedgerReset,
     runLedgerGetDalfs,
     runLedgerListPackages,
@@ -533,27 +532,6 @@ runLedgerExport flags remainingArguments = do
       damlSdkJar
       [logbackArg]
       ("export" : remainingArguments ++ ledgerFlags) $ \ph -> do
-        exitCode <- waitExitCode ph
-        exitWith exitCode
-
--- | Run navigator against configured ledger. We supply Navigator with
--- the list of parties from the ledger, but in the future Navigator
--- should fetch the list of parties itself.
-runLedgerNavigator :: LedgerFlags -> [String] -> IO ()
-runLedgerNavigator flags remainingArguments = do
-    args <- getDefaultArgs flags
-    logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
-    putStrLn $ "Opening navigator at " <> showHostAndPort args
-    let navigatorArgs = concat
-            [ ["server"]
-            , [host args, show (port args)]
-            , ["--ignore-project-parties"]
-            , remainingArguments
-            ]
-    withJar
-      damlSdkJar
-      [logbackArg]
-      ("navigator" : navigatorArgs) $ \ph -> do
         exitCode <- waitExitCode ph
         exitWith exitCode
 

@@ -69,6 +69,10 @@ updatePath installOpts output targetPath
 foreign import WINDOWS_CCONV "windows.h SendMessageTimeoutW"
     sendMessageTimeout :: HWND -> WindowMessage -> WPARAM -> LPARAM -> UINT -> UINT -> Ptr (Ptr DWORD) -> IO LRESULT
 
+-- Not exposed by Win32 so we duplicate it.
+foreign import WINDOWS_CCONV unsafe "windows.h RegQueryValueExW"
+  c_RegQueryValueEx :: PKEY -> LPCTSTR -> Ptr DWORD -> Ptr DWORD -> LPBYTE -> Ptr DWORD -> IO ErrCode
+
 -- | Win32 does expose `regQueryValueEx` but it requires you to know the
 -- size of the value in advance which makes it quite annoying to use.
 regQueryStringValue :: HKEY -> String -> IO String
@@ -114,7 +118,6 @@ updatePath installOpts output targetPath
                         when (answer `elem` ["Yes", "yes", "y", "Y"]) $ doUpdatePath cfgFile cmd
                       else output setPathManualMsg
                   Yes -> doUpdatePath cfgFile cmd
-                  No -> error "updatePath: impossible case match"
             else output setPathManualMsg
   where
     setPathManualMsg = "Please add " <> targetPath <> " to your PATH."

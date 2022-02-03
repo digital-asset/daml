@@ -23,6 +23,7 @@ module DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util
+import qualified Data.Aeson.Key as A
 import qualified Data.Text as T
 import Data.Text (Text)
 import qualified Data.Yaml as Y
@@ -115,7 +116,7 @@ queryConfig name root path cfg
         let initial = (root, Just v0)
             step (p, Nothing) _ = pure (p, Nothing)
             step (p, Just v) n = do
-                v' <- Y.withObject (T.unpack p) (.:? n) v
+                v' <- Y.withObject (T.unpack p) (.:? A.fromText n) v
                 pure (p <> "." <> n, v')
 
         (_,v1) <- foldlM step initial path

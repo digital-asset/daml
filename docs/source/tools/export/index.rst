@@ -45,7 +45,7 @@ cause references to :ref:`unknown contract ids <export-unknown-cids>`.
 
 The ``--output`` flag defines the directory prefix under which to generate the
 Daml project that contains the Daml script that represents the ledger export.
-The flag ``--sdk-version`` defines which Daml Connect version to configure in
+The flag ``--sdk-version`` defines which Daml SDK version to configure in
 the generated ``daml.yaml`` configuration file.
 
 By default an export will reproduce all transactions in the ledger history. The

@@ -85,10 +85,12 @@ Independently of how the outcome is communicated, command deduplication generate
   Neither deduplication durations up to the :ref:`maximum deduplication time <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_time>` nor deduplication offsets published within that time SHOULD result in this error.
   Participants may accept longer periods at their discretion.
 
+- The gRPC status code ``FAILED_PRECONDITION`` with error code id :ref:`PARTICIPANT_PRUNED_DATA_ACCESSED <error_code_PARTICIPANT_PRUNED_DATA_ACCESSED>`, when specifying a deduplication period represented by an offset, indicates that the specified deduplication offset has been pruned.
+  The field ``earliest_offset`` in the metadata specifies the last pruned offset.
 
 For deduplication to work as intended, all submissions for the same ledger change must be submitted via the same participant.
 Whether a submission is considered a duplicate is determined by completion events, and by default a participant outputs only the completion events for submissions that were requested via the very same participant.
-At this time, only `Daml Driver for VMware Blockchain <https://www.digitalasset.com/daml-for-vmware-blockchain/>`__ supports command deduplication across participants.
+At this time, only `Daml driver for VMware Blockchain <https://www.digitalasset.com/daml-for-vmware-blockchain/>`__ supports command deduplication across participants.
 
 .. _command-dedup-usage:
 
@@ -229,7 +231,16 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
        - Set the deduplication offset to ``earliest_offset`` or the deduplication duration to ``longest_duration`` and retry from :ref:`Step 2 <dedup-bounded-step-offset>`,  obtaining the completion offset ``OFF1``.
 	 This may lead to accepting the change twice within the originally intended deduplication period.
 
-	 
+
+   - * ``FAILED_PRECONDITION`` / :ref:`PARTICIPANT_PRUNED_DATA_ACCESSED <error_code_PARTICIPANT_PRUNED_DATA_ACCESSED>`
+
+     * The specified deduplication offset has been pruned by the participant.
+       ``earliest_offset`` contains the last pruned offset.
+
+        Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :ref:`completions <com.daml.ledger.api.v1.CompletionStreamRequest>`, starting from the last pruned offset by setting :ref:`offset <com.daml.ledger.api.v1.CompletionStreamRequest.offset>` to the value of
+        ``earliest_offset``, and use the first received :ref:`offset <com.daml.ledger.api.v1.Checkpoint.offset>` as a deduplication offset.
+
+
    - * ``ABORTED`` / :ref:`SUBMISSION_ALREADY_IN_FLIGHT <error_code_SUBMISSION_ALREADY_IN_FLIGHT>`
      
        This error occurs only as an RPC response, not inside a completion event.
@@ -311,7 +322,7 @@ We recommend the following strategy for using deduplication offsets:
 	In general, the ledger end need not identify a command completion that is visible to the submitting parties.
 	When running on such a ledger, use the Command Service approach described next.
    
-   - Use the :ref:`Command Service <command-service>` to obtain a recent offset by repeatedly submitting a dummy command, e.g., a :ref:`Create-And-Exercise command <com.daml.ledger.api.v1.CreateAndExerciseCommand>` of some single-signatory template with the :ref:`Archive <function-da-internal-template-functions-archive-52202>` choice, until you get a successful response.
+   - Use the :ref:`Command Service <command-service>` to obtain a recent offset by repeatedly submitting a dummy command, e.g., a :ref:`Create-And-Exercise command <com.daml.ledger.api.v1.CreateAndExerciseCommand>` of some single-signatory template with the :ref:`Archive <function-da-internal-template-functions-archive-2977>` choice, until you get a successful response.
      The response contains the :ref:`completion offset <com.daml.ledger.api.v1.SubmitAndWaitForTransactionIdResponse.completion_offset>`.
 
 
@@ -376,7 +387,3 @@ The above strategy can fail in the following scenarios:
 ..
   Command deduplication on the JSON API
   *************************************
-
-
-
-

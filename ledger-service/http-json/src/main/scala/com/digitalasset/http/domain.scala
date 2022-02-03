@@ -153,7 +153,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
           Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanReadAs).disjunction
       }
 
-    def fromLedgerUserRights(input: Vector[LedgerUserRight]): List[UserRight] = input
+    def fromLedgerUserRights(input: Seq[LedgerUserRight]): List[UserRight] = input
       .map[domain.UserRight] {
         case LedgerUserRight.ParticipantAdmin => ParticipantAdmin
         case LedgerUserRight.CanActAs(party) =>
@@ -174,7 +174,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   final case class CreateUserRequest(
       userId: String,
       primaryParty: Option[String],
-      rights: List[UserRight],
+      rights: Option[List[UserRight]],
   )
 
   final case class ListUserRightsRequest(userId: String)

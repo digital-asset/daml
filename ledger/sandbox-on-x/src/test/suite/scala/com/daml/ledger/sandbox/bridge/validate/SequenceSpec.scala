@@ -162,51 +162,68 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
 
   it should "assert internal consistency validation on transaction submission conflicts" in new TestContext {
     // Conflict validation passes on empty Sequencer State
-    val Seq((offset1, update1)) = sequence(create(cId(1), Some(contractKey(1L))))
+    val Seq((offset1, update1)) =
+      sequence(create(cId(1), Some(contractKey(1L)), cmdId = commandId(2)))
     offset1 shouldBe toOffset(1L)
-    update1 shouldBe transactionAccepted(1)
+    update1 shouldBe transactionAccepted(1, cmdId = commandId(2))
 
     // Attempt assigning an active contract key
-    val Seq((offset2, update2)) = sequence(create(cId(2), Some(contractKey(1L))))
+    val Seq((offset2, update2)) =
+      sequence(create(cId(2), Some(contractKey(1L)), cmdId = commandId(2)))
     offset2 shouldBe toOffset(2L)
-    assertCommandRejected(update2, "Inconsistent: DuplicateKey: contract key is not unique")
+    assertCommandRejected(
+      update2,
+      "Inconsistent: DuplicateKey: contract key is not unique",
+      cmdId = commandId(2),
+    )
 
     // Archiving a contract for the first time should succeed
-    val Seq((offset3, update3)) = sequence(consume(cId(3)))
+    val Seq((offset3, update3)) = sequence(consume(cId(3), cmdId = commandId(3)))
     offset3 shouldBe toOffset(3L)
-    update3 shouldBe transactionAccepted(3)
+    update3 shouldBe transactionAccepted(3, cmdId = commandId(3))
 
     // Reject when trying to archive a contract again
-    val Seq((offset4, update4)) = sequence(consume(cId(3)))
+    val Seq((offset4, update4)) = sequence(consume(cId(3), cmdId = commandId(3)))
     offset4 shouldBe toOffset(4L)
-    assertCommandRejected(update4, s"Inconsistent: Could not lookup contracts: [${cId(3).coid}]")
+    assertCommandRejected(
+      update4,
+      s"Inconsistent: Could not lookup contracts: [${cId(3).coid}]",
+      cmdId = commandId(3),
+    )
 
     // Archiving a contract with an assigned key for the first time succeeds
-    val Seq((offset5, update5)) = sequence(consume(cId(4), Some(contractKey(2L))))
+    val Seq((offset5, update5)) =
+      sequence(consume(cId(4), Some(contractKey(2L)), cmdId = commandId(4)))
     offset5 shouldBe toOffset(5L)
-    update5 shouldBe transactionAccepted(5)
+    update5 shouldBe transactionAccepted(5, cmdId = commandId(4))
 
     // Reject on unknown key
-    val Seq((offset6, update6)) = sequence(exerciseNonConsuming(cId(5), contractKey(2L)))
+    val Seq((offset6, update6)) =
+      sequence(exerciseNonConsuming(cId(5), contractKey(2L), cmdId = commandId(5)))
     offset6 shouldBe toOffset(6L)
     assertCommandRejected(
       update6,
       s"Inconsistent: Contract key lookup with different results: expected [None], actual [Some(${cId(5)})]",
+      cmdId = commandId(5),
     )
 
     // Reject on inconsistent key usage
-    val Seq((offset7, update7)) = sequence(exerciseNonConsuming(cId(5), contractKey(1L)))
+    val Seq((offset7, update7)) =
+      sequence(exerciseNonConsuming(cId(5), contractKey(1L), cmdId = commandId(5)))
     offset7 shouldBe toOffset(7L)
     assertCommandRejected(
       update7,
       s"Inconsistent: Contract key lookup with different results: expected [Some(${cId(1)})], actual [Some(${cId(5)})]",
+      cmdId = commandId(5),
     )
   }
 
   it should "forward the noConflictUpTo offsets to the sequencer state queue and allow its pruning" in new TestContext {
     // Ingest two transactions which are archiving contracts
-    val Seq((offset1, _)) = sequence(consume(contractId = cId(1), noConflictUpTo = toOffset(0L)))
-    val Seq((offset2, _)) = sequence(consume(contractId = cId(2), noConflictUpTo = toOffset(0L)))
+    val Seq((offset1, _)) =
+      sequence(consume(contractId = cId(1), noConflictUpTo = toOffset(0L), cmdId = commandId(1)))
+    val Seq((offset2, _)) =
+      sequence(consume(contractId = cId(2), noConflictUpTo = toOffset(0L), cmdId = commandId(2)))
 
     // Check that the sequencer queue includes the updates
     sequenceImpl.sequencerState.sequencerQueue should contain theSameElementsAs Vector(
@@ -216,7 +233,8 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     sequenceImpl.sequencerState.consumedContractsState shouldBe Set(cId(1), cId(2))
 
     // Ingest another transaction with the noConflictUpTo equal to the offset of the previous transaction
-    val Seq((offset3, _)) = sequence(consume(contractId = cId(3), noConflictUpTo = offset2))
+    val Seq((offset3, _)) =
+      sequence(consume(contractId = cId(3), noConflictUpTo = offset2, cmdId = commandId(3)))
 
     // Assert that the queue has pruned the previous entries
     sequenceImpl.sequencerState.sequencerQueue should contain theSameElementsAs Vector(
@@ -240,11 +258,12 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       cId(1),
       transactionSubmission =
         tx.copy(submitterInfo = tx.submitterInfo.copy(deduplicationPeriod = deduplicationPeriod)),
+      cmdId = commandId(1),
     )
 
     val Seq((offset1, update1)) = sequence(initialSubmission)
     offset1 shouldBe toOffset(1L)
-    update1 shouldBe transactionAccepted(1)
+    update1 shouldBe transactionAccepted(1, cmdId = commandId(1))
 
     // Assert duplicate command rejected
     val Seq((offset2, update2)) = sequence(submissionWithDedupPeriod)
@@ -253,10 +272,12 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       update2,
       "A command with the given command id has already been successfully processed",
       deduplicationPeriod,
+      cmdId = commandId(1),
     )
 
     // Advance record time past the deduplication period
-    private val newRecordTime: Timestamp = currentRecordTime.add(deduplicationPeriod.duration)
+    private val newRecordTime: Timestamp =
+      currentRecordTime.add(deduplicationPeriod.duration.plusSeconds(1L))
     when(timeProviderMock.getCurrentTimestamp).thenReturn(newRecordTime)
 
     // Assert command is accepted
@@ -305,7 +326,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       actAs = List.empty,
       readAs = List.empty,
       applicationId = Ref.ApplicationId.assertFromString("applicationId"),
-      commandId = Ref.CommandId.assertFromString("commandId"),
+      commandId = commandId(1),
       deduplicationPeriod = zeroDeduplicationPeriod,
       submissionId = Some(submissionId),
       ledgerConfiguration =
@@ -391,6 +412,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
         keyO: Option[GlobalKey] = None,
         informees: Set[Ref.Party] = txInformees,
         transactionSubmission: Submission.Transaction = tx,
+        cmdId: Ref.CommandId = commandId(1),
     ): Right[Nothing, (Offset, PreparedTransactionSubmission)] = {
       val keyInputs = keyO.map(k => Map(k -> KeyCreate)).getOrElse(Map.empty)
       val updatedKeys = keyO.map(k => Map(k -> Some(contractId))).getOrElse(Map.empty)
@@ -400,7 +422,9 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
           keyInputs = keyInputs,
           updatedKeys = updatedKeys,
           transactionInformees = informees,
-          submission = transactionSubmission,
+          submission = transactionSubmission.copy(submitterInfo =
+            transactionSubmission.submitterInfo.copy(commandId = cmdId)
+          ),
         )
 
       input(preparedTransactionSubmission)
@@ -412,6 +436,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
         noConflictUpTo: Offset = Offset.beforeBegin,
         informees: Set[Ref.Party] = txInformees,
         transactionSubmission: Submission.Transaction = tx,
+        cmdId: Ref.CommandId = commandId(1),
     ): Right[Nothing, (Offset, PreparedTransactionSubmission)] = {
       val keyInputs = keyO.map(k => Map(k -> KeyActive(contractId))).getOrElse(Map.empty)
       val updatedKeys = keyO.map(k => Map(k -> None)).getOrElse(Map.empty)
@@ -424,7 +449,8 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
           updatedKeys = updatedKeys,
           consumedContracts = inputContracts,
           transactionInformees = informees,
-          submission = transactionSubmission,
+          submission =
+            transactionSubmission.copy(submitterInfo = submitterInfo.copy(commandId = cmdId)),
         )
 
       Right(noConflictUpTo -> preparedTransactionSubmission)
@@ -443,7 +469,6 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       initialAllocatedParties = allocatedInformees,
       initialLedgerConfiguration = initialLedgerConfiguration,
       maxDeduplicationDuration = maxDeduplicationDuration,
-      wallClockTime = () => timeProviderMock.getCurrentTimestamp,
     )
 
     def exerciseNonConsuming(
@@ -451,6 +476,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
         key: GlobalKey,
         informees: Set[Ref.Party] = txInformees,
         transactionSubmission: Submission.Transaction = tx,
+        cmdId: Ref.CommandId = commandId(1),
     ): Right[Nothing, (Offset, PreparedTransactionSubmission)] = {
       val inputContracts = Set(contractId)
 
@@ -461,7 +487,8 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
           updatedKeys = Map.empty,
           consumedContracts = Set.empty,
           transactionInformees = informees,
-          submission = transactionSubmission,
+          submission =
+            transactionSubmission.copy(submitterInfo = submitterInfo.copy(commandId = cmdId)),
         )
 
       input(preparedTransactionSubmission)
@@ -471,9 +498,10 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
         txId: Int,
         completionInfo: CompletionInfo = completionInfo,
         recordTime: Time.Timestamp = currentRecordTime,
+        cmdId: Ref.CommandId = commandId(1),
     ): Update.TransactionAccepted =
       Update.TransactionAccepted(
-        optCompletionInfo = Some(completionInfo),
+        optCompletionInfo = Some(completionInfo.copy(commandId = cmdId)),
         transactionMeta = transactionMeta,
         transaction = CommittedTransaction(txMock),
         transactionId = Ref.TransactionId.assertFromString(txId.toString),
@@ -486,6 +514,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
         update: Update,
         reason: String,
         deduplicationPeriod: DeduplicationPeriod = zeroDeduplicationPeriod,
+        cmdId: Ref.CommandId = commandId(1),
     ): Assertion = update match {
       case rejection: Update.CommandRejected =>
         rejection.recordTime shouldBe currentRecordTime
@@ -493,6 +522,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
         rejection.completionInfo shouldBe completionInfo.copy(
           statistics = None,
           optDeduplicationPeriod = Some(deduplicationPeriod),
+          commandId = cmdId,
         )
         // TODO SoX: Assert error codes
         rejection.reasonTemplate.message should include(reason)
@@ -512,4 +542,6 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
   }
 
   private def cId(i: Int) = ContractId.V1(Hash.hashPrivateKey(i.toString))
+
+  private def commandId(i: Int): Ref.CommandId = Ref.CommandId.assertFromString(s"cmd-$i")
 }

@@ -5,7 +5,7 @@ Auth0 Example Configuration
 ###########################
 
 This section describes a minimal example configuration of the trigger service with authorization enabled
-using `Auth0 <auth0_>`_ as the OAuth 2.0 provider together with the OAuth 2.0 middleware included in Daml Connect.
+using `Auth0 <auth0_>`_ as the OAuth 2.0 provider together with the OAuth 2.0 middleware included in Daml.
 It uses the sandbox as the Daml ledger.
 
 Configure Auth0
@@ -142,10 +142,10 @@ Enter the `details page <auth0-user-details_>`_ of the newly created user.
 .. _auth0-create-user: https://auth0.com/docs/users/create-users
 .. _auth0-user-details: https://auth0.com/docs/users/view-user-details
 
-Start Daml Connect
-~~~~~~~~~~~~~~~~~~
+Start Daml
+~~~~~~~~~~
 
-Next, configure the relevant Daml Connect components to use Auth0 as the IAM.
+Next, configure the relevant Daml components to use Auth0 as the IAM.
 
 Sandbox
 *******

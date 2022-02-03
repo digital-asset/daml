@@ -377,8 +377,8 @@ class HashSpec extends AnyWordSpec with Matchers {
           VA.contractId.inj(ContractId.V1 assertFromString str)
         }
 
-      val enumT1 = VA.enum("Color", List("Red", "Green"))._2
-      val enumT2 = VA.enum("ColorBis", List("Red", "Green"))._2
+      val enumT1 = VA.enumeration("Color", List("Red", "Green"))._2
+      val enumT2 = VA.enumeration("ColorBis", List("Red", "Green"))._2
 
       val enums = List(
         enumT1.inj(enumT1.get("Red").get),

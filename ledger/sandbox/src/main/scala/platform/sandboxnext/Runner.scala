@@ -43,7 +43,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{PartyConfiguration, ServerRole, SubmissionConfiguration}
+import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -266,7 +266,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           partyConfig = PartyConfiguration.default.copy(
             implicitPartyAllocation = config.implicitPartyAllocation
           ),
-          submissionConfig = SubmissionConfiguration.default,
           optWriteService = Some(writeServiceWithDeduplicationSupport),
           authService = authService,
           healthChecks = healthChecks,
