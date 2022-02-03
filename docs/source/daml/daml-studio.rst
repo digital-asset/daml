@@ -97,21 +97,19 @@ You can `hover`_ over most symbols in the code to display additional information
 
 .. _hover: https://code.visualstudio.com/docs/editor/editingevolved#_hover
 
-.. _scenario-script-results:
+.. _script-results:
 
-Scenario and Daml Script results
+Daml Script results
 ================================
 
-Top-level declarations of type ``Scenario`` or ``Script`` are decorated with
-a ``Scenario results`` or a ``Script results`` code lens.
+Top-level declarations of type ``Script`` are decorated with
+a ``Script results`` code lens.
 You can click on the code lens to inspect the
-execution transaction graph and the active contracts. The functionality
-for inspecting the results is identical for Daml Scripts
-and scenarios.
+execution transaction graph and the active contracts.
 
-For the scenario from the :download:`Iou<daml-studio/daml/Iou.daml>`
+For the script from the :download:`Iou<daml-studio/daml/Iou.daml>`
 module, you get the following table displaying all contracts that are
-active at the end of the scenario. The first column displays the
+active at the end of the script. The first column displays the
 contract id. The columns afterwards represent the fields of the
 contract and finally you get one column per party with an ``X`` if the
 party can see the contract or a ``-`` if not.
@@ -148,29 +146,29 @@ consists of transactions, each of which contain one or more updates to the
 ledger, that is creates and exercises. The transaction graph also records
 fetches of contracts.
 
-For example a scenario for the :download:`Iou<daml-studio/daml/Iou.daml>` module looks as follows:
+For example a script for the :download:`Iou<daml-studio/daml/Iou.daml>` module looks as follows:
 
 .. figure:: daml-studio/images/daml_studio_scenario_transaction.png
    :scale: 70%
    :align: center
 
-   Scenario results
+   Script results
 
-Each transaction is the result of executing a step in the scenario. In the
+Each transaction is the result of executing a step in the script. In the
 image below, the transaction ``#0`` is the result of executing the first
-line of the scenario (line 20), where the Iou is created by the bank. The following
+line of the script (line 20), where the Iou is created by the bank. The following
 information can be gathered from the transaction:
 
-- The result of the first scenario transaction ``#0`` was the creation of the
+- The result of the first script transaction ``#0`` was the creation of the
   ``Iou`` contract with the arguments ``bank``, ``10``, and ``"USD"``.
 - The created contract is referenced in transaction ``#1``, step ``0``.
 - The created contract was consumed in transaction ``#1``, step ``0``.
 - A new contract was created in transaction ``#1``, step ``1``, and has been
   divulged to parties 'Alice', 'Bob', and 'Bank'.
-- At the end of the scenario only the contract created in ``#1:1`` remains.
-- The return value from running the scenario is the contract identifier ``#1:1``.
-- And finally, the contract identifiers assigned in scenario execution correspond to
-  the scenario step that created them (e.g. ``#1``).
+- At the end of the script only the contract created in ``#1:1`` remains.
+- The return value from running the script is the contract identifier ``#1:1``.
+- And finally, the contract identifiers assigned in script execution correspond to
+  the script step that created them (e.g. ``#1``).
 
 You can navigate to the corresponding source code by clicking on the location
 shown in parenthesis (e.g. ``Iou:25:12``, which means the ``Iou`` module, line 25 and column 1).
@@ -204,18 +202,18 @@ snippet file.
 .. _Creating your own Snippets: https://code.visualstudio.com/docs/editor/userdefinedsnippets
 
 
-Common scenario errors
+Common script errors
 **********************
 
 During Daml execution, errors can occur due to exceptions (e.g. use of "abort", or division by zero), or
 due to authorization failures. You can expect to run into the following errors when writing Daml.
 
-When a runtime error occurs in a scenario execution, the scenario result view shows the error
+When a runtime error occurs in a script execution, the script result view shows the error
 together with the following additional information, if available:
 
 Location of the failed commit
-   If the failing part of the script was a ``submit``, the source location
-   of the call to ``submit`` will be displayed.
+   If the failing part of the script was a ``submitCmd``, the source location
+   of the call to ``submitCmd`` will be displayed.
 Stack trace
    A list of source locations that were encountered before the error occurred. The last encountered
    location is the first entry in the list.
