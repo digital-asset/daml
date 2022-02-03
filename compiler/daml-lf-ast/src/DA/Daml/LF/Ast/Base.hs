@@ -565,6 +565,21 @@ data Expr
     , friRequiringInterface :: !(Qualified TypeConName)
     , friExpr :: !Expr
     }
+  -- | Obtain type representation of contract's template through an interface
+  | EInterfaceTemplateTypeRep
+    { ttrInterface :: !(Qualified TypeConName)
+    , ttrExpr :: !Expr
+    }
+  -- | Obtain signatories of contract through an interface
+  | ESignatoryInterface
+    { rvsInterface :: !(Qualified TypeConName)
+    , rvsExpr :: !Expr
+    }
+  -- | Obtain observers of contract through an interface
+  | EObserverInterface
+    { rvoInterface :: !(Qualified TypeConName)
+    , rvoExpr :: !Expr
+    }
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.

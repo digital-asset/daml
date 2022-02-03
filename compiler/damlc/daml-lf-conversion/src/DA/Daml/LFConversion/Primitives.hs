@@ -358,17 +358,17 @@ convertPrim _ "EToAnyContractKey"
     ETmLam (mkVar "key", key) $
     EToAny key (EVar $ mkVar "key")
 
+convertPrim _ "EInterfaceTemplateTypeRep" (TCon interface :-> TTypeRep) =
+    ETmLam (mkVar "this", TCon interface) $
+    EInterfaceTemplateTypeRep interface (EVar (mkVar "this"))
+
 convertPrim _ "ESignatoryInterface" (TCon interface :-> TList TParty) =
     ETmLam (mkVar "this", TCon interface) $
-    EExperimental "RESOLVE_VIRTUAL_SIGNATORY"
-        (TCon interface :-> TCon interface :-> TList TParty)
-        `ETmApp` EVar (mkVar "this") `ETmApp` EVar (mkVar "this")
+    ESignatoryInterface interface (EVar (mkVar "this"))
 
 convertPrim _ "EObserverInterface" (TCon interface :-> TList TParty) =
     ETmLam (mkVar "this", TCon interface) $
-    EExperimental "RESOLVE_VIRTUAL_OBSERVER"
-        (TCon interface :-> TCon interface :-> TList TParty)
-        `ETmApp` EVar (mkVar "this") `ETmApp` EVar (mkVar "this")
+    EObserverInterface interface (EVar (mkVar "this"))
 
 -- Exceptions
 convertPrim _ "BEAnyExceptionMessage" (TBuiltin BTAnyException :-> TText) =

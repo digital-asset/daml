@@ -17,7 +17,7 @@ module InterfaceDesugared where
 import DA.Assert ( (===) )
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
-  interfaceTypeRep = GHC.Types.primitive @"$TO_TYPE_REP"
+  interfaceTypeRep = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
 instance DA.Internal.Desugar.HasToInterface Token Token where
   _toInterface this = this
 instance DA.Internal.Desugar.HasFromInterface Token Token where
