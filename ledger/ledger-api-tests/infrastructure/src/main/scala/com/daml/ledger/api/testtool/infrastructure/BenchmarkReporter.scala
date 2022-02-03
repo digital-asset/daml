@@ -18,6 +18,7 @@ trait BenchmarkReporter {
 
 object BenchmarkReporter {
   def toFile(path: Path) = new FileOutputBenchmarkReporter(path)
+
   def toStream(printStream: PrintStream) = new PrintStreamBenchmarkReporter(printStream)
 }
 

@@ -127,6 +127,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     val features: Features,
 )(implicit ec: ExecutionContext) {
   private val logger = ContextualizedLogger.get(getClass)
+
   import ParticipantTestContext._
 
   val begin: LedgerOffset =
@@ -140,6 +141,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   private[this] val identifierPrefix =
     s"$applicationId-$endpointId-$identifierSuffix"
+
   private[this] def nextIdGenerator(name: String, lowerCase: Boolean = false): () => String = {
     val f = Identification.indexSuffix(s"$identifierPrefix-$name")
     if (lowerCase)

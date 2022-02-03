@@ -9,17 +9,9 @@ load(
     "da_scala_test_suite",
 )
 load(
-    "//rules_daml:daml.bzl",
-    "daml_compile",
-)
-load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
     "lf_version_configuration_versions",
-)
-load(
-    "//language-support/scala/codegen:codegen.bzl",
-    "dar_to_scala",
 )
 load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test")
 load(":util.bzl", "suites_sources")
@@ -57,7 +49,6 @@ da_scala_binary(
     ]
     for target_suffix in [
         "",
-        "-lib",
         "-tests",
         "-test-suites",
     ]
@@ -66,39 +57,6 @@ da_scala_binary(
 
 [
     [
-        da_scala_library(
-            name = "ledger-api-test-tool-%s-lib" % lf_version,
-            srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala"]),
-            scala_deps = [
-                "@maven//:com_typesafe_akka_akka_actor",
-                "@maven//:com_typesafe_akka_akka_stream",
-                "@maven//:org_scalameta_munit",
-            ],
-            visibility = ["//:__subpackages__"],
-            deps = [
-                "//daml-lf/data",
-                "//language-support/scala/bindings",
-                "//ledger/test-common:test-common-%s" % lf_version,
-                "//ledger/test-common:model-tests-%s.scala" % lf_version,
-                "//ledger/test-common:dar-files-%s-lib" % lf_version,
-                "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-                "//ledger/error",
-                "//ledger/ledger-api-common",
-                "//libs-scala/build-info",
-                "//libs-scala/contextualized-logging",
-                "//libs-scala/grpc-utils",
-                "//libs-scala/resources",
-                "//libs-scala/resources-akka",
-                "//libs-scala/resources-grpc",
-                "//libs-scala/timer-utils",
-                "@maven//:com_google_api_grpc_proto_google_common_protos",
-                "@maven//:com_typesafe_config",
-                "@maven//:io_netty_netty_common",
-                "@maven//:io_netty_netty_transport",
-                "@maven//:junit_junit",
-                "@maven//:org_slf4j_slf4j_api",
-            ],
-        ),
         da_scala_library_suite(
             name = "ledger-api-test-tool-%s-test-suites" % lf_version,
             srcs = suites_sources(lf_version),
@@ -112,16 +70,16 @@ da_scala_binary(
                 "//:__subpackages__",
             ],
             deps = [
-                "//ledger-api/rs-grpc-bridge",
-                "//ledger-service/jwt",
-                "//ledger/ledger-api-client",
-                "//ledger/ledger-api-domain",
-                "@maven//:com_auth0_java_jwt",
-                ":ledger-api-test-tool-%s-lib" % lf_version,
                 "//daml-lf/data",
                 "//language-support/scala/bindings",
+                "//ledger-api/rs-grpc-bridge",
+                "//ledger-service/jwt",
                 "//ledger/error",
+                "//ledger/ledger-api-client",
                 "//ledger/ledger-api-common",
+                "//ledger/ledger-api-domain",
+                "@maven//:com_auth0_java_jwt",
+                "//ledger/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
                 "//ledger/ledger-resources",
                 "//ledger/test-common:test-common-%s" % lf_version,
                 "//ledger/test-common:package_management-tests-%s.scala" % lf_version,
@@ -149,9 +107,9 @@ da_scala_binary(
             visibility = ["//:__subpackages__"],
             deps = [
                 "//daml-lf/language",
-                "//ledger/test-common:dar-files-%s-lib" % lf_version,
                 "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-                ":ledger-api-test-tool-%s-lib" % lf_version,
+                "//ledger/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
+                "//ledger/test-common:dar-files-%s-lib" % lf_version,
                 ":ledger-api-test-tool-%s-test-suites" % lf_version,
             ],
         ),
@@ -177,9 +135,9 @@ da_scala_binary(
                 "@maven//:ch_qos_logback_logback_classic",
             ],
             deps = [
-                ":ledger-api-test-tool-%s-lib" % lf_version,
                 ":ledger-api-test-tool-%s-tests" % lf_version,
                 "//ledger/ledger-api-common",
+                "//ledger/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
                 "//libs-scala/build-info",
                 "//libs-scala/resources",
                 "//libs-scala/resources-akka",
@@ -207,9 +165,9 @@ da_scala_test_suite(
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
-        ":ledger-api-test-tool-default-lib",
         ":ledger-api-test-tool-default-tests",
         "//daml-lf/data",
+        "//ledger/ledger-api-tests/infrastructure",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
