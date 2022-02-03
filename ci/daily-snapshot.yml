@@ -41,3 +41,5 @@ jobs:
       name: out
 - template: build.yml
 - template: split-release-job.yml
+- job: release
+  condition: false
