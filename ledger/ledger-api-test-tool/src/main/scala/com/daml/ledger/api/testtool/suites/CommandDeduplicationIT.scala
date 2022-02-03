@@ -75,7 +75,7 @@ final class CommandDeduplicationIT(
         updateSubmissionId(request, firstAcceptedSubmissionId),
         party,
       )
-      _ <- submitRequestAndAssertAsyncDeduplication(
+      _ <- submitRequestAndAssertDeduplication(
         ledger,
         request,
         firstAcceptedSubmissionId,
@@ -294,7 +294,7 @@ final class CommandDeduplicationIT(
           acceptedLedgerOffset,
         ).map(_ => None)
       else
-        submitRequestAndAssertAsyncDeduplication(
+        submitRequestAndAssertDeduplication(
           ledger,
           updateWithFreshSubmissionId(submitRequest),
           acceptedSubmissionId,
@@ -362,7 +362,7 @@ final class CommandDeduplicationIT(
         updateSubmissionId(aliceRequest, aliceAcceptedSubmissionId),
         alice,
       )
-      _ <- submitRequestAndAssertAsyncDeduplication(
+      _ <- submitRequestAndAssertDeduplication(
         ledger,
         updateWithFreshSubmissionId(aliceRequest),
         aliceAcceptedSubmissionId,
@@ -376,7 +376,7 @@ final class CommandDeduplicationIT(
         updateSubmissionId(bobRequest, bobAcceptedSubmissionId),
         bob,
       )
-      _ <- submitRequestAndAssertAsyncDeduplication(
+      _ <- submitRequestAndAssertDeduplication(
         ledger,
         updateWithFreshSubmissionId(bobRequest),
         bobAcceptedSubmissionId,
@@ -471,7 +471,7 @@ final class CommandDeduplicationIT(
             updateSubmissionId(request, firstAcceptedSubmissionId),
             party,
           )
-          deduplicationCompletionResponse <- submitRequestAndAssertAsyncDeduplication(
+          deduplicationCompletionResponse <- submitRequestAndAssertDeduplication(
             ledger,
             updateWithFreshSubmissionId(request),
             firstAcceptedSubmissionId,
@@ -559,7 +559,7 @@ final class CommandDeduplicationIT(
           // This is done so that we can validate that the third command is accepted
           _ <- delayForOffsetIfRequired(ledger)
           // Submit command again using the first offset as the deduplication offset
-          response2 <- submitRequestAndAssertAsyncDeduplication(
+          response2 <- submitRequestAndAssertDeduplication(
             ledger,
             updateWithFreshSubmissionId(
               request.update(
@@ -713,7 +713,7 @@ final class CommandDeduplicationIT(
         )
       )
 
-  protected def submitRequestAndAssertAsyncDeduplication(
+  protected def submitRequestAndAssertDeduplication(
       ledger: ParticipantTestContext,
       request: SubmitRequest,
       acceptedSubmissionId: SubmissionId,
