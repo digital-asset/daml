@@ -18,6 +18,7 @@ pr: none
 
 jobs:
 - template: ci/build.yml
+- template: ci/check-for-release-job.yml
 
 - job: release
   dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
