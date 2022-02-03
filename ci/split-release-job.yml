@@ -1,0 +1,91 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+jobs:
+- job: split_release
+  dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
+  condition: and(succeeded(),
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                 eq(dependencies.check_for_release.outputs['out.split_release_process'], 'true'),
+                 eq(variables['Build.SourceBranchName'], 'main'))
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  variables:
+    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+  steps:
+    - checkout: self
+      persistCredentials: true
+    - bash: |
+        set -euo pipefail
+        git checkout $(release_sha)
+      name: checkout_release
+    - template: ci/bash-lib.yml
+      parameters:
+        var_name: bash-lib
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: linux-release
+        targetPath: $(Build.StagingDirectory)/release-artifacts
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: macos-release
+        targetPath: $(Build.StagingDirectory)/release-artifacts
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: windows-release
+        targetPath: $(Build.StagingDirectory)/release-artifacts
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+    - bash: |
+        set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
+        KEY_FILE=$(mktemp)
+        GPG_DIR=$(mktemp -d)
+        cleanup() {
+            rm -rf $KEY_FILE $GPG_DIR
+        }
+        trap cleanup EXIT
+        echo "$GPG_KEY" | base64 -d > $KEY_FILE
+        gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
+        # For now we only sign artifactory artifacts here and leave signing of artifacts
+        # published to GH to the assembly repo.
+        cd $(Build.StagingDirectory)/release-artifacts/artifactory
+        for f in *; do
+            gpg --homedir $GPG_DIR -ab $f
+        done
+      env:
+        GPG_KEY: $(gpg-code-signing)
+    - bash: |
+        set -eou pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
+        mkdir -p $(Build.StagingDirectory)/split-release
+        ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
+    - bash: |
+        set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
+        source $(bash-lib)
+        cd $(Build.StagingDirectory)/split-release/split-release
+        for f in "damlc-*" daml-libs/daml-script; do
+          gcs "$GCRED" cp -r "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
+        done
+      name: gcs_for_canton
+      env:
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - bash: |
+        set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
+        ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
+      env:
+        AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
+    - template: ci/tell-slack-failed.yml
+      parameters:
+        trigger_sha: '$(trigger_sha)'
+
