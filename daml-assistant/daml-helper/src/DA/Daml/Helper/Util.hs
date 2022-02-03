@@ -27,11 +27,17 @@ module DA.Daml.Helper.Util
   , StaticTime(..)
   , CantonOptions(..)
   , decodeCantonSandboxPort
+  , CantonReplApi(..)
+  , CantonReplParticipant(..)
+  , CantonReplDomain(..)
+  , CantonReplOptions(..)
+  , runCantonRepl
   ) where
 
 import Control.Exception.Safe
 import Control.Monad.Extra
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Key as Aeson.Key
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL8
@@ -327,3 +333,57 @@ decodeCantonSandboxPort json = do
     participants :: Map.Map String (Map.Map String Int) <- Aeson.decode (BSL8.pack json)
     ports <- Map.lookup "sandbox" participants
     Map.lookup "ledgerApi" ports
+
+data CantonReplApi = CantonReplApi
+    { craHost :: String
+    , craPort :: Int
+    }
+
+data CantonReplParticipant = CantonReplParticipant
+    { crpName :: String
+    , crpLedgerApi :: Maybe CantonReplApi
+    , crpAdminApi :: Maybe CantonReplApi
+    }
+
+data CantonReplDomain = CantonReplDomain
+    { crdName :: String
+    , crdPublicApi :: Maybe CantonReplApi
+    , crdAdminApi :: Maybe CantonReplApi
+    }
+
+data CantonReplOptions = CantonReplOptions
+    { croParticipants :: [CantonReplParticipant]
+    , croDomains :: [CantonReplDomain]
+    }
+
+cantonReplConfig :: CantonReplOptions -> BSL.ByteString
+cantonReplConfig CantonReplOptions{..} =
+    Aeson.encode $ Aeson.object
+        [ "canton" Aeson..= Aeson.object
+            [ "remote-participants" Aeson..= Aeson.object
+                [ Aeson.Key.fromString crpName Aeson..= Aeson.object
+                    (api "ledger-api" crpLedgerApi <> api "admin-api" crpAdminApi)
+                | CantonReplParticipant {..} <- croParticipants
+                ]
+            , "remote-domains" Aeson..= Aeson.object
+                [ Aeson.Key.fromString crdName Aeson..= Aeson.object
+                    (api "public-api" crdPublicApi <> api "admin-api" crdAdminApi)
+                | CantonReplDomain {..} <- croDomains
+                ]
+            ]
+        ]
+  where
+    api name = \case
+        Nothing -> []
+        Just CantonReplApi{..} ->
+            [ name Aeson..= Aeson.object
+                [ "address" Aeson..= craHost
+                , "port" Aeson..= craPort ] ]
+
+runCantonRepl :: CantonReplOptions -> [String] -> IO ()
+runCantonRepl options remainingArgs = do
+    sdkPath <- getSdkPath
+    let cantonJar = sdkPath </> "canton" </> "canton.jar"
+    withTempFile $ \config -> do
+        BSL.writeFile config (cantonReplConfig options)
+        runJar cantonJar Nothing ("-c" : config : remainingArgs)

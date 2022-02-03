@@ -79,6 +79,10 @@ data Command
         , remainingArguments :: [String]
         , shutdownStdinClose :: Bool
         }
+    | CantonRepl
+        { cantonReplOptions :: CantonReplOptions
+        , remainingArguments :: [String]
+        }
 
 data AppTemplate
   = AppTemplateDefault
@@ -100,6 +104,7 @@ commandParser = subparser $ fold
     , command "codegen" (info (codegenCmd <**> helper) forwardOptions)
     , command "packages" (info (packagesCmd <**> helper) packagesCmdInfo)
     , command "sandbox" (info (cantonSandboxCmd <**> helper) cantonSandboxCmdInfo)
+    , command "canton-repl" (info (cantonReplCmd <**> helper) cantonReplCmdInfo)
     ]
   where
 
@@ -257,7 +262,7 @@ commandParser = subparser $ fold
                 (progDesc "Fetch DAR from ledger into file")
             , command "metering-report" $ info
                 (ledgerMeteringReportCmd <**> helper)
-                (forwardOptions <> progDesc "Report on Ledger Use")                
+                (forwardOptions <> progDesc "Report on Ledger Use")
             ]
         , subparser $ internal <> fold -- hidden subcommands
             [ command "allocate-party" $ info
@@ -439,6 +444,34 @@ commandParser = subparser $ fold
     cantonSandboxCmdInfo =
         forwardOptions
 
+    cantonReplOpt = do
+        host <- option str (long "host" <> value "127.0.0.1")
+        ledgerApi <- option auto (long "port" <> value 6865)
+        adminApi <- option auto (long "admin-api-port" <> value 6866)
+        domainPublicApi <- option auto (long "domain-public-port" <> value 6867)
+        domainAdminApi <- option auto (long "domain-admin-port" <> value 6868)
+        pure $ CantonReplOptions
+            [ CantonReplParticipant
+                { crpName = "sandbox"
+                , crpLedgerApi = Just (CantonReplApi host ledgerApi)
+                , crpAdminApi = Just (CantonReplApi host adminApi)
+                }
+            ]
+            [ CantonReplDomain
+                { crdName = "local"
+                , crdPublicApi = Just (CantonReplApi host domainPublicApi)
+                , crdAdminApi = Just (CantonReplApi host domainAdminApi)
+                }
+            ]
+
+    cantonReplCmd = do
+        cantonReplOptions <- cantonReplOpt
+        remainingArguments <- many (argument str (metavar "ARG"))
+        pure CantonRepl {..}
+
+    cantonReplCmdInfo =
+        forwardOptions
+
 runCommand :: Command -> IO ()
 runCommand = \case
     DamlStudio {..} -> runDamlStudio replaceExtension remainingArguments
@@ -490,3 +523,5 @@ runCommand = \case
                     putStrLn ("Writing ledger API port to " <> portFile)
                     writeFileUTF8 portFile (show sandboxPort)
                 putStrLn "Canton sandbox is ready."
+    CantonRepl {..} ->
+        runCantonRepl cantonReplOptions remainingArguments
