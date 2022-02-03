@@ -12,7 +12,7 @@ import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.store.{BaseLedger, DbSupport, LfValueTranslationCache}
 
 import scala.concurrent.ExecutionContext
 
@@ -37,7 +37,7 @@ private[platform] object JdbcIndex {
       maxTransactionsInMemoryFanOutBufferSize: Long,
       enableInMemoryFanOutForLedgerApi: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
-    new ReadOnlySqlLedger.Owner(
+    new BaseLedger.Owner(
       dbSupport = dbSupport,
       initialLedgerId = ledgerId,
       eventsPageSize = eventsPageSize,

@@ -23,8 +23,11 @@ class BaseLedgerSpec extends AnyWordSpec with MockitoSugar with Matchers {
     ledgerId = LedgerId("some ledger id"),
     transactionsReader = null,
     contractStore = null,
+    contractStateEventsDispatcher = null,
     dispatcher = null,
-  ) {}
+    dispatcherLagger = null,
+    updatingStringInterningView = null,
+  )(null, implicitly)
 
   classOf[BaseLedger].getSimpleName when {
     "prune" should {

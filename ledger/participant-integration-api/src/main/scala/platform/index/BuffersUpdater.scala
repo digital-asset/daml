@@ -87,7 +87,7 @@ private[index] class BuffersUpdater(
   }
 }
 
-private[index] object BuffersUpdater {
+private[platform] object BuffersUpdater {
   type SubscribeToTransactionLogUpdates =
     Option[(Offset, Long)] => Source[((Offset, Long), TransactionLogUpdate), NotUsed]
 
