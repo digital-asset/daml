@@ -791,12 +791,12 @@ def daml_ledger_test(
         srcs = ["//bazel_tools:daml_ledger_test.sh"],
         args = [
             "$(rootpath //bazel_tools/daml_ledger:runner)",
+            # "--daml",
+            "$(rootpath %s)" % daml,
+            # "--sandbox",
+            "$(rootpath %s)" % sandbox,
             "--sdk-version",
             sdk_version,
-            "--daml",
-            "$(rootpath %s)" % daml,
-            "--sandbox",
-            "$(rootpath %s)" % sandbox,
         ] + _concat([["--sandbox-arg", arg] for arg in sandbox_args]),
         deps = ["@bazel_tools//tools/bash/runfiles"],
         data = data + depset(direct = [
