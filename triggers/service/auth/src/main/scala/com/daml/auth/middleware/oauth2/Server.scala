@@ -36,6 +36,7 @@ import scala.util.{Failure, Success, Try}
 class Server(config: Config) extends StrictLogging {
   import com.daml.auth.middleware.api.JsonProtocol._
   import com.daml.auth.oauth2.api.JsonProtocol._
+  import Server.rightsProvideClaims
 
   implicit private val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
 
@@ -68,38 +69,6 @@ class Server(config: Config) extends StrictLogging {
         .toOption
     } yield rightsProvideClaims(tokenPayload, claims)
   } getOrElse false
-
-  private def rightsProvideClaims(
-      r: lapiauth.AuthServiceJWTPayload,
-      claims: Request.Claims,
-  ): Boolean = {
-    val (precond, userId) = r match {
-      case tp: lapiauth.CustomDamlJWTPayload =>
-        (
-          (tp.admin || !claims.admin) &&
-            Party
-              .unsubst(claims.actAs)
-              .toSet
-              .subsetOf(tp.actAs.toSet) &&
-            Party
-              .unsubst(claims.readAs)
-              .toSet
-              .subsetOf(tp.readAs.toSet ++ tp.actAs),
-          tp.applicationId,
-        )
-      case tp: lapiauth.StandardJWTPayload =>
-        // NB: in this mode we check the applicationId claim (if supplied)
-        // and ignore everything else
-        (true, Some(tp.userId))
-    }
-    precond && ((claims.applicationId, userId) match {
-      // No requirement on app id
-      case (None, _) => true
-      // Token valid for all app ids.
-      case (_, None) => true
-      case (Some(expectedAppId), Some(actualAppId)) => expectedAppId == ApplicationId(actualAppId)
-    })
-  }
 
   private val requestTemplates: RequestTemplates = RequestTemplates(
     config.clientId,
@@ -362,4 +331,37 @@ object Server extends StrictLogging {
 
   def stop(f: Future[ServerBinding])(implicit ec: ExecutionContext): Future[Done] =
     f.flatMap(_.unbind())
+
+  private[oauth2] def rightsProvideClaims(
+      r: lapiauth.AuthServiceJWTPayload,
+      claims: Request.Claims,
+  ): Boolean = {
+    val (precond, userId) = r match {
+      case tp: lapiauth.CustomDamlJWTPayload =>
+        (
+          (tp.admin || !claims.admin) &&
+            Party
+              .unsubst(claims.actAs)
+              .toSet
+              .subsetOf(tp.actAs.toSet) &&
+            Party
+              .unsubst(claims.readAs)
+              .toSet
+              .subsetOf(tp.readAs.toSet ++ tp.actAs),
+          tp.applicationId,
+        )
+      case tp: lapiauth.StandardJWTPayload =>
+        // NB: in this mode we check the applicationId claim (if supplied)
+        // and ignore everything else
+        (true, Some(tp.userId))
+    }
+    precond && ((claims.applicationId, userId) match {
+      // No requirement on app id
+      case (None, _) => true
+      // Token valid for all app ids.
+      case (_, None) => true
+      case (Some(expectedAppId), Some(actualAppId)) => expectedAppId == ApplicationId(actualAppId)
+    })
+  }
+
 }
