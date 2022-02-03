@@ -46,6 +46,7 @@ cp ../.bazelrc .bazelrc
 
 bazel shutdown
 bazel fetch @nodejs_dev_env//...
+bazel test //:daml-ledger-1.18.1-platform-0.0.0
 bazel build //...
 bazel shutdown
 
