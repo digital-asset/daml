@@ -11,7 +11,12 @@ import akka.http.scaladsl.model.headers.Location
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  CustomDamlJWTPayload,
+  AuthServiceJWTPayload,
+  StandardJWTPayload,
+}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import org.scalatest.wordspec.AsyncWordSpec
@@ -22,24 +27,18 @@ import scala.util.Try
 
 class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
   import Client.JsonProtocol._
+  import Test._
 
-  private def readCustomDamlJWTTokenFromString(
+  private def readJWTTokenFromString[A](
       serializedPayload: String
-  ): Try[CustomDamlJWTPayload] =
-    AuthServiceJWTCodec.readFromString(serializedPayload).map {
-      case _: StandardJWTPayload =>
-        throw new UnsupportedOperationException(
-          // TODO (i12388): make auth middlware work with user tokens
-          "auth-middleware: user access tokens are not yet supported (https://github.com/digital-asset/daml/issues/12388)."
-        )
-      case payload: CustomDamlJWTPayload => payload
-    }
+  )(implicit A: Token[A]): Try[A] =
+    AuthServiceJWTCodec.readFromString(serializedPayload).flatMap { t => Try(A.run(t)) }
 
-  private def requestToken(
+  private def requestToken[A: Token](
       parties: Seq[String],
       admin: Boolean,
       applicationId: Option[String],
-  ): Future[Either[String, (CustomDamlJWTPayload, String)]] = {
+  ): Future[Either[String, (A, String)]] = {
     lazy val clientUri = Uri()
       .withAuthority(clientBinding.localAddress.getHostString, clientBinding.localAddress.getPort)
     val req = HttpRequest(
@@ -75,16 +74,16 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
                 e => Future.failed(new IllegalArgumentException(e.toString)),
                 Future.successful(_),
               )
-            payload <- Future.fromTry(readCustomDamlJWTTokenFromString(decodedJwt.payload))
+            payload <- Future.fromTry(readJWTTokenFromString(decodedJwt.payload))
           } yield Right((payload, refreshToken))
         case Client.ErrorResponse(error) => Future(Left(error))
       }
     } yield result
   }
 
-  private def requestRefresh(
+  private def requestRefresh[A: Token](
       refreshToken: String
-  ): Future[Either[String, (CustomDamlJWTPayload, String)]] = {
+  ): Future[Either[String, (A, String)]] = {
     lazy val clientUri = Uri()
       .withAuthority(clientBinding.localAddress.getHostString, clientBinding.localAddress.getPort)
     val req = HttpRequest(
@@ -108,18 +107,18 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
                 e => Future.failed(new IllegalArgumentException(e.toString)),
                 Future.successful(_),
               )
-            payload <- Future.fromTry(readCustomDamlJWTTokenFromString(decodedJwt.payload))
+            payload <- Future.fromTry(readJWTTokenFromString(decodedJwt.payload))
           } yield Right((payload, refreshToken))
         case Client.ErrorResponse(error) => Future(Left(error))
       }
     } yield result
   }
 
-  private def expectToken(
+  private def expectToken[A: Token](
       parties: Seq[String],
       admin: Boolean = false,
       applicationId: Option[String] = None,
-  ): Future[(CustomDamlJWTPayload, String)] =
+  ): Future[(A, String)] =
     requestToken(parties, admin, applicationId).flatMap {
       case Left(error) => fail(s"Expected token but got error-code $error")
       case Right(token) => Future(token)
@@ -130,12 +129,12 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       admin: Boolean = false,
       applicationId: Option[String] = None,
   ): Future[String] =
-    requestToken(parties, admin, applicationId).flatMap {
+    requestToken[AuthServiceJWTPayload](parties, admin, applicationId).flatMap {
       case Left(error) => Future(error)
       case Right(_) => fail("Expected an error but got a token")
     }
 
-  private def expectRefresh(refreshToken: String): Future[(CustomDamlJWTPayload, String)] =
+  private def expectRefresh[A: Token](refreshToken: String): Future[(A, String)] =
     requestRefresh(refreshToken).flatMap {
       case Left(error) => fail(s"Expected token but got error-code $error")
       case Right(token) => Future(token)
@@ -210,5 +209,24 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         assert(token.applicationId == None)
       }
     }
+
+  }
+}
+
+object Test {
+  final class Token[A](val run: AuthServiceJWTPayload => A) extends AnyVal
+
+  object Token extends TokenLow {
+    implicit val custom: Token[CustomDamlJWTPayload] = new Token({
+      case _: StandardJWTPayload =>
+        throw new IllegalStateException(
+          "auth-middleware: user access tokens are not expected here"
+        )
+      case payload: CustomDamlJWTPayload => payload
+    })
+  }
+
+  sealed abstract class TokenLow {
+    implicit val any: Token[AuthServiceJWTPayload] = new Token(identity)
   }
 }
