@@ -1,6 +1,6 @@
-diff -Naur create-daml-app/daml/ChatBot.daml gsg-trigger/daml/ChatBot.daml
+diff --git create-daml-app/daml/ChatBot.daml create-daml-app/daml/ChatBot.daml
 --- create-daml-app/daml/ChatBot.daml	1970-01-01 01:00:00.000000000 +0100
-+++ gsg-trigger/daml/ChatBot.daml	2022-01-12 17:55:45.838308273 +0100
++++ create-daml-app/daml/ChatBot.daml	2022-01-12 17:55:45.838308273 +0100
 @@ -0,0 +1,29 @@
 +module ChatBot where
 +
@@ -31,9 +31,9 @@ diff -Naur create-daml-app/daml/ChatBot.daml gsg-trigger/daml/ChatBot.daml
 +  , registeredTemplates = T.AllInDar
 +  , heartbeat = None
 +  }
-diff -Naur create-daml-app/daml/NoOp.daml gsg-trigger/daml/NoOp.daml
+diff --git create-daml-app/daml/NoOp.daml create-daml-app/daml/NoOp.daml
 --- create-daml-app/daml/NoOp.daml	1970-01-01 01:00:00.000000000 +0100
-+++ gsg-trigger/daml/NoOp.daml	2022-01-12 17:55:45.838308273 +0100
++++ create-daml-app/daml/NoOp.daml	2022-01-12 17:55:45.838308273 +0100
 @@ -0,0 +1,13 @@
 +module NoOp where
 +
@@ -48,17 +48,9 @@ diff -Naur create-daml-app/daml/NoOp.daml gsg-trigger/daml/NoOp.daml
 +    pure ()
 +  registeredTemplates = T.AllInDar
 +  heartbeat = None
-diff -Naur create-daml-app/daml/User.daml gsg-trigger/daml/User.daml
+diff --git create-daml-app/daml/User.daml create-daml-app/daml/User.daml
 --- create-daml-app/daml/User.daml	2022-01-12 17:55:49.754285111 +0100
-+++ gsg-trigger/daml/User.daml	2022-01-12 17:55:45.838308273 +0100
-@@ -6,7 +6,6 @@
- -- MAIN_TEMPLATE_BEGIN
- template User with
-     username: Party
--    public: Party
-     following: [Party]
-   where
-     signatory username
++++ create-daml-app/daml/User.daml	2022-01-12 17:55:45.838308273 +0100
 @@ -26,6 +25,17 @@
          archive self
          create this with following = userToFollow :: following
@@ -92,7 +84,7 @@ diff -Naur create-daml-app/daml/User.daml gsg-trigger/daml/User.daml
 +    signatory sender, receiver
 +-- MESSAGE_END
 --- create-daml-app/daml.yaml.template	2022-01-26 17:29:37.149557361 +0100
-+++ gsg-trigger/daml.yaml.template	2022-01-26 17:29:27.749276386 +0100
++++ create-daml-app/daml.yaml.template	2022-01-26 17:29:27.749276386 +0100
 @@ -6,10 +6,12 @@
  - Alice
  - Bob
@@ -106,13 +98,25 @@ diff -Naur create-daml-app/daml/User.daml gsg-trigger/daml/User.daml
  start-navigator: false
  codegen:
    js:
-diff -Naur create-daml-app/ui/src/components/MainView.tsx.template gsg-trigger/ui/src/components/MainView.tsx.template
---- create-daml-app/ui/src/components/MainView.tsx.template	2022-01-12 18:39:11.584886272 +0100
-+++ gsg-trigger/ui/src/components/MainView.tsx.template	2022-01-12 18:17:12.021819139 +0100
-@@ -83,6 +83,15 @@
+diff --git create-daml-app/ui/src/components/MainView.tsx.template create-daml-app/ui/src/components/MainView.tsx.template
+--- create-daml-app/ui/src/components/MainView.tsx.template
++++ create-daml-app/ui/src/components/MainView.tsx.template
+@@ -8,6 +8,10 @@ import { User } from '@daml.js/create-daml-app';
+ import { useParty, useLedger, useStreamFetchByKey, useStreamQueries } from '@daml/react';
+ import UserList from './UserList';
+ import PartyListEdit from './PartyListEdit';
++// IMPORTS_BEGIN
++import MessageEdit from './MessageEdit';
++import MessageList from './MessageList';
++// IMPORTS_END
+
+ // USERS_BEGIN
+ const MainView: React.FC = () => {
+@@ -78,6 +82,22 @@ const MainView: React.FC = () => {
                />
                {/* USERLIST_END */}
              </Segment>
++            {/* MESSAGES_SEGMENT_BEGIN */}
 +            <Segment>
 +              <Header as='h2'>
 +                <Icon name='pencil square' />
@@ -121,14 +125,24 @@ diff -Naur create-daml-app/ui/src/components/MainView.tsx.template gsg-trigger/u
 +                  <Header.Subheader>Send a message to a follower</Header.Subheader>
 +                </Header.Content>
 +              </Header>
++              <MessageEdit
++                followers={followers.map(follower => follower.username)}
++              />
++              <Divider />
++              <MessageList />
 +            </Segment>
++            {/* MESSAGES_SEGMENT_END */}
            </Grid.Column>
          </Grid.Row>
        </Grid>
-diff -Naur create-daml-app/ui/src/components/MessageEdit.tsx.template gsg-trigger/ui/src/components/MessageEdit.tsx.template
---- create-daml-app/ui/src/components/MessageEdit.tsx.template	1970-01-01 01:00:00.000000000 +0100
-+++ gsg-trigger/ui/src/components/MessageEdit.tsx.template	2022-01-12 17:55:45.838308273 +0100
-@@ -0,0 +1,65 @@
+diff --git create-daml-app/ui/src/components/MessageEdit.tsx.template create-daml-app/ui/src/components/MessageEdit.tsx.template
+--- /dev/null
++++ create-daml-app/ui/src/components/MessageEdit.tsx.template
+@@ -0,0 +1,70 @@
++// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
++// SPDX-License-Identifier: Apache-2.0
++
++// MESSAGEEDIT_BEGIN
 +import React from 'react'
 +import { Form, Button } from 'semantic-ui-react';
 +import { Party } from '@daml/types';
@@ -194,10 +208,15 @@ diff -Naur create-daml-app/ui/src/components/MessageEdit.tsx.template gsg-trigge
 +};
 +
 +export default MessageEdit;
-diff -Naur create-daml-app/ui/src/components/MessageList.tsx.template gsg-trigger/ui/src/components/MessageList.tsx.template
---- create-daml-app/ui/src/components/MessageList.tsx.template	1970-01-01 01:00:00.000000000 +0100
-+++ gsg-trigger/ui/src/components/MessageList.tsx.template	2022-01-12 17:55:45.834308296 +0100
-@@ -0,0 +1,28 @@
++// MESSAGEEDIT_END
+diff --git create-daml-app/ui/src/components/MessageList.tsx.template create-daml-app/ui/src/components/MessageList.tsx.template
+--- /dev/null
++++ create-daml-app/ui/src/components/MessageList.tsx.template	2022-01-12 17:55:45.834308296 +0100
+@@ -0,0 +1,33 @@
++// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
++// SPDX-License-Identifier: Apache-2.0
++
++// MESSAGELIST_BEGIN
 +import React from 'react'
 +import { List, ListItem } from 'semantic-ui-react';
 +import { User } from '@daml.js/__PROJECT_NAME__';
@@ -226,3 +245,4 @@ diff -Naur create-daml-app/ui/src/components/MessageList.tsx.template gsg-trigge
 +};
 +
 +export default MessageList;
++// MESSAGELIST_END
