@@ -3,12 +3,13 @@
 
 package com.daml.platform.sandbox.auth
 
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.{Timer, TimerTask, UUID}
 
 import com.daml.error.ErrorsAssertions
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.v1.admin.user_management_service.Right
+import com.daml.ledger.api.v1.admin.{user_management_service => user_management_service_proto}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsRequest,
@@ -17,11 +18,11 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SubmitAndWaitDummyCommandHelpers
+import com.daml.timer.Delayed
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
-import com.daml.ledger.api.v1.admin.{user_management_service => user_management_service_proto}
-import scala.concurrent.duration._
 
+import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 
 final class OngoingStreamAuthIT
@@ -50,7 +51,7 @@ final class OngoingStreamAuthIT
     def observeTransactionsStream(
         token: Option[String],
         party: String,
-    ): StreamObserver[GetTransactionsResponse] = {
+    ): Unit = {
       val observer = new StreamObserver[GetTransactionsResponse] {
         override def onNext(value: GetTransactionsResponse): Unit = {
           val _ = receivedTransactionsCount.incrementAndGet()
@@ -71,9 +72,8 @@ final class OngoingStreamAuthIT
           )
         ),
       )
-      stub(TransactionServiceGrpc.stub(channel), token)
+      val _ = stub(TransactionServiceGrpc.stub(channel), token)
         .getTransactions(request, observer)
-      observer
     }
 
     val canActAsAlice = Right(Right.Kind.CanActAs(Right.CanActAs(partyAlice)))
@@ -86,25 +86,22 @@ final class OngoingStreamAuthIT
       submitAndWaitF = () =>
         submitAndWait(token = tokenAlice, party = partyAlice, applicationId = applicationId)
       _ <- submitAndWaitF()
-      streamObserver = observeTransactionsStream(tokenAlice, partyAlice)
+      _ = observeTransactionsStream(tokenAlice, partyAlice)
       _ <- submitAndWaitF()
       // Making a change to the user Alice
       _ <- grantUserRightsByAdmin(
         userId = userIdAlice,
         Right(Right.Kind.CanActAs(Right.CanActAs(UUID.randomUUID().toString))),
       )
-      _ = Thread.sleep(UserManagementCacheExpiryInSeconds.toLong * 1000)
-      //
-      // Timer that finishes the stream in case it isn't aborted as expected
-      timerTask = new TimerTask {
-        override def run(): Unit = streamObserver.onError(
-          new AssertionError("Timed-out waiting while waiting for stream to abort")
+      _ <- Delayed.Future.by(2.second)(
+        Future(
+          transactionStreamAbortedPromise.tryFailure(
+            new AssertionError("Timed-out waiting while waiting for stream to abort")
+          )
         )
-      }
-      _ = new Timer(true).schedule(timerTask, 1000)
+      )
       t <- transactionStreamAbortedPromise.future
     } yield {
-      timerTask.cancel()
       t match {
         case sre: StatusRuntimeException =>
           assertError(
