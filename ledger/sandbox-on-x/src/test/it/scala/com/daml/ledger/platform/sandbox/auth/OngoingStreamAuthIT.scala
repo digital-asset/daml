@@ -101,7 +101,7 @@ final class OngoingStreamAuthIT
           new AssertionError("Timed-out waiting while waiting for stream to abort")
         )
       }
-      _ = new Timer(true).schedule(timerTask, 100)
+      _ = new Timer(true).schedule(timerTask, 1000)
       t <- transactionStreamAbortedPromise.future
     } yield {
       timerTask.cancel()
