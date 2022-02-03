@@ -21,10 +21,7 @@ load(
     "//language-support/scala/codegen:codegen.bzl",
     "dar_to_scala",
 )
-load(
-    ":conformance.bzl",
-    "conformance_test",
-)
+load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test")
 load(":util.bzl", "suites_sources")
 load("@os_info//:os_info.bzl", "is_windows")
 

@@ -55,7 +55,7 @@ NOTICES     @garyverhaegen-da @cocreature @dasormeter
 /ledger/ledger-api-common/          @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-api-domain/          @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-api-health/          @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-api-test-tool/       @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/ledger-api-tests/           @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-configuration/       @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-offset/              @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/participant-state-index/    @digital-asset/kv-participant @digital-asset/kv-committer
