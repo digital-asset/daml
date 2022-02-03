@@ -7,6 +7,9 @@ import java.sql.Connection
 
 import com.daml.platform.store.backend.common.{BaseTable, Field, Table}
 
+import scala.annotation.tailrec
+import scala.util.{Failure, Success, Try}
+
 private[h2] object H2Table {
   private def idempotentBatchedInsertBase[FROM](
       insertStatement: String,
@@ -33,10 +36,19 @@ private[h2] object H2Table {
                 }
                 preparedStatement.addBatch()
               }
-              preparedStatement.executeBatch()
+              retry(10) {
+                preparedStatement.executeBatch()
+              }
               preparedStatement.close()
             }
     }
+
+  @tailrec
+  private def retry[T](maxRetry: Int)(body: => T): T = Try(body) match {
+    case Success(result) => result
+    case Failure(t) if maxRetry <= 0 => throw t
+    case Failure(_) => retry(maxRetry - 1)(body)
+  }
 
   private def idempotentBatchedInsertStatement(
       tableName: String,
