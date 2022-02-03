@@ -292,7 +292,7 @@ private class ContractsFetch(
     val startOffset = offsets.values.toList.minimum.cata(AbsoluteBookmark(_), LedgerBegin)
 
     val graph = RunnableGraph.fromGraph(
-      GraphDSL.create(
+      GraphDSL.createGraph(
         Sink.queue[ConnectionIO[Unit]](),
         Sink.last[BeginBookmark[domain.Offset]],
       )(Keep.both) { implicit builder => (acsSink, offsetSink) =>

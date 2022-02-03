@@ -1,6 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _daml-script:
+
 Daml Script
 ###########
 
@@ -9,17 +11,10 @@ Daml Script
 
    api/index
 
-Daml scenarios provide a simple way for testing Daml models
-and getting quick feedback in Daml studio. However, scenarios are run
-in a special process and do not interact with an actual ledger. This
-means that you cannot use scenarios to test other ledger clients,
-e.g., your UI or :doc:`Daml triggers </triggers/index>`.
-
-Daml Script addresses this problem by providing you with an API with
-the simplicity of Daml scenarios and all the benefits such as being
-able to reuse your Daml types and logic while running against an
-actual ledger in addition to allowing you to experiment in
-:ref:`Daml Studio <scenario-script-results>`.  This means that you can use it for
+Daml Script provides a simple way of testing Daml models and getting
+quick feedback in Daml studio. In addition to running it in a virtual
+ledger in :ref:`Daml Studio <scenario-script-results>`, you can also
+point it against an actual ledger. This means that you can use it for
 application scripting, to test automation logic and also for
 :ref:`ledger initialization <script-ledger-initialization>`.
 
@@ -96,9 +91,7 @@ submitting the transaction. In our case, we want all proposals to be
 created by the bank so we use ``parties.bank``. The second argument
 must be of type ``Commands a`` so in our case ``Commands (ContractId
 CoinProposal, ContractId CoinProposal, ContractId CoinProposal)``
-corresponding to the 3 proposals that we create. ``Commands`` is
-similar to ``Update`` which is used in the ``submit`` function in
-scenarios. However, ``Commands`` requires that the individual commands
+corresponding to the 3 proposals that we create. However, ``Commands`` requires that the individual commands
 do not depend on each other. This matches the restriction on the
 Ledger API where a transaction consists of a list of commands.  Using
 ``ApplicativeDo`` we can still use ``do``-notation as long as we
@@ -194,7 +187,7 @@ port our ledger is running on.
 ``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:test --ledger-host localhost --ledger-port 6865``
 
 Up to now, we have worked with a script (``test``) that is entirely
-self-contained. This is fine for running unit-test type scenarios in the IDE,
+self-contained. This is fine for running unit-test type script in the IDE,
 but for more complex use-cases you may want to vary the inputs of a script and
 inspect its outputs, ideally without having to recompile it. To that end, the
 ``daml script`` command supports the flags ``--input-file`` and

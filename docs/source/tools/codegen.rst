@@ -63,7 +63,7 @@ Here is an example::
     sdk-version: 1.2.0
     name: quickstart
     source: daml
-    scenario: Main:setup
+    init-script: Main:initialize
     parties:
       - Alice
       - Bob
