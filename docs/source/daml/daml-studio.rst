@@ -231,20 +231,20 @@ Trace
 Abort, assert, and debug
 ========================
 
-The ``abort``, ``assert`` and ``debug`` inbuilt functions can be used in updates and scenarios. All three can be used to output messages, but ``abort`` and ``assert`` can additionally halt the execution:
+The ``abort``, ``assert`` and ``debug`` inbuilt functions can be used in updates and scripts. All three can be used to output messages, but ``abort`` and ``assert`` can additionally halt the execution:
 
 .. literalinclude:: daml-studio/daml/Abort.daml
   :language: daml
-  :lines: 8-10
+  :start-after: -- BEGIN_ABORT_EXAMPLE
+  :end-before: -- END_ABORT_EXAMPLE
 
 .. code-block:: none
 
     Scenario execution failed:
-      Aborted:  stop
+      Unhandled exception:  DA.Exception.GeneralError:GeneralError with
+                              message = "stop"
 
     Ledger time: 1970-01-01T00:00:00Z
-
-    Partial transaction:
 
     Trace:
       "hello, world!"
