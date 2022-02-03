@@ -258,9 +258,10 @@ parties the commit will fail. For example:
 
 .. literalinclude:: daml-studio/daml/CreateAuthFailure.daml
   :language: daml
-  :lines: 7-13,15-18
+  :start-after: -- BEGIN_MISSING_AUTH_EXAMPLE
+  :end-before: -- END_MISSING_AUTH_EXAMPLE
 
-Execution of the example scenario fails due to 'Bob' being a signatory
+Execution of the example script fails due to 'Bob' being a signatory
 in the contract, but not authorizing the create:
 
 .. code-block:: none
