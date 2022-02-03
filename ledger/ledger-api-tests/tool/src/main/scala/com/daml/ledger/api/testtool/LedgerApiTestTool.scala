@@ -7,10 +7,8 @@ import java.io.File
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.util.concurrent.Executors
 
-import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
-import com.daml.ledger.api.testtool.infrastructure.Result.Excluded
 import com.daml.ledger.api.testtool.infrastructure._
-import com.daml.ledger.api.testtool.tests.Tests
+import com.daml.ledger.api.testtool.performance.{PerformanceTestsKeys, performanceTests}
 import com.daml.ledger.api.tls.TlsConfiguration
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
@@ -54,7 +52,7 @@ object LedgerApiTestTool {
     println("Alternatively, you can run performance tests.")
     println("They are not run by default, but can be run with `--perf-tests=TEST-NAME`.")
     println()
-    Tests.PerformanceTestsKeys.foreach(println(_))
+    PerformanceTestsKeys.foreach(println(_))
   }
 
   private def printAvailableTestSuites(testSuites: Vector[LedgerTestSuite]): Unit = {
@@ -89,9 +87,8 @@ object LedgerApiTestTool {
 
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
-    val defaultTests: Vector[LedgerTestSuite] = Tests.default(
-      timeoutScaleFactor = config.timeoutScaleFactor
-    )
+    val defaultTests: Vector[LedgerTestSuite] =
+      Tests.default(timeoutScaleFactor = config.timeoutScaleFactor)
     val optionalTests: Vector[LedgerTestSuite] = Tests.optional()
     val visibleTests: Vector[LedgerTestSuite] = defaultTests ++ optionalTests
     val allTests: Vector[LedgerTestSuite] = visibleTests
@@ -128,9 +125,7 @@ object LedgerApiTestTool {
     }
 
     val performanceTestsToRun =
-      Tests
-        .performanceTests(config.performanceTestsReport)
-        .view
+      performanceTests(config.performanceTestsReport).view
         .filterKeys(config.performanceTests)
         .toMap
 
@@ -181,10 +176,10 @@ object LedgerApiTestTool {
               suite = ledgerTestCase.suite.name,
               name = ledgerTestCase.name,
               description = ledgerTestCase.description,
-              result = Right(Excluded("excluded test")),
+              result = Right(Result.Excluded("excluded test")),
             )
           }
-        new ColorizedPrintStreamReporter(
+        new Reporter.ColorizedPrintStreamReporter(
           System.out,
           config.verbose,
         ).report(

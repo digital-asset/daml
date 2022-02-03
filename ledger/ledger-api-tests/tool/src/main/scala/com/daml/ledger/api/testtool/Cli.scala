@@ -3,13 +3,13 @@
 
 package com.daml.ledger.api.testtool
 
-import com.daml.buildinfo.BuildInfo
-import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
-import com.daml.ledger.api.testtool.tests.Tests
-import scopt.{OptionParser, Read}
-
 import java.io.File
 import java.nio.file.{Path, Paths}
+
+import com.daml.buildinfo.BuildInfo
+import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
+import scopt.{OptionParser, Read}
+
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
 
@@ -155,7 +155,9 @@ object Cli {
       )
 
     opt[Seq[String]]("perf-tests")
-      .validate(_.find(!Tests.PerformanceTestsKeys(_)).fold(success)(invalidPerformanceTestName))
+      .validate(
+        _.find(!performance.PerformanceTestsKeys(_)).fold(success)(invalidPerformanceTestName)
+      )
       .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
       .unbounded()
       .text("A comma-separated list of performance tests that should be run.")

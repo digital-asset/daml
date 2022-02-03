@@ -5,9 +5,11 @@ package com.daml.ledger.api.testtool
 
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.ledger.api.tls.TlsConfiguration
-
 import java.io.File
 import java.nio.file.Path
+
+import com.daml.ledger.api.testtool
+
 import scala.concurrent.duration.FiniteDuration
 
 final case class Config(
@@ -45,8 +47,8 @@ object Config {
     darPackages = Nil,
     mustFail = false,
     verbose = false,
-    timeoutScaleFactor = tests.Defaults.TimeoutScaleFactor,
-    concurrentTestRuns = tests.Defaults.ConcurrentRuns,
+    timeoutScaleFactor = Defaults.TimeoutScaleFactor,
+    concurrentTestRuns = testtool.Defaults.ConcurrentRuns,
     extract = false,
     tlsConfig = None,
     excluded = Set.empty,
@@ -58,7 +60,7 @@ object Config {
     listTestSuites = false,
     shuffleParticipants = false,
     partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
-    ledgerClockGranularity = tests.Defaults.LedgerClockGranularity,
+    ledgerClockGranularity = testtool.Defaults.LedgerClockGranularity,
     uploadDars = true,
   )
 }
