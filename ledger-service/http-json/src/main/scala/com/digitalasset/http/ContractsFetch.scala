@@ -38,7 +38,7 @@ import scalaz.syntax.functor._
 import scalaz.syntax.foldable._
 import scalaz.syntax.order._
 import scalaz.syntax.std.option._
-import scalaz.\/
+import scalaz.{~>, \/, NaturalTransformation}
 import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
@@ -65,6 +65,7 @@ private class ContractsFetch(
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
+      tickFetch: ConnectionIO ~> ConnectionIO = NaturalTransformation.refl,
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -78,7 +79,7 @@ private class ContractsFetch(
         fetchTemplateIds: List[domain.TemplateId.RequiredPkg],
         absEnd: Terminates.AtAbsolute,
     ): ConnectionIO[A] = for {
-      bb <- fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd)
+      bb <- tickFetch(fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd))
       a <- within(bb)
       // fetchTemplateIds can be a subset of templateIds (or even empty),
       // but we only get away with that by checking _all_ of templateIds,
