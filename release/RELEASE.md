@@ -79,7 +79,7 @@ patches we backport to the 1.0 release branch).
    > `ad-hoc.sh create windows` prints IP address, username and password for the created Windows VM.
    > Save this output. You will need this information later when you create an RDP connection.
    > 
-   > ‼️ After connecting, it's going to take some time for the machine to be configured (see notes below).
+   > ‼️ After starting, it's going to take some time for the machine to be configured (see notes below).
    > 
    > If you're on a Mac, you can use Microsoft Remote Desktop to connect; on
    > Linux, you can use Remmina.
@@ -98,7 +98,7 @@ patches we backport to the 1.0 release branch).
    > you don't need to worry about those.
    >
    > NOTE 2: After logging in, **it takes some time for the machine to be configured.** The script that installs Firefox, Node, VSCode and OpenJDK runs once the
-   > machine is available for login. The software you need should appear within about 10 minutes.
+   > machine is available for login. The software you need should appear within about 10 minutes. (An easy way to check is to try to open `D:\` , as it is created after all the software is installed.)
    >
    > All of the commands mentioned in this document can be run from a simple
    > DOS prompt (start menu -> type "cmd" -> click "Command prompt").
