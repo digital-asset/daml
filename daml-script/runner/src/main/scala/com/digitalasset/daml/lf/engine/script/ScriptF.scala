@@ -495,12 +495,12 @@ object ScriptF {
       } yield SEApp(SEValue(continue), Array(SEValue(res)))
   }
 
-  final case class ListUsers(
+  final case class ListAllUsers(
       participant: Option[Participant],
       stackTrace: StackTrace,
       continue: SValue,
   ) extends Cmd {
-    override def description = "listUsers"
+    override def description = "listAllUsers"
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -508,7 +508,7 @@ object ScriptF {
     ): Future[SExpr] =
       for {
         client <- Converter.toFuture(env.clients.getParticipant(participant))
-        users <- client.listUsers()
+        users <- client.listAllUsers()
         users <- Converter.toFuture(
           users.to(FrontStack).traverse(Converter.fromUser(env.scriptIds, _))
         )
@@ -873,14 +873,14 @@ object ScriptF {
       case _ => Left(s"Expected DeleteUser payload but got $v")
     }
 
-  private def parseListUsers(ctx: Ctx, v: SValue): Either[String, ListUsers] =
+  private def parseListAllUsers(ctx: Ctx, v: SValue): Either[String, ListAllUsers] =
     v match {
       case SRecord(_, _, JavaList(participant, continue, stackTrace)) =>
         for {
           participant <- Converter.toParticipantName(participant)
           stackTrace <- toStackTrace(ctx, Some(stackTrace))
-        } yield ListUsers(participant, stackTrace, continue)
-      case _ => Left(s"Expected ListUsers payload but got $v")
+        } yield ListAllUsers(participant, stackTrace, continue)
+      case _ => Left(s"Expected ListAllUsers payload but got $v")
     }
 
   private def parseGrantUserRights(ctx: Ctx, v: SValue): Either[String, GrantUserRights] =
@@ -937,7 +937,7 @@ object ScriptF {
       case "CreateUser" => parseCreateUser(ctx, v)
       case "GetUser" => parseGetUser(ctx, v)
       case "DeleteUser" => parseDeleteUser(ctx, v)
-      case "ListUsers" => parseListUsers(ctx, v)
+      case "ListAllUsers" => parseListAllUsers(ctx, v)
       case "GrantUserRights" => parseGrantUserRights(ctx, v)
       case "RevokeUserRights" => parseRevokeUserRights(ctx, v)
       case "ListUserRights" => parseListUserRights(ctx, v)

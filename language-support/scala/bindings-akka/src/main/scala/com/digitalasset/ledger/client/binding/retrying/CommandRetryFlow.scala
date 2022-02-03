@@ -59,7 +59,7 @@ object CommandRetryFlow {
       maxRetryTime: TemporalAmount,
   ): SubmissionFlowType[RetryInfo[C, CommandSubmission]] =
     Flow
-      .fromGraph(GraphDSL.create(commandSubmissionFlow) { implicit b => commandSubmission =>
+      .fromGraph(GraphDSL.createGraph(commandSubmissionFlow) { implicit b => commandSubmission =>
         import GraphDSL.Implicits._
 
         val merge =

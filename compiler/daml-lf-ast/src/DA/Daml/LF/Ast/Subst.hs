@@ -202,6 +202,12 @@ applySubstInExpr subst@Subst{..} = \case
         (applySubstInExpr subst e)
     EFromRequiredInterface t1 t2 e -> EFromRequiredInterface t1 t2
         (applySubstInExpr subst e)
+    EInterfaceTemplateTypeRep ty e -> EInterfaceTemplateTypeRep ty
+        (applySubstInExpr subst e)
+    ESignatoryInterface ty e -> ESignatoryInterface ty
+        (applySubstInExpr subst e)
+    EObserverInterface ty e -> EObserverInterface ty
+        (applySubstInExpr subst e)
     EUpdate u -> EUpdate
         (applySubstInUpdate subst u)
     EScenario s -> EScenario

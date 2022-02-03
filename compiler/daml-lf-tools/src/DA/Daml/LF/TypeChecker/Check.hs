@@ -765,6 +765,18 @@ typeOf' = \case
       throwWithContext (EWrongInterfaceRequirement requiringIface requiredIface)
     checkExpr expr (TCon requiredIface)
     pure (TOptional (TCon requiringIface))
+  EInterfaceTemplateTypeRep iface expr -> do
+    void $ inWorld (lookupInterface iface)
+    checkExpr expr (TCon iface)
+    pure TTypeRep
+  ESignatoryInterface iface expr -> do
+    void $ inWorld (lookupInterface iface)
+    checkExpr expr (TCon iface)
+    pure (TList TParty)
+  EObserverInterface iface expr -> do
+    void $ inWorld (lookupInterface iface)
+    checkExpr expr (TCon iface)
+    pure (TList TParty)
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
@@ -775,11 +787,6 @@ typeOf' = \case
 
 checkExperimentalType :: MonadGamma m => T.Text -> Type -> m ()
 checkExperimentalType "ANSWER" (TUnit :-> TInt64) = pure ()
-checkExperimentalType "TO_TYPE_REP" (TCon _iface :-> TTypeRep) = pure ()
-checkExperimentalType "RESOLVE_VIRTUAL_SIGNATORY"
-  (TCon iface1 :-> TCon iface2 :-> TList TParty) | iface1 == iface2 = pure ()
-checkExperimentalType "RESOLVE_VIRTUAL_OBSERVER"
-  (TCon iface1 :-> TCon iface2 :-> TList TParty) | iface1 == iface2 = pure ()
 checkExperimentalType name ty =
   throwWithContext (EUnknownExperimental name ty)
 

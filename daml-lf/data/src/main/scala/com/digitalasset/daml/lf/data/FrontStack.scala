@@ -124,12 +124,12 @@ final class FrontStack[+A] private (fq: FrontStack.FQ[A], val length: Int) {
   def foreach(f: A => Unit): Unit = this.iterator.foreach(f)
 
   /** O(1) */
-  def canEqual(that: Any) = that.isInstanceOf[FrontStack[A]]
+  def canEqual(that: Any) = that.isInstanceOf[FrontStack[_]]
 
   /** O(n) */
   override def equals(that: Any) = that match {
-    case thatQueue: FrontStack[A] =>
-      this.length == thatQueue.length && this.iterator.sameElements(thatQueue.iterator)
+    case thatQueue: FrontStack[_] =>
+      this.length == thatQueue.length && this.iterator.sameElements[Any](thatQueue.iterator)
     case _ => false
   }
 

@@ -87,7 +87,7 @@ class UnfoldStateSpec
         val newSum = sum + ns.sum
         (newSum, (ns, newSum))
       }
-      val graph = GraphDSL.create(Sink.seq[Int], Sink.seq[Int])(Keep.both) {
+      val graph = GraphDSL.createGraph(Sink.seq[Int], Sink.seq[Int])(Keep.both) {
         implicit gb => (nsOut, stOut) =>
           import GraphDSL.Implicits._
           val fmc = gb add flatMapConcatNode { (sum: Int, ns: List[Int]) =>

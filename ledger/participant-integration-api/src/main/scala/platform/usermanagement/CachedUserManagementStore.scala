@@ -89,7 +89,7 @@ class CachedUserManagementStore(
     delegate.listUsers()
   }
 
-  private def invalidateOnSuccess[_](id: UserId): PartialFunction[Try[Result[Any]], Unit] = {
+  private def invalidateOnSuccess(id: UserId): PartialFunction[Try[Result[Any]], Unit] = {
     case Success(Right(_)) => cache.invalidate(id)
   }
 

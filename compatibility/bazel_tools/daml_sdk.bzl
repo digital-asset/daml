@@ -158,6 +158,11 @@ $(rlocation daml-sdk-{version}/sdk/bin/daml) $@
         Label("@compatibility//bazel_tools:daml.cc.tpl"),
         substitutions = {"{SDK_VERSION}": ctx.attr.version},
     )
+    ctx.template(
+        "sandbox-on-x.cc",
+        Label("@compatibility//bazel_tools:run_jar.cc.tpl"),
+        substitutions = {"{SDK_VERSION}": ctx.attr.version, "{JAR_NAME}": "sandbox-on-x.jar"},
+    )
     ctx.file(
         "BUILD",
         content =
@@ -169,11 +174,11 @@ sh_binary(
   data = [":ledger-api-test-tool.jar"],
   deps = ["@bazel_tools//tools/bash/runfiles"],
 )
-sh_binary(
+cc_binary(
   name = "sandbox-on-x",
-  srcs = [":sandbox-on-x.sh"],
+  srcs = ["sandbox-on-x.cc"],
   data = [":sandbox-on-x.jar"],
-  deps = ["@bazel_tools//tools/bash/runfiles"],
+  deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
 )
 cc_binary(
   name = "daml",

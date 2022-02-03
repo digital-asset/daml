@@ -154,7 +154,7 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Option[Unit]]
 
-  def listUsers()(implicit
+  def listAllUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,

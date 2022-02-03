@@ -68,31 +68,6 @@ sumList =
     assert (foldl (+) 0 [1, 2, 3] == 6)
 -- END_SUM_LIST_EXAMPLE
 
--- PassTime example.
--- BEGIN_TIME_TRAVEL_EXAMPLE
-timeTravel =
-  script do
-    -- Get current ledger effective time
-    t1 <- getTime
-    assert (t1 == datetime 1970 Jan 1 0 0 0)
-
-    -- Pass 1 day
-    passTime (days 1)
-
-    -- Get new ledger effective time
-    t2 <- getTime
-    assert (t2 == datetime 1970 Jan 2 0 0 0)
--- END_TIME_TRAVEL_EXAMPLE
-
-
-
-
-
-
-
-
-
-
 -- A let block in a template
 -- BEGIN_LET_IN_TEMPLATE
 template Iou

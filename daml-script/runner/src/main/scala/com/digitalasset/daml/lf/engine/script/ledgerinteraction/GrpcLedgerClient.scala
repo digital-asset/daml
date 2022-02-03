@@ -372,7 +372,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
     }
 
-  override def listUsers()(implicit
+  override def listAllUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
