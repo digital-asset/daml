@@ -293,15 +293,10 @@ party that is not a controller of a choice exercises it.
 
 .. literalinclude:: daml-studio/daml/ExerciseAuthFailure.daml
   :language: daml
-  :start-after: -- BEGIN_MISSING_AUTHORIZATION_TEMPLATE
-  :end-before: -- END_MISSING_AUTHORIZATION_TEMPLATE
+  :start-after: -- BEGIN_MISSING_AUTHORIZATION_EXAMPLE
+  :end-before: -- END_MISSING_AUTHORIZATION_EXAMPLE
 
-.. literalinclude:: daml-studio/daml/ExerciseAuthFailure.daml
-  :language: daml
-  :start-after: -- BEGIN_MISSING_AUTHORIZATION_SCENARIO
-  :end-before: -- END_MISSING_AUTHORIZATION_SCENARIO
-
-The execution of the example scenario fails when 'Bob' tries to exercise the
+The execution of the example script fails when 'Bob' tries to exercise the
 choice 'Consume' of which he is not a controller
 
 .. code-block:: none
@@ -313,13 +308,13 @@ choice 'Consume' of which he is not a controller
     Ledger time: 1970-01-01T00:00:00Z
 
     Partial transaction:
+      Failed exercise:
+        exercises Consume on #0:0 (ExerciseAuthFailure:Example)
+        with
       Sub-transactions:
-         #0
-         └─> fetch #0:0 (ExerciseAuthFailure:Example)
-
-         #1
-         └─> 'Alice' exercises Consume on #0:0 (ExerciseAuthFailure:Example)
-                     with
+        0
+        └─> 'Alice' exercises Consume on #0:0 (ExerciseAuthFailure:Example)
+                    with
 
     Committed transactions:
       TX #0 1970-01-01T00:00:00Z (unknown source)
