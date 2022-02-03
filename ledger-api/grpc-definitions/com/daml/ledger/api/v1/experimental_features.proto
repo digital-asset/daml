@@ -70,9 +70,6 @@ enum CommandDeduplicationType {
   // Commands that are duplicates of concurrently submitted commands are reported synchronously via a gRPC error on the
   // command submission, while all other duplicate commands are reported asynchronously via completions.
   ASYNC_AND_CONCURRENT_SYNC = 1;
-  // Duplicate commands are always reported synchronously via a synchronous gRPC error on the command submission.
-  // Deprecated: Was used for participant-side command deduplication.
-  SYNC_ONLY = 2 [deprecated=true];
 }
 
 // See `daml-lf/spec/contract-id.rst` for more information on contract ID formats.
