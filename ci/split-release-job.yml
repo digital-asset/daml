@@ -22,7 +22,7 @@ jobs:
         set -euo pipefail
         git checkout $(release_sha)
       name: checkout_release
-    - template: ci/bash-lib.yml
+    - template: bash-lib.yml
       parameters:
         var_name: bash-lib
     - task: DownloadPipelineArtifact@0
@@ -85,7 +85,7 @@ jobs:
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
-    - template: ci/tell-slack-failed.yml
+    - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
 
