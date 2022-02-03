@@ -553,6 +553,6 @@ jsonUserRightManagement p1 = do
 clearUsers : Script ()
 clearUsers = do
   admin <- validateUserId "participant_admin"
-  users <- listUsers
+  users <- listAllUsers
   forA_ users $ \u ->
     when (u.userId /= admin) $ deleteUser u.userId
