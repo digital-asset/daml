@@ -422,6 +422,26 @@ abstract class CommonCliSpecBase(
       )
     }
 
+    "handle '--max-users-page-size' flag correctly" in {
+      // missing value
+      checkOptionFail(
+        Array("--max-users-page-size")
+      )
+      // default
+      checkOption(
+        Array.empty,
+        _.withUserManagementConfig(_.copy(maxUsersPageSize = 1000)),
+      )
+      // custom value
+      checkOption(
+        Array(
+          "--max-users-page-size",
+          "123",
+        ),
+        _.withUserManagementConfig(_.copy(maxUsersPageSize = 123)),
+      )
+    }
+
   }
 
   protected def checkOption(

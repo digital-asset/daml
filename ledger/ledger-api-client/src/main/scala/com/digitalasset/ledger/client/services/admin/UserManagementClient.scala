@@ -52,11 +52,15 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       .deleteUser(proto.DeleteUserRequest(userId.toString))
       .map(_ => ())
 
-  def listUsers(token: Option[String] = None): Future[Seq[User]] =
+  def listUsers(
+      token: Option[String] = None,
+      pageToken: String,
+      pageSize: Int,
+  ): Future[(Seq[User], String)] =
     LedgerClient
       .stub(service, token)
-      .listUsers(proto.ListUsersRequest())
-      .map(_.users.view.map(fromProtoUser).toSeq)
+      .listUsers(proto.ListUsersRequest(pageToken = pageToken, pageSize = pageSize))
+      .map(res => res.users.view.map(fromProtoUser).toSeq -> res.nextPageToken)
 
   def grantUserRights(
       userId: UserId,

@@ -3,6 +3,9 @@
 
 package com.daml.platform.apiserver.services.admin
 
+import java.nio.charset.StandardCharsets
+import java.util.Base64
+
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{
   ContextualizedErrorLogger,
@@ -12,6 +15,8 @@ import com.daml.error.{
 import com.daml.ledger.api.domain._
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.participant.state.index.v2.UserManagementStore.UsersPage
+import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
@@ -21,15 +26,18 @@ import scalaz.syntax.traverse._
 import scalaz.std.list._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 private[apiserver] final class ApiUserManagementService(
     userManagementStore: UserManagementStore,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    maxUsersPageSize: Int,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends proto.UserManagementServiceGrpc.UserManagementService
     with GrpcApiService {
+
   import ApiUserManagementService._
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
@@ -37,6 +45,7 @@ private[apiserver] final class ApiUserManagementService(
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
   private val fieldValidations = FieldValidations(errorFactories)
+
   import fieldValidations._
 
   override def close(): Unit = ()
@@ -82,14 +91,33 @@ private[apiserver] final class ApiUserManagementService(
         .map(_ => proto.DeleteUserResponse())
     )
 
-  override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] =
-    userManagementStore
-      .listUsers()
-      .flatMap(handleResult("listing users"))
-      .map(
-        _.map(toProtoUser)
-      )
-      .map(proto.ListUsersResponse(_))
+  override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] = {
+    withValidation(
+      for {
+        fromExcl <- decodePageToken(request.pageToken)
+        rawPageSize <- Either.cond(
+          request.pageSize >= 0,
+          request.pageSize,
+          LedgerApiErrors.RequestValidation.InvalidArgument
+            .Reject("Max page size must be non-negative")
+            .asGrpcError,
+        )
+        pageSize =
+          if (rawPageSize == 0) maxUsersPageSize
+          else Math.min(request.pageSize, maxUsersPageSize)
+      } yield {
+        (fromExcl, pageSize)
+      }
+    ) { case (fromExcl, pageSize) =>
+      userManagementStore
+        .listUsers(fromExcl, pageSize)
+        .flatMap(handleResult("listing users"))
+        .map { page: UserManagementStore.UsersPage =>
+          val protoUsers = page.users.map(toProtoUser)
+          proto.ListUsersResponse(protoUsers, encodeNextPageToken(page))
+        }
+    }
+  }
 
   override def grantUserRights(
       request: proto.GrantUserRightsRequest
@@ -210,4 +238,45 @@ object ApiUserManagementService {
       proto.Right(proto.Right.Kind.CanReadAs(proto.Right.CanReadAs(party)))
   }
 
+  def encodeNextPageToken(page: UsersPage): String =
+    page.lastUserIdOption
+      .map { id =>
+        val bytes = Base64.getUrlEncoder.encode(id.getBytes(StandardCharsets.UTF_8))
+        new String(bytes, StandardCharsets.UTF_8)
+      }
+      .getOrElse("")
+
+  def decodePageToken(pageToken: String)(implicit
+      loggingContext: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[Ref.UserId]] = {
+    if (pageToken.isEmpty) {
+      Right(None)
+    } else {
+      val bytes = pageToken.getBytes(StandardCharsets.UTF_8)
+      for {
+        decodedBytes <- Try[Array[Byte]](Base64.getUrlDecoder.decode(bytes))
+          .map(Right(_))
+          .recover { case _: IllegalArgumentException =>
+            Left(
+              LedgerApiErrors.RequestValidation.InvalidArgument
+                .Reject("Invalid page token")
+                .asGrpcError
+            )
+          }
+          .get
+        decodedStr = new String(decodedBytes, StandardCharsets.UTF_8)
+        userId <- Ref.UserId
+          .fromString(decodedStr)
+          .map(Some(_))
+          .left
+          .map(_ =>
+            LedgerApiErrors.RequestValidation.InvalidArgument
+              .Reject("Invalid page token")
+              .asGrpcError
+          )
+      } yield {
+        userId
+      }
+    }
+  }
 }

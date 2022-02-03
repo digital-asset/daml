@@ -22,6 +22,15 @@ trait ContextualizedErrorLogger {
   def error(message: String, throwable: Throwable): Unit
 }
 
+object DamlContextualizedErrorLogger {
+
+  def forTesting(clazz: Class[_]) = new DamlContextualizedErrorLogger(
+    ContextualizedLogger.get(clazz),
+    LoggingContext.ForTesting,
+    None,
+  )
+}
+
 /** Implementation of [[ContextualizedErrorLogger]] leveraging the //libs-scala/contextualized-logging
   * as the logging stack.
   *
@@ -35,6 +44,7 @@ class DamlContextualizedErrorLogger(
     loggingContext: LoggingContext,
     val correlationId: Option[String],
 ) extends ContextualizedErrorLogger {
+
   override def properties: Map[String, String] =
     loggingContext.entries.contents.view.map { case (key, value) =>
       key -> loggingValueToString(value)
