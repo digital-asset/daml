@@ -163,17 +163,12 @@ commandParser = subparser $ fold
         jsonApiOptions <- many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API"))
         scriptOptions <- many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter"))
         shutdownStdinClose <- stdinCloseOpt
-        sandboxChoice <- sandboxChoiceOpt
+        sandboxPortSpec <- sandboxCantonPortSpecOpt
         pure $ Start StartOptions{..} shutdownStdinClose
 
     sandboxPortOpt name desc =
         optional (option (maybeReader (toSandboxPortSpec <=< readMaybe))
             (long name <> metavar "PORT_NUM" <> help desc))
-
-    sandboxChoiceOpt =
-            flag' SandboxKV (long "sandbox-kv" <> help "Deprecated. Run with Sandbox KV.")
-        <|> flag SandboxCanton SandboxCanton (long "sandbox-canton" <> help "Run with Canton Sandbox. The 2.0 default.")
-                <*> sandboxCantonPortSpecOpt
 
     sandboxCantonPortSpecOpt = do
         adminApiSpec <- sandboxPortOpt "sandbox-admin-api-port" "Port number for the canton admin API (--sandbox-canton only)"
