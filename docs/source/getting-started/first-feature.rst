@@ -4,32 +4,32 @@
 Your First Feature
 ******************
 
-To get a better idea of how to develop Daml applications, let’s try implementing a new feature for our social network app.
+Let's dive into implementing a new feature for our social network app.
+This will give us a better idea how to develop Daml applications using our template.
 
-At the moment, our app lets us follow users in the network, but we have no way to communicate with them.
+At the moment, our app lets us follow users in the network, but we have no way to communicate with them!
 Let's fix that by adding a *direct messaging* feature.
-This should let users that follow each other send messages to each other, respecting *authorization* and *privacy*.
+This should let users that follow each other send messages, respecting *authorization* and *privacy*.
 This means:
 
-     - You cannot send a message to someone unless they have given you the authority by following you back.
-     - You cannot see a message unless you sent it or it was sent to you.
+    1. You cannot send a message to someone unless they have given you the authority by following you back.
+    2. You cannot see a message unless you sent it or it was sent to you.
 
-Daml lets us implement these guarantees in a direct and intuitive way.
+We will see that Daml lets us implement these guarantees in a direct and intuitive way.
 
-Creating a feature involves four steps:
+There are three parts to building and running the messaging feature:
 
     1. Adding the necessary changes to the Daml model
-    2. Running the feature
-    3. Making the corresponding changes in the UI
-    4. Running the app with the new feature
+    2. Making the corresponding changes in the UI
+    3. Running the app with the new feature.
 
 As usual, we must start with the Daml model and base our UI changes on top of that.
 
 Daml Changes
 ============
 
-The Daml code defines the *data* and *workflow* of the application; you can read about this in more detail in the :doc:`architecture <app-architecture>` section.
-The workflow refers to the interactions between parties that are permitted by the system.
+As mentioned in the :doc:`architecture <app-architecture>` section, the Daml code defines the *data* and *workflow* of the application.
+The workflow aspect refers to the interactions between parties that are permitted by the system.
 In the context of a messaging feature, these are essentially the authorization and privacy concerns listed above.
 
 For the authorization part, we take the following approach: a user Bob can message another user Alice when Alice starts following Bob back.
@@ -46,7 +46,7 @@ Indentation is important: it should be at the top level like the original ``User
 
 This template is very simple: it contains the data for a message and no choices.
 The interesting part is the ``signatory`` clause: both the ``sender`` and ``receiver`` are signatories on the template.
-This enforces that creation and archival of ``Message`` contracts must be authorized by both parties.
+This enforces the fact that creation and archival of ``Message`` contracts must be authorized by both parties.
 
 Now we can add messaging into the workflow by adding a new choice to the ``User`` template.
 Copy the following choice to the ``User`` template after the ``Follow`` choice. The indentation for the ``SendMessage`` choice must match the one of ``Follow`` . *Make sure you save the file after copying the code*.
@@ -74,15 +74,16 @@ Navigate to the terminal window where the ``daml start`` process is running and 
   - Update the JavaScript library under ``ui/daml.js`` to connect the UI with your Daml code
   - Upload the *new DAR file* to the sandbox
 
-As mentioned previously, Daml Sandbox uses an
-in-memory store, which means it loses its state – which here includes all user data and follower relationships – when stopped or restarted.
+As mentioned at the beginning of this *Getting Started with Daml* guide, Daml Sandbox uses an
+in-memory store, which means it loses its state when stopped or restarted. That means that all user
+data and follower relationships are lost.
 
 Now let's integrate the new functionality into the UI.
 
 Messaging UI
 ============
 
-The UI for messaging consists of a new *Messages* panel in addition to the *Follow* and *Network* panel.
+The UI for messaging will consist of a new *Messages* panel in addition to the *Follow* and *Network* panel.
 This panel will have two parts:
 
     1. A list of messages you've received with their senders.
@@ -96,7 +97,7 @@ MessageList Component
 
 The goal of the ``MessageList`` component is to query all ``Message`` contracts where the ``receiver`` is the current user, and display their contents and senders in a list.
 The entire component is shown below.
-Copy this into a new ``MessageList.tsx`` file in ``ui/src/components`` and save it.
+You should copy this into a new ``MessageList.tsx`` file in ``ui/src/components`` and save it.
 
 .. TODO Include file in template with placeholder for component logic.
 
@@ -110,7 +111,8 @@ The streaming aspect means that we don't need to reload the page when new messag
 For each contract in the stream, we destructure the *payload* (the data as opposed to metadata like the contract ID) into the ``{sender, receiver, content}`` object pattern.
 Then we construct a ``ListItem`` UI element with the details of the message.
 
-An important point about privacy: no matter how we write our ``Message`` query in the UI code, it is impossible to break the privacy rules given by the Daml model.
+There is one important point about privacy here.
+No matter how we write our ``Message`` query in the UI code, it is impossible to break the privacy rules given by the Daml model.
 That is, it is impossible to see a ``Message`` contract of which you are not the ``sender`` or the ``receiver`` (the only parties that can observe the contract).
 This is a major benefit of writing apps on Daml: the burden of ensuring privacy and authorization is confined to the Daml model.
 
@@ -118,7 +120,7 @@ MessageEdit Component
 ---------------------
 
 Next we need the ``MessageEdit`` component to compose and send messages to our followers.
-Again we show the entire component here; copy this into a new ``MessageEdit.tsx`` file in ``ui/src/components`` and save it.
+Again we show the entire component here; you should copy this into a new ``MessageEdit.tsx`` file in ``ui/src/components`` and save it.
 
 .. TODO Include file in template with placeholder for component logic.
 
@@ -142,7 +144,7 @@ The result of a successful call to ``submitMessage`` is a new ``Message`` contra
 The return value of this component is the React ``Form`` element.
 This contains a dropdown menu to select a receiver from the ``followers``, a text field for the message content, and a *Send* button which triggers ``submitMessage``.
 
-Note how *authorization* is enforced here.
+There is again an important point here, in this case about how *authorization* is enforced.
 Due to the logic of the ``SendMessage`` choice, it is impossible to send a message to a user who is not following us (even if you could somehow access their ``User`` contract).
 The assertion that ``elem sender following`` in ``SendMessage`` ensures this: no mistake or malice by the UI programmer could breach this.
 
@@ -159,24 +161,24 @@ Open the ``ui/src/components/MainView.tsx`` file and start by adding imports for
   :end-before: // IMPORTS_END
 
 Next, find where the *Network* ``Segment`` closes, towards the end of the component.
-This is where we'll add a new ``Segment`` for *Messages*. Make sure you save the file after copying over the code.
+This is where we'll add a new ``Segment`` for *Messages*. Make sure you've saved the file after copying the code.
 
 .. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/MainView.tsx
   :language: tsx
   :start-after: {/* MESSAGES_SEGMENT_BEGIN */}
   :end-before: {/* MESSAGES_SEGMENT_END */}
 
-Following the formatting of the previous panels, we include the new messaging components: ``MessageEdit`` supplied with the usernames of all visible parties as props, and ``MessageList`` to display all messages.
+You can see we simply follow the formatting of the previous panels and include the new messaging components: ``MessageEdit`` supplied with the usernames of all visible parties as props, and ``MessageList`` to display all messages.
 
 That is all for the implementation!
 Let's give the new functionality a spin.
 
-Running the Updated UI
+Running the updated UI
 ======================
 
-If you have the frontend UI up and running you're all set. If you don't have the UI running, open a new terminal window and navigate to the ``create-daml-app/ui`` folder, then run the ``npm start`` command to start the UI.
+If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``npm start`` command, which will start the UI.
 
-You should see the same login page as before at http://localhost:3000.
+Once you've done all these changes you should see the same login page as before at http://localhost:3000.
 
    .. figure:: images/create-daml-app-login-screen.png
       :scale: 50 %
@@ -188,15 +190,15 @@ Once you've logged in, you'll see a familiar UI but with our new *Messages* pane
    .. figure:: images/create-daml-app-messaging-feature.png
       :alt: You can now see the messaging feature in the create-daml-app
 
-Go ahead and follow more users, and log in as some of those users in separate browser windows to follow yourself back.
-Then click on the dropdown menu in the *Messages* panel to see a choice of followers to message!
+Go ahead and add follow more users, and log in as some of those users in separate browser windows to follow yourself back.
+Then, if you click on the dropdown menu in the *Messages* panel, you'll be able to see some followers to message!
 
    .. figure:: images/create-daml-app-messaging-select-user.png
       :scale: 50 %
       :alt: Select a follower from a dropdown list in the create-daml-app
 
 Send some messages between users and make sure you can see each one from the other side.
-Notice that each new message appears in the UI as soon as it is sent (due to the *streaming* React hooks).
+You'll notice that new messages appear in the UI as soon as they are sent (due to the *streaming* React hooks).
 
    .. figure:: images/create-daml-app-message-received.png
       :scale: 50 %
