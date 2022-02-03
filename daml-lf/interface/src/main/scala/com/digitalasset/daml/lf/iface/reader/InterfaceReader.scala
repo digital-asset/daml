@@ -140,7 +140,7 @@ object InterfaceReader {
             case dfn: Ast.DataVariant =>
               variant(fullName, tyVars, dfn)
             case dfn: Ast.DataEnum =>
-              enum(fullName, tyVars, dfn)
+              enumeration(fullName, tyVars, dfn)
             case Ast.DataInterface =>
               \/-(
                 None
@@ -210,16 +210,16 @@ object InterfaceReader {
     } yield Some(name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Variant(cons))): T))
   }
 
-  private[reader] def enum[T >: iface.InterfaceType.Normal](
+  private[reader] def enumeration[T >: iface.InterfaceType.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
-      enum: Ast.DataEnum,
+      enumeration: Ast.DataEnum,
   ): InterfaceReaderError \/ Some[(QualifiedName, T)] =
     if (tyVars.isEmpty)
       \/-(
         Some(
           name -> iface.InterfaceType.Normal(
-            DefDataType(ImmArraySeq.empty, Enum(enum.constructors.toSeq))
+            DefDataType(ImmArraySeq.empty, Enum(enumeration.constructors.toSeq))
           )
         )
       )

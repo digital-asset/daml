@@ -46,6 +46,7 @@ class MetricsCollector[T](exposedMetrics: Option[ExposedMetrics[T]], clock: Cloc
   import MetricsCollector.Message._
   import MetricsCollector.Response._
 
+  @scala.annotation.nowarn("msg=.*is unchecked since it is eliminated by erasure")
   def handlingMessages(
       metrics: List[Metric[T]],
       lastPeriodicCheck: Instant,
