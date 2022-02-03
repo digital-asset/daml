@@ -39,5 +39,5 @@ jobs:
         setvar split_release_process true
         setvar scala_2_13 true
       name: out
-- template: ci/build.yml
-- template: ci/split-release-job.yml
+- template: build.yml
+- template: split-release-job.yml
