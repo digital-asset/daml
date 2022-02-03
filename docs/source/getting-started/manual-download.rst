@@ -89,4 +89,5 @@ copy-paste the following Bash command::
     =pVlb
     -----END PGP PUBLIC KEY BLOCK-----
     EOF
+    
     )
