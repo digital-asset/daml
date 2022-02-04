@@ -93,24 +93,29 @@ printf("AENRTAIE");
     std::strcpy(jarStr, "-jar");
     printf("%s\n", jarStr);
     argv_[1] = jarStr;
-    printf("%s\n", argv_[1]);
+    printf("jar: %s\n", argv_[1]);
     char* pathStr = new char[path.length() + 1];
+    printf("jar: %s\n", argv_[1]);
     std::strcpy(pathStr, path.c_str());
+    printf("jar: %s\n", argv_[1]);
     argv_[2] = pathStr;
+    printf("jar: %s\n", argv_[1]);
         printf("%d\n", argc);
+    printf("jar: %s\n", argv_[1]);
     for (int i = 1; i < argc; i++) {
+    printf("jar: %s\n", argv_[1]);
         printf("%d\n", i + 2);
         argv_[i + 2] = argv[i];
+    printf("jar: %s\n", argv_[1]);
     }
         printf("%d\n", argc + 2);
+    printf("jar: %s\n", argv_[1]);
     argv_[argc + 2] = NULL;
+    printf("jar: %s\n", argv_[1]);
     for (int i = 0; i < argc + 2; ++i) {
       printf("%s\n", argv_[i]);
     }
     printf("\n\n");
-    for (int i = 0; i < argc; ++i) {
-      printf("%s\n", argv[i]);
-    }
     fflush(stdout);
     execvp(java.c_str(), argv_);
 #endif
