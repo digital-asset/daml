@@ -72,10 +72,15 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
           Some(pMAllocateWithoutDisplayName + "_" + Random.alphanumeric.take(10).mkString),
         displayName = None,
       )
-    } yield assert(
-      Tag.unwrap(party).nonEmpty,
-      "The allocated party identifier is an empty string",
-    )
+      partiesDetails <- ledger.getParties(Seq(party))
+    } yield {
+      assert(
+        Tag.unwrap(party).nonEmpty,
+        "The allocated party identifier is an empty string",
+      )
+      val partyDetails = assertSingleton("Only one party requested", partiesDetails)
+      assert(partyDetails.displayName.isEmpty, "The party display name is non-empty")
+    }
   })
 
   test(

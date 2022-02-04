@@ -23,18 +23,6 @@ private[sandboxnext] object Cli extends SandboxCli {
       .parser
 
     parser
-      .opt[Unit]("eager-package-loading")
-      .hidden()
-      .optional()
-      .text("Deprecated. This flag no longer has any effect.")
-      .action((_, config) => {
-        System.err.println(
-          "WARNING: The `--eager-package-loading` flag no longer has any effect in the Sandbox. Packages are always loaded eagerly."
-        )
-        config
-      })
-
-    parser
       .opt[Boolean](name = "implicit-party-allocation")
       .optional()
       .action((x, c) => c.copy(implicitPartyAllocation = x))

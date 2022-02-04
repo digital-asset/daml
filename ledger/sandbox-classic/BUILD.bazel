@@ -126,7 +126,6 @@ SERVERS = {
         "binary": ":sandbox-classic-binary",
         "server_args": [
             "--port=6865",
-            "--eager-package-loading",
             # "db_close_delay=-1" is needed so that the in-memory database is not closed
             # (and therefore lost) after the flyway migration
             "--sql-backend-jdbcurl=jdbc:h2:mem:conformance-test;db_close_delay=-1",
@@ -136,7 +135,6 @@ SERVERS = {
         "binary": ":sandbox-classic-ephemeral-postgresql",
         "server_args": [
             "--port=6865",
-            "--eager-package-loading",
         ],
     },
 }

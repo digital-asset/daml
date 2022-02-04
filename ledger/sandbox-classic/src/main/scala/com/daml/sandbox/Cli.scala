@@ -33,16 +33,8 @@ object Cli extends SandboxCli {
       .text(
         s"If set, $Name will execute the given scenario on startup and store all the contracts created by it.  (deprecated)" +
           " Note that when using --sql-backend-jdbcurl the scenario will be ran only if starting from a fresh database, _not_ when resuming from an existing one." +
-          " Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)." +
-          s" Also note that instructing $Name to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading)."
+          " Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)."
       )
-    parser
-      .opt[Unit]("eager-package-loading")
-      .optional()
-      .text(
-        "Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come."
-      )
-      .action((_, config) => config.copy(eagerPackageLoading = true))
     parser
       .opt[String]("sql-backend-jdbcurl")
       .optional()
