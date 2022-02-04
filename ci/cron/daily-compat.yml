@@ -38,8 +38,6 @@ jobs:
     timeoutInMinutes: 720
     strategy:
       matrix:
-        linux:
-          pool: ubuntu_20_04
         macos:
           pool: macOS-pool
     pool:
@@ -54,6 +52,7 @@ jobs:
 
   - job: compatibility_windows
     dependsOn: compatibility_ts_libs
+    condition: false
     timeoutInMinutes: 720
     pool:
       name: windows-pool
