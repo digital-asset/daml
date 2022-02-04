@@ -40,7 +40,9 @@ private[daml] object VersionClient {
   // see also com.daml.platform.apiserver.services.ApiVersionService.featuresDescriptor
   def fromProto(featuresDescriptor: FeaturesDescriptor): Seq[Feature] =
     featuresDescriptor match {
-      case FeaturesDescriptor(userManagement, _ /* TODO: expose experimentalFeatures */ ) =>
+      // Note that we do not expose experimental features here, as they are used for internal testing only
+      // and do not have backwards compatibility guarantees. (They should probably be named 'internalFeatures' ;-)
+      case FeaturesDescriptor(userManagement, _) =>
         (userManagement.toList map (_ => Feature.UserManagement))
     }
 }
