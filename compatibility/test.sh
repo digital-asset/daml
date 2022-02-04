@@ -55,6 +55,8 @@ function stop_postgresql() {
   fi
 }
 
+bazel clean --expunge
+
 bazel run @daml-sdk-0.0.0//:sandbox-on-x -- --help
 bazel test //:daml-ledger-1.18.1-platform-0.0.0
 
