@@ -25,6 +25,8 @@ if you kill `daml sandbox`.
 */
 
 int main(int argc, char **argv) {
+printf("AENRTAIE");
+fprintf("EANRITEAIE");
     std::string error;
     std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0], &error));
     if (runfiles == nullptr) {
