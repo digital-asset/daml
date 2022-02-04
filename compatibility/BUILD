@@ -39,7 +39,7 @@ config_setting(
             "@//bazel_tools/client_server/with-postgres:with-postgres-exe",
             "@daml-sdk-{}//:daml".format(version),
         ] + ([
-            "@daml-sdk-{}//:sandbox-on-x".format(version),
+            "@daml-sdk-{}//:sandbox-on-x-wrapper".format(version),
         ] if versions.is_at_least("2.0.0", version) else []),
         deps = ["@bazel_tools//tools/bash/runfiles"],
     )

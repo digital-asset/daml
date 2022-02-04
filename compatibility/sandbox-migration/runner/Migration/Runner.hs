@@ -134,7 +134,7 @@ withSandbox (AppendOnly appendOnly) assistant jdbcUrl f =
           -- Locating sandbox on x relative to the assistant is easier than making
           -- the bash script make the decision on whether it needs to pass in
           -- the assistant or sandbox on x.
-          bracket (createProcess (proc (takeDirectory assistant </> "sandbox-on-x") args) { create_group = True })
+          bracket (createProcess (proc (takeDirectory assistant </> "sandbox-on-x-wrapper") args) { create_group = True })
                   -- This is a shell script so we kill the whole process group.
                   (\process@(_, _, _, ph) -> interruptProcessGroupOf ph >> cleanupProcess process >> void (waitForProcess ph))
                   $ \_ -> do
