@@ -766,35 +766,53 @@ codegenTests codegenDir = testGroup "daml codegen" (
 
 cantonTests :: TestTree
 cantonTests = testGroup "daml sandbox"
-  [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
-      step "Creating project"
-      callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
-      step "Building project"
-      callCommandSilentIn (dir </> "skeleton") "daml build"
-      step "Finding free ports"
-      ledgerApiPort <- getFreePort
-      adminApiPort <- getFreePort
-      domainPublicApiPort <- getFreePort
-      domainAdminApiPort <- getFreePort
-      step "Staring Canton sandbox"
-      let portFile = dir </> "canton-portfile.json"
-      withDamlServiceIn (dir </> "skeleton") "sandbox"
-        [ "--port", show ledgerApiPort
-        , "--admin-api-port", show adminApiPort
-        , "--domain-public-port", show domainPublicApiPort
-        , "--domain-admin-port", show domainAdminApiPort
-        , "--canton-port-file", portFile
-        ] $ \ ph -> do
-        -- wait for port file to be written
-        _ <- readPortFileWith decodeCantonSandboxPort ph maxRetries portFile
-        step "Uploading DAR"
-        callCommandSilentIn (dir </> "skeleton") $ unwords
-          ["daml ledger upload-dar --host=localhost --port=" <> show ledgerApiPort, ".daml/dist/skeleton-0.0.1.dar"]
-        step "Running script"
-        callCommandSilentIn (dir </> "skeleton") $ unwords
-          [ "daml script"
-          , "--dar", ".daml/dist/skeleton-0.0.1.dar"
-          , "--script-name Main:setup"
-          , "--ledger-host=localhost", "--ledger-port=" <> show ledgerApiPort
-          ]
-  ]
+    [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
+        step "Creating project"
+        callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
+        step "Building project"
+        callCommandSilentIn (dir </> "skeleton") "daml build"
+        step "Finding free ports"
+        ledgerApiPort <- getFreePort
+        adminApiPort <- getFreePort
+        domainPublicApiPort <- getFreePort
+        domainAdminApiPort <- getFreePort
+        step "Staring Canton sandbox"
+        let portFile = dir </> "canton-portfile.json"
+        withDamlServiceIn (dir </> "skeleton") "sandbox"
+            [ "--port", show ledgerApiPort
+            , "--admin-api-port", show adminApiPort
+            , "--domain-public-port", show domainPublicApiPort
+            , "--domain-admin-port", show domainAdminApiPort
+            , "--canton-port-file", portFile
+            ] $ \ ph -> do
+            -- wait for port file to be written
+            _ <- readPortFileWith decodeCantonSandboxPort ph maxRetries portFile
+            step "Uploading DAR"
+            callCommandSilentIn (dir </> "skeleton") $ unwords
+                ["daml ledger upload-dar --host=localhost --port=" <> show ledgerApiPort, ".daml/dist/skeleton-0.0.1.dar"]
+            step "Running script"
+            callCommandSilentIn (dir </> "skeleton") $ unwords
+                [ "daml script"
+                , "--dar", ".daml/dist/skeleton-0.0.1.dar"
+                , "--script-name Main:setup"
+                , "--ledger-host=localhost", "--ledger-port=" <> show ledgerApiPort
+                ]
+            step "Start canton-repl"
+            let cmd = unwords
+                    [ "daml canton-repl"
+                    , "--port", show ledgerApiPort
+                    , "--admin-api-port", show adminApiPort
+                    , "--domain-public-port", show domainPublicApiPort
+                    , "--domain-admin-port", show domainAdminApiPort
+                    ]
+                input = unlines
+                    [ "sandbox.health.running"
+                    , "local.health.running"
+                    ]
+                proc' = (shell cmd) { cwd = Just dir }
+            hPutStrLn stderr "starting canton-repl process"
+            output <- readCreateProcess proc' input
+            hPutStrLn stderr "canton-repl process ended"
+            hPutStrLn stderr "canton-repl output:"
+            hPutStrLn stderr output
+    ]
