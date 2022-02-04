@@ -67,7 +67,7 @@ installed version with the corresponding Daml Enterprise version, use
 ``daml install --force VERSION``.
 
 Downloading Manually
-****************************
+********************
 
 If you want to verify the SDK download for security purposes before installing, you can look at :doc:`our detailed instructions for manual download and installation <manual-download>`.
 
