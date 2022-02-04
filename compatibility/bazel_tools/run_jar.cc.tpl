@@ -93,6 +93,7 @@ printf("AENRTAIE");
     std::strcpy(jarStr, "-jar");
     printf("%s\n", jarStr);
     argv_[1] = jarStr;
+    printf("%s\n", argv_[1]);
     char* pathStr = new char[path.length() + 1];
     std::strcpy(pathStr, path.c_str());
     argv_[2] = pathStr;
