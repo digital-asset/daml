@@ -396,6 +396,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     allocate(NoParties),
     enabled = _.userManagement.maxUsersPageSize > 0,
     disabledReason = "requires user management feature with users page size limit",
+    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val maxUsersPageSize = ledger.features.userManagement.maxUsersPageSize
     val users = 1.to(maxUsersPageSize + 1).map(_ => User(ledger.nextUserId(), ""))
