@@ -7,7 +7,7 @@ import java.sql.Connection
 import com.daml.platform.store.backend.common.{BaseTable, Field, Table}
 
 private[oracle] object OracleTable {
-  private def idempotentBatchedInsertBase[FROM](
+  private def idempotentInsertBase[FROM](
       insertStatement: String
   )(fields: Seq[(String, Field[FROM, _, _])]): Table[FROM] =
     new BaseTable[FROM](fields) {
@@ -30,7 +30,7 @@ private[oracle] object OracleTable {
             }
     }
 
-  private def idempotentBatchedInsertStatement(
+  private def idempotentInsertStatement(
       tableName: String,
       fields: Seq[(String, Field[_, _, _])],
       keyFieldIndex: Int,
@@ -52,10 +52,10 @@ private[oracle] object OracleTable {
        |""".stripMargin
   }
 
-  def idempotentBatchedInsert[FROM](tableName: String, keyFieldIndex: Int)(
+  def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
       fields: (String, Field[FROM, _, _])*
   ): Table[FROM] =
-    idempotentBatchedInsertBase(
-      idempotentBatchedInsertStatement(tableName, fields, keyFieldIndex)
+    idempotentInsertBase(
+      idempotentInsertStatement(tableName, fields, keyFieldIndex)
     )(fields)
 }

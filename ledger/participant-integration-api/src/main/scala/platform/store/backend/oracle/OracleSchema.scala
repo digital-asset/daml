@@ -10,11 +10,6 @@ import com.daml.platform.store.interning.StringInterning
 
 private[oracle] object OracleSchema {
   private val OracleFieldStrategy = new FieldStrategy {
-    override def stringArray[FROM](
-        extractor: StringInterning => FROM => Iterable[String]
-    ): Field[FROM, Iterable[String], _] =
-      OracleStringArray(extractor)
-
     override def stringArrayOptional[FROM](
         extractor: StringInterning => FROM => Option[Iterable[String]]
     ): Field[FROM, Option[Iterable[String]], _] =
@@ -35,13 +30,10 @@ private[oracle] object OracleSchema {
     ): Table[FROM] =
       Table.batchedInsert(tableName)(fields: _*)
 
-    override def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM] =
-      Table.batchedDelete(tableName)(field)
-
     override def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
-      OracleTable.idempotentBatchedInsert(tableName, keyFieldIndex)(fields: _*)
+      OracleTable.idempotentInsert(tableName, keyFieldIndex)(fields: _*)
   }
 
   val schema: Schema[DbDto] = AppendOnlySchema(OracleFieldStrategy)

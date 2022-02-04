@@ -28,11 +28,6 @@ private[backend] object AppendOnlySchema {
     ): Field[FROM, Option[String], _] =
       StringOptional(extractor)
 
-    def stringArray[FROM](
-        extractor: StringInterning => FROM => Iterable[String]
-    ): Field[FROM, Iterable[String], _] =
-      StringArray(extractor)
-
     def stringArrayOptional[FROM](
         extractor: StringInterning => FROM => Option[Iterable[String]]
     ): Field[FROM, Option[Iterable[String]], _] =
@@ -79,16 +74,12 @@ private[backend] object AppendOnlySchema {
     ): Field[FROM, Option[Int], _] =
       IntOptional(extractor)
 
-    def boolean[FROM](extractor: StringInterning => FROM => Boolean): Field[FROM, Boolean, _] =
-      BooleanField(extractor)
-
     def booleanOptional[FROM](
         extractor: StringInterning => FROM => Option[Boolean]
     ): Field[FROM, Option[Boolean], _] =
       BooleanOptional(extractor)
 
     def insert[FROM](tableName: String)(fields: (String, Field[FROM, _, _])*): Table[FROM]
-    def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM]
     def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM]
