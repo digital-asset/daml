@@ -64,7 +64,7 @@ object Assertions {
     )
   }
 
-  //KTODO: remove this two-level function
+  //TODO error codes daml 2.0: remove this two-level function
   /** Asserts GRPC error codes depending on the self-service error codes feature in the Ledger API. */
   def assertGrpcError(
       t: Throwable,
@@ -90,7 +90,7 @@ object Assertions {
   @tailrec
   def assertGrpcErrorRegex(
       t: Throwable,
-      selfServiceErrorCode: ErrorCode, //KTODO: rename to errorCode
+      selfServiceErrorCode: ErrorCode, //TODO error codes daml 2.0: rename to errorCode
       optPattern: Option[Pattern],
       checkDefiniteAnswerMetadata: Boolean = false,
       additionalErrorAssertions: Throwable => Unit = _ => (),
@@ -156,7 +156,7 @@ object Assertions {
       }
   }
 
-  //KTODO: rename this
+  //TODO error codes daml 2.0: rename this
   def assertSelfServiceErrorCode(
       statusRuntimeException: StatusRuntimeException,
       expectedErrorCode: ErrorCode,
