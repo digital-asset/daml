@@ -5,6 +5,7 @@
 #include <memory>
 #include <unistd.h>
 #include <cstring>
+#include <stdio.h>
 #if defined(_WIN32)
 #include <windows.h>
 #endif
@@ -26,7 +27,6 @@ if you kill `daml sandbox`.
 
 int main(int argc, char **argv) {
 printf("AENRTAIE");
-fprintf("EANRITEAIE");
     std::string error;
     std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0], &error));
     if (runfiles == nullptr) {
@@ -102,6 +102,7 @@ fprintf("EANRITEAIE");
     for (int i = 0; i < argc + 2; ++i) {
       printf("%s\n", argv_[i]);
     }
+    fflush(stdout)
     execvp(java.c_str(), argv_);
 #endif
 }
