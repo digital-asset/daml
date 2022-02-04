@@ -382,6 +382,17 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       grpcClient.userManagementClient
         .listUsers(pageToken = pageToken, pageSize = pageSize)
         .flatMap { case (users, nextPageToken) =>
+          // A note on loop termination:
+
+          // Currently the API always returns a final page containing 0 users. When this final page
+          // is delivered, it is accompanied by an empty string as the nextPageToken.  To avoid this
+          // extra roundtrip in the common case, we test for 'users.size < pageSize'.
+
+          // The 'nextPageToken == ""' test is currently redundant because an empty nextPageToken
+          // *only* comes with the 0-users page, but we add the test anyway as a safeguard against a
+          // possible future behavior change, where a final page containing exactly 'pageSize' users
+          // is delivered along with an empty nextPageToken, and this indicates no more pages.
+
           if (users.size < pageSize || nextPageToken == "") Future.successful(users.toList)
           else {
             listWithPageToken(nextPageToken).map { more =>
