@@ -48,6 +48,7 @@ withSandbox getTools mbSecret f =
               devNull <- getDevNull
               let args = map (tweakArg portFile) (sandboxArgs <> ["--auth-jwt-hs256-unsafe=" <> secret | Just secret <- [mbSecret]])
               mask $ \unmask -> do
+                  print (sandboxBinary, args)
                   ph <- createProcess (proc sandboxBinary args) { std_out = UseHandle devNull }
                   let waitForStart = do
                           port <- readPortFile maxRetries portFile
