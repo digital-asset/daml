@@ -356,7 +356,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assert(res2.nextPageToken.nonEmpty, s"Second next page token should be non-empty")
       assertLength("second page", 3, res2.users)
 
-      assert(res3.nextPageToken.isEmpty, s"Third next page token should be non-empty")
+      assert(res3.nextPageToken.isEmpty, "Third next page token should be empty")
       assert(res2.users.nonEmpty, s"Third page should be non-empty")
 
       assertGrpcError(
