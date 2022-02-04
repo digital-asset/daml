@@ -460,7 +460,7 @@ testUserManagementForParty p1 = do
   True <- isValidUserId "good"
   False <- isValidUserId "BAD"
   participantAdmin <- getParticipantAdmin ()
-  users <- listUsers
+  users <- listAllUsers
   users === [participantAdmin]
   u1 <- validateUserId "u1"
   u2 <- validateUserId "u2"
@@ -468,7 +468,7 @@ testUserManagementForParty p1 = do
   let user2 = User u2 None
   userIdToText u1 === "u1"
   userIdToText u2 === "u2"
-  users <- listUsers
+  users <- listAllUsers
   users === [participantAdmin]
   False <- userExists u1
   createUser user1 []
@@ -485,13 +485,13 @@ testUserManagementForParty p1 = do
   nonexistent <- validateUserId "nonexistent"
   expectUserNotFound (getUser nonexistent)
   expectUserNotFound (deleteUser nonexistent)
-  users <- listUsers
+  users <- listAllUsers
   sort users === [participantAdmin, user1, user2]
   deleteUser u1
-  users <- listUsers
+  users <- listAllUsers
   sort users === [participantAdmin, user2]
   deleteUser u2
-  users <- listUsers
+  users <- listAllUsers
   users === [participantAdmin]
   pure ()
 
@@ -532,10 +532,12 @@ testUserRightManagementForParties p1 p2 = do
   pure ()
 
 testUserManagement = do
+  clearUsers
   p1 <- allocateParty "p1"
   testUserManagementForParty p1
 
 testUserRightManagement = do
+  clearUsers
   p1 <- allocateParty "p1"
   p2 <- allocateParty "p2"
   testUserRightManagementForParties p1 p2
@@ -547,3 +549,10 @@ jsonUserManagement p1 = do
 jsonUserRightManagement : Party -> Script ()
 jsonUserRightManagement p1 = do
   testUserRightManagementForParties p1 p1
+
+clearUsers : Script ()
+clearUsers = do
+  admin <- validateUserId "participant_admin"
+  users <- listAllUsers
+  forA_ users $ \u ->
+    when (u.userId /= admin) $ deleteUser u.userId

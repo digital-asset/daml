@@ -89,7 +89,7 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
     sdk-version: __VERSION__
     name: __PROJECT_NAME__
     source: daml
-    scenario: Main:setup
+    init-script: Main:setup
     parties:
       - Alice
       - Bob
@@ -99,7 +99,7 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
     dependencies:
       - daml-prim
       - daml-stdlib
-    scenario-service:
+    script-service:
       grpc-max-message-size: 134217728
       grpc-timeout: 60
       jvm-options: []
@@ -118,7 +118,6 @@ Here is what each field means:
    The assistant will warn you when it is time to update this setting (see the ``update-check`` setting in the global config  to control how often it checks, or to disable this check entirely).
 - ``name``: the name of the project. This determines the filename of the ``.dar`` file compiled by ``daml build``.
 - ``source``: the root folder of your Daml source code files relative to the project root.
-- ``scenario``: the name of the scenario to run when using ``daml start``.
 - ``init-script``: the name of the Daml script to run when using ``daml start``.
 - ``parties``: the parties to display in the Navigator when using ``daml start``.
 - ``version``: the project version.
@@ -127,15 +126,15 @@ Here is what each field means:
 - ``dependencies``: library-dependencies of this project. See :doc:`/daml/reference/packages`.
 - ``data-dependencies``: Cross-SDK dependencies of this project See :doc:`/daml/reference/packages`.
 - ``module-prefixes``: Prefixes for all modules in package See :doc:`/daml/reference/packages`.
-- ``scenario-service``: settings for the scenario service
+- ``script-service``: settings for the script service
 
   - ``grpc-max-message-size``: This option controls the maximum size of gRPC messages.
     If unspecified this defaults to 128MB (134217728 bytes). Unless you get
     errors, there should be no reason to modify this.
   - ``grpc-timeout``: This option controls the timeout used for communicating
-    with the scenario service. If unspecified this defaults to 60s. Unless you get
+    with the script service. If unspecified this defaults to 60s. Unless you get
     errors, there should be no reason to modify this.
-  - ``jvm-options``: A list of options passed to the JVM when starting the scenario
+  - ``jvm-options``: A list of options passed to the JVM when starting the script
     service. This can be used to limit maximum heap size via the ``-Xmx`` flag.
 
 - ``build-options``: a list of tokens that will be appended to some invocations of ``damlc`` (currently `build` and `ide`). Note that there is no further shell parsing applied.

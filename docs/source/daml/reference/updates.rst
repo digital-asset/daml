@@ -142,7 +142,7 @@ abort
 
 - ``abort`` function.
 - Fails the transaction - nothing in it will be committed to the ledger.
-- ``errorMessage`` is of type ``Text``. Use the error message to provide more context to an external system (e.g., it gets displayed in Daml Studio scenario results).
+- ``errorMessage`` is of type ``Text``. Use the error message to provide more context to an external system (e.g., it gets displayed in Daml Studio script results).
 - You could use ``assert False`` as an alternative.
 
 .. _daml-ref-assert:

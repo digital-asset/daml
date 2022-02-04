@@ -39,6 +39,8 @@ import io.grpc.{Channel, ClientInterceptor}
 import io.grpc.health.v1.health.HealthGrpc
 import io.grpc.health.v1.health.HealthGrpc.Health
 
+import scala.annotation.nowarn
+
 private[infrastructure] final class LedgerServices(
     participant: Channel,
     commandInterceptors: Seq[ClientInterceptor],
@@ -63,7 +65,9 @@ private[infrastructure] final class LedgerServices(
     HealthGrpc.stub(participant)
 
   val identity: LedgerIdentityService =
-    LedgerIdentityServiceGrpc.stub(participant)
+    LedgerIdentityServiceGrpc.stub(participant): @nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+    )
 
   val partyManagement: PartyManagementService =
     PartyManagementServiceGrpc.stub(participant)

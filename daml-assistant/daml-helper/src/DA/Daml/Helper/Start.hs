@@ -14,7 +14,6 @@ module DA.Daml.Helper.Start
     , toSandboxPortSpec
     , JsonApiPort(..)
     , JsonApiConfig(..)
-    , SandboxChoice(..)
     , SandboxCantonPortSpec(..)
     ) where
 
@@ -49,10 +48,6 @@ toSandboxPortSpec n
   | n == 0 = Just FreePort
   | otherwise = Just (SpecifiedPort (SandboxPort n))
 
-fromSandboxPortSpec :: SandboxPortSpec -> Int
-fromSandboxPortSpec FreePort = 0
-fromSandboxPortSpec (SpecifiedPort (SandboxPort n)) = n
-
 newtype SandboxPort = SandboxPort { unSandboxPort :: Int }
 newtype NavigatorPort = NavigatorPort Int
 newtype JsonApiPort = JsonApiPort Int
@@ -81,36 +76,18 @@ determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile = do
     let cantonStaticTime = StaticTime False
     pure CantonOptions {..}
 
-withSandbox :: StartOptions -> FilePath -> [String] -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
-withSandbox StartOptions{..} darPath scenarioArgs sandboxArgs kont =
-    case sandboxChoice of
-      SandboxKV -> oldSandbox "sandbox-kv"
-      SandboxCanton cantonPortSpec -> cantonSandbox cantonPortSpec
-
+withSandbox :: StartOptions -> FilePath -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
+withSandbox StartOptions{..} darPath sandboxArgs kont =
+    cantonSandbox
   where
-    cantonSandbox cantonPortSpec = withTempDir $ \tempDir -> do
+    cantonSandbox = withTempDir $ \tempDir -> do
       let portFile = tempDir </> "sandbox-portfile"
-      cantonOptions <- determineCantonOptions sandboxPortM cantonPortSpec portFile
+      cantonOptions <- determineCantonOptions sandboxPortM sandboxPortSpec portFile
       withCantonSandbox cantonOptions sandboxArgs $ \ph -> do
         putStrLn "Waiting for canton sandbox to start."
         sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries portFile
         runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
         kont ph (SandboxPort sandboxPort)
-
-    oldSandbox sandbox = withTempDir $ \tempDir -> do
-      let portFile = tempDir </> "sandbox-portfile"
-      let args = concat
-            [ [ sandbox ]
-            , concat [ [ "--port", show (fromSandboxPortSpec portSpec) ] | Just portSpec <- [sandboxPortM] ]
-            , [ "--port-file", portFile ]
-            , [ darPath ]
-            , scenarioArgs
-            , sandboxArgs
-            ]
-      withSdkJar args "sandbox-logback.xml" $ \ph -> do
-          putStrLn "Waiting for sandbox to start: "
-          port <- readPortFile (unsafeProcessHandle ph) maxRetries portFile
-          kont ph (SandboxPort port)
 
 withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (Process () () () -> IO a) -> IO a
 withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
@@ -164,12 +141,8 @@ data StartOptions = StartOptions
     , navigatorOptions :: [String]
     , jsonApiOptions :: [String]
     , scriptOptions :: [String]
-    , sandboxChoice :: !SandboxChoice
+    , sandboxPortSpec :: !SandboxCantonPortSpec
     }
-
-data SandboxChoice
-  = SandboxKV
-  | SandboxCanton !SandboxCantonPortSpec
 
 data SandboxCantonPortSpec = SandboxCantonPortSpec
   { adminApiSpec :: !(Maybe SandboxPortSpec)
@@ -182,9 +155,6 @@ runStart startOptions@StartOptions{..} =
   withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     projectConfig <- getProjectConfig Nothing
     darPath <- getDarPath
-    mbScenario :: Maybe String <-
-        requiredE "Failed to parse scenario" $
-        queryProjectConfig ["scenario"] projectConfig
     mbInitScript :: Maybe String <-
         requiredE "Failed to parse init-script" $
         queryProjectConfig ["init-script"] projectConfig
@@ -199,8 +169,7 @@ runStart startOptions@StartOptions{..} =
     scriptOpts <- withOptsFromProjectConfig "script-options" scriptOptions projectConfig
     doBuild
     doCodegen projectConfig
-    let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
-    withSandbox startOptions darPath scenarioArgs sandboxOpts $ \sandboxPh sandboxPort -> do
+    withSandbox startOptions darPath sandboxOpts $ \sandboxPh sandboxPort -> do
         let doRunInitScript =
               whenJust mbInitScript $ \initScript -> do
                   putStrLn "Running the initialization script."

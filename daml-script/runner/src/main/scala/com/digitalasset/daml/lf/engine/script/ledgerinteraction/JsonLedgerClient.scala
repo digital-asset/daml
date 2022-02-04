@@ -558,7 +558,7 @@ class JsonLedgerClient(
       ).map(_ => ())
     }
 
-  override def listUsers()(implicit
+  override def listAllUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,

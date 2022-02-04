@@ -277,13 +277,14 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       _ <- ledger.userManagement.createUser(
         CreateUserRequest(Some(user1), Nil)
       )
-      res1 <- ledger.userManagement.listUsers(ListUsersRequest())
+      request = ListUsersRequest(pageSize = 100, pageToken = "")
+      res1 <- ledger.userManagement.listUsers(request)
       res2 <- ledger.userManagement.createUser(
         CreateUserRequest(Some(user2), Nil)
       )
-      res3 <- ledger.userManagement.listUsers(ListUsersRequest())
+      res3 <- ledger.userManagement.listUsers(request)
       res4 <- ledger.userManagement.deleteUser(DeleteUserRequest(userId2))
-      res5 <- ledger.userManagement.listUsers(ListUsersRequest())
+      res5 <- ledger.userManagement.listUsers(request)
     } yield {
       def filterUsers(users: Iterable[User]) = users.filter(u => u.id == userId1 || u.id == userId2)
 
@@ -295,6 +296,130 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       )
       assertEquals(res4, DeleteUserResponse())
       assertSameElements(filterUsers(res5.users), Seq(user1))
+    }
+  })
+
+  userManagementTest(
+    "TestPagedListUsers",
+    "Exercise paging behavior of ListUsers rpc",
+  )(implicit ec => { implicit ledger =>
+    val userId1 = ledger.nextUserId()
+    val userId2 = ledger.nextUserId()
+    val userId3 = ledger.nextUserId()
+    val userId4 = ledger.nextUserId()
+    val userId5 = ledger.nextUserId()
+    val userId6 = ledger.nextUserId()
+    val user1 = User(userId1, "")
+    val user2 = User(userId2, "")
+    val user3 = User(userId3, "")
+    val user4 = User(userId4, "")
+    val user5 = User(userId5, "")
+    val user6 = User(userId6, "")
+    for {
+      // Ensure we have at least 6 users:
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user1), Nil))
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user2), Nil))
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user3), Nil))
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user4), Nil))
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user5), Nil))
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user6), Nil))
+      // Requesting first page:
+      res1 <- ledger.userManagement.listUsers(ListUsersRequest(pageSize = 2, pageToken = ""))
+      // Requesting second page:
+      res2 <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageSize = 3, pageToken = res1.nextPageToken)
+      )
+      // Requesting last non-empty page of users
+      res3 <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageSize = 1000, pageToken = res2.nextPageToken)
+      )
+      // Requesting last page that is empty
+      res4 <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageSize = 100, pageToken = res3.nextPageToken)
+      )
+      // Using not base64 encoded string as a page token
+      onBadTokenError <- ledger.userManagement
+        .listUsers(
+          ListUsersRequest(pageSize = 100, pageToken = UUID.randomUUID().toString)
+        )
+        .mustFail("using not base64 encoded string")
+      // Using negative pageSize
+      onNegativePageSizeError <- ledger.userManagement
+        .listUsers(
+          ListUsersRequest(pageSize = -100, pageToken = "")
+        )
+        .mustFail("using negative page size")
+      // 0 pageSize
+      responseZeroPageSize <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageSize = 0, pageToken = "")
+      )
+    } yield {
+      assert(res1.nextPageToken.nonEmpty, s"First next page token should be non-empty")
+      assertLength("first page", 2, res1.users)
+
+      assert(res2.nextPageToken.nonEmpty, s"Second next page token should be non-empty")
+      assertLength("second page", 3, res2.users)
+
+      assert(res3.nextPageToken.nonEmpty, s"Third next page token should be non-empty")
+      assert(res2.users.nonEmpty, s"Third page should be non-empty")
+
+      assertEquals(
+        s"Last next page token should be empty but was: ${res4.nextPageToken}",
+        res4.nextPageToken,
+        "",
+      )
+      assert(res4.users.isEmpty, s"Last page should be empty but was: ${res4.users}")
+      assertGrpcError(
+        participant = ledger,
+        t = onBadTokenError,
+        expectedCode = Status.Code.INVALID_ARGUMENT,
+        selfServiceErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+        exceptionMessageSubstring = None,
+      )
+      assertGrpcError(
+        participant = ledger,
+        t = onNegativePageSizeError,
+        expectedCode = Status.Code.INVALID_ARGUMENT,
+        selfServiceErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+        exceptionMessageSubstring = None,
+      )
+      assert(
+        responseZeroPageSize.nextPageToken.nonEmpty,
+        "Non-empty page token when pageSize is 0 (and there are some users)",
+      )
+    }
+  })
+
+  test(
+    "TestMaxUsersPageSize",
+    "Exercise max users page size behavior of ListUsers rpc",
+    allocate(NoParties),
+    enabled = _.userManagement.maxUsersPageSize > 0,
+    disabledReason = "requires user management feature with users page size limit",
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val maxUsersPageSize = ledger.features.userManagement.maxUsersPageSize
+    val users = 1.to(maxUsersPageSize + 1).map(_ => User(ledger.nextUserId(), ""))
+    for {
+      // create users
+      _ <- Future.sequence(
+        users.map(u => ledger.userManagement.createUser(CreateUserRequest(Some(u), Nil)))
+      )
+      // request page size greater than the server's limit
+      page <- ledger.userManagement
+        .listUsers(
+          ListUsersRequest(pageSize = maxUsersPageSize + 1, pageToken = "")
+        )
+      // cleanup
+      _ <- Future.sequence(
+        users.map(u => ledger.userManagement.deleteUser(DeleteUserRequest(u.id)))
+      )
+
+    } yield {
+      assert(
+        page.users.size <= maxUsersPageSize,
+        s"page size must be within limit. actual size: ${page.users.size}, server's limit: $maxUsersPageSize",
+      )
     }
   })
 

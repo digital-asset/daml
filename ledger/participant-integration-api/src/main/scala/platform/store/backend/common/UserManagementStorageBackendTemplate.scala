@@ -72,18 +72,22 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
       }
   }
 
-  override def getUsers()(connection: Connection): Vector[domain.User] = {
-    def domainUser(userId: String, primaryParty: Option[String]): domain.User = {
-      domain.User(
-        Ref.UserId.assertFromString(userId),
-        primaryParty.map(Ref.Party.assertFromString),
-      )
+  override def getUsersOrderedById(fromExcl: Option[UserId], maxResults: Int)(
+      connection: Connection
+  ): Vector[domain.User] = {
+    import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+    val whereClause = fromExcl match {
+      case None => cSQL""
+      case Some(id: String) => cSQL"WHERE user_id > ${id}"
     }
-    SQL"""SELECT internal_id, user_id, primary_party
-          FROM participant_users"""
+    SQL"""SELECT user_id, primary_party
+          FROM participant_users
+          $whereClause
+          ORDER BY user_id
+          ${QueryStrategy.limitClause(Some(maxResults))}"""
       .asVectorOf(ParticipantUserParser2)(connection)
       .map { case (userId, primaryPartyRaw) =>
-        domainUser(userId, dbStringToPartyString(primaryPartyRaw))
+        toDomainUser(userId, dbStringToPartyString(primaryPartyRaw))
       }
   }
 
@@ -205,6 +209,13 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     forParty.fold(cSQL"IS NULL") { party: Ref.Party =>
       cSQL"= ${party: String}"
     }
+  }
+
+  private def toDomainUser(userId: String, primaryParty: Option[String]): domain.User = {
+    domain.User(
+      Ref.UserId.assertFromString(userId),
+      primaryParty.map(Ref.Party.assertFromString),
+    )
   }
 
 }

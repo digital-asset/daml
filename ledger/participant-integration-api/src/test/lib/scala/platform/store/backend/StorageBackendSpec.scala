@@ -5,16 +5,18 @@ package com.daml.platform.store.backend
 
 import java.sql.Connection
 import java.util.concurrent.atomic.AtomicInteger
+
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.FlywayMigrations
-import org.scalatest.{TestSuite, BeforeAndAfterAll, BeforeAndAfterEach}
-
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, TestSuite}
 import java.util.concurrent.Executors
+
 import javax.sql.DataSource
+
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Try, Using}
 
 private[backend] trait StorageBackendSpec
     extends StorageBackendProvider
@@ -63,6 +65,12 @@ private[backend] trait StorageBackendSpec
 
   /** Runs the given database operation */
   protected def executeSql[T](f: Connection => T): T = f(defaultConnection)
+
+  protected def withConnections[T](n: Int)(f: List[Connection] => T): T =
+    Using.Manager { manager =>
+      val connections = List.fill(n)(manager(dataSource.getConnection))
+      f(connections)
+    }.get
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()

@@ -9,6 +9,7 @@ import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.LedgerIdRequirement
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 final class LedgerIdentityClient(service: LedgerIdentityServiceStub) {
@@ -36,6 +37,8 @@ final class LedgerIdentityClient(service: LedgerIdentityServiceStub) {
     LedgerClient
       .stub(service, token)
       .getLedgerIdentity(new GetLedgerIdentityRequest())
-      .map(_.ledgerId)
+      .map(_.ledgerId): @nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+    )
 
 }

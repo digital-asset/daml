@@ -34,8 +34,9 @@ import com.daml.ledger.client.services.version.withoutledgerid.VersionClient
 import com.daml.ledger.client.{GrpcChannel, LedgerClient => ClassicLedgerClient}
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.Channel
-
 import java.io.Closeable
+
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
 class LedgerClient private (
@@ -93,7 +94,12 @@ class LedgerClient private (
 
   val identityClient =
     new LedgerIdentityClient(
-      ClassicLedgerClient.stub(LedgerIdentityServiceGrpc.stub(channel), config.token)
+      ClassicLedgerClient.stub(
+        LedgerIdentityServiceGrpc.stub(channel): @nowarn(
+          "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+        ),
+        config.token,
+      )
     )
 
   override def close(): Unit = GrpcChannel.close(channel)

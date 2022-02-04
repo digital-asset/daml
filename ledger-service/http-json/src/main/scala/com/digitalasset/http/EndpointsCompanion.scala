@@ -74,7 +74,7 @@ object EndpointsCompanion {
   trait CreateFromUserToken[A] {
     def apply(
         jwt: DecodedJwt[String],
-        listUserRights: UserId => Future[Vector[UserRight]],
+        listUserRights: UserId => Future[Seq[UserRight]],
         getLedgerId: () => Future[String],
     ): ET[A]
   }
@@ -117,7 +117,7 @@ object EndpointsCompanion {
 
     private def transformUserTokenTo[B](
         jwt: DecodedJwt[String],
-        listUserRights: UserId => Future[Vector[UserRight]],
+        listUserRights: UserId => Future[Seq[UserRight]],
         getLedgerId: () => Future[String],
     )(
         fromUser: FromUser[Unauthorized, B]

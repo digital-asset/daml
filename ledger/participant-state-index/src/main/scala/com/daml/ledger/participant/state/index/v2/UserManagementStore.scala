@@ -9,13 +9,14 @@ import com.daml.lf.data.Ref
 import scala.concurrent.{ExecutionContext, Future}
 
 trait UserManagementStore {
+
   import UserManagementStore._
 
   // read access
 
   def getUserInfo(id: Ref.UserId): Future[Result[UserInfo]]
 
-  def listUsers(): Future[Result[Users]]
+  def listUsers(fromExcl: Option[Ref.UserId], maxResults: Int): Future[Result[UsersPage]]
 
   // write access
 
@@ -42,6 +43,10 @@ trait UserManagementStore {
 object UserManagementStore {
   type Result[T] = Either[Error, T]
   type Users = Seq[User]
+
+  case class UsersPage(users: Seq[User]) {
+    def lastUserIdOption: Option[Ref.UserId] = users.lastOption.map(_.id)
+  }
 
   case class UserInfo(user: User, rights: Set[UserRight])
 

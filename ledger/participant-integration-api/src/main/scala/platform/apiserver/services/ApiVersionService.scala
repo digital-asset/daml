@@ -37,7 +37,7 @@ import scala.util.control.NonFatal
 private[apiserver] final class ApiVersionService private (
     enableSelfServiceErrorCodes: Boolean,
     ledgerFeatures: LedgerFeatures,
-    enableUserManagement: Boolean,
+    userManagementConfig: UserManagementConfig,
 )(implicit
     loggingContext: LoggingContext,
     executionContext: ExecutionContext,
@@ -56,10 +56,19 @@ private[apiserver] final class ApiVersionService private (
   private val featuresDescriptor =
     FeaturesDescriptor.of(
       userManagement = Some(
-        UserManagementFeature(
-          supported = enableUserManagement,
-          maxRightsPerUser = if (enableUserManagement) UserManagementConfig.MaxRightsPerUser else 0,
-        )
+        if (userManagementConfig.enabled) {
+          UserManagementFeature(
+            supported = true,
+            maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+            maxUsersPageSize = userManagementConfig.maxUsersPageSize,
+          )
+        } else {
+          UserManagementFeature(
+            supported = false,
+            maxRightsPerUser = 0,
+            maxUsersPageSize = 0,
+          )
+        }
       ),
       experimental = Some(
         ExperimentalFeatures.of(
@@ -112,11 +121,11 @@ private[apiserver] object ApiVersionService {
   def create(
       enableSelfServiceErrorCodes: Boolean,
       ledgerFeatures: LedgerFeatures,
-      enableUserManagement: Boolean,
+      userManagementConfig: UserManagementConfig,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
     new ApiVersionService(
       enableSelfServiceErrorCodes,
       ledgerFeatures,
-      enableUserManagement = enableUserManagement,
+      userManagementConfig = userManagementConfig,
     )
 }

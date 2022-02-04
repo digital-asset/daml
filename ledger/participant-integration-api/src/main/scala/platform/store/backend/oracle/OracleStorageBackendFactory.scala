@@ -57,4 +57,5 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
 
   override val createResetStorageBackend: ResetStorageBackend =
     OracleResetStorageBackend
+
 }

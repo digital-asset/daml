@@ -6,16 +6,26 @@ package com.daml.platform.usermanagement
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
-import com.daml.ledger.participant.state.index.v2.UserManagementStore.{UserInfo, UserNotFound}
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
+  UserInfo,
+  UserNotFound,
+  UsersPage,
+}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
+import com.daml.platform.store.platform.usermanagement.UserManagementStoreSpecBase
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.Assertion
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.concurrent.Future
+
 class CachedUserManagementStoreSpec
     extends AsyncFreeSpec
+    with UserManagementStoreSpecBase
     with TestResourceContext
     with Matchers
     with MockitoSugar
@@ -104,16 +114,16 @@ class CachedUserManagementStoreSpec
 
     for {
       res0 <- tested.createUser(user, rights)
-      res1 <- tested.listUsers()
-      res2 <- tested.listUsers()
+      res1 <- tested.listUsers(fromExcl = None, maxResults = 100)
+      res2 <- tested.listUsers(fromExcl = None, maxResults = 100)
     } yield {
       val order = inOrder(delegate)
       order.verify(delegate, times(1)).createUser(user, rights)
-      order.verify(delegate, times(2)).listUsers()
+      order.verify(delegate, times(2)).listUsers(fromExcl = None, maxResults = 100)
       order.verifyNoMoreInteractions()
       res0 shouldBe Right(())
-      res1 shouldBe Right(Seq(user))
-      res2 shouldBe Right(Seq(user))
+      res1 shouldBe Right(UsersPage(Seq(user)))
+      res2 shouldBe Right(UsersPage(Seq(user)))
     }
   }
 
@@ -149,4 +159,7 @@ class CachedUserManagementStoreSpec
     )
   }
 
+  override def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion] = {
+    f(createTested(new InMemoryUserManagementStore(createAdmin = false)))
+  }
 }

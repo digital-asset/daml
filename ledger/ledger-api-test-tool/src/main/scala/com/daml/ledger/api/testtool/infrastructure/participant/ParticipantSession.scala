@@ -18,6 +18,7 @@ import com.daml.timer.RetryStrategy
 import io.grpc.ClientInterceptor
 import org.slf4j.LoggerFactory
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Failure
@@ -95,7 +96,9 @@ object ParticipantSession {
                 logger.info(
                   s"Could not connect to the participant (attempt #$attempt). Trying again in $wait..."
                 )
-              }
+              }: @nowarn(
+              "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+            )
           }
           .recoverWith { case NonFatal(exception) =>
             Future.failed(new Errors.ParticipantConnectionException(exception))

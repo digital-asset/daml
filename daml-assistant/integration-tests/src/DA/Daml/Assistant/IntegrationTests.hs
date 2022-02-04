@@ -141,7 +141,6 @@ damlStart tmpDir = do
     let startProc =
             (shell $ unwords
                 [ "daml start"
-                , "--sandbox-canton"
                 , "--start-navigator=no"
                 , "--sandbox-port", show sandboxPort
                 , "--json-api-port", show jsonApiPort
@@ -371,7 +370,7 @@ damlToolTests =
 damlStartTests :: IO DamlStartResource -> TestTree
 damlStartTests getDamlStart =
     -- We use testCaseSteps to make sure each of these tests runs in sequence, not in parallel.
-    testCaseSteps "daml start --sandbox-canton" $ \step -> do
+    testCaseSteps "daml start" $ \step -> do
         let subtest :: forall t. String -> IO t -> IO t
             subtest m p = step m >> p
         subtest "sandbox and json-api come up" $ do
@@ -565,8 +564,7 @@ damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
                 , "start-navigator: false"
                 ]
         withDamlServiceIn tmpDir "start"
-            [ "--sandbox-canton"
-            , "--sandbox-port=0"
+            [ "--sandbox-port=0"
             , "--json-api-port=0"
             , "--json-api-option=--port-file=jsonapi.port"
             ] $ \ ph -> do

@@ -74,6 +74,12 @@ private[validation] object ExprIterable {
         iterator(body)
       case EFromRequiredInterface(requiredIface @ _, requiringIface @ _, body) =>
         iterator(body)
+      case EInterfaceTemplateTypeRep(iface @ _, body) =>
+        iterator(body)
+      case ESignatoryInterface(iface @ _, body) =>
+        iterator(body)
+      case EObserverInterface(iface @ _, body) =>
+        iterator(body)
     }
   }
 

@@ -155,10 +155,15 @@ readScenarioServiceConfig = do
 
 parseScenarioServiceConfig :: ProjectConfig -> Either ConfigError ScenarioServiceConfig
 parseScenarioServiceConfig conf = do
-    cnfGrpcMaxMessageSize <- queryProjectConfig ["scenario-service", "grpc-max-message-size"] conf
-    cnfGrpcTimeout <- queryProjectConfig ["scenario-service", "grpc-timeout"] conf
-    cnfJvmOptions <- fromMaybe [] <$> queryProjectConfig ["scenario-service", "jvm-options"] conf
+    cnfGrpcMaxMessageSize <- queryOpt "grpc-max-message-size"
+    cnfGrpcTimeout <- queryOpt "grpc-timeout"
+    cnfJvmOptions <- fromMaybe [] <$> queryOpt "jvm-options"
     pure ScenarioServiceConfig {..}
+  where queryOpt opt = do
+            a <- queryProjectConfig ["script-service", opt] conf
+            case a of
+                Nothing -> queryProjectConfig ["scenario-service", opt] conf
+                Just a -> pure (Just a)
 
 data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)

@@ -564,11 +564,11 @@ object Repl {
           successes += 1
           totalTime += success.duration
           totalSteps += success.steps
-          println(s"ok in ${success.duration.formatted("%.2f")}ms, ${success.steps} steps")
+          println(f"ok in ${success.duration}%.2f ms, ${success.steps} steps")
       }
     }
     println(
-      s"\n$successes passed, $failures failed, total time ${totalTime.formatted("%.2f")}ms, total steps $totalSteps."
+      f"\n$successes passed, $failures failed, total time $totalTime%.2f ms, total steps $totalSteps."
     )
     (failures == 0, state)
   }

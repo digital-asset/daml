@@ -10,27 +10,27 @@ import com.daml.platform.store.interning.StringInterning
 
 private[postgresql] object PGSchema {
   private val PGFieldStrategy = new FieldStrategy {
-    override def stringArray[FROM, _](
+    override def stringArray[FROM](
         extractor: StringInterning => FROM => Iterable[String]
     ): Field[FROM, Iterable[String], _] =
       PGStringArray(extractor)
 
-    override def stringArrayOptional[FROM, _](
+    override def stringArrayOptional[FROM](
         extractor: StringInterning => FROM => Option[Iterable[String]]
     ): Field[FROM, Option[Iterable[String]], _] =
       PGStringArrayOptional(extractor)
 
-    override def intArray[FROM, _](
+    override def intArray[FROM](
         extractor: StringInterning => FROM => Iterable[Int]
     ): Field[FROM, Iterable[Int], _] =
       PGIntArray(extractor)
 
-    override def intArrayOptional[FROM, _](
+    override def intArrayOptional[FROM](
         extractor: StringInterning => FROM => Option[Iterable[Int]]
     ): Field[FROM, Option[Iterable[Int]], _] =
       PGIntArrayOptional(extractor)
 
-    override def smallintOptional[FROM, _](
+    override def smallintOptional[FROM](
         extractor: StringInterning => FROM => Option[Int]
     ): Field[FROM, Option[Int], _] =
       PGSmallintOptional(extractor)

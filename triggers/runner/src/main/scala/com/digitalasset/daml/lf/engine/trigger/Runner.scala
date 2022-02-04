@@ -538,7 +538,7 @@ class Runner(
     // The materialized value of the flow is the (future) final state
     // of this process.
     @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-    val graph = GraphDSL.create(Sink.last[SValue]) { implicit gb => saveLastState =>
+    val graph = GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
       import GraphDSL.Implicits._
       val msgIn = gb add Flow[TriggerMsg].wireTap(logReceivedMsg _)
       val initialState = gb add runInitialState
