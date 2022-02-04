@@ -93,7 +93,7 @@ final class OngoingStreamAuthIT
         userId = userIdAlice,
         Right(Right.Kind.CanActAs(Right.CanActAs(UUID.randomUUID().toString))),
       )
-      _ <- Delayed.Future.by(2.second)(
+      _ <- Delayed.Future.by((UserManagementCacheExpiryInSeconds + 1).second)(
         Future(
           transactionStreamAbortedPromise.tryFailure(
             new AssertionError("Timed-out waiting while waiting for stream to abort")
