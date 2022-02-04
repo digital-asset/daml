@@ -18,7 +18,7 @@ import akka.http.scaladsl.server.Directives.extractClientIP
 import akka.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
 import akka.http.scaladsl.server.RouteResult._
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Source, Sink}
+import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
 import com.codahale.metrics.Timer
 import com.daml.lf
@@ -490,28 +490,33 @@ class Endpoints(
 
   private def aggregateListUserPages(
       token: Option[String],
-      pageToken: String = "",
       pageSize: Int = 1000, // TODO could be made configurable in the future
-  ): Future[Seq[User]] = {
+  ): Source[Error \/ User, NotUsed] = {
     import scalaz.std.option._
-    val userPageStream: Source[Seq[User], NotUsed] = Source.unfoldAsync(some(pageToken)) {
+    Source.unfoldAsync(some("")) {
       _ traverse { pageToken =>
-        userManagementClient.listUsers(token, pageToken, pageSize).map {
-          case (users, "") => (None, users)
-          case (users, pageToken) => (Some(pageToken), users)
-        }
+        userManagementClient
+          .listUsers(token, pageToken, pageSize)
+          .map {
+            case (users, "") => (None, \/-(users))
+            case (users, pageToken) => (Some(pageToken), \/-(users))
+          }
+          // if a listUsers call fails, stop the stream and emit the error as a "warning"
+          .recover(Error.fromThrowable andThen (e => (None, -\/(e))))
       }
+    } mapConcat {
+      case e @ -\/(_) => Seq(e)
+      case \/-(users) => users.view.map(\/-(_))
     }
-    userPageStream mapConcat identity runWith Sink.seq
   }
 
   def listUsers(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.UserDetails]]] =
+  ): ET[domain.SyncResponse[Source[Error \/ domain.UserDetails, NotUsed]]] =
     for {
       jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
-      users <- EitherT.rightT(aggregateListUserPages(Some(jwt.value)))
-    } yield domain.OkResponse(users.map(domain.UserDetails.fromUser).toList)
+      users = aggregateListUserPages(Some(jwt.value))
+    } yield domain.OkResponse(users.map(_ map domain.UserDetails.fromUser))
 
   def listUserRights(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -720,6 +725,12 @@ class Endpoints(
   private def httpResponse[T](output: T)(implicit T: MkHttpResponse[T]): Future[HttpResponse] =
     T.run(output)
       .recover(Error.fromThrowable andThen (httpResponseError(_)))
+
+  private implicit def sourceStreamSearchResults[A: JsonWriter]
+      : MkHttpResponse[ET[domain.SyncResponse[Source[Error \/ A, NotUsed]]]] =
+    MkHttpResponse { output =>
+      hrSearchResults.run(output.map(_ map (_ map (_ map ((_: A).toJson)))).run)
+    }
 
   private implicit def hrSearchResults
       : MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]] =
