@@ -29,7 +29,7 @@ With that, let's get started!
 Prerequisites
 *************
 
-Mke sure that you have the Daml SDK, Java 8 or higher, and Visual Studio Code (the only supported IDE) installed as per the instructions in :doc:`installation`.
+Make sure that you have the Daml SDK, Java 8 or higher, and Visual Studio Code (the only supported IDE) installed as per the instructions in :doc:`installation`.
 
 You will also need some common software tools to build and interact with the template project:
 
