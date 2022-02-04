@@ -85,7 +85,7 @@ printf("AENRTAIE");
     return exit_code;
 
 #else
-    char**const argv_ = (char**)malloc((argc + 2) * sizeof(char*));
+    char**const argv_ = (char**)malloc((argc + 3) * sizeof(char*));
     char* javaStr = new char[java.length() + 1];
     std::strcpy(javaStr, java.c_str());
     argv_[0] = javaStr;
