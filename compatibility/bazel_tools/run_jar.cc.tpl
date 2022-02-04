@@ -97,9 +97,12 @@ printf("AENRTAIE");
     char* pathStr = new char[path.length() + 1];
     std::strcpy(pathStr, path.c_str());
     argv_[2] = pathStr;
+        printf("%d\n", argc);
     for (int i = 1; i < argc; i++) {
+        printf("%d\n", i + 2);
         argv_[i + 2] = argv[i];
     }
+        printf("%d\n", argc + 2);
     argv_[argc + 2] = NULL;
     for (int i = 0; i < argc + 2; ++i) {
       printf("%s\n", argv_[i]);
