@@ -149,17 +149,6 @@ private[appendonlydao] sealed class ContractsReader(
         ),
     )
   }
-
-  override def lookupContractKey(
-      key: Key,
-      readers: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
-    Timed.future(
-      metrics.daml.index.db.lookupKey,
-      dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
-        storageBackend.contractKey(readers, key)
-      ),
-    )
 }
 
 private[appendonlydao] object ContractsReader {
