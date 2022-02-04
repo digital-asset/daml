@@ -45,6 +45,8 @@ int main(int argc, char **argv) {
     }
     std::string path =
         runfiles->Rlocation("daml-sdk-{SDK_VERSION}/{JAR_NAME}");
+    printf("%s\n", java.c_str());
+    printf("%s\n", path.c_str());
 #if defined(_WIN32)
     // To keep things as simple as possible, we simply take
     // the existing command line, strip everything up to the first space
