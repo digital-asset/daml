@@ -18,7 +18,7 @@ import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
 import com.daml.platform.sandbox.{SandboxRequiringAuthorization, SandboxRequiringAuthorizationFuns}
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.{AsyncTestSuite, Inside}
+import org.scalatest.{Assertion, AsyncTestSuite, Inside}
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
@@ -578,6 +578,70 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           )
       }
     } yield assertion
+  }
+
+  "creating and listing 20K users should be possible" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, _, _) =>
+    import spray.json._
+    import spray.json.DefaultJsonProtocol._
+    val createdUsers = 20000
+
+    val createUserRequests: List[domain.CreateUserRequest] =
+      List.tabulate(createdUsers) { sequenceNumber =>
+        {
+          val p = getUniqueParty(f"p$sequenceNumber%05d")
+          domain.CreateUserRequest(
+            p.unwrap,
+            Some(p.unwrap),
+            Some(
+              List[domain.UserRight](
+                domain.CanActAs(p),
+                domain.ParticipantAdmin,
+              )
+            ),
+          )
+        }
+      }
+
+    // Create users in chunks to avoid overloading the server
+    // https://doc.akka.io/docs/akka-http/current/client-side/pool-overflow.html
+    def createUsers(
+        createUserRequests: Seq[domain.CreateUserRequest],
+        chunkSize: Int = 20,
+    ): Future[Assertion] = {
+      createUserRequests.splitAt(chunkSize) match {
+        case (Nil, _) => Future.successful(succeed)
+        case (next, remainingRequests) =>
+          Future
+            .sequence {
+              next.map { request =>
+                postRequest(
+                  uri.withPath(Uri.Path("/v1/user/create")),
+                  request.toJson,
+                  headers = authorizationHeader(participantAdminJwt),
+                ).map(_._1)
+              }
+            }
+            .flatMap { statusCodes =>
+              all(statusCodes) shouldBe StatusCodes.OK
+              createUsers(remainingRequests)
+            }
+      }
+    }
+
+    for {
+      _ <- createUsers(createUserRequests)
+      (status, output) <- getRequest(
+        uri.withPath(Uri.Path("/v1/users")),
+        headers = authorizationHeader(participantAdminJwt),
+      )
+    } yield {
+      status shouldBe StatusCodes.OK
+      val userIds = getResult(output).convertTo[List[UserDetails]].map(_.userId)
+      val expectedUserIds = "participant_admin" :: createUserRequests.map(_.userId)
+      userIds should contain theSameElementsAs expectedUserIds
+    }
   }
 }
 

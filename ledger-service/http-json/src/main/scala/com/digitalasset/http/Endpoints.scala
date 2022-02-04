@@ -492,17 +492,22 @@ class Endpoints(
       } yield emptyObjectResponse
     }(req)
 
+  private def aggregateListUserPages(
+      token: Option[String],
+      pageToken: String = "",
+      pageSize: Int = 1000, // TODO could be made configurable in the future
+  ): Future[Seq[User]] =
+    userManagementClient.listUsers(token, pageToken, pageSize).flatMap {
+      case (users, "") => Future.successful(users)
+      case (users, pageToken) => aggregateListUserPages(token, pageToken, pageSize).map(users ++ _)
+    }
+
   def listUsers(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[List[domain.UserDetails]]] =
     for {
       jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
-      users <- EitherT.rightT(
-        // TODO participant user management: Emulating no-pagination
-        userManagementClient.listUsers(Some(jwt.value), pageToken = "", pageSize = 10000).map {
-          case (users, _) => users
-        }
-      )
+      users <- EitherT.rightT(aggregateListUserPages(Some(jwt.value)))
     } yield domain.OkResponse(users.map(domain.UserDetails.fromUser).toList)
 
   def listUserRights(req: HttpRequest)(implicit
