@@ -66,8 +66,8 @@ module Daml.Script
   , getUserOn
   , deleteUser
   , deleteUserOn
-  , listUsers
-  , listUsersOn
+  , listAllUsers
+  , listAllUsersOn
   , grantUserRights
   , grantUserRightsOn
   , revokeUserRights
@@ -137,7 +137,7 @@ data ScriptF a
   | CreateUser (CreateUserPayload a)
   | GetUser (GetUserPayload a)
   | DeleteUser (DeleteUserPayload a)
-  | ListUsers (ListUsersPayload a)
+  | ListAllUsers (ListAllUsersPayload a)
   | GrantUserRights (GrantUserRightsPayload a)
   | RevokeUserRights (RevokeUserRightsPayload a)
   | ListUserRights (ListUserRightsPayload a)
@@ -866,16 +866,16 @@ getUser' userId participant = checkUserNotFound userId $ lift $ Free $ GetUser G
   locations = getCallStack callStack
   userId
 
--- | List all users.
-listUsers : Script [User]
-listUsers = listUsers' None
+-- | List all users. This function may make multiple calls to underlying paginated ledger API.
+listAllUsers : Script [User]
+listAllUsers = listAllUsers' None
 
--- | List all users on the given participant.
-listUsersOn : ParticipantName -> Script [User]
-listUsersOn participant = listUsers' (Some participant)
+-- | List all users on the given participant. This function may make multiple calls to underlying paginated ledger API.
+listAllUsersOn : ParticipantName -> Script [User]
+listAllUsersOn participant = listAllUsers' (Some participant)
 
-listUsers' : Optional ParticipantName -> Script [User]
-listUsers' participant = lift $ Free $ ListUsers ListUsersPayload with
+listAllUsers' : Optional ParticipantName -> Script [User]
+listAllUsers' participant = lift $ Free $ ListAllUsers ListAllUsersPayload with
   participant = fmap participantName participant
   continue = pure
   locations = getCallStack callStack
@@ -989,7 +989,7 @@ data DeleteUserPayload a = DeleteUserPayload
     locations : [(Text, SrcLoc)]
   deriving Functor
 
-data ListUsersPayload a = ListUsersPayload
+data ListAllUsersPayload a = ListAllUsersPayload
   with
     participant : Optional Text
     continue : [User] -> a

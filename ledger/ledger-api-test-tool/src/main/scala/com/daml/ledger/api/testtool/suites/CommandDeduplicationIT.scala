@@ -77,7 +77,7 @@ final class CommandDeduplicationIT(
       )
       _ <- submitRequestAndAssertDeduplication(
         ledger,
-        updateWithFreshSubmissionId(request),
+        request,
         firstAcceptedSubmissionId,
         response.offset,
         party,
@@ -300,7 +300,7 @@ final class CommandDeduplicationIT(
           acceptedSubmissionId,
           acceptedLedgerOffset,
           party,
-        )
+        ).map(Some(_))
 
     for {
       // Submit command (first deduplication window)
@@ -323,15 +323,12 @@ final class CommandDeduplicationIT(
       ) {
         submitAndAssertAccepted(thirdCall)
       }
-      _ = if ( // participant deduplication is based on submittedAt, and thus the delta between record times can actually be smaller than the deduplication duration
-        !ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly
+      _ = assert(
+        time.Duration
+          .between(firstAcceptedCommand.recordTime, eventuallyAccepted.recordTime)
+          .toNanos > deduplicationDuration.toNanos,
+        s"Interval between accepted commands is smaller than the deduplication duration. First accepted command record time: ${firstAcceptedCommand.recordTime}. Second accepted command record time: ${eventuallyAccepted.recordTime}",
       )
-        assert(
-          time.Duration
-            .between(firstAcceptedCommand.recordTime, eventuallyAccepted.recordTime)
-            .toNanos > deduplicationDuration.toNanos,
-          s"Interval between accepted commands is smaller than the deduplication duration. First accepted command record time: ${firstAcceptedCommand.recordTime}. Second accepted command record time: ${eventuallyAccepted.recordTime}",
-        )
       _ <- submitAndAssertDeduplicated(
         fourthCall,
         LedgerString.assertFromString(eventuallyAccepted.completion.submissionId),
@@ -456,7 +453,6 @@ final class CommandDeduplicationIT(
     description = "Deduplicate commands within the deduplication period defined by a duration",
     participants = allocate(SingleParty),
     runConcurrently = false, // updates the time model
-    enabled = !_.commandDeduplicationFeatures.deduplicationType.isSyncOnly,
     disabledReason =
       "Most of the assertions run on async responses. Also, ledgers with the sync-only deduplication support use the wall clock for deduplication.",
   )(implicit ec =>
@@ -475,7 +471,7 @@ final class CommandDeduplicationIT(
             updateSubmissionId(request, firstAcceptedSubmissionId),
             party,
           )
-          optDeduplicationCompletionResponse <- submitRequestAndAssertDeduplication(
+          deduplicationCompletionResponse <- submitRequestAndAssertDeduplication(
             ledger,
             updateWithFreshSubmissionId(request),
             firstAcceptedSubmissionId,
@@ -483,7 +479,7 @@ final class CommandDeduplicationIT(
             party,
           )
           deduplicationDurationFromPeriod = extractDurationFromDeduplicationPeriod(
-            deduplicationCompletionResponse = optDeduplicationCompletionResponse,
+            deduplicationCompletionResponse = Some(deduplicationCompletionResponse),
             defaultDuration = deduplicationDuration,
             skews = minMaxSkewSum,
           )
@@ -503,10 +499,6 @@ final class CommandDeduplicationIT(
             ledger,
             party,
             noOfActiveContracts = 2,
-          )
-          deduplicationCompletionResponse = assertDefined(
-            optDeduplicationCompletionResponse,
-            "No completion has been produced",
           )
           _ <- assertDeduplicationDuration(
             deduplicationDuration.asProtobuf,
@@ -567,7 +559,7 @@ final class CommandDeduplicationIT(
           // This is done so that we can validate that the third command is accepted
           _ <- delayForOffsetIfRequired(ledger)
           // Submit command again using the first offset as the deduplication offset
-          response2 <- submitRequestAndAssertAsyncDeduplication(
+          response2 <- submitRequestAndAssertDeduplication(
             ledger,
             updateWithFreshSubmissionId(
               request.update(
@@ -674,45 +666,6 @@ final class CommandDeduplicationIT(
       assertCompletionStatus(request.toString, completion, Code.OK)
     }
 
-  protected def submitRequestAndAssertDeduplication(
-      ledger: ParticipantTestContext,
-      request: SubmitRequest,
-      acceptedSubmissionId: SubmissionId,
-      acceptedOffset: LedgerOffset,
-      parties: Party*
-  )(implicit
-      ec: ExecutionContext
-  ): Future[Option[CompletionResponse]] =
-    if (ledger.features.commandDeduplicationFeatures.deduplicationType.isSyncOnly)
-      submitRequestAndAssertSyncDeduplication(ledger, request, acceptedSubmissionId, acceptedOffset)
-        .map(_ => None)
-    else
-      submitRequestAndAssertAsyncDeduplication(
-        ledger,
-        request,
-        acceptedSubmissionId,
-        acceptedOffset,
-        parties: _*
-      ).map(response => Some(response))
-
-  protected def submitRequestAndAssertSyncDeduplication(
-      ledger: ParticipantTestContext,
-      request: SubmitRequest,
-      acceptedSubmissionId: SubmissionId,
-      acceptedOffset: LedgerOffset,
-  )(implicit ec: ExecutionContext): Future[Unit] =
-    submitRequestAndAssertSyncFailure(
-      ledger,
-      request,
-      Code.ALREADY_EXISTS,
-      LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
-      assertDeduplicatedSubmissionIdAndOffsetOnError(
-        acceptedSubmissionId,
-        acceptedOffset,
-        _,
-      ),
-    )
-
   private def submitRequestAndAssertSyncFailure(
       ledger: ParticipantTestContext,
       request: SubmitRequest,
@@ -760,7 +713,7 @@ final class CommandDeduplicationIT(
         )
       )
 
-  protected def submitRequestAndAssertAsyncDeduplication(
+  protected def submitRequestAndAssertDeduplication(
       ledger: ParticipantTestContext,
       request: SubmitRequest,
       acceptedSubmissionId: SubmissionId,

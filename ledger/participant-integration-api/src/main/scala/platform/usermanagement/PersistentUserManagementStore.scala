@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   UserExists,
   UserInfo,
   UserNotFound,
-  Users,
+  UsersPage,
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
@@ -29,18 +29,22 @@ object UserManagementConfig {
 
   val DefaultMaxCacheSize = 100
   val DefaultCacheExpiryAfterWriteInSeconds = 5
+  val DefaultMaxUsersPageSize = 1000
+
   val MaxRightsPerUser = 1000
 
   def default(enabled: Boolean): UserManagementConfig = UserManagementConfig(
     enabled = enabled,
     maxCacheSize = DefaultMaxCacheSize,
     cacheExpiryAfterWriteInSeconds = DefaultCacheExpiryAfterWriteInSeconds,
+    maxUsersPageSize = DefaultMaxUsersPageSize,
   )
 }
 final case class UserManagementConfig(
     enabled: Boolean,
     maxCacheSize: Int,
     cacheExpiryAfterWriteInSeconds: Int,
+    maxUsersPageSize: Int,
 )
 
 object PersistentUserManagementStore {
@@ -182,9 +186,16 @@ class PersistentUserManagementStore(
 
   }
 
-  override def listUsers(): Future[Result[Users]] = {
+  override def listUsers(
+      fromExcl: Option[Ref.UserId],
+      maxResults: Int,
+  ): Future[Result[UsersPage]] = {
     inTransaction(_.listUsers) { connection =>
-      Right(backend.getUsers()(connection))
+      val users: Seq[domain.User] = fromExcl match {
+        case None => backend.getUsersOrderedById(None, maxResults)(connection)
+        case Some(fromExcl) => backend.getUsersOrderedById(Some(fromExcl), maxResults)(connection)
+      }
+      Right(UsersPage(users = users))
     }
   }
 

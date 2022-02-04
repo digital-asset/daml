@@ -170,7 +170,7 @@ object ValueSpec {
       : Gen[(Map[Identifier, VA.EnumAddend[Seq[Name]]], Value.LookupVariantEnum)] =
     scopeOfEnumsGen flatMap { details =>
       (
-        details transform ((name, members) => VA.enum(name, members)._2),
+        details transform ((name, members) => VA.enumeration(name, members)._2),
         details
           .transform((_, members) => members.to(ImmArray))
           .lift,

@@ -20,7 +20,7 @@ canonicalize_rlocation() {
 }
 
 RUNNER="$(rlocation "$TEST_WORKSPACE/$1")"
-DAML="$(rlocation "$TEST_WORKSPACE/$2")"
+export DAML="$(rlocation "$TEST_WORKSPACE/$2")"
 # These things are only used in the jest tests so rather
 # than adding a lot of boilerplate to the Haskell code
 # to parse them only to pass them on, we simply set them here.

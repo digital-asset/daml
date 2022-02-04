@@ -395,12 +395,12 @@ case object LedgerApiV1 {
     } yield variant.copy(tycon = Some(typeCon.name.identifier), value = argument)
 
   private def fillInEnumTI(
-      enum: V.ValueEnum,
+      enumeration: V.ValueEnum,
       typ: Model.DamlLfType,
   ): Result[V.ValueEnum] =
     for {
-      typeCon <- asTypeCon(typ, enum)
-    } yield enum.copy(tycon = Some(typeCon.name.identifier))
+      typeCon <- asTypeCon(typ, enumeration)
+    } yield enumeration.copy(tycon = Some(typeCon.name.identifier))
 
   private def readArgument(
       value: V1.value.Value,

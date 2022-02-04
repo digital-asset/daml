@@ -12,6 +12,8 @@ pr:
 
 jobs:
 - template: build.yml
+- template: check-for-release-job.yml
+
 
 - job: check_standard_change_label
   dependsOn:
@@ -128,7 +130,7 @@ jobs:
 
         case "$(status)" in
           Succeeded*)
-            msg="has succeeded! Next step is to approve & merge."
+            msg="has succeeded! Next step is to approve & merge. This is probably a good time to start your Windows testing machine."
             ;;
           Failed*)
             msg="has failed. Please investigate."

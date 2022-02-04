@@ -8,8 +8,7 @@ import com.daml.platform.store.backend.common.{BaseTable, Field, Table}
 
 private[oracle] object OracleTable {
   private def idempotentBatchedInsertBase[FROM](
-      insertStatement: String,
-      keyFieldIndex: Int,
+      insertStatement: String
   )(fields: Seq[(String, Field[FROM, _, _])]): Table[FROM] =
     new BaseTable[FROM](fields) {
       override def executeUpdate: Array[Array[_]] => Connection => Unit =
@@ -18,15 +17,10 @@ private[oracle] object OracleTable {
             Table.ifNonEmpty(data) {
               val preparedStatement = connection.prepareStatement(insertStatement)
               data(0).indices.foreach { dataIndex =>
-                fields(keyFieldIndex)._2.prepareData(
-                  preparedStatement,
-                  1,
-                  data(keyFieldIndex)(dataIndex),
-                )
                 fields.indices.foreach { fieldIndex =>
                   fields(fieldIndex)._2.prepareData(
                     preparedStatement,
-                    fieldIndex + 2,
+                    fieldIndex + 1,
                     data(fieldIndex)(dataIndex),
                   )
                 }
@@ -51,10 +45,11 @@ private[oracle] object OracleTable {
       field.selectFieldExpression("?")
     }
     val keyFieldName = fields(keyFieldIndex)._1
-    val keyFieldSelectExpression = fields(keyFieldIndex)._2.selectFieldExpression("?")
-    s"""MERGE INTO $tableName USING DUAL on ($keyFieldName = $keyFieldSelectExpression)
-       |WHEN NOT MATCHED THEN INSERT ($tableFields)
-       |VALUES ($selectFields)
+    s"""
+       |INSERT /*+ IGNORE_ROW_ON_DUPKEY_INDEX ( $tableName ( $keyFieldName ) ) */ INTO $tableName
+       |   ($tableFields)
+       | VALUES
+       |   ($selectFields)
        |""".stripMargin
   }
 
@@ -62,7 +57,6 @@ private[oracle] object OracleTable {
       fields: (String, Field[FROM, _, _])*
   ): Table[FROM] =
     idempotentBatchedInsertBase(
-      idempotentBatchedInsertStatement(tableName, fields, keyFieldIndex),
-      keyFieldIndex,
+      idempotentBatchedInsertStatement(tableName, fields, keyFieldIndex)
     )(fields)
 }

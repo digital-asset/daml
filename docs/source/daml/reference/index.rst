@@ -17,7 +17,6 @@ This section contains a reference to writing templates for Daml contracts. It in
    Built-in functions <working-with>
    Expressions <expressions>
    Functions <functions>
-   Scenarios <scenarios>
    File structure <file-structure>
    Packages <packages>
    Contract keys <contract-keys>

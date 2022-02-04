@@ -1220,6 +1220,12 @@ private[lf] object SBuiltin {
   final case class SBResolveCreateByInterface(ifaceId: TypeConName)
       extends SBResolveVirtual(ref => CreateByInterfaceDefRef(ref, ifaceId))
 
+  final case class SBSignatoryInterface(ifaceId: TypeConName)
+      extends SBResolveVirtual(SignatoriesDefRef)
+
+  final case class SBObserverInterface(ifaceId: TypeConName)
+      extends SBResolveVirtual(ObserversDefRef)
+
   // Convert an interface to a given template type if possible. Since interfaces have the
   // same representation as the underlying template, we only need to perform a check
   // that the record type matches the template type.
@@ -1645,6 +1651,17 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** $interface_template_type_rep
+    *    :: t
+    *    -> TypeRep (where t = TTyCon(_))
+    */
+  final case class SBInterfaceTemplateTypeRep(tycon: TypeConName) extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): STypeRep = {
+      val id = getSRecord(args, 0).id
+      STypeRep(Ast.TTyCon(id))
+    }
+  }
+
   // Unstable text primitives.
 
   /** $text_to_upper :: Text -> Text */
@@ -1844,20 +1861,10 @@ private[lf] object SBuiltin {
         machine.returnValue = SInt64(42L)
     }
 
-    private object SBExperimentalToTypeRep extends SBuiltinPure(1) {
-      override private[speedy] def executePure(args: util.ArrayList[SValue]): STypeRep = {
-        val id = getSRecord(args, 0).id
-        STypeRep(Ast.TTyCon(id))
-      }
-    }
-
     //TODO: move this into the speedy compiler code
     private val mapping: Map[String, compileTime.SExpr] =
       List(
-        "ANSWER" -> SBExperimentalAnswer,
-        "TO_TYPE_REP" -> SBExperimentalToTypeRep,
-        "RESOLVE_VIRTUAL_SIGNATORY" -> new SBResolveVirtual(SignatoriesDefRef),
-        "RESOLVE_VIRTUAL_OBSERVER" -> new SBResolveVirtual(ObserversDefRef),
+        "ANSWER" -> SBExperimentalAnswer
       ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap
 
     def apply(name: String): compileTime.SExpr =

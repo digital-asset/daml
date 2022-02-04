@@ -49,7 +49,7 @@ trait LfTypeEncoding {
   /** Pull a single field into the language of field lists. */
   def fields[A](fi: Field[A]): RecordFields[A]
 
-  /** Convenient wrapper for `enum` and iterated `VariantCase.plus`. */
+  /** Convenient wrapper for enumeration and iterated `VariantCase.plus`. */
   def enumAll[A](
       enumId: rpcvalue.Identifier,
       index: A => Int,

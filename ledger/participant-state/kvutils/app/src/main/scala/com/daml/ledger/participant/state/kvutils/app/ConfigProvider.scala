@@ -39,7 +39,8 @@ trait ConfigProvider[ExtraConfig] {
       eventsProcessingParallelism = config.eventsProcessingParallelism,
       allowExistingSchema = participantConfig.indexerConfig.allowExistingSchema,
       maxInputBufferSize = participantConfig.indexerConfig.maxInputBufferSize,
-      inputMappingParallelism = participantConfig.indexerConfig.ingestionParallelism,
+      inputMappingParallelism = participantConfig.indexerConfig.inputMappingParallelism,
+      ingestionParallelism = participantConfig.indexerConfig.ingestionParallelism,
       batchingParallelism = participantConfig.indexerConfig.batchingParallelism,
       submissionBatchSize = participantConfig.indexerConfig.submissionBatchSize,
       tailingRateLimitPerSecond = participantConfig.indexerConfig.tailingRateLimitPerSecond,
@@ -82,7 +83,7 @@ trait ConfigProvider[ExtraConfig] {
         participantConfig.maxTransactionsInMemoryFanOutBufferSize,
       enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
       enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
-      enableUserManagement = config.userManagementConfig.enabled,
+      userManagementConfig = config.userManagementConfig,
     )
 
   def partyConfig(@unused config: Config[ExtraConfig]): PartyConfiguration =
