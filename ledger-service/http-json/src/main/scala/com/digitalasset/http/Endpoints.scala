@@ -85,11 +85,7 @@ class Endpoints(
   import util.ErrorOps._
 
   private def responseToRoute(res: Future[HttpResponse]): Route = _ => res map Complete
-  private def toRoute[A](
-      res: ET[domain.SyncResponse[A]]
-  )(implicit metrics: Metrics, jsonWriter: JsonWriter[A]): Route =
-    responseToRoute(httpResponse(res))
-  private def toRoute(res: => Future[Error \/ SearchResult[Error \/ JsValue]]): Route =
+  private def toRoute[T: MkHttpResponse](res: => T): Route =
     responseToRoute(httpResponse(res))
 
   private def mkRequestLogMsg(request: HttpRequest, remoteAddress: RemoteAddress) =
@@ -721,15 +717,19 @@ class Endpoints(
       .fromFunction((_: E \/ A).leftMap(E.run))
       .recover(logException("Source") andThen Error.fromThrowable andThen (-\/(_)))
 
-  private def httpResponse(
-      output: Future[Error \/ SearchResult[Error \/ JsValue]]
-  ): Future[HttpResponse] =
-    output
-      .map {
-        case -\/(e) => httpResponseError(e)
-        case \/-(searchResult) => httpResponse(searchResult)
-      }
-      .recover(Error.fromThrowable andThen (httpResponseError(_)))
+  private def httpResponse[T](output: T)(implicit T: MkHttpResponse[T]): Future[HttpResponse] =
+    T.run(output)
+
+  private implicit def hrSearchResults
+      : MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]] =
+    MkHttpResponse { output =>
+      output
+        .map {
+          case -\/(e) => httpResponseError(e)
+          case \/-(searchResult) => searchHttpResponse(searchResult)
+        }
+        .recover(Error.fromThrowable andThen (httpResponseError(_)))
+    }
 
   private[this] def logException(fromWhat: String)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -738,7 +738,7 @@ class Endpoints(
     e
   }
 
-  private def httpResponse(searchResult: SearchResult[Error \/ JsValue]): HttpResponse = {
+  private def searchHttpResponse(searchResult: SearchResult[Error \/ JsValue]): HttpResponse = {
     import json.JsonProtocol._
 
     val response: Source[ByteString, NotUsed] = searchResult match {
@@ -763,9 +763,9 @@ class Endpoints(
       case o => o
     }
 
-  private def httpResponse[A: JsonWriter](
-      result: ET[domain.SyncResponse[A]]
-  )(implicit metrics: Metrics): Future[HttpResponse] = {
+  private implicit def hrFullySync[A: JsonWriter](implicit
+      metrics: Metrics
+  ): MkHttpResponse[ET[domain.SyncResponse[A]]] = MkHttpResponse { result =>
     Timed.future(
       metrics.daml.HttpJsonApi.responseCreationTimer,
       result
@@ -981,6 +981,9 @@ object Endpoints {
         ServerError(s"contracts service error, ${id.name}: $msg")
       })
   }
+
+  @java.lang.FunctionalInterface
+  private final case class MkHttpResponse[-T](run: T => Future[HttpResponse])
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError)
