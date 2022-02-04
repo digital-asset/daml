@@ -95,6 +95,9 @@ int main(int argc, char **argv) {
         argv_[i + 2] = argv[i];
     }
     argv_[argc + 2] = NULL;
+    for (int i = 0; i < argc + 2; ++i) {
+      printf("%s\n", argv_[i]);
+    }
     execvp(java.c_str(), argv_);
 #endif
 }
