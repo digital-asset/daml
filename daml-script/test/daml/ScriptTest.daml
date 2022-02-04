@@ -565,7 +565,7 @@ testUserListPagination = do
   ids <- mapA validateUserId names
   let users = [ User id None | id <- ids ]
   sequence [ createUser user [] | user <- users ]
-  users2 <- listUsers
+  users2 <- listAllUsers
   sort users2 === sort (users ++ [participantAdmin])
   sequence [ deleteUser id | id <- ids ]
   pure ()
