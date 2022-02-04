@@ -102,7 +102,7 @@ printf("AENRTAIE");
     for (int i = 0; i < argc + 2; ++i) {
       printf("%s\n", argv_[i]);
     }
-    fflush(stdout)
+    fflush(stdout);
     execvp(java.c_str(), argv_);
 #endif
 }
