@@ -585,6 +585,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
   ) { (uri, _, _, _, _) =>
     import spray.json._
     import spray.json.DefaultJsonProtocol._
+
     val createdUsers = 20000
 
     val createUserRequests: List[domain.CreateUserRequest] =
@@ -640,7 +641,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       status shouldBe StatusCodes.OK
       val userIds = getResult(output).convertTo[List[UserDetails]].map(_.userId)
       val expectedUserIds = "participant_admin" :: createUserRequests.map(_.userId)
-      userIds should contain theSameElementsAs expectedUserIds
+      userIds should contain allElementsOf expectedUserIds
     }
   }
 }
