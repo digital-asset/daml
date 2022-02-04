@@ -45,10 +45,10 @@ withSandbox getTools mbSecret f =
               Tools{..} <- getTools
               (tmpDir, _) <- getTempDir
               let portFile = tmpDir </> "portfile"
-              devNull <- getDevNull
+              _devNull <- getDevNull
               let args = map (tweakArg portFile) (sandboxArgs <> ["--auth-jwt-hs256-unsafe=" <> secret | Just secret <- [mbSecret]])
               mask $ \unmask -> do
-                  ph <- createProcess (proc sandboxBinary args) { std_out = UseHandle devNull }
+                  ph <- createProcess (proc sandboxBinary args) -- { std_out = UseHandle devNull }
                   let waitForStart = do
                           port <- readPortFile maxRetries portFile
                           pure (port, ph)
