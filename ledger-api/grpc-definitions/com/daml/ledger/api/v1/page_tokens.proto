@@ -1,0 +1,17 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+option java_outer_classname = "PageTokensOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+// Describes the payload of a page token for listing users.
+// Not intended to be handled by directly clients and should be presented to them as an opaque string.
+message ListUsersPageTokenPayload {
+    // Describes a page that starts just after `user_id`.
+    string user_id = 1;
+}

@@ -9,6 +9,7 @@ import java.util.Base64
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorsAssertions}
 import com.daml.ledger.api.domain.User
+import com.daml.ledger.api.v1.page_tokens.ListUsersPageTokenPayload
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.UsersPage
 import com.daml.lf.data.Ref
 import org.scalatest.EitherValues
@@ -29,8 +30,10 @@ class ApiUserManagementServiceSpec
       users = Seq(User(Ref.UserId.assertFromString("user1"), None), User(id2, None))
     )
     val actualNextPageToken = ApiUserManagementService.encodeNextPageToken(page)
-    actualNextPageToken shouldBe "dXNlcjI="
-    ApiUserManagementService.decodePageToken(actualNextPageToken)(errorLogger) shouldBe Right(
+    actualNextPageToken shouldBe "CgV1c2VyMg=="
+    ApiUserManagementService.decodeUserIdFromPageToken(actualNextPageToken)(
+      errorLogger
+    ) shouldBe Right(
       Some(id2)
     )
   }
@@ -39,12 +42,14 @@ class ApiUserManagementServiceSpec
     val page = UsersPage(users = Seq.empty)
     val actualNextPageToken = ApiUserManagementService.encodeNextPageToken(page)
     actualNextPageToken shouldBe ("")
-    ApiUserManagementService.decodePageToken(actualNextPageToken)(errorLogger) shouldBe Right(None)
+    ApiUserManagementService.decodeUserIdFromPageToken(actualNextPageToken)(
+      errorLogger
+    ) shouldBe Right(None)
   }
 
   it should "return invalid argument error when token is not a base64" in {
     val actualNextPageToken =
-      ApiUserManagementService.decodePageToken("not-a-base64-string!!")(errorLogger)
+      ApiUserManagementService.decodeUserIdFromPageToken("not-a-base64-string!!")(errorLogger)
     val error = actualNextPageToken.left.value
     assertError(
       actual = error,
@@ -54,15 +59,37 @@ class ApiUserManagementServiceSpec
     )
   }
 
-  it should "return invalid argument error when token is base64 but not a valid user id string" in {
-    val notValidUserId = "not a valid user id"
-    Ref.UserId.fromString(notValidUserId).isLeft shouldBe true
+  it should "return invalid argument error when token is base64 but not a valid protobuf" in {
+    val notValidProtoBufBytes = "not a valid proto buf".getBytes()
     val badPageToken = new String(
-      Base64.getEncoder.encode(notValidUserId.getBytes(StandardCharsets.UTF_8)),
+      Base64.getEncoder.encode(notValidProtoBufBytes),
       StandardCharsets.UTF_8,
     )
 
-    val actualNextPageToken = ApiUserManagementService.decodePageToken(badPageToken)(errorLogger)
+    val actualNextPageToken =
+      ApiUserManagementService.decodeUserIdFromPageToken(badPageToken)(errorLogger)
+    val error = actualNextPageToken.left.value
+    assertError(
+      actual = error,
+      expectedF = LedgerApiErrors.RequestValidation.InvalidArgument
+        .Reject("Invalid page token")(_)
+        .asGrpcError,
+    )
+  }
+
+  it should "return invalid argument error when token is valid base64 encoded protobuf but does not contain a valid user id string" in {
+    val notValidUserId = "not a valid user id"
+    Ref.UserId.fromString(notValidUserId).isLeft shouldBe true
+    val payload = ListUsersPageTokenPayload(
+      userId = notValidUserId
+    )
+    val badPageToken = new String(
+      Base64.getEncoder.encode(payload.toByteArray),
+      StandardCharsets.UTF_8,
+    )
+
+    val actualNextPageToken =
+      ApiUserManagementService.decodeUserIdFromPageToken(badPageToken)(errorLogger)
     val error = actualNextPageToken.left.value
     assertError(
       actual = error,
