@@ -746,6 +746,38 @@ excluded_test_tool_tests = [
         ],
     },
     {
+        # Self-service error codes are deprecated as an experimental feature.
+        # Switching to the legacy codes is no longer available.
+        "start": "2.0.0-snapshot.20220127.9042.0.4038d0a7.1",
+        "platform_ranges": [
+            {
+                "end": "1.17.1",
+                "exclusions": [
+                    "ActiveContractsServiceIT",
+                    "ClosedWorldIT",
+                    "CommandServiceIT",
+                    "CommandSubmissionCompletionIT",
+                    "ConfigManagementServiceIT",
+                    "ContractKeysIT",
+                    "DeeplyNestedValueIT",
+                    "ExceptionsIT",
+                    "LedgerConfigurationServiceIT",
+                    "MultiPartySubmissionIT",
+                    "PackageManagementServiceIT",
+                    "PackageServiceIT",
+                    "PartyManagementServiceIT",
+                    "SemanticTests",
+                    "TransactionServiceAuthorizationIT",
+                    "TransactionServiceExerciseIT",
+                    "TransactionServiceQueryIT",
+                    "TransactionServiceStreamsIT",
+                    "TransactionServiceValidationIT",
+                    "WronglyTypedContractIdIT",
+                ],
+            },
+        ],
+    },
+    {
         # Sandbox-on-X starts forwarding rejections on duplicate party allocation starting with next release
         "start": "2.0.0-snapshot.20220201.9108.1",
         "platform_ranges": [
