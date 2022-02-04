@@ -18,7 +18,7 @@ import akka.http.scaladsl.server.Directives.extractClientIP
 import akka.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
 import akka.http.scaladsl.server.RouteResult._
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.scaladsl.{Flow, Source, Sink}
 import akka.util.ByteString
 import com.codahale.metrics.Timer
 import com.daml.lf
@@ -496,11 +496,18 @@ class Endpoints(
       token: Option[String],
       pageToken: String = "",
       pageSize: Int = 1000, // TODO could be made configurable in the future
-  ): Future[Seq[User]] =
-    userManagementClient.listUsers(token, pageToken, pageSize).flatMap {
-      case (users, "") => Future.successful(users)
-      case (users, pageToken) => aggregateListUserPages(token, pageToken, pageSize).map(users ++ _)
+  ): Future[Seq[User]] = {
+    import scalaz.std.option._
+    val userPageStream: Source[Seq[User], NotUsed] = Source.unfoldAsync(some(pageToken)) {
+      _ traverse { pageToken =>
+        userManagementClient.listUsers(token, pageToken, pageSize).map {
+          case (users, "") => (None, users)
+          case (users, pageToken) => (Some(pageToken), users)
+        }
+      }
     }
+    userPageStream mapConcat identity runWith Sink.seq
+  }
 
   def listUsers(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
