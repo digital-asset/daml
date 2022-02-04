@@ -56,6 +56,7 @@ def server_conformance_test(name, servers, server_args = [], test_tool_args = []
             server = server["binary"],
             server_args = server.get("server_args", []) + server_args,
             test_tool_args = server.get("test_tool_args", []) + test_tool_args,
+            tags = server.get("tags", []),
             lf_versions = lf_versions,
             flaky = flaky,
         )

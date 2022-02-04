@@ -8,6 +8,8 @@ load(
     "da_scala_test_suite",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
+load("@oracle//:index.bzl", "oracle_tags")
 load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_library(
@@ -267,14 +269,34 @@ da_scala_library(
     name = "sandbox-on-x-app-lib",
     srcs = glob(["src/app/scala/**/*.scala"]),
     resources = glob(["src/app/resources/**/*"]),
-    scala_deps = [
-    ],
+    scala_deps = [],
     tags = ["maven_coordinates=com.daml:sandbox-on-x-app:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-on-x",
         "//ledger/ledger-resources",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/resources",
+    ],
+)
+
+da_scala_library(
+    name = "sandbox-on-x-test-app",
+    srcs = glob(["src/test/app/scala/**/*.scala"]),
+    resources = glob(["src/test/app/resources/**/*"]),
+    scala_deps = [],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sandbox-on-x",
+        "//daml-lf/data",
+        "//ledger/caching",
+        "//ledger/ledger-resources",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-state/kvutils/app",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/oracle-testing",
+        "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
     ],
 )
@@ -297,6 +319,39 @@ da_scala_binary(
         ":sandbox-on-x-app-lib",
     ],
 )
+
+da_scala_binary(
+    name = "conformance-test-oracle-bin",
+    main_class = "com.daml.ledger.sandbox.MainWithEphemeralOracleUser",
+    visibility = ["//visibility:public"],
+    runtime_deps = [],
+    deps = [
+        ":sandbox-on-x-test-app",
+    ],
+)
+
+da_scala_binary(
+    name = "conformance-test-postgres-bin",
+    main_class = "com.daml.ledger.sandbox.MainWithEphemeralPostgresql",
+    visibility = ["//visibility:public"],
+    runtime_deps = [],
+    deps = [
+        ":sandbox-on-x-test-app",
+    ],
+)
+
+SERVERS = {
+    "h2database": {
+        "binary": ":app",
+    },
+    "postgresql": {
+        "binary": ":conformance-test-postgres-bin",
+    },
+    "oracle": {
+        "binary": ":conformance-test-oracle-bin",
+        "tags": oracle_tags,
+    },
+}
 
 conformance_test(
     name = "conformance-test",
@@ -321,15 +376,14 @@ conformance_test(
     ],
 )
 
-conformance_test(
+server_conformance_test(
     name = "conformance-test-conflict-checking",
-    ports = [6865],
-    server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
         "--enable-conflict-checking",
     ],
+    servers = SERVERS,
     test_tool_args = [
         "--verbose",
     ],
@@ -365,14 +419,13 @@ conformance_test(
     ],
 )
 
-conformance_test(
+server_conformance_test(
     name = "benchmark-performance-envelope",
-    ports = [6865],
-    server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
     ],
+    servers = SERVERS,
     test_tool_args = [
         "--verbose",
         "--perf-tests=PerformanceEnvelope.Throughput.TwentyOPS",
