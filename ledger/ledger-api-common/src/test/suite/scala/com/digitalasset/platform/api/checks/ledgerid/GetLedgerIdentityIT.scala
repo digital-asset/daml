@@ -9,6 +9,8 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
+
 class GetLedgerIdentityIT(service: => LedgerIdentityService, expectedLedgerId: String)
     extends AnyWordSpec
     with Matchers
@@ -22,6 +24,8 @@ class GetLedgerIdentityIT(service: => LedgerIdentityService, expectedLedgerId: S
 
         whenReady(service.getLedgerIdentity(GetLedgerIdentityRequest()))(
           _.ledgerId shouldEqual expectedLedgerId
+        ): @nowarn(
+          "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
         )
       }
     }

@@ -49,6 +49,7 @@ import io.grpc.{Channel, ManagedChannelBuilder, Status}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
@@ -71,7 +72,9 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AkkaBeforeAndAfterAll 
             .map { response =>
               response.ledgerId should be(LedgerId)
             }
-        }
+        }: @nowarn(
+          "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+        )
       }
 
       "respond to health checks" in {

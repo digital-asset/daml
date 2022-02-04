@@ -38,6 +38,7 @@ import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 final class LedgerClient private (
@@ -103,7 +104,12 @@ object LedgerClient {
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] =
     for {
       ledgerId <- new LedgerIdentityClient(
-        LedgerClient.stub(LedgerIdentityServiceGrpc.stub(channel), config.token)
+        LedgerClient.stub(
+          LedgerIdentityServiceGrpc.stub(channel): @nowarn(
+            "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+          ),
+          config.token,
+        )
       ).satisfies(config.ledgerIdRequirement)
     } yield new LedgerClient(channel, config, ledgerId)
 

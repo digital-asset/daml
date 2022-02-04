@@ -4,6 +4,7 @@
 package com.daml.platform.sandbox.services
 
 import java.util.UUID
+
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,
@@ -49,6 +50,7 @@ import org.scalatest.{Assertion, Inside}
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.util.{Failure, Success, Try}
 
 class LegacyServiceIT
@@ -131,7 +133,9 @@ class LegacyServiceIT
         val identity =
           LedgerIdentityServiceGrpc.blockingStub(channel).withInterceptors(legacyCallInterceptor)
         identity.getLedgerIdentity(GetLedgerIdentityRequest())
-      }
+      }: @nowarn(
+        "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+      )
     }
 
     "offer com.digitalasset.ledger.api.v1.PackageServiceService" in {

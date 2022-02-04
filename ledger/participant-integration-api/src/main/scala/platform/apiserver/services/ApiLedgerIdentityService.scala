@@ -23,6 +23,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{BindableService, ServerServiceDefinition}
 import scalaz.syntax.tag._
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiLedgerIdentityService private (
@@ -39,6 +40,7 @@ private[apiserver] final class ApiLedgerIdentityService private (
 
   @volatile var closed = false
 
+  @nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*")
   override def getLedgerIdentity(
       request: GetLedgerIdentityRequest
   ): Future[GetLedgerIdentityResponse] = {
@@ -54,7 +56,9 @@ private[apiserver] final class ApiLedgerIdentityService private (
   override def close(): Unit = closed = true
 
   override def bindService(): ServerServiceDefinition =
-    LedgerIdentityServiceGrpc.bindService(this, executionContext)
+    LedgerIdentityServiceGrpc.bindService(this, executionContext): @nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+    )
 }
 
 private[apiserver] object ApiLedgerIdentityService {
