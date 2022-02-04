@@ -333,10 +333,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       res3 <- ledger.userManagement.listUsers(
         ListUsersRequest(pageSize = 1000, pageToken = res2.nextPageToken)
       )
-      // Requesting last page that is empty
-      res4 <- ledger.userManagement.listUsers(
-        ListUsersRequest(pageSize = 100, pageToken = res3.nextPageToken)
-      )
       // Using not base64 encoded string as a page token
       onBadTokenError <- ledger.userManagement
         .listUsers(
@@ -360,15 +356,9 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assert(res2.nextPageToken.nonEmpty, s"Second next page token should be non-empty")
       assertLength("second page", 3, res2.users)
 
-      assert(res3.nextPageToken.nonEmpty, s"Third next page token should be non-empty")
+      assert(res3.nextPageToken.isEmpty, s"Third next page token should be non-empty")
       assert(res2.users.nonEmpty, s"Third page should be non-empty")
 
-      assertEquals(
-        s"Last next page token should be empty but was: ${res4.nextPageToken}",
-        res4.nextPageToken,
-        "",
-      )
-      assert(res4.users.isEmpty, s"Last page should be empty but was: ${res4.users}")
       assertGrpcError(
         participant = ledger,
         t = onBadTokenError,
@@ -384,8 +374,8 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         exceptionMessageSubstring = None,
       )
       assert(
-        responseZeroPageSize.nextPageToken.nonEmpty,
-        "Non-empty page token when pageSize is 0 (and there are some users)",
+        responseZeroPageSize.users.nonEmpty,
+        "First page with requested pageSize zero should return some users",
       )
     }
   })
