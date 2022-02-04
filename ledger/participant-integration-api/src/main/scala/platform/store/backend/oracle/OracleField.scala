@@ -10,19 +10,6 @@ import com.daml.platform.store.interning.StringInterning
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-private[oracle] case class OracleStringArray[FROM](
-    extract: StringInterning => FROM => Iterable[String]
-) extends Field[FROM, Iterable[String], String] {
-  override def convert: Iterable[String] => String = _.toList.toJson.compactPrint
-  override def prepareDataTemplate(
-      preparedStatement: PreparedStatement,
-      index: Int,
-      value: String,
-  ): Unit = {
-    preparedStatement.setObject(index, value)
-  }
-}
-
 private[oracle] case class OracleStringArrayOptional[FROM](
     extract: StringInterning => FROM => Option[Iterable[String]]
 ) extends Field[FROM, Option[Iterable[String]], String] {
