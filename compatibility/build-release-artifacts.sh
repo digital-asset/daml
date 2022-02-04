@@ -17,8 +17,6 @@ eval "$(./dev-env/bin/dade-assist)"
 # before fetching it in another step.
 HEAD_TARGET_DIR=${1:-compatibility/head_sdk}
 
-rm -rf $HEAD_TARGET_DIR/*
-
 git clean -fxd -e 'daml-*.tgz' $HEAD_TARGET_DIR
 
 bazel build \
@@ -26,7 +24,7 @@ bazel build \
   //ledger/ledger-api-test-tool:ledger-api-test-tool_deploy.jar \
   //ledger/sandbox-on-x:app_deploy.jar
 
-cp bazel-bin/release/sdk-release-tarball-ce.tar.gz "$HEAD_TARGET_DIR"
-cp bazel-bin/ledger/ledger-api-test-tool/ledger-api-test-tool_deploy.jar "$HEAD_TARGET_DIR"
-cp bazel-bin/ledger/sandbox-on-x/app_deploy.jar "$HEAD_TARGET_DIR/sandbox-on-x_deploy.jar"
-cp templates/create-daml-app-test-resources/messaging.patch "$HEAD_TARGET_DIR"
+cp -f bazel-bin/release/sdk-release-tarball-ce.tar.gz "$HEAD_TARGET_DIR"
+cp -f bazel-bin/ledger/ledger-api-test-tool/ledger-api-test-tool_deploy.jar "$HEAD_TARGET_DIR"
+cp -f bazel-bin/ledger/sandbox-on-x/app_deploy.jar "$HEAD_TARGET_DIR/sandbox-on-x_deploy.jar"
+cp -f templates/create-daml-app-test-resources/messaging.patch "$HEAD_TARGET_DIR"
