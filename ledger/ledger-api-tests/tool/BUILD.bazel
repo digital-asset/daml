@@ -33,13 +33,13 @@ da_scala_binary(
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
-    deps = [":ledger-api-test-tool-default"],
+    deps = [":tool-default"],
 )
 
 [
     alias(
-        name = "ledger-api-test-tool-%s" % name,
-        actual = ":ledger-api-test-tool-%s" % lf_target,
+        name = "tool-%s" % name,
+        actual = ":tool-%s" % lf_target,
         visibility = ["//visibility:public"],
     )
     for (name, lf_target) in lf_version_configuration.items()
@@ -47,7 +47,7 @@ da_scala_binary(
 
 [
     da_scala_binary(
-        name = "ledger-api-test-tool-%s" % lf_version,
+        name = "tool-%s" % lf_version,
         srcs = glob([
             "src/main/scala/**/*.scala",
             "src/lf-v%s/scala/**/*.scala" % lf_version,

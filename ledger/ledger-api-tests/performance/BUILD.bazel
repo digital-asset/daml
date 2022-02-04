@@ -12,6 +12,7 @@ load(
     da_scala_library(
         name = "performance-%s" % lf_version,
         srcs = glob(["src/main/scala/**/*.scala"]),
+        tags = ["maven_coordinates=com.daml.ledger:tests-performance-%s:__VERSION__" % lf_version],
         visibility = ["//:__subpackages__"],
         deps = [
             "//daml-lf/data",

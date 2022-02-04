@@ -17,6 +17,7 @@ load(
             "@maven//:com_typesafe_akka_akka_stream",
             "@maven//:org_scalameta_munit",
         ],
+        tags = ["maven_coordinates=com.daml.ledger:tests-infrastructure-%s:__VERSION__" % lf_version],
         visibility = ["//:__subpackages__"],
         deps = [
             "//daml-lf/data",

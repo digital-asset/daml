@@ -29,7 +29,7 @@ def conformance_test(
                 runner = runner,
                 runner_args = ["%s" % port for port in ports],
                 timeout = "long",
-                client = "//ledger/ledger-api-tests/tool:ledger-api-test-tool-%s" % lf_version,
+                client = "//ledger/ledger-api-tests/tool:tool-%s" % lf_version,
                 client_args = test_tool_args + ["localhost:%s" % port for port in ports],
                 data = extra_data,
                 server = server,
