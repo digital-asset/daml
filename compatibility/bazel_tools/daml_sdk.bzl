@@ -175,7 +175,7 @@ sh_binary(
   deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 cc_binary(
-  name = "sandbox-on-x",
+  name = "sandbox-on-x-wrapper",
   srcs = ["sandbox-on-x.cc"],
   data = [":sandbox-on-x.jar"],
   deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
