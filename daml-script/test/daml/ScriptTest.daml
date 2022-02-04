@@ -556,3 +556,14 @@ clearUsers = do
   users <- listAllUsers
   forA_ users $ \u ->
     when (u.userId /= admin) $ deleteUser u.userId
+
+testUserListPagination = do
+  participantAdmin <- getParticipantAdmin ()
+  let names = [ "u" <> show n | n <- [1..500] ]
+  ids <- mapA validateUserId names
+  let users = [ User id None | id <- ids ]
+  sequence [ createUser user [] | user <- users ]
+  users2 <- listAllUsers
+  sort users2 === sort (users ++ [participantAdmin])
+  sequence [ deleteUser id | id <- ids ]
+  pure ()
