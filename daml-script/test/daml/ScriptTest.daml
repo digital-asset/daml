@@ -557,7 +557,6 @@ clearUsers = do
   users <- listAllUsers
   forA_ users $ \u ->
     when (u.userId /= admin) $ deleteUser u.userId
-  deleteUser u1
 
 testUserListPagination = do
   participantAdmin <- getParticipantAdmin ()
