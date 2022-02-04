@@ -9,12 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.infrastructure.{
-  Allocation,
-  Assertions,
-  Envelope,
-  LedgerTestSuite,
-}
+import com.daml.ledger.api.testtool.infrastructure.{Allocation, Assertions, LedgerTestSuite}
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionStreamRequest,
@@ -40,7 +35,9 @@ import scala.util.{Failure, Random, Success, Try}
 sealed trait PerformanceEnvelope[E <: Envelope] {
 
   protected def logger: Logger
+
   protected def envelope: E
+
   protected def maxInflight: Int
 
   protected def waitForParties(participants: Seq[Allocation.Participant]): Unit = {
@@ -93,7 +90,9 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
       }
       for {
         // wait for our turn
-        _ <- blocking { promise.future }
+        _ <- blocking {
+          promise.future
+        }
         // build request
         request = submitRequest(
           participantAlice,
@@ -281,7 +280,9 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
               }
             }
           }
+
           override def onError(t: Throwable): Unit = {}
+
           override def onCompleted(): Unit = {}
         },
       )
@@ -316,8 +317,8 @@ object PerformanceEnvelope {
 
   /** Throughput test
     *
-    * @param numPings  how many pings to run during the throughput test
-    * @param maxInflight how many inflight commands we can have. set it high enough such that the system saturates, keep it low enough to not hit timeouts.
+    * @param numPings       how many pings to run during the throughput test
+    * @param maxInflight    how many inflight commands we can have. set it high enough such that the system saturates, keep it low enough to not hit timeouts.
     * @param numWarmupPings how many pings to run before the perf test to warm up the system
     */
   private final class ThroughputTest(
@@ -345,6 +346,7 @@ object PerformanceEnvelope {
           workflowIds = (1 to num).map(x => s"$description-$x").toList,
           payload = description,
         )
+
       for {
         _ <- runTest(numWarmupPings, "throughput-warmup")
         timings <- runTest(numPings, "throughput-test")

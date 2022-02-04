@@ -38,9 +38,6 @@ object Cli {
   private[this] implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
 
   private val argParser: OptionParser[Config] = new scopt.OptionParser[Config](Name) {
-    private def invalidPerformanceTestName[A](name: String): Either[String, Unit] =
-      failure(s"$name is not a valid performance test name. Use `--list` to see valid names.")
-
     head(
       """The Ledger API Test Tool is a command line tool for testing the correctness of
         |ledger implementations based on Daml and Ledger API.""".stripMargin
@@ -155,9 +152,6 @@ object Cli {
       )
 
     opt[Seq[String]]("perf-tests")
-      .validate(
-        _.find(!performance.PerformanceTestsKeys(_)).fold(success)(invalidPerformanceTestName)
-      )
       .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
       .unbounded()
       .text("A comma-separated list of performance tests that should be run.")
