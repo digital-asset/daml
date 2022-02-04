@@ -24,8 +24,9 @@ private[oracle] object OracleTable {
                     data(fieldIndex)(dataIndex),
                   )
                 }
-                preparedStatement.execute()
+                preparedStatement.addBatch()
               }
+              preparedStatement.executeBatch()
               preparedStatement.close()
             }
     }
