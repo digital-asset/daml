@@ -20,10 +20,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_scala_binary(
     name = "ledger-api-test-tool",
     srcs = [],
-    main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
-    resources = [
-        "src/main/resources/logback.xml",
-    ],
+    main_class = "com.daml.ledger.api.testtool.Main",
+    resources = glob(["src/main/resources/**/*"]),
     tags = [
         "maven_coordinates=com.daml:ledger-api-test-tool:__VERSION__",
         # We release this as a fat jar so this tag ensures that the dependencies in the generated
@@ -54,10 +52,8 @@ da_scala_binary(
             "src/main/scala/**/*.scala",
             "src/lf-v%s/scala/**/*.scala" % lf_version,
         ]),
-        main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
-        resources = [
-            "src/main/resources/logback.xml",
-        ],
+        main_class = "com.daml.ledger.api.testtool.Main",
+        resources = glob(["src/main/resources/**/*"]),
         scala_deps = [
             "@maven//:com_github_scopt_scopt",
         ],
@@ -76,16 +72,10 @@ da_scala_binary(
             "//ledger/ledger-api-common",
             "//ledger/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
             "//ledger/ledger-api-tests/performance:performance-%s" % lf_version,
+            "//ledger/ledger-api-tests/runner:runner-%s" % lf_version,
             "//ledger/ledger-api-tests/suites:suites-%s" % lf_version,
             "//libs-scala/build-info",
-            "//libs-scala/resources",
-            "//libs-scala/resources-akka",
-            "//libs-scala/resources-grpc",
-            "@maven//:io_grpc_grpc_api",
-            "@maven//:io_grpc_grpc_core",
-            "@maven//:io_grpc_grpc_netty",
             "@maven//:io_netty_netty_handler",
-            "@maven//:org_slf4j_slf4j_api",
         ],
     )
     for lf_version in lf_version_configuration_versions

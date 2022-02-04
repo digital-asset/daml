@@ -1,14 +1,14 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.testtool
+package com.daml.ledger.api.testtool.runner
 
-import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
-import com.daml.ledger.api.tls.TlsConfiguration
 import java.io.File
 import java.nio.file.Path
 
-import com.daml.ledger.api.testtool
+import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
+import com.daml.ledger.api.testtool.runner
+import com.daml.ledger.api.tls.TlsConfiguration
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -48,7 +48,7 @@ object Config {
     mustFail = false,
     verbose = false,
     timeoutScaleFactor = Defaults.TimeoutScaleFactor,
-    concurrentTestRuns = testtool.Defaults.ConcurrentRuns,
+    concurrentTestRuns = runner.Defaults.ConcurrentRuns,
     extract = false,
     tlsConfig = None,
     excluded = Set.empty,
@@ -60,7 +60,7 @@ object Config {
     listTestSuites = false,
     shuffleParticipants = false,
     partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
-    ledgerClockGranularity = testtool.Defaults.LedgerClockGranularity,
+    ledgerClockGranularity = runner.Defaults.LedgerClockGranularity,
     uploadDars = true,
   )
 }

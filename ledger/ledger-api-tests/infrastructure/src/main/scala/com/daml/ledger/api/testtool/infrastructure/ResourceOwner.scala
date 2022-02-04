@@ -10,10 +10,10 @@ import com.daml.resources.grpc.GrpcResourceOwnerFactories
 import scala.concurrent.ExecutionContext
 import HasExecutionContext.`ExecutionContext has itself`
 
-sealed abstract class ResourceOwner[Context](
-    override protected final implicit val hasExecutionContext: HasExecutionContext[Context]
-) extends ResourceOwnerFactories[Context]
-    with AkkaResourceOwnerFactories[Context]
-    with GrpcResourceOwnerFactories[Context]
-
-object ResourceOwner extends ResourceOwner[ExecutionContext]()(`ExecutionContext has itself`)
+object ResourceOwner
+    extends ResourceOwnerFactories[ExecutionContext]
+    with AkkaResourceOwnerFactories[ExecutionContext]
+    with GrpcResourceOwnerFactories[ExecutionContext] {
+  override protected implicit val hasExecutionContext: HasExecutionContext[ExecutionContext] =
+    implicitly[HasExecutionContext[ExecutionContext]]
+}

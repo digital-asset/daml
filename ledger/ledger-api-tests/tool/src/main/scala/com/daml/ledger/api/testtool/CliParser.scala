@@ -8,16 +8,19 @@ import java.nio.file.{Path, Paths}
 
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
+import com.daml.ledger.api.testtool.runner.Config
 import scopt.{OptionParser, Read}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
 
-object Cli {
-
+object CliParser {
   private val Name = "ledger-api-test-tool"
 
-  private[this] implicit val fileRead: Read[File] = Read.reads(Paths.get(_).toFile)
+  private implicit val fileRead: Read[File] = Read.reads(Paths.get(_).toFile)
+
+  def parse(args: Array[String]): Option[Config] =
+    argParser.parse(args, Config.default)
 
   private def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {
     val arity = 2
@@ -35,7 +38,7 @@ object Cli {
       case n: Int => (s.slice(0, n), s.slice(n + 1, s.length))
     }
 
-  private[this] implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
+  private implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
 
   private val argParser: OptionParser[Config] = new scopt.OptionParser[Config](Name) {
     head(
@@ -227,9 +230,6 @@ object Cli {
 
     help("help").text("Prints this usage text")
   }
-
-  def parse(args: Array[String]): Option[Config] =
-    argParser.parse(args, Config.default)
 
   private def oneOfRead[T](readersHead: Read[T], readersTail: Read[T]*): Read[T] = Read.reads {
     str =>

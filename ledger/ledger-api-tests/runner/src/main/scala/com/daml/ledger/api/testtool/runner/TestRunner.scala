@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.testtool
+package com.daml.ledger.api.testtool.runner
 
 import java.io.File
 import java.nio.file.{Files, Paths, StandardCopyOption}
@@ -9,6 +9,7 @@ import java.util.concurrent.Executors
 
 import com.daml.ledger.api.testtool.infrastructure._
 import com.daml.ledger.api.testtool.performance.PerformanceTests
+import com.daml.ledger.api.testtool.runner.TestRunner._
 import com.daml.ledger.api.tls.TlsConfiguration
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
@@ -18,13 +19,13 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-object LedgerApiTestTool {
+object TestRunner {
 
   private type ResourceOwner[T] = com.daml.resources.AbstractResourceOwner[ExecutionContext, T]
   private type Resource[T] = com.daml.resources.Resource[ExecutionContext, T]
   private val Resource = new com.daml.resources.ResourceFactories[ExecutionContext]
 
-  private[this] val logger = LoggerFactory.getLogger(getClass.getName.stripSuffix("$"))
+  private val logger = LoggerFactory.getLogger(getClass.getName.stripSuffix("$"))
 
   // The suffix that will be appended to all party and command identifiers to ensure
   // they are unique across test runs (but still somewhat stable within a single test run)
@@ -35,9 +36,9 @@ object LedgerApiTestTool {
   // requires this to happen on what is resolved by the JVM as the very same millisecond.
   // This is very unlikely to fail and allows to easily "date" parties on a ledger used
   // for testing and compare data related to subsequent runs without any reference
-  private[this] val identifierSuffix = f"${System.nanoTime}%x"
+  private val identifierSuffix = f"${System.nanoTime}%x"
 
-  private[this] val uncaughtExceptionErrorMessage =
+  private val uncaughtExceptionErrorMessage =
     "UNEXPECTED UNCAUGHT EXCEPTION ON MAIN THREAD, GATHER THE STACKTRACE AND OPEN A _DETAILED_ TICKET DESCRIBING THE ISSUE HERE: https://github.com/digital-asset/daml/issues/new"
 
   private def exitCode(summaries: Vector[LedgerTestSummary], expectFailure: Boolean): Int =
@@ -80,11 +81,11 @@ object LedgerApiTestTool {
 
   private def matches(prefixes: Iterable[String])(test: LedgerTestCase): Boolean =
     prefixes.exists(test.name.startsWith)
+}
 
-  def main(args: Array[String]): Unit = {
-
-    val config = Cli.parse(args).getOrElse(sys.exit(1))
-    val tests = new ConfiguredTests(config)
+final class TestRunner(availableTests: AvailableTests, config: Config) {
+  def runAndExit(): Unit = {
+    val tests = new ConfiguredTests(availableTests, config)
 
     if (tests.missingTests.nonEmpty) {
       println("The following exclusion or inclusion does not match any test:")
@@ -94,11 +95,16 @@ object LedgerApiTestTool {
       sys.exit(64)
     }
 
-    val missingPerformanceTests = config.performanceTests.filterNot(tests.performanceTests.names(_))
-    if (missingPerformanceTests.nonEmpty) {
+    if (tests.missingPerformanceTests.nonEmpty) {
       println(
-        s"${missingPerformanceTests.head} is not a valid performance test name. Use `--list` to see valid names."
+        s"${tests.missingPerformanceTests.head} is not a valid performance test name. Use `--list` to see valid names."
       )
+      sys.exit(64)
+    }
+
+    val performanceTestsToRun = tests.performanceTests.filterByName(config.performanceTests)
+    if (config.included.nonEmpty && performanceTestsToRun.nonEmpty) {
+      println("Either regular or performance tests can be run, but not both.")
       sys.exit(64)
     }
 
@@ -124,13 +130,6 @@ object LedgerApiTestTool {
     if (config.participantsEndpoints.isEmpty) {
       println("No participant to test, exiting.")
       sys.exit(0)
-    }
-
-    val performanceTestsToRun = tests.performanceTests.filterByName(config.performanceTests)
-
-    if (config.included.nonEmpty && performanceTestsToRun.nonEmpty) {
-      println("Either regular or performance tests can be run, but not both.")
-      sys.exit(64)
     }
 
     Thread
@@ -192,19 +191,19 @@ object LedgerApiTestTool {
     }
   }
 
-  private[this] def newSequentialLedgerCasesRunner(
+  private def newSequentialLedgerCasesRunner(
       config: Config,
       cases: Vector[LedgerTestCase],
   )(implicit executionContext: ExecutionContext): Future[LedgerTestCasesRunner] =
     createLedgerCasesRunner(config, cases, concurrentTestRuns = 1)
 
-  private[this] def newLedgerCasesRunner(
+  private def newLedgerCasesRunner(
       config: Config,
       cases: Vector[LedgerTestCase],
   )(implicit executionContext: ExecutionContext): Future[LedgerTestCasesRunner] =
     createLedgerCasesRunner(config, cases, config.concurrentTestRuns)
 
-  private[this] def createLedgerCasesRunner(
+  private def createLedgerCasesRunner(
       config: Config,
       cases: Vector[LedgerTestCase],
       concurrentTestRuns: Int,
@@ -213,7 +212,7 @@ object LedgerApiTestTool {
       config.participantsEndpoints,
       config.tlsConfig,
     ).asFuture
-      .map((participants: Vector[ChannelEndpoint]) =>
+      .map(participants =>
         new LedgerTestCasesRunner(
           testCases = cases,
           participants = participants,
@@ -250,18 +249,11 @@ object LedgerApiTestTool {
   private def initializeParticipantChannels(
       participants: Vector[(String, Int)],
       tlsConfig: Option[TlsConfiguration],
-  )(implicit executionContext: ExecutionContext): Resource[Vector[ChannelEndpoint]] = {
-    val channelResources: Seq[Resource[ChannelEndpoint]] =
-      for ((host, port) <- participants) yield {
-        val channelOwner: ResourceOwner[Channel] =
-          initializeParticipantChannel(host, port, tlsConfig)
-        channelOwner
-          .acquire()
-          .map(channel =>
-            ChannelEndpoint.forRemote(channel = channel, hostname = host, port = port)
-          )
-      }
-    Resource.sequence(channelResources)
-  }
+  )(implicit executionContext: ExecutionContext): Resource[Vector[ChannelEndpoint]] =
+    Resource.sequence(participants.map { case (host, port) =>
+      initializeParticipantChannel(host, port, tlsConfig)
+        .acquire()
+        .map(channel => ChannelEndpoint.forRemote(channel = channel, hostname = host, port = port))
+    })
 
 }
