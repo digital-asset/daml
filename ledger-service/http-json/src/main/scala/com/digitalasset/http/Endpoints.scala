@@ -992,7 +992,6 @@ object Endpoints {
       })
   }
 
-  @java.lang.FunctionalInterface
   private final case class MkHttpResponse[-T](run: T => Future[HttpResponse])
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
