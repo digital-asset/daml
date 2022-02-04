@@ -91,6 +91,7 @@ printf("AENRTAIE");
     argv_[0] = javaStr;
     char* jarStr = new char[strlen("-jar") + 1];
     std::strcpy(jarStr, "-jar");
+    printf("%s\n"" jarStr);
     argv_[1] = jarStr;
     char* pathStr = new char[path.length() + 1];
     std::strcpy(pathStr, path.c_str());
