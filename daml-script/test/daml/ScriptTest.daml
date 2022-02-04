@@ -521,7 +521,6 @@ testUserRightManagementForParties p1 p2 = do
   revoked === [CanActAs p1, CanReadAs p2]
   rights <- listUserRights u1
   rights === []
-
   nonexistent <- validateUserId "nonexistent"
   expectUserNotFound (listUserRights nonexistent)
   expectUserNotFound (revokeUserRights nonexistent [])
