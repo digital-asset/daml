@@ -75,6 +75,13 @@ class IntegrationTest
         commandClient = CommandClientConfiguration.default,
       ),
     )
+
+    // TODO https://github.com/digital-asset/daml/issues/12663 participant user management: Emulating no-pagination
+    def listAllUsers(client: LedgerClient) =
+      client.userManagementClient.listUsers(pageToken = "", pageSize = 10000).map {
+        case (users, _) => users.toList
+      }
+
     // Don't close the LedgerClient on termination, because all it does is close the channel,
     // which then causes a subsequent test to fail when creating a LedgerClient using a closed channel
     // ("io.grpc.StatusRuntimeException: UNAVAILABLE: Channel shutdown invoked")
@@ -96,7 +103,7 @@ class IntegrationTest
       _ <- Await.ready(sys.getWhenTerminated.asScala, 30.seconds)
       _ = logger.info(s"Terminated actor system ${sys.name}")
       // Reset sandbox enough to avoid users leaking between tests: delete all users except admin
-      users <- client.userManagementClient.listUsers()
+      users <- listAllUsers(client)
       _ <- Future.traverse(users)(user =>
         if (user.id != "participant_admin") client.userManagementClient.deleteUser(user.id)
         else Future.unit

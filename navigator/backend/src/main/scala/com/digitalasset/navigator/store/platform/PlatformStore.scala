@@ -179,13 +179,20 @@ class PlatformStore(
               hasUserManagement
             }
 
+      // TODO https://github.com/digital-asset/daml/issues/12663 participant user management: Emulating no-pagination
+      def listAllUsers(client: LedgerClient) =
+        client.userManagementClient
+          .listUsers(token = None /* set at startup */, pageToken = "", pageSize = 10000)
+          .map { case (users, _) =>
+            users.toList
+          }
+
       hasUserManagement
         .flatMap {
           case true =>
-            state.ledgerClient.userManagementClient
-              .listUsers() // don't pass token here -- it's already set on startup (LedgerClientConfiguration)
+            listAllUsers(state.ledgerClient)
               .map(details => UpdatedUsers(details): Any)
-          //                                   ^^^^^
+          //                                       ^^^^^
           // make wartremover happy about the lub of UpdatedUsers and UpdatedParties
           case false =>
             state.ledgerClient.partyManagementClient
