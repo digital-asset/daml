@@ -719,6 +719,7 @@ class Endpoints(
 
   private def httpResponse[T](output: T)(implicit T: MkHttpResponse[T]): Future[HttpResponse] =
     T.run(output)
+      .recover(Error.fromThrowable andThen (httpResponseError(_)))
 
   private implicit def hrSearchResults
       : MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]] =
@@ -728,7 +729,6 @@ class Endpoints(
           case -\/(e) => httpResponseError(e)
           case \/-(searchResult) => searchHttpResponse(searchResult)
         }
-        .recover(Error.fromThrowable andThen (httpResponseError(_)))
     }
 
   private[this] def logException(fromWhat: String)(implicit
@@ -781,8 +781,7 @@ class Endpoints(
               entity = HttpEntity.Strict(ContentTypes.`application/json`, format(jsVal)),
               status = status,
             )
-        }
-        .recover(Error.fromThrowable andThen (httpResponseError(_))),
+        },
     )
   }
 
