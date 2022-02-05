@@ -494,9 +494,6 @@ final class Metrics(val registry: MetricRegistry) {
         val lookupContractByKeyDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_contract_by_key"
         )
-        val lookupMaximumLedgerTimeDbMetrics: DatabaseMetrics = createDbMetrics(
-          "lookup_maximum_ledger_time"
-        ) // FIXME Base name conflicts with lookupActiveContract
         val getFlatTransactions: DatabaseMetrics = createDbMetrics("get_flat_transactions")
         val lookupFlatTransactionById: DatabaseMetrics = createDbMetrics(
           "lookup_flat_transaction_by_id"

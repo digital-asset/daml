@@ -6,7 +6,6 @@ package com.daml.platform.store.appendonlydao.events
 import com.codahale.metrics.Timer
 import com.daml.error.definitions.IndexErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.appendonlydao.DbDispatcher
@@ -26,18 +25,6 @@ private[appendonlydao] sealed class ContractsReader(
 )(implicit ec: ExecutionContext)
     extends LedgerDaoContractsReader {
   private val logger = ContextualizedLogger.get(getClass)
-
-  override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Timestamp]] =
-    Timed.future(
-      metrics.daml.index.db.lookupMaximumLedgerTime,
-      dispatcher
-        .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDbMetrics)(
-          storageBackend.maximumLedgerTime(ids)
-        )
-        .map(_.get),
-    )
 
   /** Lookup a contract key state at a specific ledger offset.
     *
