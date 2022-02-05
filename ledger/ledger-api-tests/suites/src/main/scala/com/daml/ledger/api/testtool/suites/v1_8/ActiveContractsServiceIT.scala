@@ -459,11 +459,6 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     val * = Set.empty[Int]
     type ACSFilter = Map[Int, Set[Int]]
 
-    /** A templateId / stakeholders combination, which for 3 contracts are generated each
-      *
-      * @param templateId   index of the template ID (see templateIds)
-      * @param stakeholders index of the party (see parties)
-      */
     case class FilterCoord(templateId: Int, stakeholders: Set[Int])
 
     def filterCoordsForFilter(filter: ACSFilter): Set[FilterCoord] = {
