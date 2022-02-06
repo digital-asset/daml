@@ -82,8 +82,7 @@ trait ToxicSandboxFixture
         jdbcUrl <- database
           .getOrElse(SandboxBackend.H2Database.owner)
           .map(info => Some(info.jdbcUrl))
-        server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
-        port = server.port
+        port <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(port)
         (proxiedPort, proxyClient, proxy) <- toxiproxy(port)
       } yield (port, channel, proxiedPort, proxyClient, proxy),

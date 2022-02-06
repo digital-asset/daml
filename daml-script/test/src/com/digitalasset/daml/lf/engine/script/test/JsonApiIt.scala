@@ -153,9 +153,8 @@ trait JsonApiFixture
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
             _.map(info => Some(info.jdbcUrl))
           )
-        sandboxServer <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
-        port = sandboxServer.port
-        channel <- GrpcClientResource.owner(port)
+        serverPort <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
+        channel <- GrpcClientResource.owner(serverPort)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
             implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(
@@ -164,7 +163,7 @@ trait JsonApiFixture
             Resource[ServerBinding] {
               val config = new StartSettings.Default {
                 override val ledgerHost = "localhost"
-                override val ledgerPort = port.value
+                override val ledgerPort = serverPort.value
                 override val address = "localhost"
                 override val httpPort = 0
                 override val portFile = None
@@ -193,7 +192,7 @@ trait JsonApiFixture
             }((binding: ServerBinding) => binding.unbind().map(_ => ()))
           }
         }
-      } yield (port, channel, httpService),
+      } yield (serverPort, channel, httpService),
       acquisitionTimeout = 1.minute,
       releaseTimeout = 1.minute,
     )

@@ -30,43 +30,27 @@ import scalaz.syntax.tag._
 
 import java.nio.file.Files
 import java.util.UUID
-import java.util.concurrent.Executors
-import scala.jdk.FutureConverters.CompletionStageOps
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try}
+import scala.jdk.FutureConverters.CompletionStageOps
+import scala.util.{Failure, Success}
 
 final class SandboxServer(
     config: SandboxConfig,
-    materializer: Materializer,
     metrics: Metrics,
-) extends AutoCloseable {
-  private val resourceManagementExecutionContext =
-    ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+)(implicit materializer: Materializer)
+    extends ResourceOwner[Port] {
 
   // Only used for testing.
   def this(config: SandboxConfig, materializer: Materializer) =
-    this(config, materializer, new Metrics(new MetricRegistry))
+    this(config, new Metrics(new MetricRegistry))(materializer)
 
-  private val apiServerResource = start(
-    ResourceContext(resourceManagementExecutionContext),
-    materializer,
-  )
-
-  // Only used in testing; hopefully we can get rid of it soon.
-  val port: Port =
-    Await.result(apiServerResource.asFuture.map(_.port)(ExecutionContext.parasitic), AsyncTolerance)
-
-  override def close(): Unit = Await.result(apiServerResource.release(), AsyncTolerance)
-
-  private def start(implicit
-      resourceContext: ResourceContext,
-      materializer: Materializer,
-  ) =
+  def acquire()(implicit
+      resourceContext: ResourceContext
+  ): Resource[Port] =
     for {
       maybeLedgerId <- config.jdbcUrl
-        .map(getLedgerId(_)(resourceContext, resourceManagementExecutionContext, materializer))
+        .map(getLedgerId(_)(resourceContext, resourceContext.executionContext, materializer))
         .getOrElse(Resource.successful(None))
       genericConfig =
         ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
@@ -82,11 +66,11 @@ final class SandboxServer(
             Some(metrics),
           )
           .acquire()
-      _ <- Resource.fromFuture(writePortFile(apiServer.port)(resourceManagementExecutionContext))
-      _ <- loadPackages(writeService)(resourceManagementExecutionContext).acquire()
+      _ <- Resource.fromFuture(writePortFile(apiServer.port)(resourceContext.executionContext))
+      _ <- loadPackages(writeService)(resourceContext.executionContext).acquire()
     } yield {
       initializationLoggingHeader(genericConfig, apiServer)
-      apiServer
+      apiServer.port
     }
 
   private def initializationLoggingHeader(
@@ -153,13 +137,12 @@ final class SandboxServer(
 
 object SandboxServer {
   private val DefaultName = LedgerName("Sandbox")
-  private val AsyncTolerance = 30.seconds
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
+  def owner(config: SandboxConfig): ResourceOwner[Port] =
     owner(DefaultName, config)
 
-  def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[SandboxServer] =
+  def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[Port] =
     for {
       metrics <- new MetricsReporting(
         classOf[SandboxServer].getName,
@@ -168,14 +151,7 @@ object SandboxServer {
       )
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
-      server <- ResourceOwner.forTryCloseable(() =>
-        Try(new SandboxServer(config, materializer, metrics))
-      )
-      // Wait for the API server to start.
-      _ <- new ResourceOwner[Unit] {
-        override def acquire()(implicit context: ResourceContext): Resource[Unit] =
-          server.apiServerResource.map(_ => ())
-      }
+      server <- new SandboxServer(config, metrics)(materializer)
     } yield server
 
   // Run only the flyway migrations but do not initialize any of the ledger api or indexer services

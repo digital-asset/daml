@@ -173,7 +173,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
           .acquire()
       )
       jdbcUrl <- urlResource.asFuture
-      ledger <- Future(
+      portF <- Future(
         SandboxServer
           .owner(
             ledgerConfig(
@@ -187,8 +187,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
           )
           .acquire()
       )
-      server <- ledger.asFuture
-    } yield (ledger, server.port)
+      port <- portF.asFuture
+    } yield (portF, port)
 
     val clientF: Future[DamlLedgerClient] = for {
       (_, ledgerPort) <- ledgerF

@@ -312,8 +312,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         // of which is that the ledger and index databases will be out of sync.
         jdbcUrl <- SandboxBackend.H2Database.owner
           .map(info => Some(info.jdbcUrl))
-        server <- SandboxServer.owner(sandboxConfig.copy(jdbcUrl = jdbcUrl))
-        port = server.port
+        port <- SandboxServer.owner(sandboxConfig.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),
       acquisitionTimeout = 1.minute,

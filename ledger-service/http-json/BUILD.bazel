@@ -303,7 +303,6 @@ alias(
             "//ledger/metrics",
             "//ledger/sandbox-common",
             "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-            "//ledger/sandbox-on-x:sandbox-classic-server",
             "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),

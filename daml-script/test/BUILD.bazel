@@ -158,7 +158,6 @@ da_scala_library(
         "//ledger/participant-state/kvutils/app",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-        "//ledger/sandbox-on-x:sandbox-classic-server",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
