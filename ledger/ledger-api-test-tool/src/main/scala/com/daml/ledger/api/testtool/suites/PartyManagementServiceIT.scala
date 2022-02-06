@@ -72,6 +72,25 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
           Some(pMAllocateWithoutDisplayName + "_" + Random.alphanumeric.take(10).mkString),
         displayName = None,
       )
+    } yield assert(
+      Tag.unwrap(party).nonEmpty,
+      "The allocated party identifier is an empty string",
+    )
+  })
+
+  // TODO Merge into PMAllocateWithoutDisplayName once the empty-display-name assertion can be
+  //      configured based on the Canton feature descriptor,
+  test(
+    "PMAllocateEmptyExpectMissingDisplayName",
+    "A party allocation without display name must result in an empty display name in the queried party details",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    for {
+      party <- ledger.allocateParty(
+        partyIdHint =
+          Some(pMAllocateWithoutDisplayName + "_" + Random.alphanumeric.take(10).mkString),
+        displayName = None,
+      )
       partiesDetails <- ledger.getParties(Seq(party))
     } yield {
       assert(
