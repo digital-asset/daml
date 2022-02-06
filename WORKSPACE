@@ -12,6 +12,16 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 
 daml_deps()
 
+load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
+
+build_bazel_rules_nodejs_dependencies()
+
+load("@rules_nodejs//nodejs:repositories.bzl", "nodejs_register_toolchains")
+
+nodejs_register_toolchains(
+    name = "nodejs",
+)
+
 load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 load("@com_github_bazelbuild_remote_apis//:repository_rules.bzl", "switched_rules_by_language")
 
@@ -719,13 +729,6 @@ dev_env_tool(
 load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories", "yarn_install")
 
 node_repositories(
-    package_json = ["//:package.json"],
-    # Using `dev_env_tool` introduces an additional layer of symlink
-    # indirection. Bazel doesn't track dependencies through symbolic links.
-    # Occasionally, this can cause build failures on CI if a build is not
-    # invalidated despite a change of an original source. To avoid such issues
-    # we use the `nixpkgs_package` directly.
-    vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
 )
 
 yarn_install(

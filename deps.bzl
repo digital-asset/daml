@@ -62,8 +62,8 @@ buildifier_version = "4.0.0"
 buildifier_sha256 = "0d3ca4ed434958dda241fb129f77bd5ef0ce246250feed2d5a5470c6f29a77fa"
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
-rules_nodejs_version = "4.6.1"
-rules_nodejs_sha256 = "d63ecec7192394f5cc4ad95a115f8a6c9de55c60d56c1f08da79c306355e4654"
+rules_nodejs_version = "5.1.0"
+rules_nodejs_sha256 = "c077680a307eb88f3e62b0b662c2e9c6315319385bc8c637a861ffdbed8ca247"
 rules_jvm_external_version = "3.3"
 rules_jvm_external_sha256 = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
 rules_go_version = "0.29.0"
@@ -208,12 +208,6 @@ def daml_deps():
             name = "build_bazel_rules_nodejs",
             urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/{}/rules_nodejs-{}.tar.gz".format(rules_nodejs_version, rules_nodejs_version)],
             sha256 = rules_nodejs_sha256,
-            patches = [
-                # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
-                "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
-                "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_node_dependency.patch",
-            ],
-            patch_args = ["-p1"],
         )
 
     if "com_github_grpc_grpc" not in native.existing_rules():

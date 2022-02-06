@@ -45,6 +45,18 @@ load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_sh_posix_configu
 
 dadew_sh_posix_configure() if is_windows else None
 
+load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
+
+build_bazel_rules_nodejs_dependencies()
+
+load("@rules_nodejs//nodejs:repositories.bzl", "nodejs_register_toolchains")
+
+# The order matters because Bazel will provide the first registered toolchain when a rule asks Bazel to select it
+# This applies to the resolved_toolchain
+nodejs_register_toolchains(
+    name = "nodejs",
+)
+
 load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories")
 load(
     "@rules_haskell//haskell:nixpkgs.bzl",
@@ -240,7 +252,6 @@ dev_env_tool(
 )
 
 node_repositories(
-    vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
     yarn_version = "1.22.4",
 )
 
