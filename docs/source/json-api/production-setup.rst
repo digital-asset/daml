@@ -103,7 +103,7 @@ refuses to start if a new schema is detected when running with a newer version.
 To evolve, the operator of the *HTTP JSON API* query store needs to drop the database
 used to hold the *HTTP JSON API* query store and create a new one (consult your database
 vendor's documentation as to how this ought to be done) and then proceed to create and
-start the server using either ``start-mode=create-only`` and ``start-mode=create-and-start``
+start the server using either ``start-mode=create-only`` and ``start-mode=start-only``
 or ``start-mode=create-and-start`` as described above, depending on your preferred
 production setup.
 
