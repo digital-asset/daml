@@ -246,6 +246,7 @@ object SandboxOnXRunner {
         cacheExpiryAfterWriteInSeconds = config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
         maxCacheSize = config.userManagementConfig.maxCacheSize,
         maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+        timeProvider = TimeProvider.UTC,
       )(servicesExecutionContext),
       ledgerFeatures = LedgerFeatures(
         staticTime = timeServiceBackend.isDefined,

@@ -241,6 +241,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
             config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
           maxCacheSize = config.userManagementConfig.maxCacheSize,
           maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+          timeProvider = TimeProvider.UTC,
         )(servicesExecutionContext)
         indexService <- StandaloneIndexService(
           dbSupport = dbSupport,
