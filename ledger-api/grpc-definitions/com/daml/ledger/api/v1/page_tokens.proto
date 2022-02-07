@@ -12,6 +12,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 // Describes the payload of a page token for listing users.
 // Not intended to be handled by directly clients and should be presented to them as an opaque string.
 message ListUsersPageTokenPayload {
-    // Describes a page that starts just after `user_id`.
-    string user_id = 1;
+    // Users are ordered by ``user_id``, and the next page starts with users whose ``user_id`` is larger than ``user_id_lower_bound_excl``.
+    string user_id_lower_bound_excl = 1;
 }
