@@ -114,7 +114,7 @@ contract id. The columns afterwards represent the fields of the
 contract and finally you get one column per party with an ``X`` if the
 party can see the contract or a ``-`` if not.
 
-.. figure:: daml-studio/images/daml_studio_scenario_table.png
+.. figure:: daml-studio/images/daml_studio_script_table.png
    :scale: 70%
    :align: center
 
@@ -136,7 +136,7 @@ archived ``Bank`` contract and the active ``Bank`` contract whose creation
 ``Alice`` has witnessed by virtue of being an actor on the ``exercise`` that
 created it.
 
-.. figure:: daml-studio/images/daml_studio_scenario_table_detailed.png
+.. figure:: daml-studio/images/daml_studio_script_table_detailed.png
    :scale: 70%
    :align: center
 
@@ -148,7 +148,7 @@ fetches of contracts.
 
 For example a script for the :download:`Iou<daml-studio/daml/Iou.daml>` module looks as follows:
 
-.. figure:: daml-studio/images/daml_studio_scenario_transaction.png
+.. figure:: daml-studio/images/daml_studio_script_transaction.png
    :scale: 70%
    :align: center
 
