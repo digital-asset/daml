@@ -5,9 +5,10 @@ syntax = "proto3";
 
 import "scalapb/scalapb.proto";
 
-package com.daml;
+package com.daml.ledger.api.v1;
 
 option (scalapb.options) = {
   scope: PACKAGE
   preserve_unknown_fields: false
+  java_conversions: true
 };
