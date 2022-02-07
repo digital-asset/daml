@@ -245,7 +245,9 @@ object ApiUserManagementService {
   def encodeNextPageToken(token: Option[Ref.UserId]): String =
     token
       .map { id =>
-        val bytes = Base64.getUrlEncoder.encode(ListUsersPageTokenPayload(userId = id).toByteArray)
+        val bytes = Base64.getUrlEncoder.encode(
+          ListUsersPageTokenPayload(userIdLowerBoundExcl = id).toByteArray
+        )
         new String(bytes, StandardCharsets.UTF_8)
       }
       .getOrElse("")
@@ -261,28 +263,28 @@ object ApiUserManagementService {
         decodedBytes <- Try[Array[Byte]](Base64.getUrlDecoder.decode(bytes))
           .map(Right(_))
           .recover { case _: IllegalArgumentException =>
-            Left(invalidToken)
+            Left(invalidPageToken)
           }
           .get
         tokenPayload <- Try[ListUsersPageTokenPayload] {
           ListUsersPageTokenPayload.parseFrom(decodedBytes)
         }.map(Right(_))
           .recover { case _: InvalidProtocolBufferException =>
-            Left(invalidToken)
+            Left(invalidPageToken)
           }
           .get
         userId <- Ref.UserId
-          .fromString(tokenPayload.userId)
+          .fromString(tokenPayload.userIdLowerBoundExcl)
           .map(Some(_))
           .left
-          .map(_ => invalidToken)
+          .map(_ => invalidPageToken)
       } yield {
         userId
       }
     }
   }
 
-  private def invalidToken(implicit
+  private def invalidPageToken(implicit
       errorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = {
     LedgerApiErrors.RequestValidation.InvalidArgument

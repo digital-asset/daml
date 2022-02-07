@@ -75,7 +75,7 @@ class ApiUserManagementServiceSpec
     val notValidUserId = "not a valid user id"
     Ref.UserId.fromString(notValidUserId).isLeft shouldBe true
     val payload = ListUsersPageTokenPayload(
-      userId = notValidUserId
+      userIdLowerBoundExcl = notValidUserId
     )
     val badPageToken = new String(
       Base64.getEncoder.encode(payload.toByteArray),
