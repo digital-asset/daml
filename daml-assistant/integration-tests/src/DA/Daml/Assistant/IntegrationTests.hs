@@ -822,6 +822,9 @@ cantonTests = testGroup "daml sandbox"
                     ]
                 proc' = (shell cmd) { cwd = Just dir }
             output <- readCreateProcess proc' input
+            hPutStrLn stderr "canton-repl output:"
+            hPutStrLn stderr output
+
             let outputLines = lines output
             -- NOTE (Sofia): We use `isInfixOf` extensively because
             --   the REPL output is full of color codes.
