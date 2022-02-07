@@ -828,7 +828,12 @@ cantonTests = testGroup "daml sandbox"
                      | otherwise = Just (("TERM", "xterm-16color") : env)
                     -- We also need to set TERM to something, otherwise tput complains and crashes Ammonite.
                 proc' = (shell wrappedCmd) { cwd = Just dir, env = env' }
-            output <- readCreateProcess proc' (unlines input)
+            (exitCode, output, errors) <- readCreateProcessWithExitCode proc' (unlines input)
+            hPutStrLn stderr ("canton-repl exit: " <> show exitCode)
+            hPutStrLn stderr "canton-repl stdout: "
+            hPutStrLn stderr output
+            hPutStrLn stderr "canton-repl stderr: "
+            hPutStrLn stderr errors
 
             let outputLines = lines output
             -- NOTE (Sofia): We use `isInfixOf` extensively because
