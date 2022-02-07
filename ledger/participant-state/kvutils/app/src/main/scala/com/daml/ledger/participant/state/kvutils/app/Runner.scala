@@ -8,6 +8,7 @@ import java.util.concurrent.{Executors, TimeUnit}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
+import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.{
@@ -207,6 +208,7 @@ final class Runner[T <: ReadWriteService, Extra](
                     config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
                   maxCacheSize = config.userManagementConfig.maxCacheSize,
                   maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+                  timeProvider = TimeProvider.UTC,
                 )(servicesExecutionContext)
                 indexService <- StandaloneIndexService(
                   dbSupport = dbSupport,

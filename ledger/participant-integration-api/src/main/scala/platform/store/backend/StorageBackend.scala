@@ -391,7 +391,7 @@ trait StringInterningStorageBackend {
 
 trait UserManagementStorageBackend {
 
-  def createUser(user: User)(connection: Connection): Int
+  def createUser(user: User, createdAt: Long)(connection: Connection): Int
 
   def deleteUser(id: UserId)(connection: Connection): Boolean
 
@@ -403,7 +403,7 @@ trait UserManagementStorageBackend {
 
   /** @return true if the right didn't exist and we have just added it.
     */
-  def addUserRight(internalId: Int, right: UserRight)(
+  def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(
       connection: Connection
   ): Boolean
 
@@ -413,14 +413,17 @@ trait UserManagementStorageBackend {
 
   def userRightExists(internalId: Int, right: UserRight)(connection: Connection): Boolean
 
-  def getUserRights(internalId: Int)(connection: Connection): Set[UserRight]
+  def getUserRights(internalId: Int)(
+      connection: Connection
+  ): Set[UserManagementStorageBackend.DbUserRight]
 
   def countUserRights(internalId: Int)(connection: Connection): Int
 
 }
 
 object UserManagementStorageBackend {
-  case class DbUser(internalId: Int, domainUser: User)
+  case class DbUser(internalId: Int, domainUser: User, createdAt: Long)
+  case class DbUserRight(domainRight: UserRight, grantedAt: Long)
 }
 
 trait MeteringStorageBackend {
