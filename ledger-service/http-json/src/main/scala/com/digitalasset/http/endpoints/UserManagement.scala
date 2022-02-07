@@ -28,7 +28,6 @@ class UserManagement(
 ) {
   import UserManagement._
   import routeSetup._
-  import Endpoints.ET
   import json.JsonProtocol._
 
   def getUser(req: HttpRequest)(implicit

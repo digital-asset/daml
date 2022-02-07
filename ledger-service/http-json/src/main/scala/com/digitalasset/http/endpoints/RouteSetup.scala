@@ -10,29 +10,42 @@ import akka.http.scaladsl.model.headers.{
   `X-Forwarded-Proto`,
 }
 import akka.stream.Materializer
-import com.daml.http.EndpointsCompanion._
+import Endpoints.ET
+import EndpointsCompanion._
+import com.codahale.metrics.Timer
+import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
+import com.daml.metrics.Metrics
 import com.daml.scalautil.Statement.discard
-import com.daml.http.json._
+import domain.{JwtPayloadG, JwtPayloadTag, JwtWritePayload}
+import json._
 import com.daml.http.util.FutureUtil.{either, eitherT}
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.{v1 => lav1}
+import lav1.value.{Value => ApiValue}
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, \/, \/-, EitherT, Traverse}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
+import com.daml.ledger.client.services.admin.UserManagementClient
+import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 
 class RouteSetup(
     allowNonHttps: Boolean,
+    decodeJwt: EndpointsCompanion.ValidateJwt,
+    encoder: DomainJsonEncoder,
+    userManagementClient: UserManagementClient,
+    ledgerIdentityClient: LedgerIdentityClient,
     maxTimeToCollectRequest: FiniteDuration,
 )(implicit ec: ExecutionContext, mat: Materializer) {
   import RouteSetup._
-  import Endpoints.ET
+  import encoder.implicits._
   import util.ErrorOps._
 
   private[http] def proxyWithCommand[A: JsonReader, R](
@@ -52,6 +65,53 @@ class RouteSetup(
   )(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[R] = proxyWithCommand((jwt, a: A) => fn(jwt, a).run)(req)
+
+  def handleCommand[T[_]](req: HttpRequest)(
+      fn: (
+          Jwt,
+          JwtWritePayload,
+          JsValue,
+          Timer.Context,
+      ) => LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => ET[
+        T[ApiValue]
+      ]
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      ev1: JsonWriter[T[JsValue]],
+      ev2: Traverse[T],
+      metrics: Metrics,
+  ): ET[domain.SyncResponse[JsValue]] =
+    for {
+      parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
+      _ <- EitherT.pure(metrics.daml.HttpJsonApi.commandSubmissionThroughput.mark())
+      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
+      (jwt, jwtPayload, reqBody) = t3
+      resp <- withJwtPayloadLoggingContext(jwtPayload)(
+        fn(jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx)
+      )
+      jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
+    } yield domain.OkResponse(jsVal)
+
+  private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
+      legacyParse: ParsePayload[P],
+      createFromUserToken: CreateFromUserToken[P],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+  ): EitherT[Future, Error, (Jwt, P, JsValue)] =
+    inputJsVal(req).flatMap(x => withJwtPayload[JsValue, P](x).leftMap(it => it: Error))
+
+  private[http] def withJwtPayload[A, P](fa: (Jwt, A))(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      legacyParse: ParsePayload[P],
+      createFromUserToken: CreateFromUserToken[P],
+  ): EitherT[Future, Unauthorized, (Jwt, P, A)] =
+    decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient, ledgerIdentityClient).map(t2 =>
+      (t2._1, t2._2, fa._2)
+    )
+
+  def getParseAndDecodeTimerCtx()(implicit
+      metrics: Metrics
+  ): ET[Timer.Context] =
+    EitherT.pure(metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.time())
 
   private[http] def input(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -113,6 +173,17 @@ object RouteSetup {
     logger.error(s"$fromWhat failed", e)
     e
   }
+
+  def withJwtPayloadLoggingContext[A](jwtPayload: JwtPayloadG)(
+      fn: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => A
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): A =
+    withEnrichedLoggingContext(
+      LoggingContextOf.label[JwtPayloadTag],
+      "ledger_id" -> jwtPayload.ledgerId.toString,
+      "act_as" -> jwtPayload.actAs.toString,
+      "application_id" -> jwtPayload.applicationId.toString,
+      "read_as" -> jwtPayload.readAs.toString,
+    ).run(fn)
 
   private[http] def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
       ec: ExecutionContext,
