@@ -187,15 +187,14 @@ patches we backport to the 1.0 release branch).
 
     1. Make `Alice` follow `Bob`.
 
-    1. From `Bob`, select the only available party (currently a long random-looking string) in the `Select a follower` drop down,
+    1. From `Bob`, select Alice in the `Select a follower` drop down,
        insert `hi alice` in the message field and click on `Send`.
 
     1. Verify that `Alice` has received the message in the other window.
 
     1. Make `Bob` follow `Alice`.
 
-    1. From `Alice`, select the only available party (currently a long
-       random-looking string) in the `Select a follower` drop down,
+    1. From `Alice`, select Bob in the `Select a follower` drop down,
        insert `hi bob` in the message field and click on `Send`.
 
     1. Verify that `Bob` has received the message in the other window.
