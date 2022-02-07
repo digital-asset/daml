@@ -15,7 +15,7 @@ import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Data.List.Extra
 import Data.String (fromString)
-import Data.Maybe (maybeToList)
+import Data.Maybe (maybeToList, isJust)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as Vector
@@ -807,27 +807,28 @@ cantonTests = testGroup "daml sandbox"
                 , "--ledger-host=localhost", "--ledger-port=" <> show ledgerApiPort
                 ]
             step "Start canton-repl"
+            env <- getEnvironment
             let cmd = unwords
-                    -- NOTE (Sofia): We need `script` on Linux and Mac because of this ammonite issue:
-                    --    https://github.com/com-lihaoyi/Ammonite/issues/276
                     [ "daml canton-repl"
                     , "--port", show ledgerApiPort
                     , "--admin-api-port", show adminApiPort
                     , "--domain-public-port", show domainPublicApiPort
                     , "--domain-admin-port", show domainAdminApiPort
                     ]
-                wrappedCmd
-                    | isWindows = cmd
-                    | isMac = concat ["script -q tty.txt ", cmd]
-                    | otherwise = concat ["script --quiet --command '", cmd, "'"]
-                input = unlines
+                input =
                     [ "sandbox.health.running"
                     , "local.health.running"
                     ]
-                proc' = (shell wrappedCmd) { cwd = Just dir }
-            output <- readCreateProcess proc' input
-            hPutStrLn stderr "canton-repl output:"
-            hPutStrLn stderr output
+                wrappedCmd
+                    | isWindows = cmd
+                    | otherwise = "script -q tty.txt " <> cmd
+                    -- NOTE (Sofia): We need to use `script` on Linux and Mac because of this Ammonite issue:
+                    --    https://github.com/com-lihaoyi/Ammonite/issues/276
+                env' | isWindows || isJust (lookup "TERM" env) = Nothing
+                     | otherwise = Just (("TERM", "xterm-16color") : env)
+                    -- We also need to set TERM to something, otherwise tput complains and crashes Ammonite.
+                proc' = (shell wrappedCmd) { cwd = Just dir, env = env' }
+            output <- readCreateProcess proc' (unlines input)
 
             let outputLines = lines output
             -- NOTE (Sofia): We use `isInfixOf` extensively because
