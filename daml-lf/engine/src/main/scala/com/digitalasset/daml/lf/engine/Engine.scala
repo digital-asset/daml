@@ -165,8 +165,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
       )
-      (tx, meta) = result
-    } yield (tx, meta)
+    } yield result
 
   def replay(
       submitters: Set[Party],
@@ -271,7 +270,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
+  ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
@@ -287,7 +286,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         seeding,
       )
     } yield result
-  }
 
   /** Interprets the given commands under the authority of @submitters, with additional readers @readAs
     *
