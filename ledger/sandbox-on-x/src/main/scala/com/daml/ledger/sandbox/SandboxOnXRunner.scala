@@ -131,8 +131,8 @@ object SandboxOnXRunner {
     val sharedEngine = new Engine(
       EngineConfig(
         allowedLanguageVersions = config.allowedLanguageVersions,
-        profileDir = config.extra.profileDir,
-        stackTraceMode = config.extra.stackTraces,
+        profileDir = config.profileDir,
+        stackTraceMode = config.stackTraces,
       )
     )
 
@@ -237,7 +237,7 @@ object SandboxOnXRunner {
       commandConfig = config.commandConfig,
       partyConfig = PartyConfiguration(config.extra.implicitPartyAllocation),
       optWriteService = Some(writeService),
-      authService = config.extra.authService,
+      authService = config.authService,
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
       metrics = metrics,
       timeServiceBackend = timeServiceBackend,
@@ -378,7 +378,7 @@ object SandboxOnXRunner {
         "participant-id" -> participantConfig.participantId,
         "ledger-id" -> config.ledgerId,
         "port" -> participantConfig.port.toString,
-        "time mode" -> config.extra.timeProviderType.description,
+        "time mode" -> config.timeProviderType.description,
         "allowed language versions" -> s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
         "authentication" -> authentication,
         "contract ids seeding" -> config.seeding.toString,
