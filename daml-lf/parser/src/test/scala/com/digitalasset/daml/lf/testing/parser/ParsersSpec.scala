@@ -861,6 +861,9 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
     "catch",
     "to_interface",
     "from_interface",
+    "interface_template_type_rep",
+    "signatory_interface",
+    "observer_interface",
   )
 
   private val modName = DottedName.assertFromString("Mod")
