@@ -21,10 +21,8 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.ContractStore
-import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
@@ -35,8 +33,7 @@ import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, Ledge
 import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.concurrent.Future
 
 private[platform] abstract class BaseLedger(
     val ledgerId: LedgerId,
@@ -155,15 +152,6 @@ private[platform] abstract class BaseLedger(
       loggingContext: LoggingContext
   ): Future[Option[DamlLf.Archive]] =
     ledgerDao.getLfArchive(packageId)
-
-  override def getLfPackage(packageId: Ref.PackageId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Ast.Package]] =
-    ledgerDao
-      .getLfArchive(packageId)
-      .flatMap(archiveO =>
-        Future.fromTry(Try(archiveO.map(archive => Decode.assertDecodeArchive(archive)._2)))
-      )(ExecutionContext.parasitic)
 
   override def packageEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
