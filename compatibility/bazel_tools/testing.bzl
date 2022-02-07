@@ -745,6 +745,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # Sandbox-on-X starts forwarding rejections on duplicate party allocation starting with next release
+        "start": "2.0.0-snapshot.20220201.9108.1",
+        "platform_ranges": [
+            {
+                "end": "2.0.0-snapshot.20220201.9108.0.aa2494f1",
+                "exclusions": [
+                    "PartyManagementServiceIT:PMRejectionDuplicateHint",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
