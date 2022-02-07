@@ -17,7 +17,7 @@ class StakeholdersTest
     extends AsyncFlatSpec
     with Matchers
     with TestResourceContext
-    with SandboxFixture
+    with SandboxTestLedger
     with SuiteResourceManagementAroundAll {
 
   import TestUtil._

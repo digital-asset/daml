@@ -87,10 +87,10 @@ class EngineModeIT
     )
   }
 
-  private[this] def run(darPath: Path, server: SandboxServer) =
+  private[this] def run(darPath: Path, serverPort: Port) =
     (
       for {
-        channel <- GrpcClientResource.owner(server.port).acquire().asFuture
+        channel <- GrpcClientResource.owner(serverPort).acquire().asFuture
         client <- ledger.client.LedgerClient.apply(channel, ledgerClientConfiguration)
         darContent = protobuf.ByteString.copyFrom(Files.readAllBytes(darPath))
         pkgsBefore <- client.packageManagementClient.listKnownPackages()

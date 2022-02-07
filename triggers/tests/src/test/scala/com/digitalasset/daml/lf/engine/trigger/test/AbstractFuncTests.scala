@@ -319,7 +319,7 @@ abstract class AbstractFuncTests
         for {
           client <- ledgerClient(
             // Sufficiently low that the transaction is larger than the max inbound message size
-            maxInboundMessageSize = 300
+            maxInboundMessageSize = 100
           )
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)

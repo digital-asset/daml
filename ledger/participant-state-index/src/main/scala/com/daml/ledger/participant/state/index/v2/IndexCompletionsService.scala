@@ -20,6 +20,7 @@ trait IndexCompletionsService extends LedgerEndService {
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed]
 
+  // TODO Remove, as possible. This is solely serving KV Deduplication Offset -> Duration conversion
   def getCompletions(
       startExclusive: LedgerOffset,
       endInclusive: LedgerOffset,

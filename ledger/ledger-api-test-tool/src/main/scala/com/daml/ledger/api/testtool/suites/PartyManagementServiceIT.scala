@@ -15,6 +15,7 @@ import io.grpc.Status
 import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
 
+import java.util.regex.Pattern
 import scala.util.Random
 
 final class PartyManagementServiceIT extends LedgerTestSuite {
@@ -78,6 +79,30 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
     )
   })
 
+  // TODO Merge into PMAllocateWithoutDisplayName once the empty-display-name assertion can be
+  //      configured based on the Canton feature descriptor,
+  test(
+    "PMAllocateEmptyExpectMissingDisplayName",
+    "A party allocation without display name must result in an empty display name in the queried party details",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    for {
+      party <- ledger.allocateParty(
+        partyIdHint =
+          Some(pMAllocateWithoutDisplayName + "_" + Random.alphanumeric.take(10).mkString),
+        displayName = None,
+      )
+      partiesDetails <- ledger.getParties(Seq(party))
+    } yield {
+      assert(
+        Tag.unwrap(party).nonEmpty,
+        "The allocated party identifier is an empty string",
+      )
+      val partyDetails = assertSingleton("Only one party requested", partiesDetails)
+      assert(partyDetails.displayName.isEmpty, "The party display name is non-empty")
+    }
+  })
+
   test(
     "PMAllocateDuplicateDisplayName",
     "It should be possible to allocate parties with the same display names",
@@ -90,6 +115,32 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
       assert(Tag.unwrap(p1).nonEmpty, "The first allocated party identifier is an empty string")
       assert(Tag.unwrap(p2).nonEmpty, "The second allocated party identifier is an empty string")
       assert(p1 != p2, "The two parties have the same party identifier")
+    }
+  })
+
+  test(
+    "PMRejectionDuplicateHint",
+    "A party allocation request with a duplicate party hint should be rejected",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val hint = "party_hint" + "_" + Random.alphanumeric.take(10).mkString
+    for {
+      party <- ledger.allocateParty(partyIdHint = Some(hint), displayName = None)
+      error <- ledger
+        .allocateParty(partyIdHint = Some(hint), displayName = None)
+        .mustFail("allocating a party with a duplicate hint")
+    } yield {
+      assert(
+        Tag.unwrap(party).nonEmpty,
+        "The allocated party identifier is an empty string",
+      )
+      assertGrpcErrorRegex(
+        ledger,
+        error,
+        Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        Some(Pattern.compile("Party already exists|PartyToParticipant")),
+      )
     }
   })
 

@@ -517,10 +517,6 @@ object MutableCacheBackedContractStoreSpec {
         case (`cId_2`, parties) if parties.contains(charlie) => Future.successful(Some(contract2))
         case _ => Future.successful(Option.empty)
       }
-
-    override def lookupContractKey(key: Key, forParties: Set[Party])(implicit
-        loggingContext: LoggingContext
-    ): Future[Option[ContractId]] = throw new RuntimeException("This method should not be called")
   }
 
   private def activeContract(

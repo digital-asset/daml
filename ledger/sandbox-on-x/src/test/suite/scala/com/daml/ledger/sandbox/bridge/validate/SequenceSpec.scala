@@ -53,8 +53,15 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       )
     )
 
-    // Assert no update forwarded on duplicate party allocation
-    sequence(partyUploadInput) shouldBe Iterable.empty
+    // Assert duplicate party allocation is rejected
+    sequence(partyUploadInput) shouldBe Iterable(
+      toOffset(2L) -> Update.PartyAllocationRejected(
+        submissionId = submissionId,
+        participantId = Ref.ParticipantId.assertFromString(participantName),
+        recordTime = currentRecordTime,
+        rejectionReason = "Party already exists",
+      )
+    )
   }
 
   it should "validate configuration upload submission" in new TestContext {

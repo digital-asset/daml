@@ -150,7 +150,6 @@ da_scala_test(
         "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-        "//ledger/sandbox-on-x:sandbox-classic-server",
         "//libs-scala/ports",
         "//libs-scala/resources",
     ],

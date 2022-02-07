@@ -52,8 +52,8 @@ object LedgerFactories {
         case `sql` =>
           PostgresResource.owner[ResourceContext]().map(database => Some(database.url))
       }
-      server <- SandboxServer.owner(sandboxConfig(jdbcUrl, darFiles))
-      channel <- GrpcClientResource.owner(server.port)
+      port <- SandboxServer.owner(sandboxConfig(jdbcUrl, darFiles))
+      channel <- GrpcClientResource.owner(port)
     } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))(
       ExecutionContext.fromExecutorService(executor)
     )

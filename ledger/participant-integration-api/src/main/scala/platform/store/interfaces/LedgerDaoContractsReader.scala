@@ -48,17 +48,6 @@ private[platform] trait LedgerDaoContractsReader {
       createArgument: Value,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]]
 
-  /** Looks up a Contract given a contract key and a party
-    *
-    * @param key the contract key to query
-    * @param forParties a set of parties for one of which the contract must be visible
-    * @return the optional [[ContractId]]
-    */
-  def lookupContractKey(
-      key: GlobalKey,
-      forParties: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]]
-
   /** Looks up the contract by id at a specific ledger event sequential id.
     *
     * @param contractId the contract id to query
