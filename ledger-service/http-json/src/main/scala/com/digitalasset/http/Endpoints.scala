@@ -13,17 +13,16 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
 import com.codahale.metrics.Timer
-import com.daml.lf
-import lf.value.{Value => LfValue}
-import com.daml.http.ContractsService.SearchResult
-import com.daml.http.EndpointsCompanion._
+import com.daml.lf.value.{Value => LfValue}
+import ContractsService.SearchResult
+import EndpointsCompanion._
 import com.daml.scalautil.Statement.discard
-import com.daml.http.domain.{JwtPayload, JwtPayloadLedgerIdOnly}
-import com.daml.http.json._
-import com.daml.http.util.Collections.toNonEmptySet
-import com.daml.http.util.FutureUtil.{either, eitherT}
-import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
-import com.daml.http.util.{ProtobufByteStrings, toLedgerId}
+import domain.{JwtPayload, JwtPayloadLedgerIdOnly}
+import json._
+import util.Collections.toNonEmptySet
+import util.FutureUtil.{either, eitherT}
+import util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
+import util.{ProtobufByteStrings, toLedgerId}
 import util.JwtParties._
 import com.daml.jwt.domain.Jwt
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext

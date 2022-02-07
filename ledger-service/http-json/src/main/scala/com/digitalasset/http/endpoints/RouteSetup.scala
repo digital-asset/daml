@@ -21,8 +21,8 @@ import com.daml.metrics.Metrics
 import com.daml.scalautil.Statement.discard
 import domain.{JwtPayloadG, JwtPayloadTag, JwtWritePayload}
 import json._
-import com.daml.http.util.FutureUtil.{either, eitherT}
-import com.daml.http.util.Logging.{InstanceUUID, RequestID}
+import util.FutureUtil.{either, eitherT}
+import util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import lav1.value.{Value => ApiValue}

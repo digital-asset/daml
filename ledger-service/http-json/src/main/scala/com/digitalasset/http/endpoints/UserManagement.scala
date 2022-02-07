@@ -7,10 +7,10 @@ package endpoints
 import akka.NotUsed
 import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Source
-import com.daml.http.EndpointsCompanion._
+import EndpointsCompanion._
+import Endpoints.ET
 import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
-import Endpoints.ET
 import com.daml.jwt.domain.Jwt
 import scalaz.std.scalaFuture._
 import scalaz.syntax.traverse._

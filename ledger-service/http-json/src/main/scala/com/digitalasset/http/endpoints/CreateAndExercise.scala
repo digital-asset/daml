@@ -5,15 +5,14 @@ package com.daml.http
 package endpoints
 
 import akka.http.scaladsl.model._
-import com.daml.lf
-import lf.value.{Value => LfValue}
+import com.daml.lf.value.{Value => LfValue}
 import EndpointsCompanion._
 import Endpoints.ET
-import com.daml.http.domain.{JwtPayloadTag, JwtWritePayload, TemplateId}
-import com.daml.http.json._
-import com.daml.http.util.FutureUtil.{either, eitherT}
-import com.daml.http.util.Logging.{InstanceUUID, RequestID}
-import com.daml.http.util.toLedgerId
+import domain.{JwtPayloadTag, JwtWritePayload, TemplateId}
+import json._
+import util.FutureUtil.{either, eitherT}
+import util.Logging.{InstanceUUID, RequestID}
+import util.toLedgerId
 import util.JwtParties._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
