@@ -43,7 +43,7 @@ CREATE TABLE participant_users (
     internal_id         INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id             VARCHAR(256)        NOT NULL UNIQUE,
     primary_party       VARCHAR(512),
-    created_at          BIGINT              NOT NULL DEFAULT CAST((1000 * 1000 * EXTRACT(epoch FROM CURRENT_TIMESTAMP)) AS BIGINT)
+    created_at          BIGINT              NOT NULL
 );
 
 CREATE TABLE participant_user_rights (
@@ -55,13 +55,13 @@ CREATE TABLE participant_user_rights (
                                                                     THEN for_party
                                                                     ELSE ''
                                                              END),
-    granted_at          BIGINT          NOT NULL DEFAULT CAST((1000 * 1000 * EXTRACT(epoch FROM CURRENT_TIMESTAMP)) AS BIGINT),
+    granted_at          BIGINT          NOT NULL,
     UNIQUE (user_internal_id, user_right, for_party2)
 );
 
-INSERT INTO participant_users(user_id, primary_party) VALUES ('participant_admin', NULL);
-INSERT INTO participant_user_rights(user_internal_id, user_right, for_party)
-    SELECT internal_id, 1, NULL
+INSERT INTO participant_users(user_id, primary_party, created_at) VALUES ('participant_admin', NULL, 0);
+INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, granted_at)
+    SELECT internal_id, 1, NULL, 0
     FROM participant_users
     WHERE user_id = 'participant_admin';
 

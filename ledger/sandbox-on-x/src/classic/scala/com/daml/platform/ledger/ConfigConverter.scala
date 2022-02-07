@@ -10,10 +10,13 @@ import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import scalaz.syntax.tag._
+
+import java.util.UUID
 import scala.jdk.DurationConverters._
 
 object ConfigConverter {
-  private val DefaultH2SandboxJdbcUrl = "jdbc:h2:mem:sandbox;db_close_delay=-1"
+  private def defaultH2SandboxJdbcUrl() =
+    s"jdbc:h2:mem:sandbox-${UUID.randomUUID().toString};db_close_delay=-1"
 
   private[sandbox] def toSandboxOnXConfig(
       sandboxConfig: SandboxConfig,
@@ -29,7 +32,7 @@ object ConfigConverter {
       portFile = sandboxConfig.portFile,
       // When missing, sandbox-classic used an in-memory ledger.
       // For Sandbox-on-X we don't offer that, so default to H2
-      serverJdbcUrl = sandboxConfig.jdbcUrl.getOrElse(DefaultH2SandboxJdbcUrl),
+      serverJdbcUrl = sandboxConfig.jdbcUrl.getOrElse(defaultH2SandboxJdbcUrl()),
       managementServiceTimeout = sandboxConfig.managementServiceTimeout,
       // TODO SoX-to-sandbox-classic: Wire up all indexer configurations
       indexerConfig = ParticipantIndexerConfig(

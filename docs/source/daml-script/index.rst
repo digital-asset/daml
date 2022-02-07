@@ -13,7 +13,7 @@ Daml Script
 
 Daml Script provides a simple way of testing Daml models and getting
 quick feedback in Daml studio. In addition to running it in a virtual
-ledger in :ref:`Daml Studio <scenario-script-results>`, you can also
+ledger in :ref:`Daml Studio <script-results>`, you can also
 point it against an actual ledger. This means that you can use it for
 application scripting, to test automation logic and also for
 :ref:`ledger initialization <script-ledger-initialization>`.

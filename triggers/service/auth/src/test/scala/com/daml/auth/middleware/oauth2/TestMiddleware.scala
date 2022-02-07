@@ -12,10 +12,11 @@ import akka.http.scaladsl.model.headers.{Cookie, Location, `Set-Cookie`}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.auth.middleware.api.{Client, Request, Response}
+import com.daml.auth.middleware.api.Request.Claims
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -177,6 +178,19 @@ class TestMiddleware
       } yield {
         assert(result == None)
       }
+    }
+
+    "accept user tokens" in {
+      import com.daml.auth.middleware.oauth2.Server.rightsProvideClaims
+      rightsProvideClaims(
+        StandardJWTPayload("foo", None, None),
+        Claims(
+          admin = true,
+          actAs = List(ApiTypes.Party("Alice")),
+          readAs = List(ApiTypes.Party("Bob")),
+          applicationId = Some(ApiTypes.ApplicationId("foo")),
+        ),
+      ) should ===(true)
     }
   }
   "the /login endpoint" should {

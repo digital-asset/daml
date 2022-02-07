@@ -23,7 +23,6 @@ da_scala_library(
     deps = [
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/data",
-        "//daml-lf/language",
         "//daml-lf/transaction",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-domain",

@@ -81,7 +81,9 @@ int main(int argc, char **argv) {
     return exit_code;
 
 #else
-    char**const argv_ = (char**)malloc((argc + 2) * sizeof(char*));
+    // we replace argv[0], 2 extra args for -jar and the path to the jar
+    // and then the terminating NULL so 3 in total.
+    char**const argv_ = (char**)malloc((argc + 3) * sizeof(char*));
     char* javaStr = new char[java.length() + 1];
     std::strcpy(javaStr, java.c_str());
     argv_[0] = javaStr;

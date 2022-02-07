@@ -6,7 +6,7 @@
 2 Testing templates using Daml Script
 =====================================
 
-In this section you will test the ``Token`` model from :doc:`1_Token` using the :doc:`Daml Script </daml-script/index>` integration in :ref:`Daml Studio <scenario-script-results>`. You'll learn about the basic features of :
+In this section you will test the ``Token`` model from :doc:`1_Token` using the :doc:`Daml Script </daml-script/index>` integration in :ref:`Daml Studio <script-results>`. You'll learn about the basic features of :
 
 - Allocating parties
 - Submitting transactions

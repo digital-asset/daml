@@ -7,9 +7,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import java.util.UUID
 
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.transaction.Node.KeyWithMaintainers
-import com.daml.lf.value.Value.{ContractId, ValueText, VersionedContractInstance}
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.platform.apiserver.execution.MissingContracts
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -108,59 +106,6 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       result <- contractsReader.lookupActiveContractAndLoadArgument(Set(david, emma), contractId)
     } yield {
       result.value shouldBe a[VersionedContractInstance]
-    }
-  }
-
-  it should "not find keys if none of requesters are stakeholders" in {
-    val aTextValue = ValueText(scala.util.Random.nextString(10))
-    for {
-      (_, _) <- createAndStoreContract(
-        submittingParties = Set(alice),
-        signatories = Set(alice, bob),
-        stakeholders = Set(alice, bob),
-        key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
-      )
-      key = GlobalKey.assertBuild(someTemplateId, aTextValue)
-      result <- contractsReader.lookupContractKey(key, Set(charlie, emma))
-    } yield {
-      result shouldBe None
-    }
-  }
-
-  it should "find a key if at least one of requesters is a stakeholder" in {
-    val aTextValue = ValueText(scala.util.Random.nextString(10))
-    for {
-      (_, tx) <- createAndStoreContract(
-        submittingParties = Set(alice),
-        signatories = Set(alice, bob),
-        stakeholders = Set(alice, bob, charlie),
-        key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
-      )
-      contractId = nonTransient(tx).loneElement
-      key = GlobalKey.assertBuild(someTemplateId, aTextValue)
-      result <- contractsReader.lookupContractKey(key, Set(emma, charlie))
-    } yield {
-      result.value shouldBe contractId
-    }
-  }
-
-  it should "not find a key if the requesters are only divulgees" in {
-    val aTextValue = ValueText(scala.util.Random.nextString(10))
-    for {
-      (_, tx) <- createAndStoreContract(
-        submittingParties = Set(alice),
-        signatories = Set(alice, bob),
-        stakeholders = Set(alice, bob, charlie),
-        key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
-      )
-      _ <- storeCommitedContractDivulgence(
-        id = nonTransient(tx).loneElement,
-        divulgees = Set(david, emma),
-      )
-      key = GlobalKey.assertBuild(someTemplateId, aTextValue)
-      result <- contractsReader.lookupContractKey(key, Set(david, emma))
-    } yield {
-      result shouldBe None
     }
   }
 

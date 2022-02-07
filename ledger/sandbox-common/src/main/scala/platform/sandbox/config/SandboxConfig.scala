@@ -46,7 +46,6 @@ final case class SandboxConfig(
     jdbcUrl: Option[String],
     databaseConnectionPoolSize: Int,
     databaseConnectionTimeout: FiniteDuration,
-    eagerPackageLoading: Boolean,
     logLevel: Option[Level],
     authService: Option[AuthService],
     seeding: Seeding,
@@ -148,7 +147,6 @@ object SandboxConfig {
       jdbcUrl = None,
       databaseConnectionPoolSize = DefaultDatabaseConnectionPoolSize,
       databaseConnectionTimeout = DefaultDatabaseConnectionTimeout,
-      eagerPackageLoading = false,
       logLevel = None, // the default is in logback.xml
       authService = None,
       seeding = Seeding.Strong,

@@ -7,7 +7,7 @@ import java.io.File
 
 import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, RunnerConfig}
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandboxnext.SandboxNextFixture
+import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
 import com.daml.bazeltools.BazelRunfiles._
@@ -19,7 +19,7 @@ import scala.concurrent.ExecutionContext
 
 trait SandboxParticipantFixture
     extends AbstractScriptTest
-    with SandboxNextFixture
+    with SandboxFixture
     with SandboxBackend.Postgresql
     with AkkaBeforeAndAfterAll {
   self: Suite =>

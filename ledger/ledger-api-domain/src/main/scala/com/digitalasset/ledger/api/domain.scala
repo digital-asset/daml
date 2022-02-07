@@ -399,4 +399,9 @@ object domain {
     final case class CanActAs(party: Ref.Party) extends UserRight
     final case class CanReadAs(party: Ref.Party) extends UserRight
   }
+
+  sealed abstract class Feature extends Product with Serializable
+  object Feature {
+    case object UserManagement extends Feature
+  }
 }

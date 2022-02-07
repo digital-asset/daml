@@ -5,7 +5,6 @@ package com.daml.script.export
 
 import java.nio.file.{Files, Path}
 import java.util.UUID
-
 import akka.stream.scaladsl.Sink
 import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
@@ -32,8 +31,8 @@ import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTime
 import com.daml.lf.engine.script.{Participants, Runner}
 import com.daml.lf.language.Ast.Package
 import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.sandbox.services.TestCommands
-import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -50,7 +49,7 @@ trait ReproducesTransactions
     with AkkaBeforeAndAfterAll
     with BeforeAndAfterEach
     with SuiteResourceManagementAroundAll
-    with SandboxNextFixture
+    with SandboxFixture
     with SandboxBackend.Postgresql
     with StrictLogging
     with TestCommands {

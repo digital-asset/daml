@@ -15,7 +15,6 @@ import com.daml.error.{
 import com.daml.ledger.api.domain._
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
-import com.daml.ledger.participant.state.index.v2.UserManagementStore.UsersPage
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
@@ -114,7 +113,10 @@ private[apiserver] final class ApiUserManagementService(
         .flatMap(handleResult("listing users"))
         .map { page: UserManagementStore.UsersPage =>
           val protoUsers = page.users.map(toProtoUser)
-          proto.ListUsersResponse(protoUsers, encodeNextPageToken(page))
+          proto.ListUsersResponse(
+            protoUsers,
+            encodeNextPageToken(if (page.users.size < pageSize) None else page.lastUserIdOption),
+          )
         }
     }
   }
@@ -238,8 +240,8 @@ object ApiUserManagementService {
       proto.Right(proto.Right.Kind.CanReadAs(proto.Right.CanReadAs(party)))
   }
 
-  def encodeNextPageToken(page: UsersPage): String =
-    page.lastUserIdOption
+  def encodeNextPageToken(token: Option[Ref.UserId]): String =
+    token
       .map { id =>
         val bytes = Base64.getUrlEncoder.encode(id.getBytes(StandardCharsets.UTF_8))
         new String(bytes, StandardCharsets.UTF_8)

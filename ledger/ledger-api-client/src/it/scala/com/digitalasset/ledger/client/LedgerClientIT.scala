@@ -13,7 +13,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandboxnext.SandboxNextFixture
+import com.daml.platform.sandbox.fixture.SandboxFixture
 import io.grpc.ManagedChannel
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -26,7 +26,7 @@ final class LedgerClientIT
     with Inside
     with AkkaBeforeAndAfterAll
     with SuiteResourceManagementAroundEach
-    with SandboxNextFixture {
+    with SandboxFixture {
 
   private val LedgerId =
     domain.LedgerId(s"${classOf[LedgerClientIT].getSimpleName.toLowerCase}-ledger-id")
