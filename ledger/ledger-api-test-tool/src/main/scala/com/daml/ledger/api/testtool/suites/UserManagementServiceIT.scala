@@ -20,6 +20,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   ListUserRightsRequest,
   ListUserRightsResponse,
   ListUsersRequest,
+  ListUsersResponse,
   RevokeUserRightsRequest,
   RevokeUserRightsResponse,
   User,
@@ -28,7 +29,6 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import io.grpc.Status
 
-import scala.collection.immutable.Iterable
 import scala.concurrent.{ExecutionContext, Future}
 
 final class UserManagementServiceIT extends LedgerTestSuite {
@@ -266,99 +266,136 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   })
 
   userManagementTest(
-    "TestListUsers",
-    "Exercise ListUsers rpc",
+    "TestListUsersVisibilityOfNewUserWhenCreatedAndThenDeleted",
+    "Exercise ListUsers rpc: Creating and deleting a user makes it visible and then absent from a page",
+    runConcurrently = false,
   )(implicit ec => { implicit ledger =>
-    val userId1 = ledger.nextUserId()
-    val userId2 = ledger.nextUserId()
-    val user1 = User(userId1, "party1")
-    val user2 = User(userId2, "party4")
-    for {
-      _ <- ledger.userManagement.createUser(
-        CreateUserRequest(Some(user1), Nil)
-      )
-      request = ListUsersRequest(pageSize = 100, pageToken = "")
-      res1 <- ledger.userManagement.listUsers(request)
-      res2 <- ledger.userManagement.createUser(
-        CreateUserRequest(Some(user2), Nil)
-      )
-      res3 <- ledger.userManagement.listUsers(request)
-      res4 <- ledger.userManagement.deleteUser(DeleteUserRequest(userId2))
-      res5 <- ledger.userManagement.listUsers(request)
-    } yield {
-      def filterUsers(users: Iterable[User]) = users.filter(u => u.id == userId1 || u.id == userId2)
+    def assertUserPresentIn(user: User, list: ListUsersResponse, msg: String): Unit = {
+      assert(list.users.contains(user), msg)
+    }
 
-      assertSameElements(filterUsers(res1.users), Seq(user1))
-      assertEquals(res2, user2)
-      assertSameElements(
-        filterUsers(res3.users),
-        Set(user1, user2),
+    def assertUserAbsentIn(user: User, list: ListUsersResponse, msg: String): Unit = {
+      assert(!list.users.contains(user), msg)
+    }
+
+    for {
+      pageBeforeCreate <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageToken = "", pageSize = 10)
       )
-      assertEquals(res4, DeleteUserResponse())
-      assertSameElements(filterUsers(res5.users), Seq(user1))
+      // Construct an user-id that with high probability will be the first on the first page
+      // (Note: "!" is the smallest valid user-id character)
+      newUserId = "!" + pageBeforeCreate.users.headOption.map(_.id).getOrElse(ledger.nextUserId())
+      newUser = User(newUserId, "")
+      _ = assertUserAbsentIn(
+        newUser,
+        pageBeforeCreate,
+        "new user should be absent before it's creation",
+      )
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(newUser), Nil))
+      pageAfterCreate <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageToken = "", pageSize = 10)
+      )
+      _ = assertUserPresentIn(
+        newUser,
+        pageAfterCreate,
+        "new users should be present after it's creation",
+      )
+      _ <- ledger.userManagement.deleteUser(DeleteUserRequest(newUserId))
+      pageAfterDelete <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageToken = "", pageSize = 10)
+      )
+      _ = assertUserAbsentIn(
+        newUser,
+        pageAfterDelete,
+        "new user should be absent after it's delteion",
+      )
+    } yield {
+      ()
     }
   })
 
   userManagementTest(
-    "TestPagedListUsers",
-    "Exercise paging behavior of ListUsers rpc",
+    "TestListUsersCreateOrDeleteUserOnPreviousPage",
+    "Exercise ListUsers rpc: Adding or deleting a user from  previous page doesn't affect the subsequent page",
+    runConcurrently = false,
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
     val userId3 = ledger.nextUserId()
     val userId4 = ledger.nextUserId()
-    val userId5 = ledger.nextUserId()
-    val userId6 = ledger.nextUserId()
-    val user1 = User(userId1, "")
-    val user2 = User(userId2, "")
-    val user3 = User(userId3, "")
-    val user4 = User(userId4, "")
-    val user5 = User(userId5, "")
-    val user6 = User(userId6, "")
+
     for {
-      // Ensure we have at least 6 users:
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user1), Nil))
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user2), Nil))
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user3), Nil))
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user4), Nil))
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user5), Nil))
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user6), Nil))
-      // Requesting first page:
-      res1 <- ledger.userManagement.listUsers(ListUsersRequest(pageSize = 2, pageToken = ""))
-      // Requesting second page:
-      res2 <- ledger.userManagement.listUsers(
-        ListUsersRequest(pageSize = 3, pageToken = res1.nextPageToken)
+      // Create 4 users to ensure we have at least two pages of two users each
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId1, "")), Nil))
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId2, "")), Nil))
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId3, "")), Nil))
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId4, "")), Nil))
+      // Fetch the first two full pages
+      page1 <- ledger.userManagement.listUsers(ListUsersRequest(pageToken = "", pageSize = 2))
+      page2 <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageToken = page1.nextPageToken, pageSize = 2)
       )
-      // Requesting last non-empty page of users
-      res3 <- ledger.userManagement.listUsers(
-        ListUsersRequest(pageSize = 1000, pageToken = res2.nextPageToken)
+      // Verify that the second page stays the same even after we have created a new user that is lexicographically smaller then the last user on the first page
+      // (Note: "!" is the smallest valid user-id character)
+      newUserId = "!" + page1.users.last.id
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(newUserId)), Seq.empty))
+      page2B <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageToken = page1.nextPageToken, pageSize = 2)
       )
-      // Using not base64 encoded string as a page token
-      onBadTokenError <- ledger.userManagement
-        .listUsers(
-          ListUsersRequest(pageSize = 100, pageToken = UUID.randomUUID().toString)
+      _ = assertEquals("after creating new user before the second page", page2, page2B)
+      // cleanup: deleting new user
+      _ <- ledger.userManagement.deleteUser(DeleteUserRequest(newUserId))
+      // Verify that the second page stays the same even after we have deleted the last user from the first page page
+      _ <- ledger.userManagement.deleteUser(DeleteUserRequest(page1.users.last.id))
+      page2C <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageToken = page1.nextPageToken, pageSize = 2)
+      )
+      _ = assertEquals("after deleting last user from the first page", page2, page2C)
+    } yield {
+      ()
+    }
+  })
+
+  userManagementTest(
+    "TestListUsersReachingTheLastPage",
+    "Exercise ListUsers rpc: Listing all users page by page eventually terminates reaching the last page",
+    runConcurrently = false,
+  )(implicit ec => { implicit ledger =>
+    val pageSize = 10000
+
+    def fetchNextPage(pageToken: String, pagesFetched: Int): Future[Unit] = {
+      for {
+        page <- ledger.userManagement.listUsers(
+          ListUsersRequest(pageSize = pageSize, pageToken = pageToken)
         )
-        .mustFail("using not base64 encoded string")
+        _ = if (page.nextPageToken != "") {
+          if (pagesFetched > 10) {
+            fail(
+              s"Could not reach the last page even after fetching ${pagesFetched + 1} pages of size $pageSize each"
+            )
+          }
+          fetchNextPage(pageToken = page.nextPageToken, pagesFetched = pagesFetched + 1)
+        }
+      } yield ()
+    }
+
+    fetchNextPage(pageToken = "", pagesFetched = 0)
+  })
+
+  userManagementTest(
+    "TestListUsersOnInvalidRequests",
+    "Exercise ListUsers rpc: Requesting invalid pageSize or pageToken results in an error",
+  )(implicit ec => { implicit ledger =>
+    for {
+      // Using not Base64 encoded string as the page token
+      onBadTokenError <- ledger.userManagement
+        .listUsers(ListUsersRequest(pageToken = UUID.randomUUID().toString))
+        .mustFail("using invalid page token string")
       // Using negative pageSize
       onNegativePageSizeError <- ledger.userManagement
-        .listUsers(
-          ListUsersRequest(pageSize = -100, pageToken = "")
-        )
+        .listUsers(ListUsersRequest(pageSize = -100))
         .mustFail("using negative page size")
-      // 0 pageSize
-      responseZeroPageSize <- ledger.userManagement.listUsers(
-        ListUsersRequest(pageSize = 0, pageToken = "")
-      )
     } yield {
-      assert(res1.nextPageToken.nonEmpty, s"First next page token should be non-empty")
-      assertLength("first page", 2, res1.users)
-
-      assert(res2.nextPageToken.nonEmpty, s"Second next page token should be non-empty")
-      assertLength("second page", 3, res2.users)
-
-      assert(res3.nextPageToken.isEmpty, "Third next page token should be empty")
-      assert(res2.users.nonEmpty, s"Third page should be non-empty")
-
       assertGrpcError(
         participant = ledger,
         t = onBadTokenError,
@@ -373,16 +410,39 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         selfServiceErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
         exceptionMessageSubstring = None,
       )
+    }
+
+  })
+
+  userManagementTest(
+    "TestListUsersRequestPageSizeZero",
+    "Exercise ListUsers rpc: Reqeusting page of size zero means requesting server's default page size, which is larger than zero",
+    runConcurrently = false,
+  )(implicit ec => { implicit ledger =>
+    val userId1 = ledger.nextUserId()
+    val userId2 = ledger.nextUserId()
+    for {
+      // Ensure we have at least two users
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId1, "")), Nil))
+      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId2, "")), Nil))
+      pageSizeZero <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageSize = 0)
+      )
+      pageSizeOne <- ledger.userManagement.listUsers(
+        ListUsersRequest(pageSize = 1)
+      )
+    } yield {
       assert(
-        responseZeroPageSize.users.nonEmpty,
+        pageSizeOne.users.nonEmpty,
         "First page with requested pageSize zero should return some users",
       )
+      assertEquals(pageSizeZero.users.head, pageSizeOne.users.head)
     }
   })
 
   test(
     "TestMaxUsersPageSize",
-    "Exercise max users page size behavior of ListUsers rpc",
+    "Exercise ListUsers rpc: Requesting more than maxUsersPageSize results in at most maxUsersPageSize returned users",
     allocate(NoParties),
     enabled = _.userManagement.maxUsersPageSize > 0,
     disabledReason = "requires user management feature with users page size limit",
@@ -391,7 +451,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     val maxUsersPageSize = ledger.features.userManagement.maxUsersPageSize
     val users = 1.to(maxUsersPageSize + 1).map(_ => User(ledger.nextUserId(), ""))
     for {
-      // create users
+      // create lots of users
       _ <- Future.sequence(
         users.map(u => ledger.userManagement.createUser(CreateUserRequest(Some(u), Nil)))
       )
@@ -404,7 +464,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       _ <- Future.sequence(
         users.map(u => ledger.userManagement.deleteUser(DeleteUserRequest(u.id)))
       )
-
     } yield {
       assert(
         page.users.size <= maxUsersPageSize,
@@ -515,6 +574,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   private def userManagementTest(
       shortIdentifier: String,
       description: String,
+      runConcurrently: Boolean = true,
   )(
       body: ExecutionContext => ParticipantTestContext => Future[Unit]
   ): Unit = {
@@ -524,6 +584,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       allocate(NoParties),
       enabled = _.userManagement.supported,
       disabledReason = "requires user management feature",
+      runConcurrently = runConcurrently,
     )(implicit ec => { case Participants(Participant(ledger)) =>
       body(ec)(ledger)
     })
