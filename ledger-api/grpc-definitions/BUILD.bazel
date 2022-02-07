@@ -17,13 +17,13 @@ ledger_api_proto_source_root = "ledger-api/grpc-definitions"
 # so we need to declare this separately here.
 java_proto_library(
     name = "rpc_java_proto",
+    visibility = ["//visibilityt:public"],
     deps = [
         "@go_googleapis//google/rpc:code_proto",
         "@go_googleapis//google/rpc:errdetails_proto",
         "@go_googleapis//google/rpc:status_proto",
     ],
-    visibility = ["//visibilityt:public"],
- )
+)
 
 proto_jars(
     name = "ledger_api_proto",
