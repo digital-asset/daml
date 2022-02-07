@@ -52,7 +52,7 @@ main = do
         -- NOTE(Sofia): We don't use `script` on Windows.
         mbScriptPath <- if isWindows
             then pure Nothing
-            else Just <$> locateRunfiles "unixtools_script/bin"
+            else Just <$> locateRunfiles "script_nix/bin"
         -- NOTE: `COMSPEC` env. variable on Windows points to cmd.exe, which is required to be present
         -- on the PATH as mvn.cmd executes cmd.exe
         mbComSpec <- getEnv "COMSPEC"
