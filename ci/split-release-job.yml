@@ -66,6 +66,12 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         mkdir -p $(Build.StagingDirectory)/split-release
         ./ci/assembly-split-release-artifacts.sh $(release_tag) $(Build.StagingDirectory)/release-artifacts $(Build.StagingDirectory)/split-release
+        jq -n \
+           --arg commit $(release_sha) \
+           --arg version $(release_tag) \
+           --arg trigger $(trigger_sha) \
+           '{$commit, $version, $trigger}' \
+           > $(Build.StagingDirectory)/split-release/split-release/info.json
     - bash: |
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit

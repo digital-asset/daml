@@ -10,11 +10,6 @@ import com.daml.platform.store.interning.StringInterning
 
 private[postgresql] object PGSchema {
   private val PGFieldStrategy = new FieldStrategy {
-    override def stringArray[FROM](
-        extractor: StringInterning => FROM => Iterable[String]
-    ): Field[FROM, Iterable[String], _] =
-      PGStringArray(extractor)
-
     override def stringArrayOptional[FROM](
         extractor: StringInterning => FROM => Option[Iterable[String]]
     ): Field[FROM, Option[Iterable[String]], _] =
@@ -39,9 +34,6 @@ private[postgresql] object PGSchema {
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
       PGTable.transposedInsert(tableName)(fields: _*)
-
-    override def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM] =
-      PGTable.transposedDelete(tableName)(field)
 
     override def idempotentInsert[FROM](tableName: String, keyFieldIndex: Int)(
         fields: (String, Field[FROM, _, _])*

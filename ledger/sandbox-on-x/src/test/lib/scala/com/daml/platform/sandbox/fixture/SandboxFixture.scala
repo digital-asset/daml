@@ -16,7 +16,7 @@ import org.scalatest.Suite
 import scala.concurrent.duration._
 import java.time.Duration
 
-trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxServer, Channel)] {
+trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(Port, Channel)] {
   self: Suite =>
 
   override protected def config: SandboxConfig =
@@ -24,23 +24,21 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxS
       delayBeforeSubmittingLedgerConfiguration = Duration.ZERO
     )
 
-  protected def server: SandboxServer = suiteResource.value._1
-
-  override protected def serverPort: Port = server.port
+  override protected def serverPort: Port = suiteResource.value._1
 
   override protected def channel: Channel = suiteResource.value._2
 
-  override protected lazy val suiteResource: Resource[(SandboxServer, Channel)] = {
+  override protected lazy val suiteResource: Resource[(Port, Channel)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, (SandboxServer, Channel)](
+    new OwnedResource[ResourceContext, (Port, Channel)](
       for {
         jdbcUrl <- database
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
             _.map(info => Some(info.jdbcUrl))
           )
-        server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
-        channel <- GrpcClientResource.owner(server.port)
-      } yield (server, channel),
+        port <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
+        channel <- GrpcClientResource.owner(port)
+      } yield (port, channel),
       acquisitionTimeout = 1.minute,
       releaseTimeout = 1.minute,
     )

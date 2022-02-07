@@ -4,12 +4,11 @@
 package com.daml.http
 
 import java.net.InetAddress
-
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.testing.utils.{OwnedResource, SuiteResource, Resource => TestResource}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxBackend}
-import com.daml.platform.sandboxnext.Runner
+import com.daml.ledger.sandbox.SandboxServer
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.timer.RetryStrategy
@@ -83,7 +82,7 @@ trait ToxicSandboxFixture
         jdbcUrl <- database
           .getOrElse(SandboxBackend.H2Database.owner)
           .map(info => Some(info.jdbcUrl))
-        port <- new Runner(config.copy(jdbcUrl = jdbcUrl))
+        port <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(port)
         (proxiedPort, proxyClient, proxy) <- toxiproxy(port)
       } yield (port, channel, proxiedPort, proxyClient, proxy),

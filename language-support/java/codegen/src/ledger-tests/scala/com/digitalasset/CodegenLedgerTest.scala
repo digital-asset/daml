@@ -24,7 +24,7 @@ import java.util.Arrays.asList
 
 class CodegenLedgerTest
     extends AsyncFlatSpec
-    with SandboxFixture
+    with SandboxTestLedger
     with Matchers
     with TestResourceContext
     with SuiteResourceManagementAroundAll {

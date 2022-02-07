@@ -11,6 +11,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
+import scala.util.Random
 
 private[backend] trait StorageBackendTestsIngestion
     extends Matchers
@@ -93,20 +94,24 @@ private[backend] trait StorageBackendTestsIngestion
     partiesAfterLedgerEndUpdate should not be empty
   }
 
-  private val NumberOfUpsertPackagesTests = 100
+  private val NumberOfUpsertPackagesTests = 30
   it should s"safely upsert packages concurrently ($NumberOfUpsertPackagesTests)" in withConnections(
     2
   ) { connections =>
     import scala.concurrent.ExecutionContext.Implicits.global
 
+    val List(connection1, connection2) = connections
+    def packageFor(n: Int): DbDto.Package =
+      dtoPackage(offset(n.toLong))
+        .copy(
+          package_id = s"abc123$n",
+          _package = Random.nextString(Random.nextInt(200000) + 200).getBytes,
+        )
+    val conflictingPackageDtos = 11 to 20 map packageFor
+    val packages1 = 21 to 30 map packageFor
+    val packages2 = 31 to 40 map packageFor
+
     def test() = {
-      val List(connection1, connection2) = connections
-      def packageFor(n: Int): DbDto.Package =
-        dtoPackage(offset(n.toLong))
-          .copy(package_id = s"abc123$n")
-      val conflictingPackageDtos = 11 to 20 map packageFor
-      val packages1 = 21 to 30 map packageFor
-      val packages2 = 31 to 40 map packageFor
 
       executeSql(backend.parameter.initializeParameters(someIdentityParams))
 

@@ -8,9 +8,7 @@ import java.util.Base64
 
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorsAssertions}
-import com.daml.ledger.api.domain.User
 import com.daml.ledger.api.v1.page_tokens.ListUsersPageTokenPayload
-import com.daml.ledger.participant.state.index.v2.UserManagementStore.UsersPage
 import com.daml.lf.data.Ref
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -26,10 +24,7 @@ class ApiUserManagementServiceSpec
 
   it should "test users page token encoding and decoding" in {
     val id2 = Ref.UserId.assertFromString("user2")
-    val page = UsersPage(
-      users = Seq(User(Ref.UserId.assertFromString("user1"), None), User(id2, None))
-    )
-    val actualNextPageToken = ApiUserManagementService.encodeNextPageToken(page)
+    val actualNextPageToken = ApiUserManagementService.encodeNextPageToken(Some(id2))
     actualNextPageToken shouldBe "CgV1c2VyMg=="
     ApiUserManagementService.decodeUserIdFromPageToken(actualNextPageToken)(
       errorLogger
@@ -38,9 +33,8 @@ class ApiUserManagementServiceSpec
     )
   }
 
-  it should "test users page token encoding and decoding for an empty page" in {
-    val page = UsersPage(users = Seq.empty)
-    val actualNextPageToken = ApiUserManagementService.encodeNextPageToken(page)
+  it should "test users empty page token encoding and decoding" in {
+    val actualNextPageToken = ApiUserManagementService.encodeNextPageToken(None)
     actualNextPageToken shouldBe ("")
     ApiUserManagementService.decodeUserIdFromPageToken(actualNextPageToken)(
       errorLogger

@@ -64,6 +64,7 @@ ScriptTest:testQueryContractId SUCCESS
 ScriptTest:testQueryContractKey SUCCESS
 ScriptTest:testSetTime SUCCESS
 ScriptTest:testStack SUCCESS
+ScriptTest:testUserListPagination SUCCESS
 ScriptTest:testUserManagement SUCCESS
 ScriptTest:testUserRightManagement SUCCESS
 ScriptTest:traceOrder SUCCESS
