@@ -120,7 +120,7 @@ da_haskell_test(
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
-    ] + ([] if is_windows else ts_libraries),
+    ] + ([] if is_windows else ts_libraries + ["@script_dev_env//:script"]),
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
     hackage_deps = [

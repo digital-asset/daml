@@ -27,6 +27,7 @@ let shared = rec {
     protobuf3_8
     python3
     toxiproxy
+    unixtools
     zip
   ;
 

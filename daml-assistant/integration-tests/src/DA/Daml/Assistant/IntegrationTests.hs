@@ -49,13 +49,22 @@ main = do
         mvnPath <- locateRunfiles "mvn_dev_env/bin"
         tarPath <- locateRunfiles "tar_dev_env/bin"
         yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
+        -- NOTE(Sofia): We don't use `script` on Windows.
+        mbScriptPath <- if isWindows
+            then pure Nothing
+            else Just <$> locateRunfiles "script_dev_env/bin"
         -- NOTE: `COMSPEC` env. variable on Windows points to cmd.exe, which is required to be present
         -- on the PATH as mvn.cmd executes cmd.exe
         mbComSpec <- getEnv "COMSPEC"
         let mbCmdDir = takeDirectory <$> mbComSpec
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
-            [ ("PATH", Just $ intercalate [searchPathSeparator] $ (tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
+            [ ("PATH", Just $ intercalate [searchPathSeparator] $ concat
+                [ [tarPath, javaPath, mvnPath, yarnPath]
+                , maybeToList mbScriptPath
+                , oldPath
+                , maybeToList mbCmdDir
+                ])
             , ("TASTY_NUM_THREADS", Just "1")
             ] $ defaultMain (tests tmpDir))
 
@@ -799,7 +808,7 @@ cantonTests = testGroup "daml sandbox"
                 ]
             step "Start canton-repl"
             let cmd = unwords
-                    [ "daml canton-repl"
+                    [ (if isWindows then "" else "script -q -- tty.txt ") <> "daml canton-repl"
                     , "--port", show ledgerApiPort
                     , "--admin-api-port", show adminApiPort
                     , "--domain-public-port", show domainPublicApiPort
@@ -810,9 +819,13 @@ cantonTests = testGroup "daml sandbox"
                     , "local.health.running"
                     ]
                 proc' = (shell cmd) { cwd = Just dir }
-            hPutStrLn stderr "starting canton-repl process"
             output <- readCreateProcess proc' input
-            hPutStrLn stderr "canton-repl process ended"
-            hPutStrLn stderr "canton-repl output:"
-            hPutStrLn stderr output
+            let outputLines = lines output
+            -- NOTE (Sofia): We use `isInfixOf` extensively because
+            --   the REPL output is full of color codes.
+            Just res0 <- pure (find (isInfixOf "res0") outputLines)
+            assertBool "sandbox participant is not running" ("true" `isInfixOf` res0)
+            Just res1 <- pure (find (isInfixOf "res1") outputLines)
+            assertBool "local domain is not running" ("true" `isInfixOf` res1)
+
     ]

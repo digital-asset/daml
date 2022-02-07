@@ -885,3 +885,21 @@ nixpkgs_package(
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
+
+nixpkgs_package(
+    name = "unixtools_script",
+    attribute_path = "unixtools.script",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+) if not is_windows else None
+
+dev_env_tool(
+    name = "script_dev_env",
+    nix_include = ["bin/script"],
+    nix_label = "@unixtools_script",
+    nix_paths = ["bin/script"],
+    tools = ["script"],
+    win_tool = "",
+    win_include = [],
+) if not is_windows else None
