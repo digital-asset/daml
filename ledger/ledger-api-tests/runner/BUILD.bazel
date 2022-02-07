@@ -20,7 +20,7 @@ load("@os_info//:os_info.bzl", "is_windows")
         srcs = glob([
             "src/main/scala/**/*.scala",
         ]),
-        tags = ["maven_coordinates=com.daml.ledger:tests-runner-%s:__VERSION__" % lf_version],
+        tags = ["maven_coordinates=com.daml:ledger-api-tests-runner-%s:__VERSION__" % lf_version],
         visibility = ["//:__subpackages__"],
         runtime_deps = [
             "@maven//:ch_qos_logback_logback_classic",

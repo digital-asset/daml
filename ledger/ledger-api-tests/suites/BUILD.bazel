@@ -41,7 +41,7 @@ versions = {
     da_scala_library(
         name = "suites-%s" % lf_version,
         srcs = config["entrypoints"] + config["srcs"],
-        tags = ["maven_coordinates=com.daml.ledger:tests-suites-%s:__VERSION__" % lf_version],
+        tags = ["maven_coordinates=com.daml:ledger-api-tests-suites-%s:__VERSION__" % lf_version],
         visibility = ["//:__subpackages__"],
         deps = deps(lf_version),
     )
