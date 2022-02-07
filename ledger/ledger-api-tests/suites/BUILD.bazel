@@ -38,24 +38,13 @@ versions = {
 }
 
 [
-    [
-        da_scala_library_suite(
-            name = "suites-each-%s" % lf_version,
-            srcs = config["srcs"],
-            visibility = ["//:__subpackages__"],
-            deps = deps(lf_version),
-        ),
-        da_scala_library(
-            name = "suites-%s" % lf_version,
-            srcs = config["entrypoints"],
-            tags = ["maven_coordinates=com.daml.ledger:tests-suites-%s:__VERSION__" % lf_version],
-            visibility = ["//:__subpackages__"],
-            deps = [":suites-each-%s" % lf_version] + [
-                "//ledger/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
-                "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-            ],
-        ),
-    ]
+    da_scala_library(
+        name = "suites-%s" % lf_version,
+        srcs = config["entrypoints"] + config["srcs"],
+        tags = ["maven_coordinates=com.daml.ledger:tests-suites-%s:__VERSION__" % lf_version],
+        visibility = ["//:__subpackages__"],
+        deps = deps(lf_version),
+    )
     for (lf_version, config) in versions.items()
 ]
 
@@ -79,26 +68,13 @@ da_scala_test_suite(
 )
 
 [
-    [
-        alias(
-            name = "suites-each-%s" % name,
-            actual = ":suites-each-%s" % lf_target,
-            visibility = ["//visibility:public"],
-        ),
-        alias(
-            name = "suites-%s" % name,
-            actual = ":suites-%s" % lf_target,
-            visibility = ["//visibility:public"],
-        ),
-    ]
+    alias(
+        name = "suites-%s" % name,
+        actual = ":suites-%s" % lf_target,
+        visibility = ["//visibility:public"],
+    )
     for (name, lf_target) in lf_version_configuration.items()
 ]
-
-alias(
-    name = "suites-each",
-    actual = ":suites-each-default",
-    visibility = ["//visibility:public"],
-)
 
 alias(
     name = "suites",

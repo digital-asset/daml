@@ -31,7 +31,6 @@ da_scala_test(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-tests/infrastructure",
         "//ledger/ledger-api-tests/suites",
-        "//ledger/ledger-api-tests/suites:suites-each",
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
