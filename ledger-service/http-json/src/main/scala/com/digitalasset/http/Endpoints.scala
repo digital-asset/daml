@@ -729,17 +729,14 @@ class Endpoints(
   private implicit def sourceStreamSearchResults[A: JsonWriter]
       : MkHttpResponse[ET[domain.SyncResponse[Source[Error \/ A, NotUsed]]]] =
     MkHttpResponse { output =>
-      hrSearchResults.run(output.map(_ map (_ map (_ map ((_: A).toJson)))).run)
+      implicitly[MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]]]
+        .run(output.map(_ map (_ map (_ map ((_: A).toJson)))).run)
     }
 
-  private implicit def hrSearchResults
+  private implicit def searchResults
       : MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]] =
     MkHttpResponse { output =>
-      output
-        .map {
-          case -\/(e) => httpResponseError(e)
-          case \/-(searchResult) => searchHttpResponse(searchResult)
-        }
+      output.map(_.fold(httpResponseError, searchHttpResponse))
     }
 
   private[this] def logException(fromWhat: String)(implicit
@@ -774,7 +771,7 @@ class Endpoints(
       case o => o
     }
 
-  private implicit def hrFullySync[A: JsonWriter](implicit
+  private implicit def fullySync[A: JsonWriter](implicit
       metrics: Metrics
   ): MkHttpResponse[ET[domain.SyncResponse[A]]] = MkHttpResponse { result =>
     Timed.future(
