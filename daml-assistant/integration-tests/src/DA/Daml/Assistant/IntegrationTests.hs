@@ -808,6 +808,8 @@ cantonTests = testGroup "daml sandbox"
                 ]
             step "Start canton-repl"
             let cmd = unwords
+                    -- NOTE (Sofia): We need `script` on Linux and Mac because of this ammonite issue:
+                    --    https://github.com/com-lihaoyi/Ammonite/issues/276
                     [ (if isWindows then "" else "script -q -- tty.txt ") <> "daml canton-repl"
                     , "--port", show ledgerApiPort
                     , "--admin-api-port", show adminApiPort

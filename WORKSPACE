@@ -900,6 +900,6 @@ dev_env_tool(
     nix_label = "@unixtools_script",
     nix_paths = ["bin/script"],
     tools = ["script"],
-    win_tool = "",
     win_include = [],
+    win_tool = "",
 ) if not is_windows else None
