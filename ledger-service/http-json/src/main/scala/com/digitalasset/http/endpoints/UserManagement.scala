@@ -22,7 +22,7 @@ import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.lf.data.Ref.UserId
 
-class UserManagement(
+private[http] final class UserManagement(
     routeSetup: RouteSetup,
     decodeJwt: EndpointsCompanion.ValidateJwt,
     userManagementClient: UserManagementClient,
@@ -196,7 +196,7 @@ class UserManagement(
     decodeAndParseUserIdFromToken(jwt, decodeJwt).leftMap(identity[Error])
 }
 
-object UserManagement {
+private[http] object UserManagement {
   private def parseUserId(rawUserId: String)(implicit
       ec: ExecutionContext
   ): ET[UserId] = {

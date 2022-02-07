@@ -39,7 +39,7 @@ import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 
-class RouteSetup(
+private[http] final class RouteSetup(
     allowNonHttps: Boolean,
     decodeJwt: EndpointsCompanion.ValidateJwt,
     encoder: DomainJsonEncoder,
@@ -162,7 +162,7 @@ class RouteSetup(
     }
 }
 
-object RouteSetup {
+private[http] object RouteSetup {
   import Endpoints.IntoEndpointsError
 
   private val logger = ContextualizedLogger.get(getClass)

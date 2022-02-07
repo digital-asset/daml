@@ -27,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.{Metrics, Timed}
 
-class CreateAndExercise(
+private[http] final class CreateAndExercise(
     routeSetup: RouteSetup,
     decoder: DomainJsonDecoder,
     commandService: CommandService,
@@ -145,7 +145,7 @@ class CreateAndExercise(
       }
 }
 
-object CreateAndExercise {
+private[http] object CreateAndExercise {
   import util.ErrorOps._
 
   private def lfValueToApiValue(a: LfValue): Error \/ ApiValue =
