@@ -250,12 +250,12 @@ object SValue {
       }
   }
 
-  object SAnyInterface {
+  object SAnyContract {
     def apply(tyCon: Ref.TypeConName, record: SRecord): SAny = SAny(TTyCon(tyCon), record)
 
     def unapply(any: SAny): Option[(TypeConName, SRecord)] =
       any match {
-        case SAny(TTyCon(tyCon0), record @ SRecord(tyCon1, _, _)) if tyCon0 == tyCon1 =>
+        case SAny(TTyCon(tyCon0), record: SRecord) =>
           Some(tyCon0, record)
         case _ =>
           None

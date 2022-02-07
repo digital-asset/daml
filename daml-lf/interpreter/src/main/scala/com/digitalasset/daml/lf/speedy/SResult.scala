@@ -31,7 +31,6 @@ object SResult {
   /** Update interpretation requires access to a contract on the ledger. */
   final case class SResultNeedContract(
       contractId: ContractId,
-      templateId: TypeConName,
       committers: Set[Party],
       // Callback
       // returns the next expression to evaluate.
