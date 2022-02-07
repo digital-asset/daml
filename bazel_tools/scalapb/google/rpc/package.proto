@@ -5,10 +5,9 @@ syntax = "proto3";
 
 import "scalapb/scalapb.proto";
 
-package com.daml;
+package google.rpc;
 
 option (scalapb.options) = {
   scope: PACKAGE
-  preserve_unknown_fields: false
   java_conversions: true
 };
