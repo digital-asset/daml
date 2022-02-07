@@ -1025,7 +1025,6 @@ private[lf] object SBuiltin {
   final case class SBUFetch(
       templateId: TypeConName
   ) extends OnLedgerBuiltin(2) {
-    private[this] val typ = Ast.TTyCon(templateId)
     override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -1061,7 +1060,7 @@ private[lf] object SBuiltin {
                   }
                   machine.pushKont(KCacheContract(machine, templateId, coid))
                   machine.ctrl = SELet1(
-                    SEImportValue(typ, arg),
+                    SEImportValue(Ast.TTyCon(templateId), arg),
                     cachedContractStruct(
                       SELocS(1),
                       SEApp(SEVal(SignatoriesDefRef(templateId)), Array(SELocS(1))),
@@ -1143,7 +1142,7 @@ private[lf] object SBuiltin {
                 checkTemplateId(actualTmplId) {
                   machine.pushKont(KCacheContract(machine, actualTmplId, coid))
                   machine.ctrl = SELet1(
-                    SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                    SEImportInterface(actualTmplId, arg),
                     cachedContractStruct(
                       SELocS(1),
                       SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),

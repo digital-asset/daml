@@ -89,7 +89,7 @@ private[lf] object ValidateCompilation {
         case SEScopeExercise(body) =>
           go(body)
 
-        case _: SEDamlException | _: SEImportValue =>
+        case _: SEDamlException | _: SEImportValue | _: SEImportInterface =>
           throw CompilationError(s"validate: unexpected $expr")
       }
       @tailrec

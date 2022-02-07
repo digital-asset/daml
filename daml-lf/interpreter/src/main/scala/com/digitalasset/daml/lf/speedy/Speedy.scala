@@ -686,7 +686,7 @@ private[lf] object Speedy {
     // Note the method does not check the value is well-typed as opposed as
     // com.daml.lf.engine.preprocessing.ValueTranslator.translateValue.
     // All the contract IDs contained in the value are considered global.
-    // Raises an exception if missing a package.
+    // Crashes if missing a package.
     private[speedy] def importValue(typ0: Type, value0: V): Unit = {
 
       def assertRight[X](x: Either[LookupError, X]) =

@@ -339,9 +339,35 @@ object SExpr {
 
   /** The SEImportValue form is never constructed when compiling user LF.
     * It is only constructed at runtime by certain builtin-ops.
+    * Assumes the package needed to type `value` are preloaded.
     */
   final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr {
     def execute(machine: Machine): Unit = {
+      machine.importValue(typ, value)
+    }
+  }
+
+  /** Similarly to SEImportValue the SEImportValue form is never
+    * constructed when compiling user LF. It is only constructed
+    * at runtime by certain builtin-ops.
+    * Unlike SEImportValue, may throw a SpeedyHungry exception to
+    * request the packages of tyCon.
+    */
+  final case class SEImportInterface(tyCon: TypeConName, value: V) extends SExpr {
+    private[this] val typ = Ast.TTyCon(tyCon)
+    def execute(machine: Machine): Unit = {
+      val pkgId = tyCon.packageId
+      if (!machine.compiledPackages.packageIds.contains(pkgId))
+        throw SpeedyHungry(
+          SResult.SResultNeedPackage(
+            pkgId,
+            language.Reference.Template(tyCon),
+            _ =>
+              // we do not reuse SEImportInterface to avoid infinite
+              // loop in case of a bug somewhere else.
+              machine.ctrl = SEImportValue(typ, value),
+          )
+        )
       machine.importValue(typ, value)
     }
   }

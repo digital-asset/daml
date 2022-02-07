@@ -564,9 +564,8 @@ private[lf] object Pretty {
         case SEScopeExercise(body) =>
           text("exercise") + char('(') + prettySExpr(index)(body) + text(")")
 
-        case x: SEImportValue => str(x)
-        case x: SELabelClosure => str(x)
-        case x: SEDamlException => str(x)
+        case _: SEImportValue | _: SEImportInterface | _: SELabelClosure | _: SEDamlException =>
+          str(e)
       }
   }
 

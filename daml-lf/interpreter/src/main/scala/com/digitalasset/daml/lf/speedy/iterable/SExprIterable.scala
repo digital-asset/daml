@@ -26,6 +26,7 @@ private[speedy] object SExprIterable {
     case SExpr.SELabelClosure(_, expr) => Iterator(expr)
     case SExpr.SEDamlException(_) => Iterator.empty
     case SExpr.SEImportValue(_, _) => Iterator.empty
+    case SExpr.SEImportInterface(_, _) => Iterator.empty
     case SExpr.SETryCatch(body, handler) => Iterator(body, handler)
     case SExpr.SEScopeExercise(body) => Iterator(body)
     case SExpr.SEBuiltin(_) => Iterator.empty
