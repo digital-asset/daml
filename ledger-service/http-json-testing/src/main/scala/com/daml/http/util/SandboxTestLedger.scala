@@ -41,7 +41,6 @@ trait SandboxTestLedger extends SandboxFixture {
     tlsConfig = if (useTls) Some(serverTlsConfig) else None,
     ledgerIdMode = LedgerIdMode.Static(ledgerId),
     authService = authService,
-    scenario = scenario,
     engineMode = SandboxConfig.EngineMode.Dev,
     seeding = Seeding.Weak,
   )
