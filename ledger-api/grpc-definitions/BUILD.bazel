@@ -13,22 +13,11 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 ledger_api_proto_source_root = "ledger-api/grpc-definitions"
 
-# We patch out all build files from go_googleapis to make it work nicely with gazelle
-# so we need to declare this separately here.
-java_proto_library(
-    name = "rpc_java_proto",
-    visibility = ["//visibility:public"],
-    deps = [
-        "@go_googleapis//google/rpc:code_proto",
-        "@go_googleapis//google/rpc:errdetails_proto",
-        "@go_googleapis//google/rpc:status_proto",
-    ],
-)
-
 proto_jars(
     name = "ledger_api_proto",
     srcs = glob(["**/*.proto"]),
     grpc = True,
+    java_conversions = True,
     maven_artifact_prefix = "ledger-api",
     maven_artifact_scala_suffix = "scalapb",
     maven_group = "com.daml",
