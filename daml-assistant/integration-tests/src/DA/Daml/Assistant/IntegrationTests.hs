@@ -821,7 +821,7 @@ cantonTests = testGroup "daml sandbox"
                     ]
                 wrappedCmd
                     | isWindows = cmd
-                    | otherwise = "script -q tty.txt " <> cmd
+                    | otherwise = "script -q -- tty.txt " <> cmd
                     -- NOTE (Sofia): We need to use `script` on Linux and Mac because of this Ammonite issue:
                     --    https://github.com/com-lihaoyi/Ammonite/issues/276
                 env' | isWindows || isJust (lookup "TERM" env) = Nothing
