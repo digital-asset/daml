@@ -22,6 +22,7 @@ java_proto_library(
         "@go_googleapis//google/rpc:errdetails_proto",
         "@go_googleapis//google/rpc:status_proto",
     ],
+    visibility = ["//visibilityt:public"],
  )
 
 proto_jars(
