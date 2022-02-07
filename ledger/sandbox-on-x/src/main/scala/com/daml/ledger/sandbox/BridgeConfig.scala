@@ -37,6 +37,13 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
         s"When referring to a party that doesn't yet exist on the ledger, the participant will implicitly allocate that party."
           + s" You can optionally disable this behavior to bring participant into line with other ledgers."
       )
+    parser.checkConfig(c =>
+      Either.cond(
+        c.maxDeduplicationDuration.forall(_.compareTo(Duration.ofHours(1L)) <= 0),
+        (),
+        "Maximum supported deduplication duration is one hour",
+      )
+    )
     ()
   }
 
