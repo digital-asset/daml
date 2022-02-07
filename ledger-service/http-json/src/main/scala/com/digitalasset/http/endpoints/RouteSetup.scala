@@ -51,7 +51,7 @@ private[http] final class RouteSetup(
   import encoder.implicits._
   import util.ErrorOps._
 
-  private[http] def proxyWithCommand[A: JsonReader, R](
+  def proxyWithCommand[A: JsonReader, R](
       fn: (Jwt, A) => Future[Error \/ R]
   )(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -63,13 +63,13 @@ private[http] final class RouteSetup(
       b <- eitherT(handleFutureEitherFailure(fn(jwt, a))): ET[R]
     } yield b
 
-  private[http] def proxyWithCommandET[A: JsonReader, R](
+  private[endpoints] def proxyWithCommandET[A: JsonReader, R](
       fn: (Jwt, A) => ET[R]
   )(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[R] = proxyWithCommand((jwt, a: A) => fn(jwt, a).run)(req)
 
-  def handleCommand[T[_]](req: HttpRequest)(
+  private[endpoints] def handleCommand[T[_]](req: HttpRequest)(
       fn: (
           Jwt,
           JwtWritePayload,
@@ -95,14 +95,14 @@ private[http] final class RouteSetup(
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
     } yield domain.OkResponse(jsVal)
 
-  private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
+  def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
       legacyParse: ParsePayload[P],
       createFromUserToken: CreateFromUserToken[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): EitherT[Future, Error, (Jwt, P, JsValue)] =
     inputJsVal(req).flatMap(x => withJwtPayload[JsValue, P](x).leftMap(it => it: Error))
 
-  private[http] def withJwtPayload[A, P](fa: (Jwt, A))(implicit
+  def withJwtPayload[A, P](fa: (Jwt, A))(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       legacyParse: ParsePayload[P],
       createFromUserToken: CreateFromUserToken[P],
@@ -128,10 +128,10 @@ private[http] final class RouteSetup(
     }
   }
 
-  private[http] def data(entity: RequestEntity): Future[String] =
+  private[this] def data(entity: RequestEntity): Future[String] =
     entity.toStrict(maxTimeToCollectRequest).map(_.data.utf8String)
 
-  private[http] def inputJsVal(req: HttpRequest)(implicit
+  private[this] def inputJsVal(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[(Jwt, JsValue)] =
     for {
@@ -139,7 +139,7 @@ private[http] final class RouteSetup(
       jsVal <- either(SprayJson.parse(t2._2).liftErr(InvalidUserInput)): ET[JsValue]
     } yield (t2._1, jsVal)
 
-  private[http] def findJwt(req: HttpRequest)(implicit
+  def findJwt(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Unauthorized \/ Jwt =
     ensureHttpsForwarded(req) flatMap { _ =>
@@ -170,7 +170,7 @@ private[http] object RouteSetup {
   private val nonHttpsErrorMessage =
     "missing HTTPS reverse-proxy request headers; for development launch with --allow-insecure-tokens"
 
-  private[http] def logException(fromWhat: String)(implicit
+  def logException(fromWhat: String)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Throwable PartialFunction Throwable = { case NonFatal(e) =>
     logger.error(s"$fromWhat failed", e)
@@ -188,7 +188,7 @@ private[http] object RouteSetup {
       "read_as" -> jwtPayload.readAs.toString,
     ).run(fn)
 
-  private[http] def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
+  private[endpoints] def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
       ec: ExecutionContext,
       A: IntoEndpointsError[A],
       lc: LoggingContextOf[InstanceUUID with RequestID],
