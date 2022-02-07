@@ -893,13 +893,3 @@ nixpkgs_package(
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
-
-dev_env_tool(
-    name = "script_dev_env",
-    nix_include = ["bin/script"],
-    nix_label = "@unixtools_script",
-    nix_paths = ["bin/script"],
-    tools = ["script"],
-    win_include = [],
-    win_tool = "",
-) if not is_windows else None
