@@ -343,6 +343,18 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           EFromInterface(T.tycon, I.tycon, e"body"),
         "from_interface @'-pkgId-':Mod:T @'-pkgId-':Mod:I body" ->
           EFromInterface(T.tycon, I.tycon, e"body"),
+        "interface_template_type_rep @Mod:I body" ->
+          EInterfaceTemplateTypeRep(I.tycon, e"body"),
+        "interface_template_type_rep @'-pkgId-':Mod:I body" ->
+          EInterfaceTemplateTypeRep(I.tycon, e"body"),
+        "signatory_interface @Mod:I body" ->
+          ESignatoryInterface(I.tycon, e"body"),
+        "signatory_interface @'-pkgId-':Mod:I body" ->
+          ESignatoryInterface(I.tycon, e"body"),
+        "observer_interface @Mod:I body" ->
+          EObserverInterface(I.tycon, e"body"),
+        "observer_interface @'-pkgId-':Mod:I body" ->
+          EObserverInterface(I.tycon, e"body"),
       )
 
       forEvery(testCases)((stringToParse, expectedExp) =>
