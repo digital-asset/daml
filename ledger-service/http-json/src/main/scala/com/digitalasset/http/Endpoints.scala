@@ -1,18 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
 import akka.NotUsed
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{
-  Authorization,
-  ModeledCustomHeader,
-  ModeledCustomHeaderCompanion,
-  OAuth2BearerToken,
-  `Content-Type`,
-  `X-Forwarded-Proto`,
-}
+import akka.http.scaladsl.model._, headers.`Content-Type`
 import akka.http.scaladsl.server
 import akka.http.scaladsl.server.Directives.extractClientIP
 import akka.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
@@ -22,6 +13,7 @@ import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
 import com.codahale.metrics.Timer
 import com.daml.lf
+import lf.value.{Value => LfValue}
 import com.daml.http.ContractsService.SearchResult
 import com.daml.http.EndpointsCompanion._
 import com.daml.scalautil.Statement.discard
@@ -41,6 +33,7 @@ import com.daml.http.util.{ProtobufByteStrings, toLedgerId}
 import util.JwtParties._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
+import lav1.value.{Value => ApiValue, Record => ApiRecord}
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
@@ -50,16 +43,12 @@ import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
-import scala.util.control.NonFatal
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
-import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
-import com.daml.lf.data.Ref.UserId
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -76,6 +65,19 @@ class Endpoints(
     ledgerIdentityClient: LedgerIdentityClient,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
 )(implicit ec: ExecutionContext, mat: Materializer) {
+
+  private[this] val routeSetup: endpoints.RouteSetup = new endpoints.RouteSetup(
+    allowNonHttps = allowNonHttps,
+    maxTimeToCollectRequest = maxTimeToCollectRequest,
+  )
+  import routeSetup._, endpoints.RouteSetup._
+
+  private[this] val userManagement: endpoints.UserManagement = new endpoints.UserManagement(
+    routeSetup = routeSetup,
+    decodeJwt = decodeJwt,
+    userManagementClient = userManagementClient,
+  )
+  import userManagement._
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
@@ -478,130 +480,6 @@ class Endpoints(
     proxyWithoutCommand((jwt, _) => partiesService.allParties(jwt))(req)
       .flatMap(pd => either(pd map (domain.OkResponse(_))))
 
-  def deleteUser(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[spray.json.JsObject]] =
-    proxyWithCommandET { (jwt, deleteUserRequest: domain.DeleteUserRequest) =>
-      for {
-        userId <- parseUserId(deleteUserRequest.userId)
-        _ <- EitherT.rightT(userManagementClient.deleteUser(userId, Some(jwt.value)))
-      } yield emptyObjectResponse
-    }(req)
-
-  private def aggregateListUserPages(
-      token: Option[String],
-      pageSize: Int = 1000, // TODO could be made configurable in the future
-  ): Source[Error \/ User, NotUsed] = {
-    import scalaz.std.option._
-    Source.unfoldAsync(some("")) {
-      _ traverse { pageToken =>
-        userManagementClient
-          .listUsers(token, pageToken, pageSize)
-          .map {
-            case (users, "") => (None, \/-(users))
-            case (users, pageToken) => (Some(pageToken), \/-(users))
-          }
-          // if a listUsers call fails, stop the stream and emit the error as a "warning"
-          .recover(Error.fromThrowable andThen (e => (None, -\/(e))))
-      }
-    } mapConcat {
-      case e @ -\/(_) => Seq(e)
-      case \/-(users) => users.view.map(\/-(_))
-    }
-  }
-
-  def listUsers(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[Source[Error \/ domain.UserDetails, NotUsed]]] =
-    for {
-      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
-      users = aggregateListUserPages(Some(jwt.value))
-    } yield domain.OkResponse(users.map(_ map domain.UserDetails.fromUser))
-
-  def listUserRights(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
-    proxyWithCommandET { (jwt, listUserRightsRequest: domain.ListUserRightsRequest) =>
-      for {
-        userId <- parseUserId(listUserRightsRequest.userId)
-        rights <- EitherT.rightT(
-          userManagementClient.listUserRights(userId, Some(jwt.value))
-        )
-      } yield domain
-        .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[
-        List[domain.UserRight]
-      ]
-    }(req)
-
-  def listAuthenticatedUserRights(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
-    for {
-      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
-      userId <- getUserIdFromToken(jwt)
-      rights <- EitherT.rightT(
-        userManagementClient.listUserRights(userId, Some(jwt.value))
-      )
-    } yield domain
-      .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[List[
-      domain.UserRight
-    ]]
-
-  def grantUserRights(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
-    proxyWithCommandET { (jwt, grantUserRightsRequest: domain.GrantUserRightsRequest) =>
-      for {
-        userId <- parseUserId(grantUserRightsRequest.userId)
-        rights <- either(
-          domain.UserRights.toLedgerUserRights(grantUserRightsRequest.rights)
-        ).leftMap(InvalidUserInput): ET[List[UserRight]]
-        grantedUserRights <- EitherT.rightT(
-          userManagementClient.grantUserRights(userId, rights, Some(jwt.value))
-        )
-      } yield domain.OkResponse(
-        domain.UserRights.fromLedgerUserRights(grantedUserRights)
-      ): domain.SyncResponse[List[domain.UserRight]]
-    }(req)
-
-  def revokeUserRights(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
-    proxyWithCommandET { (jwt, revokeUserRightsRequest: domain.RevokeUserRightsRequest) =>
-      for {
-        userId <- parseUserId(revokeUserRightsRequest.userId)
-        rights <- either(
-          domain.UserRights.toLedgerUserRights(revokeUserRightsRequest.rights)
-        ).leftMap(InvalidUserInput): ET[List[UserRight]]
-        revokedUserRights <- EitherT.rightT(
-          userManagementClient.revokeUserRights(userId, rights, Some(jwt.value))
-        )
-      } yield domain.OkResponse(
-        domain.UserRights.fromLedgerUserRights(revokedUserRights)
-      ): domain.SyncResponse[List[domain.UserRight]]
-    }(req)
-
-  def getUser(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[domain.UserDetails]] =
-    proxyWithCommandET { (jwt, getUserRequest: domain.GetUserRequest) =>
-      for {
-        userId <- parseUserId(getUserRequest.userId)
-        user <- EitherT.rightT(userManagementClient.getUser(userId, Some(jwt.value)))
-      } yield domain.OkResponse(
-        domain.UserDetails(user.id, user.primaryParty)
-      ): domain.SyncResponse[domain.UserDetails]
-    }(req)
-
-  def getAuthenticatedUser(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[domain.UserDetails]] =
-    for {
-      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
-      userId <- getUserIdFromToken(jwt)
-      user <- EitherT.rightT(userManagementClient.getUser(userId, Some(jwt.value)))
-    } yield domain.OkResponse(domain.UserDetails(user.id, user.primaryParty))
-
   def parties(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
@@ -609,41 +487,6 @@ class Endpoints(
       (jwt, cmd) => partiesService.parties(jwt, toNonEmptySet(cmd))
     )(req)
       .map(ps => partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList))
-
-  def createUser(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[spray.json.JsObject]] =
-    proxyWithCommand { (jwt, createUserRequest: domain.CreateUserRequest) =>
-      {
-        import scalaz.std.option._
-        import scalaz.syntax.traverse._
-        import scalaz.syntax.std.either._
-        import com.daml.lf.data.Ref
-        val input =
-          for {
-            username <- UserId.fromString(createUserRequest.userId).disjunction
-            primaryParty <- createUserRequest.primaryParty.traverse(it =>
-              Ref.Party.fromString(it).disjunction
-            )
-            rights <- domain.UserRights.toLedgerUserRights(
-              createUserRequest.rights.getOrElse(List.empty)
-            )
-          } yield (username, primaryParty, rights)
-        for {
-          info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
-            (UserId, Option[Ref.Party], List[UserRight])
-          ]
-          (username, primaryParty, initialRights) = info
-          _ <- EitherT.rightT(
-            userManagementClient.createUser(
-              User(username, primaryParty),
-              initialRights,
-              Some(jwt.value),
-            )
-          )
-        } yield emptyObjectResponse
-      }.run
-    }(req)
 
   def allocateParty(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -702,13 +545,6 @@ class Endpoints(
 
     } yield domain.OkResponse(())
 
-  private def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
-      A: IntoEndpointsError[A],
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-  ): Future[Error \/ B] =
-    fa.map(_ leftMap A.run)
-      .recover(logException("Future") andThen Error.fromThrowable andThen (-\/(_)))
-
   private def handleFutureFailure[A](fa: Future[A])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ A] =
@@ -738,13 +574,6 @@ class Endpoints(
     MkHttpResponse { output =>
       output.map(_.fold(httpResponseError, searchHttpResponse))
     }
-
-  private[this] def logException(fromWhat: String)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Throwable PartialFunction Throwable = { case NonFatal(e) =>
-    logger.error(s"$fromWhat failed", e)
-    e
-  }
 
   private def searchHttpResponse(searchResult: SearchResult[Error \/ JsValue]): HttpResponse = {
     import json.JsonProtocol._
@@ -793,29 +622,6 @@ class Endpoints(
     )
   }
 
-  private[http] def data(entity: RequestEntity): Future[String] =
-    entity.toStrict(maxTimeToCollectRequest).map(_.data.utf8String)
-
-  private[http] def input(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Unauthorized \/ (Jwt, String)] = {
-    findJwt(req) match {
-      case e @ -\/(_) =>
-        discard { req.entity.discardBytes(mat) }
-        Future.successful(e)
-      case \/-(j) =>
-        data(req.entity).map(d => \/-((j, d)))
-    }
-  }
-
-  private[http] def inputJsVal(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[(Jwt, JsValue)] =
-    for {
-      t2 <- eitherT(input(req)): ET[(Jwt, String)]
-      jsVal <- either(SprayJson.parse(t2._2).liftErr(InvalidUserInput)): ET[JsValue]
-    } yield (t2._1, jsVal)
-
   private[http] def withJwtPayload[A, P](fa: (Jwt, A))(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       legacyParse: ParsePayload[P],
@@ -856,38 +662,6 @@ class Endpoints(
           .leftMap(it => it: Error)
       )
 
-  private[this] def findJwt(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Unauthorized \/ Jwt =
-    ensureHttpsForwarded(req) flatMap { _ =>
-      req.headers
-        .collectFirst { case Authorization(OAuth2BearerToken(token)) =>
-          Jwt(token)
-        }
-        .toRightDisjunction(
-          Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token")
-        )
-    }
-
-  private[this] def ensureHttpsForwarded(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Unauthorized \/ Unit =
-    if (allowNonHttps || isForwardedForHttps(req.headers)) \/-(())
-    else {
-      logger.warn(nonHttpsErrorMessage)
-      \/-(())
-    }
-
-  private[this] def isForwardedForHttps(headers: Seq[HttpHeader]): Boolean =
-    headers exists {
-      case `X-Forwarded-Proto`(protocol) => protocol equalsIgnoreCase "https"
-      // the whole "custom headers" thing in akka-http is a mishmash of
-      // actually using the ModeledCustomHeaderCompanion stuff (which works)
-      // and "just use ClassTag YOLO" (which won't work)
-      case Forwarded(value) => Forwarded(value).proto contains "https"
-      case _ => false
-    }
-
   private def resolveReference(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
@@ -923,51 +697,16 @@ class Endpoints(
       a <- eitherT(handleFutureFailure(fn(t3._1, toLedgerId(t3._2.ledgerId)))): ET[A]
     } yield a
 
-  private def proxyWithCommand[A: JsonReader, R](
-      fn: (Jwt, A) => Future[Error \/ R]
-  )(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[R] =
-    for {
-      t2 <- inputJsVal(req): ET[(Jwt, JsValue)]
-      (jwt, reqBody) = t2
-      a <- either(SprayJson.decode[A](reqBody).liftErr(InvalidUserInput)): ET[A]
-      b <- eitherT(handleFutureEitherFailure(fn(jwt, a))): ET[R]
-    } yield b
-
-  private def proxyWithCommandET[A: JsonReader, R](
-      fn: (Jwt, A) => ET[R]
-  )(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[R] = proxyWithCommand((jwt, a: A) => fn(jwt, a).run)(req)
-
-  private def getUserIdFromToken(jwt: Jwt): ET[UserId] =
-    decodeAndParseUserIdFromToken(jwt, decodeJwt).leftMap(identity[Error])
-
-  private def parseUserId(rawUserId: String): ET[UserId] = {
-    import scalaz.syntax.std.either._
-    either(
-      UserId.fromString(rawUserId).disjunction.leftMap(InvalidUserInput)
-    )
-  }
-
-  private val emptyObjectResponse: domain.SyncResponse[spray.json.JsObject] =
-    domain.OkResponse(spray.json.JsObject())
 }
 
 object Endpoints {
   import json.JsonProtocol._
   import util.ErrorOps._
 
-  private type ET[A] = EitherT[Future, Error, A]
+  private[http] type ET[A] = EitherT[Future, Error, A]
 
-  private type ApiRecord = lav1.value.Record
-  private type ApiValue = lav1.value.Value
-
-  private type LfValue = lf.value.Value
-
-  private final class IntoEndpointsError[-A](val run: A => Error) extends AnyVal
-  private object IntoEndpointsError {
+  private[http] final class IntoEndpointsError[-A](val run: A => Error) extends AnyVal
+  private[http] object IntoEndpointsError {
     import LedgerClientJwt.Grpc.Category
 
     implicit val id: IntoEndpointsError[Error] = new IntoEndpointsError(identity)
@@ -1004,9 +743,6 @@ object Endpoints {
     } yield c
   }
 
-  private val nonHttpsErrorMessage =
-    "missing HTTPS reverse-proxy request headers; for development launch with --allow-insecure-tokens"
-
   private def partiesResponse(
       parties: List[domain.PartyDetails],
       unknownParties: List[domain.Party],
@@ -1021,22 +757,5 @@ object Endpoints {
 
   private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue = {
     SprayJson.encode(a).liftErr(ServerError)
-  }
-
-  // avoid case class to avoid using the wrong unapply in isForwardedForHttps
-  private[http] final class Forwarded(override val value: String)
-      extends ModeledCustomHeader[Forwarded] {
-    override def companion = Forwarded
-    override def renderInRequests = true
-    override def renderInResponses = false
-    // per discussion https://github.com/digital-asset/daml/pull/5660#discussion_r412539107
-    def proto: Option[String] =
-      Forwarded.re findFirstMatchIn value map (_.group(1).toLowerCase)
-  }
-
-  private[http] object Forwarded extends ModeledCustomHeaderCompanion[Forwarded] {
-    override val name = "Forwarded"
-    override def parse(value: String) = Try(new Forwarded(value))
-    private val re = raw"""(?i)proto\s*=\s*"?(https?)""".r
   }
 }

@@ -66,7 +66,7 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
   }
 
   "Forwarded" - {
-    import Endpoints.Forwarded
+    import endpoints.RouteSetup.Forwarded
     "can 'parse' sample" in {
       Forwarded("for=192.168.0.1;proto=http;by=192.168.0.42").proto should ===(Some("http"))
     }
