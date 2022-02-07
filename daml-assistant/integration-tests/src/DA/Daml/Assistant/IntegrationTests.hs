@@ -810,17 +810,21 @@ cantonTests = testGroup "daml sandbox"
             let cmd = unwords
                     -- NOTE (Sofia): We need `script` on Linux and Mac because of this ammonite issue:
                     --    https://github.com/com-lihaoyi/Ammonite/issues/276
-                    [ (if isWindows then "" else "script -q -- tty.txt ") <> "daml canton-repl"
+                    [ "daml canton-repl"
                     , "--port", show ledgerApiPort
                     , "--admin-api-port", show adminApiPort
                     , "--domain-public-port", show domainPublicApiPort
                     , "--domain-admin-port", show domainAdminApiPort
                     ]
+                wrappedCmd
+                    | isWindows = cmd
+                    | isMac = concat ["script -q tty.txt ", cmd]
+                    | otherwise = concat ["script --quiet --command '", cmd, "'"]
                 input = unlines
                     [ "sandbox.health.running"
                     , "local.health.running"
                     ]
-                proc' = (shell cmd) { cwd = Just dir }
+                proc' = (shell wrappedCmd) { cwd = Just dir }
             output <- readCreateProcess proc' input
             hPutStrLn stderr "canton-repl output:"
             hPutStrLn stderr output
