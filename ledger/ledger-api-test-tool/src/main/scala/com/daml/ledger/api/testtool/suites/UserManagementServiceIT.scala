@@ -94,10 +94,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       rights1 <- ledger.userManagement.listUserRights(ListUserRightsRequest(user1.id))
       // can create other users with #limit rights
       create3 <- ledger.userManagement.createUser(CreateUserRequest(Some(user2), permissionsMax))
-      // cleanup
-      _ <- ledger.userManagement.deleteUser(DeleteUserRequest(user1.id))
-      _ <- ledger.userManagement.deleteUser(DeleteUserRequest(user2.id))
-
     } yield {
       assertTooManyUserRightsError(create1)
       assertEquals(create2, user1)
@@ -268,7 +264,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   userManagementTest(
     "TestListUsersVisibilityOfNewUserWhenCreatedAndThenDeleted",
     "Exercise ListUsers rpc: Creating and deleting a user makes it visible and then absent from a page",
-    runConcurrently = false,
   )(implicit ec => { implicit ledger =>
     def assertUserPresentIn(user: User, list: ListUsersResponse, msg: String): Unit = {
       assert(list.users.contains(user), msg)
@@ -317,7 +312,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   userManagementTest(
     "TestListUsersCreateOrDeleteUserOnPreviousPage",
     "Exercise ListUsers rpc: Adding or deleting a user from  previous page doesn't affect the subsequent page",
-    runConcurrently = false,
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
@@ -359,7 +353,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   userManagementTest(
     "TestListUsersReachingTheLastPage",
     "Exercise ListUsers rpc: Listing all users page by page eventually terminates reaching the last page",
-    runConcurrently = false,
   )(implicit ec => { implicit ledger =>
     val pageSize = 10000
 
@@ -417,7 +410,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   userManagementTest(
     "TestListUsersRequestPageSizeZero",
     "Exercise ListUsers rpc: Reqeusting page of size zero means requesting server's default page size, which is larger than zero",
-    runConcurrently = false,
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
@@ -447,6 +439,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     enabled = _.userManagement.maxUsersPageSize > 0,
     disabledReason = "requires user management feature with users page size limit",
     runConcurrently = false,
+    cleanUpNewUsers = true,
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val maxUsersPageSize = ledger.features.userManagement.maxUsersPageSize
     val users = 1.to(maxUsersPageSize + 1).map(_ => User(ledger.nextUserId(), ""))
@@ -460,10 +453,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         .listUsers(
           ListUsersRequest(pageSize = maxUsersPageSize + 1, pageToken = "")
         )
-      // cleanup
-      _ <- Future.sequence(
-        users.map(u => ledger.userManagement.deleteUser(DeleteUserRequest(u.id)))
-      )
     } yield {
       assert(
         page.users.size <= maxUsersPageSize,
@@ -574,7 +563,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   private def userManagementTest(
       shortIdentifier: String,
       description: String,
-      runConcurrently: Boolean = true,
+      runSequentiallyAndCleanUpNewUsers: Boolean = true,
   )(
       body: ExecutionContext => ParticipantTestContext => Future[Unit]
   ): Unit = {
@@ -584,7 +573,8 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       allocate(NoParties),
       enabled = _.userManagement.supported,
       disabledReason = "requires user management feature",
-      runConcurrently = runConcurrently,
+      runConcurrently = !runSequentiallyAndCleanUpNewUsers,
+      cleanUpNewUsers = runSequentiallyAndCleanUpNewUsers,
     )(implicit ec => { case Participants(Participant(ledger)) =>
       body(ec)(ledger)
     })
