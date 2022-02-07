@@ -14,7 +14,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandboxnext.SandboxNextFixture
+import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -25,7 +25,7 @@ final class LedgerClientAuthIT
     with Inside
     with AkkaBeforeAndAfterAll
     with SuiteResourceManagementAroundEach
-    with SandboxNextFixture
+    with SandboxFixture
     with SandboxRequiringAuthorization {
 
   private val LedgerId =

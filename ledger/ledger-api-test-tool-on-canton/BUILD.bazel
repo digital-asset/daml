@@ -110,6 +110,8 @@ conformance_test(
             "TLSOnePointThreeIT",
             "TLSAtLeastOnePointTwoIT",
             "MonotonicRecordTimeIT",  # KV-utils specific
+            # Canton does not return empty display names.
+            "PartyManagementServiceIT:PMAllocateEmptyExpectMissingDisplayName",
         ]),
     ],
 ) if not is_windows else None
