@@ -1578,6 +1578,26 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     }
   }
 
+  "Interfaces" - {
+    val iouTypeRep = Ref.TypeConName.assertFromString("-pkgId-:Mod:Iou")
+    val alice = Ref.Party.assertFromString("alice")
+    val bob = Ref.Party.assertFromString("bob")
+
+    val testCases = Table[String, SValue](
+      "expression" -> "string-result",
+      "interface_template_type_rep @Mod:Iface Mod:aliceOwesBobIface" -> STypeRep(
+        TTyCon(iouTypeRep)
+      ),
+      "signatory_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(alice))),
+      "observer_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(bob))),
+    )
+
+    forEvery(testCases) { (exp, res) =>
+      s"""eval[$exp] --> "$res"""" in {
+        eval(e"$exp") shouldBe Right(res)
+      }
+    }
+  }
 }
 
 object SBuiltinTest {
@@ -1617,6 +1637,26 @@ object SBuiltinTest {
           val from1 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex1 e of None -> "NONE" | Some x -> Mod:Ex1 { message} x;
           val from2 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex2 e of None -> "NONE" | Some x -> Mod:Ex2 { message} x;
           val from3 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex3 e of None -> "NONE" | Some x -> Mod:Ex3 { message} x;
+
+          interface (this : Iface) = {
+              precondition True;
+          };
+
+          record @serializable Iou = { i: Party, u: Party, name: Text };
+          template (this: Iou) = {
+            precondition True;
+            signatories Cons @Party [Mod:Iou {i} this] (Nil @Party);
+            observers Cons @Party [Mod:Iou {u} this] (Nil @Party);
+            agreement "Agreement";
+            implements Mod:Iface {};
+          };
+
+          val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
+          val alice : Party = Mod:mkParty "alice";
+          val bob : Party = Mod:mkParty "bob";
+
+          val aliceOwesBob : Mod:Iou = Mod:Iou { i = Mod:alice, u = Mod:bob, name = "alice owes bob" };
+          val aliceOwesBobIface : Mod:Iface = to_interface @Mod:Iface @Mod:Iou Mod:aliceOwesBob;
         }
 
     """
