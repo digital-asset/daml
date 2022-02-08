@@ -818,6 +818,7 @@ cantonTests = testGroup "daml sandbox"
                 input =
                     [ "sandbox.health.running"
                     , "local.health.running"
+                    , "exit"
                     ]
                 wrappedCmd
                     | isWindows = cmd
