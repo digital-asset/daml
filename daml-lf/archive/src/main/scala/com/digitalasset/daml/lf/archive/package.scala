@@ -42,12 +42,6 @@ package object archive {
   // possible otherwise complex models failed to deserialize.
   private val PROTOBUF_RECURSION_LIMIT: Int = 1000
 
-  @deprecated("use Error", since = "1.16.0")
-  val Errors = Error
-
-  @deprecated("use Error.Parsing", since = "1.16.0")
-  val ParseError = Error.Parsing
-
   // just set the recursion limit
   private[this] val Base: GenReader[CodedInputStream] =
     new GenReader[CodedInputStream]({ cos =>
