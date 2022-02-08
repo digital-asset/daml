@@ -10,14 +10,26 @@ patches we backport to the 1.0 release branch).
 > **IMPORTANT**: If the release fails, please delete it from the [releases page]
 > and write how it failed on the PR.
 
+> **TRANSITION**: We have switched to a new release process that includes
+> Canton. In the new process, a smaller set of artifacts is generated from this
+> repo as a "split" release, then the Canton team needs to make a release based
+> on that, and then the final release is triggered from the [DACH-NY/assembly]
+> repo, referencing both this and the Canton snapshots.
+>
+> Pre-2.0.0 releases should still follow the old process, for which the steps
+> are marked **[1]**. 2.0.0 snapshots and later should follow the new process,
+> for which steps are marked **[2]**.
+>
+> Steps that are marked with neither should be done for all releases.
+
 1. **[STABLE]** Go through the [checklist] before making the release. Note that
    the checklist is not available publicly.
 
-1. **[STABLE]** Stable releases are promoted from snapshot releases. Open a PR
+1. **[1]** **[STABLE]** Stable releases are promoted from snapshot releases. Open a PR
    that changes the `LATEST` file to remove the `-snapshot` suffix on the
    corresponding snapshot, and add the `Standard-Change` label.
 
-1. **[SNAPSHOT]** For most snapshot releases, the PR is created automatically.
+1. **[1]** **[SNAPSHOT]** For most snapshot releases, the PR is created automatically.
    Double-check the snapshot version: it may need incrementing. Ask on Slack
    (`#team-daml`) if you're not sure.
 
@@ -47,13 +59,33 @@ patches we backport to the 1.0 release branch).
    the associated CI check will fail and merging the PR will require you to
    re-run it after all the other ones have completed successfully.
 
-1. Once the PR has built, check that it was considered a release build by our
+1. **[1]** Once the PR has built, check that it was considered a release build by our
    CI. If you are working from an automated PR, check that it sent a message to
    `#team-daml` to say it has finished building. If the PR was manually created,
    you can look at the output of the `check_for_release` build step.
 
+1. **[2]** **[STABLE]** Stable releases should be created from snapshot
+   releases. Look up the commit sha for the snapshot you're building from, and
+   add a line to the LATEST file that ties that sha to the corresponding stable
+   version number. Add a `SPLIT_RELEASE` tag. For example:
+   ```
+   (echo "781a63f4353f1b39fe6d401c1567ff2766a3e78d 2.0.0 SPLIT_RELEASE"; cat LATEST) > LATEST.tmp
+   mv LATEST.tmp LATEST
+   ```
+   Merge that PR, then wait for the `main` build to finish.
+
+1. **[2]** **[STABLE]** Reach out to the Canton team (`#team-canton on Slack`)
+   and ask them to make a stable Canton release based on the split release you
+   just made. Wait for them to tell you the release is ready in their side.
+
+1. **[2]** Open a PR on the [DACH-NY/assembly] repo using either the Canton
+   version that just got released (for a stable release) or the latest nightly
+   snapshot (for a snapshot). See the instructions in the README of the
+   [DACH-NY/assembly] repo for details.
+
 1. **[STABLE]** The PR **must** be approved by a team lead before merging. As
-   of this writing (2021-10-12), @bame-da, @gerolf-da, @cocreature, @stefanobaghino-da or @adriaanm-da.
+   of this writing (2021-10-12), @bame-da, @gerolf-da, @cocreature,
+   @stefanobaghino-da or @adriaanm-da.
 
 1. Merge the PR and wait for the corresponding `main` build to finish. You
    will be notified on `#team-daml`.
@@ -78,9 +110,9 @@ patches we backport to the 1.0 release branch).
    >
    > `ad-hoc.sh create windows` prints IP address, username and password for the created Windows VM.
    > Save this output. You will need this information later when you create an RDP connection.
-   > 
+   >
    > ‼️ After starting, it's going to take some time for the machine to be configured (see notes below).
-   > 
+   >
    > If you're on a Mac, you can use Microsoft Remote Desktop to connect; on
    > Linux, you can use Remmina.
    >
@@ -363,3 +395,4 @@ Thanks for making a release!
 [checklist]: https://docs.google.com/document/d/1RY2Qe9GwAUiiSJmq1lTzy6wu1N2ZSEILQ68M9n8CHgg
 [releases page]: https://github.com/digital-asset/daml/releases
 [release notes]: https://daml.com/release-notes/
+[DACH-NY/assembly]: https://github.com/DACH-NY/assembly
