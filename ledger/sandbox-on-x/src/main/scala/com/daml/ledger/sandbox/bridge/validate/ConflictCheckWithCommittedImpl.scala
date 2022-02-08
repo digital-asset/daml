@@ -55,7 +55,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
       withErrorLogger(originalSubmission.submitterInfo.submissionId) { implicit errorLogger =>
         Timed
           .future(
-            bridgeMetrics.Stages.conflictCheckWithCommitted,
+            bridgeMetrics.Stages.ConflictCheckWithCommitted.timer,
             validateCausalMonotonicity(
               transaction = originalSubmission,
               inputContracts = inputContracts,

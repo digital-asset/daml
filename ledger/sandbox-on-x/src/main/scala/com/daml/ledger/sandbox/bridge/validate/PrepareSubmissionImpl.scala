@@ -28,7 +28,7 @@ private[validate] class PrepareSubmissionImpl(bridgeMetrics: BridgeMetrics)(impl
     submission match {
       case transactionSubmission @ Submission.Transaction(submitterInfo, _, transaction, _) =>
         Timed.future(
-          bridgeMetrics.Stages.precomputeTransactionOutputs,
+          bridgeMetrics.Stages.PrepareSubmission.timer,
           Future {
             transaction.transaction.contractKeyInputs
               .map(contractKeyInputs => {
