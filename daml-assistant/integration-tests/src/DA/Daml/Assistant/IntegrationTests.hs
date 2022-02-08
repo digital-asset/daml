@@ -815,27 +815,24 @@ cantonTests = testGroup "daml sandbox"
                     , "--domain-public-port", show domainPublicApiPort
                     , "--domain-admin-port", show domainAdminApiPort
                     ]
-                input =
-                    [ "sandbox.health.running"
-                    , "local.health.running"
-                    , "exit"
-                    ]
+                -- NOTE (Sofia): We need to use `script` on Mac and Linux because of this Ammonite issue:
+                --    https://github.com/com-lihaoyi/Ammonite/issues/276
+                -- Also, script for Mac and script for Linux have incompatible CLIs for unfathomable reasons.
+                -- Also, we need to set TERM to something, otherwise tput complains and crashes Ammonite.
                 wrappedCmd
                     | isWindows = cmd
                     | isMac = "script -q -- tty.txt " <> cmd
                     | otherwise = concat ["script -q -c '", cmd, "'"]
-                    -- NOTE (Sofia): We need to use `script` on Linux and Mac because of this Ammonite issue:
-                    --    https://github.com/com-lihaoyi/Ammonite/issues/276
+                input =
+                    [ "sandbox.health.running"
+                    , "local.health.running"
+                    , "exit" -- This "exit" is necessary on Linux, otherwise the REPL expects more input.
+                             -- script on Linux doesn't transmit the EOF/^D to the REPL, unlike on Mac.
+                    ]
                 env' | isWindows || isJust (lookup "TERM" env) = Nothing
                      | otherwise = Just (("TERM", "xterm-16color") : env)
-                    -- We also need to set TERM to something, otherwise tput complains and crashes Ammonite.
                 proc' = (shell wrappedCmd) { cwd = Just dir, env = env' }
             (exitCode, output, errors) <- readCreateProcessWithExitCode proc' (unlines input)
-            hPutStrLn stderr ("canton-repl exit: " <> show exitCode)
-            hPutStrLn stderr "canton-repl stdout: "
-            hPutStrLn stderr output
-            hPutStrLn stderr "canton-repl stderr: "
-            hPutStrLn stderr errors
 
             let outputLines = lines output
             -- NOTE (Sofia): We use `isInfixOf` extensively because
