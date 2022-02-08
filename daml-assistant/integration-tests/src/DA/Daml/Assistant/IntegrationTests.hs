@@ -832,8 +832,7 @@ cantonTests = testGroup "daml sandbox"
                 env' | isWindows || isJust (lookup "TERM" env) = Nothing
                      | otherwise = Just (("TERM", "xterm-16color") : env)
                 proc' = (shell wrappedCmd) { cwd = Just dir, env = env' }
-            (exitCode, output, errors) <- readCreateProcessWithExitCode proc' (unlines input)
-
+            output <- readCreateProcess proc' (unlines input)
             let outputLines = lines output
             -- NOTE (Sofia): We use `isInfixOf` extensively because
             --   the REPL output is full of color codes.
