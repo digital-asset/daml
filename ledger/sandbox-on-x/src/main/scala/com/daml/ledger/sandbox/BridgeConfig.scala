@@ -9,8 +9,6 @@ import scopt.OptionParser
 
 import java.time.Duration
 
-// TODO SoX: Keep only ledger-bridge-related configurations in this class
-//           and extract the participant-specific configs in the main config file.
 case class BridgeConfig(
     conflictCheckingEnabled: Boolean,
     submissionBufferSize: Int,

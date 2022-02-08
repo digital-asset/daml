@@ -157,8 +157,8 @@ object SandboxServer {
         .migrate()
     }
 
-  // TODO SoX-to-sandbox-classic: Work-around to emulate the ledgerIdMode used in sandbox-classic.
-  //                              This is needed for the Dynamic ledger id mode, when the index should be initialized with the existing ledger id (only used in testing).
+  // Work-around to emulate the ledgerIdMode used in sandbox-classic.
+  // This is needed for the Dynamic ledger id mode, when the index should be initialized with the existing ledger id (only used in testing).
   private def getLedgerId(
       jdbcUrl: String
   )(implicit

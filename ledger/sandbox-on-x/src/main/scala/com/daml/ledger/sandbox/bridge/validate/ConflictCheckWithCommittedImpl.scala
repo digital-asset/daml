@@ -127,7 +127,6 @@ private[validate] class ConflictCheckWithCommittedImpl(
         f.flatMap {
           case Right(_) =>
             indexService
-              // TODO SoX: Perform lookup more efficiently and do not use a readers-based lookup
               .lookupContractKey(transactionInformees, key)(loggingContext)
               .map { lookupResult =>
                 (inputState, lookupResult) match {
