@@ -16,8 +16,8 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
 import org.slf4j.event.Level
-import java.time.{Duration, Instant}
 
+import java.time.{Duration, Instant}
 import scala.concurrent.duration._
 
 @Explanation(
@@ -1099,6 +1099,46 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           details: String
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends LoggingTransactionErrorImpl(cause = s"Inconsistent: $details")
+    }
+
+    @Explanation("Errors that arise from an internal system misbehavior.")
+    object Internal extends ErrorGroup() {
+      @Explanation(
+        "The participant didn't detect an inconsistent key usage in the transaction." +
+          "Within the transaction, an exercise, fetch or lookupByKey failed because " +
+          "the mapping of key -> contract id was inconsistent with earlier actions."
+      )
+      @Resolution("Contact support.")
+      object InternallyInconsistentKeys
+          extends ErrorCode(
+            id = "INTERNALLY_INCONSISTENT_KEYS",
+            ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
+          ) {
+        case class Reject(override val cause: String, _keyO: Option[GlobalKey] = None)(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends LoggingTransactionErrorImpl(cause = cause) {
+          override def resources: Seq[(ErrorResource, String)] =
+            super.resources ++ _keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
+        }
+      }
+
+      @Explanation(
+        "The participant didn't detect an attempt by the transaction submission " +
+          "to use the same key for two active contracts."
+      )
+      @Resolution("Contact support.")
+      object InternallyDuplicateKeys
+          extends ErrorCode(
+            id = "INTERNALLY_DUPLICATE_KEYS",
+            ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
+          ) {
+        case class Reject(override val cause: String, _keyO: Option[GlobalKey] = None)(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends LoggingTransactionErrorImpl(cause = cause) {
+          override def resources: Seq[(ErrorResource, String)] =
+            super.resources ++ _keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
+        }
+      }
     }
   }
 }
