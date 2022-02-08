@@ -85,11 +85,7 @@ class Endpoints(
   import util.ErrorOps._
 
   private def responseToRoute(res: Future[HttpResponse]): Route = _ => res map Complete
-  private def toRoute[A](
-      res: ET[domain.SyncResponse[A]]
-  )(implicit metrics: Metrics, jsonWriter: JsonWriter[A]): Route =
-    responseToRoute(httpResponse(res))
-  private def toRoute(res: => Future[Error \/ SearchResult[Error \/ JsValue]]): Route =
+  private def toRoute[T: MkHttpResponse](res: => T): Route =
     responseToRoute(httpResponse(res))
 
   private def mkRequestLogMsg(request: HttpRequest, remoteAddress: RemoteAddress) =
@@ -494,21 +490,33 @@ class Endpoints(
 
   private def aggregateListUserPages(
       token: Option[String],
-      pageToken: String = "",
       pageSize: Int = 1000, // TODO could be made configurable in the future
-  ): Future[Seq[User]] =
-    userManagementClient.listUsers(token, pageToken, pageSize).flatMap {
-      case (users, "") => Future.successful(users)
-      case (users, pageToken) => aggregateListUserPages(token, pageToken, pageSize).map(users ++ _)
+  ): Source[Error \/ User, NotUsed] = {
+    import scalaz.std.option._
+    Source.unfoldAsync(some("")) {
+      _ traverse { pageToken =>
+        userManagementClient
+          .listUsers(token, pageToken, pageSize)
+          .map {
+            case (users, "") => (None, \/-(users))
+            case (users, pageToken) => (Some(pageToken), \/-(users))
+          }
+          // if a listUsers call fails, stop the stream and emit the error as a "warning"
+          .recover(Error.fromThrowable andThen (e => (None, -\/(e))))
+      }
+    } mapConcat {
+      case e @ -\/(_) => Seq(e)
+      case \/-(users) => users.view.map(\/-(_))
     }
+  }
 
   def listUsers(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.UserDetails]]] =
+  ): ET[domain.SyncResponse[Source[Error \/ domain.UserDetails, NotUsed]]] =
     for {
       jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
-      users <- EitherT.rightT(aggregateListUserPages(Some(jwt.value)))
-    } yield domain.OkResponse(users.map(domain.UserDetails.fromUser).toList)
+      users = aggregateListUserPages(Some(jwt.value))
+    } yield domain.OkResponse(users.map(_ map domain.UserDetails.fromUser))
 
   def listUserRights(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -714,15 +722,22 @@ class Endpoints(
       .fromFunction((_: E \/ A).leftMap(E.run))
       .recover(logException("Source") andThen Error.fromThrowable andThen (-\/(_)))
 
-  private def httpResponse(
-      output: Future[Error \/ SearchResult[Error \/ JsValue]]
-  ): Future[HttpResponse] =
-    output
-      .map {
-        case -\/(e) => httpResponseError(e)
-        case \/-(searchResult) => httpResponse(searchResult)
-      }
+  private def httpResponse[T](output: T)(implicit T: MkHttpResponse[T]): Future[HttpResponse] =
+    T.run(output)
       .recover(Error.fromThrowable andThen (httpResponseError(_)))
+
+  private implicit def sourceStreamSearchResults[A: JsonWriter]
+      : MkHttpResponse[ET[domain.SyncResponse[Source[Error \/ A, NotUsed]]]] =
+    MkHttpResponse { output =>
+      implicitly[MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]]]
+        .run(output.map(_ map (_ map (_ map ((_: A).toJson)))).run)
+    }
+
+  private implicit def searchResults
+      : MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]] =
+    MkHttpResponse { output =>
+      output.map(_.fold(httpResponseError, searchHttpResponse))
+    }
 
   private[this] def logException(fromWhat: String)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -731,7 +746,7 @@ class Endpoints(
     e
   }
 
-  private def httpResponse(searchResult: SearchResult[Error \/ JsValue]): HttpResponse = {
+  private def searchHttpResponse(searchResult: SearchResult[Error \/ JsValue]): HttpResponse = {
     import json.JsonProtocol._
 
     val response: Source[ByteString, NotUsed] = searchResult match {
@@ -756,9 +771,9 @@ class Endpoints(
       case o => o
     }
 
-  private def httpResponse[A: JsonWriter](
-      result: ET[domain.SyncResponse[A]]
-  )(implicit metrics: Metrics): Future[HttpResponse] = {
+  private implicit def fullySync[A: JsonWriter](implicit
+      metrics: Metrics
+  ): MkHttpResponse[ET[domain.SyncResponse[A]]] = MkHttpResponse { result =>
     Timed.future(
       metrics.daml.HttpJsonApi.responseCreationTimer,
       result
@@ -774,8 +789,7 @@ class Endpoints(
               entity = HttpEntity.Strict(ContentTypes.`application/json`, format(jsVal)),
               status = status,
             )
-        }
-        .recover(Error.fromThrowable andThen (httpResponseError(_))),
+        },
     )
   }
 
@@ -974,6 +988,8 @@ object Endpoints {
         ServerError(s"contracts service error, ${id.name}: $msg")
       })
   }
+
+  private final case class MkHttpResponse[-T](run: T => Future[HttpResponse])
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError)

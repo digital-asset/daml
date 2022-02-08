@@ -98,8 +98,8 @@ If you're not familiar with JDBC URLs, see the JDBC docs for more information: h
 
 .. _sandbox-authorization:
 
-Running with authentication
-***************************
+Running with authorization
+**************************
 
 By default, Sandbox accepts all valid ledger API requests without performing any request authorization.
 

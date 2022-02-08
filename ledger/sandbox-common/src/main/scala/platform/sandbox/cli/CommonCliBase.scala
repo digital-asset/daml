@@ -87,13 +87,6 @@ class CommonCliBase(name: LedgerName) {
         .action((id, c) => c.copy(participantId = Ref.ParticipantId.assertFromString(id)))
         .text(s"Participant ID. Defaults to '${SandboxConfig.DefaultParticipantId}'.")
 
-      // TODO remove in next major release.
-      opt[Unit]("dalf")
-        .optional()
-        .text(
-          "This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions."
-        )
-
       opt[Unit]('s', "static-time")
         .optional()
         .action((_, c) => setTimeProviderType(c, TimeProviderType.Static))
@@ -440,14 +433,6 @@ class CommonCliBase(name: LedgerName) {
       )
 
       help("help").text("Print the usage text")
-
-      checkConfig(c => {
-        if (c.scenario.isDefined && c.timeProviderType.contains(TimeProviderType.WallClock))
-          failure(
-            "Wall-clock time mode (`-w`/`--wall-clock-time`) and scenario initialization (`--scenario`) may not be used together."
-          )
-        else success
-      })
     }
 
   def withContractIdSeeding(

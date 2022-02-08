@@ -22,7 +22,6 @@ import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMeter
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
@@ -107,10 +106,6 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
   def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Archive]]
-
-  def getLfPackage(packageId: Ref.PackageId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Ast.Package]]
 
   def packageEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext

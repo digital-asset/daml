@@ -34,7 +34,6 @@ import com.daml.ledger.participant.state.index.v2._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -213,11 +212,6 @@ private[platform] final class LedgerBackedIndexService(
       loggingContext: LoggingContext
   ): Future[Option[Archive]] =
     ledger.getLfArchive(packageId)
-
-  override def getLfPackage(packageId: PackageId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Ast.Package]] =
-    ledger.getLfPackage(packageId)
 
   override def lookupActiveContract(
       readers: Set[Party],

@@ -4,10 +4,11 @@
 package com.daml.ledger.sandbox
 
 import com.daml.caching
+import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.participant.state.kvutils.app._
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
+import com.daml.platform.sandbox.config.SandboxConfig.{DefaultTimeProviderType, EngineMode}
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import scalaz.syntax.tag._
 
@@ -47,15 +48,8 @@ object ConfigConverter {
     val extraBridgeConfig = BridgeConfig(
       conflictCheckingEnabled = true,
       implicitPartyAllocation = sandboxConfig.implicitPartyAllocation,
-      authService =
-        sandboxConfig.authService.getOrElse(BridgeConfigProvider.defaultExtraConfig.authService),
-      timeProviderType =
-        sandboxConfig.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType),
       // TODO SoX-to-sandbox-classic: Dedicated submissionBufferSize CLI param for sanbox-classic
       submissionBufferSize = sandboxConfig.maxParallelSubmissions,
-      // TODO SoX-to-sandbox-classic: Dedicated submissionBufferSize CLI param for sanbox-classic
-      profileDir = sandboxConfig.profileDir,
-      stackTraces = sandboxConfig.stackTraces,
     )
 
     val allowedLanguageVersions = sandboxConfig.engineMode match {
@@ -65,38 +59,42 @@ object ConfigConverter {
     }
 
     Config[BridgeConfig](
-      mode = Mode.Run,
+      allowedLanguageVersions = allowedLanguageVersions,
+      authService = sandboxConfig.authService.getOrElse(AuthServiceWildcard),
+      acsContractFetchingParallelism = sandboxConfig.acsContractFetchingParallelism,
+      acsGlobalParallelism = sandboxConfig.acsGlobalParallelism,
+      acsIdFetchingParallelism = sandboxConfig.acsIdFetchingParallelism,
+      acsIdPageSize = sandboxConfig.acsIdPageSize,
+      acsIdQueueLimit = sandboxConfig.acsIdQueueLimit,
+      configurationLoadTimeout = sandboxConfig.configurationLoadTimeout,
+      commandConfig = sandboxConfig.commandConfig,
+      // TODO SoX-to-sandbox-classic: Add configurable flag for sandbox-classic
+      enableInMemoryFanOutForLedgerApi = false,
+      enableSelfServiceErrorCodes = sandboxConfig.enableSelfServiceErrorCodes,
+      eventsPageSize = sandboxConfig.eventsPageSize,
+      eventsProcessingParallelism = sandboxConfig.eventsProcessingParallelism,
+      extra = extraBridgeConfig,
       ledgerId = sandboxConfig.ledgerIdMode match {
         case LedgerIdMode.Static(ledgerId) => ledgerId.unwrap
         case LedgerIdMode.Dynamic =>
           maybeLedgerId.getOrElse(LedgerIdGenerator.generateRandomId(ledgerName).unwrap)
       },
-      commandConfig = sandboxConfig.commandConfig,
-      tlsConfig = sandboxConfig.tlsConfig,
+      lfValueTranslationContractCache = sandboxConfig.lfValueTranslationContractCacheConfiguration,
+      lfValueTranslationEventCache = sandboxConfig.lfValueTranslationEventCacheConfiguration,
+      maxDeduplicationDuration = sandboxConfig.maxDeduplicationDuration,
+      maxInboundMessageSize = sandboxConfig.maxInboundMessageSize,
+      metricsReporter = sandboxConfig.metricsReporter,
+      metricsReportingInterval = sandboxConfig.metricsReportingInterval.toJava,
+      mode = Mode.Run,
       participants = Seq(
         singleCombinedParticipant
       ),
-      maxInboundMessageSize = sandboxConfig.maxInboundMessageSize,
-      configurationLoadTimeout = sandboxConfig.configurationLoadTimeout,
-      eventsPageSize = sandboxConfig.eventsPageSize,
-      eventsProcessingParallelism = sandboxConfig.eventsProcessingParallelism,
-      acsIdPageSize = sandboxConfig.acsIdPageSize,
-      acsIdFetchingParallelism = sandboxConfig.acsIdFetchingParallelism,
-      acsContractFetchingParallelism = sandboxConfig.acsContractFetchingParallelism,
-      acsGlobalParallelism = sandboxConfig.acsGlobalParallelism,
-      acsIdQueueLimit = sandboxConfig.acsIdQueueLimit,
-      stateValueCache = caching.WeightedCache.Configuration.none,
-      lfValueTranslationEventCache = sandboxConfig.lfValueTranslationEventCacheConfiguration,
-      lfValueTranslationContractCache = sandboxConfig.lfValueTranslationContractCacheConfiguration,
+      profileDir = sandboxConfig.profileDir,
       seeding = sandboxConfig.seeding,
-      metricsReporter = sandboxConfig.metricsReporter,
-      metricsReportingInterval = sandboxConfig.metricsReportingInterval.toJava,
-      allowedLanguageVersions = allowedLanguageVersions,
-      // TODO SoX-to-sandbox-classic: Add configurable flag for sandbox-classic
-      enableInMemoryFanOutForLedgerApi = false,
-      maxDeduplicationDuration = sandboxConfig.maxDeduplicationDuration,
-      extra = extraBridgeConfig,
-      enableSelfServiceErrorCodes = sandboxConfig.enableSelfServiceErrorCodes,
+      stackTraces = sandboxConfig.stackTraces,
+      stateValueCache = caching.WeightedCache.Configuration.none,
+      timeProviderType = sandboxConfig.timeProviderType.getOrElse(DefaultTimeProviderType),
+      tlsConfig = sandboxConfig.tlsConfig,
       userManagementConfig = sandboxConfig.userManagementConfig,
     )
   }

@@ -24,7 +24,6 @@ import com.daml.ledger.participant.state.index.v2.{IndexService, MeteringStore}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Party}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
@@ -44,11 +43,6 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       loggingContext: LoggingContext
   ): Future[Option[DamlLf.Archive]] =
     Timed.future(metrics.daml.services.index.getLfArchive, delegate.getLfArchive(packageId))
-
-  override def getLfPackage(packageId: Ref.PackageId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Ast.Package]] =
-    Timed.future(metrics.daml.services.index.getLfPackage, delegate.getLfPackage(packageId))
 
   override def packageEntries(
       startExclusive: Option[LedgerOffset.Absolute]

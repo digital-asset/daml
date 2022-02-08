@@ -80,11 +80,38 @@ private[platform] class MutableCacheBackedContractStore(
       .flatMap {
         case (cached, toBeFetched) if toBeFetched.isEmpty =>
           Future.successful(Some(cached.max))
+
         case (cached, toBeFetched) =>
-          contractsReader
-            .lookupMaximumLedgerTime(toBeFetched)
-            .map(_.map(m => (cached + m).max))
+          readThroughMaximumLedgerTime(toBeFetched.toList, cached.maxOption)
       }
+
+  private def readThroughMaximumLedgerTime(
+      missing: List[ContractId],
+      acc: Option[Timestamp],
+  ): Future[Option[Timestamp]] =
+    missing match {
+      case contractId :: restOfMissing =>
+        readThroughContractsCache(contractId).flatMap {
+          case active: Active =>
+            val newMaximumLedgerTime = Some(
+              (active.createLedgerEffectiveTime :: acc.toList).max
+            )
+            readThroughMaximumLedgerTime(restOfMissing, newMaximumLedgerTime)
+
+          case _: Archived =>
+            Future.failed(MissingContracts(Set(contractId)))
+
+          case NotFound =>
+            // If cannot be found: no create or archive event for the contract.
+            // Since this contract is part of the input, it was able to be looked up once.
+            // So this is the case of a divulged contract, which was not archived.
+            // Divulged contract does not change maximumLedgerTime
+            readThroughMaximumLedgerTime(restOfMissing, acc)
+        }
+
+      case _ =>
+        Future.successful(acc)
+    }
 
   private def partitionCached(
       ids: Set[ContractId]

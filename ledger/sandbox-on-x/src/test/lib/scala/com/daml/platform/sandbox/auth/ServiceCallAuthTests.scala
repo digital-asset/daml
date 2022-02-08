@@ -156,6 +156,6 @@ trait ServiceCallAuthTests
     val req = proto.CreateUserRequest(Some(proto.User(userId)), rights)
     stub(proto.UserManagementServiceGrpc.stub(channel), canReadAsAdminStandardJWT)
       .createUser(req)
-      .map((_, userToken))
+      .map(res => (res.user.get, userToken))
   }
 }

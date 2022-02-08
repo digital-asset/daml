@@ -13,15 +13,6 @@ import scala.concurrent.Future
 
 private[platform] trait LedgerDaoContractsReader {
 
-  /** Returns the largest ledger time of any of the given contracts.
-    *
-    * @param ids the contract ids for which to resolve the maximum ledger time
-    * @return the optional [[Instant]] maximum ledger time
-    */
-  def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Timestamp]]
-
   /** Looks up an active or divulged contract if it is visible for the given party.
     *
     * @param readers a set of parties for one of which the contract must be visible
@@ -47,17 +38,6 @@ private[platform] trait LedgerDaoContractsReader {
       contractId: ContractId,
       createArgument: Value,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]]
-
-  /** Looks up a Contract given a contract key and a party
-    *
-    * @param key the contract key to query
-    * @param forParties a set of parties for one of which the contract must be visible
-    * @return the optional [[ContractId]]
-    */
-  def lookupContractKey(
-      key: GlobalKey,
-      forParties: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]]
 
   /** Looks up the contract by id at a specific ledger event sequential id.
     *

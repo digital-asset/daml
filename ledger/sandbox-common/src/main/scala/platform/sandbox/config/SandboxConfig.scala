@@ -35,12 +35,11 @@ final case class SandboxConfig(
     timeProviderType: Option[TimeProviderType],
     configurationLoadTimeout: Duration,
     maxDeduplicationDuration: Option[Duration],
+    // TODO Consider removing once sandbox-next is gone
     delayBeforeSubmittingLedgerConfiguration: Duration,
     timeModel: LedgerTimeModel,
     commandConfig: CommandConfiguration,
     tlsConfig: Option[TlsConfiguration],
-    // TODO sandbox: Remove CLI option
-    scenario: Option[String],
     implicitPartyAllocation: Boolean,
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
@@ -141,7 +140,6 @@ object SandboxConfig {
       ).get,
       commandConfig = CommandConfiguration.default,
       tlsConfig = None,
-      scenario = None,
       implicitPartyAllocation = true,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,

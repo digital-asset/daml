@@ -84,9 +84,9 @@ final class SandboxServer(
       genericConfig.ledgerId,
       apiServer.port.toString,
       config.damlPackages,
-      genericConfig.extra.timeProviderType.description,
+      genericConfig.timeProviderType.description,
       "SQL-backed conflict-checking ledger-bridge",
-      genericConfig.extra.authService.getClass.getSimpleName,
+      genericConfig.authService.getClass.getSimpleName,
       config.seeding.name,
       if (config.stackTraces) "" else ", stack traces = no",
       config.profileDir match {
@@ -94,13 +94,6 @@ final class SandboxServer(
         case Some(profileDir) => s", profile directory = $profileDir"
       },
     )
-    if (config.scenario.nonEmpty) {
-      logger.withoutContext.warn(
-        """|Initializing a ledger with scenarios is deprecated has no effect.
-           |You are advised to use Daml Script instead. Using scenarios in Daml Studio will continue to work as expected.
-           |A migration guide for converting your scenarios to Daml Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin
-      )
-    }
     if (config.engineMode == SandboxConfig.EngineMode.EarlyAccess) {
       logger.withoutContext.warn(
         """|Using early access mode is dangerous as the backward compatibility of future SDKs is not guaranteed.

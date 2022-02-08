@@ -15,6 +15,7 @@ import io.grpc.Status
 import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
 
+import java.util.regex.Pattern
 import scala.util.Random
 
 final class PartyManagementServiceIT extends LedgerTestSuite {
@@ -114,6 +115,32 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
       assert(Tag.unwrap(p1).nonEmpty, "The first allocated party identifier is an empty string")
       assert(Tag.unwrap(p2).nonEmpty, "The second allocated party identifier is an empty string")
       assert(p1 != p2, "The two parties have the same party identifier")
+    }
+  })
+
+  test(
+    "PMRejectionDuplicateHint",
+    "A party allocation request with a duplicate party hint should be rejected",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val hint = "party_hint" + "_" + Random.alphanumeric.take(10).mkString
+    for {
+      party <- ledger.allocateParty(partyIdHint = Some(hint), displayName = None)
+      error <- ledger
+        .allocateParty(partyIdHint = Some(hint), displayName = None)
+        .mustFail("allocating a party with a duplicate hint")
+    } yield {
+      assert(
+        Tag.unwrap(party).nonEmpty,
+        "The allocated party identifier is an empty string",
+      )
+      assertGrpcErrorRegex(
+        ledger,
+        error,
+        Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        Some(Pattern.compile("Party already exists|PartyToParticipant")),
+      )
     }
   })
 

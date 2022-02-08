@@ -5,6 +5,7 @@ package com.daml.platform.usermanagement
 
 import java.sql.Connection
 
+import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
@@ -57,6 +58,7 @@ object PersistentUserManagementStore {
   def cached(
       dbSupport: DbSupport,
       metrics: Metrics,
+      timeProvider: TimeProvider,
       cacheExpiryAfterWriteInSeconds: Int,
       maxCacheSize: Int,
       maxRightsPerUser: Int,
@@ -66,6 +68,7 @@ object PersistentUserManagementStore {
         dbSupport = dbSupport,
         metrics = metrics,
         maxRightsPerUser = maxRightsPerUser,
+        timeProvider = timeProvider,
       ),
       expiryAfterWriteInSeconds = cacheExpiryAfterWriteInSeconds,
       maximumCacheSize = maxCacheSize,
@@ -77,6 +80,7 @@ object PersistentUserManagementStore {
 class PersistentUserManagementStore(
     dbSupport: DbSupport,
     metrics: Metrics,
+    timeProvider: TimeProvider,
     maxRightsPerUser: Int,
 ) extends UserManagementStore {
 
@@ -91,7 +95,7 @@ class PersistentUserManagementStore(
     inTransaction(_.getUserInfo) { implicit connection =>
       withUser(id) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
-        UserInfo(dbUser.domainUser, rights)
+        UserInfo(dbUser.domainUser, rights.map(_.domainRight))
       }
     }
   }
@@ -102,9 +106,10 @@ class PersistentUserManagementStore(
   ): Future[Result[Unit]] = {
     inTransaction(_.createUser) { implicit connection: Connection =>
       withoutUser(user.id) {
-        val internalId = backend.createUser(user)(connection)
+        val now = epochMicroseconds()
+        val internalId = backend.createUser(user, createdAt = now)(connection)
         rights.foreach(right =>
-          backend.addUserRight(internalId = internalId, right = right)(
+          backend.addUserRight(internalId = internalId, right = right, grantedAt = now)(
             connection
           )
         )
@@ -140,11 +145,13 @@ class PersistentUserManagementStore(
   ): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.grantRights) { implicit connection =>
       withUser(id = id) { user =>
+        val now = epochMicroseconds()
         val addedRights = rights.filter { right =>
           if (!backend.userRightExists(internalId = user.internalId, right = right)(connection)) {
             backend.addUserRight(
               internalId = user.internalId,
               right = right,
+              grantedAt = now,
             )(connection)
           } else {
             false
@@ -237,4 +244,8 @@ class PersistentUserManagementStore(
     rights.take(5).mkString("", ", ", closingBracket)
   }
 
+  private def epochMicroseconds(): Long = {
+    val now = timeProvider.getCurrentTime
+    (now.getEpochSecond * 1000 * 1000) + (now.getNano / 1000)
+  }
 }
