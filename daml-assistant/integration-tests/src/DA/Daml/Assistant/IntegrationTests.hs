@@ -15,7 +15,7 @@ import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Data.List.Extra
 import Data.String (fromString)
-import Data.Maybe (maybeToList)
+import Data.Maybe (maybeToList, isJust)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as Vector
@@ -49,13 +49,22 @@ main = do
         mvnPath <- locateRunfiles "mvn_dev_env/bin"
         tarPath <- locateRunfiles "tar_dev_env/bin"
         yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
+        -- NOTE(Sofia): We don't use `script` on Windows.
+        mbScriptPath <- if isWindows
+            then pure Nothing
+            else Just <$> locateRunfiles "script_nix/bin"
         -- NOTE: `COMSPEC` env. variable on Windows points to cmd.exe, which is required to be present
         -- on the PATH as mvn.cmd executes cmd.exe
         mbComSpec <- getEnv "COMSPEC"
         let mbCmdDir = takeDirectory <$> mbComSpec
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
-            [ ("PATH", Just $ intercalate [searchPathSeparator] $ (tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
+            [ ("PATH", Just $ intercalate [searchPathSeparator] $ concat
+                [ [tarPath, javaPath, mvnPath, yarnPath]
+                , maybeToList mbScriptPath
+                , oldPath
+                , maybeToList mbCmdDir
+                ])
             , ("TASTY_NUM_THREADS", Just "1")
             ] $ defaultMain (tests tmpDir))
 
@@ -766,35 +775,70 @@ codegenTests codegenDir = testGroup "daml codegen" (
 
 cantonTests :: TestTree
 cantonTests = testGroup "daml sandbox"
-  [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
-      step "Creating project"
-      callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
-      step "Building project"
-      callCommandSilentIn (dir </> "skeleton") "daml build"
-      step "Finding free ports"
-      ledgerApiPort <- getFreePort
-      adminApiPort <- getFreePort
-      domainPublicApiPort <- getFreePort
-      domainAdminApiPort <- getFreePort
-      step "Staring Canton sandbox"
-      let portFile = dir </> "canton-portfile.json"
-      withDamlServiceIn (dir </> "skeleton") "sandbox"
-        [ "--port", show ledgerApiPort
-        , "--admin-api-port", show adminApiPort
-        , "--domain-public-port", show domainPublicApiPort
-        , "--domain-admin-port", show domainAdminApiPort
-        , "--canton-port-file", portFile
-        ] $ \ ph -> do
-        -- wait for port file to be written
-        _ <- readPortFileWith decodeCantonSandboxPort ph maxRetries portFile
-        step "Uploading DAR"
-        callCommandSilentIn (dir </> "skeleton") $ unwords
-          ["daml ledger upload-dar --host=localhost --port=" <> show ledgerApiPort, ".daml/dist/skeleton-0.0.1.dar"]
-        step "Running script"
-        callCommandSilentIn (dir </> "skeleton") $ unwords
-          [ "daml script"
-          , "--dar", ".daml/dist/skeleton-0.0.1.dar"
-          , "--script-name Main:setup"
-          , "--ledger-host=localhost", "--ledger-port=" <> show ledgerApiPort
-          ]
-  ]
+    [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
+        step "Creating project"
+        callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
+        step "Building project"
+        callCommandSilentIn (dir </> "skeleton") "daml build"
+        step "Finding free ports"
+        ledgerApiPort <- getFreePort
+        adminApiPort <- getFreePort
+        domainPublicApiPort <- getFreePort
+        domainAdminApiPort <- getFreePort
+        step "Staring Canton sandbox"
+        let portFile = dir </> "canton-portfile.json"
+        withDamlServiceIn (dir </> "skeleton") "sandbox"
+            [ "--port", show ledgerApiPort
+            , "--admin-api-port", show adminApiPort
+            , "--domain-public-port", show domainPublicApiPort
+            , "--domain-admin-port", show domainAdminApiPort
+            , "--canton-port-file", portFile
+            ] $ \ ph -> do
+            -- wait for port file to be written
+            _ <- readPortFileWith decodeCantonSandboxPort ph maxRetries portFile
+            step "Uploading DAR"
+            callCommandSilentIn (dir </> "skeleton") $ unwords
+                ["daml ledger upload-dar --host=localhost --port=" <> show ledgerApiPort, ".daml/dist/skeleton-0.0.1.dar"]
+            step "Running script"
+            callCommandSilentIn (dir </> "skeleton") $ unwords
+                [ "daml script"
+                , "--dar", ".daml/dist/skeleton-0.0.1.dar"
+                , "--script-name Main:setup"
+                , "--ledger-host=localhost", "--ledger-port=" <> show ledgerApiPort
+                ]
+            step "Start canton-repl"
+            env <- getEnvironment
+            let cmd = unwords
+                    [ "daml canton-repl"
+                    , "--port", show ledgerApiPort
+                    , "--admin-api-port", show adminApiPort
+                    , "--domain-public-port", show domainPublicApiPort
+                    , "--domain-admin-port", show domainAdminApiPort
+                    ]
+                -- NOTE (Sofia): We need to use `script` on Mac and Linux because of this Ammonite issue:
+                --    https://github.com/com-lihaoyi/Ammonite/issues/276
+                -- Also, script for Mac and script for Linux have incompatible CLIs for unfathomable reasons.
+                -- Also, we need to set TERM to something, otherwise tput complains and crashes Ammonite.
+                wrappedCmd
+                    | isWindows = cmd
+                    | isMac = "script -q -- tty.txt " <> cmd
+                    | otherwise = concat ["script -q -c '", cmd, "'"]
+                input =
+                    [ "sandbox.health.running"
+                    , "local.health.running"
+                    , "exit" -- This "exit" is necessary on Linux, otherwise the REPL expects more input.
+                             -- script on Linux doesn't transmit the EOF/^D to the REPL, unlike on Mac.
+                    ]
+                env' | isWindows || isJust (lookup "TERM" env) = Nothing
+                     | otherwise = Just (("TERM", "xterm-16color") : env)
+                proc' = (shell wrappedCmd) { cwd = Just dir, env = env' }
+            output <- readCreateProcess proc' (unlines input)
+            let outputLines = lines output
+            -- NOTE (Sofia): We use `isInfixOf` extensively because
+            --   the REPL output is full of color codes.
+            Just res0 <- pure (find (isInfixOf "res0") outputLines)
+            assertBool "sandbox participant is not running" ("true" `isInfixOf` res0)
+            Just res1 <- pure (find (isInfixOf "res1") outputLines)
+            assertBool "local domain is not running" ("true" `isInfixOf` res1)
+
+    ]
