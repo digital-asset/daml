@@ -3,12 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.io.File
-import java.time.Duration
-import java.util.UUID
-import java.util.concurrent.TimeUnit
-
 import com.daml.caching
+import com.daml.jwt.JwtVerifierConfigurationCli
+import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard}
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.resources.ResourceOwner
@@ -19,39 +16,49 @@ import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
+import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
 
+import java.io.File
+import java.nio.file.Path
+import java.time.Duration
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 final case class Config[Extra](
-    mode: Mode,
-    ledgerId: String,
-    commandConfig: CommandConfiguration,
-    tlsConfig: Option[TlsConfiguration],
-    participants: Seq[ParticipantConfig],
-    maxInboundMessageSize: Int,
-    configurationLoadTimeout: Duration,
-    maxDeduplicationDuration: Option[Duration],
-    eventsPageSize: Int,
-    eventsProcessingParallelism: Int,
-    acsIdPageSize: Int,
-    acsIdFetchingParallelism: Int,
+    allowedLanguageVersions: VersionRange[LanguageVersion],
+    authService: AuthService,
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
+    acsIdFetchingParallelism: Int,
+    acsIdPageSize: Int,
     acsIdQueueLimit: Int,
-    stateValueCache: caching.WeightedCache.Configuration,
-    lfValueTranslationEventCache: caching.SizedCache.Configuration,
+    configurationLoadTimeout: Duration,
+    commandConfig: CommandConfiguration,
+    enableInMemoryFanOutForLedgerApi: Boolean,
+    enableSelfServiceErrorCodes: Boolean,
+    eventsPageSize: Int,
+    eventsProcessingParallelism: Int,
+    extra: Extra,
+    ledgerId: String,
     lfValueTranslationContractCache: caching.SizedCache.Configuration,
-    seeding: Seeding,
+    lfValueTranslationEventCache: caching.SizedCache.Configuration,
+    maxDeduplicationDuration: Option[Duration],
+    maxInboundMessageSize: Int,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
-    allowedLanguageVersions: VersionRange[LanguageVersion],
-    enableInMemoryFanOutForLedgerApi: Boolean,
-    extra: Extra,
-    enableSelfServiceErrorCodes: Boolean,
+    mode: Mode,
+    participants: Seq[ParticipantConfig],
+    profileDir: Option[Path],
+    seeding: Seeding,
+    stackTraces: Boolean,
+    stateValueCache: caching.WeightedCache.Configuration,
+    timeProviderType: TimeProviderType,
+    tlsConfig: Option[TlsConfiguration],
     userManagementConfig: UserManagementConfig,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -70,31 +77,35 @@ object Config {
 
   def createDefault[Extra](extra: Extra): Config[Extra] =
     Config(
-      mode = Mode.Run,
-      ledgerId = UUID.randomUUID().toString,
-      commandConfig = CommandConfiguration.default,
-      tlsConfig = None,
-      participants = Vector.empty,
-      maxInboundMessageSize = DefaultMaxInboundMessageSize,
-      configurationLoadTimeout = Duration.ofSeconds(10),
-      eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
-      eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
-      acsIdPageSize = IndexConfiguration.DefaultAcsIdPageSize,
-      acsIdFetchingParallelism = IndexConfiguration.DefaultAcsIdFetchingParallelism,
+      allowedLanguageVersions = LanguageVersion.StableVersions,
+      authService = AuthServiceWildcard,
       acsContractFetchingParallelism = IndexConfiguration.DefaultAcsContractFetchingParallelism,
       acsGlobalParallelism = IndexConfiguration.DefaultAcsGlobalParallelism,
+      acsIdFetchingParallelism = IndexConfiguration.DefaultAcsIdFetchingParallelism,
+      acsIdPageSize = IndexConfiguration.DefaultAcsIdPageSize,
       acsIdQueueLimit = IndexConfiguration.DefaultAcsIdQueueLimit,
-      stateValueCache = caching.WeightedCache.Configuration.none,
-      lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
+      configurationLoadTimeout = Duration.ofSeconds(10),
+      commandConfig = CommandConfiguration.default,
+      enableInMemoryFanOutForLedgerApi = false,
+      enableSelfServiceErrorCodes = true,
+      eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
+      eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
+      extra = extra,
+      ledgerId = UUID.randomUUID().toString,
       lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
-      seeding = Seeding.Strong,
+      lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
+      maxDeduplicationDuration = None,
+      maxInboundMessageSize = DefaultMaxInboundMessageSize,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
-      allowedLanguageVersions = LanguageVersion.StableVersions,
-      enableInMemoryFanOutForLedgerApi = false,
-      maxDeduplicationDuration = None,
-      extra = extra,
-      enableSelfServiceErrorCodes = true,
+      mode = Mode.Run,
+      participants = Vector.empty,
+      profileDir = None,
+      seeding = Seeding.Strong,
+      stackTraces = false,
+      stateValueCache = caching.WeightedCache.Configuration.none,
+      timeProviderType = TimeProviderType.WallClock,
+      tlsConfig = None,
       userManagementConfig = UserManagementConfig.default(enabled = false),
     )
 
@@ -663,6 +674,27 @@ object Config {
           .action((value, config: Config[Extra]) =>
             config.withUserManagementConfig(_.copy(maxUsersPageSize = value))
           )
+        opt[Unit]('s', "static-time")
+          .optional()
+          .hidden() // Only available for testing purposes
+          .action((_, c) => c.copy(timeProviderType = TimeProviderType.Static))
+          .text("Use static time. When not specified, wall-clock-time is used.")
+
+        opt[File]("profile-dir")
+          .optional()
+          .action((dir, config) => config.copy(profileDir = Some(dir.toPath)))
+          .text("Enable profiling and write the profiles into the given directory.")
+
+        opt[Boolean]("stack-traces")
+          .hidden()
+          .optional()
+          .action((enabled, config) => config.copy(stackTraces = enabled))
+          .text(
+            "Enable/disable stack traces. Default is to disable them. " +
+              "Enabling stack traces may have a significant performance impact."
+          )
+
+        JwtVerifierConfigurationCli.parse(this)((v, c) => c.copy(authService = AuthServiceJWT(v)))
       }
     extraOptions(parser)
     parser

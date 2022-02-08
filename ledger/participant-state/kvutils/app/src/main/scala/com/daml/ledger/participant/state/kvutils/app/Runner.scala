@@ -86,6 +86,8 @@ final class Runner[T <: ReadWriteService, Extra](
           EngineConfig(
             allowedLanguageVersions = config.allowedLanguageVersions,
             forbidV0ContractId = true,
+            profileDir = config.profileDir,
+            stackTraceMode = config.stackTraces,
           )
         )
 
