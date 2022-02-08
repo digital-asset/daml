@@ -108,12 +108,6 @@ conformance_test(
         "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
         "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
         "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
-        "--additional=IdentityIT",
-        "--additional=IdentityIT:IdNotEmpty",
-        # Explicitly include retired tests here to make sure existing CI pipelines are not broken.
-        # Retired tests will be eventually removed.
-        "--additional=LotsOfPartiesIT",
-        "--additional=TransactionScaleIT",
         "--additional=TLSOnePointThreeIT",
     ],
 )

@@ -14,7 +14,7 @@ final class ConfiguredTests(availableTests: AvailableTests, config: Config) {
   val allTests: Vector[LedgerTestSuite] = defaultTests ++ optionalTests
   val missingTests: Set[String] = {
     val allTestCaseNames = allTests.flatMap(_.tests).map(_.name).toSet
-    (config.included ++ config.excluded).filterNot(prefix =>
+    (config.included ++ config.excluded ++ config.additional).filterNot(prefix =>
       allTestCaseNames.exists(_.startsWith(prefix))
     )
   }
