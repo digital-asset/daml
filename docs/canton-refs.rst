@@ -1,3 +1,6 @@
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. SPDX-License-Identifier: Apache-2.0
+
 Dummy Canton Refs
 -----------------
 
@@ -7,3 +10,4 @@ Dummy Canton Refs
 .. _tls-configuration:
 
 .. _canton-metrics:
+
