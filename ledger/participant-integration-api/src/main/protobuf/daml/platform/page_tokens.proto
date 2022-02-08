@@ -3,11 +3,10 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1;
+package daml.platform.apiserver;
 
-option java_outer_classname = "PageTokensOuterClass";
-option java_package = "com.daml.ledger.api.v1";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option java_package = "com.daml.platform.apiserver";
+
 
 // Describes the payload of a page token for listing users.
 // Not intended to be handled by directly clients and should be presented to them as an opaque string.

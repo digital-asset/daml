@@ -14,7 +14,7 @@ import com.daml.error.{
 }
 import com.daml.ledger.api.domain._
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
-import com.daml.ledger.api.v1.page_tokens.ListUsersPageTokenPayload
+import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
