@@ -9,7 +9,6 @@ import com.daml.ledger.sandbox.bridge.validate.DeduplicationState.DeduplicationQ
 import com.daml.lf.data.Time
 
 import java.time.Duration
-import scala.collection.immutable.VectorMap
 
 case class DeduplicationState private (
     private[validate] val deduplicationQueue: DeduplicationQueue,
@@ -22,25 +21,28 @@ case class DeduplicationState private (
       commandDeduplicationDuration: Duration,
       recordTime: Time.Timestamp,
   ): (DeduplicationState, Boolean) = {
+    assert(
+      deduplicationQueue.lastRecordTimeOption.forall(_ <= recordTime),
+      s"Inserted record time ($recordTime) for changeId ($changeId) cannot be before the last inserted record time (${deduplicationQueue.lastRecordTimeOption}).",
+    )
+    assert(
+      commandDeduplicationDuration.compareTo(maxDeduplicationDuration) <= 0,
+      s"Cannot deduplicate for a period ($commandDeduplicationDuration) longer than the max deduplication duration ($maxDeduplicationDuration).",
+    )
+
     bridgeMetrics.SequencerState.deduplicationQueueLength.update(deduplicationQueue.size)
-    if (commandDeduplicationDuration.compareTo(maxDeduplicationDuration) > 0)
-      throw new RuntimeException(
-        s"Cannot deduplicate for a period ($commandDeduplicationDuration) longer than the max deduplication duration ($maxDeduplicationDuration)."
-      )
-    else {
-      val expiredTimestamp = expiredThreshold(maxDeduplicationDuration, recordTime)
 
-      val queueAfterEvictions = deduplicationQueue.dropWhile(_._2 <= expiredTimestamp)
+    val expiredTimestamp = expiredThreshold(maxDeduplicationDuration, recordTime)
+    val queueAfterEvictions = deduplicationQueue.withoutOlderThan(expiredTimestamp)
 
-      val isDuplicateChangeId = queueAfterEvictions
-        .get(changeId)
-        .exists(_ >= expiredThreshold(commandDeduplicationDuration, recordTime))
+    val isDuplicateChangeId = queueAfterEvictions
+      .get(changeId)
+      .exists(_ >= expiredThreshold(commandDeduplicationDuration, recordTime))
 
-      if (isDuplicateChangeId)
-        copy(deduplicationQueue = queueAfterEvictions) -> true
-      else
-        copy(deduplicationQueue = queueAfterEvictions.updated(changeId, recordTime)) -> false
-    }
+    if (isDuplicateChangeId)
+      copy(deduplicationQueue = queueAfterEvictions) -> true
+    else
+      copy(deduplicationQueue = queueAfterEvictions.updated(changeId, recordTime)) -> false
   }
 
   private def expiredThreshold(
@@ -51,15 +53,80 @@ case class DeduplicationState private (
 }
 
 object DeduplicationState {
-  private[sandbox] type DeduplicationQueue = VectorMap[ChangeId, Time.Timestamp]
+  private[sandbox] type DeduplicationQueue = UnsafeDeduplicationStateQueueMap
 
   private[validate] def empty(
       deduplicationDuration: Duration,
       bridgeMetrics: BridgeMetrics,
   ): DeduplicationState =
     DeduplicationState(
-      deduplicationQueue = VectorMap.empty,
+      deduplicationQueue = UnsafeDeduplicationStateQueueMap.empty,
       maxDeduplicationDuration = deduplicationDuration,
       bridgeMetrics = bridgeMetrics,
     )
+
+  /** This data structure is tailored for keeping an ordered (by insertion) sequence of deduplication entries
+    * of the form (changeId, recordTime) with optimal complexity of each exposed operation.
+    *
+    * @param vector An ordered (by insertion) vector of deduplication entries
+    * @param mappings Mapping of changeId to recordTime
+    */
+  private[validate] case class UnsafeDeduplicationStateQueueMap(
+      vector: Vector[(ChangeId, Time.Timestamp)],
+      mappings: Map[ChangeId, Time.Timestamp],
+  ) {
+
+    /** Returns a state without the entries that are before the expirationTimestamp.
+      *
+      * Complexity: eL - effectively linear in the number of expired entries
+      */
+    def withoutOlderThan(expirationTimestamp: Time.Timestamp): UnsafeDeduplicationStateQueueMap = {
+      // Assuming that the entries are monotonically increasing with regard to the recordTime,
+      // get all entries with the recordTime before the expirationTimestamp
+      val expiredFromVector = vector.view.takeWhile { case (_, recordTime) =>
+        recordTime < expirationTimestamp
+      }
+
+      // A recordTime for a changeId could have been updated by a newer command inserted in the mapping.
+      // Hence, remove only entries whose recordTimes match the expired entry's recordTime
+      val expiredFromMappings = expiredFromVector.flatMap { case (changeId, recordTime) =>
+        mappings.get(changeId).filter(_ == recordTime).map(_ => changeId)
+      }
+
+      UnsafeDeduplicationStateQueueMap(
+        vector = vector.drop(expiredFromVector.size),
+        mappings = mappings -- expiredFromMappings,
+      )
+    }
+
+    /** Updates the state with a new deduplication entry.
+      *
+      * Complexity: eC - effectively constant
+      */
+    def updated(
+        changeId: ChangeId,
+        recordTime: Time.Timestamp,
+    ): UnsafeDeduplicationStateQueueMap =
+      UnsafeDeduplicationStateQueueMap(
+        vector = vector :+ (changeId, recordTime),
+        mappings = mappings.updated(changeId, recordTime),
+      )
+
+    /** Fetches, if exists, the record time for a changeId
+      * Complexity: eC - effectively constant
+      */
+    def get(changeId: ChangeId): Option[Time.Timestamp] =
+      mappings.get(changeId)
+
+    /** The number of deduplication entries */
+    def size: Int = vector.size
+
+    /** The last (and assumed highest) record time in the series */
+    def lastRecordTimeOption: Option[Time.Timestamp] = vector.lastOption.map(_._2)
+  }
+
+  object UnsafeDeduplicationStateQueueMap {
+    def empty: UnsafeDeduplicationStateQueueMap =
+      UnsafeDeduplicationStateQueueMap(Vector.empty, Map.empty)
+  }
 }
