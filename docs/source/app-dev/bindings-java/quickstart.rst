@@ -60,7 +60,7 @@ The project contains the following files:
 
 - ``daml.yaml`` is a Daml project config file used by the SDK to find out how to build the Daml project and how to run it.
 - ``daml`` contains the :ref:`Daml code <quickstart-daml>` specifying the contract model for the ledger.
-- ``daml/Tests`` contains :ref:`test scenarios <quickstart-scenarios>` for the Daml model.
+- ``daml/Tests`` contains :ref:`test scripts <quickstart-scripts>` for the Daml model.
 - ``frontend-config.js`` and ``ui-backend.conf`` are configuration files for the :ref:`Navigator <quickstart-navigator>` frontend.
 - ``pom.xml`` and ``src/main/java`` constitute a :ref:`Java application <quickstart-application>` that provides REST services to interact with the ledger.
 
@@ -246,7 +246,7 @@ Now everything is running, you can try out the quickstart application:
 
    .. note::
 
-     *USD_Bank* does know about an intermediate *IouTransfer* contract that was created and consumed as part of the atomic settlement in the previous step. Since that contract was never active on the ledger, it is not shown in Navigator. You will see how to view a complete transaction graph, including who knows what, in :ref:`quickstart-scenarios` below.
+     *USD_Bank* does know about an intermediate *IouTransfer* contract that was created and consumed as part of the atomic settlement in the previous step. Since that contract was never active on the ledger, it is not shown in Navigator. You will see how to view a complete transaction graph, including who knows what, in :ref:`quickstart-scripts` below.
 
 .. _quickstart-daml:
 
@@ -356,29 +356,29 @@ The *Issuers* of the two Ious, which are involved in the transaction because the
 
 For a deeper introduction to Daml, consult the :doc:`Daml Reference </daml/reference/index>`.
 
-.. _quickstart-scenarios:
+.. _quickstart-scripts:
 
-Test using scenarios
-====================
+Test using Daml Script
+======================
 
-You can check the correct authorization and privacy of a contract model using *scenarios*: tests that are written in Daml.
+You can check the correct authorization and privacy of a contract model using *scripts*: tests that are written in Daml.
 
-Scenarios are a linear sequence of transactions that is evaluated using the same consistency, conformance and authorization rules as it would be on the full ledger server or the sandbox ledger. They are integrated into Daml Studio, which can show you the resulting transaction graph, making them a powerful tool to test and troubleshoot the contract model.
+Scripts are a linear sequence of transactions that is evaluated using the same consistency, conformance and authorization rules as it would be on the full ledger server or the sandbox ledger. They are integrated into Daml Studio, which can show you the resulting transaction graph, making them a powerful tool to test and troubleshoot the contract model.
 
-To take a look at the scenarios in the quickstart application, open ``daml/Tests/Trade.daml`` in Daml Studio.
+To take a look at the scripts in the quickstart application, open ``daml/Tests/Trade.daml`` in Daml Studio.
 
-A scenario test is defined with ``trade_test = scenario do``. The ``submit`` function takes a submitting party and a transaction, which is specified the same way as in contract choices.
+A script test is defined with ``trade_test = script do``. The ``submit`` function takes a submitting party and a transaction, which is specified the same way as in contract choices.
 
 The following block, for example, issues an ``Iou`` and transfers it to Alice:
 
 .. literalinclude:: quickstart/template-root/daml/Tests/Trade.daml
   :language: daml
-  :start-after: -- BEGIN_SCENARIO
-  :end-before: -- END_SCENARIO
+  :start-after: -- BEGIN_SCRIPT
+  :end-before: -- END_SCRIPT
 
-Compare the scenario with the ``setup`` scenario in ``daml/Main.daml``. You will see that the scenario you used to initialize the sandbox is an initial segment of the ``trade_test`` scenario. The latter adds transactions to perform the trade you performed through Navigator, and a couple of transactions in which expectations are verified.
+Compare the script with the ``initialize`` script in ``daml/Main.daml``. You will see that the script you used to initialize the sandbox is an initial segment of the ``trade_test`` script. The latter adds transactions to perform the trade you performed through Navigator, and a couple of transactions in which expectations are verified.
 
-After a short time, the text *Scenario results* should appear above the test. Click on it to open the visualization of the resulting ledger state.
+After a short time, the text *Script results* should appear above the test. Click on it to open the visualization of the resulting ledger state.
 
 .. figure:: quickstart/images/ledger.png
 
@@ -473,7 +473,7 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
               with
                 issuer = 'EUR_Bank'; owner = 'Bob'; currency = "EUR"; amount = 100.0; observers = []
 
-The ``submit`` function used in this scenario tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/Iou.daml``, for example, to confirm that the ledger model prevents double spends.
+The ``submit`` function used in this script tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/Iou.daml``, for example, to confirm that the ledger model prevents double spends.
 
 ..  Interact with the ledger through the command line
     *************************************************
