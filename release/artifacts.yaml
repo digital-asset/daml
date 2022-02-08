@@ -67,6 +67,8 @@
   type: jar-scala
 - target: //ledger-api/grpc-definitions:ledger_api_proto_jar
   type: jar-lib
+- target: //ledger-api/grpc-definitions:ledger_api_proto_java
+  type: jar-proto
 - target: //ledger-api/grpc-definitions:ledger_api_proto_scala
   type: jar-scala
 - target: //ledger-api/rs-grpc-akka:rs-grpc-akka
