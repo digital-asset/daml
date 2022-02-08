@@ -36,7 +36,7 @@ public final class UserManagementClientImpl implements UserManagementClient {
             StubHelper.authenticating(this.serviceFutureStub, maybeToken)
                 .createUser(request.toProto()),
             sequencerFactory)
-        .map(User::fromProto);
+        .map(res -> User.fromProto(res.getUser()));
   }
 
   @Override
@@ -55,7 +55,7 @@ public final class UserManagementClientImpl implements UserManagementClient {
             StubHelper.authenticating(this.serviceFutureStub, maybeToken)
                 .getUser(request.toProto()),
             sequencerFactory)
-        .map(User::fromProto);
+        .map(res -> User.fromProto(res.getUser()));
   }
 
   @Override

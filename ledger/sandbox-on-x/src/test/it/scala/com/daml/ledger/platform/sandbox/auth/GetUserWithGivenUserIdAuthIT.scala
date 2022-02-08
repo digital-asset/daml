@@ -18,7 +18,9 @@ class GetUserWithGivenUserIdAuthIT extends AdminServiceCallAuthTests {
     val testId = UUID.randomUUID().toString
 
     def getUser(userId: String): Future[User] =
-      stub(UserManagementServiceGrpc.stub(channel), token).getUser(GetUserRequest(userId))
+      stub(UserManagementServiceGrpc.stub(channel), token)
+        .getUser(GetUserRequest(userId))
+        .map(_.user.get)
 
     for {
       // create a normal users

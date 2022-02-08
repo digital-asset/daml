@@ -30,21 +30,21 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
     LedgerClient
       .stub(service, token)
       .createUser(request)
-      .map(fromProtoUser)
+      .map(res => fromProtoUser(res.user.get))
   }
 
   def getUser(userId: UserId, token: Option[String] = None): Future[User] =
     LedgerClient
       .stub(service, token)
       .getUser(proto.GetUserRequest(userId.toString))
-      .map(fromProtoUser)
+      .map(res => fromProtoUser(res.user.get))
 
   /** Retrieve the User information for the user authenticated by the token(s) on the call . */
   def getAuthenticatedUser(token: Option[String] = None): Future[User] =
     LedgerClient
       .stub(service, token)
       .getUser(proto.GetUserRequest())
-      .map(fromProtoUser)
+      .map(res => fromProtoUser(res.user.get))
 
   def deleteUser(userId: UserId, token: Option[String] = None): Future[Unit] =
     LedgerClient
