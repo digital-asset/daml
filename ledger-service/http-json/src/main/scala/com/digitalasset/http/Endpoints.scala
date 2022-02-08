@@ -95,8 +95,8 @@ class Endpoints(
   private def mkRequestLogMsg(request: HttpRequest, remoteAddress: RemoteAddress) =
     s"Incoming ${request.method.value} request on ${request.uri} from $remoteAddress"
 
-  private def mkResponseLogMsg(response: HttpResponse) =
-    s"Responding to client with HTTP ${response.status}"
+  private def mkResponseLogMsg(statusCode: StatusCode) =
+    s"Responding to client with HTTP $statusCode"
 
   // Always put this directive after a path to ensure
   // that you don't log request bodies multiple times (simply because a matching test was made multiple times).
@@ -111,9 +111,9 @@ class Endpoints(
       ) & mapRouteResultFuture { responseF =>
         for {
           response <- responseF
-          _ <- response match {
+          transformedResponse <- response match {
             case Complete(httpResponse) =>
-              Future.successful(logResponse(httpResponse).asInstanceOf[HttpResponse])
+              Future.successful(Complete(logResponse(httpResponse).asInstanceOf[HttpResponse]))
             case _ =>
               Future.failed(
                 new RuntimeException(
@@ -122,7 +122,7 @@ class Endpoints(
                 )
               )
           }
-        } yield response
+        } yield transformedResponse
       }
     }
 
@@ -132,6 +132,7 @@ class Endpoints(
     def logWithHttpMessageBodyIfAvailable[A <: HttpMessage](
         httpMessage: A,
         msg: String,
+        kind: String,
     ): HttpMessage =
       if (
         httpMessage
@@ -139,26 +140,42 @@ class Endpoints(
           .map(_.contentType)
           .contains(ContentTypes.`application/json`)
       ) {
-        import akka.stream.scaladsl._
-        httpMessage
-          .transformEntityDataBytes(
-            Flow.fromFunction(it =>
-              try {
-                withEnrichedLoggingContext(
-                  LoggingContextOf.label[RequestEntity],
-                  s"response_body" -> it.utf8String.parseJson,
-                )
-                  .run { implicit lc =>
-                    logger.info(msg)
-                    it
+        httpMessage.entity.contentLengthOption match {
+          // Limit logging of bodies to content with size of less than 10 KiB
+          case Some(length) if length < 1024 * 10 =>
+            import akka.stream.scaladsl._
+            logger.debug("Calling transformEntityDataBytes")
+            httpMessage
+              .transformEntityDataBytes(
+                Flow.fromFunction { it =>
+                  try {
+                    withEnrichedLoggingContext(
+                      LoggingContextOf.label[RequestEntity],
+                      s"${kind}_body" -> it.utf8String.parseJson,
+                    )
+                      .run { implicit lc => logger.info(msg) }
+                  } catch {
+                    case ex: Exception =>
+                      logger.error("Failed to log message body: ", ex)
                   }
-              } catch {
-                case ex: Exception =>
-                  logger.error("Failed to log message body: ", ex)
                   it
+                }
+              )
+          case other =>
+            val ctxContent = other
+              .map(length => s"OMITTED BECAUSE BODY SIZE OF $length IS TOO BIG FOR LOGGING")
+              .getOrElse {
+                if (httpMessage.entity.isChunked())
+                  "OMITTED BECAUSE REQUEST BODY IS CHUNKED & OVERALL SIZE IS UNKNOWN"
+                else
+                  "OMITTED BECAUSE REQUEST BODY SIZE IS UNKNOWN"
               }
-            )
-          )
+            withEnrichedLoggingContext(
+              LoggingContextOf.label[RequestEntity],
+              s"${kind}_body" -> ctxContent,
+            ).run { implicit lc => logger.info(msg) }
+            httpMessage
+        }
       } else {
         logger.info(msg)
         httpMessage
@@ -169,11 +186,13 @@ class Endpoints(
         logWithHttpMessageBodyIfAvailable(
           request,
           mkRequestLogMsg(request, remoteAddress),
+          "request",
         ),
       httpResponse =>
         logWithHttpMessageBodyIfAvailable(
           httpResponse,
-          mkResponseLogMsg(httpResponse),
+          mkResponseLogMsg(httpResponse.status),
+          "response",
         ),
     )
   }
@@ -187,7 +206,7 @@ class Endpoints(
         request
       },
       httpResponse => {
-        logger.info(mkResponseLogMsg(httpResponse))
+        logger.info(mkResponseLogMsg(httpResponse.status))
         httpResponse
       },
     )
@@ -197,7 +216,7 @@ class Endpoints(
     else lc => logRequestAndResultSimple(lc)
 
   def logRequestAndResult(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): Directive0 =
-    toStrictEntity(maxTimeToCollectRequest) & logRequestAndResultFn(lc)
+    logRequestAndResultFn(lc)
 
   def all(implicit
       lc0: LoggingContextOf[InstanceUUID],
