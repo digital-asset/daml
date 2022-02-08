@@ -3,19 +3,19 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.time.Duration
-import java.util.concurrent.TimeUnit
-
 import com.codahale.metrics.SharedMetricRegistries
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.configuration.Configuration
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.services.time.TimeProviderType
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
+import java.time.{Duration, Instant}
+import java.util.concurrent.TimeUnit
 import scala.annotation.unused
 import scala.concurrent.duration.FiniteDuration
 
@@ -104,10 +104,14 @@ trait ConfigProvider[ExtraConfig] {
     )
   }
 
-  def timeServiceBackend(@unused config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
+  def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] =
+    config.timeProviderType match {
+      case TimeProviderType.Static => Some(TimeServiceBackend.simple(Instant.EPOCH))
+      case TimeProviderType.WallClock => None
+    }
 
   def authService(@unused config: Config[ExtraConfig]): AuthService =
-    AuthServiceWildcard
+    config.authService
 
   def interceptors(@unused config: Config[ExtraConfig]): List[ServerInterceptor] =
     List.empty

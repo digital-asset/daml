@@ -17,6 +17,7 @@ proto_jars(
     name = "ledger_api_proto",
     srcs = glob(["**/*.proto"]),
     grpc = True,
+    java_conversions = True,
     maven_artifact_prefix = "ledger-api",
     maven_artifact_scala_suffix = "scalapb",
     maven_group = "com.daml",

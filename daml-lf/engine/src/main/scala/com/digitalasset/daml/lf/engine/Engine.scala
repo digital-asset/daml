@@ -151,7 +151,10 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       speedyCommand <- preprocessor.preprocessCommand(command)
-      sexpr = compiledPackages.compiler.unsafeCompileForReinterpretation(speedyCommand)
+      sexpr <- runCompilerSafely(
+        NameOf.qualifiedNameOfCurrentFunc,
+        compiledPackages.compiler.unsafeCompileForReinterpretation(speedyCommand),
+      )
       // reinterpret is never used for submission, only for validation.
       result <- interpretExpression(
         validating = true,
@@ -162,8 +165,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
       )
-      (tx, meta) = result
-    } yield (tx, meta)
+    } yield result
 
   def replay(
       submitters: Set[Party],
@@ -242,27 +244,22 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     )
 
   @inline
-  private[lf] def runSafely[X](
-      funcName: String
-  )(run: => Result[X]): Result[X] = {
-    def start: Result[X] =
-      try {
-        run
-      } catch {
-        // The two following error should be prevented by the type checking does by translateCommand
-        // so it’s an internal error.
-        case speedy.Compiler.PackageNotFound(pkgId, context) =>
-          ResultError(
-            Error.Preprocessing.Internal(
-              funcName,
-              s"CompilationError: " + LookupError.MissingPackage.pretty(pkgId, context),
-            )
+  private[this] def runCompilerSafely[X](funcName: => String, run: => X): Result[X] =
+    try {
+      ResultDone(run)
+    } catch {
+      // The two following error should be prevented by the type checking does by translateCommand
+      // so it’s an internal error.
+      case speedy.Compiler.PackageNotFound(pkgId, context) =>
+        ResultError(
+          Error.Preprocessing.Internal(
+            funcName,
+            s"CompilationError: " + LookupError.MissingPackage.pretty(pkgId, context),
           )
-        case speedy.Compiler.CompilationError(error) =>
-          ResultError(Error.Preprocessing.Internal(funcName, s"CompilationError: $error"))
-      }
-    start
-  }
+        )
+      case speedy.Compiler.CompilationError(error) =>
+        ResultError(Error.Preprocessing.Internal(funcName, s"CompilationError: $error"))
+    }
 
   // command-list compilation, followed by interpretation
   private[engine] def interpretCommands(
@@ -273,18 +270,22 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
-    val sexpr = compiledPackages.compiler.unsafeCompile(commands)
-    interpretExpression(
-      validating,
-      submitters,
-      readAs,
-      sexpr,
-      ledgerTime,
-      submissionTime,
-      seeding,
-    )
-  }
+  ): Result[(SubmittedTransaction, Tx.Metadata)] =
+    for {
+      sexpr <- runCompilerSafely(
+        NameOf.qualifiedNameOfCurrentFunc,
+        compiledPackages.compiler.unsafeCompile(commands),
+      )
+      result <- interpretExpression(
+        validating,
+        submitters,
+        readAs,
+        sexpr,
+        ledgerTime,
+        submissionTime,
+        seeding,
+      )
+    } yield result
 
   /** Interprets the given commands under the authority of @submitters, with additional readers @readAs
     *
@@ -302,21 +303,20 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] =
-    runSafely(NameOf.qualifiedNameOfCurrentFunc) {
-      val machine = Machine(
-        compiledPackages = compiledPackages,
-        submissionTime = submissionTime,
-        initialSeeding = seeding,
-        expr = SEApp(sexpr, Array(SEValue.Token)),
-        committers = submitters,
-        readAs = readAs,
-        validating = validating,
-        contractKeyUniqueness = config.contractKeyUniqueness,
-        limits = config.limits,
-      )
-      interpretLoop(machine, ledgerTime)
-    }
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
+    val machine = Machine(
+      compiledPackages = compiledPackages,
+      submissionTime = submissionTime,
+      initialSeeding = seeding,
+      expr = SEApp(sexpr, Array(SEValue.Token)),
+      committers = submitters,
+      readAs = readAs,
+      validating = validating,
+      contractKeyUniqueness = config.contractKeyUniqueness,
+      limits = config.limits,
+    )
+    interpretLoop(machine, ledgerTime)
+  }
 
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Return"))

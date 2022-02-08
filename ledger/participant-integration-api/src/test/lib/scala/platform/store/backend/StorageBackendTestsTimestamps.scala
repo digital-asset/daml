@@ -10,42 +10,12 @@ import java.util.TimeZone
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.util.Success
-
 private[backend] trait StorageBackendTestsTimestamps extends Matchers with StorageBackendSpec {
   this: AnyFlatSpec =>
 
   behavior of "StorageBackend (timestamps)"
 
   import StorageBackendTestValues._
-
-  it should "correctly read ledger effective time using maximumLedgerTime" in {
-    val let = timestampFromInstant(Instant.now)
-    val cid = hashCid("#1")
-    val create = dtoCreate(
-      offset = offset(1),
-      eventSequentialId = 1L,
-      contractId = cid,
-      ledgerEffectiveTime = Some(let),
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams))
-
-    executeSql(ingest(Vector(create), _))
-    executeSql(updateLedgerEnd(offset(1), 1L))
-
-    val let1 = executeSql(backend.contract.maximumLedgerTime(Set(cid)))
-    val let2 = executeSql(
-      withDefaultTimeZone("GMT-1")(backend.contract.maximumLedgerTime(Set(cid)))
-    )
-    val let3 = executeSql(
-      withDefaultTimeZone("GMT+1")(backend.contract.maximumLedgerTime(Set(cid)))
-    )
-
-    withClue("UTC") { let1 shouldBe Success(Some(let)) }
-    withClue("GMT-1") { let2 shouldBe Success(Some(let)) }
-    withClue("GMT+1") { let3 shouldBe Success(Some(let)) }
-  }
 
   it should "correctly read ledger effective time using rawEvents" in {
     val let = timestampFromInstant(Instant.now)

@@ -63,22 +63,19 @@ private[validate] class SequenceImpl(
           val newOffset = toOffset(offsetIdx)
           val recordTime = timeProvider.getCurrentTimestamp
 
-          val updateO = in match {
-            case Left(rejection) => Some(rejection.toCommandRejectedUpdate(recordTime))
+          val update = in match {
+            case Left(rejection) => rejection.toCommandRejectedUpdate(recordTime)
             case Right((_, NoOpPreparedSubmission(submission))) =>
               processNonTransactionSubmission(recordTime, submission)
             case Right((noConflictUpTo, txSubmission: PreparedTransactionSubmission)) =>
-              Some(
-                sequentialTransactionValidation(
-                  noConflictUpTo,
-                  newOffset,
-                  recordTime,
-                  txSubmission,
-                )
+              sequentialTransactionValidation(
+                noConflictUpTo,
+                newOffset,
+                recordTime,
+                txSubmission,
               )
           }
-
-          updateO.map(newOffset -> _).toList
+          Seq(newOffset -> update)
         },
       )
     }
@@ -86,17 +83,20 @@ private[validate] class SequenceImpl(
   private def processNonTransactionSubmission(
       recordTime: Time.Timestamp,
       submission: Submission,
-  ): Option[Update] = submission match {
+  ): Update = submission match {
     case s: Submission.AllocateParty => validatedPartyAllocation(s, recordTime)
     case s @ Submission.Config(maxRecordTime, submissionId, config) =>
-      Some(validatedConfigUpload(s, recordTime, maxRecordTime, submissionId, config))
+      validatedConfigUpload(s, recordTime, maxRecordTime, submissionId, config)
     case s: Submission.UploadPackages =>
-      Some(packageUploadSuccess(s, recordTime))
+      packageUploadSuccess(s, recordTime)
     case _: Submission.Transaction =>
       throw new RuntimeException("Unexpected Submission.Transaction")
   }
 
-  private def validatedPartyAllocation(allocateParty: AllocateParty, recordTime: Time.Timestamp) = {
+  private def validatedPartyAllocation(
+      allocateParty: AllocateParty,
+      recordTime: Time.Timestamp,
+  ): Update = {
     val partyAllocation =
       partyAllocationSuccess(allocateParty, participantId, recordTime)
 
@@ -106,11 +106,15 @@ private[validate] class SequenceImpl(
       logger.warn(
         s"Found duplicate party '$party' for submissionId ${allocateParty.submissionId}"
       )(allocateParty.loggingContext)
-      // Duplicate party allocations are skipped
-      None
+      Update.PartyAllocationRejected(
+        allocateParty.submissionId,
+        participantId = participantId,
+        recordTime = recordTime,
+        rejectionReason = "Party already exists",
+      )
     } else {
       allocatedParties = allocatedParties + party
-      Some(partyAllocation)
+      partyAllocation
     }
   }
 

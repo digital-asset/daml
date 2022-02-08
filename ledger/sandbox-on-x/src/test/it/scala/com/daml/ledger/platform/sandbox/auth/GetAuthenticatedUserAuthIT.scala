@@ -6,6 +6,7 @@ import java.util.UUID
 
 import com.daml.ledger.api.v1.admin.user_management_service.{
   GetUserRequest,
+  GetUserResponse,
   User,
   UserManagementServiceGrpc,
 }
@@ -23,7 +24,7 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
     stub(UserManagementServiceGrpc.stub(channel), token).getUser(GetUserRequest())
 
   private def expectUser(token: Option[String], expectedUser: User): Future[Assertion] =
-    serviceCallWithToken(token).map(assertResult(expectedUser)(_))
+    serviceCallWithToken(token).map(assertResult(GetUserResponse(Some(expectedUser)))(_))
 
   private def getUser(token: Option[String], userId: String) =
     stub(UserManagementServiceGrpc.stub(channel), token).getUser(GetUserRequest(userId))
@@ -54,7 +55,7 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
       aliceRetrieved1 <- getUser(aliceToken, "")
       // user accesses its own user record with specifying the id
       aliceRetrieved2 <- getUser(aliceToken, alice.id)
-
-    } yield assertResult((alice, alice))((aliceRetrieved1, aliceRetrieved2))
+      expected = GetUserResponse(Some(alice))
+    } yield assertResult((expected, expected))((aliceRetrieved1, aliceRetrieved2))
   }
 }

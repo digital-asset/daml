@@ -21,10 +21,10 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 service UserManagementService {
 
     // Create a new user, failing if it already exists.
-    rpc CreateUser (CreateUserRequest) returns (User);
+    rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
 
     // Get the user data of a specific user or the authenticated user.
-    rpc GetUser (GetUserRequest) returns (User);
+    rpc GetUser (GetUserRequest) returns (GetUserResponse);
 
     // Delete an existing user and all its rights.
     rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse);
@@ -104,11 +104,21 @@ message CreateUserRequest {
     repeated Right rights = 2;
 }
 
+message CreateUserResponse {
+    // Created user.
+    User user = 1;
+}
+
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedUser(user_id)``
 message GetUserRequest {
     // The user whose data to retrieve.
     // If set to empty string (the default), then the data for the authenticated user will be retrieved.
     string user_id = 1;
+}
+
+message GetUserResponse {
+    // Retrieved user.
+    User user = 1;
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``

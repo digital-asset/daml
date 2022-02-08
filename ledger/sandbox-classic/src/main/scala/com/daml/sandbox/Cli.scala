@@ -27,15 +27,6 @@ object Cli extends SandboxCli {
       )
       .parser
     parser
-      .opt[String](name = "scenario")
-      .optional()
-      .action((x, c) => c.copy(scenario = Some(x)))
-      .text(
-        s"If set, $Name will execute the given scenario on startup and store all the contracts created by it.  (deprecated)" +
-          " Note that when using --sql-backend-jdbcurl the scenario will be ran only if starting from a fresh database, _not_ when resuming from an existing one." +
-          " Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)."
-      )
-    parser
       .opt[String]("sql-backend-jdbcurl")
       .optional()
       .text(
