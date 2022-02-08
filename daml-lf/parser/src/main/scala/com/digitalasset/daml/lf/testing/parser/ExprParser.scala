@@ -232,21 +232,18 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val eInterfaceTemplateTypeRep: Parser[Expr] =
-    `interface_template_type_rep` ~! `@` ~> fullIdentifier ~ expr0 ^^ {
-      case ifaceId ~ e =>
-          EInterfaceTemplateTypeRep(ifaceId, e)
+    `interface_template_type_rep` ~! `@` ~> fullIdentifier ~ expr0 ^^ { case ifaceId ~ e =>
+      EInterfaceTemplateTypeRep(ifaceId, e)
     }
 
   private lazy val eSignatoryInterface: Parser[Expr] =
-    `signatory_interface` ~! `@` ~> fullIdentifier ~ expr0 ^^ {
-      case ifaceId ~ e =>
-          ESignatoryInterface(ifaceId, e)
+    `signatory_interface` ~! `@` ~> fullIdentifier ~ expr0 ^^ { case ifaceId ~ e =>
+      ESignatoryInterface(ifaceId, e)
     }
 
   private lazy val eObserverInterface: Parser[Expr] =
-    `observer_interface` ~! `@` ~> fullIdentifier ~ expr0 ^^ {
-      case ifaceId ~ e =>
-          EObserverInterface(ifaceId, e)
+    `observer_interface` ~! `@` ~> fullIdentifier ~ expr0 ^^ { case ifaceId ~ e =>
+      EObserverInterface(ifaceId, e)
     }
 
   private lazy val pattern: Parser[CasePat] =
