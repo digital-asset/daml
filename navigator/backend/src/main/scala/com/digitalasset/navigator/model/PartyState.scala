@@ -17,7 +17,7 @@ case class State(ledger: Ledger, packageRegistry: PackageRegistry)
 /** A DA party and its ledger view(s). */
 class PartyState(
     val name: ApiTypes.Party,
-    // A named role specified in our config. Not sure if this is really used?
+    // A named role specified in our config. The role is an arbitrary string chosen by the user. It gets passed to the frontend, which can display a custom theme or custom views depending on the role.
     val userRole: Option[String] = None,
     val useDatabase: Boolean = false,
 ) {
