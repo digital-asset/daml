@@ -88,7 +88,6 @@ da_scala_library(
         "//daml-lf/language",
         "//language-support/scala/bindings",
         "//ledger/caching",
-        "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
