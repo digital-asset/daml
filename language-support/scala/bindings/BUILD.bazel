@@ -30,7 +30,6 @@ da_scala_library(
     ],
     exports = [
         "//daml-lf/data",
-        "//ledger-api/grpc-definitions:ledger_api_proto_java",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "@maven//:io_grpc_grpc_core",
     ],
@@ -61,5 +60,6 @@ da_scala_test_suite(
     deps = [
         ":bindings",
         "@maven//:org_scalatest_scalatest_compatible",
+        "//ledger-api/grpc-definitions:ledger_api_proto_java",
     ],
 )

@@ -66,6 +66,7 @@ da_scala_library(
     deps = [
         ":codegen-testing",
         "//language-support/scala/bindings",
+        "//ledger-api/grpc-definitions:ledger_api_proto_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
