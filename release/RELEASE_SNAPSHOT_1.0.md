@@ -26,9 +26,7 @@
    re-run it after all the other ones have completed successfully.
 
 1. Once the PR has built, check that it was considered a release build by our
-   CI. If you are working from an automated PR, check that it sent a message to
-   `#team-daml` to say it has finished building. If the PR was manually created,
-   you can look at the output of the `check_for_release` build step.
+   CI.You can look at the output of the `check_for_release` build step.
 
 1. Merge the PR and wait for the corresponding `main` build to finish. You
    will be notified on `#team-daml`.
