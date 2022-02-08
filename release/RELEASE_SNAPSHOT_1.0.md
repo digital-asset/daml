@@ -1,11 +1,6 @@
 # Making a Snapshot Release (1.x)
 
-1. For most snapshot releases, the PR is created automatically.
-   Double-check the snapshot version: it may need incrementing. Ask on Slack
-   (`#team-daml`) if you're not sure.
-
-   If you are manually creating the PR for an out-of-schedule snapshot, start
-   _from latest `main`_ and run
+1. Start _from latest `main`_ and run
    ```
    ./release.sh new snapshot
    ```
