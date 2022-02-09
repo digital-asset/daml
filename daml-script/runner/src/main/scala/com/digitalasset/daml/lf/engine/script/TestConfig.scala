@@ -69,6 +69,8 @@ object TestConfig {
         failure("Must specify both --ledger-host and --ledger-port")
       } else if (c.ledgerHost.isDefined && c.participantConfig.isDefined) {
         failure("Cannot specify both --ledger-host and --participant-config")
+      } else if (!c.ledgerHost.isDefined && !c.participantConfig.isDefined) {
+        failure("Must specify either --ledger-host or --participant-config")
       } else {
         success
       }

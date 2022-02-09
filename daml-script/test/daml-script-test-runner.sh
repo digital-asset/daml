@@ -19,9 +19,29 @@ DAR_FILE=$(rlocation $TEST_WORKSPACE/$2)
 DIFF=$3
 GREP=$4
 SED=$5
+SANDBOX=$(rlocation $TEST_WORKSPACE/$6)
+
+PORTFILE_DIR=$(mktemp -d)
+PORTFILE=$PORTFILE_DIR/port-file
+$SANDBOX --port=0 --port-file $PORTFILE --static-time $DAR_FILE &
+SANDBOX_PID=$!
+
+cleanup() {
+    kill $SANDBOX_PID || true
+    rm -rf $PORTFILE_DIR
+}
+
+trap cleanup EXIT
+
+while [ ! -f $PORTFILE ]
+do
+  sleep 0.5
+done
+
+PORT=$(cat $PORTFILE)
 
 set +e
-TEST_OUTPUT="$($TEST_RUNNER --dar=$DAR_FILE --max-inbound-message-size 41943040 2>&1)"
+TEST_OUTPUT="$($TEST_RUNNER --dar=$DAR_FILE --max-inbound-message-size 41943040 --ledger-host localhost --ledger-port $PORT 2>&1)"
 TEST_RESULT=$?
 set -e
 
