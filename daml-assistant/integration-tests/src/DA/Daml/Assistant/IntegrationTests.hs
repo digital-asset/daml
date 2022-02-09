@@ -594,7 +594,7 @@ damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
                 queryResponse <- httpLbs queryRequest manager
                 let body = responseBody queryResponse
                 assertBool ("result is unexpected: " <> show body) $
-                    ("{\"result\":{\"displayName\":\"Alice\",\"identifier\":\"Alice::" `LBS.isPrefixOf` body) &&
+                    ("{\"result\":{\"identifier\":\"Alice::" `LBS.isPrefixOf` body) &&
                     ("\",\"isLocal\":true},\"status\":200}" `LBS.isSuffixOf` body)
 
 quickstartTests :: FilePath -> FilePath -> IO QuickSandboxResource -> TestTree
