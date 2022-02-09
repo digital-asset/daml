@@ -8,7 +8,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import SessionJsonProtocol.userWriter
 import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.navigator.config.UserConfig
 import spray.json.{JsBoolean, JsObject, JsString}
 
 class SessionJsonProtocolTest extends AnyFlatSpec with Matchers {
@@ -20,7 +19,7 @@ class SessionJsonProtocolTest extends AnyFlatSpec with Matchers {
 
   it should s"encode $userClassName without role" in {
     val user =
-      User(id = "id", party = new PartyState(UserConfig(party, None, false)), canAdvanceTime = true)
+      User(id = "id", party = new PartyState(party, None, false), canAdvanceTime = true)
     val userJson = JsObject(
       "id" -> JsString("id"),
       "party" -> JsString("party"),
@@ -32,7 +31,7 @@ class SessionJsonProtocolTest extends AnyFlatSpec with Matchers {
   it should s"encode $userClassName with role" in {
     val user = User(
       id = "id",
-      party = new PartyState(UserConfig(party, Some("role"), false)),
+      party = new PartyState(party, Some("role"), false),
       role = Some("role"),
       canAdvanceTime = false,
     )
