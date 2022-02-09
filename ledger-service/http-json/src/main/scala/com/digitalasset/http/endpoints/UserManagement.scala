@@ -11,12 +11,12 @@ import EndpointsCompanion._
 import Endpoints.ET
 import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import scalaz.std.scalaFuture._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, \/, \/-}
+import scalaz.{-\/, EitherT, Monad, \/, \/-}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import com.daml.logging.LoggingContextOf
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.client.services.admin.UserManagementClient
@@ -205,6 +205,16 @@ private[http] object UserManagement {
       UserId.fromString(rawUserId).disjunction.leftMap(InvalidUserInput)
     )
   }
+
+  private def decodeAndParseUserIdFromToken(rawJwt: Jwt, decodeJwt: ValidateJwt)(implicit
+      mf: Monad[Future]
+  ): ET[UserId] =
+    for {
+      decodedJwt <- EitherT.either(decodeJwt(rawJwt): Error \/ DecodedJwt[String])
+      result <- EitherT.either(
+        CreateFromUserToken.parseUserIdFromToken(decodedJwt): Error \/ UserId
+      )
+    } yield result
 
   private val emptyObjectResponse: domain.SyncResponse[spray.json.JsObject] =
     domain.OkResponse(spray.json.JsObject())
