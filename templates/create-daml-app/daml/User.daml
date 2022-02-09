@@ -36,6 +36,9 @@ template Alias with
     signatory username
     observer public
 
+    key (username, public) : (Party, Party)
+    maintainer key._1
+
     nonconsuming choice Change: ContractId Alias with
         newAlias: Text
       controller username
