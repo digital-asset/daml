@@ -6,7 +6,6 @@ module User where
 -- MAIN_TEMPLATE_BEGIN
 template User with
     username: Party
-    public: Party
     following: [Party]
   where
     signatory username
