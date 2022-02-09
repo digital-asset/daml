@@ -214,7 +214,6 @@ message ScenarioError {
     Value key = 1;
   }
 
-
   message PartiesNotAllocated {
     repeated Party parties = 1;
   }
