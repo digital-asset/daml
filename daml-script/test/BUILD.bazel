@@ -243,10 +243,12 @@ sh_test(
         "$(POSIX_DIFF)",
         "$(POSIX_GREP)",
         "$(POSIX_SED)",
+        "$(rootpath //ledger/sandbox-classic:sandbox-classic-binary)",
     ],
     data = [
         ":script-test.dar",
         "//daml-script/runner:test-runner",
+        "//ledger/sandbox-classic:sandbox-classic-binary",
     ],
     toolchains = ["@rules_sh//sh/posix:make_variables"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
