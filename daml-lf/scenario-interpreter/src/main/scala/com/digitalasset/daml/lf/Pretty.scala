@@ -66,6 +66,10 @@ private[lf] object Pretty {
 
       case Error.PartyAlreadyExists(party) =>
         text(s"Error: Tried to allocate a party that already exists: $party")
+
+      case Error.PartiesNotAllocated(parties) =>
+        text(s"Error: Tried to submit a command for parties that have not been allocated:") &
+          intercalate(comma + space, parties.map(prettyParty))
     }
 
 }
