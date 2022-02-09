@@ -33,10 +33,8 @@ template Alias with
     alias: Text
     public: Party
   where
-    signatory public
-
-    key (username, public): (Party, Party)
-    maintainer key._2
+    signatory username
+    observer public
 
     nonconsuming choice Change: ContractId Alias with
         newAlias: Text
