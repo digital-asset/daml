@@ -20,6 +20,7 @@ module DA.Internal.Interface (
 import DA.Internal.Prelude
 import DA.Internal.Template.Functions
 import DA.Internal.LF
+import DA.Internal.Any
 
 class HasInterfaceTypeRep i where
   _interfaceTypeRep : i -> TypeRep
