@@ -16,13 +16,12 @@ import com.codahale.metrics.Timer
 import com.daml.lf.value.{Value => LfValue}
 import ContractsService.SearchResult
 import EndpointsCompanion._
-import com.daml.scalautil.Statement.discard
-import domain.{JwtPayload, JwtPayloadLedgerIdOnly}
+import domain.JwtPayload
 import json._
 import util.Collections.toNonEmptySet
 import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
-import util.{ProtobufByteStrings, toLedgerId}
+import util.toLedgerId
 import util.JwtParties._
 import com.daml.jwt.domain.Jwt
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
@@ -37,7 +36,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
-import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 
@@ -77,6 +75,12 @@ class Endpoints(
     userManagementClient,
   )
   import userManagement._
+
+  private[this] val packagesDars: endpoints.PackagesAndDars = new endpoints.PackagesAndDars(
+    routeSetup = routeSetup,
+    packageManagementService,
+  )
+  import packagesDars._
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
@@ -371,60 +375,6 @@ class Endpoints(
       .pure(metrics.daml.HttpJsonApi.allocatePartyThroughput.mark())
       .flatMap(_ => proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_)))
 
-  def listPackages(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[Seq[String]]] =
-    proxyWithoutCommand(packageManagementService.listPackages)(req).map(domain.OkResponse(_))
-
-  def downloadPackage(req: HttpRequest, packageId: String)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[HttpResponse] = {
-    val et: ET[admin.GetPackageResponse] =
-      proxyWithoutCommand((jwt, ledgerId) =>
-        packageManagementService.getPackage(jwt, ledgerId, packageId)
-      )(req)
-    val fa: Future[Error \/ admin.GetPackageResponse] = et.run
-    fa.map {
-      case -\/(e) =>
-        httpResponseError(e)
-      case \/-(x) =>
-        HttpResponse(
-          entity = HttpEntity.apply(
-            ContentTypes.`application/octet-stream`,
-            ProtobufByteStrings.toSource(x.archivePayload),
-          )
-        )
-    }
-  }
-
-  def uploadDarFile(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
-  ): ET[domain.SyncResponse[Unit]] =
-    for {
-      parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
-      _ <- EitherT.pure(metrics.daml.HttpJsonApi.uploadPackagesThroughput.mark())
-      t2 <- inputSource(req)
-      (jwt, payload, source) = t2
-      _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
-
-      _ <- eitherT(
-        handleFutureFailure(
-          packageManagementService.uploadDarFile(
-            jwt,
-            toLedgerId(payload.ledgerId),
-            source.mapMaterializedValue(_ => NotUsed),
-          )
-        )
-      ): ET[Unit]
-
-    } yield domain.OkResponse(())
-
-  private def handleFutureFailure[A](fa: Future[A])(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ A] =
-    fa.map(a => \/-(a)).recover(logException("Future") andThen Error.fromThrowable andThen (-\/(_)))
-
   private def handleSourceFailure[E, A](implicit
       E: IntoEndpointsError[E],
       lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -496,40 +446,6 @@ class Endpoints(
         },
     )
   }
-
-  private[http] def inputAndJwtPayload[P](
-      req: HttpRequest
-  )(implicit
-      legacyParse: ParsePayload[P],
-      createFromUserToken: CreateFromUserToken[P],
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-  ): EitherT[Future, Unauthorized, (Jwt, P, String)] =
-    eitherT(input(req)).flatMap(it => withJwtPayload[String, P](it))
-
-  private[http] def inputSource(
-      req: HttpRequest
-  )(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[(Jwt, JwtPayloadLedgerIdOnly, Source[ByteString, Any])] =
-    either(findJwt(req))
-      .leftMap { e =>
-        discard { req.entity.discardBytes(mat) }
-        e: Error
-      }
-      .flatMap(j =>
-        withJwtPayload[Source[ByteString, Any], JwtPayloadLedgerIdOnly]((j, req.entity.dataBytes))
-          .leftMap(it => it: Error)
-      )
-
-  private def proxyWithoutCommand[A](
-      fn: (Jwt, LedgerApiDomain.LedgerId) => Future[A]
-  )(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[A] =
-    for {
-      t3 <- inputAndJwtPayload[JwtPayloadLedgerIdOnly](req).leftMap(it => it: Error)
-      a <- eitherT(handleFutureFailure(fn(t3._1, toLedgerId(t3._2.ledgerId)))): ET[A]
-    } yield a
 
 }
 
