@@ -35,7 +35,7 @@ main = scenario do
       getAmount token' === 15
       signatory token === [alice]
       observer token === [bob, alice]
-      assert (TemplateTypeRep (interfaceTypeRep token) == templateTypeRep @Asset)
-      assert (TemplateTypeRep (interfaceTypeRep token) /= templateTypeRep @Token)
+      assert (interfaceTypeRep token == templateTypeRep @Asset)
+      assert (interfaceTypeRep token /= templateTypeRep @Token)
 
 -- @ENABLE-SCENARIOS
