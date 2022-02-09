@@ -14,11 +14,11 @@ terraform {
     }
     google = {
       source  = "hashicorp/google"
-      version = "4.5.0"
+      version = "4.7.0"
     }
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "4.5.0"
+      version = "4.7.0"
     }
     template = {
       source  = "hashicorp/template"
