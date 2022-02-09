@@ -19,9 +19,8 @@ Daml lets us implement these guarantees in a direct and intuitive way.
 Creating a feature involves four steps:
 
     1. Adding the necessary changes to the Daml model
-    2. Running the feature
-    3. Making the corresponding changes in the UI
-    4. Running the app with the new feature
+    2. Making the corresponding changes in the UI
+    3. Running the app with the new feature
 
 As usual, we must start with the Daml model and base our UI changes on top of that.
 
@@ -83,12 +82,12 @@ Messaging UI
 ============
 
 The UI for messaging consists of a new *Messages* panel in addition to the *Follow* and *Network* panel.
-This panel will have two parts:
+This new panel has two parts:
 
     1. A list of messages you've received with their senders.
     2. A form with a dropdown menu for follower selection and a text field for composing the message.
 
-We will implement each part as a React component, which we'll name ``MessageList`` and ``MessageEdit`` respectively.
+We implement each part as a React component, named ``MessageList`` and ``MessageEdit`` respectively.
 Let's start with the simpler ``MessageList``.
 
 MessageList Component
