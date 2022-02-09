@@ -234,7 +234,7 @@ final class Authorizer(
   private def ongoingAuthorization[Res](
       observer: ServerCallStreamObserver[Res],
       claims: ClaimSet.Claims,
-  ) = new OngoingAuthorizationObserver[Res](
+  ) = OngoingAuthorizationObserver[Res](
     observer = observer,
     originalClaims = claims,
     nowF = now,
@@ -323,29 +323,4 @@ final class Authorizer(
       authorizationErrorAsGrpc(authorized(claims)).map(_ => req)
     )
 
-}
-
-object Authorizer {
-  def apply(
-      now: () => Instant,
-      ledgerId: String,
-      participantId: String,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
-      userManagementStore: UserManagementStore,
-      ec: ExecutionContext,
-      userRightsCheckIntervalInSeconds: Int,
-      akkaScheduler: Scheduler,
-  ): Authorizer =
-    LoggingContext.newLoggingContext { loggingContext =>
-      new Authorizer(
-        now = now,
-        ledgerId = ledgerId,
-        participantId = participantId,
-        errorCodesVersionSwitcher = errorCodesVersionSwitcher,
-        userManagementStore = userManagementStore,
-        ec = ec,
-        userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
-        akkaScheduler = akkaScheduler,
-      )(loggingContext)
-    }
 }

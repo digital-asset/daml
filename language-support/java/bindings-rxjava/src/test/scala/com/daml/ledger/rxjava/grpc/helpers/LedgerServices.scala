@@ -33,6 +33,7 @@ import com.daml.ledger.api.v1.package_service.{
 }
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
+import com.daml.logging.LoggingContext
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
@@ -50,7 +51,7 @@ final class LedgerServices(val ledgerId: String) {
   private val akkaSystem = ActorSystem("LedgerServicesParticipant")
   private val participantId = "LedgerServicesParticipant"
   private val authorizer =
-    Authorizer(
+    new Authorizer(
       () => Clock.systemUTC().instant(),
       ledgerId,
       participantId,
@@ -59,7 +60,7 @@ final class LedgerServices(val ledgerId: String) {
       executionContext,
       userRightsCheckIntervalInSeconds = 1,
       akkaScheduler = akkaSystem.scheduler,
-    )
+    )(LoggingContext.ForTesting)
 
   def newServerBuilder(): NettyServerBuilder = NettyServerBuilder.forAddress(nextAddress())
 
