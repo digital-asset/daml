@@ -6,7 +6,7 @@ package com.daml.ledger.sandbox.bridge.validate
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v2.ChangeId
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
-import com.daml.ledger.sandbox.bridge.validate.DeduplicationState.UnsafeDeduplicationStateQueueMap
+import com.daml.ledger.sandbox.bridge.validate.DeduplicationState.DeduplicationStateQueueMap
 import com.daml.lf.data.{Ref, Time}
 import com.daml.metrics.Metrics
 import org.scalatest.flatspec.AnyFlatSpec
@@ -152,10 +152,10 @@ class DeduplicationStateSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  behavior of classOf[UnsafeDeduplicationStateQueueMap].getSimpleName
+  behavior of classOf[DeduplicationStateQueueMap].getSimpleName
 
   it should "update and expire entries properly" in {
-    UnsafeDeduplicationStateQueueMap.empty
+    DeduplicationStateQueueMap.empty
       .updated(changeId(1), t0)
       .updated(changeId(2), t1)
       // Insert duplicate changeId at t2
@@ -203,7 +203,7 @@ class DeduplicationStateSpec extends AnyFlatSpec with Matchers {
     actAs = Set.empty,
   )
 
-  private implicit class DeduplicationStateOps(val underlying: UnsafeDeduplicationStateQueueMap) {
+  private implicit class DeduplicationStateOps(val underlying: DeduplicationStateQueueMap) {
     // Assert that the two internal data structures contain the same mappings
     def assertToVectorMap: VectorMap[ChangeId, Time.Timestamp] =
       underlying.vector

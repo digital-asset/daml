@@ -53,14 +53,14 @@ case class DeduplicationState private (
 }
 
 object DeduplicationState {
-  private[sandbox] type DeduplicationQueue = UnsafeDeduplicationStateQueueMap
+  private[sandbox] type DeduplicationQueue = DeduplicationStateQueueMap
 
   private[validate] def empty(
       deduplicationDuration: Duration,
       bridgeMetrics: BridgeMetrics,
   ): DeduplicationState =
     DeduplicationState(
-      deduplicationQueue = UnsafeDeduplicationStateQueueMap.empty,
+      deduplicationQueue = DeduplicationStateQueueMap.empty,
       maxDeduplicationDuration = deduplicationDuration,
       bridgeMetrics = bridgeMetrics,
     )
@@ -71,7 +71,7 @@ object DeduplicationState {
     * @param vector An ordered (by insertion) vector of deduplication entries
     * @param mappings Mapping of changeId to recordTime
     */
-  private[validate] case class UnsafeDeduplicationStateQueueMap(
+  private[validate] case class DeduplicationStateQueueMap(
       vector: Vector[(ChangeId, Time.Timestamp)],
       mappings: Map[ChangeId, Time.Timestamp],
   ) {
@@ -80,7 +80,7 @@ object DeduplicationState {
       *
       * Complexity: eL - effectively linear in the number of expired entries
       */
-    def withoutOlderThan(expirationTimestamp: Time.Timestamp): UnsafeDeduplicationStateQueueMap = {
+    def withoutOlderThan(expirationTimestamp: Time.Timestamp): DeduplicationStateQueueMap = {
       // Assuming that the entries are monotonically increasing with regard to the recordTime,
       // get all entries with the recordTime before the expirationTimestamp
       val expiredFromVector = vector.view.takeWhile { case (_, recordTime) =>
@@ -93,7 +93,7 @@ object DeduplicationState {
         mappings.get(changeId).filter(_ == recordTime).map(_ => changeId)
       }
 
-      UnsafeDeduplicationStateQueueMap(
+      DeduplicationStateQueueMap(
         vector = vector.drop(expiredFromVector.size),
         mappings = mappings -- expiredFromMappings,
       )
@@ -106,8 +106,8 @@ object DeduplicationState {
     def updated(
         changeId: ChangeId,
         recordTime: Time.Timestamp,
-    ): UnsafeDeduplicationStateQueueMap =
-      UnsafeDeduplicationStateQueueMap(
+    ): DeduplicationStateQueueMap =
+      DeduplicationStateQueueMap(
         vector = vector :+ (changeId, recordTime),
         mappings = mappings.updated(changeId, recordTime),
       )
@@ -125,8 +125,8 @@ object DeduplicationState {
     def lastRecordTimeOption: Option[Time.Timestamp] = vector.lastOption.map(_._2)
   }
 
-  object UnsafeDeduplicationStateQueueMap {
-    def empty: UnsafeDeduplicationStateQueueMap =
-      UnsafeDeduplicationStateQueueMap(Vector.empty, Map.empty)
+  object DeduplicationStateQueueMap {
+    def empty: DeduplicationStateQueueMap =
+      DeduplicationStateQueueMap(Vector.empty, Map.empty)
   }
 }
