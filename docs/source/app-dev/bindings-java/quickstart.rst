@@ -384,27 +384,27 @@ After a short time, the text *Script results* should appear above the test. Clic
 
 Each row shows a contract on the ledger. The first four columns show which parties know of which contracts. The remaining columns show the data on the contracts. You can see past contracts by checking the **Show archived** box at the top. Click the adjacent **Show transaction view** button to switch to a view of the entire transaction tree.
 
-In the transaction view, transaction ``#6`` is of particular interest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``known to (since)`` show that the Banks do indeed not know anything they should not:
+In the transaction view, transaction ``6`` is of particular interest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``known to (since)`` show that the Banks do indeed not know anything they should not:
 
 .. code-block:: none
 
-  TX #6 1970-01-01T00:00:00Z (Tests.Trade:61:14)
+  TX 6 1970-01-01T00:00:00Z (Tests.Trade:70:14)
   #6:0
-  │   known to (since): 'Alice' (#6), 'Bob' (#6)
+  │   known to (since): 'Alice' (6), 'Bob' (6)
   └─> 'Bob' exercises IouTrade_Accept on #5:0 (IouTrade:IouTrade)
             with
               quoteIouCid = #3:1
       children:
       #6:1
-      │   known to (since): 'Alice' (#6), 'Bob' (#6)
+      │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
       └─> fetch #4:1 (Iou:Iou)
 
       #6:2
-      │   known to (since): 'Alice' (#6), 'Bob' (#6)
+      │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
       └─> fetch #3:1 (Iou:Iou)
 
       #6:3
-      │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
+      │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
       └─> 'Bob' exercises Iou_Transfer on #3:1 (Iou:Iou)
                 with
                   newOwner = 'Alice'
@@ -412,7 +412,7 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
           #6:4
           │   consumed by: #6:5
           │   referenced by #6:5
-          │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
+          │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
           └─> create Iou:IouTransfer
               with
                 iou =
@@ -420,28 +420,27 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
                      issuer = 'USD_Bank';
                      owner = 'Bob';
                      currency = "USD";
-                     amount = 110.0;
+                     amount = 110.0000000000;
                      observers = []);
                 newOwner = 'Alice'
 
       #6:5
-      │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
+      │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
       └─> 'Alice' exercises IouTransfer_Accept on #6:4 (Iou:IouTransfer)
                   with
           children:
           #6:6
-          │   referenced by #7:0
-          │   known to (since): 'Alice' (#6), 'USD_Bank' (#6), 'Bob' (#6)
+          │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
           └─> create Iou:Iou
               with
                 issuer = 'USD_Bank';
                 owner = 'Alice';
                 currency = "USD";
-                amount = 110.0;
+                amount = 110.0000000000;
                 observers = []
 
       #6:7
-      │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
+      │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
       └─> 'Alice' exercises Iou_Transfer on #4:1 (Iou:Iou)
                   with
                     newOwner = 'Bob'
@@ -449,7 +448,7 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
           #6:8
           │   consumed by: #6:9
           │   referenced by #6:9
-          │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
+          │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
           └─> create Iou:IouTransfer
               with
                 iou =
@@ -457,21 +456,24 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
                      issuer = 'EUR_Bank';
                      owner = 'Alice';
                      currency = "EUR";
-                     amount = 100.0;
+                     amount = 100.0000000000;
                      observers = ['Bob']);
                 newOwner = 'Bob'
 
       #6:9
-      │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
+      │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
       └─> 'Bob' exercises IouTransfer_Accept on #6:8 (Iou:IouTransfer)
                 with
           children:
           #6:10
-          │   referenced by #8:0
-          │   known to (since): 'Bob' (#6), 'EUR_Bank' (#6), 'Alice' (#6)
+          │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
           └─> create Iou:Iou
               with
-                issuer = 'EUR_Bank'; owner = 'Bob'; currency = "EUR"; amount = 100.0; observers = []
+                issuer = 'EUR_Bank';
+                owner = 'Bob';
+                currency = "EUR";
+                amount = 100.0000000000;
+                observers = []
 
 The ``submit`` function used in this script tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/Iou.daml``, for example, to confirm that the ledger model prevents double spends.
 
