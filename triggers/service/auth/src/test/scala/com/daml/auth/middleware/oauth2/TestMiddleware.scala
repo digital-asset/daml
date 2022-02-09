@@ -359,11 +359,7 @@ abstract class TestMiddleware
   }
 }
 
-class TestMiddlewareClaimsToken
-    extends TestMiddleware
-    with TestFixture
-    with SuiteResourceManagementAroundAll
-    with Matchers {
+class TestMiddlewareClaimsToken extends TestMiddleware {
   override protected[this] def makeJwt(
       claims: Request.Claims,
       expiresIn: Option[Duration],
@@ -376,6 +372,18 @@ class TestMiddlewareClaimsToken
       admin = claims.admin,
       actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
       readAs = claims.readAs.map(ApiTypes.Party.unwrap(_)),
+    )
+}
+
+class TestMiddlewareUserToken extends TestMiddleware {
+  override protected[this] def makeJwt(
+      claims: Request.Claims,
+      expiresIn: Option[Duration],
+  ): AuthServiceJWTPayload =
+    StandardJWTPayload(
+      userId = "test-application",
+      participantId = None,
+      exp = expiresIn.map(in => clock.instant.plus(in)),
     )
 }
 
