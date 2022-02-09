@@ -81,20 +81,22 @@ object DeduplicationState {
       * Complexity: eL - effectively linear in the number of expired entries
       */
     def withoutOlderThan(expirationTimestamp: Time.Timestamp): DeduplicationStateQueueMap = {
-      // Assuming that the entries are monotonically increasing with regard to the recordTime,
-      // get all entries with the recordTime before the expirationTimestamp
-      val expiredFromVector = vector.view.takeWhile { case (_, recordTime) =>
+      // Assuming that the entries have monotonically increasing recordTimes,
+      // drop all entries with the recordTime before the expirationTimestamp.
+      val prunedVector = vector.dropWhile { case (_, recordTime) =>
         recordTime < expirationTimestamp
       }
 
+      val prunedSize = vector.size - prunedVector.size
       // A recordTime for a changeId could have been updated by a newer command inserted in the mapping.
-      // Hence, remove only entries whose recordTimes match the expired entry's recordTime
-      val expiredFromMappings = expiredFromVector.flatMap { case (changeId, recordTime) =>
-        mappings.get(changeId).filter(_ == recordTime).map(_ => changeId)
-      }
+      // Hence, remove only entries whose recordTimes match the expired entry's recordTime.
+      val expiredFromMappings =
+        vector.view.take(prunedSize).flatMap { case (changeId, recordTime) =>
+          mappings.get(changeId).filter(_ == recordTime).map(_ => changeId)
+        }
 
       DeduplicationStateQueueMap(
-        vector = vector.drop(expiredFromVector.size),
+        vector = prunedVector,
         mappings = mappings -- expiredFromMappings,
       )
     }
