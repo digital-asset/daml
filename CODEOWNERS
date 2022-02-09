@@ -4,7 +4,7 @@
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
 CODEOWNERS   @gerolf-da @cocreature @stefanobaghino-da
-LATEST       @gerolf-da @bame-da @cocreature @stefanobaghino-da @adriaanm-da
+LATEST       @gerolf-da @bame-da @cocreature @ray-roestenburg-da @adriaanm-da
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -34,8 +34,6 @@ NOTICES     @garyverhaegen-da @cocreature @dasormeter
 /daml-lf/governance.rst @sofiafaro-da @remyhaemmerle-da @cocreature
 /daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da @cocreature
 /daml-lf/transaction-test-lib/ @S11001001 @remyhaemmerle-da @cocreature
-
-/ledger-service/    @S11001001 @stefanobaghino-da
 
 # KV Participant
 /ledger/      @digital-asset/kv-participant
@@ -73,13 +71,15 @@ NOTICES     @garyverhaegen-da @cocreature @dasormeter
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da @cocreature
-/language-support/java/     @stefanobaghino-da
-/language-support/scala/    @S11001001 @stefanobaghino-da
-/language-support/ts/        @robin-da @garyverhaegen-da @stefanobaghino-da
+/language-support/java/     @stefanobaghino-da @ray-roestenburg-da
+/language-support/scala/    @S11001001 @stefanobaghino-da @ray-roestenburg-da
+/language-support/ts/       @robin-da @garyverhaegen-da @stefanobaghino-da @ray-roestenburg-da
 
 # Application Runtime
-/navigator/            @stefanobaghino-da
-/runtime-components/   @stefanobaghino-da
+/ledger-service/       @S11001001 @stefanobaghino-da @ray-roestenburg-da
+/navigator/            @stefanobaghino-da @ray-roestenburg-da
+/runtime-components/   @stefanobaghino-da @ray-roestenburg-da
+/triggers/service/     @stefanobaghino-da @ray-roestenburg-da
 /navigator/backend/src/main/scala/com/digitalasset/navigator/json/    @S11001001
 
 # Misc
