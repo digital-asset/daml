@@ -413,6 +413,11 @@ prettyScenarioErrorError (Just err) =  do
       pure "Attend to compare incomparable values"
     ScenarioErrorErrorValueExceedsMaxNesting _ ->
           pure "Value exceeds maximum nesting value of 100"
+    ScenarioErrorErrorScenarioPartiesNotAllocated ScenarioError_PartiesNotAllocated{..} ->
+      pure $ vcat
+        [ "Tried to submit a command for parties that have not ben allocated:"
+        , prettyParties scenarioError_PartiesNotAllocatedParties
+        ]
 
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass

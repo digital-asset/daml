@@ -249,6 +249,12 @@ final class Conversions(
 
       case Error.PartyAlreadyExists(party) =>
         builder.setScenarioPartyAlreadyExists(party)
+      case Error.PartiesNotAllocated(parties) =>
+        builder.setScenarioPartiesNotAllocated(
+          proto.ScenarioError.PartiesNotAllocated.newBuilder
+            .addAllParties(parties.map(convertParty).asJava)
+            .build
+        )
     }
     builder.build
   }
