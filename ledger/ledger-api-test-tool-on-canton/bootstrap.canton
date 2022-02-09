@@ -1,9 +1,11 @@
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
+
 nodes.local start
 
 test_domain.service.update_dynamic_parameters(_.copy(
-  ledgerTimeRecordTimeTolerance = 3m,
-  mediatorReactionTimeout = 1m,
-  participantResponseTimeout = 1m,
+  ledgerTimeRecordTimeTolerance = NonNegativeFiniteDuration.ofMinutes(3),
+  mediatorReactionTimeout = NonNegativeFiniteDuration.ofMinutes(1),
+  participantResponseTimeout = NonNegativeFiniteDuration.ofMinutes(1),
 ))
 
 participants.local foreach (_.domains.connect_local(test_domain))
