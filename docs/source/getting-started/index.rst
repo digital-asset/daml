@@ -29,7 +29,7 @@ With that, let's get started!
 Prerequisites
 *************
 
-Mke sure that you have the Daml SDK, Java 8 or higher, and Visual Studio Code (the only supported IDE) installed as per the instructions in :doc:`installation`.
+Make sure that you have the Daml SDK, Java 8 or higher, and Visual Studio Code (the only supported IDE) installed as per the instructions in :doc:`installation`.
 
 You will also need some common software tools to build and interact with the template project:
 
@@ -94,7 +94,7 @@ Depending on your firewall settings, you may be asked whether to allow the app t
 
 You should now see the login page for the social network. For simplicity, in this app there is no password or sign-up required.
 
-1. Enter your name.
+1. Enter a user name. Valid user names are bob, alice, or charlie (note that these are all lower-case, although they are displayed in the social network AI with the usual capitalization).
 2. Click *Log in*.
 
    .. figure:: images/create-daml-app-login-screen.png
@@ -102,8 +102,8 @@ You should now see the login page for the social network. For simplicity, in thi
       :alt: Login screen for the create-daml-app
       :class: no-scaled-link
 
-You should see the main screen with two panels. The top panel displays the aliases of the users you are following; the bottom displays the aliases of the users who follow you. Initially these are both empty as you are not following anyone and you don't have any followers.
-To start following a user, type their alias into the text box or select it from the drop-down list and click the *Follow* button in the top panel.
+You should see the main screen with two panels. The top panel displays the social network users you are following; the bottom displays the aliases of the users who follow you. Initially these are both empty as you are not following anyone and you don't have any followers.
+To start following a user, type their name into the text box or select it from the drop-down list and click the *Follow* button in the top panel.
 
    .. figure:: images/create-daml-app-main-screen-initial-view.png
       :alt: Main view of the create-daml-app
