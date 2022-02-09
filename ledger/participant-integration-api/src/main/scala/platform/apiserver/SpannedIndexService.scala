@@ -20,7 +20,7 @@ import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.{IndexService, MeteringStore}
+import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime, MeteringStore}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
@@ -129,10 +129,10 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   )(implicit loggingContext: LoggingContext): Future[Option[Value.ContractId]] =
     delegate.lookupContractKey(readers, key)
 
-  override def lookupMaximumLedgerTime(
+  override def lookupMaximumLedgerTimeAfterInterpretation(
       ids: Set[Value.ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Timestamp]] =
-    delegate.lookupMaximumLedgerTime(ids)
+  )(implicit loggingContext: LoggingContext): Future[MaximumLedgerTime] =
+    delegate.lookupMaximumLedgerTimeAfterInterpretation(ids)
 
   override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =
     delegate.getLedgerId()

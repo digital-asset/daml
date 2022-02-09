@@ -19,7 +19,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, PackageDetails}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
@@ -71,7 +71,7 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
 
   def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Timestamp]]
+  )(implicit loggingContext: LoggingContext): Future[MaximumLedgerTime]
 
   def lookupKey(key: GlobalKey, forParties: Set[Ref.Party])(implicit
       loggingContext: LoggingContext

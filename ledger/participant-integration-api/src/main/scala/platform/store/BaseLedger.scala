@@ -20,7 +20,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
@@ -125,8 +125,8 @@ private[platform] abstract class BaseLedger(
 
   override def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Timestamp]] =
-    contractStore.lookupMaximumLedgerTime(contractIds)
+  )(implicit loggingContext: LoggingContext): Future[MaximumLedgerTime] =
+    contractStore.lookupMaximumLedgerTimeAfterInterpretation(contractIds)
 
   override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
