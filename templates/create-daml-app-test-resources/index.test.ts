@@ -8,7 +8,7 @@ import { promises as fs } from 'fs';
 import puppeteer, { Browser, Page } from 'puppeteer';
 import waitOn from 'wait-on';
 
-import Ledger from '@daml/ledger';
+import Ledger, { UserRightHelper } from '@daml/ledger';
 import { User } from '@daml.js/create-daml-app';
 import { authConfig } from './config';
 
@@ -25,46 +25,31 @@ let uiProc: ChildProcess | undefined = undefined;
 // Chrome browser that we run in headless mode
 let browser: Browser | undefined = undefined;
 
-let publicUser: string = '';
-let publicParty: string = '';
+let publicUser: string | undefined;
+let publicParty: string | undefined;
+
+const adminLedger = new Ledger({token: authConfig.makeToken("participant_admin")});
 
 // Function to generate unique party names for us.
 let nextPartyId = 1;
 const getParty = async () : [string, string] => {
-  // TODO For now we use grpcurl to allocate parties and users.
-  // Once the JSON API exposes party & user management we can switch to that.
-  const grpcurlPartyArgs = [
-    "-plaintext",
-    "localhost:6865",
-    "com.daml.ledger.api.v1.admin.PartyManagementService/AllocateParty",
-  ];
-  const allocResult = spawnSync('grpcurl', grpcurlPartyArgs, {"encoding": "utf8"});
-  const parsedResult = JSON.parse(allocResult.stdout);
+  const allocResult = await adminLedger.allocateParty({});
   const user = `u${nextPartyId}`;
-  const party = parsedResult.partyDetails.party;
-  const createUser = {
-    "user": {
-      "id": user,
-      "primary_party": party,
-    },
-    "rights": [{"can_act_as": {"party": party}}, {"can_read_as": {"party": publicParty}}]
-  };
-  const grpcurlUserArgs = [
-    "-plaintext",
-    "-d",
-    JSON.stringify(createUser),
-    "localhost:6865",
-    "com.daml.ledger.api.v1.admin.UserManagementService/CreateUser",
-  ];
-  const result = spawnSync('grpcurl', grpcurlUserArgs, {"encoding": "utf8"});
+  const party = allocResult.identifier;
+  const rights: UserRight[] = [UserRightHelper.canActAs(party)].concat(publicParty !== undefined ? [UserRightHelper.canReadAs(publicParty)] : []);
+  await adminLedger.createUser(user, rights, party);
   nextPartyId++;
   return [user, party];
 };
 
 test('Party names are unique', async () => {
-  const parties = new Set(await Promise.all(Array(10).fill({}).map(() => getParty())));
+  let r = [];
+  for (let i = 0; i < 10; ++i) {
+    r = r.concat((await getParty())[1]);
+  }
+  const parties = new Set(r);
   expect(parties.size).toEqual(10);
-});
+}, 20_000);
 
 const removeFile = async (path: string) => {
   try {
@@ -420,23 +405,13 @@ test('error on non-existent user id', async () => {
     const invalidUser = "nonexistent";
     const page = await newUiPage();
     const error = await failedLogin(page, invalidUser);
-    expect(error).toMatch(/cannot get user for unknown user \\"nonexistent\\"/);
+    expect(error).toMatch(/getting user failed for unknown user \\"nonexistent\\"/);
     await page.close();
 }, 40_000);
 
 test('error on user with no primary party', async () => {
     const invalidUser = "noprimary";
-    // TODO replace with daml-ledger once it exposes the create user endpoint.
-  const grpcurlUserArgs = [
-    "-plaintext",
-    "-d",
-      JSON.stringify({"user": {"id": invalidUser}}),
-    "localhost:6865",
-    "com.daml.ledger.api.v1.admin.UserManagementService/CreateUser",
-  ];
-    const result = spawnSync('grpcurl', grpcurlUserArgs, {"encoding": "utf8"});
-    console.debug(result.stdout);
-    console.debug(result.stderr);
+    await adminLedger.createUser(invalidUser, []);
     const page = await newUiPage();
     const error = await failedLogin(page, invalidUser);
     expect(error).toMatch(/User 'noprimary' has no primary party/);
