@@ -84,6 +84,12 @@ class Endpoints(
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
+  // Limit logging of bodies to content with size of less than 10 KiB.
+  // Reason is that a char of an UTF-8 string consumes 1 up to 4 bytes such that the string length
+  // with this limit will be 2560 chars up to 10240 chars. This can hold already the whole cascade
+  // of import statements in this file, which I would consider already as very big string to log.
+  private final val maxBodySizeForLogging = Math.pow(2, 10) * 10
+
   import Endpoints._
   import json.JsonProtocol._
   import util.ErrorOps._
@@ -129,8 +135,8 @@ class Endpoints(
   private def logJsonRequestAndResult(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Directive0 = {
-    def logWithHttpMessageBodyIfAvailable[A <: HttpMessage](
-        httpMessage: A,
+    def logWithHttpMessageBodyIfAvailable(
+        httpMessage: HttpMessage,
         msg: String,
         kind: String,
     ): HttpMessage =
@@ -140,40 +146,36 @@ class Endpoints(
           .map(_.contentType)
           .contains(ContentTypes.`application/json`)
       ) {
+        def logWithBodyInCtx(body: com.daml.logging.entries.LoggingValue) =
+          withEnrichedLoggingContext(
+            LoggingContextOf.label[RequestEntity],
+            s"${kind}_body" -> body,
+          )
+            .run { implicit lc => logger.info(msg) }
         httpMessage.entity.contentLengthOption match {
-          // Limit logging of bodies to content with size of less than 10 KiB
-          case Some(length) if length < 1024 * 10 =>
+          case Some(length) if length < maxBodySizeForLogging =>
             import akka.stream.scaladsl._
-            logger.debug("Calling transformEntityDataBytes")
             httpMessage
               .transformEntityDataBytes(
                 Flow.fromFunction { it =>
-                  try {
-                    withEnrichedLoggingContext(
-                      LoggingContextOf.label[RequestEntity],
-                      s"${kind}_body" -> it.utf8String.parseJson,
-                    )
-                      .run { implicit lc => logger.info(msg) }
-                  } catch {
-                    case ex: Exception =>
+                  try logWithBodyInCtx(it.utf8String.parseJson)
+                  catch {
+                    case NonFatal(ex) =>
                       logger.error("Failed to log message body: ", ex)
                   }
                   it
                 }
               )
           case other =>
-            val ctxContent = other
-              .map(length => s"OMITTED BECAUSE BODY SIZE OF $length IS TOO BIG FOR LOGGING")
+            val reason = other
+              .map(length => s"size of $length is too big for logging")
               .getOrElse {
                 if (httpMessage.entity.isChunked())
-                  "OMITTED BECAUSE REQUEST BODY IS CHUNKED & OVERALL SIZE IS UNKNOWN"
+                  "is chunked & overall size is unknown"
                 else
-                  "OMITTED BECAUSE REQUEST BODY SIZE IS UNKNOWN"
+                  "size is unknown"
               }
-            withEnrichedLoggingContext(
-              LoggingContextOf.label[RequestEntity],
-              s"${kind}_body" -> ctxContent,
-            ).run { implicit lc => logger.info(msg) }
+            logWithBodyInCtx(s"omitted because $kind body $reason")
             httpMessage
         }
       } else {
