@@ -8,8 +8,6 @@ import java.sql.Connection
 import anorm.SqlParser.{array, byteArray, int, long}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Time.Timestamp
-import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.store.Conversions.{contractId, offset, timestampFromMicros}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
@@ -24,94 +22,12 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
 }
 import com.daml.platform.store.interning.StringInterning
 
-import scala.util.{Failure, Success, Try}
-
 class ContractStorageBackendTemplate(
     queryStrategy: QueryStrategy,
     ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
 ) extends ContractStorageBackend {
   import com.daml.platform.store.Conversions.ArrayColumnToIntArray._
-
-  private def emptyContractIds: Throwable =
-    new IllegalArgumentException(
-      "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-    )
-
-  protected def maximumLedgerTimeSqlLiteral(
-      id: ContractId,
-      lastEventSequentialId: Long,
-  ): SimpleSql[Row] = {
-    import com.daml.platform.store.Conversions.ContractIdToStatement
-    SQL"""
-  WITH archival_event AS (
-         SELECT participant_events.*
-           FROM participant_events
-          WHERE contract_id = $id
-            AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= $lastEventSequentialId
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_event AS (
-         SELECT ledger_effective_time
-           FROM participant_events
-          WHERE contract_id = $id
-            AND event_kind = 10  -- create
-            AND event_sequential_id <= $lastEventSequentialId
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
-       ),
-       divulged_contract AS (
-         SELECT ledger_effective_time
-           FROM participant_events
-          WHERE contract_id = $id
-            AND event_kind = 0 -- divulgence
-            AND event_sequential_id <= $lastEventSequentialId
-          ORDER BY event_sequential_id
-            -- prudent engineering: make results more stable by preferring earlier divulgence events
-            -- Results might still change due to pruning.
-          FETCH NEXT 1 ROW ONLY
-       ),
-       create_and_divulged_contracts AS (
-         (SELECT * FROM create_event)   -- prefer create over divulgence events
-         UNION ALL
-         (SELECT * FROM divulged_contract)
-       )
-  SELECT ledger_effective_time
-    FROM create_and_divulged_contracts
-   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY"""
-  }
-
-  // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.
-  // TODO append-only: consider pulling up traversal logic to upper layer
-  override def maximumLedgerTime(
-      ids: Set[ContractId]
-  )(connection: Connection): Try[Option[Timestamp]] = {
-    val lastEventSequentialId = ledgerEndCache()._2
-    if (ids.isEmpty) {
-      Failure(emptyContractIds)
-    } else {
-      def lookup(id: ContractId): Option[Option[Timestamp]] =
-        maximumLedgerTimeSqlLiteral(id, lastEventSequentialId).as(
-          timestampFromMicros("ledger_effective_time").?.singleOpt
-        )(
-          connection
-        )
-
-      val queriedIds: List[(ContractId, Option[Option[Timestamp]])] = ids.toList
-        .map(id => id -> lookup(id))
-      val foundLedgerEffectiveTimes: List[Option[Timestamp]] = queriedIds
-        .collect { case (_, Some(found)) =>
-          found
-        }
-      if (foundLedgerEffectiveTimes.size != ids.size) {
-        val missingIds = queriedIds.collect { case (missingId, None) =>
-          missingId
-        }
-        Failure(MissingContracts(missingIds.toSet))
-      } else Success(foundLedgerEffectiveTimes.max)
-    }
-  }
 
   override def keyState(key: Key, validAt: Long)(connection: Connection): KeyState =
     contractKey(

@@ -73,20 +73,6 @@ jobs:
               echo $pr_number > $out
           fi
       }
-      assign_and_label() {
-          local pr_number assignee
-          pr_number=$1
-          assignee=$2
-          curl -H "Content-Type: application/json" \
-               -X PATCH \
-               -H "$AUTH" \
-               --silent \
-               --location \
-               -d "{\"assignees\": [\"$assignee\"], \"labels\": [\"Standard-Change\"]}" \
-               https://api.github.com/repos/digital-asset/daml/issues/$pr_number
-          # For the purposes of "common" features, such as assignees and
-          # labels, PRs are issues as far as the GH API is concerned.
-      }
       rotate() {
           local tmp next
           tmp=$(mktemp)
@@ -95,51 +81,10 @@ jobs:
           echo "$next" >> $tmp
           mv $tmp release/rotation
       }
-      release_message() {
-          local handler=$1
-          local start=$2
-          local commit_log
-          commit_log=$(git log --pretty=oneline $start..HEAD)
-          local changelog
-          changelog=$(./unreleased.sh $start..HEAD)
-          # Keep this line in sync with RELEASE_PR_NOTIF in azure-pipelines.yml
-          echo "This PR has been created by a script, which is not very smart"
-          echo "and does not have all the context. Please do double-check that"
-          echo "the version prefix is correct before merging."
-          echo ""
-          echo "@${handler} is in charge of this release."
-          echo ""
-          echo "Commit log:"
-          echo "\`\`\`"
-          echo "$commit_log"
-          echo "\`\`\`"
-          echo "Changelog:"
-          echo "\`\`\`"
-          echo "$changelog"
-          echo "\`\`\`"
-      }
 
-      reset
-
-      NEXT_SLACK=$(next_in_rotation_slack)
       NEXT_GH=$(next_in_rotation_github)
 
-      PREV="v$(head -1 LATEST | awk '{print $2}')"
-      ./release.sh new snapshot
-      RELEASE=$(head -1 LATEST | awk '{print $2}')
-      PR_FILE=$(mktemp)
-      open_pr "auto-release-pr-$(date -I)" \
-              "release $RELEASE" \
-              "$(release_message $NEXT_GH $PREV)" \
-              $PR_FILE
-
-      PR=$(cat $PR_FILE)
-
-      assign_and_label $PR $NEXT_GH
-
-      reset
-
       rotate
-      open_pr "rotate-after-$RELEASE" \
-              "rotate release duty after $RELEASE" \
-              "@$NEXT_GH is taking care of $RELEASE (#$PR), so they get pushed back to the end of the line.\n\nPlease do not merge this before #$PR."
+      open_pr "rotate-after-release-$(date -I)" \
+              "rotate release duty after $(date -I)" \
+              "@$NEXT_GH is taking care of testing today's release, so they get pushed back to the end of the line.\n\nPlease do not merge this before the release is fully tested."

@@ -484,15 +484,6 @@ object MutableCacheBackedContractStoreSpec {
       }
     }
 
-    override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
-        loggingContext: LoggingContext
-    ): Future[Option[Timestamp]] = ids match {
-      case setIds if setIds == Set(cId_4) =>
-        Future.successful(Some(t4))
-      case _ =>
-        Future.failed(MissingContracts(ids))
-    }
-
     override def lookupActiveContractAndLoadArgument(
         forParties: Set[Party],
         contractId: ContractId,

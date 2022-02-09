@@ -13,9 +13,11 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.admin.user_management_service.{
   CreateUserRequest,
+  CreateUserResponse,
   DeleteUserRequest,
   DeleteUserResponse,
   GetUserRequest,
+  GetUserResponse,
   GrantUserRightsRequest,
   ListUserRightsRequest,
   ListUserRightsResponse,
@@ -100,11 +102,11 @@ final class UserManagementServiceIT extends LedgerTestSuite {
 
     } yield {
       assertTooManyUserRightsError(create1)
-      assertEquals(create2, user1)
+      assertEquals(create2.user, Some(user1))
       assertTooManyUserRightsError(grant1)
       assertEquals(rights1.rights.size, permissionsMaxAndOne.tail.size)
       assertSameElements(rights1.rights, permissionsMaxAndOne.tail)
-      assertEquals(create3, user2)
+      assertEquals(create3.user, Some(user2))
     }
   })
 
@@ -193,7 +195,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       get1 <- ledger.userManagement.getUser(GetUserRequest(AdminUserId))
       rights1 <- ledger.userManagement.listUserRights(ListUserRightsRequest(AdminUserId))
     } yield {
-      assertEquals(get1, User(AdminUserId, ""))
+      assertEquals(get1.user, Some(User(AdminUserId, "")))
       assertEquals(rights1, ListUserRightsResponse(Seq(adminPermission)))
     }
   })
@@ -216,9 +218,9 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       res3 <- ledger.userManagement.createUser(CreateUserRequest(Some(user2), Nil))
       res4 <- ledger.userManagement.deleteUser(DeleteUserRequest(userId2))
     } yield {
-      assertEquals(res1, user1)
+      assertEquals(res1, CreateUserResponse(Some(user1)))
       assertUserAlreadyExists(res2)
-      assertEquals(res3, user2)
+      assertEquals(res3, CreateUserResponse(Some(user2)))
       assertEquals(res4, DeleteUserResponse())
     }
   })
@@ -240,7 +242,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         .mustFail("retrieving non-existent user")
     } yield {
       assertUserNotFound(res2)
-      assert(res1 == user1)
+      assert(res1 == GetUserResponse(Some(user1)))
     }
   })
 
@@ -289,7 +291,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       def filterUsers(users: Iterable[User]) = users.filter(u => u.id == userId1 || u.id == userId2)
 
       assertSameElements(filterUsers(res1.users), Seq(user1))
-      assertEquals(res2, user2)
+      assertEquals(res2.user, Some(user2))
       assertSameElements(
         filterUsers(res3.users),
         Set(user1, user2),
@@ -497,7 +499,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       res6 <- ledger.userManagement
         .listUserRights(ListUserRightsRequest(userId1))
     } yield {
-      assertEquals(res1, user1)
+      assertEquals(res1.user, Some(user1))
       assertEquals(res2, ListUserRightsResponse(Seq.empty))
       assertSameElements(
         res3.newlyGrantedRights.toSet,

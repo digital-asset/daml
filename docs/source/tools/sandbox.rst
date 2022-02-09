@@ -12,127 +12,92 @@ You can start Sandbox together with :doc:`Navigator </tools/navigator/index>` us
 
 It is possible to execute the Sandbox launching step in isolation by typing ``daml sandbox``.
 
-Note: Sandbox has switched to use Wall Clock Time mode by default. To use Static Time Mode you can provide the ``--static-time`` flag to the ``daml sandbox`` command or configure the time mode for ``daml start`` in ``sandbox-options:`` section of ``daml.yaml``. Please refer to :ref:`Daml configuration files <daml-yaml-configuration>` for more information.
-
 Sandbox can also be run manually as in this example:
 
 .. code-block:: none
 
-  $ daml sandbox Main.dar --static-time
+  $ daml sandbox --dar Main.dar --static-time
+  Starting Canton sandbox.
+  Listening at port 6865
+  Uploading .daml/dist/foobar-0.0.1.dar to localhost:6865
+  DAR upload succeeded.
+  Canton sandbox is ready.
 
-     ____             ____
-    / __/__ ____  ___/ / /  ___ __ __
-   _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
-  /___/\_,_/_//_/\_,_/_.__/\___/_\_\
-
-  INFO: Initialized sandbox version 1.12.0-snapshot.20210312.6498.0.707c86aa with ledger-id = fd562651-5ebb-4a45-add7-25809ca1f297, port = 6865, dar file = List(Main.dar), time mode = static time, ledger = in-memory, auth-service = AuthServiceWildcard$, contract ids seeding = strong
-
-Contract Identifier Generation
-******************************
-
-Sandbox supports two contract identifier generator schemes:
-
-- The so-called *deterministic* scheme that deterministically produces
-  contract identifiers from the state of the underlying ledger.  Those
-  identifiers are strings starting with ``#``.
-
-- The so-called *random* scheme that produces contract identifiers
-  indistinguishable from random.  In practice, the schemes use a
-  cryptographically secure pseudorandom number generator initialized
-  with a truly random seed. Those identifiers are hexadecimal strings
-  prefixed by ``00``.
-
-The sandbox can be configured to use one or the other scheme with one
-of the following command line options:
-
-- ``--contract-id-seeding=<seeding-mode>``.  The Sandbox will use the
-  seeding mode `<seeding-mode>` to seed the generation of random
-  contract identifiers. Possible seeding modes are:
-
-  - ``no``: The Sandbox uses the ``deterministic`` scheme. This is
-    only supported by Sandbox classic and it prevents Sandbox from
-    accepting packages in Daml-LF 1.11 or newer.
-
-  - ``strong``: The Sandbox uses the ``random`` scheme initialized
-    with a high-entropy seed.  Depending on the underlying operating
-    system, the startup of the Sandbox may block as entropy is being
-    gathered to generate the seed.
-
-  - ``testing-weak``: (**For testing purposes only**) The Sandbox uses
-    the ``random`` scheme initialized with a low entropy seed.  This
-    may be used in a testing environment to avoid exhausting the
-    system entropy pool when a large number of Sandboxes are started
-    in a short time interval.
-
-  - ``testing-static``: (**For testing purposes only**) The sandbox
-    uses the ``random`` scheme with a fixed seed. This may be used in
-    testing for reproducible runs.
-
-
-Running with persistence
-************************
-
-Note: Running Sandbox with persistence is deprecated as of SDK 1.8.0 (16th Dec 2020). You can use the
-Daml driver for PostgreSQL instead.
-
-By default, Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. If you want to keep the state, you can use a Postgres database for persistence. This allows you to shut down Sandbox and start it up later, continuing where it left off.
-
-To set this up, you must:
-
-- create an initially empty Postgres database that the Sandbox application can access
-- have a database user for Sandbox that has authority to execute DDL operations
-
-  This is because Sandbox manages its own database schema, applying migrations if necessary when upgrading versions.
-
-To start Sandbox using persistence, pass an ``--sql-backend-jdbcurl <value>`` option, where ``<value>`` is a valid jdbc url containing the username, password and database name to connect to.
-
-Here is an example for such a url: ``jdbc:postgresql://localhost/test?user=fred&password=secret``
-
-Due to possible conflicts between the ``&`` character and various terminal shells, we recommend quoting the jdbc url like so:
+Behind the scenes, Sandbox spins up a Canton ledger with an in-memory
+participant ``sandbox`` and an in-memory domain ``local``. You can pass additional
+Canton configuration files via ``-c``. This option can be specified multiple times and
+the resulting configuration files will be merged.
 
 .. code-block:: none
 
-  $ daml sandbox Main.dar --sql-backend-jdbcurl "jdbc:postgresql://localhost/test?user=fred&password=secret"
-
-If you're not familiar with JDBC URLs, see the JDBC docs for more information: https://jdbc.postgresql.org/documentation/head/connect.html
+   $ daml sandbox -c path/to/canton/config
 
 .. _sandbox-authorization:
 
-Running with authentication
-***************************
+Running with authorization
+**************************
 
 By default, Sandbox accepts all valid ledger API requests without performing any request authorization.
 
-To start Sandbox with authorization using `JWT-based <https://jwt.io/>`__ access tokens
-as described in the :doc:`Authorization documentation </app-dev/authorization>`,
-use one of the following command line options:
+To start Sandbox with authorization using `JWT-based <https://jwt.io/>`__
+access tokens as described in the
+:doc:`Authorization documentation </app-dev/authorization>`, create a
+config file that specifies the type of
+authorization service and the path to the certificate.
 
-- ``--auth-jwt-rs256-crt=<filename>``.
+.. code-block:: none
+   :caption: auth.conf
+
+   canton.participants.sandbox.ledger-api.auth-services = [{
+       // type can be
+       //   jwt-rs-256-crt
+       //   jwt-es-256-crt
+       //   jwt-es-512-crt
+       type = jwt-rs-256-crt
+       certificate = my-certificate.cert
+   }]
+
+- ``jwt-rs-256-crt``.
   The sandbox will expect all tokens to be signed with RS256 (RSA Signature with SHA-256) with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
   and DER-encoded certificates (binary files) are supported.
 
-- ``--auth-jwt-es256-crt=<filename>``.
+- ``jwt-es-256-crt``.
   The sandbox will expect all tokens to be signed with ES256 (ECDSA using P-256 and SHA-256) with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
   and DER-encoded certificates (binary files) are supported.
 
-- ``--auth-jwt-es512-crt=<filename>``.
-  The sandbox will expect all tokens to be signed with ES512 (ECDSA using P-521 and SHA-512)     with the public key loaded from the given X.509 certificate file.
+- ``jwt-es-512-crt``.
+  The sandbox will expect all tokens to be signed with ES512 (ECDSA using P-521 and SHA-512) with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
   and DER-encoded certificates (binary files) are supported.
 
-- ``--auth-jwt-rs256-jwks=<url>``.
-  The sandbox will expect all tokens to be signed with RS256 (RSA Signature with SHA-256) with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`__ URL.
+Instead of specifying the path to a certificate, you can also a
+`JWKS <https://tools.ietf.org/html/rfc7517>`__ URL. In that case, the
+sandbox will expect all tokens to be signed with RS256 (RSA Signature
+with SHA-256) with the public key loaded from the given JWKS URL.
+
+.. code-block:: none
+   :caption: auth.conf
+
+   canton.participants.sandbox.ledger-api.auth-services = [{
+       type = jwt-rs-256-jwks
+       url = "https://path.to/jwks.key"
+   }]
 
 .. warning::
 
-  For testing purposes only, the following options may also be used.
-  None of them is considered safe for production:
+  For testing purposes only, you can also specify a shared secret. In
+  that case, the sandbox will expect all tokens to be signed with
+  HMAC256 with the given plaintext secret. This is not considered safe for production.
 
-  - ``--auth-jwt-hs256-unsafe=<secret>``.
-    The sandbox will expect all tokens to be signed with HMAC256 with the given plaintext secret.
+.. code-block:: none
+   :caption: auth.conf
 
+   canton.participants.sandbox.ledger-api.auth-services = [{
+       type = unsafe-jwt-hmac-256
+       secret = "not-safe-for-production"
+   }]
 
 Generating JSON Web Tokens (JWT)
 ================================
@@ -180,20 +145,52 @@ Running with TLS
 ****************
 
 To enable TLS, you need to specify the private key for your server and
-the certificate chain via ``daml sandbox --pem server.pem --crt
-server.crt``.  By default, Sandbox requires client authentication as
-well. You can set a custom root CA certificate used to validate client
-certificates via ``--cacrt ca.crt``. You can change the client
-authentication mode via ``--client-auth none`` which will disable it
-completely, ``--client-auth optional`` which makes it optional or
-specify the default explicitly via ``--client-auth require``.
+the certificate chain. This enables TLS for both the Ledger API and
+the Canton Admin API. When enabling client authentication, you also
+need to specify client certificates which can be used by Canton’s
+internal processes. Below, you can see an example config. For more
+details on TLS, refer to
+.. TODO https://github.com/digital-asset/daml/issues/12811
+`Canton’s documentation on TLS <https://www.canton.io/docs/dev/user-manual/usermanual/static_conf.html#tls-configuration>`_.
+
+
+.. code-block:: none
+   :caption: tls.conf
+
+   canton.participants.sandbox.ledger-api {
+     tls {
+       // the certificate to be used by the server
+       cert-chain-file = "./tls/participant.crt"
+       // private key of the server
+       private-key-file = "./tls/participant.pem"
+       // trust collection, which means that all client certificates will be verified using the trusted
+       // certificates in this store. if omitted, the JVM default trust store is used.
+       trust-collection-file = "./tls/root-ca.crt"
+       // define whether clients need to authenticate as well (default not)
+       client-auth = {
+         // none, optional and require are supported
+         type = require
+         // If clients are required to authenticate as well, we need to provide a client
+         // certificate and the key, as Canton has internal processes that need to connect to these
+         // APIs. If the server certificate is trusted by the trust-collection, then you can
+         // just use the server certificates. Otherwise, you need to create separate ones.
+         admin-client {
+           cert-chain-file = "./tls/admin-client.crt"
+           private-key-file = "./tls/admin-client.pem"
+         }
+       }
+     }
+   }
 
 Command-line reference
 **********************
 
-To start Sandbox, run: ``sandbox [options] <archive>...``.
+To start Sandbox, run: ``daml sandbox [options] [-c canton.config]``.
 
-To see all the available options, run ``daml sandbox --help``.
+To see all the available options, run ``daml sandbox --help``. Note
+that this will show you the options of the Sandbox wrapper around
+Canton. To see options of the underlying Canton runner, use ``daml
+sandbox -- -- --help``.
 
 Metrics
 *******
@@ -201,22 +198,20 @@ Metrics
 Enable and configure reporting
 ==============================
 
-To enable metrics and configure reporting, you can use the two following CLI options:
+You can enable metrics reporting via Prometheus using the following configuration file.
 
-- ``--metrics-reporter``: passing a legal value will enable reporting; the accepted values
-  are ``console``, ``csv:</path/to/metrics.csv>`` and ``graphite:<local_server_port>``.
+.. code-block:: none
+   :caption: metrics.conf
 
-  - ``console``: prints captured metrics on the standard output
+   canton.monitoring.metrics.reporters = [{
+     type = prometheus
+     address = "localhost" // default
+     port = 9000 // default
+   }]
 
-  - ``csv://</path/to/metrics.csv>``: saves the captured metrics in CSV format at the specified location
-
-  - ``graphite://<server_host>[:<server_port>]``: sends captured metrics to a Graphite server. If the port
-    is omitted, the default value ``2003`` will be used.
-
-- ``--metrics-reporting-interval``: metrics are pre-aggregated on the sandbox and sent to
-  the reporter, this option allows the user to set the interval. The formats accepted are based
-  on the ISO-8601 duration format ``PnDTnHnMn.nS`` with days considered to be exactly 24 hours.
-  The default interval is 10 seconds.
+For other options and more details refer to the
+.. TODO https://github.com/digital-asset/daml/issues/12811
+`Canton documentation <https://www.canton.io/docs/dev/user-manual/usermanual/monitoring.html#metrics>`_.
 
 Types of metrics
 ================

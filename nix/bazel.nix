@@ -114,6 +114,7 @@ let shared = rec {
     propagatedBuildInputs = attrs.propagatedBuildInputs ++ [sphinx-copybutton];
   });
 
+  script = pkgs.unixtools.script;
   sysctl = pkgs.unixtools.sysctl;
 
   # Custom combination of latex packages for our latex needs
