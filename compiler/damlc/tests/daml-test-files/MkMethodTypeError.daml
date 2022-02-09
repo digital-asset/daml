@@ -9,7 +9,7 @@ module MkMethodTypeError where
 
 data T = T
 
-instance HasInterfaceTypeRep T where interfaceTypeRep = undefined
+instance HasInterfaceTypeRep T where _interfaceTypeRep = undefined
 instance HasToInterface T T where _toInterface x = x
 instance HasFromInterface T T where fromInterface = Some
 instance DA.Internal.Desugar.HasMethod T "foo" T where

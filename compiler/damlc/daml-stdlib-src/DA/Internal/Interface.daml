@@ -11,6 +11,7 @@ module DA.Internal.Interface (
   HasToInterface(..),
   HasFromInterface(..),
   Implements,
+  interfaceTypeRep,
   toInterface,
   toInterfaceContractId,
   fromInterfaceContractId,
@@ -21,7 +22,10 @@ import DA.Internal.Template.Functions
 import DA.Internal.LF
 
 class HasInterfaceTypeRep i where
-  interfaceTypeRep : i -> TypeRep
+  _interfaceTypeRep : i -> TypeRep
+
+interfaceTypeRep : HasInterfaceTypeRep i => i -> TemplateTypeRep
+interfaceTypeRep x = TemplateTypeRep (_interfaceTypeRep x)
 
 class HasToInterface t i where
   _toInterface : t -> i
