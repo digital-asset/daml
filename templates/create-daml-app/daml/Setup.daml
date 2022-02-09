@@ -24,6 +24,7 @@ createTestUser : TestUser -> Script Party
 createTestUser TestUser{alias, public} = do
   u <- getOrCreateUser alias (Some public)
   let p = getPrimaryParty u
+  submit p $ createCmd $ Alias p alias public
   pure p
 
 -- | Create the public party.
