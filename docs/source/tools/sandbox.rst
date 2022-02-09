@@ -150,8 +150,7 @@ the Canton Admin API. When enabling client authentication, you also
 need to specify client certificates which can be used by Canton’s
 internal processes. Below, you can see an example config. For more
 details on TLS, refer to
-.. TODO https://github.com/digital-asset/daml/issues/12811
-`Canton’s documentation on TLS <https://www.canton.io/docs/dev/user-manual/usermanual/static_conf.html#tls-configuration>`_.
+:ref:`Canton’s documentation on TLS <tls-configuration>`.
 
 
 .. code-block:: none
@@ -209,9 +208,7 @@ You can enable metrics reporting via Prometheus using the following configuratio
      port = 9000 // default
    }]
 
-For other options and more details refer to the
-.. TODO https://github.com/digital-asset/daml/issues/12811
-`Canton documentation <https://www.canton.io/docs/dev/user-manual/usermanual/monitoring.html#metrics>`_.
+For other options and more details refer to the :ref:`Canton documentation <canton-metrics>`.
 
 Types of metrics
 ================
