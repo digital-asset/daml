@@ -16,7 +16,12 @@ import com.daml.auth.middleware.api.Request.Claims
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -32,26 +37,23 @@ import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
 import scala.util.{Failure, Success}
 
-class TestMiddleware
+abstract class TestMiddleware
     extends AsyncWordSpec
     with TestFixture
     with SuiteResourceManagementAroundAll
     with Matchers {
+  protected[this] def makeJwt(
+      claims: Request.Claims,
+      expiresIn: Option[Duration],
+  ): AuthServiceJWTPayload
+
   private def makeToken(
       claims: Request.Claims,
       secret: String = "secret",
       expiresIn: Option[Duration] = None,
   ): OAuthResponse.Token = {
     val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
-    val jwtPayload = CustomDamlJWTPayload(
-      ledgerId = Some("test-ledger"),
-      applicationId = Some("test-application"),
-      participantId = None,
-      exp = expiresIn.map(in => clock.instant.plus(in)),
-      admin = claims.admin,
-      actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
-      readAs = claims.readAs.map(ApiTypes.Party.unwrap(_)),
-    )
+    val jwtPayload = makeJwt(claims, expiresIn)
     OAuthResponse.Token(
       accessToken = JwtSigner.HMAC256
         .sign(DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(jwtPayload)), secret)
@@ -65,6 +67,7 @@ class TestMiddleware
       scope = Some(claims.toQueryString()),
     )
   }
+
   "the port file" should {
     "list the HTTP port" in {
       val bindingPort = middlewareBinding.localAddress.getPort.toString
@@ -354,6 +357,26 @@ class TestMiddleware
       }
     }
   }
+}
+
+class TestMiddlewareClaimsToken
+    extends TestMiddleware
+    with TestFixture
+    with SuiteResourceManagementAroundAll
+    with Matchers {
+  override protected[this] def makeJwt(
+      claims: Request.Claims,
+      expiresIn: Option[Duration],
+  ): AuthServiceJWTPayload =
+    CustomDamlJWTPayload(
+      ledgerId = Some("test-ledger"),
+      applicationId = Some("test-application"),
+      participantId = None,
+      exp = expiresIn.map(in => clock.instant.plus(in)),
+      admin = claims.admin,
+      actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
+      readAs = claims.readAs.map(ApiTypes.Party.unwrap(_)),
+    )
 }
 
 class TestMiddlewareCallbackUriOverride
