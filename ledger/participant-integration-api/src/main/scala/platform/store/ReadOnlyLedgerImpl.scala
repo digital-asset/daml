@@ -14,7 +14,12 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
+import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
@@ -34,12 +39,25 @@ import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.index.BuffersUpdater
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.{BufferedTransactionsReader, LfValueTranslation}
-import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDaoTransactionsReader, LedgerReadDao}
+import com.daml.platform.store.appendonlydao.{
+  JdbcLedgerDao,
+  LedgerDaoTransactionsReader,
+  LedgerReadDao,
+}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.SignalNewLedgerHead
-import com.daml.platform.store.cache.{EventsBuffer, LedgerEndCache, MutableCacheBackedContractStore, MutableLedgerEndCache}
+import com.daml.platform.store.cache.{
+  EventsBuffer,
+  LedgerEndCache,
+  MutableCacheBackedContractStore,
+  MutableLedgerEndCache,
+}
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interning.{StringInterning, StringInterningView, UpdatingStringInterningView}
+import com.daml.platform.store.interning.{
+  StringInterning,
+  StringInterningView,
+  UpdatingStringInterningView,
+}
 import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.scalautil.Statement.discard
@@ -50,7 +68,7 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-private[platform] class BaseLedger(
+private[platform] class ReadOnlyLedgerImpl(
     val ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     transactionsReader: LedgerDaoTransactionsReader,
@@ -236,7 +254,7 @@ private[platform] class BaseLedger(
   }
 }
 
-private[platform] object BaseLedger {
+private[platform] object ReadOnlyLedgerImpl {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
@@ -261,9 +279,9 @@ private[platform] object BaseLedger {
       participantId: Ref.ParticipantId,
       errorFactories: ErrorFactories,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
-      extends ResourceOwner[BaseLedger] {
+      extends ResourceOwner[ReadOnlyLedgerImpl] {
 
-    override def acquire()(implicit context: ResourceContext): Resource[BaseLedger] = {
+    override def acquire()(implicit context: ResourceContext): Resource[ReadOnlyLedgerImpl] = {
       val ledgerEndCache = MutableLedgerEndCache()
       val stringInterningStorageBackend =
         dbSupport.storageBackendFactory.createStringInterningStorageBackend
@@ -317,7 +335,7 @@ private[platform] object BaseLedger {
         startExclusive: (Offset, Long),
         ledgerId: LedgerId,
         stringInterningView: StringInterningView,
-    ): ResourceOwner[BaseLedger] =
+    ): ResourceOwner[ReadOnlyLedgerImpl] =
       if (enableInMemoryFanOutForLedgerApi)
         ledgerWithMutableCacheAndInMemoryFanOut(
           ledgerReadDao,
@@ -347,7 +365,7 @@ private[platform] object BaseLedger {
         startExclusive: (Offset, Long),
         ledgerId: LedgerId,
         stringInterningView: StringInterningView,
-    ): ResourceOwner[BaseLedger] =
+    ): ResourceOwner[ReadOnlyLedgerImpl] =
       for {
         contractStore <- new MutableCacheBackedContractStore.OwnerWithSubscription(
           subscribeToContractStateEvents = cacheIndex =>
@@ -368,7 +386,7 @@ private[platform] object BaseLedger {
           executionContext = servicesExecutionContext,
         )
         ledger <- ResourceOwner.forCloseable(() =>
-          new BaseLedger(
+          new ReadOnlyLedgerImpl(
             ledgerId,
             ledgerReadDao,
             ledgerReadDao.transactionsReader,
@@ -390,7 +408,7 @@ private[platform] object BaseLedger {
         startExclusive: (Offset, Long),
         ledgerId: LedgerId,
         stringInterningView: StringInterningView,
-    ): ResourceOwner[BaseLedger] = {
+    ): ResourceOwner[ReadOnlyLedgerImpl] = {
       val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
@@ -443,7 +461,7 @@ private[platform] object BaseLedger {
           )
         )
         ledger <- ResourceOwner.forCloseable(() =>
-          new BaseLedger(
+          new ReadOnlyLedgerImpl(
             ledgerId = ledgerId,
             ledgerDao = ledgerReadDao,
             transactionsReader = bufferedTransactionsReader,
