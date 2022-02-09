@@ -108,27 +108,26 @@ class Endpoints(
   // that you don't log request bodies multiple times (simply because a matching test was made multiple times).
   // TL;DR JUST PUT THIS THING AFTER YOUR FINAL PATH MATCHING
   private def logRequestResponseHelper(
-      logIncomingRequest: (HttpRequest, RemoteAddress) => HttpMessage,
-      logResponse: HttpResponse => HttpMessage,
+      logIncomingRequest: (HttpRequest, RemoteAddress) => HttpRequest,
+      logResponse: HttpResponse => HttpResponse,
   ): Directive0 =
     extractClientIP flatMap { remoteAddress =>
-      mapRequest(request =>
-        logIncomingRequest(request, remoteAddress).asInstanceOf[HttpRequest]
-      ) & mapRouteResultFuture { responseF =>
-        for {
-          response <- responseF
-          transformedResponse <- response match {
-            case Complete(httpResponse) =>
-              Future.successful(Complete(logResponse(httpResponse).asInstanceOf[HttpResponse]))
-            case _ =>
-              Future.failed(
-                new RuntimeException(
-                  """Logging the request & response should never happen on routes which get rejected.
+      mapRequest(request => logIncomingRequest(request, remoteAddress)) & mapRouteResultFuture {
+        responseF =>
+          for {
+            response <- responseF
+            transformedResponse <- response match {
+              case Complete(httpResponse) =>
+                Future.successful(Complete(logResponse(httpResponse)))
+              case _ =>
+                Future.failed(
+                  new RuntimeException(
+                    """Logging the request & response should never happen on routes which get rejected.
                     |Make sure to place the directive only at places where a match is guaranteed (e.g. after the path directive).""".stripMargin
+                  )
                 )
-              )
-          }
-        } yield transformedResponse
+            }
+          } yield transformedResponse
       }
     }
 
@@ -139,7 +138,7 @@ class Endpoints(
         httpMessage: HttpMessage,
         msg: String,
         kind: String,
-    ): HttpMessage =
+    ): httpMessage.Self =
       if (
         httpMessage
           .header[`Content-Type`]
@@ -176,11 +175,11 @@ class Endpoints(
                   "size is unknown"
               }
             logWithBodyInCtx(s"omitted because $kind body $reason")
-            httpMessage
+            httpMessage.self
         }
       } else {
         logger.info(msg)
-        httpMessage
+        httpMessage.self
       }
 
     logRequestResponseHelper(
