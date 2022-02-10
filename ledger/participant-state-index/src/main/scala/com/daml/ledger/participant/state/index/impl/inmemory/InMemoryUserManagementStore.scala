@@ -118,7 +118,8 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
 object InMemoryUserManagementStore {
 
   private val AdminUser = UserInfo(
-    user = User(Ref.UserId.assertFromString("participant_admin"), None),
+    user =
+      User(Ref.UserId.assertFromString(UserManagementStore.DefaultParticipantAdminUserId), None),
     rights = Set(UserRight.ParticipantAdmin),
   )
 }
