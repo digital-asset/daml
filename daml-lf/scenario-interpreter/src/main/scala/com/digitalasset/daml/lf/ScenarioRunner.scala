@@ -150,42 +150,6 @@ object ScenarioRunner {
   private def crash(reason: String) =
     throw Error.Internal(reason)
 
-  @deprecated("can be used only by sandbox classic.", since = "1.4.0")
-  def getScenarioLedger(
-      engine: Engine,
-      scenarioRef: Ref.DefinitionRef,
-      scenarioDef: Ast.Definition,
-      transactionSeed: crypto.Hash,
-  ): ScenarioLedger = {
-    val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
-    val speedyMachine = Speedy.Machine.fromScenarioExpr(
-      engine.compiledPackages(),
-      scenarioExpr,
-    )
-    new ScenarioRunner(speedyMachine, transactionSeed).run() match {
-      case err: ScenarioError =>
-        throw new RuntimeException(s"error running scenario $scenarioRef in scenario ${err.error}")
-      case success: ScenarioSuccess => success.ledger
-    }
-  }
-
-  private[this] def getScenarioExpr(
-      scenarioRef: Ref.DefinitionRef,
-      scenarioDef: Ast.Definition,
-  ): Ast.Expr = {
-    scenarioDef match {
-      case Ast.DValue(_, body, _) => body
-      case _: Ast.DTypeSyn =>
-        throw new RuntimeException(
-          s"Requested scenario $scenarioRef is a type synonym, not a definition"
-        )
-      case _: Ast.DDataType =>
-        throw new RuntimeException(
-          s"Requested scenario $scenarioRef is a data type, not a definition"
-        )
-    }
-  }
-
   private def handleUnsafe[T](unsafe: => T): Either[Error, T] = {
     Try(unsafe) match {
       case Failure(err: Error) => Left(err: Error)

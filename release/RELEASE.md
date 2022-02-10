@@ -1,7 +1,11 @@
 # Making a Release
 
-For snapshot releases, skip the steps marked **[STABLE]**. For stable releases,
-skip the steps marked **[SNAPSHOT]**.
+This document covers how to _test_ a release. Creating a release follows a
+slightly different process depending on whether the release is stable or not,
+and whether it's a legacy 1.x release or a 2.x release.
+
+There are four corresponding files in this folder that correspond to all four
+combinations of stable/snapshot and 1/2.
 
 Valid commits for a release should come from either the `main` branch or one
 of the support `release/a.b.x` branches (e.g. `release/1.0.x` branch is for
@@ -10,53 +14,7 @@ patches we backport to the 1.0 release branch).
 > **IMPORTANT**: If the release fails, please delete it from the [releases page]
 > and write how it failed on the PR.
 
-1. **[STABLE]** Go through the [checklist] before making the release. Note that
-   the checklist is not available publicly.
-
-1. **[STABLE]** Stable releases are promoted from snapshot releases. Open a PR
-   that changes the `LATEST` file to remove the `-snapshot` suffix on the
-   corresponding snapshot, and add the `Standard-Change` label.
-
-1. **[SNAPSHOT]** For most snapshot releases, the PR is created automatically.
-   Double-check the snapshot version: it may need incrementing. Ask on Slack
-   (`#team-daml`) if you're not sure.
-
-   If you are manually creating the PR for an out-of-schedule snapshot, start
-   _from latest `main`_ and run
-   ```
-   ./release.sh new snapshot
-   ```
-   If you want to have a stricter control over the specific commit and version
-   prefix the command can also be used as follows:
-   ```
-   ./release.sh snapshot <sha> <prefix>
-   ```
-   for example:
-   ```
-   $ ./release.sh snapshot cc880e2 0.1.2
-   cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29
-   ```
-   The former version of the command defaults to `HEAD` as the commit and tries
-   to figure out the version prefix to use based on the first line of the `LATEST`
-   file. This also mean that you will have to use the latter form for maintenance releases.
-   Once the script has run, open a PR _to be merged to `main`_ (even if it's for a maintenance release)
-   with the changed `LATEST` file, add the line produced by the `release.sh`
-   invocation in a meaningful position (if you’re not sure, [semver](https://semver.org/) ordering is
-   probably the right thing to do) and add the `Standard-Change` label. It
-   is better to add such a label _before confirming the PR's creation_, else
-   the associated CI check will fail and merging the PR will require you to
-   re-run it after all the other ones have completed successfully.
-
-1. Once the PR has built, check that it was considered a release build by our
-   CI. If you are working from an automated PR, check that it sent a message to
-   `#team-daml` to say it has finished building. If the PR was manually created,
-   you can look at the output of the `check_for_release` build step.
-
-1. **[STABLE]** The PR **must** be approved by a team lead before merging. As
-   of this writing (2021-10-12), @bame-da, @gerolf-da, @cocreature, @stefanobaghino-da or @adriaanm-da.
-
-1. Merge the PR and wait for the corresponding `main` build to finish. You
-   will be notified on `#team-daml`.
+This testing procedure starts once the release is listed on the [releases page].
 
 1. On Windows, install the new SDK using the installer on
    https://github.com/digital-asset/daml/releases.
@@ -78,9 +36,9 @@ patches we backport to the 1.0 release branch).
    >
    > `ad-hoc.sh create windows` prints IP address, username and password for the created Windows VM.
    > Save this output. You will need this information later when you create an RDP connection.
-   > 
+   >
    > ‼️ After starting, it's going to take some time for the machine to be configured (see notes below).
-   > 
+   >
    > If you're on a Mac, you can use Microsoft Remote Desktop to connect; on
    > Linux, you can use Remmina.
    >
@@ -346,16 +304,18 @@ patches we backport to the 1.0 release branch).
    for a prerelease, you can include the raw output of the `unreleased.sh`
    script.
 
-1. **[STABLE]** Go to the [releases page] and remove the prerelease marker on
+For a stable release, you need to additionally:
+
+1. Go to the [releases page] and remove the prerelease marker on
    the release. Also change the text to
    ```See [the release notes blog]() for details.```
    adding in the direct link to this version's [release notes]. Documentation
    for this release will be added to docs.daml.com on the next hour.
 
-1. **[STABLE]** Coordinate with product (& marketing) for the relevant public
+1. Coordinate with product (& marketing) for the relevant public
    announcements (Daml Forum, Twitter, etc.).
 
-1. **[STABLE]** Documentation is published automatically once the release is
+1. Documentation is published automatically once the release is
    public on GitHub, though this runs on an hourly cron.
 
 Thanks for making a release!

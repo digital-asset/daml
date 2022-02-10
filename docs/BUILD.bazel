@@ -213,6 +213,7 @@ genrule(
     genrule(
         name = "sphinx-{}".format(name),
         srcs = [
+            ":canton-refs.rst",
             ":sphinx-source-tree",
             ":scripts/check-closing-quotes.sh",
             ":scripts/check-closing-quotes.sh.allow",
@@ -229,6 +230,15 @@ export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
 
     tar xf $(location sphinx-source-tree) -C $$DIR/source --strip-components=1
     mv $$DIR/source/configs/{name}/index.rst $$DIR/source/source/
+    mv $(location :canton-refs.rst) $$DIR/source/source
+    cat << EOF >> $$DIR/source/source/index.rst
+
+Stub
+----
+
+.. toctree::
+   canton-refs
+EOF
 
     if ! docs/scripts/check-closing-quotes.sh $$DIR/source docs/scripts/check-closing-quotes.sh.allow; then
         exit 1

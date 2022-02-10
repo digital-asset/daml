@@ -11,18 +11,22 @@ import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.{FutureAssertions, LedgerTestSuite}
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import io.grpc.Status
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 
 class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
+
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   test(
     "ValidDeduplicationDuration",
@@ -184,9 +188,18 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
       end <- ledger.currentEnd()
       _ <- ledger.exercise(party, secondCreate.exerciseDummyChoice1)
-      _ <- ledger.create(party, Dummy(party)) // move ledger end
-      _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
-      _ <- ledger.prune(pruneUpTo = end)
+      _ <- FutureAssertions.succeedsEventually(
+        retryDelay = 10.millis,
+        maxRetryDuration = 10.seconds,
+        ledger.delayMechanism,
+        "Prune offsets",
+      ) {
+        for {
+          _ <- ledger.create(party, Dummy(party))
+          _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
+          _ <- ledger.prune(pruneUpTo = end, attempts = 1)
+        } yield {}
+      }
       failure <- submitAndWaitWithDeduplication(
         DeduplicationPeriod.DeduplicationOffset(
           start.getAbsolute

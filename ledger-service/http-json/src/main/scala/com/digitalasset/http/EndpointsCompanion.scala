@@ -334,14 +334,6 @@ object EndpointsCompanion {
       p <- parse.parsePayload(a)
     } yield (jwt, p)
 
-  private[http] def decodeAndParseUserIdFromToken(rawJwt: Jwt, decodeJwt: ValidateJwt)(implicit
-      mf: Monad[Future]
-  ): ET[UserId] =
-    for {
-      decodedJwt <- EitherT.either(decodeJwt(rawJwt): Unauthorized \/ DecodedJwt[String])
-      result <- EitherT.either(CreateFromUserToken.parseUserIdFromToken(decodedJwt))
-    } yield result
-
   private[http] def decodeAndParsePayload[A](
       jwt: Jwt,
       decodeJwt: ValidateJwt,

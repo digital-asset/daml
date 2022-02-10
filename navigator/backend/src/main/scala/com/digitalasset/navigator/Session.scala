@@ -3,7 +3,6 @@
 
 package com.daml.navigator
 
-import com.daml.navigator.config.UserConfig
 import com.daml.navigator.model.PartyState
 import scalaz.Tag
 
@@ -15,6 +14,7 @@ import scala.reflect.ClassTag
 final case class User(
     id: String,
     party: PartyState,
+    // TODO: where is `role` used? frontend has some references, but doesn't seem to impact anything?
     role: Option[String] = None,
     canAdvanceTime: Boolean = true,
 )
@@ -43,10 +43,10 @@ object Session {
   def open(
       sessionId: String,
       userId: String,
-      userConfig: UserConfig,
+      userRole: Option[String],
       state: PartyState,
   ): Session = {
-    val user = Session(User(userId, state, userConfig.role))
+    val user = Session(User(userId, state, userRole))
     sessions += sessionId -> user
     user
   }
