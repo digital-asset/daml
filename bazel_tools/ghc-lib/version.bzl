@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 GHC_LIB_REPO_URL = "https://github.com/digital-asset/ghc-lib"
-GHC_LIB_REV = "362d4f38a7ac10521393de9b7ad942a77a2605be"
-GHC_LIB_SHA256 = "ce6ddf6b4706f811455cbe591f442d7b6519937d9ec1318f8544068609981986"
+GHC_LIB_REV = "905f51296d979d79da511bed9ab2da7cb9429c9f"
+GHC_LIB_SHA256 = "9b688f19f1a5e0b243bc490517e40ea8c840f2ff4515b55cc2733de7bdd436b2"
 
 GHC_REPO_URL = "https://github.com/digital-asset/ghc"
 GHC_REV = "3d554575dc40375a1e4995def35cca17a3e9aa95"
