@@ -8,6 +8,5 @@ Operating Daml
   :maxdepth: 2
   :hidden:
 
-  ops/index
   ops/connect/index
   ops/pruning
