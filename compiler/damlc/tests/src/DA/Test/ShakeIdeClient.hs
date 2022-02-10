@@ -21,6 +21,7 @@ import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
 
 import qualified DA.Daml.LF.Ast.Version as LF
+import qualified DA.Daml.Options.Types as Daml (Options (..))
 import DA.Daml.LF.ScenarioServiceClient as SS
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
@@ -29,21 +30,22 @@ import Development.IDE.Core.API.Testing
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
 main :: IO ()
-main = SS.withScenarioService LF.versionDefault Logger.makeNopHandle scenarioConfig $ \scenarioService -> do
-  -- The scenario service is a shared resource so running tests in parallel doesn’t work properly.
+main = SS.withScenarioService LF.versionDefault Logger.makeNopHandle scenarioConfig $ \scenarioService ->
+       SS.withScenarioService LF.versionDev     Logger.makeNopHandle scenarioConfig $ \scenarioServiceDev -> do
+  -- The scenario services are shared resources so running tests in parallel doesn’t work properly.
   setEnv "TASTY_NUM_THREADS" "1" True
-  -- The startup of the scenario service is fairly expensive so instead of launching a separate
-  -- service for each test, we launch a single service that is shared across all tests.
-  Tasty.deterministicMain (ideTests (Just scenarioService))
+  -- The startup of each scenario service is fairly expensive so instead of launching a separate
+  -- service for each test, we launch a single service that is shared across all tests on the same LF version.
+  Tasty.deterministicMain (ideTests (Just scenarioService) (Just scenarioServiceDev))
   where scenarioConfig = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"] }
 
-ideTests :: Maybe SS.Handle -> Tasty.TestTree
-ideTests mbScenarioService =
+ideTests :: Maybe SS.Handle -> Maybe SS.Handle -> Tasty.TestTree
+ideTests mbScenarioService mbScenarioServiceDev =
     Tasty.testGroup "IDE Shake API tests"
         [ -- Add categories of tests here
           basicTests mbScenarioService
         , minimalRebuildTests mbScenarioService
-        , goToDefinitionTests mbScenarioService
+        , goToDefinitionTests mbScenarioService mbScenarioServiceDev
         , onHoverTests mbScenarioService
         , dlintSmokeTests mbScenarioService
         , scenarioTests mbScenarioService
@@ -52,9 +54,17 @@ ideTests mbScenarioService =
 
 -- | Tasty test case from a ShakeTest.
 testCase :: Maybe SS.Handle -> Tasty.TestName -> ShakeTest () -> Tasty.TestTree
-testCase mbScenarioService testName test =
+testCase = testCaseOpts id
+
+-- | Tasty test case from a ShakeTest, running on Daml LF version 1.dev
+testCaseDev :: Maybe SS.Handle -> Tasty.TestName -> ShakeTest () -> Tasty.TestTree
+testCaseDev = testCaseOpts (\o -> o { Daml.optDamlLfVersion = LF.versionDev })
+
+-- | Tasty test case from a ShakeTest, with custom options
+testCaseOpts :: (Daml.Options -> Daml.Options) -> Maybe SS.Handle -> Tasty.TestName -> ShakeTest () -> Tasty.TestTree
+testCaseOpts fOpts mbScenarioService testName test =
     Tasty.testCase testName $ do
-        res <- runShakeTest mbScenarioService test
+        res <- runShakeTestOpts fOpts mbScenarioService test
         Tasty.assertBool ("Shake test resulted in an error: " ++ show res) $ isRight res
 
 -- | Test case that is expected to fail, because it's an open issue.
@@ -570,8 +580,8 @@ minimalRebuildTests mbScenarioService = Tasty.testGroup "Minimal rebuild tests"
 
 
 -- | "Go to definition" tests.
-goToDefinitionTests :: Maybe SS.Handle -> Tasty.TestTree
-goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
+goToDefinitionTests :: Maybe SS.Handle -> Maybe SS.Handle -> Tasty.TestTree
+goToDefinitionTests mbScenarioService mbScenarioServiceDev = Tasty.testGroup "Go to definition tests"
     [   testCase' "Go to definition in same module" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "module Foo where"
@@ -745,9 +755,28 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectGoToDefinition (foo, 2, [7..14]) (In "DA.Internal.LF")
+
+    ,    testCase' "Exception goto definition" $ do
+            foo <- makeModule "Foo"
+                [ "exception Err where"
+                , "type E = Err"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectGoToDefinition (foo, 2, [9..11]) (At (foo,1,10))
+
+    ,    testCaseDev' "Interface goto definition" $ do
+            foo <- makeModule "Foo"
+                [ "interface Iface where"
+                , "type I = Iface"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectGoToDefinition (foo, 2, [9..13]) (At (foo,1,10))
     ]
     where
         testCase' = testCase mbScenarioService
+        testCaseDev' = testCaseDev mbScenarioServiceDev
         testCaseFails' = testCaseFails mbScenarioService
 
 onHoverTests :: Maybe SS.Handle -> Tasty.TestTree

@@ -337,6 +337,7 @@ da_haskell_test(
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-ide-core:ide-testing",
+        "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-visual",
         "//compiler/scenario-service/client",
         "//libs-haskell/da-hs-base",
