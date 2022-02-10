@@ -25,6 +25,6 @@ bazel build \
   //ledger/sandbox-on-x:app_deploy.jar
 
 cp -f bazel-bin/release/sdk-release-tarball-ce.tar.gz "$HEAD_TARGET_DIR"
-cp -f bazel-bin/ledger/ledger-api-test-tool/ledger-api-test-tool_deploy.jar "$HEAD_TARGET_DIR"
+cp -f bazel-bin/ledger/ledger-api-tests/tool/ledger-api-test-tool_deploy.jar "$HEAD_TARGET_DIR"
 cp -f bazel-bin/ledger/sandbox-on-x/app_deploy.jar "$HEAD_TARGET_DIR/sandbox-on-x_deploy.jar"
 cp -f templates/create-daml-app-test-resources/messaging.patch "$HEAD_TARGET_DIR"
