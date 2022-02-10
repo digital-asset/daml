@@ -51,7 +51,14 @@ The signatories are the parties whose authorization is required to create or arc
 The observers are the parties who are able to view the contract on the ledger.
 In this case all users that a particular user is following are able to see the user contract.
 
-A note on naming is also in order here. Each party has both a unique random string that defines that party, and a human-readable user name that is used at login. In addition, a user can set a display name or alias that is visible to other users. Only the alias can be changed. Clicking on a contract will show you the party’s unique string, not the user name or alias. 
+A note on naming is also in order here:
+
+It's important to distinguish between parties, users, and aliases:
+ - Parties are unique across the entire Daml network. These must be allocated before you can use them to log in, and allocation results in a random-looking (but not actually random) string that identifies the party and is used in your Daml code. Parties are a builtin concept.
+ - On each participant node you can create users with human-readable user ids. Each user can be associated with a party allocated on that participant node, and refers to that party only on that node. Users are a purely local concept, meaning you can never address a user on another node by user id, and you never work with users in your Daml code; party ids are always used for these purposes. Users are also a builtin concept.
+ - Lastly we have user aliases. These are not a builtin concept, they are defined within the specific model used in this guide as a way to address parties on all nodes via a human readable name.
+
+The social network user discussed in this guide is really a combination of all three of these concepts. Alice, Bob, and Charlie are all aliases that correspond to a single user id and party id each. 
 
 Let's see what the ``signatory`` and ``observer`` clauses mean in our app more concretely.
 The user with the alias Alice can see another user, alias Bob, in the network only when Bob is following Alice (only if Alice is in the ``following`` list in his user contract). For this to be true, Bob must have previously started to follow Alice, as he is the sole signatory on his user contract.
