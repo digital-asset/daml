@@ -221,9 +221,9 @@ private[platform] final class LedgerBackedIndexService(
   ): Future[Option[VersionedContractInstance]] =
     ledger.lookupContract(contractId, readers)
 
-  override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
+  override def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Timestamp]] =
+  ): Future[MaximumLedgerTime] =
     ledger.lookupMaximumLedgerTime(ids)
 
   override def lookupContractKey(
