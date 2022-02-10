@@ -47,7 +47,7 @@ abstract class TestMiddleware
       expiresIn: Option[Duration],
   ): AuthServiceJWTPayload
 
-  private def makeToken(
+  protected[this] def makeToken(
       claims: Request.Claims,
       secret: String = "secret",
       expiresIn: Option[Duration] = None,
@@ -101,46 +101,6 @@ abstract class TestMiddleware
       } yield {
         assert(auth.accessToken == token.accessToken)
         assert(auth.refreshToken == token.refreshToken)
-      }
-    }
-    "return unauthorized on insufficient party claims" in {
-      val claims = Request.Claims(actAs = List(Party("Bob")))
-      def r(actAs: String*)(readAs: String*) =
-        middlewareClient
-          .requestAuth(
-            claims,
-            Seq(
-              Cookie(
-                "daml-ledger-token",
-                makeToken(
-                  Request.Claims(
-                    actAs = actAs.map(Party(_)).toList,
-                    readAs = readAs.map(Party(_)).toList,
-                  )
-                ).toCookieValue,
-              )
-            ),
-          )
-      for {
-        aliceA <- r("Alice")()
-        nothing <- r()()
-        aliceA_bobA <- r("Alice", "Bob")()
-        aliceA_bobR <- r("Alice")("Bob")
-        aliceR_bobA <- r("Bob")("Alice")
-        aliceR_bobR <- r()("Alice", "Bob")
-        bobA <- r("Bob")()
-        bobR <- r()("Bob")
-        bobAR <- r("Bob")("Bob")
-      } yield {
-        aliceA shouldBe empty
-        nothing shouldBe empty
-        aliceA_bobA should not be empty
-        aliceA_bobR shouldBe empty
-        aliceR_bobA should not be empty
-        aliceR_bobR shouldBe empty
-        bobA should not be empty
-        bobR shouldBe empty
-        bobAR should not be empty
       }
     }
     "return unauthorized on insufficient app id claims" in {
@@ -373,6 +333,49 @@ class TestMiddlewareClaimsToken extends TestMiddleware {
       actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
       readAs = claims.readAs.map(ApiTypes.Party.unwrap(_)),
     )
+
+  "the /auth endpoint given claim token" should {
+    "return unauthorized on insufficient party claims" in {
+      val claims = Request.Claims(actAs = List(Party("Bob")))
+      def r(actAs: String*)(readAs: String*) =
+        middlewareClient
+          .requestAuth(
+            claims,
+            Seq(
+              Cookie(
+                "daml-ledger-token",
+                makeToken(
+                  Request.Claims(
+                    actAs = actAs.map(Party(_)).toList,
+                    readAs = readAs.map(Party(_)).toList,
+                  )
+                ).toCookieValue,
+              )
+            ),
+          )
+      for {
+        aliceA <- r("Alice")()
+        nothing <- r()()
+        aliceA_bobA <- r("Alice", "Bob")()
+        aliceA_bobR <- r("Alice")("Bob")
+        aliceR_bobA <- r("Bob")("Alice")
+        aliceR_bobR <- r()("Alice", "Bob")
+        bobA <- r("Bob")()
+        bobR <- r()("Bob")
+        bobAR <- r("Bob")("Bob")
+      } yield {
+        aliceA shouldBe empty
+        nothing shouldBe empty
+        aliceA_bobA should not be empty
+        aliceA_bobR shouldBe empty
+        aliceR_bobA should not be empty
+        aliceR_bobR shouldBe empty
+        bobA should not be empty
+        bobR shouldBe empty
+        bobAR should not be empty
+      }
+    }
+  }
 }
 
 class TestMiddlewareUserToken extends TestMiddleware {
