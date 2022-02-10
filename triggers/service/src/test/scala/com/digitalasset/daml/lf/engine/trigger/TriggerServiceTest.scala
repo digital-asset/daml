@@ -286,7 +286,7 @@ trait AbstractTriggerServiceTest
           ApiTypes.ApplicationId("exp-app-id"),
           actAs = List(ApiTypes.Party(alice.unwrap), ApiTypes.Party(public.party.toString)),
         )
-      } yield (clientWeWant, Party(public.party.toString))
+      } yield (clientWeWant, Party(public.party: String))
 
       _ <- submitCmd(
         client,
