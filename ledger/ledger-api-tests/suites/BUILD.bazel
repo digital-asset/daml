@@ -1,0 +1,83 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_library_suite", "da_scala_test_suite")
+load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
+load(":deps.bzl", "deps")
+
+versions = {
+    "1.8": {
+        "srcs": glob([
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/**/*",
+        ]),
+        "entrypoints": [
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8.scala",
+        ],
+    },
+    "1.14": {
+        "srcs": glob([
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/**/*",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14/**/*",
+        ]),
+        "entrypoints": [
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8.scala",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14.scala",
+        ],
+    },
+    "1.dev": {
+        "srcs": glob([
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/**/*",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14/**/*",
+        ]),
+        "entrypoints": [
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8.scala",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14.scala",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_dev.scala",
+        ],
+    },
+}
+
+[
+    da_scala_library(
+        name = "suites-%s" % lf_version,
+        srcs = config["entrypoints"] + config["srcs"],
+        tags = ["maven_coordinates=com.daml:ledger-api-tests-suites-%s:__VERSION__" % lf_version],
+        visibility = ["//:__subpackages__"],
+        deps = deps(lf_version),
+    )
+    for (lf_version, config) in versions.items()
+]
+
+da_scala_test_suite(
+    name = "tests",
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    deps = [
+        ":suites-1.dev",
+        "//daml-lf/data",
+        "//ledger/ledger-api-tests/infrastructure",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+[
+    alias(
+        name = "suites-%s" % name,
+        actual = ":suites-%s" % lf_target,
+        visibility = ["//visibility:public"],
+    )
+    for (name, lf_target) in lf_version_configuration.items()
+]
+
+alias(
+    name = "suites",
+    actual = ":suites-default",
+    visibility = ["//visibility:public"],
+)

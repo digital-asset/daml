@@ -8,7 +8,7 @@ import { promises as fs } from 'fs';
 import puppeteer, { Browser, Page } from 'puppeteer';
 import waitOn from 'wait-on';
 
-import Ledger from '@daml/ledger';
+import Ledger, { UserRightHelper } from '@daml/ledger';
 import { User } from '@daml.js/create-daml-app';
 import { authConfig } from './config';
 
@@ -25,46 +25,34 @@ let uiProc: ChildProcess | undefined = undefined;
 // Chrome browser that we run in headless mode
 let browser: Browser | undefined = undefined;
 
-let publicUser: string = '';
-let publicParty: string = '';
+let publicUser: string | undefined;
+let publicParty: string | undefined;
+
+const adminLedger = new Ledger({token: authConfig.makeToken("participant_admin")});
+
+const toAlias = (userId: string): string =>
+  userId.charAt(0).toUpperCase() + userId.slice(1);
 
 // Function to generate unique party names for us.
 let nextPartyId = 1;
 const getParty = async () : [string, string] => {
-  // TODO For now we use grpcurl to allocate parties and users.
-  // Once the JSON API exposes party & user management we can switch to that.
-  const grpcurlPartyArgs = [
-    "-plaintext",
-    "localhost:6865",
-    "com.daml.ledger.api.v1.admin.PartyManagementService/AllocateParty",
-  ];
-  const allocResult = spawnSync('grpcurl', grpcurlPartyArgs, {"encoding": "utf8"});
-  const parsedResult = JSON.parse(allocResult.stdout);
+  const allocResult = await adminLedger.allocateParty({});
   const user = `u${nextPartyId}`;
-  const party = parsedResult.partyDetails.party;
-  const createUser = {
-    "user": {
-      "id": user,
-      "primary_party": party,
-    },
-    "rights": [{"can_act_as": {"party": party}}, {"can_read_as": {"party": publicParty}}]
-  };
-  const grpcurlUserArgs = [
-    "-plaintext",
-    "-d",
-    JSON.stringify(createUser),
-    "localhost:6865",
-    "com.daml.ledger.api.v1.admin.UserManagementService/CreateUser",
-  ];
-  const result = spawnSync('grpcurl', grpcurlUserArgs, {"encoding": "utf8"});
+  const party = allocResult.identifier;
+  const rights: UserRight[] = [UserRightHelper.canActAs(party)].concat(publicParty !== undefined ? [UserRightHelper.canReadAs(publicParty)] : []);
+  await adminLedger.createUser(user, rights, party);
   nextPartyId++;
   return [user, party];
 };
 
 test('Party names are unique', async () => {
-  const parties = new Set(await Promise.all(Array(10).fill({}).map(() => getParty())));
+  let r = [];
+  for (let i = 0; i < 10; ++i) {
+    r = r.concat((await getParty())[1]);
+  }
+  const parties = new Set(r);
   expect(parties.size).toEqual(10);
-});
+}, 20_000);
 
 const removeFile = async (path: string) => {
   try {
@@ -232,10 +220,7 @@ const follow = async (page: Page, userToFollow: string) => {
 }
 
 // LOGIN_TEST_BEGIN
-// FIXME Enable this test once the integration test can be run against a version of Canton that supports the new interface for creating a user
-// FIXME The change was introduced as part of https://github.com/digital-asset/daml/pull/12682
-// FIXME The ticket tracking this issue is https://github.com/digital-asset/daml/issues/12808
-test.skip('log in as a new user, log out and log back in', async () => {
+test('log in as a new user, log out and log back in', async () => {
   const [user, party] = await getParty();
 
   // Log in as a new user.
@@ -269,10 +254,7 @@ test.skip('log in as a new user, log out and log back in', async () => {
 // - while the user that is followed is logged out
 // These are all successful cases.
 
-// FIXME Enable this test once the integration test can be run against a version of Canton that supports the new interface for creating a user
-// FIXME The change was introduced as part of https://github.com/digital-asset/daml/pull/12682
-// FIXME The ticket tracking this issue is https://github.com/digital-asset/daml/issues/12808
-test.skip('log in as three different users and start following each other', async () => {
+test('log in as three different users and start following each other', async () => {
   const [user1, party1] = await getParty();
   const [user2, party2] = await getParty();
   const [user3, party3] = await getParty();
@@ -280,6 +262,14 @@ test.skip('log in as three different users and start following each other', asyn
   // Log in as Party 1.
   const page1 = await newUiPage();
   await login(page1, user1);
+
+  // Log in as Party 2.
+  const page2 = await newUiPage();
+  await login(page2, user2);
+
+  // Log in as Party 3.
+  const page3 = await newUiPage();
+  await login(page3, user3);
 
   // Party 1 should initially follow no one.
   const noFollowing1 = await page1.$$('.test-select-following');
@@ -291,19 +281,15 @@ test.skip('log in as three different users and start following each other', asyn
   await follow(page1, party2);
   await waitForFollowers(page1, 1);
   const followingList1 = await page1.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
-  expect(followingList1).toEqual([party2]);
+  expect(followingList1).toEqual([toAlias(user2)]);
 
-   // Add Party 3 as well and check both are in the list.
-   await follow(page1, party3);
-   await waitForFollowers(page1, 2);
-   const followingList11 = await page1.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
-   expect(followingList11).toHaveLength(2);
-   expect(followingList11).toContain(party2);
-   expect(followingList11).toContain(party3);
-
-  // Log in as Party 2.
-  const page2 = await newUiPage();
-  await login(page2, user2);
+  // Add Party 3 as well and check both are in the list.
+  await follow(page1, party3);
+  await waitForFollowers(page1, 2);
+  const followingList11 = await page1.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
+  expect(followingList11).toHaveLength(2);
+  expect(followingList11).toContain(toAlias(user2));
+  expect(followingList11).toContain(toAlias(user3));
 
   // Party 2 should initially follow no one.
   const noFollowing2 = await page2.$$('.test-select-following');
@@ -312,7 +298,7 @@ test.skip('log in as three different users and start following each other', asyn
   // However, Party 2 should see Party 1 in the network.
   await page2.waitForSelector('.test-select-user-in-network');
   const network2 = await page2.$$eval('.test-select-user-in-network', users => users.map(e => e.innerHTML));
-  expect(network2).toEqual([party1]);
+  expect(network2).toEqual([toAlias(user1)]);
 
   // Follow Party 1 using the 'add user' icon on the right.
   await page2.waitForSelector('.test-select-add-user-icon');
@@ -331,18 +317,14 @@ test.skip('log in as three different users and start following each other', asyn
   await waitForFollowers(page2, 2);
   const followingList2 = await page2.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
   expect(followingList2).toHaveLength(2);
-  expect(followingList2).toContain(party1);
-  expect(followingList2).toContain(party3);
+  expect(followingList2).toContain(toAlias(user1));
+  expect(followingList2).toContain(toAlias(user3));
 
   // Party 1 should now also see Party 2 in the network (but not Party 3 as they
   // didn't yet started following Party 1).
   await page1.waitForSelector('.test-select-user-in-network');
   const network1 = await page1.$$eval('.test-select-user-in-network', following => following.map(e => e.innerHTML));
-  expect(network1).toEqual([party2]);
-
-  // Log in as Party 3.
-  const page3 = await newUiPage();
-  await login(page3, user3);
+  expect(network1).toEqual([toAlias(user2)]);
 
   // Party 3 should follow no one.
   const noFollowing3 = await page3.$$('.test-select-following');
@@ -352,18 +334,15 @@ test.skip('log in as three different users and start following each other', asyn
   await page3.waitForSelector('.test-select-user-in-network');
   const network3 = await page3.$$eval('.test-select-user-in-network', following => following.map(e => e.innerHTML));
   expect(network3).toHaveLength(2);
-  expect(network3).toContain(party1);
-  expect(network3).toContain(party2);
+  expect(network3).toContain(toAlias(user1));
+  expect(network3).toContain(toAlias(user2));
 
   await page1.close();
   await page2.close();
   await page3.close();
 }, 60_000);
 
-// FIXME Enable this test once the integration test can be run against a version of Canton that supports the new interface for creating a user
-// FIXME The change was introduced as part of https://github.com/digital-asset/daml/pull/12682
-// FIXME The ticket tracking this issue is https://github.com/digital-asset/daml/issues/12808
-test.skip('error when following self', async () => {
+test('error when following self', async () => {
   const [user, party] = await getParty();
   const page = await newUiPage();
 
@@ -378,10 +357,7 @@ test.skip('error when following self', async () => {
   await page.close();
 });
 
-// FIXME Enable this test once the integration test can be run against a version of Canton that supports the new interface for creating a user
-// FIXME The change was introduced as part of https://github.com/digital-asset/daml/pull/12682
-// FIXME The ticket tracking this issue is https://github.com/digital-asset/daml/issues/12808
-test.skip('error when adding a user that you are already following', async () => {
+test('error when adding a user that you are already following', async () => {
   const [user1, party1] = await getParty();
   const [user2, party2] = await getParty();
   const page = await newUiPage();
@@ -432,26 +408,13 @@ test('error on non-existent user id', async () => {
     const invalidUser = "nonexistent";
     const page = await newUiPage();
     const error = await failedLogin(page, invalidUser);
-    expect(error).toMatch(/cannot get user for unknown user \\"nonexistent\\"/);
+    expect(error).toMatch(/getting user failed for unknown user \\"nonexistent\\"/);
     await page.close();
 }, 40_000);
 
-// FIXME Enable this test once the integration test can be run against a version of Canton that supports the new interface for creating a user
-// FIXME The change was introduced as part of https://github.com/digital-asset/daml/pull/12682
-// FIXME The ticket tracking this issue is https://github.com/digital-asset/daml/issues/12808
-test.skip('error on user with no primary party', async () => {
+test('error on user with no primary party', async () => {
     const invalidUser = "noprimary";
-    // TODO replace with daml-ledger once it exposes the create user endpoint.
-  const grpcurlUserArgs = [
-    "-plaintext",
-    "-d",
-      JSON.stringify({"user": {"id": invalidUser}}),
-    "localhost:6865",
-    "com.daml.ledger.api.v1.admin.UserManagementService/CreateUser",
-  ];
-    const result = spawnSync('grpcurl', grpcurlUserArgs, {"encoding": "utf8"});
-    console.debug(result.stdout);
-    console.debug(result.stderr);
+    await adminLedger.createUser(invalidUser, []);
     const page = await newUiPage();
     const error = await failedLogin(page, invalidUser);
     expect(error).toMatch(/User 'noprimary' has no primary party/);

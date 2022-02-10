@@ -10,9 +10,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 /** An RxJava version of {@link com.daml.ledger.api.v1.admin.UserManagementServiceGrpc} */
 public interface UserManagementClient {
 
-  Single<User> createUser(@NonNull CreateUserRequest request);
+  Single<CreateUserResponse> createUser(@NonNull CreateUserRequest request);
 
-  Single<User> createUser(@NonNull CreateUserRequest request, String accessToken);
+  Single<CreateUserResponse> createUser(@NonNull CreateUserRequest request, String accessToken);
 
   Single<User> getUser(@NonNull GetUserRequest request);
 

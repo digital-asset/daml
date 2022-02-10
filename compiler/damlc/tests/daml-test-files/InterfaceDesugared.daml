@@ -17,7 +17,7 @@ module InterfaceDesugared where
 import DA.Assert ( (===) )
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
-  interfaceTypeRep = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+  _interfaceTypeRep = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
 instance DA.Internal.Desugar.HasToInterface Token Token where
   _toInterface this = this
 instance DA.Internal.Desugar.HasFromInterface Token Token where
@@ -81,6 +81,14 @@ instance DA.Internal.Desugar.HasEnsure Token where
   ensure this = (getAmount this >= 0)
 instance DA.Internal.Desugar.HasIsInterfaceType Token where
   _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq Token where
+  (==) l r
+    = (DA.Internal.Desugar.&&)
+        ((DA.Internal.Desugar.==) lrep rrep)
+        (GHC.Types.primitive @"BEEqual" l r)
+    where
+        lrep = DA.Internal.Desugar.interfaceTypeRep l
+        rrep = DA.Internal.Desugar.interfaceTypeRep r
 instance (DA.Internal.Desugar.Implements t Token) =>
          DA.Internal.Desugar.HasToAnyChoice t GetRich (ContractId Token) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"

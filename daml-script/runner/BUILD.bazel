@@ -73,47 +73,30 @@ da_scala_test(
     ],
 )
 
-# Spun out into a separate library to avoid pulling in a sandbox
-# dependency where we don’t need it.
-[
-    da_scala_library(
-        name = "script-test-lib-{}".format(edition),
-        srcs = test_script_sources,
-        scala_deps = [
-            "@maven//:com_typesafe_akka_akka_stream",
-            "@maven//:io_spray_spray_json",
-            "@maven//:org_scalaz_scalaz_core",
-        ],
-        scalacopts = script_scalacopts,
-        visibility = ["//visibility:public"],
-        deps = [
-            ":script-runner-lib",
-            "//daml-lf/archive:daml_lf_archive_reader",
-            "//daml-lf/data",
-            "//daml-lf/interpreter",
-            "//daml-lf/language",
-            "//daml-lf/transaction",
-            "//language-support/scala/bindings",
-            "//language-support/scala/bindings-akka",
-            "//ledger-api/rs-grpc-bridge",
-            "//ledger/caching",
-            "//ledger/ledger-api-auth",
-            "//ledger/ledger-api-client",
-            "//ledger/ledger-api-common",
-            "//ledger/ledger-configuration",
-            "//ledger/ledger-resources",
-            "//ledger/participant-integration-api",
-            "//ledger/sandbox:sandbox-{}".format(edition),
-            "//ledger/sandbox-common",
-            "//libs-scala/ports",
-            "//libs-scala/resources",
-        ],
-    )
-    for edition in [
-        "ce",
-        "ee",
-    ]
-]
+da_scala_library(
+    name = "script-test-lib",
+    srcs = test_script_sources,
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = script_scalacopts,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":script-runner-lib",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
+    ],
+)
 
 da_scala_binary(
     name = "script-runner",
@@ -130,7 +113,7 @@ da_scala_binary(
     resources = glob(["src/main/resources/**/*"]),
     scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
-    deps = [":script-test-lib-ce"],
+    deps = [":script-test-lib"],
 )
 
 exports_files(["src/main/resources/logback.xml"])

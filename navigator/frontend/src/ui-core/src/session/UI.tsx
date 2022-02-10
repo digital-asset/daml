@@ -116,7 +116,7 @@ export default class Component<A extends Action>
     } else if (failure === 'unknown-error') {
       errorEl = (
         <ErrorMessage>
-          <div>An error occured when connecting to the ledger</div>
+          <div>An error occurred when connecting to the ledger</div>
           <div>Refer to the Navigator server logs to know the cause</div>
         </ErrorMessage>
       )

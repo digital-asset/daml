@@ -7,7 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
-load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_library(

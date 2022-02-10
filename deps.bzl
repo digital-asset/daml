@@ -33,8 +33,8 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
 
-rules_haskell_version = "156b091fc1b8d0736ad9f072cdc9abdadacbf57f"
-rules_haskell_sha256 = "e3fb9e6da187d0ef79f1e6240325092c011dd1c7db207cd3f3793806642bd2c4"
+rules_haskell_version = "e2a74e5c29588f2107daae7c438e0d4117fcafb3"
+rules_haskell_sha256 = "db8bf1813a07948269e622f646be3e7acc2799664fce548ed6c1afbe141d7085"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
@@ -356,7 +356,7 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "529bcb185b0fec8e74652a7589b37c22f5700d765edd2467375655eb3e656c29",
+            sha256 = "911b5673ac2568b74482713c91242ffecc5dcb11c2efad08960b762824137231",
             strip_prefix = "canton-community-1.0.0-SNAPSHOT",
-            urls = ["https://www.canton.io/releases/canton-community-20220202.tar.gz"],
+            urls = ["https://www.canton.io/releases/canton-community-20220209.tar.gz"],
         )

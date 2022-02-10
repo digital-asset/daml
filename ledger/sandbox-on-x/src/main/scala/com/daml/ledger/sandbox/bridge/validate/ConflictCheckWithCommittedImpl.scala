@@ -5,7 +5,7 @@ package com.daml.ledger.sandbox.bridge.validate
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
 import ConflictCheckingLedgerBridge._
 import com.daml.ledger.participant.state.v2.CompletionInfo
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
@@ -16,12 +16,11 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{Transaction => LfTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
-import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 /** Conflict checking for incoming submissions against the ledger state
   * as it is visible on the Ledger API.
@@ -92,25 +91,27 @@ private[validate] class ConflictCheckWithCommittedImpl(
       Future.successful(Right(()))
     else
       indexService
-        .lookupMaximumLedgerTime(referredContracts)(transaction.loggingContext)
+        .lookupMaximumLedgerTimeAfterInterpretation(referredContracts)(transaction.loggingContext)
         .transform {
-          case Failure(MissingContracts(missingContractIds)) =>
+          case Success(MaximumLedgerTime.Archived(missingContractIds)) =>
             Success(Left(UnknownContracts(missingContractIds)(completionInfo, errorFactories)))
+
           case Failure(err) =>
             Success(Left(LedgerBridgeInternalError(err, completionInfo)))
-          case Success(maximumLedgerEffectiveTime) =>
-            maximumLedgerEffectiveTime
-              .filter(_ > transactionLedgerEffectiveTime)
-              .fold[Try[Validation[Unit]]](Success(Right(())))(contractLedgerEffectiveTime =>
-                Success(
-                  Left(
-                    CausalMonotonicityViolation(
-                      contractLedgerEffectiveTime = contractLedgerEffectiveTime,
-                      transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
-                    )(completionInfo, errorFactories)
-                  )
-                )
+
+          case Success(MaximumLedgerTime.Max(maximumLedgerEffectiveTime))
+              if maximumLedgerEffectiveTime > transactionLedgerEffectiveTime =>
+            Success(
+              Left(
+                CausalMonotonicityViolation(
+                  contractLedgerEffectiveTime = maximumLedgerEffectiveTime,
+                  transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
+                )(completionInfo, errorFactories)
               )
+            )
+
+          case Success(_) =>
+            Success(Right(()))
         }
   }
 

@@ -104,7 +104,7 @@ commandParser = subparser $ fold
     , command "codegen" (info (codegenCmd <**> helper) forwardOptions)
     , command "packages" (info (packagesCmd <**> helper) packagesCmdInfo)
     , command "sandbox" (info (cantonSandboxCmd <**> helper) cantonSandboxCmdInfo)
-    , command "canton-repl" (info (cantonReplCmd <**> helper) cantonReplCmdInfo)
+    , command "canton-console" (info (cantonReplCmd <**> helper) cantonReplCmdInfo)
     ]
   where
 

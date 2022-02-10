@@ -10,17 +10,11 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.language.Ast.Package
-import com.daml.platform.sandboxnext
-import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.services.time.TimeProviderType
-import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.StrictLogging
 import spray.json._
@@ -57,7 +51,6 @@ object TestMain extends StrictLogging {
           new AkkaExecutionSequencerPool("ScriptTestPool")(system)
         implicit val materializer: Materializer = Materializer(system)
         implicit val executionContext: ExecutionContext = system.dispatcher
-        implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
         val (participantParams, participantCleanup) = config.participantConfig match {
           case Some(file) =>
@@ -72,25 +65,11 @@ object TestMain extends StrictLogging {
             import ParticipantsJsonProtocol._
             (jsVal.convertTo[Participants[ApiParameters]], () => Future.unit)
           case None =>
-            val (apiParameters, cleanup) = if (config.ledgerHost.isEmpty) {
-              val timeProviderType = config.timeMode match {
-                case ScriptTimeMode.Static => TimeProviderType.Static
-                case ScriptTimeMode.WallClock => TimeProviderType.WallClock
-              }
-              val sandboxConfig = SandboxConfig.defaultConfig.copy(
-                port = Port.Dynamic,
-                timeProviderType = Some(timeProviderType),
-              )
-              val sandboxResource = new sandboxnext.Runner(sandboxConfig).acquire()
-              val sandboxPort =
-                Await.result(sandboxResource.asFuture.map(_.value), Duration.Inf)
-              (ApiParameters("localhost", sandboxPort, None, None), () => sandboxResource.release())
-            } else {
+            val (apiParameters, cleanup) =
               (
                 ApiParameters(config.ledgerHost.get, config.ledgerPort.get, None, None),
                 () => Future.unit,
               )
-            }
             (
               Participants(
                 default_participant = Some(apiParameters),
