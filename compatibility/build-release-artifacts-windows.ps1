@@ -41,12 +41,12 @@ bazel fetch @nodejs_dev_env//...
 bazel build `
   `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log `
   //release:sdk-release-tarball `
-  //ledger/ledger-api-test-tool:ledger-api-test-tool_deploy.jar `
+  //ledger/ledger-api-tests/tool:ledger-api-test-tool_deploy.jar `
   //ledger/sandbox-on-x:app_deploy.jar
 
 git clean -fxd -e 'daml-*.tgz' compatibility/head_sdk
 
 cp -Force bazel-bin\release\sdk-release-tarball-ce.tar.gz compatibility/head_sdk
-cp -Force bazel-bin\ledger\ledger-api-test-tool\ledger-api-test-tool_deploy.jar compatibility/head_sdk
+cp -Force bazel-bin\ledger\ledger-api-tests\tool\ledger-api-test-tool_deploy.jar compatibility/head_sdk
 cp -Force bazel-bin\ledger\sandbox-on-x\app_deploy.jar compatibility/head_sdk/sandbox-on-x_deploy.jar
 cp -Force templates\create-daml-app-test-resources\messaging.patch compatibility/head_sdk

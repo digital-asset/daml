@@ -101,11 +101,27 @@
   type: jar-scala
 - target: //ledger/ledger-api-health:ledger-api-health
   type: jar-scala
-- target: //ledger/ledger-api-test-tool:ledger-api-test-tool
+- target: //ledger/ledger-api-tests/infrastructure:infrastructure-1.14
+  type: jar-scala
+- target: //ledger/ledger-api-tests/infrastructure:infrastructure-1.dev
+  type: jar-scala
+- target: //ledger/ledger-api-tests/performance:performance-1.14
+  type: jar-scala
+- target: //ledger/ledger-api-tests/performance:performance-1.dev
+  type: jar-scala
+- target: //ledger/ledger-api-tests/runner:runner-1.14
+  type: jar-scala
+- target: //ledger/ledger-api-tests/runner:runner-1.dev
+  type: jar-scala
+- target: //ledger/ledger-api-tests/suites:suites-1.14
+  type: jar-scala
+- target: //ledger/ledger-api-tests/suites:suites-1.dev
+  type: jar-scala
+- target: //ledger/ledger-api-tests/tool:ledger-api-test-tool
   type: jar-deploy
-- target: //ledger/ledger-api-test-tool:ledger-api-test-tool-1.14
+- target: //ledger/ledger-api-tests/tool:tool-1.14
   type: jar-deploy
-- target: //ledger/ledger-api-test-tool:ledger-api-test-tool-1.dev
+- target: //ledger/ledger-api-tests/tool:tool-1.dev
   type: jar-deploy
 - target: //ledger/ledger-configuration:ledger-configuration
   type: jar-scala
@@ -174,6 +190,22 @@
 - target: //ledger/test-common:dar-files-1.14-lib
   type: jar-scala
 - target: //ledger/test-common:dar-files-1.dev-lib
+  type: jar-scala
+- target: //ledger/test-common:model-tests-1.14.scala
+  type: jar-scala
+- target: //ledger/test-common:model-tests-1.dev.scala
+  type: jar-scala
+- target: //ledger/test-common:package_management-tests-1.14.scala
+  type: jar-scala
+- target: //ledger/test-common:package_management-tests-1.dev.scala
+  type: jar-scala
+- target: //ledger/test-common:performance-tests-1.14.scala
+  type: jar-scala
+- target: //ledger/test-common:performance-tests-1.dev.scala
+  type: jar-scala
+- target: //ledger/test-common:semantic-tests-1.14.scala
+  type: jar-scala
+- target: //ledger/test-common:semantic-tests-1.dev.scala
   type: jar-scala
 - target: //ledger/test-common:test-common-1.14
   type: jar-scala

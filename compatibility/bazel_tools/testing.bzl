@@ -1056,8 +1056,10 @@ def sdk_platform_test(sdk_version, platform_version):
 
     # https://github.com/digital-asset/daml/commit/60ffb79fb16b507d4143cfc991da342efea504a7
     # introduced a KV specific dedup test and we need to disable the non-kv test in return.
-    kv_dedup_version = "1.17.0-snapshot.20210910.7786.0.976ca400"
-    if versions.is_at_least(kv_dedup_version, sdk_version) and versions.is_at_least(kv_dedup_version, platform_version):
+    kv_dedup_start_version = "1.17.0-snapshot.20210910.7786.0.976ca400"
+    kv_dedup_end_version = "2.0.0-snapshot.20220110.8812.0.3a08380b"
+    if versions.is_at_least(kv_dedup_start_version, sdk_version) and versions.is_at_most(kv_dedup_end_version, sdk_version) and \
+       versions.is_at_least(kv_dedup_start_version, platform_version) and versions.is_at_most(kv_dedup_end_version, platform_version):
         extra_sandbox_next_exclusions += ["--exclude=CommandDeduplicationIT", "--additional=KVCommandDeduplicationIT"]
 
     # Error codes are enabled by default after 1.18.0-snapshot.20211117.8399.0.a05a40ae.
