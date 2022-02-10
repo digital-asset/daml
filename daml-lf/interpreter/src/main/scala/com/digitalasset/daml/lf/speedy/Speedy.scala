@@ -269,6 +269,14 @@ private[lf] object Speedy {
       val ledgerMode: LedgerMode,
   ) {
 
+    private[speedy] def tmplId2TxVersion(tmplId: TypeConName) =
+      TransactionVersion.assignNodeVersion(
+        compiledPackages.interface.packageLanguageVersion(tmplId.packageId)
+      )
+
+    def normValue(templateId: TypeConName, svalue: SValue): V =
+      svalue.toNormalizedValue(tmplId2TxVersion(templateId))
+
     /* kont manipulation... */
 
     @inline
@@ -836,10 +844,6 @@ private[lf] object Speedy {
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     ): Machine = {
-      val pkg2TxVersion =
-        compiledPackages.interface.packageLanguageVersion.andThen(
-          TransactionVersion.assignNodeVersion
-        )
       new Machine(
         ctrl = expr,
         returnValue = null,
@@ -853,7 +857,6 @@ private[lf] object Speedy {
           validating = validating,
           ptx = PartialTransaction
             .initial(
-              pkg2TxVersion,
               contractKeyUniqueness,
               submissionTime,
               initialSeeding,
@@ -1356,7 +1359,7 @@ private[lf] object Speedy {
 
     def execute(sv: SValue): Unit = {
       machine.withOnLedger("KCacheContract") { onLedger =>
-        val cached = SBuiltin.extractCachedContract(onLedger, templateId, sv)
+        val cached = SBuiltin.extractCachedContract(machine, templateId, sv)
         machine.checkContractVisibility(onLedger, cid, cached);
         onLedger.addGlobalContract(cid, cached)
         machine.returnValue = cached.value
@@ -1372,7 +1375,7 @@ private[lf] object Speedy {
 
     def execute(exerciseResult: SValue) = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
-        onLedger.ptx = onLedger.ptx.endExercises(exerciseResult)
+        onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toNormalizedValue)
         checkAborted(onLedger.ptx)
       }
       machine.returnValue = exerciseResult
