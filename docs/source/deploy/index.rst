@@ -62,9 +62,6 @@ The following table lists open source Daml integrations.
    * - `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__
      - `Digital Asset <https://digitalasset.com/>`__
      - `Github Repo <https://github.com/digital-asset/daml-on-fabric>`__
-   * - `PostgreSQL <https://www.postgresql.org/>`__
-     - `Digital Asset <https://digitalasset.com/>`__
-     - `Daml driver for PostgreSQL Docs <https://docs.daml.com/daml-driver-for-postgresql/>`__
 
 .. _deploy-ref_in_development:
 

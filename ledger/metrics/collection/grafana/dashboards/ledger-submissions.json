@@ -1003,7 +1003,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "DAML-on-SQL database transaction time",
+      "title": "Database transaction time",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1089,7 +1089,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "DAML-on-SQL database transaction count",
+      "title": "Database transaction count",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1177,7 +1177,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "DAML-on-SQL database query time",
+      "title": "Database query time",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1263,7 +1263,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "DAML-on-SQL database query count",
+      "title": "Database query count",
       "tooltip": {
         "shared": true,
         "sort": 0,
