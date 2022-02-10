@@ -5,8 +5,6 @@ import DA.Optional (fromSomeNote)
 import qualified DA.Text as T
 import Daml.Script
 
-import User (Alias(..))
-
 -- | A test user for the create-daml-app network.
 data TestUser = TestUser with
   alias : Text
@@ -24,7 +22,6 @@ createTestUser : TestUser -> Script Party
 createTestUser TestUser{alias, public} = do
   u <- getOrCreateUser alias (Some public)
   let p = getPrimaryParty u
-  submit p $ createCmd $ Alias p alias public
   pure p
 
 -- | Create the public party.
@@ -44,7 +41,7 @@ getOrCreateUser alias publicM = do
     UserNotFound _ -> do
       p <- allocateParty alias
       let u = User userId (Some p)
-      createUser u $ [CanActAs p] ++ [CanReadAs public | Some public <- [publicM]]
+      createUser u $ CanActAs p :: [CanReadAs public | Some public <- [publicM]]
       pure u
 
 -- | Convert a text to a valid user id.

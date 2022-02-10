@@ -30,6 +30,9 @@ let publicParty: string | undefined;
 
 const adminLedger = new Ledger({token: authConfig.makeToken("participant_admin")});
 
+const toAlias = (userId: string): string =>
+  userId.charAt(0).toUpperCase() + userId.slice(1);
+
 // Function to generate unique party names for us.
 let nextPartyId = 1;
 const getParty = async () : [string, string] => {
@@ -260,6 +263,14 @@ test('log in as three different users and start following each other', async () 
   const page1 = await newUiPage();
   await login(page1, user1);
 
+  // Log in as Party 2.
+  const page2 = await newUiPage();
+  await login(page2, user2);
+
+  // Log in as Party 3.
+  const page3 = await newUiPage();
+  await login(page3, user3);
+
   // Party 1 should initially follow no one.
   const noFollowing1 = await page1.$$('.test-select-following');
   expect(noFollowing1).toEqual([]);
@@ -270,19 +281,15 @@ test('log in as three different users and start following each other', async () 
   await follow(page1, party2);
   await waitForFollowers(page1, 1);
   const followingList1 = await page1.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
-  expect(followingList1).toEqual([party2]);
+  expect(followingList1).toEqual([toAlias(user2)]);
 
-   // Add Party 3 as well and check both are in the list.
-   await follow(page1, party3);
-   await waitForFollowers(page1, 2);
-   const followingList11 = await page1.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
-   expect(followingList11).toHaveLength(2);
-   expect(followingList11).toContain(party2);
-   expect(followingList11).toContain(party3);
-
-  // Log in as Party 2.
-  const page2 = await newUiPage();
-  await login(page2, user2);
+  // Add Party 3 as well and check both are in the list.
+  await follow(page1, party3);
+  await waitForFollowers(page1, 2);
+  const followingList11 = await page1.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
+  expect(followingList11).toHaveLength(2);
+  expect(followingList11).toContain(toAlias(user2));
+  expect(followingList11).toContain(toAlias(user3));
 
   // Party 2 should initially follow no one.
   const noFollowing2 = await page2.$$('.test-select-following');
@@ -291,7 +298,7 @@ test('log in as three different users and start following each other', async () 
   // However, Party 2 should see Party 1 in the network.
   await page2.waitForSelector('.test-select-user-in-network');
   const network2 = await page2.$$eval('.test-select-user-in-network', users => users.map(e => e.innerHTML));
-  expect(network2).toEqual([party1]);
+  expect(network2).toEqual([toAlias(user1)]);
 
   // Follow Party 1 using the 'add user' icon on the right.
   await page2.waitForSelector('.test-select-add-user-icon');
@@ -310,18 +317,14 @@ test('log in as three different users and start following each other', async () 
   await waitForFollowers(page2, 2);
   const followingList2 = await page2.$$eval('.test-select-following', following => following.map(e => e.innerHTML));
   expect(followingList2).toHaveLength(2);
-  expect(followingList2).toContain(party1);
-  expect(followingList2).toContain(party3);
+  expect(followingList2).toContain(toAlias(user1));
+  expect(followingList2).toContain(toAlias(user3));
 
   // Party 1 should now also see Party 2 in the network (but not Party 3 as they
   // didn't yet started following Party 1).
   await page1.waitForSelector('.test-select-user-in-network');
   const network1 = await page1.$$eval('.test-select-user-in-network', following => following.map(e => e.innerHTML));
-  expect(network1).toEqual([party2]);
-
-  // Log in as Party 3.
-  const page3 = await newUiPage();
-  await login(page3, user3);
+  expect(network1).toEqual([toAlias(user2)]);
 
   // Party 3 should follow no one.
   const noFollowing3 = await page3.$$('.test-select-following');
@@ -331,8 +334,8 @@ test('log in as three different users and start following each other', async () 
   await page3.waitForSelector('.test-select-user-in-network');
   const network3 = await page3.$$eval('.test-select-user-in-network', following => following.map(e => e.innerHTML));
   expect(network3).toHaveLength(2);
-  expect(network3).toContain(party1);
-  expect(network3).toContain(party2);
+  expect(network3).toContain(toAlias(user1));
+  expect(network3).toContain(toAlias(user2));
 
   await page1.close();
   await page2.close();
