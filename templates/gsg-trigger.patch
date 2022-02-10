@@ -101,8 +101,8 @@ diff --git create-daml-app/daml/User.daml create-daml-app/daml/User.daml
 diff --git create-daml-app/ui/src/components/MainView.tsx.template create-daml-app/ui/src/components/MainView.tsx.template
 --- create-daml-app/ui/src/components/MainView.tsx.template
 +++ create-daml-app/ui/src/components/MainView.tsx.template
-@@ -8,6 +8,10 @@ import { User } from '@daml.js/create-daml-app';
- import { useParty, useLedger, useStreamFetchByKey, useStreamQueries } from '@daml/react';
+@@ -8,6 +8,10 @@
+ import { publicContext, userContext } from './App';
  import UserList from './UserList';
  import PartyListEdit from './PartyListEdit';
 +// IMPORTS_BEGIN
@@ -112,7 +112,7 @@ diff --git create-daml-app/ui/src/components/MainView.tsx.template create-daml-a
 
  // USERS_BEGIN
  const MainView: React.FC = () => {
-@@ -78,6 +82,22 @@ const MainView: React.FC = () => {
+@@ -88,6 +92,22 @@
                />
                {/* USERLIST_END */}
              </Segment>
@@ -147,7 +147,7 @@ diff --git create-daml-app/ui/src/components/MessageEdit.tsx.template create-dam
 +import { Form, Button } from 'semantic-ui-react';
 +import { Party } from '@daml/types';
 +import { User } from '@daml.js/__PROJECT_NAME__';
-+import { useParty, useLedger } from '@daml/react';
++import { userContext } from './App';
 +
 +type Props = {
 +  followers: Party[];
@@ -157,11 +157,11 @@ diff --git create-daml-app/ui/src/components/MessageEdit.tsx.template create-dam
 + * React component to edit a message to send to a follower.
 + */
 +const MessageEdit: React.FC<Props> = ({followers}) => {
-+  const sender = useParty();
++  const sender = userContext.useParty();
 +  const [receiver, setReceiver] = React.useState<string | undefined>();
 +  const [content, setContent] = React.useState("");
 +  const [isSubmitting, setIsSubmitting] = React.useState(false);
-+  const ledger = useLedger();
++  const ledger = userContext.useLedger();
 +
 +  const submitMessage = async (event: React.FormEvent) => {
 +    try {
@@ -220,13 +220,13 @@ diff --git create-daml-app/ui/src/components/MessageList.tsx.template create-dam
 +import React from 'react'
 +import { List, ListItem } from 'semantic-ui-react';
 +import { User } from '@daml.js/__PROJECT_NAME__';
-+import { useStreamQueries } from '@daml/react';
++import { userContext } from './App';
 +
 +/**
 + * React component displaying the list of messages for the current user.
 + */
 +const MessageList: React.FC = () => {
-+  const messagesResult = useStreamQueries(User.Message);
++  const messagesResult = userContext.useStreamQueries(User.Message);
 +
 +  return (
 +    <List relaxed>

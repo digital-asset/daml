@@ -1,12 +1,11 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import { Button, Form, Grid, Header, Image, Segment } from 'semantic-ui-react'
-import Credentials from '../Credentials';
+import Credentials, { PublicParty } from '../Credentials';
 import Ledger from '@daml/ledger';
-import { DamlHubLogin as DamlHubLoginBtn } from '@daml/hub-react';
-import { User } from '@daml.js/__PROJECT_NAME__';
+import { DamlHubLogin as DamlHubLoginBtn, usePublicParty } from '@daml/hub-react';
 import { authConfig, Insecure } from '../config';
 import { useAuth0 } from "@auth0/auth0-react";
 
@@ -14,30 +13,13 @@ type Props = {
   onLogin: (credentials: Credentials) => void;
 }
 
-const toAlias = (userId: string): string =>
-  userId.charAt(0).toUpperCase() + userId.slice(1);
-
 /**
  * React component for the login screen of the `App`.
  */
 const LoginScreen: React.FC<Props> = ({onLogin}) => {
 
   const login = useCallback(async (credentials: Credentials) => {
-    try {
-      const ledger = new Ledger({token: credentials.token});
-      let userContract = await ledger.fetchByKey(User.User, credentials.party);
-      if (userContract === null) {
-        const user = {username: credentials.party, following: []};
-        userContract = await ledger.create(User.User, user);
-      }
-      let userAlias = await ledger.fetchByKey(User.Alias, {_1: credentials.party, _2: credentials.publicParty});
-      if (userAlias === null) {
-        await ledger.create(User.Alias, {username: credentials.party, alias: toAlias(credentials.user.userId), public: credentials.publicParty});
-      }
       onLogin(credentials);
-    } catch(error) {
-      alert(`Unknown error:\n${JSON.stringify(error)}`);
-    }
   }, [onLogin]);
 
   const wrap: (c: JSX.Element) => JSX.Element = (component) =>
@@ -79,15 +61,28 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
         alert(`Failed to login as '${username}':\n${errorMsg}`);
         throw error;
       });
-      const publicParty:string = await auth.userManagement.publicParty(username, ledger).catch((error) => {
-        const errorMsg = error instanceof Error ? error.toString() : JSON.stringify(error);
-        alert(`Failed to login as '${username}':\n${errorMsg}`);
-        throw error;
-      });
+
+
+      const useGetPublicParty = (): PublicParty => {
+        const [publicParty, setPublicParty] = useState<string | undefined>(undefined);
+        const setup = () => {
+          const fn = async () => {
+            const publicParty = await auth.userManagement.publicParty(username, ledger).catch((error) => {
+              const errorMsg = error instanceof Error ? error.toString() : JSON.stringify(error);
+              alert(`Failed to find primary party for user '${username}':\n${errorMsg}`);
+              throw error;
+            });
+            // todo stop yolowing error handling
+            setPublicParty(publicParty);
+          };
+          fn()
+        };
+        return {usePublicParty: () => publicParty, setup: setup};
+      }
       await login({user: {userId: username, primaryParty: primaryParty},
                    party: primaryParty,
-                   publicParty: publicParty,
-                   token: auth.makeToken(username)});
+                   token: auth.makeToken(username),
+                   getPublicParty: useGetPublicParty});
     }
 
     return wrap(<>
@@ -113,8 +108,15 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
       <DamlHubLoginBtn
         onLogin={creds => {
           if (creds) {
-            // TODO (MK) Fix public party in Daml hub
-            login({party:creds.party, publicParty: "FIXME", user: {userId: creds.partyName, primaryParty: creds.party}, token:creds.token});
+            login({
+              party:creds.party,
+              user: {userId: creds.partyName, primaryParty: creds.party},
+              token: creds.token,
+              getPublicParty: () => ({
+                usePublicParty: () => usePublicParty(),
+                setup: () => {}
+              })
+            });
           }
         }}
         options={{
@@ -134,13 +136,13 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
       if (isLoading === false && isAuthenticated === true) {
         if (user !== undefined) {
           const party = user["https://daml.com/ledger-api"];
-          // TODO (MK) Fix public party with Auth0
           const creds: Credentials = {
             user: {userId: user.email ?? user.name ?? party, primaryParty: party},
             party: party,
-            publicParty: "FIXME",
             token: (await getAccessTokenSilently({
-                     audience: "https://daml.com/ledger-api"}))};
+                     audience: "https://daml.com/ledger-api"})),
+            getPublicParty: () => { throw Error("FIXME") },
+          };
           login(creds);
         }
       }
