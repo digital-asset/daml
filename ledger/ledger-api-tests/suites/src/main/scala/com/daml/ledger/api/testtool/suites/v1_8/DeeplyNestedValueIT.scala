@@ -12,7 +12,6 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.semantic.DeeplyNestedValue._
-import io.grpc.Status
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -72,9 +71,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
           case Right(_) if accepted => ()
           case Left(err: Throwable) if !accepted =>
             assertGrpcError(
-              alpha,
               err,
-              Status.Code.INVALID_ARGUMENT,
               errorCodeIfExpected,
               None,
               checkDefiniteAnswerMetadata = true,

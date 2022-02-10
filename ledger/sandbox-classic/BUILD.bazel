@@ -167,27 +167,6 @@ server_conformance_test(
     ],
 )
 
-# Full conformance test with legacy error codes (Postgres)
-server_conformance_test(
-    name = "conformance-test-legacy-error-codes",
-    lf_versions = [
-        "default",
-        "preview",
-    ],
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--use-pre-1.18-error-codes",
-    ],
-    servers = {"postgresql": SERVERS["postgresql"]},
-    test_tool_args = [
-        "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
-        "--timeout-scale-factor=2",  # sandbox classic is slow in general
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-        "--exclude=CommandDeduplicationPeriodValidationIT",  # The test expects the new error codes.
-    ],
-)
-
 # Full conformance test (H2)
 # Only run a minimal set of tests on H2. The full test suite is very slow on H2, and prone to fail due to timeouts.
 server_conformance_test(

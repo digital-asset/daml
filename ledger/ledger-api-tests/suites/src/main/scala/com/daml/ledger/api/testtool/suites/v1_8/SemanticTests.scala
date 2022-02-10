@@ -22,7 +22,6 @@ import com.daml.ledger.test.semantic.SemanticTests.PaintCounterOffer._
 import com.daml.ledger.test.semantic.SemanticTests.PaintOffer._
 import com.daml.ledger.test.semantic.SemanticTests.SharedContract._
 import com.daml.ledger.test.semantic.SemanticTests._
-import io.grpc.Status
 import scalaz.Tag
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -60,9 +59,7 @@ final class SemanticTests extends LedgerTestSuite {
           .mustFail("consuming a contract twice")
       } yield {
         assertGrpcError(
-          alpha,
           failure,
-          Status.Code.ABORTED,
           LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
@@ -128,9 +125,7 @@ final class SemanticTests extends LedgerTestSuite {
         failure <- alpha.submitAndWait(doubleSpend).mustFail("consuming a contract twice")
       } yield {
         assertGrpcError(
-          alpha,
           failure,
-          Status.Code.INVALID_ARGUMENT,
           LedgerApiErrors.CommandExecution.Interpreter.ContractNotActive,
           Some("Update failed due to fetch of an inactive contract"),
           checkDefiniteAnswerMetadata = true,
@@ -153,9 +148,7 @@ final class SemanticTests extends LedgerTestSuite {
           .mustFail("consuming a contract twice")
       } yield {
         assertGrpcError(
-          beta,
           failure,
-          Status.Code.ABORTED,
           LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
@@ -248,9 +241,7 @@ final class SemanticTests extends LedgerTestSuite {
         .mustFail("creating a contract on behalf of two parties")
     } yield {
       assertGrpcError(
-        alpha,
         failure,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some("requires authorizers"),
         checkDefiniteAnswerMetadata = true,
@@ -272,9 +263,7 @@ final class SemanticTests extends LedgerTestSuite {
           .mustFail("exercising a choice without consent")
       } yield {
         assertGrpcError(
-          beta,
           failure,
-          Status.Code.INVALID_ARGUMENT,
           LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
           Some("requires authorizers"),
           checkDefiniteAnswerMetadata = true,
@@ -340,33 +329,25 @@ final class SemanticTests extends LedgerTestSuite {
 
       } yield {
         assertGrpcError(
-          beta,
           iouFetchFailure,
-          Status.Code.ABORTED,
           LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
-          alpha,
           paintOfferFetchFailure,
-          Status.Code.ABORTED,
           LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
-          alpha,
           paintAgreeFetchFailure,
-          Status.Code.ABORTED,
           LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
-          alpha,
           secondIouFetchFailure,
-          Status.Code.INVALID_ARGUMENT,
           LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
           Some("requires one of the stakeholders"),
           checkDefiniteAnswerMetadata = true,
@@ -432,9 +413,7 @@ final class SemanticTests extends LedgerTestSuite {
           }
         } yield {
           assertGrpcError(
-            beta,
             failure,
-            Status.Code.ABORTED,
             LedgerApiErrors.ConsistencyErrors.ContractNotFound,
             Some("Contract could not be found"),
             checkDefiniteAnswerMetadata = true,

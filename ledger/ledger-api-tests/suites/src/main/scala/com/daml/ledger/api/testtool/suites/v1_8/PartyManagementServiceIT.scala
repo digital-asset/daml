@@ -11,7 +11,6 @@ import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
 import com.daml.ledger.client.binding
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
-import io.grpc.Status
 import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
 
@@ -135,9 +134,7 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
         "The allocated party identifier is an empty string",
       )
       assertGrpcErrorRegex(
-        ledger,
         error,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.RequestValidation.InvalidArgument,
         Some(Pattern.compile("Party already exists|PartyToParticipant")),
       )
@@ -158,9 +155,7 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
         .mustFail("allocating a party with a very long identifier")
     } yield {
       assertGrpcError(
-        ledger,
         error,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.RequestValidation.InvalidArgument,
         Some("Party is too long"),
       )
@@ -182,9 +177,7 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
         .mustFail("allocating a party with invalid characters")
     } yield {
       assertGrpcError(
-        ledger,
         error,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.RequestValidation.InvalidArgument,
         Some("non expected character"),
       )

@@ -12,7 +12,6 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.client.binding.{Primitive => P}
 import com.daml.ledger.test.semantic.TimeTests._
-import io.grpc.Status
 
 import scala.concurrent.Future
 
@@ -70,9 +69,7 @@ final class TimeServiceIT extends LedgerTestSuite {
         .mustFail("submitting choice prematurely")
     } yield {
       assertGrpcErrorRegex(
-        ledger,
         failure,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
         Some(Pattern.compile("Unhandled (Daml )?exception")),
         checkDefiniteAnswerMetadata = true,

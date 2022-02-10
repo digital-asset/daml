@@ -11,7 +11,6 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.client.binding
 import com.daml.ledger.test.semantic.SemanticTests.{Amount, Iou}
-import io.grpc.Status
 
 class ClosedWorldIT extends LedgerTestSuite {
 
@@ -32,9 +31,7 @@ class ClosedWorldIT extends LedgerTestSuite {
         .mustFail("referencing an unallocated party")
     } yield {
       assertGrpcErrorRegex(
-        alpha,
         failure,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger,
         Some(Pattern.compile("Part(y|ies) not known on ledger")),
         checkDefiniteAnswerMetadata = true,

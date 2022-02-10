@@ -120,9 +120,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         .mustFail("setting Time Model with an outdated generation")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.INVALID_ARGUMENT,
         LedgerApiErrors.RequestValidation.InvalidArgument,
         exceptionMessageSubstring = None,
       )
@@ -170,18 +168,14 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
       Try {
         // if the "looser" command fails already on command submission (the winner completed before looser submission is over)
         assertGrpcError(
-          ledger,
           failure,
-          Status.Code.INVALID_ARGUMENT,
           LedgerApiErrors.RequestValidation.InvalidArgument,
           Some("Mismatching configuration generation"),
         )
       }.recover { case _ =>
         // if the "looser" command fails after command submission (the winner completed after looser did submit the configuration change)
         assertGrpcError(
-          ledger,
           failure,
-          Status.Code.ABORTED,
           LedgerApiErrors.AdminServices.ConfigurationEntryRejected,
           Some("Generation mismatch"),
         )

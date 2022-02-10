@@ -15,11 +15,13 @@ import com.daml.error.{
 import com.daml.ledger.api.domain._
 import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserResponse, GetUserResponse}
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
+import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.google.protobuf.InvalidProtocolBufferException
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
 import scalaz.syntax.traverse._
@@ -94,7 +96,7 @@ private[apiserver] final class ApiUserManagementService(
   override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] = {
     withValidation(
       for {
-        fromExcl <- decodePageToken(request.pageToken)
+        fromExcl <- decodeUserIdFromPageToken(request.pageToken)
         rawPageSize <- Either.cond(
           request.pageSize >= 0,
           request.pageSize,
@@ -244,12 +246,14 @@ object ApiUserManagementService {
   def encodeNextPageToken(token: Option[Ref.UserId]): String =
     token
       .map { id =>
-        val bytes = Base64.getUrlEncoder.encode(id.getBytes(StandardCharsets.UTF_8))
+        val bytes = Base64.getUrlEncoder.encode(
+          ListUsersPageTokenPayload(userIdLowerBoundExcl = id).toByteArray
+        )
         new String(bytes, StandardCharsets.UTF_8)
       }
       .getOrElse("")
 
-  def decodePageToken(pageToken: String)(implicit
+  def decodeUserIdFromPageToken(pageToken: String)(implicit
       loggingContext: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Option[Ref.UserId]] = {
     if (pageToken.isEmpty) {
@@ -260,26 +264,32 @@ object ApiUserManagementService {
         decodedBytes <- Try[Array[Byte]](Base64.getUrlDecoder.decode(bytes))
           .map(Right(_))
           .recover { case _: IllegalArgumentException =>
-            Left(
-              LedgerApiErrors.RequestValidation.InvalidArgument
-                .Reject("Invalid page token")
-                .asGrpcError
-            )
+            Left(invalidPageToken)
           }
           .get
-        decodedStr = new String(decodedBytes, StandardCharsets.UTF_8)
+        tokenPayload <- Try[ListUsersPageTokenPayload] {
+          ListUsersPageTokenPayload.parseFrom(decodedBytes)
+        }.map(Right(_))
+          .recover { case _: InvalidProtocolBufferException =>
+            Left(invalidPageToken)
+          }
+          .get
         userId <- Ref.UserId
-          .fromString(decodedStr)
+          .fromString(tokenPayload.userIdLowerBoundExcl)
           .map(Some(_))
           .left
-          .map(_ =>
-            LedgerApiErrors.RequestValidation.InvalidArgument
-              .Reject("Invalid page token")
-              .asGrpcError
-          )
+          .map(_ => invalidPageToken)
       } yield {
         userId
       }
     }
+  }
+
+  private def invalidPageToken(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    LedgerApiErrors.RequestValidation.InvalidArgument
+      .Reject("Invalid page token")
+      .asGrpcError
   }
 }

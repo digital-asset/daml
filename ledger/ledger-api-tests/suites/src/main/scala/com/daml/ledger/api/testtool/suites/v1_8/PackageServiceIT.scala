@@ -7,7 +7,6 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import io.grpc.Status
 
 final class PackageServiceIT extends LedgerTestSuite {
 
@@ -56,9 +55,7 @@ final class PackageServiceIT extends LedgerTestSuite {
         .mustFail("getting the contents of an unknown package")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.NotFound.Package,
         None,
       )

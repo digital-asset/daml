@@ -19,7 +19,6 @@ import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import io.grpc.Status
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -59,7 +58,6 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       failReason = "Requests with a deduplication period represented by a negative duration",
       expectedMessage =
         "The submitted command has a field with invalid value: Invalid field deduplication_period: Duration must be positive",
-      expectedCode = Status.Code.INVALID_ARGUMENT,
       expectedError = LedgerApiErrors.RequestValidation.InvalidField,
     )
   })
@@ -79,7 +77,6 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       failReason = "Submitting a command with an invalid offset",
       expectedMessage =
         "Offset in deduplication_period not specified in hexadecimal: invalid_offset: the deduplication offset has to be a hexadecimal string and not invalid_offset",
-      expectedCode = Status.Code.INVALID_ARGUMENT,
       expectedError = LedgerApiErrors.RequestValidation.NonHexOffset,
     )
   })
@@ -92,10 +89,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     disabledReason = "Maximum deduplication duration is not enforced by the ledger",
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitRequest(party, Dummy(party).create.command)
-    val expectedCode =
-      expectedInvalidDeduplicationPeriodCode(ledger)
-    val expectedError =
-      expectedInvalidDeduplicationPeriodError(ledger)
+    val expectedError = LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
     for {
       config <- ledger.configuration()
       maxDedupTime = config.maxDeduplicationTime.get
@@ -109,9 +103,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
         )
         .mustFail("submitting a command with a deduplication time that is too big")
       _ = assertGrpcErrorRegex(
-        ledger,
         failure,
-        expectedCode,
         expectedError,
         optPattern = Some(
           Pattern.compile(
@@ -151,7 +143,6 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
         failReason = "Submitting a command with an invalid offset",
         expectedMessage =
           "The submitted command had an invalid deduplication period: Cannot convert deduplication offset to duration because there is no completion at given offset .*",
-        expectedCode = Status.Code.INVALID_ARGUMENT,
         expectedError = LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField,
       )
     } yield {}
@@ -206,9 +197,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
         )
       ).mustFail("using an offset which was pruned")
       _ = assertGrpcErrorRegex(
-        ledger,
         failure,
-        expectedCode = Status.Code.FAILED_PRECONDITION,
         // Canton returns INVALID_DEDUPLICATION_PERIOD with earliest_offset metadata
         // KV returns PARTICIPANT_PRUNED_DATA_ACCESSED with earliest_offset metadata
         selfServiceErrorCode =
@@ -259,7 +248,6 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       deduplicationPeriod: DeduplicationPeriod,
       failReason: String,
       expectedMessage: String,
-      expectedCode: Status.Code,
       expectedError: ErrorCode,
   )(implicit ec: ExecutionContext) = {
     for {
@@ -274,23 +262,10 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
         .mustFail(failReason)
     } yield {
       assertGrpcErrorRegex(
-        ledger,
         failure,
-        expectedCode,
         expectedError,
         Some(Pattern.compile(expectedMessage)),
       )
     }
-  }
-
-  private def expectedInvalidDeduplicationPeriodCode(ledger: ParticipantTestContext) = {
-    if (ledger.features.selfServiceErrorCodes) Status.Code.FAILED_PRECONDITION
-    else Status.Code.INVALID_ARGUMENT
-  }
-
-  private def expectedInvalidDeduplicationPeriodError(ledger: ParticipantTestContext) = {
-    if (ledger.features.selfServiceErrorCodes)
-      LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
-    else LedgerApiErrors.RequestValidation.InvalidField
   }
 }

@@ -10,7 +10,6 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test._
-import io.grpc.Status
 
 class TransactionServiceQueryIT extends LedgerTestSuite {
   test(
@@ -41,9 +40,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .mustFail("subscribing to an invisible transaction tree")
     } yield {
       assertGrpcError(
-        beta,
         failure,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
@@ -61,9 +58,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .mustFail("looking up an non-existent transaction tree")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
@@ -97,9 +92,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .mustFail("looking up an invisible flat transaction")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
@@ -117,9 +110,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .mustFail("looking up a non-existent flat transaction")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
@@ -155,9 +146,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .mustFail("looking up an invisible transaction tree")
     } yield {
       assertGrpcError(
-        beta,
         failure,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
@@ -175,9 +164,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .mustFail("looking up a non-existent transaction tree")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
@@ -213,9 +200,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .mustFail("looking up an invisible flat transaction")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
@@ -233,9 +218,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         .mustFail("looking up a non-existent flat transaction")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )

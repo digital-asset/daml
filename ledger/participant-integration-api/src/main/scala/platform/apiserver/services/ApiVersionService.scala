@@ -29,6 +29,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.usermanagement.UserManagementConfig
 import io.grpc.ServerServiceDefinition
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 import scala.util.Try
@@ -73,7 +74,9 @@ private[apiserver] final class ApiVersionService private (
       experimental = Some(
         ExperimentalFeatures.of(
           selfServiceErrorCodes =
-            Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes()),
+            Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes()): @nowarn(
+              "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.experimental_features\\..*"
+            ),
           staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime)),
           commandDeduplication = Some(ledgerFeatures.commandDeduplicationFeatures),
           optionalLedgerId = Some(ExperimentalOptionalLedgerId()),

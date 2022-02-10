@@ -11,7 +11,6 @@ import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Delegation._
 import com.daml.ledger.test.model.Test.DummyWithParam._
 import com.daml.ledger.test.model.Test.{Delegated, Delegation, Dummy, DummyWithParam}
-import io.grpc.Status.Code
 
 final class WronglyTypedContractIdIT extends LedgerTestSuite {
   test("WTExerciseFails", "Exercising on a wrong type fails", allocate(SingleParty))(
@@ -24,9 +23,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
           .mustFail("exercising on a wrong type")
       } yield {
         assertGrpcError(
-          ledger,
           exerciseFailure,
-          Code.INVALID_ARGUMENT,
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
           Some("wrongly typed contract id"),
           checkDefiniteAnswerMetadata = true,
@@ -47,9 +44,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
           .mustFail("fetching the wrong type")
       } yield {
         assertGrpcError(
-          ledger,
           fetchFailure,
-          Code.INVALID_ARGUMENT,
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
           Some("wrongly typed contract id"),
           checkDefiniteAnswerMetadata = true,
@@ -76,9 +71,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
         .mustFail("exercising on a wrong type")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Code.INVALID_ARGUMENT,
         LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
         Some("wrongly typed contract id"),
         checkDefiniteAnswerMetadata = true,

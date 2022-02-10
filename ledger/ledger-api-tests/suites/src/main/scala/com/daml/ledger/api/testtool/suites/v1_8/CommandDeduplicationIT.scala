@@ -678,9 +678,7 @@ final class CommandDeduplicationIT(
       .mustFail(s"Request expected to fail with code $code")
       .map(
         assertGrpcError(
-          ledger,
           _,
-          code,
           selfServiceErrorCode,
           exceptionMessageSubstring = None,
           checkDefiniteAnswerMetadata = true,
@@ -699,9 +697,7 @@ final class CommandDeduplicationIT(
       .mustFail("Request was accepted but we were expecting it to fail with a duplicate error")
       .map(
         assertGrpcError(
-          ledger,
           _,
-          expectedCode = Code.ALREADY_EXISTS,
           selfServiceErrorCode = LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
           exceptionMessageSubstring = None,
           checkDefiniteAnswerMetadata = true,

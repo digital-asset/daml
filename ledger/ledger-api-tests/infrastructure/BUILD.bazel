@@ -30,7 +30,6 @@ load(
             "//ledger/test-common:test-common-%s" % lf_version,
             "//libs-scala/build-info",
             "//libs-scala/contextualized-logging",
-            "//libs-scala/grpc-utils",
             "//libs-scala/resources",
             "//libs-scala/resources-akka",
             "//libs-scala/resources-grpc",

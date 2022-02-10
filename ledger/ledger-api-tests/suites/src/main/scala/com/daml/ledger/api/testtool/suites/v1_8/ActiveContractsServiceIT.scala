@@ -29,7 +29,6 @@ import com.daml.ledger.test.model.Test.{
   WithObservers,
   Witnesses => TestWitnesses,
 }
-import io.grpc.Status
 import scalaz.syntax.tag._
 
 import scala.collection.immutable.Seq
@@ -50,9 +49,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       failure <- ledger.activeContracts(invalidRequest).mustFail("retrieving active contracts")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.NOT_FOUND,
         LedgerApiErrors.RequestValidation.LedgerIdMismatch,
         Some("not found. Actual Ledger ID"),
       )
