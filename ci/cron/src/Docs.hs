@@ -22,7 +22,7 @@
 -- 1. The assembly repo uploads a release to `/version/` but leaves
 --    moving it to the top-level to this cron job.
 -- 2. The assembly repo uploads to S3 before creating a GH release.
-module Docs (docs, sdkDocOpts) where
+module Docs (docs, sdkDocOpts, damlOnSqlDocOpts) where
 
 import Control.Exception.Safe
 import qualified Control.Monad as Control
@@ -218,6 +218,19 @@ sdkDocOpts = DocOptions
         shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //docs:docs"
         proc_ ["mkdir", "-p", temp </> show version]
         proc_ ["tar", "xzf", "bazel-bin/docs/html.tar.gz", "--strip-components=1", "-C", temp </> show version]
+  }
+
+damlOnSqlDocOpts :: DocOptions
+damlOnSqlDocOpts = DocOptions
+  { s3Subdir = Just "daml-driver-for-postgresql"
+  , includedVersion = \v -> v > version "1.8.0-snapshot.20201201.5776.0.4b91f2a6"
+        && v <= version "2.0.0-snapshot.20220209.9212.0.b7fc9f57"
+  , build = \temp version -> do
+        proc_ ["git", "checkout", "v" <> show version]
+        robustly_download_nix_packages
+        shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //ledger/daml-on-sql:docs"
+        proc_ ["mkdir", "-p", temp </> show version]
+        proc_ ["tar", "xzf", "bazel-bin/ledger/daml-on-sql/html.tar.gz", "--strip-components=1", "-C", temp </> show version]
   }
 
 docs :: DocOptions -> IO ()

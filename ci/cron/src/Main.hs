@@ -70,6 +70,7 @@ main = do
     case opts of
       Docs -> do
           Docs.docs Docs.sdkDocOpts
+          Docs.docs Docs.damlOnSqlDocOpts
       Check { bash_lib, gcp_credentials, max_releases } ->
           CheckReleases.check_releases gcp_credentials bash_lib max_releases
       BazelCache opts -> BazelCache.run opts
