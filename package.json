@@ -4,17 +4,18 @@
   "description": "package for bazel-managed nodejs dependencies",
   "private": true,
   "version": "0.0.0",
-  "resolutions" : {
+  "resolutions": {
     "**/elliptic": "^6.5.4",
     "**/bl": "^4.0.3",
     "**/ws": "^7.4.6",
     "**/chalk": "^2.4.1"
   },
   "dependencies": {
+    "@mixer/parallel-prettier": "^2.0.1",
     "bower": "1.8.8",
+    "coffeescript": "^2.5.1",
     "color-convert": "2.0.1",
     "colors": "1.4.0",
-    "coffeescript": "^2.5.1",
     "express": "^4.16.4",
     "express-session": "^1.15.6",
     "grunt": "^1.4.0",
