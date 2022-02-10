@@ -15,6 +15,14 @@ initialize = do
   bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
   usBank <- allocatePartyWithHint "USD_Bank" (PartyIdHint "USD_Bank")
   eurBank <- allocatePartyWithHint "EUR_Bank" (PartyIdHint "EUR_Bank")
+  aliceId <- validateUserId "alice"
+  bobId <- validateUserId "bob"
+  eurBankId <- validateUserId "eur"
+  usBankId <- validateUserId "us"
+  createUser (User aliceId (Some alice)) [CanActAs alice]
+  createUser (User bobId (Some bob)) [CanActAs bob]
+  createUser (User eurBankId (Some eurBank)) [CanActAs eurBank]
+  createUser (User usBankId (Some usBank)) [CanActAs usBank]
 
   -- Banks issue IOU transfers.
   iouTransferAliceCid <- submit eurBank do
