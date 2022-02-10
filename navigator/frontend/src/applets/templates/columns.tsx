@@ -1,44 +1,45 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { DataColumnConfig, UntypedIcon } from '@da/ui-core';
-import * as React from 'react';
-import Link from '../../components/Link';
-import * as Routes from '../../routes';
-import {  Template } from './data';
+import { DataColumnConfig, UntypedIcon } from "@da/ui-core";
+import * as React from "react";
+import Link from "../../components/Link";
+import * as Routes from "../../routes";
+import { Template } from "./data";
 
 export const columns: DataColumnConfig<Template, {}>[] = [
   {
-    key: 'id',
-    title: 'Template ID',
+    key: "id",
+    title: "Template ID",
     extractCellData: ({ id }: Template) => id,
-    createCell: ({cellData}) => <span>{cellData}</span>,
+    createCell: ({ cellData }) => <span>{cellData}</span>,
     sortable: true,
     width: 200,
     weight: 3,
-    alignment: 'left',
+    alignment: "left",
   },
   {
-    key: 'template.id',
-    title: '# Contracts',
+    key: "template.id",
+    title: "# Contracts",
     extractCellData: (template: Template) => template,
-    createCell: ({cellData}) => (
+    createCell: ({ cellData }) => (
       <Link
         route={Routes.templateContracts}
-        params={{id: cellData.id}}
-        key={cellData.id}
-      >
+        params={{ id: cellData.id }}
+        key={cellData.id}>
         <span>
-          <UntypedIcon name="contract"/>&nbsp;
+          <UntypedIcon name="contract" />
+          &nbsp;
           {cellData.contracts.totalCount > 0
-            ? `${cellData.contracts.totalCount}` : '-'}
+            ? `${cellData.contracts.totalCount}`
+            : "-"}
         </span>
       </Link>
     ),
     sortable: false,
     width: 120,
     weight: 0,
-    alignment: 'right',
+    alignment: "right",
   } as DataColumnConfig<Template, Template>,
 ];
 

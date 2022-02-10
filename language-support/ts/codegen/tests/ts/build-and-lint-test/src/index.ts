@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import Ledger from  '@daml/ledger';
-import { ContractId, Party, Template, Choice } from '@daml/types';
+import Ledger from "@daml/ledger";
+import { ContractId, Party, Template, Choice } from "@daml/types";
 
 // Regression test for #8338, we only care that this compiles.
 
-const ledger = new Ledger({token: ""});
+const ledger = new Ledger({ token: "" });
 
-type X = {p: Party};
+type X = { p: Party };
 
 type Archive = {};
 
@@ -17,7 +17,7 @@ type Archive = {};
 // However, due to what looks like a typescript bug that does not trigger the
 // error in TS 3.8. It does however, trigger the error in TS >= 3.9.
 // To make sure we hit this, we separate them here.
-const X: Template<X, undefined, 'pkg-id:M:X'> = undefined!;
+const X: Template<X, undefined, "pkg-id:M:X"> = undefined!;
 
 const Y: {
   Archive: Choice<X, Archive, {}, undefined>;
@@ -26,7 +26,6 @@ const Y: {
 const cid: ContractId<X> = undefined!;
 
 export const f = async () => {
-      await ledger.exercise(Y.Archive, cid, {});
-      await ledger.createAndExercise(Y.Archive, {p: "Alice"}, {});
-}
-
+  await ledger.exercise(Y.Archive, cid, {});
+  await ledger.createAndExercise(Y.Archive, { p: "Alice" }, {});
+};

@@ -1,11 +1,11 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import Button from '../Button';
-import { Section } from '../Guide';
-import styled from '../theme';
-import Tooltip from '../Tooltip';
+import * as React from "react";
+import Button from "../Button";
+import { Section } from "../Guide";
+import styled from "../theme";
+import Tooltip from "../Tooltip";
 
 const description = `
 A tooltip displays a box with a dropdown shadow,
@@ -19,14 +19,13 @@ const TooltipContentWrapper = styled.div`
   width: 200px;
   min-height: 30px;
   padding: 1px 1.33em;
-`
+`;
 
 const CenteredDiv = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-`
-
+`;
 
 const TooltipContent = () => (
   <TooltipContentWrapper>
@@ -35,10 +34,13 @@ const TooltipContent = () => (
 );
 
 const TooltipTarget = () => (
-  <Button onClick={() => {  return; }}>
+  <Button
+    onClick={() => {
+      return;
+    }}>
     Button
   </Button>
-)
+);
 
 export default class PopoverGuide extends React.Component {
   constructor() {
@@ -47,10 +49,7 @@ export default class PopoverGuide extends React.Component {
 
   render(): JSX.Element {
     return (
-      <Section
-        title="Tooltip"
-        description={description}
-      >
+      <Section title="Tooltip" description={description}>
         <table>
           <tbody>
             <tr>
@@ -58,7 +57,7 @@ export default class PopoverGuide extends React.Component {
               <td>
                 <TooltipTarget />
                 <Tooltip placement="bottom" arrow={false} margin={2}>
-                  <TooltipContent/>
+                  <TooltipContent />
                 </Tooltip>
               </td>
             </tr>

@@ -1,14 +1,14 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import { Section } from '../Guide';
-import styled from '../theme';
+import * as React from "react";
+import { Section } from "../Guide";
+import styled from "../theme";
 import {
   DataColumnConfig,
   DataTableConfig,
   default as DataTable,
-} from './index';
+} from "./index";
 
 const description = `
 This component displays a list of data rows.
@@ -28,10 +28,10 @@ interface Data {
 }
 
 const demoData: RowData[] = [
-  {id: 'callablePayoutNumber_t3@Decimal_5', contracts: 1},
-  {id: 'callablePayoutTime_t5@Decimal_4', contracts: 2},
-  {id: 'mustPayAgreementNumber_t2@Decimal_2', contracts: 0},
-  {id: 'mustPayAgreementTime_t4@Decimal_1', contracts: 10},
+  { id: "callablePayoutNumber_t3@Decimal_5", contracts: 1 },
+  { id: "callablePayoutTime_t5@Decimal_4", contracts: 2 },
+  { id: "mustPayAgreementNumber_t2@Decimal_2", contracts: 0 },
+  { id: "mustPayAgreementTime_t4@Decimal_1", contracts: 10 },
 ];
 
 const demoDataReversed = [...demoData].reverse();
@@ -44,44 +44,44 @@ const demoDataExtractor = (data: Data) => ({
 });
 
 function getData(config: DataTableConfig) {
-  if (config.sort.length > 0 && config.sort[0].direction === 'DESCENDING') {
+  if (config.sort.length > 0 && config.sort[0].direction === "DESCENDING") {
     return {
       rows: demoDataReversed,
       totalCount: demoDataReversed.length,
-    }
+    };
   } else {
     return {
       rows: demoData,
       totalCount: demoData.length,
-    }
+    };
   }
 }
 
 const columns: DataColumnConfig<RowData, string | number>[] = [
   {
-    key: 'id',
-    title: 'ID',
+    key: "id",
+    title: "ID",
     extractCellData: ({ id }: RowData) => id,
     createCell: createTextCell,
     sortable: true,
     width: 200,
     weight: 3,
-    alignment: 'left',
+    alignment: "left",
   },
   {
-    key: 'contracts',
-    title: '# Contracts',
+    key: "contracts",
+    title: "# Contracts",
     extractCellData: ({ contracts }: RowData) => contracts,
     createCell: createTextCell,
     sortable: true,
     width: 100,
     weight: 0,
-    alignment: 'left',
+    alignment: "left",
   },
 ];
 
-function createTextCell({cellData}: {cellData: string | number}){
-  return (<span>{cellData}</span>);
+function createTextCell({ cellData }: { cellData: string | number }) {
+  return <span>{cellData}</span>;
 }
 
 const Container = styled.div`
@@ -100,12 +100,11 @@ export interface State {
 }
 
 export default class DataTableGuide extends React.Component<{}, State> {
-
   constructor(props: {}) {
     super(props);
     this.state = {
       config: {
-        search: '',
+        search: "",
         filter: [],
         count: 100,
         sort: [],
@@ -116,10 +115,7 @@ export default class DataTableGuide extends React.Component<{}, State> {
 
   render(): JSX.Element {
     return (
-      <Section
-        title="Data table"
-        description={description}
-      >
+      <Section title="Data table" description={description}>
         <Container>
           <StyledDataTable
             data={getData(this.state.config)}
@@ -128,7 +124,7 @@ export default class DataTableGuide extends React.Component<{}, State> {
             hideActionRow={true}
             columns={columns}
             onConfigChange={this.onConfigChange}
-            rowClassName={() => ('ContractTable__row')}
+            rowClassName={() => "ContractTable__row"}
             columnClassName="ContractTable__column"
             headerRowClassName="ContractTable__headerRow"
             headerColumnClassName="ContractTable__headerColumn"
@@ -136,13 +132,13 @@ export default class DataTableGuide extends React.Component<{}, State> {
         </Container>
         <Container>
           <StyledDataTable
-            title={'Templates'}
+            title={"Templates"}
             data={getData(this.state.config)}
             extractRowData={demoDataExtractor}
             config={this.state.config}
             columns={columns}
             onConfigChange={this.onConfigChange}
-            rowClassName={() => ('ContractTable__row')}
+            rowClassName={() => "ContractTable__row"}
             columnClassName="ContractTable__column"
             headerRowClassName="ContractTable__headerRow"
             headerColumnClassName="ContractTable__headerColumn"

@@ -1,10 +1,10 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import { Section } from '../Guide';
-import { UntypedIcon } from '../Icon';
-import styled from '../theme';
+import * as React from "react";
+import { Section } from "../Guide";
+import { UntypedIcon } from "../Icon";
+import styled from "../theme";
 
 /**
  * This icon guide component works with untyped icons.
@@ -21,7 +21,7 @@ const Grid = styled.div`
 
 const PaddedIcon = styled(UntypedIcon)`
   padding: 1rem;
-`
+`;
 
 const ExhibitWrapper = styled.div`
   display: flex;
@@ -68,12 +68,11 @@ here. The default prefix is \`icon-\` but this can be customised by setting the
 export type IconGuideType<T> = React.StatelessComponent<IconGuideProps<T>>;
 
 export default ({ names }: IconGuideProps<string>): JSX.Element => (
-  <Section
-    title="Icons"
-    description={description}
-  >
+  <Section title="Icons" description={description}>
     <Grid>
-      {names.map((name) => <Exhibit key={name} name={name} />)}
+      {names.map(name => (
+        <Exhibit key={name} name={name} />
+      ))}
     </Grid>
   </Section>
 );
