@@ -806,10 +806,10 @@ cantonTests = testGroup "daml sandbox"
                 , "--script-name Main:setup"
                 , "--ledger-host=localhost", "--ledger-port=" <> show ledgerApiPort
                 ]
-            step "Start canton-repl"
+            step "Start canton-console"
             env <- getEnvironment
             let cmd = unwords
-                    [ "daml canton-repl"
+                    [ "daml canton-console"
                     , "--port", show ledgerApiPort
                     , "--admin-api-port", show adminApiPort
                     , "--domain-public-port", show domainPublicApiPort
