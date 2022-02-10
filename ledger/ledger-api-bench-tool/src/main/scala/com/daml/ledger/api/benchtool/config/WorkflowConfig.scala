@@ -58,7 +58,6 @@ object WorkflowConfig {
     final case class CompletionsStreamConfig(
         name: String,
         party: String,
-        applicationId: String,
         beginOffset: Option[LedgerOffset],
         objectives: Option[StreamConfig.RateObjectives],
     ) extends StreamConfig

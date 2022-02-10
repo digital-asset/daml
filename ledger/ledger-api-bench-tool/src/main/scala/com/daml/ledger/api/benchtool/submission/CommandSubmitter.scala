@@ -23,8 +23,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
   private val logger = LoggerFactory.getLogger(getClass)
 
   private val identifierSuffix = f"${System.nanoTime}%x"
-  private val applicationId = "benchtool"
-  private val workflowId = s"$applicationId-$identifierSuffix"
+  private val workflowId = s"${CommandSubmitter.ApplicationId}-$identifierSuffix"
   private val signatoryName = s"signatory-$identifierSuffix"
   private def observerName(index: Int, uniqueParties: Boolean): String = {
     if (uniqueParties) s"Obs-$index-$identifierSuffix"
@@ -101,7 +100,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
   ): Future[Unit] = {
     val result = new Commands(
       ledgerId = services.ledgerId,
-      applicationId = applicationId,
+      applicationId = CommandSubmitter.ApplicationId,
       commandId = id,
       party = party.unwrap,
       commands = commands,
@@ -191,6 +190,9 @@ case class CommandSubmitter(services: LedgerApiServices) {
 }
 
 object CommandSubmitter {
+
+  val ApplicationId = "benchtool"
+
   case class CommandSubmitterError(msg: String) extends RuntimeException(msg)
 
   case class SubmissionSummary(observers: List[Primitive.Party])

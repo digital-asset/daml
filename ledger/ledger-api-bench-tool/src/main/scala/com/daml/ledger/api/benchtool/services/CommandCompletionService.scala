@@ -4,6 +4,7 @@
 package com.daml.ledger.api.benchtool.services
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
+import com.daml.ledger.api.benchtool.submission.CommandSubmitter
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
@@ -40,7 +41,7 @@ class CommandCompletionService(
     val request = CompletionStreamRequest.defaultInstance
       .withLedgerId(ledgerId)
       .withParties(List(config.party))
-      .withApplicationId(config.applicationId)
+      .withApplicationId(CommandSubmitter.ApplicationId)
 
     config.beginOffset match {
       case Some(offset) => request.withOffset(offset)

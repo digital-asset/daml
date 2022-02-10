@@ -78,10 +78,9 @@ object WorkflowConfigParser {
       )(StreamConfig.ActiveContractsStreamConfig.apply)
 
     implicit val completionsStreamDecoder: Decoder[StreamConfig.CompletionsStreamConfig] =
-      Decoder.forProduct5(
+      Decoder.forProduct4(
         "name",
         "party",
-        "application_id",
         "begin_offset",
         "objectives",
       )(StreamConfig.CompletionsStreamConfig.apply)

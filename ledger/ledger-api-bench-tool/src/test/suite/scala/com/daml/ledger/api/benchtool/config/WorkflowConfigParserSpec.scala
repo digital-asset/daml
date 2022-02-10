@@ -337,7 +337,6 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |    name: stream-1
           |    party: Obs-2
           |    begin_offset: foo
-          |    application_id: foobar
           |    objectives:
           |      min_item_rate: 12
           |      max_item_rate: 345""".stripMargin
@@ -349,7 +348,6 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               name = "stream-1",
               party = "Obs-2",
               beginOffset = Some(offset("foo")),
-              applicationId = "foobar",
               objectives = Some(
                 WorkflowConfig.StreamConfig.RateObjectives(
                   minItemRate = Some(12),

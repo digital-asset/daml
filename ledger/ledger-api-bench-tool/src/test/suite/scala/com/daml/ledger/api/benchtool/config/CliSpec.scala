@@ -82,7 +82,6 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       import WorkflowConfig.StreamConfig._
       val name = "streamname"
       val party = "dummy"
-      val appId = "appid"
       val cases = Table(
         "cli argument" -> "stream config",
         s"stream-type=transactions,name=$name,filters=$party" -> TransactionsStreamConfig(
@@ -104,10 +103,9 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           filters = List(PartyFilter(party, Nil)),
           objectives = None,
         ),
-        s"stream-type=completions,name=$name,party=$party,application-id=$appId" -> CompletionsStreamConfig(
+        s"stream-type=completions,name=$name,party=$party" -> CompletionsStreamConfig(
           name = name,
           party = party,
-          applicationId = appId,
           beginOffset = None,
           objectives = None,
         ),
