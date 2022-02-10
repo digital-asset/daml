@@ -312,15 +312,10 @@ cantonConfig CantonOptions{..} =
                 ]
             , "domains" Aeson..= Aeson.object
                 [ "local" Aeson..= Aeson.object
-                    (
                      [ storage
                      , "public-api" Aeson..= port cantonDomainPublicApi
                      , "admin-api" Aeson..= port cantonDomainAdminApi
-                     ] <>
-                     [ "domain-parameters" Aeson..= Aeson.object [ "topology-change-delay" Aeson..= ("0 ms" :: T.Text) ]
-                     | StaticTime True <- [cantonStaticTime]
                      ]
-                    )
                 ]
             ]
         ]

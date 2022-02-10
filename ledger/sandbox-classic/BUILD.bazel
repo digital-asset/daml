@@ -7,7 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
-load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
+load("//ledger/ledger-api-tests:conformance.bzl", "server_conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
 
@@ -164,27 +164,6 @@ server_conformance_test(
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
         "--exclude=ClosedWorldIT",
-    ],
-)
-
-# Full conformance test with legacy error codes (Postgres)
-server_conformance_test(
-    name = "conformance-test-legacy-error-codes",
-    lf_versions = [
-        "default",
-        "preview",
-    ],
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--use-pre-1.18-error-codes",
-    ],
-    servers = {"postgresql": SERVERS["postgresql"]},
-    test_tool_args = [
-        "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
-        "--timeout-scale-factor=2",  # sandbox classic is slow in general
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-        "--exclude=CommandDeduplicationPeriodValidationIT",  # The test expects the new error codes.
     ],
 )
 

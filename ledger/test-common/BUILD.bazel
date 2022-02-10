@@ -122,8 +122,12 @@ da_scala_dar_resources_library(
                     ":%s-tests-%s.scala-codegen" % (test_name, target),
                 ],
                 scalacopts = [
-                    "-Wconf:cat=unused-imports&site=com\\.daml\\.ledger\\.test\\.{}\\..*:s".format(test_name),
+                    "-Wconf:cat=unused-imports&site=com\\.daml\\.ledger\\.test\\.%s\\..*:s" % test_name,
                 ],
+                tags = ["maven_coordinates=com.daml:test-common-%s-tests-scala-%s:__VERSION__" % (
+                    test_name.replace("_", "-"),
+                    target,
+                )],
                 visibility = ["//visibility:public"],
                 deps = [
                     "//language-support/scala/bindings",
