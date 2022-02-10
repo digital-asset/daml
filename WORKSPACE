@@ -826,7 +826,7 @@ dadew_binary_bundle(
         "usr/bin/diff3",
         "usr/bin/sdiff",
         # git
-        "usr/bin/git",
+        "usr/lib/git-core/git",
         # gnumake
         "usr/bin/make",
         # m4
