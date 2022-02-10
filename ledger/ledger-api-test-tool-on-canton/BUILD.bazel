@@ -78,35 +78,32 @@ conformance_test(
         "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
         "--timeout-scale-factor=2",  # increased to reduce flakes particularly wrt timeouts in TransactionService*IT tests
         "--exclude=" + ",".join([
-            "ParticipantPruningIT",  # see "conformance-test-participant-pruning" below
-            "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
-            "CommandServiceIT:CSsubmitAndWaitCompletionOffset",  # Canton does not fill the offsets
-            "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
-            "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
-            "RaceConditionIT:RWArchiveVsFailedLookupByKey",  # finding a lookup failure after contract creation
             # dynamic config management not supported by Canton
             "ConfigManagementServiceIT",
             "LedgerConfigurationServiceIT",
+            "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
             # Excluding tests that require contract key uniqueness
-            "ContractKeysIT:CKFetchOrLookup",
-            "ContractKeysIT:CKMaintainerScoped",
-            "ContractKeysIT:CKNoFetchUndisclosed",
-            "RaceConditionIT:RWArchiveVsFetch",
+            "RaceConditionIT:WWDoubleNonTransientCreate",
+            "RaceConditionIT:WWArchiveVsNonTransientCreate",
+            "RaceConditionIT:RWTransientCreateVsNonTransientCreate",
+            "RaceConditionIT:RWArchiveVsFailedLookupByKey",
             "RaceConditionIT:RWArchiveVsLookupByKey",
             "RaceConditionIT:RWArchiveVsNonConsumingChoice",
-            "RaceConditionIT:RWTransientCreateVsNonTransientCreate",
-            "RaceConditionIT:WWArchiveVsNonTransientCreate",
+            "RaceConditionIT:RWArchiveVsFetch",
             "RaceConditionIT:WWDoubleArchive",
-            "RaceConditionIT:WWDoubleNonTransientCreate",
+            "ContractKeysIT:CKFetchOrLookup",
+            "ContractKeysIT:CKNoFetchUndisclosed",
+            "ContractKeysIT:CKMaintainerScoped",
             # need UCK mode - added below
             "ExceptionsIT",
             "ExceptionRaceConditionIT",
-            # Also exclude "optional tests" - which are run separately below
+            "ParticipantPruningIT",  # pruning not supported in Canton Community
+            # tests with special config run in canton enterprise-repo
             "TLSOnePointThreeIT",
             "TLSAtLeastOnePointTwoIT",
+            "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
+            "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
             "MonotonicRecordTimeIT",  # KV-utils specific
-            # Canton does not return empty display names.
-            "PartyManagementServiceIT:PMAllocateEmptyExpectMissingDisplayName",
         ]),
     ],
 ) if not is_windows else None
