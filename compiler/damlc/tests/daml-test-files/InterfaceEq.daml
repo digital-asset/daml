@@ -1,0 +1,41 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ENABLE-SCENARIOS
+
+module InterfaceEq where
+
+interface I where
+
+template T
+  with
+    p : Party
+    f : Int
+  where
+    signatory p
+    implements I where
+
+template U
+  with
+    p : Party
+    f : Int
+  where
+    signatory p
+    implements I where
+
+main = scenario do
+
+  p <- getParty "p"
+
+  -- Test Eq
+  assertMsg "tpl x == tpl y && cts x == cts y ==> I x == I y" $
+    toInterface @I (T p 0) == toInterface @I (T p 0)
+
+  assertMsg "tpl x == tpl y && cts x /= cts y ==> I x /= I y" $
+    toInterface @I (T p 0) /= toInterface @I (T p 1)
+
+  assertMsg "tpl x /= tpl y ==> I x /= I y" $
+    toInterface @I (T p 0) /= toInterface @I (U p 0) &&
+    toInterface @I (T p 0) /= toInterface @I (U p 1) &&
+    toInterface @I (T p 0) /= toInterface @I (U p (-1))
