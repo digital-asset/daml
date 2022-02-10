@@ -224,7 +224,7 @@ damlOnSqlDocOpts :: DocOptions
 damlOnSqlDocOpts = DocOptions
   { s3Subdir = Just "daml-driver-for-postgresql"
   , includedVersion = \v -> v > version "1.8.0-snapshot.20201201.5776.0.4b91f2a6"
-        && v < version "2"
+        && v <= version "2.0.0-snapshot.20220209.9212.0.b7fc9f57"
   , build = \temp version -> do
         proc_ ["git", "checkout", "v" <> show version]
         robustly_download_nix_packages
