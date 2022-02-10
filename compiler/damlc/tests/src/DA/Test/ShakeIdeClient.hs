@@ -33,6 +33,8 @@ main :: IO ()
 main = SS.withScenarioService LF.versionDefault Logger.makeNopHandle scenarioConfig $ \scenarioService ->
        SS.withScenarioService LF.versionDev     Logger.makeNopHandle scenarioConfig $ \scenarioServiceDev -> do
   -- The scenario services are shared resources so running tests in parallel doesn’t work properly.
+  -- TODO(MA): revert to using a single scenario service once we get to LF version 1.15
+  --           https://github.com/digital-asset/daml/issues/12051
   setEnv "TASTY_NUM_THREADS" "1" True
   -- The startup of each scenario service is fairly expensive so instead of launching a separate
   -- service for each test, we launch a single service that is shared across all tests on the same LF version.
