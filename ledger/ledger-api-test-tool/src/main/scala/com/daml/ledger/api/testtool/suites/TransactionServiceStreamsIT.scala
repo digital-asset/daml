@@ -9,7 +9,6 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.test.model.Test._
-import io.grpc.Status
 import scalaz.Tag
 
 import scala.collection.immutable.Seq
@@ -81,9 +80,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
       failure <- ledger.flatTransactions(beyondEnd).mustFail("subscribing past the ledger end")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.OUT_OF_RANGE,
         LedgerApiErrors.RequestValidation.OffsetAfterLedgerEnd,
         Some("is after ledger end"),
       )
@@ -103,9 +100,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
       failure <- ledger.transactionTrees(beyondEnd).mustFail("subscribing past the ledger end")
     } yield {
       assertGrpcError(
-        ledger,
         failure,
-        Status.Code.OUT_OF_RANGE,
         LedgerApiErrors.RequestValidation.OffsetAfterLedgerEnd,
         Some("is after ledger end"),
       )

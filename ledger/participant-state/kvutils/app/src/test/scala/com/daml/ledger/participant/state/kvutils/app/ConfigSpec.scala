@@ -66,18 +66,6 @@ final class ConfigSpec
     )
   behavior of "Runner"
 
-  it should "disable self service error codes when compatibility gRPC error codes flag is set" in {
-    val actual = configParser(
-      Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
-        "--use-pre-1.18-error-codes",
-      )
-    )
-
-    actual.value.enableSelfServiceErrorCodes shouldBe false
-  }
-
   it should "enable self-service error codes by default" in {
     val actual = configParser(
       Seq(

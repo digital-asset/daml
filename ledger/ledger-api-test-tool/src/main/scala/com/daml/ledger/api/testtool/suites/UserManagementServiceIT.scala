@@ -28,7 +28,6 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   Right => Permission,
 }
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
-import io.grpc.Status
 
 import scala.collection.immutable.Iterable
 import scala.concurrent.{ExecutionContext, Future}
@@ -58,9 +57,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger)) =>
     def assertTooManyUserRightsError(t: Throwable): Unit = {
       assertGrpcError(
-        participant = ledger,
         t = t,
-        expectedCode = Status.Code.FAILED_PRECONDITION,
         selfServiceErrorCode = LedgerApiErrors.AdminServices.TooManyUserRights,
         exceptionMessageSubstring = None,
       )
@@ -130,9 +127,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
           .createUser(CreateUserRequest(Some(user), rights))
           .mustFail(context = problem)
       } yield assertGrpcError(
-        participant = ledger,
         t = throwable,
-        expectedCode = Status.Code.INVALID_ARGUMENT,
         selfServiceErrorCode = expectedErrorCode,
         exceptionMessageSubstring = None,
       )
@@ -179,7 +174,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         error <- ledger.userManagement
           .getUser(GetUserRequest(userId))
           .mustFail(problem)
-      } yield assertGrpcError(ledger, error, Status.Code.INVALID_ARGUMENT, expectedErrorCode, None)
+      } yield assertGrpcError(error, expectedErrorCode, None)
 
     for {
       _ <- getAndCheck("empty user-id", "", LedgerApiErrors.RequestValidation.InvalidArgument)
@@ -362,16 +357,12 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assert(res2.users.nonEmpty, s"Third page should be non-empty")
 
       assertGrpcError(
-        participant = ledger,
         t = onBadTokenError,
-        expectedCode = Status.Code.INVALID_ARGUMENT,
         selfServiceErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
         exceptionMessageSubstring = None,
       )
       assertGrpcError(
-        participant = ledger,
         t = onNegativePageSizeError,
-        expectedCode = Status.Code.INVALID_ARGUMENT,
         selfServiceErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
         exceptionMessageSubstring = None,
       )
@@ -531,11 +522,9 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     })
   }
 
-  private def assertUserNotFound(t: Throwable)(implicit ledger: ParticipantTestContext): Unit = {
+  private def assertUserNotFound(t: Throwable): Unit = {
     assertGrpcError(
-      participant = ledger,
       t = t,
-      expectedCode = Status.Code.NOT_FOUND,
       selfServiceErrorCode = LedgerApiErrors.AdminServices.UserNotFound,
       exceptionMessageSubstring = None,
     )
@@ -543,11 +532,9 @@ final class UserManagementServiceIT extends LedgerTestSuite {
 
   private def assertUserAlreadyExists(
       t: Throwable
-  )(implicit ledger: ParticipantTestContext): Unit = {
+  ): Unit = {
     assertGrpcError(
-      participant = ledger,
       t = t,
-      expectedCode = Status.Code.ALREADY_EXISTS,
       selfServiceErrorCode = LedgerApiErrors.AdminServices.UserAlreadyExists,
       exceptionMessageSubstring = None,
     )

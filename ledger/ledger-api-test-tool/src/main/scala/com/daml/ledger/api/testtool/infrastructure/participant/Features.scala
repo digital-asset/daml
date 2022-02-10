@@ -11,7 +11,6 @@ import com.daml.ledger.api.v1.version_service.{GetLedgerApiVersionResponse, User
 
 final case class Features(
     userManagement: UserManagementFeature,
-    selfServiceErrorCodes: Boolean,
     staticTime: Boolean,
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
     optionalLedgerId: Boolean = false,
@@ -21,7 +20,6 @@ final case class Features(
 object Features {
   val defaultFeatures: Features = Features(
     userManagement = UserManagementFeature.defaultInstance,
-    selfServiceErrorCodes = false,
     staticTime = false,
     commandDeduplicationFeatures = CommandDeduplicationFeatures.defaultInstance,
     contractIds = ExperimentalContractIds.defaultInstance,
@@ -33,7 +31,6 @@ object Features {
 
     Features(
       userManagement = features.getUserManagement,
-      selfServiceErrorCodes = experimental.selfServiceErrorCodes.isDefined,
       staticTime = experimental.getStaticTime.supported,
       commandDeduplicationFeatures = experimental.getCommandDeduplication,
       optionalLedgerId = experimental.optionalLedgerId.isDefined,

@@ -11,7 +11,6 @@ import com.daml.ledger.test.PackageManagementTestDar
 import com.daml.ledger.test.package_management.PackageManagementTest.PackageManagementTestTemplate
 import com.daml.ledger.test.package_management.PackageManagementTest.PackageManagementTestTemplate._
 import com.google.protobuf.ByteString
-import io.grpc.Status
 
 import java.util.regex.Pattern
 import scala.concurrent.{ExecutionContext, Future}
@@ -39,9 +38,7 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
       failure <- ledger.uploadDarFile(ByteString.EMPTY).mustFail("uploading an empty package")
     } yield {
       assertGrpcErrorRegex(
-        ledger,
         failure,
-        Status.Code.INVALID_ARGUMENT,
         PackageServiceError.Reading.InvalidDar,
         Some(Pattern.compile("Invalid DAR: package-upload|Dar file is corrupt")),
       )
