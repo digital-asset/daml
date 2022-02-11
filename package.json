@@ -8,7 +8,8 @@
     "**/elliptic": "^6.5.4",
     "**/bl": "^4.0.3",
     "**/ws": "^7.4.6",
-    "**/chalk": "^2.4.1"
+    "**/chalk": "^2.4.1",
+    "**/glob-parent": "^5.1.2"
   },
   "dependencies": {
     "@mixer/parallel-prettier": "^2.0.1",
