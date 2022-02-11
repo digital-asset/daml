@@ -209,13 +209,13 @@ final class TestRunner(availableTests: AvailableTests, config: Config) {
       concurrentTestRuns: Int,
   )(implicit executionContext: ExecutionContext): Future[LedgerTestCasesRunner] = {
     initializeParticipantChannels(
-      config.participantsEndpoints,
-      config.tlsConfig,
+      participantEndpoints = config.participantsEndpoints,
+      tlsConfig = config.tlsConfig,
     ).asFuture
-      .map(participants =>
+      .map(participantChannels =>
         new LedgerTestCasesRunner(
           testCases = cases,
-          participants = participants,
+          participantChannels = participantChannels,
           maxConnectionAttempts = config.maxConnectionAttempts,
           partyAllocation = config.partyAllocation,
           shuffleParticipants = config.shuffleParticipants,
@@ -247,10 +247,10 @@ final class TestRunner(availableTests: AvailableTests, config: Config) {
   }
 
   private def initializeParticipantChannels(
-      participants: Vector[(String, Int)],
+      participantEndpoints: Vector[(String, Int)],
       tlsConfig: Option[TlsConfiguration],
   )(implicit executionContext: ExecutionContext): Resource[Vector[ChannelEndpoint]] =
-    Resource.sequence(participants.map { case (host, port) =>
+    Resource.sequence(participantEndpoints.map { case (host, port) =>
       initializeParticipantChannel(host, port, tlsConfig)
         .acquire()
         .map(channel => ChannelEndpoint.forRemote(channel = channel, hostname = host, port = port))

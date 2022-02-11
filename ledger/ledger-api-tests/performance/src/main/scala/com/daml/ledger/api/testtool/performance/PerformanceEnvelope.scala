@@ -41,8 +41,8 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
   protected def maxInflight: Int
 
   protected def waitForParties(participants: Seq[Allocation.Participant]): Unit = {
-    val (participantAlice, alice) = (participants.head.ledger, participants.head.parties.head)
-    val (participantBob, bob) = (participants(1).ledger, participants(1).parties.head)
+    val (participantAlice, alice) = (participants.head.context, participants.head.parties.head)
+    val (participantBob, bob) = (participants(1).context, participants(1).parties.head)
     val _ = participantAlice.waitForParties(Seq(participantBob), Set(alice, bob))
   }
 
@@ -71,8 +71,8 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
       payload: String,
   )(implicit ec: ExecutionContext): Future[(Duration, List[Duration])] = {
 
-    val (participantAlice, alice) = (from.ledger, from.parties.head)
-    val (participantBob, bob) = (to.ledger, to.parties.head)
+    val (participantAlice, alice) = (from.context, from.parties.head)
+    val (participantBob, bob) = (to.context, to.parties.head)
     val queued = new ConcurrentLinkedQueue[Promise[Unit]]()
     val inflight = new AtomicInteger(0)
     // used to track the duration of each ping (left is start time, right is elapsed once we know end-time)
@@ -337,12 +337,12 @@ object PerformanceEnvelope {
       s"Verify that ledger passes the ${envelope.name} throughput envelope",
       allocate(SingleParty, SingleParty),
     )(implicit ec => { case participants =>
-      waitForParties(participants.allocatedParticipants)
+      waitForParties(participants.participants)
 
       def runTest(num: Int, description: String): Future[(Duration, List[Duration])] =
         sendPings(
-          from = participants.allocatedParticipants.head,
-          to = participants.allocatedParticipants(1),
+          from = participants.participants.head,
+          to = participants.participants(1),
           workflowIds = (1 to num).map(x => s"$description-$x").toList,
           payload = description,
         )
@@ -386,11 +386,11 @@ object PerformanceEnvelope {
       s"Verify that ledger passes the ${envelope.name} latency envelope",
       allocate(SingleParty, SingleParty),
     )(implicit ec => { case participants =>
-      waitForParties(participants.allocatedParticipants)
+      waitForParties(participants.participants)
 
       sendPings(
-        from = participants.allocatedParticipants.head,
-        to = participants.allocatedParticipants(1),
+        from = participants.participants.head,
+        to = participants.participants(1),
         workflowIds = (1 to (numPings + numWarmupPings)).map(x => s"latency-$x").toList,
         payload = "latency",
       ).map { case (_, latencies) =>
@@ -431,11 +431,11 @@ object PerformanceEnvelope {
       s"Verify that ledger passes the ${envelope.name} transaction size envelope",
       allocate(SingleParty, SingleParty),
     )(implicit ec => { case participants =>
-      waitForParties(participants.allocatedParticipants)
+      waitForParties(participants.participants)
 
       sendPings(
-        from = participants.allocatedParticipants.head,
-        to = participants.allocatedParticipants(1),
+        from = participants.participants.head,
+        to = participants.participants(1),
         workflowIds = List("transaction-size"),
         payload = Random.alphanumeric.take(envelope.kilobytes * 1024).mkString(""),
       ).map(_ => ())

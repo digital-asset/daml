@@ -76,13 +76,13 @@ final class UserManagementServiceIT extends LedgerTestSuite {
 
     for {
       // cannot create user with #limit+1 rights
-      create1 <- ledger.userManagement
+      create1 <- ledger
         .createUser(CreateUserRequest(Some(user1), permissionsMaxAndOne))
         .mustFail(
           "creating user with too many rights"
         )
       // can create user with #limit rights
-      create2 <- ledger.userManagement.createUser(CreateUserRequest(Some(user1), permissionsMax))
+      create2 <- ledger.createUser(CreateUserRequest(Some(user1), permissionsMax))
       // fails adding one more right
       grant1 <- ledger.userManagement
         .grantUserRights(GrantUserRightsRequest(user1.id, rights = Seq(permissionOne)))
@@ -92,7 +92,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       // rights already added are intact
       rights1 <- ledger.userManagement.listUserRights(ListUserRightsRequest(user1.id))
       // can create other users with #limit rights
-      create3 <- ledger.userManagement.createUser(CreateUserRequest(Some(user2), permissionsMax))
+      create3 <- ledger.createUser(CreateUserRequest(Some(user2), permissionsMax))
     } yield {
       assertTooManyUserRightsError(create1)
       assertEquals(create2.user, Some(user1))
@@ -119,7 +119,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         expectedErrorCode: ErrorCode,
     ): Future[Unit] = {
       for {
-        throwable <- ledger.userManagement
+        throwable <- ledger
           .createUser(CreateUserRequest(Some(user), rights))
           .mustFail(context = problem)
       } yield assertGrpcError(
@@ -200,13 +200,13 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     val user1 = User(userId1, "party1")
     val user2 = User(userId2, "")
     for {
-      res1 <- ledger.userManagement.createUser(
+      res1 <- ledger.createUser(
         CreateUserRequest(Some(user1), Nil)
       )
-      res2 <- ledger.userManagement
+      res2 <- ledger
         .createUser(CreateUserRequest(Some(user1), Nil))
         .mustFail("allocating a duplicate user")
-      res3 <- ledger.userManagement.createUser(CreateUserRequest(Some(user2), Nil))
+      res3 <- ledger.createUser(CreateUserRequest(Some(user2), Nil))
       res4 <- ledger.userManagement.deleteUser(DeleteUserRequest(userId2))
     } yield {
       assertEquals(res1, CreateUserResponse(Some(user1)))
@@ -224,7 +224,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     val userId2 = ledger.nextUserId()
     val user1 = User(userId1, "party1")
     for {
-      _ <- ledger.userManagement.createUser(
+      _ <- ledger.createUser(
         CreateUserRequest(Some(user1), Nil)
       )
       res1 <- ledger.userManagement.getUser(GetUserRequest(userId1))
@@ -245,7 +245,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     val userId2 = ledger.nextUserId()
     val user1 = User(userId1, "party1")
     for {
-      _ <- ledger.userManagement.createUser(
+      _ <- ledger.createUser(
         CreateUserRequest(Some(user1), Nil)
       )
       res1 <- ledger.userManagement.deleteUser(DeleteUserRequest(userId1))
@@ -283,7 +283,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         pageBeforeCreate,
         "new user should be absent before it's creation",
       )
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(newUser), Nil))
+      _ <- ledger.createUser(CreateUserRequest(Some(newUser), Nil))
       pageAfterCreate <- ledger.userManagement.listUsers(
         ListUsersRequest(pageToken = "", pageSize = 10)
       )
@@ -317,10 +317,10 @@ final class UserManagementServiceIT extends LedgerTestSuite {
 
     for {
       // Create 4 users to ensure we have at least two pages of two users each
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId1, "")), Nil))
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId2, "")), Nil))
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId3, "")), Nil))
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId4, "")), Nil))
+      _ <- ledger.createUser(CreateUserRequest(Some(User(userId1, "")), Nil))
+      _ <- ledger.createUser(CreateUserRequest(Some(User(userId2, "")), Nil))
+      _ <- ledger.createUser(CreateUserRequest(Some(User(userId3, "")), Nil))
+      _ <- ledger.createUser(CreateUserRequest(Some(User(userId4, "")), Nil))
       // Fetch the first two full pages
       page1 <- ledger.userManagement.listUsers(ListUsersRequest(pageToken = "", pageSize = 2))
       page2 <- ledger.userManagement.listUsers(
@@ -329,7 +329,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       // Verify that the second page stays the same even after we have created a new user that is lexicographically smaller then the last user on the first page
       // (Note: "!" is the smallest valid user-id character)
       newUserId = "!" + page1.users.last.id
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(newUserId)), Seq.empty))
+      _ <- ledger.createUser(CreateUserRequest(Some(User(newUserId)), Seq.empty))
       page2B <- ledger.userManagement.listUsers(
         ListUsersRequest(pageToken = page1.nextPageToken, pageSize = 2)
       )
@@ -408,8 +408,8 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     val userId2 = ledger.nextUserId()
     for {
       // Ensure we have at least two users
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId1, "")), Nil))
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(User(userId2, "")), Nil))
+      _ <- ledger.createUser(CreateUserRequest(Some(User(userId1, "")), Nil))
+      _ <- ledger.createUser(CreateUserRequest(Some(User(userId2, "")), Nil))
       pageSizeZero <- ledger.userManagement.listUsers(
         ListUsersRequest(pageSize = 0)
       )
@@ -432,14 +432,13 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     enabled = _.userManagement.maxUsersPageSize > 0,
     disabledReason = "requires user management feature with users page size limit",
     runConcurrently = false,
-    cleanUpNewUsers = true,
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val maxUsersPageSize = ledger.features.userManagement.maxUsersPageSize
     val users = 1.to(maxUsersPageSize + 1).map(_ => User(ledger.nextUserId(), ""))
     for {
       // create lots of users
       _ <- Future.sequence(
-        users.map(u => ledger.userManagement.createUser(CreateUserRequest(Some(u), Nil)))
+        users.map(u => ledger.createUser(CreateUserRequest(Some(u), Nil)))
       )
       // request page size greater than the server's limit
       page <- ledger.userManagement
@@ -462,7 +461,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     val userId2 = ledger.nextUserId()
     val user1 = User(userId1, "party1")
     for {
-      _ <- ledger.userManagement.createUser(CreateUserRequest(Some(user1), Nil))
+      _ <- ledger.createUser(CreateUserRequest(Some(user1), Nil))
       res1 <- ledger.userManagement.grantUserRights(
         GrantUserRightsRequest(userId1, List(adminPermission))
       )
@@ -491,7 +490,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     val userId2 = ledger.nextUserId()
     val user1 = User(userId1, "party1")
     for {
-      _ <- ledger.userManagement.createUser(
+      _ <- ledger.createUser(
         CreateUserRequest(Some(user1), List(adminPermission) ++ userRightsBatch)
       )
       res1 <- ledger.userManagement.revokeUserRights(
@@ -521,7 +520,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     val userId1 = ledger.nextUserId()
     val user1 = User(userId1, "party4")
     for {
-      res1 <- ledger.userManagement.createUser(
+      res1 <- ledger.createUser(
         CreateUserRequest(Some(user1), Nil)
       )
       res2 <- ledger.userManagement.listUserRights(ListUserRightsRequest(userId1))
@@ -556,7 +555,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   private def userManagementTest(
       shortIdentifier: String,
       description: String,
-      runSequentiallyAndCleanUpNewUsers: Boolean = true,
   )(
       body: ExecutionContext => ParticipantTestContext => Future[Unit]
   ): Unit = {
@@ -566,8 +564,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       allocate(NoParties),
       enabled = _.userManagement.supported,
       disabledReason = "requires user management feature",
-      runConcurrently = !runSequentiallyAndCleanUpNewUsers,
-      cleanUpNewUsers = runSequentiallyAndCleanUpNewUsers,
     )(implicit ec => { case Participants(Participant(ledger)) =>
       body(ec)(ledger)
     })
