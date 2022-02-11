@@ -93,6 +93,13 @@ object Cli {
       .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
       .action((reporter, config) => config.copy(metricsReporter = reporter))
 
+    opt[String]("user-based-authorization-secret")
+      .optional()
+      .text(
+        "Enables user based authorization. The value is used for signing authorization tokens with HMAC256."
+      )
+      .action((secret, config) => config.copy(authorizationTokenSecret = Some(secret)))
+
     TlsConfigurationCli.parse(parser = this, colSpacer = "        ")((f, c) =>
       c.copy(tls = f(c.tls))
     )

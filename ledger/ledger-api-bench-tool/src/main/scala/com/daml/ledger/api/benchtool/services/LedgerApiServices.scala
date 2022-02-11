@@ -3,24 +3,69 @@
 
 package com.daml.ledger.api.benchtool.services
 
+import com.daml.ledger.api.benchtool.AuthorizationHelper
+import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import io.grpc.Channel
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class LedgerApiServices(channel: Channel, val ledgerId: String) {
+class LedgerApiServices(
+    channel: Channel,
+    val ledgerId: String,
+    userId: String,
+    authorizationHelper: Option[AuthorizationHelper],
+) {
 
-  val activeContractsService = new ActiveContractsService(channel, ledgerId)
-  val commandService = new CommandService(channel)
-  val commandCompletionService = new CommandCompletionService(channel, ledgerId)
-  val packageManagementService = new PackageManagementService(channel)
-  val partyManagementService = new PartyManagementService(channel)
-  val transactionService = new TransactionService(channel, ledgerId)
+  private val authorizationToken: Option[String] = authorizationHelper.map(_.tokenFor(userId))
+
+  val activeContractsService =
+    new ActiveContractsService(channel, ledgerId, authorizationToken = authorizationToken)
+  val commandService = new CommandService(channel, authorizationToken = authorizationToken)
+  val commandCompletionService =
+    new CommandCompletionService(
+      channel,
+      ledgerId,
+      userId = userId,
+      authorizationToken = authorizationToken,
+    )
+  val packageManagementService =
+    new PackageManagementService(channel, authorizationToken = authorizationToken)
+  val partyManagementService =
+    new PartyManagementService(channel, authorizationToken = authorizationToken)
+  val transactionService =
+    new TransactionService(channel, ledgerId, authorizationToken = authorizationToken)
+  val userManagementService: UserManagementServiceGrpc.UserManagementServiceStub =
+    AuthorizationHelper.maybeAuthedService(authorizationToken)(
+      UserManagementServiceGrpc.stub(channel)
+    )
 
 }
 
 object LedgerApiServices {
-  def forChannel(channel: Channel)(implicit ec: ExecutionContext): Future[LedgerApiServices] = {
-    val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
-    ledgerIdentityService.fetchLedgerId().map(ledgerId => new LedgerApiServices(channel, ledgerId))
+
+  /** @return factory function for creating optionally authorized services for a given userId
+    */
+  def forChannel(
+      authorizationHelper: Option[AuthorizationHelper],
+      channel: Channel,
+  )(implicit ec: ExecutionContext): Future[String => LedgerApiServices] = {
+    val ledgerIdentityService: LedgerIdentityService =
+      new LedgerIdentityService(
+        channel = channel,
+        authorizationToken =
+          authorizationHelper.map(_.tokenFor(UserManagementStore.DefaultParticipantAdminUserId)),
+      )
+    ledgerIdentityService
+      .fetchLedgerId()
+      .map(ledgerId =>
+        (userId: String) =>
+          new LedgerApiServices(
+            channel,
+            ledgerId,
+            userId = userId,
+            authorizationHelper = authorizationHelper,
+          )
+      )
   }
 }

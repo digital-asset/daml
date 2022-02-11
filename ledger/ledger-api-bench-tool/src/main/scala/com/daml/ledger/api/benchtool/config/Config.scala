@@ -19,6 +19,7 @@ case class Config(
     maxInFlightCommands: Int,
     submissionBatchSize: Int,
     metricsReporter: MetricsReporter,
+    authorizationTokenSecret: Option[String],
 )
 
 object Config {
@@ -53,5 +54,6 @@ object Config {
       maxInFlightCommands = 100,
       submissionBatchSize = 100,
       metricsReporter = MetricsReporter.Console,
+      authorizationTokenSecret = None,
     )
 }

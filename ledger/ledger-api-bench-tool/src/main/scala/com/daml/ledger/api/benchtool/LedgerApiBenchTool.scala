@@ -3,15 +3,6 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.config.{Config, ConfigMaker, WorkflowConfig}
-import com.daml.ledger.api.benchtool.submission.CommandSubmitter
-import com.daml.ledger.api.benchtool.services._
-import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import io.grpc.Channel
-import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
-import org.slf4j.{Logger, LoggerFactory}
-
 import java.util.concurrent.{
   ArrayBlockingQueue,
   Executor,
@@ -19,9 +10,25 @@ import java.util.concurrent.{
   ThreadPoolExecutor,
   TimeUnit,
 }
+
+import com.daml.ledger.api.benchtool.config.{Config, ConfigMaker, WorkflowConfig}
+import com.daml.ledger.api.benchtool.services.LedgerApiServices
+import com.daml.ledger.api.benchtool.submission.{CommandSubmitter, Names}
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import io.grpc.Channel
+import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
+import org.slf4j.{Logger, LoggerFactory}
+
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
+/** Runs a submission step followed by a benchmark step.
+  * Either step is optional.
+  *
+  * Uses "benchtool" ([[Names.benchtoolApplicationId]]) applicationId for both steps.
+  */
 object LedgerApiBenchTool {
   def main(args: Array[String]): Unit = {
     import scala.concurrent.ExecutionContext.Implicits.global
@@ -48,57 +55,76 @@ object LedgerApiBenchTool {
 
   private def run(config: Config)(implicit ec: ExecutionContext): Future[Either[String, Unit]] = {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
-    apiServicesOwner(config).use { apiServices =>
-      def benchmarkStep(streams: List[WorkflowConfig.StreamConfig]): Future[Either[String, Unit]] =
-        if (streams.isEmpty) {
-          Future.successful(Right(logger.info(s"No streams defined. Skipping the benchmark step.")))
-        } else {
-          Benchmark.run(
-            streams = streams,
-            reportingPeriod = config.reportingPeriod,
-            apiServices = apiServices,
-            metricsReporter = config.metricsReporter,
-          )
-        }
 
-      def submissionStep(
-          submissionConfig: Option[WorkflowConfig.SubmissionConfig]
-      ): Future[Option[CommandSubmitter.SubmissionSummary]] =
-        submissionConfig match {
-          case None =>
-            logger.info(s"No submission defined. Skipping.")
-            Future.successful(None)
-          case Some(submissionConfig) =>
-            CommandSubmitter(apiServices)
-              .submit(
-                config = submissionConfig,
-                maxInFlightCommands = config.maxInFlightCommands,
-                submissionBatchSize = config.submissionBatchSize,
+    val names = new Names
+    val authorizationHelper = config.authorizationTokenSecret.map(new AuthorizationHelper(_))
+
+    apiServicesOwner(config, authorizationHelper).use {
+      servicesForUserId: (String => LedgerApiServices) =>
+        def benchmarkStep(
+            streamConfigs: List[WorkflowConfig.StreamConfig]
+        ): Future[Either[String, Unit]] =
+          if (streamConfigs.isEmpty) {
+            logger.info(s"No streams defined. Skipping the benchmark step.")
+            Future.successful(Right(()))
+          } else {
+            Benchmark.run(
+              streamConfigs = streamConfigs,
+              reportingPeriod = config.reportingPeriod,
+              apiServices = servicesForUserId(names.benchtoolUserId),
+              metricsReporter = config.metricsReporter,
+            )
+          }
+
+        def submissionStep(
+            submissionConfig: Option[WorkflowConfig.SubmissionConfig]
+        ): Future[Option[CommandSubmitter.SubmissionSummary]] =
+          submissionConfig match {
+            case None =>
+              logger.info(s"No submission defined. Skipping.")
+              Future.successful(None)
+            case Some(submissionConfig) =>
+              val submitter = CommandSubmitter(
+                names = names,
+                benchtoolUserServices = servicesForUserId(names.benchtoolUserId),
+                adminServices = servicesForUserId(UserManagementStore.DefaultParticipantAdminUserId),
               )
-              .map(Some(_))
-        }
+              submitter
+                .submit(
+                  config = submissionConfig,
+                  maxInFlightCommands = config.maxInFlightCommands,
+                  submissionBatchSize = config.submissionBatchSize,
+                )
+                .map(Some(_))
+          }
 
-      for {
-        summary <- submissionStep(config.workflow.submission)
-        streams = config.workflow.streams.map(
-          ConfigEnricher.enrichStreamConfig(_, summary)
-        )
-        _ = logger.info(
-          s"Stream configs adapted after the submission step: ${prettyPrint(streams)}"
-        )
-        benchmarkResult <- benchmarkStep(streams)
-      } yield benchmarkResult
+        for {
+          summary <- submissionStep(config.workflow.submission)
+          streams = config.workflow.streams.map(
+            ConfigEnricher.enrichStreamConfig(_, summary)
+          )
+          _ = logger.info(
+            s"Stream configs adapted after the submission step: ${prettyPrint(streams)}"
+          )
+          benchmarkResult <- benchmarkStep(streams)
+        } yield benchmarkResult
     }
   }
 
   private def apiServicesOwner(
-      config: Config
-  )(implicit ec: ExecutionContext): ResourceOwner[LedgerApiServices] =
+      config: Config,
+      authorizationHelper: Option[AuthorizationHelper],
+  )(implicit ec: ExecutionContext): ResourceOwner[String => LedgerApiServices] =
     for {
       executorService <- threadPoolExecutorOwner(config.concurrency)
       channel <- channelOwner(config.ledger, config.tls, executorService)
-      services <- ResourceOwner.forFuture(() => LedgerApiServices.forChannel(channel))
-    } yield services
+      servicesForUserId <- ResourceOwner.forFuture(() =>
+        LedgerApiServices.forChannel(
+          channel = channel,
+          authorizationHelper = authorizationHelper,
+        )
+      )
+    } yield servicesForUserId
 
   private def channelOwner(
       ledger: Config.Ledger,
