@@ -70,28 +70,21 @@ class QueueBackedTrackerSpec
 
     "input is submitted, and the queue is backpressuring" should {
       "return a RESOURCE_EXHAUSTED error" in {
+        val tracker = new QueueBackedTracker(
+          queue,
+          Future.successful(Done),
+          ErrorFactories(),
+        )
 
-        def testIt(expectedStatusCode: com.google.rpc.Code) = {
-
-          val tracker = new QueueBackedTracker(
-            queue,
-            Future.successful(Done),
-            ErrorFactories(),
-          )
-
-          tracker.track(input(1))
-          tracker.track(input(2)).map { completion =>
-            completion should matchPattern {
-              case Left(
-                    CompletionResponse
-                      .QueueSubmitFailure(RpcProtoExtractors.Status(`expectedStatusCode`))
-                  ) =>
-            }
+        tracker.track(input(1))
+        tracker.track(input(2)).map { completion =>
+          completion should matchPattern {
+            case Left(
+                  CompletionResponse
+                    .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.ABORTED))
+                ) =>
           }
         }
-
-        testIt(com.google.rpc.Code.ABORTED)
-
       }
     }
 
