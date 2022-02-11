@@ -19,6 +19,7 @@ module Development.IDE.Core.API.Testing
     , ExpectedSubGraph(..)
     , ExpectedChoiceDetails(..)
     , runShakeTest
+    , runShakeTestOpts
     , makeFile
     , makeModule
     , setFilesOfInterest
@@ -60,6 +61,7 @@ import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
 import DA.Daml.Options
 import DA.Daml.Options.Types
+import qualified DA.Daml.Options.Types as Daml (Options)
 import Development.IDE.Core.Service.Daml(VirtualResource(..), mkDamlEnv)
 import DA.Test.Util (standardizeQuotes)
 import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelative (..))
@@ -145,9 +147,13 @@ pattern EventVirtualResourceNoteSet vr note <-
 
 -- | Run shake test on freshly initialised shake service.
 runShakeTest :: Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
-runShakeTest mbScenarioService (ShakeTest m) = do
+runShakeTest = runShakeTestOpts id
+
+-- | Run shake test on freshly initialised shake service, with custom options.
+runShakeTestOpts :: (Daml.Options -> Daml.Options) -> Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
+runShakeTestOpts fOpts mbScenarioService (ShakeTest m) = do
     dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-    let options = (defaultOptions Nothing)
+    let options = fOpts (defaultOptions Nothing)
             { optDlintUsage = DlintEnabled dlintDataDir False
             , optEnableOfInterestRule = True
             , optEnableScenarios = EnableScenarios True
