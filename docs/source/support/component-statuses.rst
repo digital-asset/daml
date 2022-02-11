@@ -203,6 +203,9 @@ Developer Tools
    * - ``daml sandbox`` assistant command and documented CLI under ``daml sandbox --help``.
      - Stable
      -
+   * - Daml Profiler in Sandbox
+     - Stable
+     -
    * - **Daml Compiler**
      -
      -
