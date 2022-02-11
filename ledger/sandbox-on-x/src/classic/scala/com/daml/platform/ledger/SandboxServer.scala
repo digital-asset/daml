@@ -159,6 +159,9 @@ object SandboxServer {
     newLoggingContext { implicit loggingContext: LoggingContext =>
       Try {
         val dbType = DbType.jdbcType(jdbcUrl)
+
+        // Creating storage backend and the data-source directly to avoid logging errors
+        // on new db when creating via `IndexMetadata.read`
         val storageBackendFactory = StorageBackendFactory.of(dbType)
         val dataSource =
           storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl)

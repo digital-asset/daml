@@ -1104,9 +1104,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Explanation("Errors that arise from an internal system misbehavior.")
     object Internal extends ErrorGroup() {
       @Explanation(
-        "The participant didn't detect an inconsistent key usage in the transaction." +
+        "The participant didn't detect an inconsistent key usage in the transaction. " +
           "Within the transaction, an exercise, fetch or lookupByKey failed because " +
-          "the mapping of key -> contract id was inconsistent with earlier actions."
+          "the mapping of `key -> contract ID` was inconsistent with earlier actions."
       )
       @Resolution("Contact support.")
       object InternallyInconsistentKeys
