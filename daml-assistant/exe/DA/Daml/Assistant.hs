@@ -374,7 +374,6 @@ argWhitelist = S.fromList
     , "trigger", "trigger-service", "list"
     , "oauth2-middleware"
     , "script"
-    , "test-script"
     ]
 
 mkLogTable :: [(A.Key, A.Value)] -> A.Value

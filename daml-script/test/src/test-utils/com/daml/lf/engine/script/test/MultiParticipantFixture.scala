@@ -133,7 +133,7 @@ trait MultiParticipantFixture
         keyFile = None,
         trustCertCollectionFile = None,
       ),
-      maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
+      maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
     )
   }
 

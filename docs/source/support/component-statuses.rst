@@ -269,9 +269,6 @@ Developer Tools
    * - ``daml test`` in-memory Script and Scenario test CLI
      - Stable
      -
-   * - ``daml test-script`` Sandbox-based Script Testing
-     - Stable
-     -
    * - ``daml script`` :doc:`CLI to run Scripts against live ledgers. </daml-script/index>`
      - Stable
      -
