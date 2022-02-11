@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api
 
-import com.daml.error.{ErrorCodesVersionSwitcher, NoLogging}
+import com.daml.error.NoLogging
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.api.validation.{ValidatorTestUtils, ValueValidator}
@@ -28,8 +28,7 @@ class ValueConversionRoundTripTest
 
   private val constructor: String = "constructor"
 
-  private val errorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
   private val fieldValidations = FieldValidations(errorFactories)
   private val valueValidator = new ValueValidator(errorFactories, fieldValidations)
 

@@ -496,7 +496,7 @@ class SequenceSpec
       participantId = Ref.ParticipantId.assertFromString(participantName),
       bridgeMetrics = bridgeMetrics,
       timeProvider = timeProviderMock,
-      errorFactories = ErrorFactories(useSelfServiceErrorCodes = true),
+      errorFactories = ErrorFactories(),
       validatePartyAllocation = validatePartyAllocation,
       initialLedgerEnd = Offset.beforeBegin,
       initialAllocatedParties = allocatedInformees,

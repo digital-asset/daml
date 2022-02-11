@@ -15,7 +15,6 @@ import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorAssertionsWithLogCollectorAssertions,
-  ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.offset.Offset
@@ -66,25 +65,26 @@ class ErrorFactoriesSpec
   private val expectedInternalErrorDetails =
     Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo)
 
-  private val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
+  private val tested = ErrorFactories()
 
   before {
     LogCollector.clear[this.type]
   }
 
   "ErrorFactories" should {
+    val errorFactories = ErrorFactories()
 
     "return sqlTransientException" in {
       val failureReason = "some db transient failure"
       val someSqlTransientException = new SQLTransientException(failureReason)
       val msg =
         s"INDEX_DB_SQL_TRANSIENT_ERROR(1,$truncatedCorrelationId): Processing the request failed due to a transient database error: $failureReason"
-      assertV2Error(
-        SelfServiceErrorCodeFactories.sqlTransientException(someSqlTransientException)
+      assertError(
+        errorFactories.sqlTransientException(someSqlTransientException)
       )(
-        expectedCode = Code.UNAVAILABLE,
-        expectedMessage = msg,
-        expectedDetails = Seq[ErrorDetails.ErrorDetail](
+        code = Code.UNAVAILABLE,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
           expectedCorrelationIdRequestInfo,
           ErrorDetails.RetryInfoDetail(1.second),
           ErrorDetails.ErrorInfoDetail(
@@ -92,7 +92,7 @@ class ErrorFactoriesSpec
             Map("category" -> "1", "definite_answer" -> "false"),
           ),
         ),
-        expectedLogEntry = ExpectedLogEntry(
+        logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
           Some(expectedLocationLogMarkerRegex),
@@ -104,14 +104,14 @@ class ErrorFactoriesSpec
       val failureReason = "some db non-transient failure"
       val msg =
         s"INDEX_DB_SQL_NON_TRANSIENT_ERROR(4,$truncatedCorrelationId): Processing the request failed due to a non-transient database error: $failureReason"
-      assertV2Error(
-        SelfServiceErrorCodeFactories
+      assertError(
+        errorFactories
           .sqlNonTransientException(new SQLNonTransientException(failureReason))
       )(
-        expectedCode = Code.INTERNAL,
-        expectedMessage = expectedInternalErrorMessage,
-        expectedDetails = expectedInternalErrorDetails,
-        expectedLogEntry = ExpectedLogEntry(
+        code = Code.INTERNAL,
+        message = expectedInternalErrorMessage,
+        details = expectedInternalErrorDetails,
+        logEntry = ExpectedLogEntry(
           Level.ERROR,
           msg,
           Some(expectedLocationLogMarkerRegex),
@@ -120,22 +120,17 @@ class ErrorFactoriesSpec
     }
 
     "TrackerErrors" should {
-      val errorDetails = com.google.protobuf.Any.pack[ErrorInfo](ErrorInfo.newBuilder().build())
-
       "return failedToEnqueueCommandSubmission" in {
         val t = new Exception("message123")
-        assertVersionedStatus(
-          _.SubmissionQueueErrors.failedToEnqueueCommandSubmission("some message")(t)(
+        assertStatus(
+          errorFactories.SubmissionQueueErrors.failedToEnqueueCommandSubmission("some message")(t)(
             contextualizedErrorLogger
           )
         )(
-          v1_code = Code.ABORTED,
-          v1_message = "some message: Exception: message123",
-          v1_details = Seq(errorDetails),
-          v2_code = Code.INTERNAL,
-          v2_message = expectedInternalErrorMessage,
-          v2_details = expectedInternalErrorDetails,
-          v2_logEntry = ExpectedLogEntry(
+          code = Code.INTERNAL,
+          message = expectedInternalErrorMessage,
+          details = expectedInternalErrorDetails,
+          logEntry = ExpectedLogEntry(
             Level.ERROR,
             s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): some message: Exception: message123",
             expectedMarkerRegex("throwableO=Some(java.lang.Exception: message123)"),
@@ -146,15 +141,12 @@ class ErrorFactoriesSpec
       "return bufferFul" in {
         val msg =
           s"PARTICIPANT_BACKPRESSURE(2,$truncatedCorrelationId): The participant is overloaded: Some buffer is full"
-        assertVersionedStatus(
-          _.bufferFull("Some buffer is full")(contextualizedErrorLogger)
+        assertStatus(
+          errorFactories.bufferFull("Some buffer is full")(contextualizedErrorLogger)
         )(
-          v1_code = Code.RESOURCE_EXHAUSTED,
-          v1_message = "Ingress buffer is full",
-          v1_details = Seq(errorDetails),
-          v2_code = Code.ABORTED,
-          v2_message = msg,
-          v2_details = Seq[ErrorDetails.ErrorDetail](
+          code = Code.ABORTED,
+          message = msg,
+          details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail(
               "PARTICIPANT_BACKPRESSURE",
               Map(
@@ -166,7 +158,7 @@ class ErrorFactoriesSpec
             expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1.second),
           ),
-          v2_logEntry = ExpectedLogEntry(
+          logEntry = ExpectedLogEntry(
             Level.WARN,
             msg,
             expectedMarkerRegex("reason=Some buffer is full"),
@@ -177,17 +169,14 @@ class ErrorFactoriesSpec
       "return queueClosed" in {
         val msg =
           s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Some service has been shut down."
-        assertVersionedStatus(
-          _.SubmissionQueueErrors.queueClosed("Some service")(
+        assertStatus(
+          errorFactories.SubmissionQueueErrors.queueClosed("Some service")(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(
-          v1_code = Code.ABORTED,
-          v1_message = "Queue closed",
-          v1_details = Seq(errorDetails),
-          v2_code = Code.UNAVAILABLE,
-          v2_message = msg,
-          v2_details = Seq[ErrorDetails.ErrorDetail](
+          code = Code.UNAVAILABLE,
+          message = msg,
+          details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail(
               "SERVICE_NOT_RUNNING",
               Map(
@@ -199,7 +188,7 @@ class ErrorFactoriesSpec
             expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1.second),
           ),
-          v2_logEntry = ExpectedLogEntry(
+          logEntry = ExpectedLogEntry(
             Level.INFO,
             msg,
             expectedMarkerRegex("service_name=Some service"),
@@ -210,17 +199,14 @@ class ErrorFactoriesSpec
       "return timeout" in {
         val msg =
           s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): Timed out while awaiting for a completion corresponding to a command submission."
-        assertVersionedStatus(
-          _.SubmissionQueueErrors.timedOutOnAwaitingForCommandCompletion()(
+        assertStatus(
+          errorFactories.SubmissionQueueErrors.timedOutOnAwaitingForCommandCompletion()(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(
-          v1_code = Code.ABORTED,
-          v1_message = "Timeout",
-          v1_details = Seq(errorDetails),
-          v2_code = Code.DEADLINE_EXCEEDED,
-          v2_message = msg,
-          v2_details = Seq[ErrorDetails.ErrorDetail](
+          code = Code.DEADLINE_EXCEEDED,
+          message = msg,
+          details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail(
               "REQUEST_TIME_OUT",
               Map("category" -> "3", "definite_answer" -> "false"),
@@ -228,7 +214,7 @@ class ErrorFactoriesSpec
             expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1.second),
           ),
-          v2_logEntry = ExpectedLogEntry(
+          logEntry = ExpectedLogEntry(
             Level.INFO,
             msg,
             Some(expectedLocationLogMarkerRegex),
@@ -236,18 +222,15 @@ class ErrorFactoriesSpec
         )
       }
       "return noStatusInResponse" in {
-        assertVersionedStatus(
-          _.SubmissionQueueErrors.noStatusInCompletionResponse()(
+        assertStatus(
+          errorFactories.SubmissionQueueErrors.noStatusInCompletionResponse()(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(
-          v1_code = Code.INTERNAL,
-          v1_message = "Missing status in completion response.",
-          v1_details = Seq(),
-          v2_code = Code.INTERNAL,
-          v2_message = expectedInternalErrorMessage,
-          v2_details = expectedInternalErrorDetails,
-          v2_logEntry = ExpectedLogEntry(
+          code = Code.INTERNAL,
+          message = expectedInternalErrorMessage,
+          details = expectedInternalErrorDetails,
+          logEntry = ExpectedLogEntry(
             Level.ERROR,
             s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): Missing status in completion response.",
             expectedMarkerRegex("throwableO=None"),
@@ -260,13 +243,10 @@ class ErrorFactoriesSpec
 
     "return packageNotFound" in {
       val msg = s"PACKAGE_NOT_FOUND(11,$truncatedCorrelationId): Could not find package."
-      assertVersionedError(_.packageNotFound("packageId123"))(
-        v1_code = Code.NOT_FOUND,
-        v1_message = "",
-        v1_details = Seq.empty,
-        v2_code = Code.NOT_FOUND,
-        v2_message = msg,
-        v2_details = Seq[ErrorDetails.ErrorDetail](
+      assertError(errorFactories.packageNotFound("packageId123"))(
+        code = Code.NOT_FOUND,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail(
             "PACKAGE_NOT_FOUND",
             Map("category" -> "11", "definite_answer" -> "false"),
@@ -274,7 +254,7 @@ class ErrorFactoriesSpec
           expectedCorrelationIdRequestInfo,
           ErrorDetails.ResourceInfoDetail("PACKAGE", "packageId123"),
         ),
-        v2_logEntry = ExpectedLogEntry(
+        logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
           Some(expectedLocationLogMarkerRegex),
@@ -283,14 +263,11 @@ class ErrorFactoriesSpec
     }
 
     "return the a versioned service internal error" in {
-      assertVersionedError(_.versionServiceInternalError("message123"))(
-        v1_code = Code.INTERNAL,
-        v1_message = "message123",
-        v1_details = Seq.empty,
-        v2_code = Code.INTERNAL,
-        v2_message = expectedInternalErrorMessage,
-        v2_details = expectedInternalErrorDetails,
-        v2_logEntry = ExpectedLogEntry(
+      assertError(errorFactories.versionServiceInternalError("message123"))(
+        code = Code.INTERNAL,
+        message = expectedInternalErrorMessage,
+        details = expectedInternalErrorDetails,
+        logEntry = ExpectedLogEntry(
           Level.ERROR,
           s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): message123",
           Some(expectedLocationLogMarkerRegex),
@@ -300,20 +277,17 @@ class ErrorFactoriesSpec
 
     "return the configurationEntryRejected" in {
       val msg = s"CONFIGURATION_ENTRY_REJECTED(9,$truncatedCorrelationId): message123"
-      assertVersionedError(_.configurationEntryRejected("message123", None))(
-        v1_code = Code.ABORTED,
-        v1_message = "message123",
-        v1_details = Seq.empty,
-        v2_code = Code.FAILED_PRECONDITION,
-        v2_message = msg,
-        v2_details = Seq[ErrorDetails.ErrorDetail](
+      assertError(errorFactories.configurationEntryRejected("message123"))(
+        code = Code.FAILED_PRECONDITION,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail(
             "CONFIGURATION_ENTRY_REJECTED",
             Map("category" -> "9", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
         ),
-        v2_logEntry = ExpectedLogEntry(
+        logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
           Some(expectedLocationLogMarkerRegex),
@@ -324,13 +298,10 @@ class ErrorFactoriesSpec
     "return a transactionNotFound error" in {
       val msg =
         s"TRANSACTION_NOT_FOUND(11,$truncatedCorrelationId): Transaction not found, or not visible."
-      assertVersionedError(_.transactionNotFound(Ref.TransactionId.assertFromString("tId")))(
-        v1_code = Code.NOT_FOUND,
-        v1_message = "Transaction not found, or not visible.",
-        v1_details = Seq.empty,
-        v2_code = Code.NOT_FOUND,
-        v2_message = msg,
-        v2_details = Seq[ErrorDetails.ErrorDetail](
+      assertError(errorFactories.transactionNotFound(Ref.TransactionId.assertFromString("tId")))(
+        code = Code.NOT_FOUND,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail(
             "TRANSACTION_NOT_FOUND",
             Map("category" -> "11", "definite_answer" -> "false"),
@@ -338,7 +309,7 @@ class ErrorFactoriesSpec
           expectedCorrelationIdRequestInfo,
           ErrorDetails.ResourceInfoDetail("TRANSACTION_ID", "tId"),
         ),
-        v2_logEntry = ExpectedLogEntry(
+        logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
           Some(expectedLocationLogMarkerRegex),
@@ -349,20 +320,17 @@ class ErrorFactoriesSpec
     "return the DuplicateCommandException" in {
       val msg =
         s"DUPLICATE_COMMAND(10,$truncatedCorrelationId): A command with the given command id has already been successfully processed"
-      assertVersionedError(_.duplicateCommandException(None))(
-        v1_code = Code.ALREADY_EXISTS,
-        v1_message = "Duplicate command",
-        v1_details = Seq(definiteAnswers(false)),
-        v2_code = Code.ALREADY_EXISTS,
-        v2_message = msg,
-        v2_details = Seq[ErrorDetails.ErrorDetail](
+      assertError(errorFactories.duplicateCommandException(None))(
+        code = Code.ALREADY_EXISTS,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail(
             "DUPLICATE_COMMAND",
             Map("category" -> "10", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
         ),
-        v2_logEntry = ExpectedLogEntry(
+        logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
           Some(expectedLocationLogMarkerRegex),
@@ -371,14 +339,11 @@ class ErrorFactoriesSpec
     }
 
     "return a permissionDenied error" in {
-      assertVersionedError(_.permissionDenied("some cause"))(
-        v1_code = Code.PERMISSION_DENIED,
-        v1_message = "",
-        v1_details = Seq.empty,
-        v2_code = Code.PERMISSION_DENIED,
-        v2_message = expectedInternalErrorMessage,
-        v2_details = expectedInternalErrorDetails,
-        v2_logEntry = ExpectedLogEntry(
+      assertError(errorFactories.permissionDenied("some cause"))(
+        code = Code.PERMISSION_DENIED,
+        message = expectedInternalErrorMessage,
+        details = expectedInternalErrorDetails,
+        logEntry = ExpectedLogEntry(
           Level.WARN,
           s"PERMISSION_DENIED(7,$truncatedCorrelationId): some cause",
           Some(expectedLocationLogMarkerRegex),
@@ -388,15 +353,12 @@ class ErrorFactoriesSpec
 
     "return a isTimeoutUnknown_wasAborted error" in {
       val msg = s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): message123"
-      assertVersionedError(
-        _.isTimeoutUnknown_wasAborted("message123", definiteAnswer = Some(false))
+      assertError(
+        errorFactories.isTimeoutUnknown_wasAborted("message123", definiteAnswer = Some(false))
       )(
-        v1_code = Code.ABORTED,
-        v1_message = "message123",
-        v1_details = Seq(definiteAnswers(false)),
-        v2_code = Code.DEADLINE_EXCEEDED,
-        v2_message = msg,
-        v2_details = Seq[ErrorDetails.ErrorDetail](
+        code = Code.DEADLINE_EXCEEDED,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail(
             "REQUEST_TIME_OUT",
             Map("category" -> "3", "definite_answer" -> "false"),
@@ -404,7 +366,7 @@ class ErrorFactoriesSpec
           expectedCorrelationIdRequestInfo,
           ErrorDetails.RetryInfoDetail(1.second),
         ),
-        v2_logEntry = ExpectedLogEntry(
+        logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
           Some(expectedLocationLogMarkerRegex),
@@ -415,23 +377,20 @@ class ErrorFactoriesSpec
     "return a nonHexOffset error" in {
       val msg =
         s"NON_HEXADECIMAL_OFFSET(8,$truncatedCorrelationId): Offset in fieldName123 not specified in hexadecimal: offsetValue123: message123"
-      assertVersionedError(
-        _.nonHexOffset(None)(
+      assertError(
+        errorFactories.nonHexOffset(
           fieldName = "fieldName123",
           offsetValue = "offsetValue123",
           message = "message123",
         )
       )(
-        v1_code = Code.INVALID_ARGUMENT,
-        v1_message = "Invalid argument: message123",
-        v1_details = Seq.empty,
-        v2_code = Code.INVALID_ARGUMENT,
-        v2_message = msg,
-        v2_details = Seq[ErrorDetails.ErrorDetail](
+        code = Code.INVALID_ARGUMENT,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("NON_HEXADECIMAL_OFFSET", Map("category" -> "8")),
           expectedCorrelationIdRequestInfo,
         ),
-        v2_logEntry = ExpectedLogEntry(
+        logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
           Some(expectedLocationLogMarkerRegex),
@@ -442,20 +401,17 @@ class ErrorFactoriesSpec
     "return an offsetAfterLedgerEnd error" in {
       val expectedMessage = s"Absolute offset (AABBCC) is after ledger end (E)"
       val msg = s"OFFSET_AFTER_LEDGER_END(12,$truncatedCorrelationId): $expectedMessage"
-      assertVersionedError(_.offsetAfterLedgerEnd("Absolute", "AABBCC", "E"))(
-        v1_code = Code.OUT_OF_RANGE,
-        v1_message = expectedMessage,
-        v1_details = Seq.empty,
-        v2_code = Code.OUT_OF_RANGE,
-        v2_message = msg,
-        v2_details = Seq[ErrorDetails.ErrorDetail](
+      assertError(errorFactories.offsetAfterLedgerEnd("Absolute", "AABBCC", "E"))(
+        code = Code.OUT_OF_RANGE,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail(
             "OFFSET_AFTER_LEDGER_END",
             Map("category" -> "12", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
         ),
-        v2_logEntry = ExpectedLogEntry(
+        logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
           Some(expectedLocationLogMarkerRegex),
@@ -465,20 +421,17 @@ class ErrorFactoriesSpec
 
     "return a offsetOutOfRange error" in {
       val msg = s"OFFSET_OUT_OF_RANGE(9,$truncatedCorrelationId): message123"
-      assertVersionedError(_.offsetOutOfRange(None)("message123"))(
-        v1_code = Code.INVALID_ARGUMENT,
-        v1_message = "Invalid argument: message123",
-        v1_details = Seq.empty,
-        v2_code = Code.FAILED_PRECONDITION,
-        v2_message = msg,
-        v2_details = Seq[ErrorDetails.ErrorDetail](
+      assertError(errorFactories.offsetOutOfRange("message123"))(
+        code = Code.FAILED_PRECONDITION,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail(
             "OFFSET_OUT_OF_RANGE",
             Map("category" -> "9", "definite_answer" -> "false"),
           ),
           expectedCorrelationIdRequestInfo,
         ),
-        v2_logEntry = ExpectedLogEntry(
+        logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
           Some(expectedLocationLogMarkerRegex),
@@ -487,14 +440,11 @@ class ErrorFactoriesSpec
     }
 
     "return an unauthenticatedMissingJwtToken error" in {
-      assertVersionedError(_.unauthenticatedMissingJwtToken())(
-        v1_code = Code.UNAUTHENTICATED,
-        v1_message = "",
-        v1_details = Seq.empty,
-        v2_code = Code.UNAUTHENTICATED,
-        v2_message = expectedInternalErrorMessage,
-        v2_details = expectedInternalErrorDetails,
-        v2_logEntry = ExpectedLogEntry(
+      assertError(errorFactories.unauthenticatedMissingJwtToken())(
+        code = Code.UNAUTHENTICATED,
+        message = expectedInternalErrorMessage,
+        details = expectedInternalErrorDetails,
+        logEntry = ExpectedLogEntry(
           Level.WARN,
           s"UNAUTHENTICATED(6,$truncatedCorrelationId): The command is missing a (valid) JWT token",
           Some(expectedLocationLogMarkerRegex),
@@ -505,14 +455,13 @@ class ErrorFactoriesSpec
     "return an internalAuthenticationError" in {
       val someSecuritySafeMessage = "nothing security sensitive in here"
       val someThrowable = new RuntimeException("some internal authentication error")
-      assertVersionedError(_.internalAuthenticationError(someSecuritySafeMessage, someThrowable))(
-        v1_code = Code.INTERNAL,
-        v1_message = someSecuritySafeMessage,
-        v1_details = Seq.empty,
-        v2_code = Code.INTERNAL,
-        v2_message = expectedInternalErrorMessage,
-        v2_details = expectedInternalErrorDetails,
-        v2_logEntry = ExpectedLogEntry(
+      assertError(
+        errorFactories.internalAuthenticationError(someSecuritySafeMessage, someThrowable)
+      )(
+        code = Code.INTERNAL,
+        message = expectedInternalErrorMessage,
+        details = expectedInternalErrorDetails,
+        logEntry = ExpectedLogEntry(
           Level.ERROR,
           s"INTERNAL_AUTHORIZATION_ERROR(4,$truncatedCorrelationId): nothing security sensitive in here",
           Some(expectedLocationLogMarkerRegex),
@@ -521,37 +470,24 @@ class ErrorFactoriesSpec
     }
 
     "return a missingLedgerConfig error" in {
-      val testCases = Table(
-        ("definite answer", "expected details"),
-        (None, Seq.empty),
-        (Some(false), Seq(definiteAnswers(false))),
+      val msg =
+        s"LEDGER_CONFIGURATION_NOT_FOUND(11,$truncatedCorrelationId): The ledger configuration could not be retrieved."
+      assertError(errorFactories.missingLedgerConfig())(
+        code = Code.NOT_FOUND,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail(
+            "LEDGER_CONFIGURATION_NOT_FOUND",
+            Map("category" -> "11", "definite_answer" -> "false"),
+          ),
+          expectedCorrelationIdRequestInfo,
+        ),
+        logEntry = ExpectedLogEntry(
+          Level.INFO,
+          msg,
+          Some(expectedLocationLogMarkerRegex),
+        ),
       )
-
-      val legacyErrorCode = Code.UNAVAILABLE
-
-      forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        val msg =
-          s"LEDGER_CONFIGURATION_NOT_FOUND(11,$truncatedCorrelationId): The ledger configuration could not be retrieved."
-        assertVersionedError(_.missingLedgerConfig(legacyErrorCode)(definiteAnswer))(
-          v1_code = legacyErrorCode,
-          v1_message = "The ledger configuration is not available.",
-          v1_details = expectedDetails,
-          v2_code = Code.NOT_FOUND,
-          v2_message = msg,
-          v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail(
-              "LEDGER_CONFIGURATION_NOT_FOUND",
-              Map("category" -> "11", "definite_answer" -> "false"),
-            ),
-            expectedCorrelationIdRequestInfo,
-          ),
-          v2_logEntry = ExpectedLogEntry(
-            Level.INFO,
-            msg,
-            Some(expectedLocationLogMarkerRegex),
-          ),
-        )
-      }
     }
 
     "return an aborted error" in {
@@ -572,24 +508,18 @@ class ErrorFactoriesSpec
 
     "return an invalid deduplication period error" in {
       val errorDetailMessage = "message"
-      val field = "field"
       val maxDeduplicationDuration = Duration.ofSeconds(5)
       val msg =
         s"INVALID_DEDUPLICATION_PERIOD(9,$truncatedCorrelationId): The submitted command had an invalid deduplication period: $errorDetailMessage"
-      assertVersionedError(
-        _.invalidDeduplicationPeriod(
-          fieldName = field,
+      assertError(
+        errorFactories.invalidDeduplicationPeriod(
           message = errorDetailMessage,
-          definiteAnswer = None,
           maxDeduplicationDuration = Some(maxDeduplicationDuration),
         )
       )(
-        v1_code = Code.INVALID_ARGUMENT,
-        v1_message = s"Invalid field $field: $errorDetailMessage",
-        v1_details = Seq.empty,
-        v2_code = Code.FAILED_PRECONDITION,
-        v2_message = msg,
-        v2_details = Seq[ErrorDetails.ErrorDetail](
+        code = Code.FAILED_PRECONDITION,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail(
             "INVALID_DEDUPLICATION_PERIOD",
             Map(
@@ -600,7 +530,7 @@ class ErrorFactoriesSpec
           ),
           expectedCorrelationIdRequestInfo,
         ),
-        v2_logEntry = ExpectedLogEntry(
+        logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
           expectedMarkerRegex("longest_duration=PT5S"),
@@ -609,94 +539,61 @@ class ErrorFactoriesSpec
     }
 
     "return an invalidField error" in {
-      val testCases = Table(
-        ("definite answer", "expected details"),
-        (None, Seq.empty),
-        (Some(false), Seq(definiteAnswers(false))),
-      )
-
       val fieldName = "my field"
-      forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        val msg =
-          s"INVALID_FIELD(8,$truncatedCorrelationId): The submitted command has a field with invalid value: Invalid field $fieldName: my message"
-        assertVersionedError(_.invalidField(fieldName, "my message", definiteAnswer))(
-          v1_code = Code.INVALID_ARGUMENT,
-          v1_message = "Invalid field " + fieldName + ": my message",
-          v1_details = expectedDetails,
-          v2_code = Code.INVALID_ARGUMENT,
-          v2_message = msg,
-          v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail(
-              "INVALID_FIELD",
-              Map("category" -> "8", "definite_answer" -> "false"),
-            ),
-            expectedCorrelationIdRequestInfo,
+      val msg =
+        s"INVALID_FIELD(8,$truncatedCorrelationId): The submitted command has a field with invalid value: Invalid field $fieldName: my message"
+      assertError(errorFactories.invalidField(fieldName, "my message"))(
+        code = Code.INVALID_ARGUMENT,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail(
+            "INVALID_FIELD",
+            Map("category" -> "8", "definite_answer" -> "false"),
           ),
-          v2_logEntry = ExpectedLogEntry(
-            Level.INFO,
-            msg,
-            Some(expectedLocationLogMarkerRegex),
-          ),
-        )
-      }
+          expectedCorrelationIdRequestInfo,
+        ),
+        logEntry = ExpectedLogEntry(
+          Level.INFO,
+          msg,
+          Some(expectedLocationLogMarkerRegex),
+        ),
+      )
     }
 
     "return a ledgerIdMismatch error" in {
-      val testCases = Table(
-        ("definite answer", "expected details"),
-        (None, Seq.empty),
-        (Some(false), Seq(definiteAnswers(false))),
-      )
-
-      forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        val msg =
-          s"LEDGER_ID_MISMATCH(11,$truncatedCorrelationId): Ledger ID 'received' not found. Actual Ledger ID is 'expected'."
-        assertVersionedError(
-          _.ledgerIdMismatch(LedgerId("expected"), LedgerId("received"), definiteAnswer)
-        )(
-          v1_code = Code.NOT_FOUND,
-          v1_message = "Ledger ID 'received' not found. Actual Ledger ID is 'expected'.",
-          v1_details = expectedDetails,
-          v2_code = Code.NOT_FOUND,
-          v2_message = msg,
-          v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail(
-              "LEDGER_ID_MISMATCH",
-              Map("category" -> "11", "definite_answer" -> "true"),
-            ),
-            expectedCorrelationIdRequestInfo,
+      val msg =
+        s"LEDGER_ID_MISMATCH(11,$truncatedCorrelationId): Ledger ID 'received' not found. Actual Ledger ID is 'expected'."
+      assertError(
+        errorFactories.ledgerIdMismatch(LedgerId("expected"), LedgerId("received"))
+      )(
+        code = Code.NOT_FOUND,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail(
+            "LEDGER_ID_MISMATCH",
+            Map("category" -> "11", "definite_answer" -> "true"),
           ),
-          v2_logEntry = ExpectedLogEntry(
-            Level.INFO,
-            msg,
-            Some(expectedLocationLogMarkerRegex),
-          ),
-        )
-      }
-    }
-
-    "fail on creating a ledgerIdMismatch error due to a wrong definite answer" in {
-      an[IllegalArgumentException] should be thrownBy tested.ledgerIdMismatch(
-        LedgerId("expected"),
-        LedgerId("received"),
-        definiteAnswer = Some(true),
+          expectedCorrelationIdRequestInfo,
+        ),
+        logEntry = ExpectedLogEntry(
+          Level.INFO,
+          msg,
+          Some(expectedLocationLogMarkerRegex),
+        ),
       )
     }
 
     "return a participantPrunedDataAccessed error" in {
       val msg = s"PARTICIPANT_PRUNED_DATA_ACCESSED(9,$truncatedCorrelationId): my message"
-      assertVersionedError(
-        _.participantPrunedDataAccessed(
+      assertError(
+        errorFactories.participantPrunedDataAccessed(
           "my message",
           Offset.fromHexString(Ref.HexString.assertFromString("00")),
         )
       )(
-        v1_code = Code.NOT_FOUND,
-        v1_message = "my message",
-        v1_details = Seq.empty,
-        v2_code = Code.FAILED_PRECONDITION,
-        v2_message = msg,
-        v2_details = Seq[ErrorDetails.ErrorDetail](
+        code = Code.FAILED_PRECONDITION,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail(
             "PARTICIPANT_PRUNED_DATA_ACCESSED",
             Map(
@@ -707,7 +604,7 @@ class ErrorFactoriesSpec
           ),
           expectedCorrelationIdRequestInfo,
         ),
-        v2_logEntry = ExpectedLogEntry(
+        logEntry = ExpectedLogEntry(
           Level.INFO,
           msg,
           expectedMarkerRegex(s"${LedgerApiErrors.EarliestOffsetMetadataKey}=00"),
@@ -716,14 +613,11 @@ class ErrorFactoriesSpec
     }
 
     "return a trackerFailure error" in {
-      assertVersionedError(_.trackerFailure("message123"))(
-        v1_code = Code.INTERNAL,
-        v1_message = "message123",
-        v1_details = Seq.empty,
-        v2_code = Code.INTERNAL,
-        v2_message = expectedInternalErrorMessage,
-        v2_details = expectedInternalErrorDetails,
-        v2_logEntry = ExpectedLogEntry(
+      assertError(errorFactories.trackerFailure("message123"))(
+        code = Code.INTERNAL,
+        message = expectedInternalErrorMessage,
+        details = expectedInternalErrorDetails,
+        logEntry = ExpectedLogEntry(
           Level.ERROR,
           s"LEDGER_API_INTERNAL_ERROR(4,$truncatedCorrelationId): message123",
           expectedMarkerRegex("throwableO=None"),
@@ -732,133 +626,71 @@ class ErrorFactoriesSpec
     }
 
     "return a serviceNotRunning error" in {
-      val testCases = Table(
-        ("definite answer", "expected details"),
-        (None, Seq.empty),
-        (Some(false), Seq(definiteAnswers(false))),
-      )
       val serviceName = "Some API Service"
 
-      forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        val msg =
-          s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName has been shut down."
-        assertVersionedError(_.serviceNotRunning(serviceName)(definiteAnswer))(
-          v1_code = Code.UNAVAILABLE,
-          v1_message = s"$serviceName has been shut down.",
-          v1_details = expectedDetails,
-          v2_code = Code.UNAVAILABLE,
-          v2_message = msg,
-          v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail(
-              "SERVICE_NOT_RUNNING",
-              Map("category" -> "1", "definite_answer" -> "false", "service_name" -> serviceName),
-            ),
-            expectedCorrelationIdRequestInfo,
-            ErrorDetails.RetryInfoDetail(1.second),
+      val msg =
+        s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName has been shut down."
+      assertError(errorFactories.serviceNotRunning(serviceName))(
+        code = Code.UNAVAILABLE,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail(
+            "SERVICE_NOT_RUNNING",
+            Map("category" -> "1", "definite_answer" -> "false", "service_name" -> serviceName),
           ),
-          v2_logEntry = ExpectedLogEntry(
-            Level.INFO,
-            msg,
-            expectedMarkerRegex("service_name=Some API Service"),
-          ),
-        )
-      }
+          expectedCorrelationIdRequestInfo,
+          ErrorDetails.RetryInfoDetail(1.second),
+        ),
+        logEntry = ExpectedLogEntry(
+          Level.INFO,
+          msg,
+          expectedMarkerRegex("service_name=Some API Service"),
+        ),
+      )
     }
 
     "return a missingField error" in {
       val fieldName = "my field"
 
-      val testCases = Table(
-        ("definite answer", "expected details"),
-        (None, Seq.empty),
-        (Some(false), Seq(definiteAnswers(false))),
+      val msg =
+        s"MISSING_FIELD(8,$truncatedCorrelationId): The submitted command is missing a mandatory field: $fieldName"
+      assertError(errorFactories.missingField(fieldName))(
+        code = Code.INVALID_ARGUMENT,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail(
+            "MISSING_FIELD",
+            Map("category" -> "8", "definite_answer" -> "false", "field_name" -> fieldName),
+          ),
+          expectedCorrelationIdRequestInfo,
+        ),
+        logEntry = ExpectedLogEntry(
+          Level.INFO,
+          msg,
+          expectedMarkerRegex("field_name=my field"),
+        ),
       )
-
-      forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        val msg =
-          s"MISSING_FIELD(8,$truncatedCorrelationId): The submitted command is missing a mandatory field: $fieldName"
-        assertVersionedError(_.missingField(fieldName, definiteAnswer))(
-          v1_code = Code.INVALID_ARGUMENT,
-          v1_message = "Missing field: " + fieldName,
-          v1_details = expectedDetails,
-          v2_code = Code.INVALID_ARGUMENT,
-          v2_message = msg,
-          v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail(
-              "MISSING_FIELD",
-              Map("category" -> "8", "definite_answer" -> "false", "field_name" -> fieldName),
-            ),
-            expectedCorrelationIdRequestInfo,
-          ),
-          v2_logEntry = ExpectedLogEntry(
-            Level.INFO,
-            msg,
-            expectedMarkerRegex("field_name=my field"),
-          ),
-        )
-      }
     }
 
     val msg =
       s"INVALID_ARGUMENT(8,$truncatedCorrelationId): The submitted command has invalid arguments: my message"
     "return an invalidArgument error" in {
-      val testCases = Table(
-        ("definite answer", "expected details"),
-        (None, Seq.empty),
-        (Some(false), Seq(definiteAnswers(false))),
+      assertError(errorFactories.invalidArgument("my message"))(
+        code = Code.INVALID_ARGUMENT,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail(
+            "INVALID_ARGUMENT",
+            Map("category" -> "8", "definite_answer" -> "false"),
+          ),
+          expectedCorrelationIdRequestInfo,
+        ),
+        logEntry = ExpectedLogEntry(
+          Level.INFO,
+          msg,
+          Some(expectedLocationLogMarkerRegex),
+        ),
       )
-
-      forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        assertVersionedError(_.invalidArgument(definiteAnswer)("my message"))(
-          v1_code = Code.INVALID_ARGUMENT,
-          v1_message = "Invalid argument: my message",
-          v1_details = expectedDetails,
-          v2_code = Code.INVALID_ARGUMENT,
-          v2_message = msg,
-          v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail(
-              "INVALID_ARGUMENT",
-              Map("category" -> "8", "definite_answer" -> "false"),
-            ),
-            expectedCorrelationIdRequestInfo,
-          ),
-          v2_logEntry = ExpectedLogEntry(
-            Level.INFO,
-            msg,
-            Some(expectedLocationLogMarkerRegex),
-          ),
-        )
-      }
-    }
-
-    "return an invalidArgument (with legacy error code as NOT_FOUND) error" in {
-      val testCases = Table(
-        ("definite answer", "expected details"),
-        (None, Seq.empty),
-        (Some(false), Seq(definiteAnswers(false))),
-      )
-
-      forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        assertVersionedError(_.invalidArgumentWasNotFound(definiteAnswer)("my message"))(
-          v1_code = Code.NOT_FOUND,
-          v1_message = "my message",
-          v1_details = expectedDetails,
-          v2_code = Code.INVALID_ARGUMENT,
-          v2_message = msg,
-          v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail(
-              "INVALID_ARGUMENT",
-              Map("category" -> "8", "definite_answer" -> "false"),
-            ),
-            expectedCorrelationIdRequestInfo,
-          ),
-          v2_logEntry = ExpectedLogEntry(
-            Level.INFO,
-            msg,
-            Some(expectedLocationLogMarkerRegex),
-          ),
-        )
-      }
     }
 
     "should create an ApiException without the stack trace" in {
@@ -877,71 +709,32 @@ class ErrorFactoriesSpec
     Some(s"\\{err-context: $inner\\}")
   }
 
-  private def assertVersionedError(
-      error: ErrorFactories => StatusRuntimeException
-  )(
-      v1_code: Code,
-      v1_message: String,
-      v1_details: Seq[Any],
-      v2_code: Code,
-      v2_message: String,
-      v2_details: Seq[ErrorDetails.ErrorDetail],
-      v2_logEntry: ExpectedLogEntry,
-  ): Unit = {
-    val errorFactoriesV1 = ErrorFactories(new ErrorCodesVersionSwitcher(false))
-    val errorFactoriesV2 = ErrorFactories(new ErrorCodesVersionSwitcher(true))
-    assertV1Error(error(errorFactoriesV1))(v1_code, v1_message, v1_details)
-    // Making sure we collect log entries for V2 only
-    LogCollector.clear[this.type]
-    assertV2Error(error(errorFactoriesV2))(v2_code, v2_message, v2_details, v2_logEntry)
-  }
-
-  private def assertVersionedStatus(
-      error: ErrorFactories => Status
-  )(
-      v1_code: Code,
-      v1_message: String,
-      v1_details: Seq[Any],
-      v2_code: Code,
-      v2_message: String,
-      v2_details: Seq[ErrorDetails.ErrorDetail],
-      v2_logEntry: ExpectedLogEntry,
-  ): Unit = {
-    assertVersionedError(x => io.grpc.protobuf.StatusProto.toStatusRuntimeException(error(x)))(
-      v1_code,
-      v1_message,
-      v1_details,
-      v2_code,
-      v2_message,
-      v2_details,
-      v2_logEntry,
+  private def assertStatus(status: Status)(
+      code: Code,
+      message: String,
+      details: Seq[ErrorDetails.ErrorDetail],
+      logEntry: ExpectedLogEntry,
+  ): Unit =
+    assertError(io.grpc.protobuf.StatusProto.toStatusRuntimeException(status))(
+      code,
+      message,
+      details,
+      logEntry,
     )
 
-  }
-
-  private def assertV1Error(
-      statusRuntimeException: StatusRuntimeException
-  )(expectedCode: Code, expectedMessage: String, expectedDetails: Seq[Any]): Unit = {
-    val status = StatusProto.fromThrowable(statusRuntimeException)
-    status.getCode shouldBe expectedCode.value()
-    status.getMessage shouldBe expectedMessage
-    val _ = status.getDetailsList.asScala shouldBe expectedDetails
-  }
-
-  private def assertV2Error(
+  private def assertError(
       statusRuntimeException: StatusRuntimeException
   )(
-      expectedCode: Code,
-      expectedMessage: String,
-      expectedDetails: Seq[ErrorDetails.ErrorDetail],
-      expectedLogEntry: ExpectedLogEntry,
-  ): Unit = {
+      code: Code,
+      message: String,
+      details: Seq[ErrorDetails.ErrorDetail],
+      logEntry: ExpectedLogEntry,
+  ): Unit =
     assertError[this.type, this.type](
       actual = statusRuntimeException,
-      expectedCode,
-      expectedMessage,
-      expectedDetails,
-      expectedLogEntry,
+      code,
+      message,
+      details,
+      logEntry,
     )
-  }
 }

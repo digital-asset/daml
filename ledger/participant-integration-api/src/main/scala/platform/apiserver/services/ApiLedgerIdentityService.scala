@@ -3,11 +3,7 @@
 
 package com.daml.platform.apiserver.services
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.{
   LedgerIdentityService => GrpcLedgerIdentityService
@@ -27,8 +23,7 @@ import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiLedgerIdentityService private (
-    getLedgerId: () => Future[LedgerId],
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    getLedgerId: () => Future[LedgerId]
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends GrpcLedgerIdentityService
     with GrpcApiService {
@@ -36,7 +31,7 @@ private[apiserver] final class ApiLedgerIdentityService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
 
   @volatile var closed = false
 
@@ -46,7 +41,7 @@ private[apiserver] final class ApiLedgerIdentityService private (
   ): Future[GetLedgerIdentityResponse] = {
     logger.info(s"Received request for ledger identity: $request")
     if (closed)
-      Future.failed(errorFactories.serviceNotRunning("Ledger Identity Service")(None))
+      Future.failed(errorFactories.serviceNotRunning("Ledger Identity Service"))
     else
       getLedgerId()
         .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))
@@ -63,12 +58,11 @@ private[apiserver] final class ApiLedgerIdentityService private (
 
 private[apiserver] object ApiLedgerIdentityService {
   def create(
-      getLedgerId: () => Future[LedgerId],
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+      getLedgerId: () => Future[LedgerId]
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ApiLedgerIdentityService with BindableService = {
-    new ApiLedgerIdentityService(getLedgerId, errorCodesVersionSwitcher)
+    new ApiLedgerIdentityService(getLedgerId)
   }
 }

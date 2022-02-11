@@ -9,7 +9,6 @@ import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.{
   AuthServiceJWT,
   AuthServiceNone,
@@ -65,9 +64,7 @@ final class Runner[T <: ReadWriteService, Extra](
       val config = configProvider.manipulateConfig(originalConfig)
       config.mode match {
         case Mode.DumpIndexMetadata(jdbcUrls) =>
-          val errorFactories = ErrorFactories(
-            new ErrorCodesVersionSwitcher(originalConfig.enableSelfServiceErrorCodes)
-          )
+          val errorFactories = ErrorFactories()
           DumpIndexMetadata(jdbcUrls, errorFactories, name)
           sys.exit(0)
         case Mode.Run =>
@@ -230,7 +227,6 @@ final class Runner[T <: ReadWriteService, Extra](
                 ).acquire()
                 factory = new KeyValueDeduplicationSupportFactory(
                   ledgerFactory,
-                  config,
                   indexService,
                 )(implicitly, servicesExecutionContext)
                 writeService = new TimedWriteService(factory.writeService(), metrics)

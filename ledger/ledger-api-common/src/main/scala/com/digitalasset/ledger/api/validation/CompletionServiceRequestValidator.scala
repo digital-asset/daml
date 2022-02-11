@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain.{LedgerId, LedgerOffset, optionalLedgerId}
 import com.daml.ledger.api.messages.command.completion
 import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
@@ -17,10 +17,9 @@ import io.grpc.StatusRuntimeException
 class CompletionServiceRequestValidator(
     ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 ) {
 
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
   private val fieldValidations = FieldValidations(errorFactories)
   private val partyValidator =
     new PartyValidator(partyNameChecker, errorFactories, fieldValidations)

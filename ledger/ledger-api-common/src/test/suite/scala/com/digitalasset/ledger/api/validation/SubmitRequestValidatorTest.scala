@@ -6,7 +6,7 @@ package com.daml.ledger.api.validation
 import java.time.{Instant, Duration => JDuration}
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
-import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher, NoLogging}
+import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.DomainMocks.{applicationId, commandId, submissionId, workflowId}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.v1.commands.Commands.{DeduplicationPeriod => DeduplicationPeriodProto}
@@ -21,7 +21,7 @@ import com.daml.lf.value.{Value => Lf}
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND, UNAVAILABLE}
+import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND}
 import org.mockito.MockitoSugar
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
@@ -132,14 +132,9 @@ class SubmitRequestValidatorTest
 
   private def unexpectedError = sys.error("unexpected error")
 
-  private val errorCodesVersionSwitcher_mock = mock[ErrorCodesVersionSwitcher]
-
-  private val commandValidatorFixture = new ValidatorFixture(selfServiceErrorCodesEnabled =>
-    new CommandsValidator(ledgerId, new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled))
-  )
-  private val valueValidatorFixture = new ValidatorFixture(selfServiceErrorCodesEnabled => {
-    val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled)
-    val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val commandValidatorFixture = new ValidatorFixture(() => new CommandsValidator(ledgerId))
+  private val valueValidatorFixture = new ValidatorFixture(() => {
+    val errorFactories = ErrorFactories()
     new ValueValidator(
       errorFactories,
       FieldValidations(errorFactories),
@@ -147,9 +142,9 @@ class SubmitRequestValidatorTest
   })
 
   private val testedCommandValidator =
-    new CommandsValidator(ledgerId, errorCodesVersionSwitcher_mock)
+    new CommandsValidator(ledgerId)
   private val testedValueValidator = {
-    val errorFactories = ErrorFactories(errorCodesVersionSwitcher_mock)
+    val errorFactories = ErrorFactories()
     new ValueValidator(
       errorFactories,
       FieldValidations(errorFactories),
@@ -175,10 +170,8 @@ class SubmitRequestValidatorTest
             internal.submittedAt,
             Some(internal.maxDeduplicationDuration),
           ),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: commands",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: commands",
         )
       }
@@ -217,10 +210,8 @@ class SubmitRequestValidatorTest
             internal.submittedAt,
             Some(internal.maxDeduplicationDuration),
           ),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: application_id",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: application_id",
         )
       }
@@ -234,10 +225,8 @@ class SubmitRequestValidatorTest
             internal.submittedAt,
             Some(internal.maxDeduplicationDuration),
           ),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: command_id",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: command_id",
         )
       }
@@ -251,10 +240,8 @@ class SubmitRequestValidatorTest
             internal.submittedAt,
             Some(internal.maxDeduplicationDuration),
           ),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = """Missing field: party or act_as""",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: party or act_as",
         )
       }
@@ -376,10 +363,8 @@ class SubmitRequestValidatorTest
               internal.submittedAt,
               Some(internal.maxDeduplicationDuration),
             ),
-            expectedCodeV1 = INVALID_ARGUMENT,
-            expectedDescriptionV1 = "Invalid field deduplication_period: Duration must be positive",
-            expectedCodeV2 = INVALID_ARGUMENT,
-            expectedDescriptionV2 =
+            expectedCode = INVALID_ARGUMENT,
+            expectedDescription =
               "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field deduplication_period: Duration must be positive",
           )
         }
@@ -433,10 +418,8 @@ class SubmitRequestValidatorTest
 
         commandValidatorFixture.testRequestFailure(
           _.validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None),
-          expectedCodeV1 = UNAVAILABLE,
-          expectedDescriptionV1 = "The ledger configuration is not available.",
-          expectedCodeV2 = NOT_FOUND,
-          expectedDescriptionV2 =
+          expectedCode = NOT_FOUND,
+          expectedDescription =
             "LEDGER_CONFIGURATION_NOT_FOUND(11,0): The ledger configuration could not be retrieved.",
         )
       }
@@ -464,10 +447,8 @@ class SubmitRequestValidatorTest
       "reject non valid party" in {
         valueValidatorFixture.testRequestFailure(
           _.validateValue(DomainMocks.values.invalidApiParty),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = DomainMocks.values.invalidPartyMsg,
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
         )
       }
@@ -520,10 +501,8 @@ class SubmitRequestValidatorTest
             val input = Value(Sum.Numeric(s))
             valueValidatorFixture.testRequestFailure(
               _.validateValue(input),
-              expectedCodeV1 = INVALID_ARGUMENT,
-              expectedDescriptionV1 = s"""Invalid argument: Could not read Numeric string "$s"""",
-              expectedCodeV2 = INVALID_ARGUMENT,
-              expectedDescriptionV2 =
+              expectedCode = INVALID_ARGUMENT,
+              expectedDescription =
                 s"""INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Could not read Numeric string "$s"""",
             )
           }
@@ -552,10 +531,8 @@ class SubmitRequestValidatorTest
             val input = Value(Sum.Numeric(s))
             valueValidatorFixture.testRequestFailure(
               _.validateValue(input),
-              expectedCodeV1 = INVALID_ARGUMENT,
-              expectedDescriptionV1 = s"""Invalid argument: Could not read Numeric string "$s"""",
-              expectedCodeV2 = INVALID_ARGUMENT,
-              expectedDescriptionV2 =
+              expectedCode = INVALID_ARGUMENT,
+              expectedDescription =
                 s"""INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Could not read Numeric string "$s"""",
             )
           }
@@ -606,10 +583,8 @@ class SubmitRequestValidatorTest
           val input = Value(Sum.Timestamp(long))
           valueValidatorFixture.testRequestFailure(
             _.validateValue(input),
-            expectedCodeV1 = INVALID_ARGUMENT,
-            expectedDescriptionV1 = s"Invalid argument: out of bound Timestamp $long",
-            expectedCodeV2 = INVALID_ARGUMENT,
-            expectedDescriptionV2 =
+            expectedCode = INVALID_ARGUMENT,
+            expectedDescription =
               s"INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: out of bound Timestamp $long",
           )
         }
@@ -645,10 +620,8 @@ class SubmitRequestValidatorTest
           val input = Value(Sum.Date(int))
           valueValidatorFixture.testRequestFailure(
             _.validateValue(input),
-            expectedCodeV1 = INVALID_ARGUMENT,
-            expectedDescriptionV1 = s"Invalid argument: out of bound Date $int",
-            expectedCodeV2 = INVALID_ARGUMENT,
-            expectedDescriptionV2 =
+            expectedCode = INVALID_ARGUMENT,
+            expectedDescription =
               s"INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: out of bound Date $int",
           )
         }
@@ -705,10 +678,8 @@ class SubmitRequestValidatorTest
           Value(Sum.Record(Record(Some(api.identifier), Seq(RecordField(api.label, None)))))
         valueValidatorFixture.testRequestFailure(
           _.validateValue(record),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: value",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: value",
         )
       }
@@ -740,10 +711,8 @@ class SubmitRequestValidatorTest
         val variant = Value(Sum.Variant(Variant(None, "", Some(Value(api.int64)))))
         valueValidatorFixture.testRequestFailure(
           _.validateValue(variant),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: constructor",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: constructor",
         )
       }
@@ -752,10 +721,8 @@ class SubmitRequestValidatorTest
         val variant = Value(Sum.Variant(Variant(None, api.constructor, None)))
         valueValidatorFixture.testRequestFailure(
           _.validateValue(variant),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: value",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: value",
         )
       }
@@ -786,10 +753,8 @@ class SubmitRequestValidatorTest
         )
         valueValidatorFixture.testRequestFailure(
           _.validateValue(input),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = DomainMocks.values.invalidPartyMsg,
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
         )
       }
@@ -813,10 +778,8 @@ class SubmitRequestValidatorTest
         val input = Value(Sum.Optional(ApiOptional(Some(DomainMocks.values.invalidApiParty))))
         valueValidatorFixture.testRequestFailure(
           _.validateValue(input),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = DomainMocks.values.invalidPartyMsg,
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
         )
       }
@@ -858,11 +821,8 @@ class SubmitRequestValidatorTest
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         valueValidatorFixture.testRequestFailure(
           _.validateValue(input),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 =
-            s"Invalid argument: key ${Utf8.sha256("1")} duplicated when trying to build map",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: key 6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b duplicated when trying to build map",
         )
       }
@@ -876,10 +836,8 @@ class SubmitRequestValidatorTest
         val input = Value(Sum.Map(ApiMap(apiEntries)))
         valueValidatorFixture.testRequestFailure(
           _.validateValue(input),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = DomainMocks.values.invalidPartyMsg,
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
         )
       }

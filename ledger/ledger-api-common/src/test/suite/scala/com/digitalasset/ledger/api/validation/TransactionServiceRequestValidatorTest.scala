@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher, NoLogging}
+import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
@@ -68,18 +68,17 @@ class TransactionServiceRequestValidatorTest
   private val txByIdReq =
     GetTransactionByIdRequest(expectedLedgerId, transactionId, Seq(party))
 
-  private val errorCodesVersionSwitcher_mock = mock[ErrorCodesVersionSwitcher]
   private val testedValidator = new TransactionServiceRequestValidator(
     domain.LedgerId(expectedLedgerId),
     PartyNameChecker.AllowAllParties,
-    ErrorFactories(errorCodesVersionSwitcher_mock),
+    ErrorFactories(),
   )
 
-  private val fixture = new ValidatorFixture((selfServiceErrorCodesEnabled: Boolean) => {
+  private val fixture = new ValidatorFixture(() => {
     new TransactionServiceRequestValidator(
       domain.LedgerId(expectedLedgerId),
       PartyNameChecker.AllowAllParties,
-      ErrorFactories(new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled)),
+      ErrorFactories(),
     )
   })
 
@@ -103,10 +102,8 @@ class TransactionServiceRequestValidatorTest
       "return the correct error on missing filter" in {
         fixture.testRequestFailure(
           _.validate(txReq.update(_.optionalFilter := None), ledgerEnd),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: filter",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: filter",
         )
       }
@@ -117,10 +114,8 @@ class TransactionServiceRequestValidatorTest
             txReq.update(_.filter.filtersByParty := Map.empty),
             ledgerEnd,
           ),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Invalid argument: filtersByParty cannot be empty",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: filtersByParty cannot be empty",
         )
       }
@@ -128,10 +123,8 @@ class TransactionServiceRequestValidatorTest
       "return the correct error on missing begin" in {
         fixture.testRequestFailure(
           _.validate(txReq.update(_.optionalBegin := None), ledgerEnd),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: begin",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: begin",
         )
       }
@@ -139,10 +132,8 @@ class TransactionServiceRequestValidatorTest
       "return the correct error on empty begin " in {
         fixture.testRequestFailure(
           _.validate(txReq.update(_.begin := LedgerOffset()), ledgerEnd),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: begin.(boundary|value)",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: begin.(boundary|value)",
         )
       }
@@ -150,10 +141,8 @@ class TransactionServiceRequestValidatorTest
       "return the correct error on empty end " in {
         fixture.testRequestFailure(
           _.validate(txReq.withEnd(LedgerOffset()), ledgerEnd),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: end.(boundary|value)",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: end.(boundary|value)",
         )
       }
@@ -166,11 +155,8 @@ class TransactionServiceRequestValidatorTest
             ),
             ledgerEnd,
           ),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 =
-            "Invalid argument: Unknown ledger boundary value '7' in field begin.boundary",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown ledger boundary value '7' in field begin.boundary",
         )
       }
@@ -183,11 +169,8 @@ class TransactionServiceRequestValidatorTest
             ),
             ledgerEnd,
           ),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 =
-            "Invalid argument: Unknown ledger boundary value '7' in field end.boundary",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown ledger boundary value '7' in field end.boundary",
         )
       }
@@ -200,10 +183,8 @@ class TransactionServiceRequestValidatorTest
             ),
             ledgerEnd,
           ),
-          expectedCodeV1 = OUT_OF_RANGE,
-          expectedDescriptionV1 = "Begin offset (1001) is after ledger end (1000)",
-          expectedCodeV2 = OUT_OF_RANGE,
-          expectedDescriptionV2 =
+          expectedCode = OUT_OF_RANGE,
+          expectedDescription =
             "OFFSET_AFTER_LEDGER_END(12,0): Begin offset (1001) is after ledger end (1000)",
         )
       }
@@ -216,10 +197,8 @@ class TransactionServiceRequestValidatorTest
             ),
             ledgerEnd,
           ),
-          expectedCodeV1 = OUT_OF_RANGE,
-          expectedDescriptionV1 = "End offset (1001) is after ledger end (1000)",
-          expectedCodeV2 = OUT_OF_RANGE,
-          expectedDescriptionV2 =
+          expectedCode = OUT_OF_RANGE,
+          expectedDescription =
             "OFFSET_AFTER_LEDGER_END(12,0): End offset (1001) is after ledger end (1000)",
         )
       }
@@ -313,11 +292,8 @@ class TransactionServiceRequestValidatorTest
             })),
             ledgerEnd,
           ),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 =
-            "Invalid argument: party attempted subscription for templates []. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC.",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: party attempted subscription for templates []. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC.",
         )
       }
@@ -330,10 +306,8 @@ class TransactionServiceRequestValidatorTest
             ),
             ledgerEnd,
           ),
-          expectedCodeV1 = OUT_OF_RANGE,
-          expectedDescriptionV1 = "Begin offset (1001) is after ledger end (1000)",
-          expectedCodeV2 = OUT_OF_RANGE,
-          expectedDescriptionV2 =
+          expectedCode = OUT_OF_RANGE,
+          expectedDescription =
             "OFFSET_AFTER_LEDGER_END(12,0): Begin offset (1001) is after ledger end (1000)",
         )
       }
@@ -346,10 +320,8 @@ class TransactionServiceRequestValidatorTest
             ),
             ledgerEnd,
           ),
-          expectedCodeV1 = OUT_OF_RANGE,
-          expectedDescriptionV1 = "End offset (1001) is after ledger end (1000)",
-          expectedCodeV2 = OUT_OF_RANGE,
-          expectedDescriptionV2 =
+          expectedCode = OUT_OF_RANGE,
+          expectedDescription =
             "OFFSET_AFTER_LEDGER_END(12,0): End offset (1001) is after ledger end (1000)",
         )
       }
@@ -360,11 +332,8 @@ class TransactionServiceRequestValidatorTest
       "fail on ledger ID mismatch" in {
         fixture.testRequestFailure(
           _.validateLedgerEnd(endReq.withLedgerId("mismatchedLedgerId")),
-          expectedCodeV1 = NOT_FOUND,
-          expectedDescriptionV1 =
-            "Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
-          expectedCodeV2 = NOT_FOUND,
-          expectedDescriptionV2 =
+          expectedCode = NOT_FOUND,
+          expectedDescription =
             "LEDGER_ID_MISMATCH(11,0): Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
         )
       }
@@ -381,11 +350,8 @@ class TransactionServiceRequestValidatorTest
       "fail on ledger ID mismatch" in {
         fixture.testRequestFailure(
           _.validateTransactionById(txByIdReq.withLedgerId("mismatchedLedgerId")),
-          expectedCodeV1 = NOT_FOUND,
-          expectedDescriptionV1 =
-            "Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
-          expectedCodeV2 = NOT_FOUND,
-          expectedDescriptionV2 =
+          expectedCode = NOT_FOUND,
+          expectedDescription =
             "LEDGER_ID_MISMATCH(11,0): Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
         )
       }
@@ -393,10 +359,8 @@ class TransactionServiceRequestValidatorTest
       "fail on empty transactionId" in {
         fixture.testRequestFailure(
           _.validateTransactionById(txByIdReq.withTransactionId("")),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: transaction_id",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: transaction_id",
         )
       }
@@ -404,10 +368,8 @@ class TransactionServiceRequestValidatorTest
       "fail on empty requesting parties" in {
         fixture.testRequestFailure(
           _.validateTransactionById(txByIdReq.withRequestingParties(Nil)),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: requesting_parties",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: requesting_parties",
         )
       }
@@ -425,11 +387,8 @@ class TransactionServiceRequestValidatorTest
       "fail on ledger ID mismatch" in {
         fixture.testRequestFailure(
           _.validateTransactionByEventId(txByEvIdReq.withLedgerId("mismatchedLedgerId")),
-          expectedCodeV1 = NOT_FOUND,
-          expectedDescriptionV1 =
-            "Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
-          expectedCodeV2 = NOT_FOUND,
-          expectedDescriptionV2 =
+          expectedCode = NOT_FOUND,
+          expectedDescription =
             "LEDGER_ID_MISMATCH(11,0): Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
         )
       }
@@ -437,10 +396,8 @@ class TransactionServiceRequestValidatorTest
       "fail on empty eventId" in {
         fixture.testRequestFailure(
           _.validateTransactionByEventId(txByEvIdReq.withEventId("")),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: event_id",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: event_id",
         )
       }
@@ -448,10 +405,8 @@ class TransactionServiceRequestValidatorTest
       "fail on empty requesting parties" in {
         fixture.testRequestFailure(
           _.validateTransactionByEventId(txByEvIdReq.withRequestingParties(Nil)),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: requesting_parties",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: requesting_parties",
         )
       }
@@ -468,11 +423,11 @@ class TransactionServiceRequestValidatorTest
 
     "applying party name checks" should {
 
-      val knowsPartyOnlyFixture = new ValidatorFixture((selfServiceErrorCodesEnabled: Boolean) => {
+      val knowsPartyOnlyFixture = new ValidatorFixture(() => {
         new TransactionServiceRequestValidator(
           domain.LedgerId(expectedLedgerId),
           PartyNameChecker.AllowPartySet(Set(party)),
-          ErrorFactories(new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled)),
+          ErrorFactories(),
         )
       })
 
@@ -485,10 +440,8 @@ class TransactionServiceRequestValidatorTest
       "reject transaction requests for unknown parties" in {
         knowsPartyOnlyFixture.testRequestFailure(
           _.validate(txReq.withFilter(filterWithUnknown), ledgerEnd),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Invalid argument: Unknown parties: [Alice, Bob]",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown parties: [Alice, Bob]",
         )
       }
@@ -496,10 +449,8 @@ class TransactionServiceRequestValidatorTest
       "reject transaction tree requests for unknown parties" in {
         knowsPartyOnlyFixture.testRequestFailure(
           _.validateTree(txTreeReq.withFilter(filterWithUnknown), ledgerEnd),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Invalid argument: Unknown parties: [Alice, Bob]",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown parties: [Alice, Bob]",
         )
       }
@@ -509,10 +460,8 @@ class TransactionServiceRequestValidatorTest
           _.validateTransactionById(
             txByIdReq.withRequestingParties(partyWithUnknowns)
           ),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Invalid argument: Unknown parties: [Alice, Bob]",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown parties: [Alice, Bob]",
         )
       }
@@ -522,17 +471,15 @@ class TransactionServiceRequestValidatorTest
           _.validateTransactionById(
             txByIdReq.withRequestingParties(partyWithUnknowns)
           ),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Invalid argument: Unknown parties: [Alice, Bob]",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
+          expectedCode = INVALID_ARGUMENT,
+          expectedDescription =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown parties: [Alice, Bob]",
         )
       }
 
       "accept transaction requests for known parties" in {
         knowsPartyOnlyFixture
-          .tested(true)
+          .tested()
           .validate(
             txReq.withFilter(filterWithKnown),
             ledgerEnd,
@@ -541,7 +488,7 @@ class TransactionServiceRequestValidatorTest
 
       "accept transaction tree requests for known parties" in {
         knowsPartyOnlyFixture
-          .tested(true)
+          .tested()
           .validateTree(
             txTreeReq.withFilter(filterWithKnown),
             ledgerEnd,
@@ -550,7 +497,7 @@ class TransactionServiceRequestValidatorTest
 
       "accept transaction by id requests for known parties" in {
         knowsPartyOnlyFixture
-          .tested(true)
+          .tested()
           .validateTransactionById(
             txByIdReq.withRequestingParties(List("party"))
           ) shouldBe a[Right[_, _]]
@@ -558,7 +505,7 @@ class TransactionServiceRequestValidatorTest
 
       "accept transaction by event id requests for known parties" in {
         knowsPartyOnlyFixture
-          .tested(true)
+          .tested()
           .validateTransactionById(
             txByIdReq.withRequestingParties(List("party"))
           ) shouldBe a[Right[_, _]]

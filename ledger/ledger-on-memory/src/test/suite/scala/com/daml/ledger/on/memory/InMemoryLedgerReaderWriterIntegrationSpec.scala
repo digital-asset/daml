@@ -68,7 +68,6 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       KeyValueParticipantStateReader(
         reader = reader,
         metrics = metrics,
-        enableSelfServiceErrorCodes = true,
       ),
       new KeyValueParticipantStateWriter(
         writer = writer,
