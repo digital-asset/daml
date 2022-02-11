@@ -36,7 +36,7 @@ We then pass
 
 .. code-block:: sh
 
-   daml sandbox .daml/dist/profile-tutorial-0.0.1.dar -c profile.conf
+   daml sandbox --dar .daml/dist/profile-tutorial-0.0.1.dar -c profile.conf
 
 To actually produce some profile results, we have to create
 transactions. For the purposes of this tutorial, the Daml Script
