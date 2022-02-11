@@ -11,4 +11,7 @@ da_scala_library(
     srcs = glob(["src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:fs-utils:__VERSION__"],
     visibility = ["//visibility:public"],
+    deps = [
+        "//libs-scala/resources",
+    ],
 )
