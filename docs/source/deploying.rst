@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Deploying to Daml Ledgers
-================
+=========================
 
 .. toctree::
   :maxdepth: 2
