@@ -16,8 +16,7 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils with
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
 
   private val errorFactories_mock = mock[ErrorFactories]
-  private val fieldValidations = FieldValidations(errorFactories_mock)
-  private val fixture = new ValidatorFixture(() => FieldValidations(ErrorFactories()))
+  private val fieldValidations = FieldValidations(ErrorFactories())
 
   object api {
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")
@@ -31,20 +30,23 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils with
     }
 
     "not allow missing package ids" in {
-      fixture.testRequestFailure(
-        _.validateIdentifier(api.identifier.withPackageId("")),
-        expectedCode = INVALID_ARGUMENT,
-        expectedDescription =
+      requestMustFailWith(
+        fieldValidations.validateIdentifier(api.identifier.withPackageId("")),
+        code = INVALID_ARGUMENT,
+        description =
           "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: package_id",
+        metadata = Map.empty,
       )
     }
 
     "not allow missing names" in {
-      fixture.testRequestFailure(
-        _.validateIdentifier(api.identifier.withModuleName("").withEntityName("")),
-        expectedCode = INVALID_ARGUMENT,
-        expectedDescription =
+      requestMustFailWith(
+        request =
+          fieldValidations.validateIdentifier(api.identifier.withModuleName("").withEntityName("")),
+        code = INVALID_ARGUMENT,
+        description =
           "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field module_name: Expected a non-empty string",
+        metadata = Map.empty,
       )
     }
   }

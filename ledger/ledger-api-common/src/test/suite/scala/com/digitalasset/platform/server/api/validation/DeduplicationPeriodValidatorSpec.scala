@@ -23,21 +23,19 @@ class DeduplicationPeriodValidatorSpec
 
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
   private val maxDeduplicationDuration = time.Duration.ofSeconds(5)
-  private val deduplicationValidatorFixture = new ValidatorFixture(() =>
-    new DeduplicationPeriodValidator(ErrorFactories())
-  )
+  private val validator = new DeduplicationPeriodValidator(ErrorFactories())
 
   "not allow deduplication duration exceeding maximum deduplication duration" in {
     val durationSecondsExceedingMax = maxDeduplicationDuration.plusSeconds(1).getSeconds
-    deduplicationValidatorFixture.testRequestFailure(
-      _.validate(
+    requestMustFailWith(
+      request = validator.validate(
         DeduplicationDuration(
           Duration.ofSeconds(durationSecondsExceedingMax)
         ),
         maxDeduplicationDuration,
       ),
-      expectedCode = FAILED_PRECONDITION,
-      expectedDescription =
+      code = FAILED_PRECONDITION,
+      description =
         s"INVALID_DEDUPLICATION_PERIOD(9,0): The submitted command had an invalid deduplication period: The given deduplication duration of ${java.time.Duration
           .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${maxDeduplicationDuration}",
       metadata = Map(

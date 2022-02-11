@@ -30,23 +30,6 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
   protected val transactionId = "42"
   protected val ledgerEnd = domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString("1000"))
 
-  class ValidatorFixture[T](testedFactory: () => T) {
-    def testRequestFailure(
-        testedRequest: T => Either[StatusRuntimeException, _],
-        expectedCode: Code,
-        expectedDescription: String,
-        metadata: Map[String, String] = Map.empty,
-    ): Assertion =
-      requestMustFailWith(
-        request = testedRequest(testedFactory()),
-        code = expectedCode,
-        description = expectedDescription,
-        metadata,
-      )
-
-    def tested(): T = testedFactory()
-  }
-
   protected def hasExpectedFilters(req: transaction.GetTransactionsRequest) = {
     val filtersByParty = req.filter.filtersByParty
     filtersByParty should have size 1

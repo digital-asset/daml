@@ -42,13 +42,6 @@ class CompletionServiceRequestValidatorTest
     PartyNameChecker.AllowAllParties,
   )
 
-  val fixture = new ValidatorFixture(() => {
-    new CompletionServiceRequestValidator(
-      domain.LedgerId(expectedLedgerId),
-      PartyNameChecker.AllowAllParties,
-    )
-  })
-
   "CompletionRequestValidation" when {
 
     "validating gRPC completion requests" should {
@@ -62,26 +55,28 @@ class CompletionServiceRequestValidatorTest
       }
 
       "return the correct error on missing application ID" in {
-        fixture.testRequestFailure(
-          testedRequest = _.validateGrpcCompletionStreamRequest(
+        requestMustFailWith(
+          request = validator.validateGrpcCompletionStreamRequest(
             grpcCompletionReq.withApplicationId("")
           ),
-          expectedCode = INVALID_ARGUMENT,
-          expectedDescription =
+          code = INVALID_ARGUMENT,
+          description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: application_id",
+          metadata = Map.empty,
         )
       }
 
       "return the correct error on unknown begin boundary" in {
-        fixture.testRequestFailure(
-          testedRequest = _.validateGrpcCompletionStreamRequest(
+        requestMustFailWith(
+          request = validator.validateGrpcCompletionStreamRequest(
             grpcCompletionReq.withOffset(
               LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
             )
           ),
-          expectedCode = INVALID_ARGUMENT,
-          expectedDescription =
+          code = INVALID_ARGUMENT,
+          description =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown ledger boundary value '7' in field offset.boundary",
+          metadata = Map.empty,
         )
       }
 
@@ -106,20 +101,21 @@ class CompletionServiceRequestValidatorTest
       }
 
       "return the correct error on missing party" in {
-        fixture.testRequestFailure(
-          testedRequest = _.validateCompletionStreamRequest(
+        requestMustFailWith(
+          request = validator.validateCompletionStreamRequest(
             completionReq.copy(parties = Set.empty),
             ledgerEnd,
           ),
-          expectedCode = INVALID_ARGUMENT,
-          expectedDescription =
+          code = INVALID_ARGUMENT,
+          description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: parties",
+          metadata = Map.empty,
         )
       }
 
       "return the correct error when offset is after ledger end" in {
-        fixture.testRequestFailure(
-          testedRequest = _.validateCompletionStreamRequest(
+        requestMustFailWith(
+          request = validator.validateCompletionStreamRequest(
             completionReq.copy(offset =
               Some(
                 domain.LedgerOffset.Absolute(
@@ -129,9 +125,10 @@ class CompletionServiceRequestValidatorTest
             ),
             ledgerEnd,
           ),
-          expectedCode = OUT_OF_RANGE,
-          expectedDescription =
+          code = OUT_OF_RANGE,
+          description =
             "OFFSET_AFTER_LEDGER_END(12,0): Begin offset (1001) is after ledger end (1000)",
+          metadata = Map.empty,
         )
       }
 
@@ -153,11 +150,13 @@ class CompletionServiceRequestValidatorTest
     "validating completions end requests" should {
 
       "fail on ledger ID mismatch" in {
-        fixture.testRequestFailure(
-          testedRequest = _.validateCompletionEndRequest(endReq.withLedgerId("mismatchedLedgerId")),
-          expectedCode = NOT_FOUND,
-          expectedDescription =
+        requestMustFailWith(
+          request =
+            validator.validateCompletionEndRequest(endReq.withLedgerId("mismatchedLedgerId")),
+          code = NOT_FOUND,
+          description =
             "LEDGER_ID_MISMATCH(11,0): Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
+          metadata = Map.empty,
         )
       }
 
@@ -171,40 +170,34 @@ class CompletionServiceRequestValidatorTest
     }
 
     "applying party name checks" should {
-
-      val knowsPartyOnlyFixture = new ValidatorFixture(() => {
-        new CompletionServiceRequestValidator(
-          domain.LedgerId(expectedLedgerId),
-          PartyNameChecker.AllowPartySet(Set(party)),
-        )
-      })
+      val partyRestrictiveValidator = new CompletionServiceRequestValidator(
+        domain.LedgerId(expectedLedgerId),
+        PartyNameChecker.AllowPartySet(Set(party)),
+      )
 
       val unknownParties = List("party", "Alice", "Bob").map(Ref.Party.assertFromString).toSet
       val knownParties = List("party").map(Ref.Party.assertFromString)
 
       "reject completion requests for unknown parties" in {
-        knowsPartyOnlyFixture.testRequestFailure(
-          testedRequest = _.validateCompletionStreamRequest(
+        requestMustFailWith(
+          request = partyRestrictiveValidator.validateCompletionStreamRequest(
             completionReq.copy(parties = unknownParties),
             ledgerEnd,
           ),
-          expectedCode = INVALID_ARGUMENT,
-          expectedDescription =
+          code = INVALID_ARGUMENT,
+          description =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown parties: [Alice, Bob]",
+          metadata = Map.empty,
         )
       }
 
       "accept transaction requests for known parties" in {
-        knowsPartyOnlyFixture
-          .tested()
-          .validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.withParties(knownParties)
-          ) shouldBe a[Right[_, _]]
-        knowsPartyOnlyFixture
-          .tested()
-          .validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.withParties(knownParties)
-          ) shouldBe a[Right[_, _]]
+        partyRestrictiveValidator.validateGrpcCompletionStreamRequest(
+          grpcCompletionReq.withParties(knownParties)
+        ) shouldBe a[Right[_, _]]
+        partyRestrictiveValidator.validateGrpcCompletionStreamRequest(
+          grpcCompletionReq.withParties(knownParties)
+        ) shouldBe a[Right[_, _]]
       }
     }
   }
