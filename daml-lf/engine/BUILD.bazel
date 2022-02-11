@@ -143,7 +143,6 @@ da_scala_test(
         "//ledger/ledger-resources",
         "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state/kvutils/app",
         "//ledger/test-common:dar-files-1.14-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
