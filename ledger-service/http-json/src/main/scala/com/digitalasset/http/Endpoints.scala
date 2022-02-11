@@ -38,6 +38,7 @@ import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
+import scala.util.control.NonFatal
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -84,6 +85,12 @@ class Endpoints(
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
+  // Limit logging of bodies to content with size of less than 10 KiB.
+  // Reason is that a char of an UTF-8 string consumes 1 up to 4 bytes such that the string length
+  // with this limit will be 2560 chars up to 10240 chars. This can hold already the whole cascade
+  // of import statements in this file, which I would consider already as very big string to log.
+  private final val maxBodySizeForLogging = Math.pow(2, 10) * 10
+
   import Endpoints._
   import json.JsonProtocol._
   import util.ErrorOps._
@@ -97,32 +104,33 @@ class Endpoints(
   private def mkRequestLogMsg(request: HttpRequest, remoteAddress: RemoteAddress) =
     s"Incoming ${request.method.value} request on ${request.uri} from $remoteAddress"
 
-  private def mkResponseLogMsg(response: HttpResponse) =
-    s"Responding to client with HTTP ${response.status}"
+  private def mkResponseLogMsg(statusCode: StatusCode) =
+    s"Responding to client with HTTP $statusCode"
 
   // Always put this directive after a path to ensure
   // that you don't log request bodies multiple times (simply because a matching test was made multiple times).
   // TL;DR JUST PUT THIS THING AFTER YOUR FINAL PATH MATCHING
   private def logRequestResponseHelper(
-      logIncomingRequest: (HttpRequest, RemoteAddress) => Future[Unit],
-      logResponse: HttpResponse => Future[Unit],
+      logIncomingRequest: (HttpRequest, RemoteAddress) => HttpRequest,
+      logResponse: HttpResponse => HttpResponse,
   ): Directive0 =
-    extractRequest & extractClientIP tflatMap { case (request, remoteAddress) =>
-      mapRouteResultFuture { responseF =>
-        for {
-          _ <- logIncomingRequest(request, remoteAddress)
-          response <- responseF
-          _ <- response match {
-            case Complete(httpResponse) => logResponse(httpResponse)
-            case _ =>
-              Future.failed(
-                new RuntimeException(
-                  """Logging the request & response should never happen on routes which get rejected.
+    extractClientIP flatMap { remoteAddress =>
+      mapRequest(request => logIncomingRequest(request, remoteAddress)) & mapRouteResultFuture {
+        responseF =>
+          for {
+            response <- responseF
+            transformedResponse <- response match {
+              case Complete(httpResponse) =>
+                Future.successful(Complete(logResponse(httpResponse)))
+              case _ =>
+                Future.failed(
+                  new RuntimeException(
+                    """Logging the request & response should never happen on routes which get rejected.
                     |Make sure to place the directive only at places where a match is guaranteed (e.g. after the path directive).""".stripMargin
+                  )
                 )
-              )
-          }
-        } yield response
+            }
+          } yield transformedResponse
       }
     }
 
@@ -132,28 +140,51 @@ class Endpoints(
     def logWithHttpMessageBodyIfAvailable(
         httpMessage: HttpMessage,
         msg: String,
-        bodyKind: String,
-    ): Future[Unit] =
+        kind: String,
+    ): httpMessage.Self =
       if (
         httpMessage
           .header[`Content-Type`]
           .map(_.contentType)
           .contains(ContentTypes.`application/json`)
-      )
-        httpMessage
-          .entity()
-          .toStrict(maxTimeToCollectRequest)
-          .map(it =>
-            withEnrichedLoggingContext(
-              LoggingContextOf.label[RequestEntity],
-              s"${bodyKind}_body" -> it.data.utf8String.parseJson,
-            )
-              .run(implicit lc => logger.info(msg))
+      ) {
+        def logWithBodyInCtx(body: com.daml.logging.entries.LoggingValue) =
+          withEnrichedLoggingContext(
+            LoggingContextOf.label[RequestEntity],
+            s"${kind}_body" -> body,
           )
-          .recover { case ex =>
-            logger.error("Failed to extract body for logging", ex)
-          }
-      else Future.successful(logger.info(msg))
+            .run { implicit lc => logger.info(msg) }
+        httpMessage.entity.contentLengthOption match {
+          case Some(length) if length < maxBodySizeForLogging =>
+            import akka.stream.scaladsl._
+            httpMessage
+              .transformEntityDataBytes(
+                Flow.fromFunction { it =>
+                  try logWithBodyInCtx(it.utf8String.parseJson)
+                  catch {
+                    case NonFatal(ex) =>
+                      logger.error("Failed to log message body: ", ex)
+                  }
+                  it
+                }
+              )
+          case other =>
+            val reason = other
+              .map(length => s"size of $length is too big for logging")
+              .getOrElse {
+                if (httpMessage.entity.isChunked())
+                  "is chunked & overall size is unknown"
+                else
+                  "size is unknown"
+              }
+            logWithBodyInCtx(s"omitted because $kind body $reason")
+            httpMessage.self
+        }
+      } else {
+        logger.info(msg)
+        httpMessage.self
+      }
+
     logRequestResponseHelper(
       (request, remoteAddress) =>
         logWithHttpMessageBodyIfAvailable(
@@ -164,7 +195,7 @@ class Endpoints(
       httpResponse =>
         logWithHttpMessageBodyIfAvailable(
           httpResponse,
-          mkResponseLogMsg(httpResponse),
+          mkResponseLogMsg(httpResponse.status),
           "response",
         ),
     )
@@ -174,9 +205,14 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Directive0 =
     logRequestResponseHelper(
-      (request, remoteAddress) =>
-        Future.successful(logger.info(mkRequestLogMsg(request, remoteAddress))),
-      httpResponse => Future.successful(logger.info(mkResponseLogMsg(httpResponse))),
+      (request, remoteAddress) => {
+        logger.info(mkRequestLogMsg(request, remoteAddress))
+        request
+      },
+      httpResponse => {
+        logger.info(mkResponseLogMsg(httpResponse.status))
+        httpResponse
+      },
     )
 
   val logRequestAndResultFn: LoggingContextOf[InstanceUUID with RequestID] => Directive0 =
