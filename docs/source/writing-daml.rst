@@ -6,7 +6,6 @@ Writing Daml
 
 .. toctree::
   :maxdepth: 2
-  :hidden:
 
   daml/intro/0_Intro
   daml/reference/index

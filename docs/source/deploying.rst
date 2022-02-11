@@ -6,7 +6,6 @@ Deploying to Daml Ledgers
 
 .. toctree::
   :maxdepth: 2
-  :hidden:
 
   deploy/index
   deploy/generic_ledger

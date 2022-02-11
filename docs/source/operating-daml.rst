@@ -6,7 +6,6 @@ Operating Daml
 
 .. toctree::
   :maxdepth: 2
-  :hidden:
 
   ops/connect/index
   ops/pruning

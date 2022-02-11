@@ -6,7 +6,6 @@ Developer Tools
 
 .. toctree::
   :maxdepth: 2
-  :hidden:
 
   tools/assistant
   daml/daml-studio
