@@ -5,6 +5,9 @@ package com.daml.ledger.sandbox.bridge.validate
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
+import com.daml.error.ErrorCode
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
@@ -27,14 +30,21 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.google.rpc.status.Status.toJavaProto
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, FixtureContext}
+import org.scalatest.{Assertion, FixtureContext, OptionValues}
 
 import java.time.Duration
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
-class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with ArgumentMatchersSugar {
+class SequenceSpec
+    extends AnyFlatSpec
+    with MockitoSugar
+    with Matchers
+    with ArgumentMatchersSugar
+    with OptionValues {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   behavior of classOf[SequenceImpl].getSimpleName
@@ -125,6 +135,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
 
     assertCommandRejected(
       update = update,
+      errorCode = LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime,
       reason =
         "Ledger time 1970-01-01T00:01:00.001Z outside of range [1969-12-31T23:59:30.001Z, 1970-01-01T00:00:30.001Z]",
     )
@@ -133,7 +144,11 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
   it should "fail on unallocated transaction informees" in new TestContext {
     val Seq((offset, update)) = sequence(input(txWithUnallocatedParty))
     offset shouldBe toOffset(1L)
-    assertCommandRejected(update, "Parties not known on ledger: [new-guy]")
+    assertCommandRejected(
+      update = update,
+      errorCode = LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger,
+      reason = "Parties not known on ledger: [new-guy]",
+    )
   }
 
   it should "reject a transaction if there is no ledger configuration" in new TestContext {
@@ -142,7 +157,11 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     // Assert transaction rejection on missing ledger configuration
     val Seq((offset, update)) = sequenceWithoutLedgerConfig(create(cId(1), Some(contractKey(1L))))
     offset shouldBe toOffset(1L)
-    assertCommandRejected(update, "Ledger configuration not found")
+    assertCommandRejected(
+      update = update,
+      errorCode = LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration,
+      reason = "The ledger configuration could not be retrieved: Cannot validate ledger time",
+    )
 
     // Upload config to ledger
     sequenceWithoutLedgerConfig(input(NoOpPreparedSubmission(configUpload))) shouldBe Iterable(
@@ -180,7 +199,8 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     offset2 shouldBe toOffset(2L)
     assertCommandRejected(
       update2,
-      "Inconsistent: DuplicateKey: contract key is not unique",
+      errorCode = LedgerApiErrors.ConsistencyErrors.DuplicateContractKey,
+      "contract key is not unique",
       cmdId = commandId(2),
     )
 
@@ -193,8 +213,9 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     val Seq((offset4, update4)) = sequence(consume(cId(3), cmdId = commandId(3)))
     offset4 shouldBe toOffset(4L)
     assertCommandRejected(
-      update4,
-      s"Inconsistent: Could not lookup contracts: [${cId(3).coid}]",
+      update = update4,
+      errorCode = LedgerApiErrors.ConsistencyErrors.ContractNotFound,
+      reason = s"Unknown contracts: [${cId(3).coid}]",
       cmdId = commandId(3),
     )
 
@@ -209,8 +230,10 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       sequence(exerciseNonConsuming(cId(5), contractKey(2L), cmdId = commandId(5)))
     offset6 shouldBe toOffset(6L)
     assertCommandRejected(
-      update6,
-      s"Inconsistent: Contract key lookup with different results: expected [None], actual [Some(${cId(5)})]",
+      update = update6,
+      errorCode = LedgerApiErrors.ConsistencyErrors.InconsistentContractKey,
+      reason =
+        s"Contract key lookup with different results: expected [None], actual [Some(${cId(5)})]",
       cmdId = commandId(5),
     )
 
@@ -219,8 +242,10 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       sequence(exerciseNonConsuming(cId(5), contractKey(1L), cmdId = commandId(5)))
     offset7 shouldBe toOffset(7L)
     assertCommandRejected(
-      update7,
-      s"Inconsistent: Contract key lookup with different results: expected [Some(${cId(1)})], actual [Some(${cId(5)})]",
+      update = update7,
+      errorCode = LedgerApiErrors.ConsistencyErrors.InconsistentContractKey,
+      reason =
+        s"Contract key lookup with different results: expected [Some(${cId(1)})], actual [Some(${cId(5)})]",
       cmdId = commandId(5),
     )
   }
@@ -276,9 +301,10 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
     val Seq((offset2, update2)) = sequence(submissionWithDedupPeriod)
     offset2 shouldBe toOffset(2L)
     assertCommandRejected(
-      update2,
-      "A command with the given command id has already been successfully processed",
-      deduplicationPeriod,
+      update = update2,
+      errorCode = LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
+      reason = "A command with the given command id has already been successfully processed",
+      deduplicationPeriod = deduplicationPeriod,
       cmdId = commandId(1),
     )
 
@@ -470,7 +496,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
       participantId = Ref.ParticipantId.assertFromString(participantName),
       bridgeMetrics = bridgeMetrics,
       timeProvider = timeProviderMock,
-      errorFactories = ErrorFactories(useSelfServiceErrorCodes = false),
+      errorFactories = ErrorFactories(useSelfServiceErrorCodes = true),
       validatePartyAllocation = validatePartyAllocation,
       initialLedgerEnd = Offset.beforeBegin,
       initialAllocatedParties = allocatedInformees,
@@ -519,6 +545,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
 
     def assertCommandRejected(
         update: Update,
+        errorCode: ErrorCode,
         reason: String,
         deduplicationPeriod: DeduplicationPeriod = zeroDeduplicationPeriod,
         cmdId: Ref.CommandId = commandId(1),
@@ -531,8 +558,7 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
           optDeduplicationPeriod = Some(deduplicationPeriod),
           commandId = cmdId,
         )
-        // TODO SoX: Assert error codes
-        rejection.reasonTemplate.message should include(reason)
+        assertSelfServiceErrorCode(rejection.reasonTemplate.status, errorCode, reason)
       case noMatch => fail(s"Expectation mismatch on expected CommandRejected: $noMatch")
     }
 
@@ -551,4 +577,27 @@ class SequenceSpec extends AnyFlatSpec with MockitoSugar with Matchers with Argu
   private def cId(i: Int) = ContractId.V1(Hash.hashPrivateKey(i.toString))
 
   private def commandId(i: Int): Ref.CommandId = Ref.CommandId.assertFromString(s"cmd-$i")
+
+  def assertSelfServiceErrorCode(
+      scalaStatus: com.google.rpc.status.Status,
+      expectedErrorCode: ErrorCode,
+      errorMessageSubstring: String,
+  ): Assertion = {
+    val status = toJavaProto(scalaStatus)
+
+    val actualStatusCode = status.getCode
+    val actualErrorDetails = ErrorDetails.from(status.getDetailsList.asScala.toSeq)
+    val actualErrorId = actualErrorDetails
+      .collectFirst { case err: ErrorDetails.ErrorInfoDetail => err.reason }
+      .getOrElse(fail("Actual error id is not defined"))
+    val actualRetryability = actualErrorDetails
+      .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.duration }
+
+    status.getMessage should include(errorMessageSubstring)
+    actualErrorId shouldBe expectedErrorCode.id
+    actualStatusCode shouldBe expectedErrorCode.category.grpcCode
+      .map(_.value())
+      .value
+    actualRetryability shouldBe expectedErrorCode.category.retryable.map(_.duration)
+  }
 }

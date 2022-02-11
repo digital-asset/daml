@@ -9,7 +9,6 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.participant.state.kvutils.app.Config
 import com.daml.ledger.participant.state.v2.WriteService
-import com.daml.ledger.resources
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.sandbox.SandboxServer._
 import com.daml.lf.archive.DarParser
@@ -21,11 +20,12 @@ import com.daml.platform.apiserver.ApiServer
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.logging
-import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.{FlywayMigrations, IndexMetadata}
+import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.{DbType, FlywayMigrations}
 import com.daml.ports.Port
 import com.daml.resources.AbstractResourceOwner
 import com.daml.telemetry.NoOpTelemetryContext
+import scalaz.Tag
 import scalaz.syntax.tag._
 
 import java.nio.file.Files
@@ -33,7 +33,7 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters.CompletionStageOps
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 final class SandboxServer(
     config: SandboxConfig,
@@ -45,15 +45,10 @@ final class SandboxServer(
   def this(config: SandboxConfig, materializer: Materializer) =
     this(config, new Metrics(new MetricRegistry))(materializer)
 
-  def acquire()(implicit
-      resourceContext: ResourceContext
-  ): Resource[Port] =
+  def acquire()(implicit resourceContext: ResourceContext): Resource[Port] = {
+    val maybeLedgerId = config.jdbcUrl.flatMap(getLedgerId)
+    val genericConfig = ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
     for {
-      maybeLedgerId <- config.jdbcUrl
-        .map(getLedgerId(_)(resourceContext, resourceContext.executionContext, materializer))
-        .getOrElse(Resource.successful(None))
-      genericConfig =
-        ConfigConverter.toSandboxOnXConfig(config, maybeLedgerId, DefaultName)
       participantConfig <-
         SandboxOnXRunner.validateCombinedParticipantMode(genericConfig)
       (apiServer, writeService) <-
@@ -72,6 +67,7 @@ final class SandboxServer(
       initializationLoggingHeader(genericConfig, apiServer)
       apiServer.port
     }
+  }
 
   private def initializationLoggingHeader(
       genericConfig: Config[BridgeConfig],
@@ -157,23 +153,30 @@ object SandboxServer {
         .migrate()
     }
 
-  // TODO SoX-to-sandbox-classic: Work-around to emulate the ledgerIdMode used in sandbox-classic.
-  //                              This is needed for the Dynamic ledger id mode, when the index should be initialized with the existing ledger id (only used in testing).
-  private def getLedgerId(
-      jdbcUrl: String
-  )(implicit
-      resourceContext: ResourceContext,
-      executionContext: ExecutionContext,
-      materializer: Materializer,
-  ): resources.Resource[Option[String]] =
+  // Work-around to emulate the ledgerIdMode used in sandbox-classic.
+  // This is needed for the Dynamic ledger id mode, when the index should be initialized with the existing ledger id (only used in testing).
+  private def getLedgerId(jdbcUrl: String): Option[String] =
     newLoggingContext { implicit loggingContext: LoggingContext =>
-      Resource
-        // TODO Sandbox: Handle verbose error logging on non-existing ledger id (e.g. when starting on non-initialized Index DB)
-        .fromFuture(IndexMetadata.read(jdbcUrl, ErrorFactories(true)).transform {
-          case Failure(_) => Success(None)
-          case Success(indexMetadata) =>
-            if (indexMetadata.ledgerId.isEmpty) Success(None)
-            else Success(Some(indexMetadata.ledgerId))
-        })
+      Try {
+        val dbType = DbType.jdbcType(jdbcUrl)
+
+        // Creating storage backend and the data-source directly to avoid logging errors
+        // on new db when creating via `IndexMetadata.read`
+        val storageBackendFactory = StorageBackendFactory.of(dbType)
+        val dataSource =
+          storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl)
+
+        storageBackendFactory.createParameterStorageBackend
+          .ledgerIdentity(dataSource.getConnection)
+          .map(_.ledgerId)
+      } match {
+        case Failure(err) =>
+          logger.warn(
+            s"Failure encountered trying to retrieve ledger id: ${err.getMessage}. Assuming uninitialized index."
+          )
+          None
+        case Success(maybeLedgerId) =>
+          maybeLedgerId.map(Tag.unwrap).filter(_.nonEmpty)
+      }
     }
 }

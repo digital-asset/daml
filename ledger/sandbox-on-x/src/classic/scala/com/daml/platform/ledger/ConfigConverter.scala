@@ -35,7 +35,6 @@ object ConfigConverter {
       // For Sandbox-on-X we don't offer that, so default to H2
       serverJdbcUrl = sandboxConfig.jdbcUrl.getOrElse(defaultH2SandboxJdbcUrl()),
       managementServiceTimeout = sandboxConfig.managementServiceTimeout,
-      // TODO SoX-to-sandbox-classic: Wire up all indexer configurations
       indexerConfig = ParticipantIndexerConfig(
         allowExistingSchema = true,
         inputMappingParallelism = sandboxConfig.maxParallelSubmissions,
@@ -48,7 +47,6 @@ object ConfigConverter {
     val extraBridgeConfig = BridgeConfig(
       conflictCheckingEnabled = true,
       implicitPartyAllocation = sandboxConfig.implicitPartyAllocation,
-      // TODO SoX-to-sandbox-classic: Dedicated submissionBufferSize CLI param for sanbox-classic
       submissionBufferSize = sandboxConfig.maxParallelSubmissions,
     )
 
@@ -68,7 +66,6 @@ object ConfigConverter {
       acsIdQueueLimit = sandboxConfig.acsIdQueueLimit,
       configurationLoadTimeout = sandboxConfig.configurationLoadTimeout,
       commandConfig = sandboxConfig.commandConfig,
-      // TODO SoX-to-sandbox-classic: Add configurable flag for sandbox-classic
       enableInMemoryFanOutForLedgerApi = false,
       enableSelfServiceErrorCodes = sandboxConfig.enableSelfServiceErrorCodes,
       eventsPageSize = sandboxConfig.eventsPageSize,

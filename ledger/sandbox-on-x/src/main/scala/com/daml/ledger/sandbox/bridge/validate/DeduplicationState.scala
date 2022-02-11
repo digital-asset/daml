@@ -30,7 +30,7 @@ case class DeduplicationState private (
       s"Cannot deduplicate for a period ($commandDeduplicationDuration) longer than the max deduplication duration ($maxDeduplicationDuration).",
     )
 
-    bridgeMetrics.SequencerState.deduplicationQueueLength.update(deduplicationQueue.size)
+    bridgeMetrics.Stages.Sequence.deduplicationQueueLength.update(deduplicationQueue.size)
 
     val expiredTimestamp = expiredThreshold(maxDeduplicationDuration, recordTime)
     val queueAfterEvictions = deduplicationQueue.withoutOlderThan(expiredTimestamp)

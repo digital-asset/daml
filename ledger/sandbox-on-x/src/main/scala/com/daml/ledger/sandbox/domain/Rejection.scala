@@ -9,7 +9,6 @@ import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import error.ContextualizedErrorLogger
 import error.definitions.LedgerApiErrors
 import ledger.configuration.LedgerTimeModel
-import ledger.participant.state.kvutils.errors.KVErrors
 import lf.data.Time.Timestamp
 import lf.transaction.GlobalKey
 import platform.server.api.validation.ErrorFactories
@@ -78,22 +77,25 @@ private[sandbox] object Rejection {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = {
-      // TODO SoX: Verify and extract the error from KV domain
-      KVErrors.Internal.InternallyInconsistentKeys.Reject().asStatus
-    }
+    override def toStatus: Status =
+      LedgerApiErrors.WriteServiceRejections.Internal.InternallyInconsistentKeys
+        .Reject(
+          "The transaction attempts to create two contracts with the same contract key",
+          Some(key),
+        )
+        .rpcStatus(None)
   }
 
-  final case class TransactionInternallyInconsistentContract(
+  final case class TransactionInternallyDuplicateKeys(
       key: GlobalKey,
       completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = {
-      // TODO SoX: Verify and extract the error from KV domain
-      KVErrors.Internal.InternallyInconsistentKeys.Reject().asStatus
-    }
+    override def toStatus: Status =
+      LedgerApiErrors.WriteServiceRejections.Internal.InternallyDuplicateKeys
+        .Reject("The transaction references a contract key inconsistently", Some(key))
+        .rpcStatus(None)
   }
 
   final case class CausalMonotonicityViolation(

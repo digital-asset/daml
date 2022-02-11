@@ -137,9 +137,9 @@ class BridgeWriteService(
       InstrumentedSource
         .queue[Submission](
           bufferSize = submissionBufferSize,
-          capacityCounter = bridgeMetrics.InputQueue.conflictQueueCapacity,
-          lengthCounter = bridgeMetrics.InputQueue.conflictQueueLength,
-          delayTimer = bridgeMetrics.InputQueue.conflictQueueDelay,
+          capacityCounter = bridgeMetrics.BridgeInputQueue.conflictQueueCapacity,
+          lengthCounter = bridgeMetrics.BridgeInputQueue.conflictQueueLength,
+          delayTimer = bridgeMetrics.BridgeInputQueue.conflictQueueDelay,
         )
         .via(ledgerBridge.flow)
         .preMaterialize()

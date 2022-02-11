@@ -71,7 +71,7 @@ case class SequencerState private (
   }
 
   private def updateMetrics(newState: SequencerState): Unit = {
-    val stateMetrics = bridgeMetrics.SequencerState
+    val stateMetrics = bridgeMetrics.Stages.Sequence
     stateMetrics.sequencerQueueLength.update(newState.sequencerQueue.length)
     stateMetrics.keyStateSize.update(newState.keyState.size)
     stateMetrics.consumedContractsStateSize.update(newState.consumedContractsState.size)
