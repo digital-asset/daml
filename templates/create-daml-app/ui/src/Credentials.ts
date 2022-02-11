@@ -8,7 +8,7 @@ import { User } from "@daml/ledger";
 // Locally we infer it from the token.
 export type PublicParty = {
   usePublicParty: () => string | undefined;
-  setup: () => any,
+  setup: () => void,
 };
 
 export type Credentials = {
