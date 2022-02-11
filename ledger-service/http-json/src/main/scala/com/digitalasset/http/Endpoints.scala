@@ -38,6 +38,7 @@ import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
+import scala.util.control.NonFatal
 
 class Endpoints(
     allowNonHttps: Boolean,
