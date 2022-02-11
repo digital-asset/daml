@@ -609,9 +609,9 @@ class QueryStreamsManager {
       }
 
       const ws = new WebSocket(manager.url, manager.protocols);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const onWsMessage =
         (ws: WebSocket) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ({ data }: { data: any }): void => {
           if (ws.readyState === WsState.Open) {
             const json: unknown = JSON.parse(data.toString());

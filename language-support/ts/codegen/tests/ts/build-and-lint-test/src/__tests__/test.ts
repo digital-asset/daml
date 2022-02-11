@@ -669,11 +669,12 @@ test("multi-{key,query} stream", async () => {
     await p;
   }
   // Add support for comparison queries
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   const streamQueriesWithComparison = ledger.streamQueries.bind(ledger) as (
     t: any,
     qs: any,
   ) => any;
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   const q = streamQueriesWithComparison(buildAndLint.Main.Counter, [
     { p: ALICE_PARTY, t: "included" },
     { c: { "%gt": 5 } },

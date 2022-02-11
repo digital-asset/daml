@@ -329,9 +329,8 @@ export type ContractId<T> = string & { [ContractIdBrand]: T };
 /**
  * Companion object of the [[ContractId]] type.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const ContractId = <T>(
-  _t: Serializable<T>,
+  _t: Serializable<T>, // eslint-disable-line @typescript-eslint/no-unused-vars
 ): Serializable<ContractId<T>> => ({
   decoder: jtv.string() as jtv.Decoder<ContractId<T>>,
   encode: (c: ContractId<T>): unknown => c,
