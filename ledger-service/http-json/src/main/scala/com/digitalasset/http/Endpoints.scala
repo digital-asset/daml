@@ -89,7 +89,9 @@ class Endpoints(
   import util.ErrorOps._
 
   private def responseToRoute(res: Future[HttpResponse]): Route = _ => res map Complete
-  private def toRoute[T: MkHttpResponse](res: => T): Route =
+  private def toRoute[T: MkHttpResponse](res: => T)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Route =
     responseToRoute(httpResponse(res))
 
   private def mkRequestLogMsg(request: HttpRequest, remoteAddress: RemoteAddress) =
@@ -383,19 +385,24 @@ class Endpoints(
       .fromFunction((_: E \/ A).leftMap(E.run))
       .recover(logException("Source") andThen Error.fromThrowable andThen (-\/(_)))
 
-  private def httpResponse[T](output: T)(implicit T: MkHttpResponse[T]): Future[HttpResponse] =
+  private def httpResponse[T](output: T)(implicit
+      T: MkHttpResponse[T],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+  ): Future[HttpResponse] =
     T.run(output)
       .recover(Error.fromThrowable andThen (httpResponseError(_)))
 
-  private implicit def sourceStreamSearchResults[A: JsonWriter]
-      : MkHttpResponse[ET[domain.SyncResponse[Source[Error \/ A, NotUsed]]]] =
+  private implicit def sourceStreamSearchResults[A: JsonWriter](implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): MkHttpResponse[ET[domain.SyncResponse[Source[Error \/ A, NotUsed]]]] =
     MkHttpResponse { output =>
       implicitly[MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]]]
         .run(output.map(_ map (_ map (_ map ((_: A).toJson)))).run)
     }
 
-  private implicit def searchResults
-      : MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]] =
+  private implicit def searchResults(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]] =
     MkHttpResponse { output =>
       output.map(_.fold(httpResponseError, searchHttpResponse))
     }
@@ -426,7 +433,8 @@ class Endpoints(
     }
 
   private implicit def fullySync[A: JsonWriter](implicit
-      metrics: Metrics
+      metrics: Metrics,
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): MkHttpResponse[ET[domain.SyncResponse[A]]] = MkHttpResponse { result =>
     Timed.future(
       metrics.daml.HttpJsonApi.responseCreationTimer,
