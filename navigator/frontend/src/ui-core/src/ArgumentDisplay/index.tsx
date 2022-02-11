@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from "react";
+import { shortenContractId, shortenPartyId } from "../api/IdentifierShortening";
 import { DamlLfValue } from "../api/DamlLfValue";
 import * as DamlLfValueF from "../api/DamlLfValue";
 import { LabeledElement } from "../Label";
+import LongIdentifier from "../LongIdentifier";
 import NestedForm from "../NestedForm";
 import { hardcodedStyle } from "../theme";
 import { NonExhaustiveMatch } from "../util";
@@ -84,9 +86,19 @@ const ArgumentDisplay = (props: Props): JSX.Element => {
     case "text":
       return <span>{argument.value}</span>;
     case "party":
-      return <span>{argument.value}</span>;
+      return (
+        <LongIdentifier
+          text={shortenPartyId(argument.value)}
+          identifier={argument.value}
+        />
+      );
     case "contractid":
-      return <span>{argument.value}</span>;
+      return (
+        <LongIdentifier
+          text={shortenContractId(argument.value)}
+          identifier={argument.value}
+        />
+      );
     case "numeric":
       return <span>{argument.value}</span>;
     case "int64":
