@@ -49,7 +49,7 @@ You can run the JSON API alongside any ledger exposing the gRPC Ledger API you w
     daml new my_project --template quickstart-java
     cd my_project
     daml build
-    daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
+    daml sandbox --wall-clock-time --ledgerid MyLedger --dar ./.daml/dist/quickstart-0.0.1.dar
 
 .. _start-http-service:
 
