@@ -34,7 +34,7 @@ private[validate] class ConflictCheckingLedgerBridge(
 ) extends LedgerBridge {
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
-      .buffered(servicesThreadPoolSize)(bridgeMetrics.Stages.PrepareSubmission.bufferBefore)
+      .buffered(128)(bridgeMetrics.Stages.PrepareSubmission.bufferBefore)
       .mapAsyncUnordered(servicesThreadPoolSize)(prepareSubmission)
       .buffered(128)(bridgeMetrics.Stages.TagWithLedgerEnd.bufferBefore)
       .mapAsync(parallelism = 1)(tagWithLedgerEnd)
