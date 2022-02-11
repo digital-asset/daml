@@ -78,7 +78,7 @@ diff -Naur templates/create-daml-app/ui/src/components/MessageEdit.tsx templates
 +import { Form, Button } from 'semantic-ui-react';
 +import { Party } from '@daml/types';
 +import { User } from '@daml.js/create-daml-app';
-+import { useParty, useLedger } from '@daml/react';
++import { userContext } from './App';
 +
 +type Props = {
 +  followers: Party[];
@@ -89,11 +89,11 @@ diff -Naur templates/create-daml-app/ui/src/components/MessageEdit.tsx templates
 + * React component to edit a message to send to a follower.
 + */
 +const MessageEdit: React.FC<Props> = ({followers, partyToAlias}) => {
-+  const sender = useParty();
++  const sender = userContext.useParty();
 +  const [receiver, setReceiver] = React.useState<string | undefined>();
 +  const [content, setContent] = React.useState("");
 +  const [isSubmitting, setIsSubmitting] = React.useState(false);
-+  const ledger = useLedger();
++  const ledger = userContext.useLedger();
 +
 +  const submitMessage = async (event: React.FormEvent) => {
 +    try {
@@ -150,7 +150,7 @@ diff -Naur templates/create-daml-app/ui/src/components/MessageList.tsx templates
 +import React from 'react'
 +import { List, ListItem } from 'semantic-ui-react';
 +import { User } from '@daml.js/create-daml-app';
-+import { useStreamQueries } from '@daml/react';
++import { userContext } from './App';
 +
 +type Props = {
 +  partyToAlias: Map<string, string>
@@ -159,7 +159,7 @@ diff -Naur templates/create-daml-app/ui/src/components/MessageList.tsx templates
 + * React component displaying the list of messages for the current user.
 + */
 +const MessageList: React.FC<Props> = ({partyToAlias}) => {
-+  const messagesResult = useStreamQueries(User.Message);
++  const messagesResult = userContext.useStreamQueries(User.Message);
 +
 +  return (
 +    <List relaxed>
