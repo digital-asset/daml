@@ -62,6 +62,7 @@ private[speedy] object SpeedyTestLib {
         case SResultNeedPackage(pkg, _, callback) =>
           getPkg.lift(pkg) match {
             case Some(value) =>
+              machine.compiledPackages = value
               callback(value)
               loop
             case None =>

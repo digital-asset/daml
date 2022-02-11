@@ -615,7 +615,7 @@ class EngineTest
     val seed = hash("exercise-by-key")
     val now = Time.Timestamp.now()
 
-    "create a Exercise node with flag byKey without Fetch REMY" in {
+    "create a Exercise node with flag byKey without Fetch" in {
 
       val tmplId = Identifier(basicTestsPkgId, "BasicTests:ExerciseByKey")
       val cmds = ImmArray(

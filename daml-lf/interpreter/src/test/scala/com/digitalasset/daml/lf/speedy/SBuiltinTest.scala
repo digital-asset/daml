@@ -1594,10 +1594,10 @@ object SBuiltinTest {
               message \(e: Mod:Exception) -> "some nice error message"
           } ;
 
-         record @serializable ExceptionAppend = { front: Text, back: Text } ;
-         exception ExceptionAppend = {
-           message \(e: Mod:ExceptionAppend) -> APPEND_TEXT (Mod:ExceptionAppend {front} e) (Mod:ExceptionAppend {back} e)
-         };
+          record @serializable ExceptionAppend = { front: Text, back: Text } ;
+          exception ExceptionAppend = {
+            message \(e: Mod:ExceptionAppend) -> APPEND_TEXT (Mod:ExceptionAppend {front} e) (Mod:ExceptionAppend {back} e)
+          };
 
           record @serializable Ex1 = { message: Text } ;
           exception Ex1 = {

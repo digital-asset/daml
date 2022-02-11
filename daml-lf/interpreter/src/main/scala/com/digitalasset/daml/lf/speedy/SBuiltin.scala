@@ -1077,6 +1077,27 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case object SBCheckTemplateType extends SBuiltinPure(3) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
+      val expectedTmplId = args.get(0) match {
+        case STypeRep(Ast.TTyCon(tplId)) =>
+          tplId
+        case STypeRep(_) =>
+          throw SErrorDamlException(IE.UserError("unexpected typerep during interface fetch"))
+        case _ =>
+          crash(s"expected a TypeRep")
+      }
+      def coid = getSContractId(args, 1)
+      val record = getSRecord(args, 2)
+      val actualTemplateId = record.id
+      if (actualTemplateId != expectedTmplId)
+        throw SErrorDamlException(
+          IE.WronglyTypedContract(coid, expectedTmplId, actualTemplateId)
+        )
+      record
+    }
+  }
+
   // Similar to SBUFetch but is never performed "by key".
   final case class SBUFetchInterface(ifaceId: TypeConName) extends OnLedgerBuiltin(2) {
     override protected def execute(
@@ -1085,39 +1106,20 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Unit = {
       val coid = getSContractId(args, 0)
-      val expectedTemplateIdOpt = getSOptional(args, 1).map(typeRep =>
-        typeRep match {
-          case STypeRep(Ast.TTyCon(tpl)) => tpl
-          case STypeRep(_) =>
-            throw SErrorDamlException(IE.UserError("unexpected typerep during interface fetch"))
-          case _ =>
-            crash(s"expected a typerep in SBUFetchInterface")
-        }
-      )
+      val expectedTemplateIdOpt = getSOptional(args, 1).map {
+        case STypeRep(Ast.TTyCon(tpl)) => tpl
+        case STypeRep(_) =>
+          throw SErrorDamlException(IE.UserError("unexpected typerep during interface fetch"))
+        case _ =>
+          crash(s"expected a typerep in SBUFetchInterface")
+      }
 
-      def checkTemplateId(actualTemplateId: TypeConName)(onSuccess: => Unit): Unit = {
-        // NOTE(Sofia): We can't throw directly here, because this is run
-        // in the SpeedyHungry callback. See the comment on SEDamlException.
-        val expectedTemplateId = expectedTemplateIdOpt.getOrElse(actualTemplateId)
-        if (actualTemplateId != expectedTemplateId) {
-          machine.ctrl = SEDamlException(
-            IE.WronglyTypedContract(coid, expectedTemplateId, actualTemplateId)
-          )
-        } else if (
-          machine.compiledPackages
-            .getDefinition(ImplementsDefRef(actualTemplateId, ifaceId))
-            .isEmpty
-        ) {
-          machine.ctrl = SEDamlException(
-            IE.ContractDoesNotImplementInterface(
-              interfaceId = ifaceId,
-              coid = coid,
-              templateId = actualTemplateId,
-            )
-          )
-        } else {
-          onSuccess
-        }
+      val guard = getSOptional(args, 1) match {
+        case Some(typRep) =>
+          (x: SExpr) =>
+            SBCheckTemplateType(runTime.SEValue(typRep), runTime.SEValue(SContractId(coid)), x)
+        case None =>
+          (x: SExpr) => x
       }
 
       onLedger.cachedContracts.get(coid) match {
@@ -1129,9 +1131,19 @@ private[lf] object SBuiltin {
                 IE.ContractNotActive(coid, expectedTemplateIdOpt.getOrElse(ifaceId), nid)
               )
             )
-          checkTemplateId(cached.templateId) {
-            machine.returnValue = cached.value
-          }
+          if (
+            machine.compiledPackages
+              .getDefinition(ImplementsDefRef(cached.templateId, ifaceId))
+              .isEmpty
+          )
+            throw SErrorDamlException(
+              IE.ContractDoesNotImplementInterface(
+                interfaceId = ifaceId,
+                coid = coid,
+                templateId = cached.templateId,
+              )
+            )
+          machine.ctrl = guard(runTime.SEValue(cached.value))
         case None =>
           throw SpeedyHungry(
             SResultNeedContract(
@@ -1139,18 +1151,16 @@ private[lf] object SBuiltin {
               ifaceId,
               onLedger.committers,
               { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
-                checkTemplateId(actualTmplId) {
-                  machine.pushKont(KCacheContract(machine, actualTmplId, coid))
-                  machine.ctrl = SELet1(
-                    SEImportInterface(actualTmplId, arg),
-                    cachedContractStruct(
-                      SELocS(1),
-                      SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
-                      SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
-                      SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1))),
-                    ),
-                  )
-                }
+                machine.pushKont(KCacheContract(machine, actualTmplId, coid))
+                machine.ctrl = runTime.SELet1(
+                  guard(runTime.SEImportInterface(ifaceId, coid, actualTmplId, arg)),
+                  cachedContractStruct(
+                    runTime.SELocS(1),
+                    runTime.SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
+                    runTime.SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
+                    runTime.SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1))),
+                  ),
+                )
               },
             )
           )

@@ -25,6 +25,7 @@ import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.{SExpr0 => compileTime}
+import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
 /** The speedy expression:
@@ -353,22 +354,40 @@ object SExpr {
     * Unlike SEImportValue, may throw a SpeedyHungry exception to
     * request the packages of tyCon.
     */
-  final case class SEImportInterface(tyCon: TypeConName, value: V) extends SExpr {
-    private[this] val typ = Ast.TTyCon(tyCon)
+  final case class SEImportInterface(
+      ifaceId: TypeConName,
+      coid: V.ContractId,
+      tmplId: TypeConName,
+      value: V,
+      alreadyRunOnce: Boolean = false,
+  ) extends SExpr {
     def execute(machine: Machine): Unit = {
-      val pkgId = tyCon.packageId
-      if (!machine.compiledPackages.packageIds.contains(pkgId))
+      val pkgId = tmplId.packageId
+      if (!machine.compiledPackages.packageIds.contains(pkgId)) {
+        // We guard against loop in case there is a but somewhere else.
+        if (alreadyRunOnce)
+          throw SError.SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "unexpected loop")
         throw SpeedyHungry(
           SResult.SResultNeedPackage(
             pkgId,
-            language.Reference.Template(tyCon),
-            _ =>
-              // we do not reuse SEImportInterface to avoid infinite
-              // loop in case of a bug somewhere else.
-              machine.ctrl = SEImportValue(typ, value),
+            language.Reference.Template(tmplId),
+            _ => machine.ctrl = copy(alreadyRunOnce = true),
           )
         )
-      machine.importValue(typ, value)
+      }
+      if (
+        machine.compiledPackages
+          .getDefinition(ImplementsDefRef(tmplId, ifaceId))
+          .isEmpty
+      )
+        throw SErrorDamlException(
+          interpretation.Error.ContractDoesNotImplementInterface(
+            interfaceId = ifaceId,
+            coid = coid,
+            templateId = tmplId,
+          )
+        )
+      machine.importValue(Ast.TTyCon(tmplId), value)
     }
   }
 
