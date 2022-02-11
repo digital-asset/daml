@@ -3,7 +3,7 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.participant.state.kvutils.app.{Config, ConfigProvider}
+import com.daml.ledger.runner.common.{Config, ConfigProvider}
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import scopt.OptionParser
 

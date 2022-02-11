@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import java.util.concurrent.{Executors, TimeUnit}
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
@@ -23,6 +22,14 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
   ExperimentalContractIds,
+}
+import com.daml.ledger.runner.common.{
+  Config,
+  ConfigProvider,
+  DumpIndexMetadata,
+  Mode,
+  ParticipantConfig,
+  ParticipantRunMode,
 }
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}

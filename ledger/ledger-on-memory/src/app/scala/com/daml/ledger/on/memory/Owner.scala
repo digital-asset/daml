@@ -3,7 +3,8 @@
 
 package com.daml.ledger.on.memory
 
-import com.daml.ledger.participant.state.kvutils.app.{Config, ConfigProvider, Runner}
+import com.daml.ledger.runner.common.{Config, ConfigProvider}
+import com.daml.ledger.participant.state.kvutils.app.Runner
 import com.daml.ledger.resources.ResourceOwner
 
 object Owner {
