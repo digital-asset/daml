@@ -1,8 +1,8 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import * as DamlLfTypeF from '../api/DamlLfType';
+import * as React from "react";
+import * as DamlLfTypeF from "../api/DamlLfType";
 import {
   DamlLfDataType,
   DamlLfDefDataType,
@@ -15,7 +15,7 @@ import {
   DamlLfTypeNumeric,
   DamlLfTypePrim,
   DamlLfVariant,
-} from '../api/DamlLfType';
+} from "../api/DamlLfType";
 import {
   DamlLfValue,
   DamlLfValueBool,
@@ -34,19 +34,18 @@ import {
   enumCon,
   genMapEntry,
   textMapEntry,
-} from '../api/DamlLfValue';
-import Button from '../Button';
-import {StyledTextInput} from '../Input';
-import {LabeledElement} from '../Label';
-import NestedForm from '../NestedForm';
-import Select from '../Select';
-import styled from '../theme';
-import TimeInput from '../TimeInput';
-import {NonExhaustiveMatch, TypeErrorElement} from '../util';
-import ContractIdInput from './ContractIdInput';
+} from "../api/DamlLfValue";
+import Button from "../Button";
+import { StyledTextInput } from "../Input";
+import { LabeledElement } from "../Label";
+import NestedForm from "../NestedForm";
+import Select from "../Select";
+import styled from "../theme";
+import TimeInput from "../TimeInput";
+import { NonExhaustiveMatch, TypeErrorElement } from "../util";
+import ContractIdInput from "./ContractIdInput";
 
-import * as DamlLfValueF from '@da/ui-core/lib/api/DamlLfValue';
-
+import * as DamlLfValueF from "@da/ui-core/lib/api/DamlLfValue";
 
 /* eslint-disable @typescript-eslint/no-use-before-define */
 
@@ -63,14 +62,19 @@ interface InputProps<T> {
   name: string;
 }
 
-
 /** Returns true if both the `value` and the `type` are valid for the given type. */
-export function matchPrimitiveType(value: DamlLfValue, type: DamlLfTypePrim, name: DamlLfPrimType): boolean {
-  return ((value.type === name || value.type === 'undefined') && type.name === name)
+export function matchPrimitiveType(
+  value: DamlLfValue,
+  type: DamlLfTypePrim,
+  name: DamlLfPrimType,
+): boolean {
+  return (
+    (value.type === name || value.type === "undefined") && type.name === name
+  );
 }
 
 interface NumericInputProps {
-  parameter: DamlLfTypeNumeric,
+  parameter: DamlLfTypeNumeric;
   disabled: boolean;
   onChange(val: DamlLfValueNumeric): void;
   argument: DamlLfValue;
@@ -78,16 +82,34 @@ interface NumericInputProps {
 }
 
 function matchNumeric(value: DamlLfValue, type: DamlLfTypeNumeric): boolean {
-  return ((value.type === 'numeric' || value.type === 'undefined') && type.type === 'numeric')
+  return (
+    (value.type === "numeric" || value.type === "undefined") &&
+    type.type === "numeric"
+  );
 }
 
-
 /** Returns true if both the `value` and the `type` are valid for the given type. */
-function matchDataType(value: DamlLfValue, type: DamlLfDataType, name: 'record'): value is DamlLfValueRecord;
-function matchDataType(value: DamlLfValue, type: DamlLfDataType, name: 'variant'): value is DamlLfValueVariant;
-function matchDataType(value: DamlLfValue, type: DamlLfDataType, name: 'enum'): value is DamlLfValueEnum;
-function matchDataType(value: DamlLfValue, type: DamlLfDataType, name: 'record' | 'variant' | 'enum'): boolean {
-  return (value.type === name && type.type === name)
+function matchDataType(
+  value: DamlLfValue,
+  type: DamlLfDataType,
+  name: "record",
+): value is DamlLfValueRecord;
+function matchDataType(
+  value: DamlLfValue,
+  type: DamlLfDataType,
+  name: "variant",
+): value is DamlLfValueVariant;
+function matchDataType(
+  value: DamlLfValue,
+  type: DamlLfDataType,
+  name: "enum",
+): value is DamlLfValueEnum;
+function matchDataType(
+  value: DamlLfValue,
+  type: DamlLfDataType,
+  name: "record" | "variant" | "enum",
+): boolean {
+  return value.type === name && type.type === name;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -95,20 +117,22 @@ function matchDataType(value: DamlLfValue, type: DamlLfDataType, name: 'record' 
 //-------------------------------------------------------------------------------------------------
 
 const TextInput = (props: InputProps<DamlLfValueText>): JSX.Element => {
-  const { argument, parameter, disabled, onChange} = props;
-  if (matchPrimitiveType(argument, parameter, 'text')) {
-    const displayValue = argument.type === 'text' ? argument.value : undefined;
+  const { argument, parameter, disabled, onChange } = props;
+  if (matchPrimitiveType(argument, parameter, "text")) {
+    const displayValue = argument.type === "text" ? argument.value : undefined;
     return (
       <StyledTextInput
         type="text"
         disabled={disabled}
         placeholder="Text"
         value={displayValue}
-        onChange={(e) => { onChange(DamlLfValueF.text((e.target as HTMLInputElement).value)); }}
+        onChange={e => {
+          onChange(DamlLfValueF.text((e.target as HTMLInputElement).value));
+        }}
       />
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
 };
 
@@ -117,23 +141,24 @@ const TextInput = (props: InputProps<DamlLfValueText>): JSX.Element => {
 //-------------------------------------------------------------------------------------------------
 
 const PartyInput = (props: InputProps<DamlLfValueParty>): JSX.Element => {
-  const { parameter, argument, disabled, onChange} = props;
-  if (matchPrimitiveType(argument, parameter, 'party')) {
-    const displayValue = argument.type === 'party' ? argument.value : undefined;
+  const { parameter, argument, disabled, onChange } = props;
+  if (matchPrimitiveType(argument, parameter, "party")) {
+    const displayValue = argument.type === "party" ? argument.value : undefined;
     return (
       <StyledTextInput
         type="text"
         disabled={disabled}
         placeholder="Party"
         value={displayValue}
-        onChange={(e) => { onChange(DamlLfValueF.party((e.target as HTMLInputElement).value)); }}
+        onChange={e => {
+          onChange(DamlLfValueF.party((e.target as HTMLInputElement).value));
+        }}
       />
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
 };
-
 
 /*
 // Note: the ledger may use decimals with unlimited precision,
@@ -174,8 +199,9 @@ function getNextValue<T>(
 const NumericInput = (props: NumericInputProps): JSX.Element => {
   const { parameter, argument, disabled, onChange } = props;
   if (matchNumeric(argument, parameter)) {
-    const displayValue = argument.type === 'numeric' ? argument.value : undefined;
-    const prettyType = 'Numeric ' + parameter.scale;
+    const displayValue =
+      argument.type === "numeric" ? argument.value : undefined;
+    const prettyType = "Numeric " + parameter.scale;
     return (
       <StyledTextInput
         type="number"
@@ -183,11 +209,13 @@ const NumericInput = (props: NumericInputProps): JSX.Element => {
         placeholder={prettyType}
         step="any"
         value={displayValue}
-        onChange={(e) => { onChange(DamlLfValueF.numeric((e.target as HTMLInputElement).value)); }}
+        onChange={e => {
+          onChange(DamlLfValueF.numeric((e.target as HTMLInputElement).value));
+        }}
       />
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
 };
 
@@ -197,19 +225,21 @@ const NumericInput = (props: NumericInputProps): JSX.Element => {
 
 const IntegerInput = (props: InputProps<DamlLfValueInt64>): JSX.Element => {
   const { parameter, argument, disabled, onChange } = props;
-  if (matchPrimitiveType(argument, parameter, 'int64')) {
-    const displayValue = argument.type === 'int64' ? argument.value : undefined;
+  if (matchPrimitiveType(argument, parameter, "int64")) {
+    const displayValue = argument.type === "int64" ? argument.value : undefined;
     return (
       <StyledTextInput
         type="number"
         disabled={disabled}
         placeholder="Integer"
         value={displayValue}
-        onChange={(e) => { onChange(DamlLfValueF.int64((e.target as HTMLInputElement).value)); }}
+        onChange={e => {
+          onChange(DamlLfValueF.int64((e.target as HTMLInputElement).value));
+        }}
       />
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
 };
 
@@ -219,18 +249,20 @@ const IntegerInput = (props: InputProps<DamlLfValueInt64>): JSX.Element => {
 
 const UnitInput = (props: InputProps<DamlLfValueUnit>): JSX.Element => {
   const { parameter, argument } = props;
-  if (matchPrimitiveType(argument, parameter, 'unit')) {
+  if (matchPrimitiveType(argument, parameter, "unit")) {
     return (
       <StyledTextInput
         type="text"
         disabled={true}
         placeholder="unit"
         value="unit"
-        onChange={() => { return; }}
+        onChange={() => {
+          return;
+        }}
       />
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
 };
 
@@ -249,16 +281,18 @@ interface VariantTypeInputProps {
  * A string representation of an unset variant type.
  * This must not be a valid DAML variant name to avoid name clashes.
  */
-const variantTypeNone = '';
+const variantTypeNone = "";
 
 const VariantTypeInput = (props: VariantTypeInputProps): JSX.Element => {
   const { parameter, disabled, onChange, varType } = props;
-  const options = parameter.fields.map((f) => ({value: f.name, label: f.name}));
+  const options = parameter.fields.map(f => ({ value: f.name, label: f.name }));
   return (
     <Select
       disabled={disabled}
       value={varType === undefined ? variantTypeNone : varType}
-      onChange={(value) => { onChange(value); }}
+      onChange={value => {
+        onChange(value);
+      }}
       options={options}
     />
   );
@@ -270,44 +304,71 @@ interface VariantInputProps {
   disabled: boolean;
   onChange(val: DamlLfValueVariant): void;
   argument: DamlLfValue;
-  level: number
-  contractIdProvider?: ContractIdProvider
-  typeProvider: TypeProvider
+  level: number;
+  contractIdProvider?: ContractIdProvider;
+  typeProvider: TypeProvider;
 }
 
 const VariantInput = (props: VariantInputProps): JSX.Element => {
-  const { id, argument, parameter, level, onChange, disabled, contractIdProvider, typeProvider } = props;
-  if (matchDataType(argument, parameter, 'variant')) {
+  const {
+    id,
+    argument,
+    parameter,
+    level,
+    onChange,
+    disabled,
+    contractIdProvider,
+    typeProvider,
+  } = props;
+  if (matchDataType(argument, parameter, "variant")) {
     const value = argument.value;
     const constructorName = argument.constructor;
-    const constructor = parameter.fields.filter((f) => f.name === constructorName)[0];
+    const constructor = parameter.fields.filter(
+      f => f.name === constructorName,
+    )[0];
     return (
       <NestedForm level={level}>
-        <LabeledElement label={'Type'} key={'type'}>
+        <LabeledElement label={"Type"} key={"type"}>
           <VariantTypeInput
             parameter={parameter}
             disabled={disabled}
             varType={constructorName}
-            onChange={(val) => {
-              const newConstructor = parameter.fields.filter((f) => f.name === val)[0]
+            onChange={val => {
+              const newConstructor = parameter.fields.filter(
+                f => f.name === val,
+              )[0];
               if (newConstructor === undefined) {
                 // Resetting variant to initial state
-                onChange(DamlLfValueF.initialVariantValue(id, parameter))
+                onChange(DamlLfValueF.initialVariantValue(id, parameter));
               } else if (constructor === undefined) {
                 // Setting a value for the first time
-                onChange(DamlLfValueF.variant(id, newConstructor.name, DamlLfValueF.initialValue(newConstructor.value)))
-              } else if (DamlLfTypeF.equal(constructor.value, newConstructor.value)) {
+                onChange(
+                  DamlLfValueF.variant(
+                    id,
+                    newConstructor.name,
+                    DamlLfValueF.initialValue(newConstructor.value),
+                  ),
+                );
+              } else if (
+                DamlLfTypeF.equal(constructor.value, newConstructor.value)
+              ) {
                 // Constructor changed, but has same type - reuse value
-                onChange(DamlLfValueF.variant(id, newConstructor.name, value))
+                onChange(DamlLfValueF.variant(id, newConstructor.name, value));
               } else {
                 // Constructor changed, type differs - reset value
-                onChange(DamlLfValueF.variant(id, newConstructor.name, DamlLfValueF.initialValue(newConstructor.value)))
+                onChange(
+                  DamlLfValueF.variant(
+                    id,
+                    newConstructor.name,
+                    DamlLfValueF.initialValue(newConstructor.value),
+                  ),
+                );
               }
             }}
           />
         </LabeledElement>
         {constructor !== undefined ? (
-          <LabeledElement label={'Value'} key={'value'}>
+          <LabeledElement label={"Value"} key={"value"}>
             <ParameterInput
               contractIdProvider={contractIdProvider}
               typeProvider={typeProvider}
@@ -315,7 +376,7 @@ const VariantInput = (props: VariantInputProps): JSX.Element => {
               name={`${name}.value`}
               argument={value}
               disabled={disabled}
-              onChange={(val) => {
+              onChange={val => {
                 onChange(DamlLfValueF.variant(id, constructor.name, val));
               }}
               level={level + 1}
@@ -325,7 +386,7 @@ const VariantInput = (props: VariantInputProps): JSX.Element => {
       </NestedForm>
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
 };
 
@@ -339,14 +400,23 @@ interface RecordInputProps {
   disabled: boolean;
   onChange(val: DamlLfValueRecord): void;
   argument: DamlLfValue;
-  level: number
-  contractIdProvider?: ContractIdProvider
-  typeProvider: TypeProvider
+  level: number;
+  contractIdProvider?: ContractIdProvider;
+  typeProvider: TypeProvider;
 }
 
 const RecordInput = (props: RecordInputProps): JSX.Element => {
-  const { id, argument, parameter, level, onChange, disabled, contractIdProvider, typeProvider } = props;
-  if (matchDataType(argument, parameter, 'record')) {
+  const {
+    id,
+    argument,
+    parameter,
+    level,
+    onChange,
+    disabled,
+    contractIdProvider,
+    typeProvider,
+  } = props;
+  if (matchDataType(argument, parameter, "record")) {
     const fields = argument.fields;
     return (
       <NestedForm level={level}>
@@ -357,11 +427,15 @@ const RecordInput = (props: RecordInputProps): JSX.Element => {
               typeProvider={typeProvider}
               parameter={f.value}
               name={`${name}.${f.name}`}
-              argument={fields[i] && fields[i].label === f.name ? fields[i].value : DamlLfValueF.undef()}
+              argument={
+                fields[i] && fields[i].label === f.name
+                  ? fields[i].value
+                  : DamlLfValueF.undef()
+              }
               disabled={disabled}
-              onChange={(val) => {
+              onChange={val => {
                 const newFields = fields.slice(0);
-                newFields[i] = {label: f.name, value: val}
+                newFields[i] = { label: f.name, value: val };
                 onChange(DamlLfValueF.record(id, newFields));
               }}
               level={level + 1}
@@ -371,7 +445,7 @@ const RecordInput = (props: RecordInputProps): JSX.Element => {
       </NestedForm>
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
 };
 
@@ -385,32 +459,33 @@ interface EnumInputProps {
   disabled: boolean;
   onChange(val: DamlLfValueEnum): void;
   argument: DamlLfValue;
-  level: number
+  level: number;
 }
 
 const EnumInput = (props: EnumInputProps): JSX.Element => {
   const { id, parameter, level, onChange, argument, disabled } = props;
-  if (matchDataType(argument, parameter, 'enum')) {
-    const options = parameter.constructors.map((c) => ({value: c, label: c}));
+  if (matchDataType(argument, parameter, "enum")) {
+    const options = parameter.constructors.map(c => ({ value: c, label: c }));
     return (
       <NestedForm level={level}>
-        <LabeledElement label={'Constructor'} key={'constructor'}>
+        <LabeledElement label={"Constructor"} key={"constructor"}>
           <Select
             disabled={disabled}
             value={argument.constructor}
-            onChange={(value) => {
+            onChange={value => {
               if (value === undefined) {
                 onChange(DamlLfValueF.initialEnumValue(id, parameter));
               } else {
                 onChange(enumCon(id, value));
-            }}}
+              }
+            }}
             options={options}
           />
         </LabeledElement>
       </NestedForm>
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
 };
 
@@ -422,39 +497,56 @@ interface OptionalInputProps {
   disabled: boolean;
   onChange(val: DamlLfValueOptional): void;
   argument: DamlLfValue;
-  level: number
-  contractIdProvider?: ContractIdProvider
-  typeProvider: TypeProvider
+  level: number;
+  contractIdProvider?: ContractIdProvider;
+  typeProvider: TypeProvider;
 }
 
 const OptionalInput = (props: OptionalInputProps): JSX.Element => {
-  const { argument, parameter, level, onChange, disabled, contractIdProvider, typeProvider } = props;
-  if (matchPrimitiveType(argument, parameter, 'optional')) {
-    const value = argument.type === 'optional' ? argument.value : DamlLfValueF.undef();
+  const {
+    argument,
+    parameter,
+    level,
+    onChange,
+    disabled,
+    contractIdProvider,
+    typeProvider,
+  } = props;
+  if (matchPrimitiveType(argument, parameter, "optional")) {
+    const value =
+      argument.type === "optional" ? argument.value : DamlLfValueF.undef();
     const valueType = parameter.args[0];
-    const constructor = value !== null ? 'Some' : 'None';
+    const constructor = value !== null ? "Some" : "None";
     return (
       <NestedForm level={level}>
-        <LabeledElement label={'Type'} key={'type'}>
+        <LabeledElement label={"Type"} key={"type"}>
           <Select
             disabled={disabled}
             value={constructor}
-            onChange={(newConstructor) => {
+            onChange={newConstructor => {
               if (newConstructor !== constructor) {
                 switch (newConstructor) {
-                  case 'Some': onChange(DamlLfValueF.optional(DamlLfValueF.initialValue(valueType))); break;
-                  case 'None': onChange(DamlLfValueF.optional(null)); break;
+                  case "Some":
+                    onChange(
+                      DamlLfValueF.optional(
+                        DamlLfValueF.initialValue(valueType),
+                      ),
+                    );
+                    break;
+                  case "None":
+                    onChange(DamlLfValueF.optional(null));
+                    break;
                 }
               }
             }}
             options={[
-              {value: 'Some', label: 'Some'},
-              {value: 'None', label: 'None'},
+              { value: "Some", label: "Some" },
+              { value: "None", label: "None" },
             ]}
           />
         </LabeledElement>
         {value !== null ? (
-          <LabeledElement label={'Value'} key={'value'}>
+          <LabeledElement label={"Value"} key={"value"}>
             <ParameterInput
               contractIdProvider={contractIdProvider}
               typeProvider={typeProvider}
@@ -462,7 +554,7 @@ const OptionalInput = (props: OptionalInputProps): JSX.Element => {
               name={`${name}.value`}
               argument={value}
               disabled={disabled}
-              onChange={(val) => {
+              onChange={val => {
                 onChange(DamlLfValueF.optional(val));
               }}
               level={level + 1}
@@ -472,7 +564,7 @@ const OptionalInput = (props: OptionalInputProps): JSX.Element => {
       </NestedForm>
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
 };
 
@@ -505,16 +597,22 @@ const ControlIndicator = styled.span`
   border-radius: 50%;
   font-size: 6px;
   color: rgba(0, 0, 0, 0.6);
-  background: linear-gradient(to bottom, #ffffff, rgba(255, 255, 255, 0))
-    left no-repeat, center no-repeat #f5f8fa;
+  background: linear-gradient(to bottom, #ffffff, rgba(255, 255, 255, 0)) left
+      no-repeat,
+    center no-repeat #f5f8fa;
   box-shadow: inset 0 0 0 1px rgba(16, 22, 26, 0.4),
     inset 0 -1px 0 rgba(16, 22, 26, 0.2);
   background-clip: padding-box;
   user-select: none;
   box-sizing: border-box;
   input:checked + & {
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1),
-      rgba(255, 255, 255, 0)) left no-repeat, center no-repeat #137cbd;
+    background: linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.1),
+          rgba(255, 255, 255, 0)
+        )
+        left no-repeat,
+      center no-repeat #137cbd;
     color: #ffffff;
   }
   &:before {
@@ -541,9 +639,9 @@ const StyledRadioInput = styled.input`
 `;
 
 const BoolInput = (props: InputProps<DamlLfValueBool>): JSX.Element => {
-  const { parameter, argument, disabled, onChange} = props;
-  if (matchPrimitiveType(argument, parameter, 'bool')) {
-    const value = argument.type === 'bool' ? argument.value : undefined;
+  const { parameter, argument, disabled, onChange } = props;
+  if (matchPrimitiveType(argument, parameter, "bool")) {
+    const value = argument.type === "bool" ? argument.value : undefined;
     return (
       <div>
         <RadioLabel>
@@ -552,7 +650,9 @@ const BoolInput = (props: InputProps<DamlLfValueBool>): JSX.Element => {
             disabled={disabled}
             name={`${name}.true`}
             checked={value}
-            onChange={() => { onChange(DamlLfValueF.bool(true)); }}
+            onChange={() => {
+              onChange(DamlLfValueF.bool(true));
+            }}
           />
           <ControlIndicator />
           True
@@ -563,7 +663,9 @@ const BoolInput = (props: InputProps<DamlLfValueBool>): JSX.Element => {
             disabled={disabled}
             name={`${name}.false`}
             checked={!value}
-            onChange={() => { onChange(DamlLfValueF.bool(false)); }}
+            onChange={() => {
+              onChange(DamlLfValueF.bool(false));
+            }}
           />
           <ControlIndicator />
           False
@@ -571,9 +673,9 @@ const BoolInput = (props: InputProps<DamlLfValueBool>): JSX.Element => {
       </div>
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
-}
+};
 
 //-------------------------------------------------------------------------------------------------
 // List - nested input form
@@ -591,16 +693,25 @@ const ListControlButton = styled(Button)`
 interface ListInputProps extends InputProps<DamlLfValueList> {
   parameter: DamlLfTypePrim;
   name: string;
-  level: number
-  contractIdProvider?: ContractIdProvider
-  typeProvider: TypeProvider
+  level: number;
+  contractIdProvider?: ContractIdProvider;
+  typeProvider: TypeProvider;
 }
 
 const ListInput = (props: ListInputProps): JSX.Element => {
-  const { argument, parameter, level, name, onChange, disabled, contractIdProvider, typeProvider } = props;
-  if (matchPrimitiveType(argument, parameter, 'list')) {
-    const elements = argument && argument.type === 'list' ? argument.value : [];
-    const elementType = parameter.args[0] || DamlLfTypeF.unit()
+  const {
+    argument,
+    parameter,
+    level,
+    name,
+    onChange,
+    disabled,
+    contractIdProvider,
+    typeProvider,
+  } = props;
+  if (matchPrimitiveType(argument, parameter, "list")) {
+    const elements = argument && argument.type === "list" ? argument.value : [];
+    const elementType = parameter.args[0] || DamlLfTypeF.unit();
     return (
       <NestedForm level={level}>
         {elements.map((k, i) => (
@@ -612,7 +723,7 @@ const ListInput = (props: ListInputProps): JSX.Element => {
               name={`${name}[${i}]`}
               argument={k}
               disabled={disabled}
-              onChange={(val) => {
+              onChange={val => {
                 const newElements = elements.slice(0);
                 newElements[i] = val;
                 onChange(DamlLfValueF.list(newElements));
@@ -624,44 +735,50 @@ const ListInput = (props: ListInputProps): JSX.Element => {
         <ListControls>
           <ListControlButton
             type="main"
-            onClick={(_) => {
+            onClick={_ => {
               const newElements = elements.slice(0);
               newElements.push(DamlLfValueF.initialValue(elementType));
               onChange(DamlLfValueF.list(newElements));
-            }}
-          >
+            }}>
             Add new element
           </ListControlButton>
           <ListControlButton
             type="main"
-            onClick={(_) => {
-              onChange(DamlLfValueF.list(elements.slice(0, - 1)))
+            onClick={_ => {
+              onChange(DamlLfValueF.list(elements.slice(0, -1)));
             }}
-            disabled={elements.length === 0}
-          >
+            disabled={elements.length === 0}>
             Delete last element
           </ListControlButton>
         </ListControls>
       </NestedForm>
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
 };
-
 
 interface MapInputProps extends InputProps<DamlLfValueTextMap> {
   parameter: DamlLfTypePrim;
   name: string;
-  level: number
-  contractIdProvider?: ContractIdProvider
-  typeProvider: TypeProvider
+  level: number;
+  contractIdProvider?: ContractIdProvider;
+  typeProvider: TypeProvider;
 }
 
 const MapInput = (props: MapInputProps): JSX.Element => {
-  const { argument, parameter, level, onChange, disabled, contractIdProvider, typeProvider } = props;
-  if (matchPrimitiveType(argument, parameter, 'textmap')) {
-    const elements = argument && argument.type === 'textmap' ? argument.value : [];
+  const {
+    argument,
+    parameter,
+    level,
+    onChange,
+    disabled,
+    contractIdProvider,
+    typeProvider,
+  } = props;
+  if (matchPrimitiveType(argument, parameter, "textmap")) {
+    const elements =
+      argument && argument.type === "textmap" ? argument.value : [];
     const elementType = parameter.args[0] || DamlLfTypeF.unit();
     return (
       <NestedForm level={level}>
@@ -675,9 +792,12 @@ const MapInput = (props: MapInputProps): JSX.Element => {
                   placeholder="String"
                   step="any"
                   value={elements[i].key}
-                  onChange={(key) => {
+                  onChange={key => {
                     const newElements = elements.slice(0);
-                    newElements[i] = textMapEntry((key.target as HTMLInputElement).value, newElements[i].value);
+                    newElements[i] = textMapEntry(
+                      (key.target as HTMLInputElement).value,
+                      newElements[i].value,
+                    );
                     onChange(DamlLfValueF.textmap(newElements));
                   }}
                 />
@@ -690,7 +810,7 @@ const MapInput = (props: MapInputProps): JSX.Element => {
                   name={`value[${i}]`}
                   argument={entry.value}
                   disabled={disabled}
-                  onChange={(val) => {
+                  onChange={val => {
                     const newElements = elements.slice(0);
                     newElements[i] = textMapEntry(elements[i].key, val);
                     onChange(DamlLfValueF.textmap(newElements));
@@ -704,44 +824,55 @@ const MapInput = (props: MapInputProps): JSX.Element => {
         <ListControls>
           <ListControlButton
             type="main"
-            onClick={(_) => {
+            onClick={_ => {
               const newElements = elements.slice(0);
-              newElements.push(DamlLfValueF.textMapEntry('', DamlLfValueF.initialValue(elementType)));
+              newElements.push(
+                DamlLfValueF.textMapEntry(
+                  "",
+                  DamlLfValueF.initialValue(elementType),
+                ),
+              );
               onChange(DamlLfValueF.textmap(newElements));
-            }}
-          >
+            }}>
             Add new entry
           </ListControlButton>
           <ListControlButton
             type="main"
-            onClick={(_) => {
-              onChange(DamlLfValueF.textmap(elements.slice(0, - 1)))
+            onClick={_ => {
+              onChange(DamlLfValueF.textmap(elements.slice(0, -1)));
             }}
-            disabled={elements.length === 0}
-          >
+            disabled={elements.length === 0}>
             Delete last entry
           </ListControlButton>
         </ListControls>
       </NestedForm>
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
 };
-
 
 interface GenMapInputProps extends InputProps<DamlLfValueGenMap> {
   parameter: DamlLfTypePrim;
   name: string;
-  level: number
-  contractIdProvider?: ContractIdProvider
-  typeProvider: TypeProvider
+  level: number;
+  contractIdProvider?: ContractIdProvider;
+  typeProvider: TypeProvider;
 }
 
 const GenMapInput = (props: GenMapInputProps): JSX.Element => {
-  const { argument, parameter, level, onChange, disabled, contractIdProvider, typeProvider } = props;
-  if (matchPrimitiveType(argument, parameter, 'genmap')) {
-    const entries = argument && argument.type === 'genmap' ? argument.value : [];
+  const {
+    argument,
+    parameter,
+    level,
+    onChange,
+    disabled,
+    contractIdProvider,
+    typeProvider,
+  } = props;
+  if (matchPrimitiveType(argument, parameter, "genmap")) {
+    const entries =
+      argument && argument.type === "genmap" ? argument.value : [];
     const keyType = parameter.args[0] || DamlLfTypeF.unit();
     const valueType = parameter.args[1] || DamlLfTypeF.unit();
     return (
@@ -757,7 +888,7 @@ const GenMapInput = (props: GenMapInputProps): JSX.Element => {
                   name={`entries[${i}].key`}
                   argument={entry.key}
                   disabled={disabled}
-                  onChange={(key) => {
+                  onChange={key => {
                     const newElements = entries.slice(0);
                     newElements[i] = genMapEntry(key, entries[i].value);
                     onChange(DamlLfValueF.genmap(newElements));
@@ -773,7 +904,7 @@ const GenMapInput = (props: GenMapInputProps): JSX.Element => {
                   name={`entries[${i}].value`}
                   argument={entry.value}
                   disabled={disabled}
-                  onChange={(val) => {
+                  onChange={val => {
                     const newElements = entries.slice(0);
                     newElements[i] = genMapEntry(entries[i].key, val);
                     onChange(DamlLfValueF.genmap(newElements));
@@ -787,29 +918,31 @@ const GenMapInput = (props: GenMapInputProps): JSX.Element => {
         <ListControls>
           <ListControlButton
             type="main"
-            onClick={(_) => {
+            onClick={_ => {
               const newElements = entries.slice(0);
               newElements.push(
-                DamlLfValueF.genMapEntry(DamlLfValueF.initialValue(keyType), DamlLfValueF.initialValue(valueType)));
+                DamlLfValueF.genMapEntry(
+                  DamlLfValueF.initialValue(keyType),
+                  DamlLfValueF.initialValue(valueType),
+                ),
+              );
               onChange(DamlLfValueF.genmap(newElements));
-            }}
-          >
+            }}>
             Add new entry
           </ListControlButton>
           <ListControlButton
             type="main"
-            onClick={(_) => {
-              onChange(DamlLfValueF.genmap(entries.slice(0, - 1)))
+            onClick={_ => {
+              onChange(DamlLfValueF.genmap(entries.slice(0, -1)));
             }}
-            disabled={entries.length === 0}
-          >
+            disabled={entries.length === 0}>
             Delete last entry
           </ListControlButton>
         </ListControls>
       </NestedForm>
     );
   } else {
-    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+    return <TypeErrorElement parameter={parameter} argument={argument} />;
   }
 };
 
@@ -823,22 +956,24 @@ interface TypeConInputProps {
   onChange(value: DamlLfValue): void;
   disabled: boolean;
   name: string;
-  level: number
-  contractIdProvider?: ContractIdProvider
-  typeProvider: TypeProvider
+  level: number;
+  contractIdProvider?: ContractIdProvider;
+  typeProvider: TypeProvider;
 }
 
 interface TypeConInputState {
   dataType: DamlLfDataType | undefined;
 }
 
-class TypeConInput extends React.Component<TypeConInputProps, TypeConInputState> {
-
+class TypeConInput extends React.Component<
+  TypeConInputProps,
+  TypeConInputState
+> {
   constructor(props: TypeConInputProps) {
     super(props);
     this.state = {
       dataType: undefined,
-    }
+    };
   }
 
   private onParamDefChanged(ddt: DamlLfDefDataType | undefined) {
@@ -846,16 +981,17 @@ class TypeConInput extends React.Component<TypeConInputProps, TypeConInputState>
     if (ddt) {
       const dataType = DamlLfTypeF.instantiate(parameter, ddt);
       switch (dataType.type) {
-        case 'record':
+        case "record":
           onChange(DamlLfValueF.initialRecordValue(parameter.name, dataType));
           break;
-        case 'variant':
+        case "variant":
           onChange(DamlLfValueF.initialVariantValue(parameter.name, dataType));
           break;
-        case 'enum':
+        case "enum":
           onChange(DamlLfValueF.initialEnumValue(parameter.name, dataType));
           break;
-        default: throw new NonExhaustiveMatch(dataType);
+        default:
+          throw new NonExhaustiveMatch(dataType);
       }
       this.setState({ dataType });
     } else {
@@ -885,47 +1021,52 @@ class TypeConInput extends React.Component<TypeConInputProps, TypeConInputState>
   }
 
   render() {
-    const { argument, parameter, disabled, onChange, level, typeProvider } = this.props;
+    const { argument, parameter, disabled, onChange, level, typeProvider } =
+      this.props;
     const { dataType } = this.state;
 
     if (dataType === undefined) {
       return <em>Loading type {parameter.name.name}...</em>;
     } else {
       switch (dataType.type) {
-        case 'record': return (
-          <RecordInput
-            argument={argument}
-            id={parameter.name}
-            parameter={dataType}
-            disabled={disabled}
-            onChange={onChange}
-            level={level}
-            typeProvider={typeProvider}
-          />
-        );
-        case 'variant': return (
-          <VariantInput
-            argument={argument}
-            id={parameter.name}
-            parameter={dataType}
-            disabled={disabled}
-            onChange={onChange}
-            level={level}
-            typeProvider={typeProvider}
-          />
-        );
-        case 'enum' : return(
-          <EnumInput
-            id={parameter.name}
-            parameter={dataType}
-            disabled={disabled}
-            onChange={onChange}
-            argument={argument}
-            level={level}
-          />
-        );
+        case "record":
+          return (
+            <RecordInput
+              argument={argument}
+              id={parameter.name}
+              parameter={dataType}
+              disabled={disabled}
+              onChange={onChange}
+              level={level}
+              typeProvider={typeProvider}
+            />
+          );
+        case "variant":
+          return (
+            <VariantInput
+              argument={argument}
+              id={parameter.name}
+              parameter={dataType}
+              disabled={disabled}
+              onChange={onChange}
+              level={level}
+              typeProvider={typeProvider}
+            />
+          );
+        case "enum":
+          return (
+            <EnumInput
+              id={parameter.name}
+              parameter={dataType}
+              disabled={disabled}
+              onChange={onChange}
+              argument={argument}
+              level={level}
+            />
+          );
 
-        default: throw new NonExhaustiveMatch(dataType);
+        default:
+          throw new NonExhaustiveMatch(dataType);
       }
     }
   }
@@ -936,18 +1077,24 @@ class TypeConInput extends React.Component<TypeConInputProps, TypeConInputState>
 //-------------------------------------------------------------------------------------------------
 export interface ParameterFormContract {
   id: string;
-  createEvent: { transaction: { effectiveAt: string }};
-  archiveEvent: { transaction: { effectiveAt: string }} | null;
+  createEvent: { transaction: { effectiveAt: string } };
+  archiveEvent: { transaction: { effectiveAt: string } } | null;
   template: { id: string };
 }
 export interface ContractIdProvider {
-  fetchContracts(filter: string, onResult: (result: ParameterFormContract[]) => void): void;
+  fetchContracts(
+    filter: string,
+    onResult: (result: ParameterFormContract[]) => void,
+  ): void;
 }
 
 export interface TypeProvider {
   fetchType(
     id: DamlLfIdentifier,
-    onResult: (id: DamlLfIdentifier, result: DamlLfDefDataType | undefined) => void,
+    onResult: (
+      id: DamlLfIdentifier,
+      result: DamlLfDefDataType | undefined,
+    ) => void,
   ): void;
 }
 
@@ -980,87 +1127,96 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
     level,
   } = props;
 
-  if (parameter.type === 'primitive') {
+  if (parameter.type === "primitive") {
     const primt = parameter.name;
     switch (primt) {
-      case 'text': return (
-        <TextInput
-          parameter={parameter}
-          disabled={disabled}
-          onChange={onChange}
-          argument={argument}
-          validate={validate}
-          name={name}
-        />
-      );
-      case 'party': return (
-        <PartyInput
-          parameter={parameter}
-          disabled={disabled}
-          onChange={onChange}
-          argument={argument}
-          validate={validate}
-          name={name}
-        />
-      );
-      case 'contractid': return (
-        <ContractIdInput
-          onFetchContracts={
-            contractIdProvider && contractIdProvider.fetchContracts.bind(contractIdProvider)
-          }
-          parameter={parameter}
-          disabled={disabled}
-          onChange={onChange}
-          argument={argument}
-        />
-      );
-      case 'int64': return (
-        <IntegerInput
-          parameter={parameter}
-          disabled={disabled}
-          onChange={onChange}
-          argument={argument}
-          validate={validate}
-          name={name}
-        />
-      );
-      case 'timestamp': return (
-        <TimeInput
-          parameter={parameter}
-          disabled={disabled}
-          onChange={onChange}
-          argument={argument}
-        />
-      );
-      case 'date': return (
-        <TimeInput
-          parameter={parameter}
-          disabled={disabled}
-          onChange={onChange}
-          argument={argument}
-        />
-      );
-      case 'bool': return (
-        <BoolInput
-          parameter={parameter}
-          disabled={disabled}
-          onChange={onChange}
-          argument={argument}
-          validate={validate}
-          name={name}
-        />
-      );
-      case 'unit': return (
-        <UnitInput
-          parameter={parameter}
-          disabled={disabled}
-          onChange={onChange}
-          argument={argument}
-          validate={validate}
-          name={name}
-        />
-      );
-      case 'list': {
+      case "text":
+        return (
+          <TextInput
+            parameter={parameter}
+            disabled={disabled}
+            onChange={onChange}
+            argument={argument}
+            validate={validate}
+            name={name}
+          />
+        );
+      case "party":
+        return (
+          <PartyInput
+            parameter={parameter}
+            disabled={disabled}
+            onChange={onChange}
+            argument={argument}
+            validate={validate}
+            name={name}
+          />
+        );
+      case "contractid":
+        return (
+          <ContractIdInput
+            onFetchContracts={
+              contractIdProvider &&
+              contractIdProvider.fetchContracts.bind(contractIdProvider)
+            }
+            parameter={parameter}
+            disabled={disabled}
+            onChange={onChange}
+            argument={argument}
+          />
+        );
+      case "int64":
+        return (
+          <IntegerInput
+            parameter={parameter}
+            disabled={disabled}
+            onChange={onChange}
+            argument={argument}
+            validate={validate}
+            name={name}
+          />
+        );
+      case "timestamp":
+        return (
+          <TimeInput
+            parameter={parameter}
+            disabled={disabled}
+            onChange={onChange}
+            argument={argument}
+          />
+        );
+      case "date":
+        return (
+          <TimeInput
+            parameter={parameter}
+            disabled={disabled}
+            onChange={onChange}
+            argument={argument}
+          />
+        );
+      case "bool":
+        return (
+          <BoolInput
+            parameter={parameter}
+            disabled={disabled}
+            onChange={onChange}
+            argument={argument}
+            validate={validate}
+            name={name}
+          />
+        );
+      case "unit":
+        return (
+          <UnitInput
+            parameter={parameter}
+            disabled={disabled}
+            onChange={onChange}
+            argument={argument}
+            validate={validate}
+            name={name}
+          />
+        );
+      case "list": {
         return (
           <ListInput
             parameter={parameter}
@@ -1075,7 +1231,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
           />
         );
       }
-      case 'optional': {
+      case "optional": {
         return (
           <OptionalInput
             parameter={parameter}
@@ -1087,20 +1243,20 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
           />
         );
       }
-      case 'textmap': {
+      case "textmap": {
         return (
-        <MapInput
-          parameter={parameter}
-          name={name}
-          level={level}
-          typeProvider={typeProvider}
-          disabled={disabled}
-          onChange={onChange}
-          argument={argument}
-        />
+          <MapInput
+            parameter={parameter}
+            name={name}
+            level={level}
+            typeProvider={typeProvider}
+            disabled={disabled}
+            onChange={onChange}
+            argument={argument}
+          />
         );
       }
-      case 'genmap': {
+      case "genmap": {
         return (
           <GenMapInput
             parameter={parameter}
@@ -1113,9 +1269,10 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
           />
         );
       }
-      default: throw new NonExhaustiveMatch(primt)
+      default:
+        throw new NonExhaustiveMatch(primt);
     }
-  } else if (parameter.type === 'numeric') {
+  } else if (parameter.type === "numeric") {
     return (
       <NumericInput
         parameter={parameter}
@@ -1125,8 +1282,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
         validate={validate}
       />
     );
-  }
-  else if (parameter.type === 'typecon') {
+  } else if (parameter.type === "typecon") {
     return (
       <TypeConInput
         parameter={parameter}
@@ -1139,8 +1295,13 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
         typeProvider={typeProvider}
       />
     );
-  } else if (parameter.type === 'typevar') {
-    return <em>Type variable &apos;{parameter.name}&apos;. If you see this, it means there is a problem with Navigator.</em>;
+  } else if (parameter.type === "typevar") {
+    return (
+      <em>
+        Type variable &apos;{parameter.name}&apos;. If you see this, it means
+        there is a problem with Navigator.
+      </em>
+    );
   } else {
     throw new NonExhaustiveMatch(parameter);
   }
@@ -1162,9 +1323,9 @@ export interface Props {
   typeProvider: TypeProvider;
 }
 
-export const StyledForm
-  : React.FC<React.HTMLProps<HTMLFormElement>>
-  = styled.form`
+export const StyledForm: React.FC<
+  React.HTMLProps<HTMLFormElement>
+> = styled.form`
   display: flex;
   flex-direction: column;
   align-content: center;
@@ -1186,7 +1347,7 @@ const ErrorContainer = styled.div`
   position: realtive;
   border-radius: 3px;
   padding: 10px 12px 9px;
-  background-color: ${(props) => props.theme.colorDanger};
+  background-color: ${props => props.theme.colorDanger};
 `;
 
 const ErrorText = styled.pre`
@@ -1201,10 +1362,9 @@ const ErrorText = styled.pre`
   white-space: pre-wrap;
 `;
 
-
 export const ErrorMessage = (props: ErrorProps): JSX.Element => {
   if (!props.error || props.error.length === 0) {
-    return <span/>;
+    return <span />;
   }
   return (
     <div>
@@ -1212,7 +1372,7 @@ export const ErrorMessage = (props: ErrorProps): JSX.Element => {
         <h5>Error</h5>
         <ErrorText>{props.error}</ErrorText>
       </ErrorContainer>
-      <p/>
+      <p />
     </div>
   );
 };
@@ -1246,12 +1406,12 @@ const ParameterForm = (props: Props): JSX.Element => {
         disabled={disabled}
         onChange={onChange}
       />
-      <ErrorMessage error={error}/>
+      <ErrorMessage error={error} />
       <StyledButton type="main" onClick={submit}>
         Submit
       </StyledButton>
     </StyledForm>
   );
-}
+};
 
 export default ParameterForm;

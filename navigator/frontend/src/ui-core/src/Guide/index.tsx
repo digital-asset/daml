@@ -1,9 +1,9 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import ReactMarkdown from 'react-markdown';
-import styled from '../theme';
+import * as React from "react";
+import ReactMarkdown from "react-markdown";
+import styled from "../theme";
 
 /**
  * This module contains components for the component guide. A guide is a 'Guide'
@@ -28,7 +28,9 @@ const Header = styled.header`
 
 const Logo = styled.div`
   height: 3rem;
-  img { height: 100%; }
+  img {
+    height: 100%;
+  }
 `;
 
 const Title = styled.h1`
@@ -79,15 +81,19 @@ export interface GuideProps {
   className?: string;
 }
 
-export const Guide: React.FC<GuideProps> = (props) => (
+export const Guide: React.FC<GuideProps> = props => (
   <main className={props.className}>
     <Header>
       <Container>
-        { props.logo ? (<Logo><img src={props.logo} /></Logo>) : null }
+        {props.logo ? (
+          <Logo>
+            <img src={props.logo} />
+          </Logo>
+        ) : null}
         <Title>{props.title}</Title>
-        {props.description
-          ? <GuideDescription source={props.description} />
-          : null}
+        {props.description ? (
+          <GuideDescription source={props.description} />
+        ) : null}
       </Container>
     </Header>
     {props.children}
@@ -100,15 +106,15 @@ export interface SectionProps {
   className?: string;
 }
 
-export const Section: React.StatelessComponent<SectionProps> = (props) => (
+export const Section: React.StatelessComponent<SectionProps> = props => (
   <SectionWrapper className={props.className}>
     <Container>
       <SectionTitle>{props.title}</SectionTitle>
       <SectionSplit>
         <SectionShowcase>{props.children}</SectionShowcase>
-        {props.description
-          ? <SectionDescription source={props.description} />
-          : null}
+        {props.description ? (
+          <SectionDescription source={props.description} />
+        ) : null}
       </SectionSplit>
     </Container>
   </SectionWrapper>

@@ -1,11 +1,11 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import { default as styled } from '../theme';
+import * as React from "react";
+import { default as styled } from "../theme";
 
 const StyledA = styled.a`
-  color: ${({theme}) => theme.colorPrimary[0]};
+  color: ${({ theme }) => theme.colorPrimary[0]};
   text-decoration: none;
 `;
 
@@ -15,7 +15,7 @@ const StyledA = styled.a`
  * onClick handler.
  */
 
-export type HrefTarget = '_blank' | '_self' | '_parent' | '_top';
+export type HrefTarget = "_blank" | "_self" | "_parent" | "_top";
 
 export interface Props {
   href: string;
@@ -26,7 +26,6 @@ export interface Props {
 }
 
 export default class Link extends React.Component<Props, {}> {
-
   constructor(props: Props) {
     super(props);
     this.click = this.click.bind(this);
@@ -50,8 +49,7 @@ export default class Link extends React.Component<Props, {}> {
         onClick={this.click}
         href={href}
         target={target}
-        className={className}
-      >
+        className={className}>
         {children}
       </StyledA>
     );

@@ -1,30 +1,31 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import { Section } from '../Guide';
-import { default as Link } from '../Link';
-import styled, { hardcodedStyle } from '../theme';
-import { makeSidebarLink } from './index';
+import * as React from "react";
+import { Section } from "../Guide";
+import { default as Link } from "../Link";
+import styled, { hardcodedStyle } from "../theme";
+import { makeSidebarLink } from "./index";
 
 const SidebarItem = makeSidebarLink(Link);
 
-function logClick() { console.log('CLICK!'); }
+function logClick() {
+  console.log("CLICK!");
+}
 
 const Wrapper = styled.div`
-  max-width: ${ hardcodedStyle.sidebarWidth };
+  max-width: ${hardcodedStyle.sidebarWidth};
   padding: 0.5em;
 `;
 
 const OuterWrapper = styled.div`
-  background: ${({theme}) => theme.documentBackground };
+  background: ${({ theme }) => theme.documentBackground};
 `;
 
 export default (): JSX.Element => (
   <Section
     title="Sidebar navigation links"
-    description="Link styles for the navigation sidebar"
-  >
+    description="Link styles for the navigation sidebar">
     <OuterWrapper>
       <Wrapper>
         <SidebarItem

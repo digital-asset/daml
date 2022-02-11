@@ -1,12 +1,9 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import deepEqual from 'deep-equal';
-import * as React from 'react';
-import {
-  AutoSizer,
-  Table,
-} from 'react-virtualized';
+import deepEqual from "deep-equal";
+import * as React from "react";
+import { AutoSizer, Table } from "react-virtualized";
 import {
   ColumnConfig,
   createColumns,
@@ -14,14 +11,14 @@ import {
   TableContainer,
   TableOuterWrapper,
   TableRowDataGetter,
-} from '../Table';
+} from "../Table";
 import {
   TableActionBar,
   TableActionBarConfigSearchInput,
   TableActionBarSideMargin,
   TableActionBarTitle,
-} from '../TableActionBar';
-import { hardcodedStyle } from '../theme';
+} from "../TableActionBar";
+import { hardcodedStyle } from "../theme";
 
 // ----------------------------------------------------------------------------
 // Table config
@@ -32,18 +29,13 @@ export type DataColumnConfig<R, C> = ColumnConfig<R, C>;
 
 export type DataTableRowDataGetter<R, D> = TableRowDataGetter<R, D>;
 
-export function renderActionBar<
-  C extends DataTableConfig
->(props: {
+export function renderActionBar<C extends DataTableConfig>(props: {
   readonly config: C;
-  readonly title?: string,
+  readonly title?: string;
   readonly actionRowContent?: React.ReactNode;
-  onConfigChange?(config: C): void,
+  onConfigChange?(config: C): void;
 }): JSX.Element {
-  const {
-    actionRowContent,
-    title,
-  } = props;
+  const { actionRowContent, title } = props;
   return actionRowContent !== undefined ? (
     <TableActionBar>{actionRowContent}</TableActionBar>
   ) : (
@@ -65,11 +57,7 @@ export function renderActionBar<
 export type DataTableRowClassGetter<
   C extends DataTableConfig,
   R, // RowData
-> = (
-  config: C,
-  row: R,
-  index: number,
-) => string;
+> = (config: C, row: R, index: number) => string;
 
 export interface Props<
   C extends DataTableConfig,
@@ -100,9 +88,8 @@ export type State<R> = {
 export default class DataTable<
   C extends DataTableConfig,
   R, // RowData
-  D // Raw data
+  D, // Raw data
 > extends React.Component<Props<C, R, D>, State<R>> {
-
   readonly headerHeight: number = hardcodedStyle.tableHeaderHeight;
   readonly rowHeight: number = hardcodedStyle.tableRowHeight;
   readonly fetchIncrement: number = 100;
@@ -127,7 +114,7 @@ export default class DataTable<
     if (!Array.isArray(result.data)) {
       throw new Error('Property "data" missing in DataTable');
     }
-    if (typeof result.totalCount !== 'number') {
+    if (typeof result.totalCount !== "number") {
       throw new Error('Property "totalCount" missing in DataTable');
     }
     return result;
@@ -138,8 +125,10 @@ export default class DataTable<
       y > length * this.rowHeight - height &&
       length < this.state.totalCount
     ) {
-      const count = Math.min(length + this.fetchIncrement,
-        this.state.totalCount);
+      const count = Math.min(
+        length + this.fetchIncrement,
+        this.state.totalCount,
+      );
       if (this.props.onConfigChange) {
         this.props.onConfigChange({
           ...this.props.config,
@@ -155,7 +144,7 @@ export default class DataTable<
   render(): React.ReactElement<Table> {
     const {
       config,
-      rowClassName = () => '',
+      rowClassName = () => "",
       hideActionRow = false,
     } = this.props;
 
@@ -164,7 +153,7 @@ export default class DataTable<
         {hideActionRow ? null : renderActionBar(this.props)}
         <TableContainer>
           <AutoSizer>
-            {({ width, height }: { width: number, height: number }) => (
+            {({ width, height }: { width: number; height: number }) => (
               <Table
                 width={width}
                 height={height}
@@ -179,14 +168,14 @@ export default class DataTable<
                 rowGetter={({ index }) => this.state.data[index]}
                 rowClassName={({ index }) => {
                   if (index >= 0) {
-                    return rowClassName(config, this.state.data[index], index)
+                    return rowClassName(config, this.state.data[index], index);
                   } else {
-                    return this.props.headerRowClassName || '';
+                    return this.props.headerRowClassName || "";
                   }
                 }}
                 onScroll={({ scrollTop }: { scrollTop: number }) =>
-                  this.onScroll(height, scrollTop)}
-              >
+                  this.onScroll(height, scrollTop)
+                }>
                 {createColumns(this.props)}
               </Table>
             )}

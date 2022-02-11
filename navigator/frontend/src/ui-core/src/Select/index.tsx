@@ -1,10 +1,10 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import Icon from '../Icon';
-import Popover from '../Popover'
-import styled, { hardcodedStyle } from '../theme';
+import * as React from "react";
+import Icon from "../Icon";
+import Popover from "../Popover";
+import styled, { hardcodedStyle } from "../theme";
 
 export interface Option {
   label: string;
@@ -24,15 +24,15 @@ export interface State {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const DropdownContainer = styled('ul')<{minWidth: string}>`
+const DropdownContainer = styled("ul")<{ minWidth: string }>`
   min-width: ${({ minWidth }) => minWidth};
   padding: 0;
   margin: 0;
-  display:flex;
-  flex-direction:column;
+  display: flex;
+  flex-direction: column;
   max-height: 15rem;
   overflow-y: auto;
-  overflow-x:hidden;
+  overflow-x: hidden;
   ::-webkit-scrollbar {
     display: none;
   }
@@ -44,14 +44,13 @@ const DropdownItem = styled.li`
   height: 2.5rem;
   padding-left: calc(15px - ${hardcodedStyle.tableHoverBorderWidth});
   padding-right: 15px;
-  border-left: ${hardcodedStyle.tableHoverBorderWidth}
-    solid transparent;
+  border-left: ${hardcodedStyle.tableHoverBorderWidth} solid transparent;
   border-color: transparent;
   border-radius: 0;
   &:hover {
     cursor: pointer;
-    border-left: ${hardcodedStyle.tableHoverBorderWidth}
-      solid ${({ theme }) => theme.colorPrimary[0]};
+    border-left: ${hardcodedStyle.tableHoverBorderWidth} solid
+      ${({ theme }) => theme.colorPrimary[0]};
     background-color: ${hardcodedStyle.tableHoverBackgroundColor};
   }
   &:hover:first-child {
@@ -66,10 +65,10 @@ const SelectInput = styled.div`
   outline: none;
   display: block;
   border: 0;
-  border-bottom: 1px ${( {theme} ) => theme.colorFaded} solid;
+  border-bottom: 1px ${({ theme }) => theme.colorFaded} solid;
   border-radius: ${({ theme }) => theme.radiusBorder};
-  color: ${( {theme} ) => theme.colorForeground};
-  background: ${( {theme} ) => theme.colorBackground};
+  color: ${({ theme }) => theme.colorForeground};
+  background: ${({ theme }) => theme.colorBackground};
   width: 100%;
   height: 2em;
   padding: 0 10px;
@@ -108,27 +107,26 @@ export default class Select extends React.Component<Props, State> {
         position="bottom-start"
         isOpen={this.state.open}
         arrow={false}
-        onInteraction={(type, isOpen) => this.setState({
-          open: type === 'content' ? false : !disabled && isOpen})}
-        target={(
+        onInteraction={(type, isOpen) =>
+          this.setState({
+            open: type === "content" ? false : !disabled && isOpen,
+          })
+        }
+        target={
           <SelectInput>
             {value}
-            <RightIcon name="chevron-down"/>
+            <RightIcon name="chevron-down" />
           </SelectInput>
-        )}
-        content={(
-          <DropdownContainer minWidth={minWidth || '1rem'}>
-            {options.map(({label, value: val}) =>
-              (
-                <DropdownItem
-                  key={val}
-                  onClick={() => onChange(val)}
-                >
-                  {label}
-                </DropdownItem>
-              ))}
+        }
+        content={
+          <DropdownContainer minWidth={minWidth || "1rem"}>
+            {options.map(({ label, value: val }) => (
+              <DropdownItem key={val} onClick={() => onChange(val)}>
+                {label}
+              </DropdownItem>
+            ))}
           </DropdownContainer>
-        )}
+        }
       />
     );
   }

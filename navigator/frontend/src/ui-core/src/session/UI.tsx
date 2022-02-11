@@ -1,12 +1,12 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import { Action } from 'redux';
-import styled from 'styled-components';
-import { Dispatch } from '../types';
-import { sessionError, signIn } from './actions';
-import * as Session from './index';
+import * as React from "react";
+import { Action } from "redux";
+import styled from "styled-components";
+import { Dispatch } from "../types";
+import { sessionError, signIn } from "./actions";
+import * as Session from "./index";
 
 const SignInForm = styled.form`
   display: flex;
@@ -32,7 +32,7 @@ const Frame = styled.div`
   align-items: center;
   height: 100%;
   width: 100%;
-  background: ${({theme}) => theme.documentBackground};
+  background: ${({ theme }) => theme.documentBackground};
 `;
 
 const Above = styled.div`
@@ -68,21 +68,24 @@ export interface State {
   userId: string;
 }
 
-export default class Component<A extends Action>
-  extends React.Component<Props<A>, State> {
-
+export default class Component<A extends Action> extends React.Component<
+  Props<A>,
+  State
+> {
   constructor(props: Props<A>) {
     super(props);
     if (props.dispatch === undefined) {
-      throw new Error('No dispatch function available to SignIn component');
+      throw new Error("No dispatch function available to SignIn component");
     }
-    this.state = { userId: '' };
+    this.state = { userId: "" };
     this.signIn = this.signIn.bind(this);
   }
 
   signIn(userId: Session.UserId): void {
     const { dispatch, toSelf } = this.props;
-    if (!dispatch) { throw new Error('dispatch not available'); }
+    if (!dispatch) {
+      throw new Error("dispatch not available");
+    }
     if (userId) {
       dispatch(signIn(toSelf, userId));
     }
@@ -92,49 +95,57 @@ export default class Component<A extends Action>
     const { isAuthenticating, method, failure } = this.props;
     let loginEl = null;
     let errorEl = null;
-    if (failure === 'invalid-credentials') {
+    if (failure === "invalid-credentials") {
       errorEl = (
         <ErrorMessage>
-          <div>You don&apos;t have the necessary authorization to access the ledger</div>
-          <div>Make sure to start the Navigator server with a valid access token</div>
+          <div>
+            You don&apos;t have the necessary authorization to access the ledger
+          </div>
+          <div>
+            Make sure to start the Navigator server with a valid access token
+          </div>
         </ErrorMessage>
       );
-    } else if (failure === 'not-connected') {
+    } else if (failure === "not-connected") {
       errorEl = (
         <WarningMessage>
           <div>Not yet connected to the ledger</div>
           <div>Verify that the ledger is available and try again</div>
         </WarningMessage>
-      )
-    } else if (failure === 'unresponsive') {
+      );
+    } else if (failure === "unresponsive") {
       errorEl = (
         <WarningMessage>
           <div>Actor for party was unresponsive</div>
           <div>Try restarting Navigator</div>
         </WarningMessage>
-      )
-    } else if (failure === 'unknown-error') {
+      );
+    } else if (failure === "unknown-error") {
       errorEl = (
         <ErrorMessage>
           <div>An error occurred when connecting to the ledger</div>
           <div>Refer to the Navigator server logs to know the cause</div>
         </ErrorMessage>
-      )
+      );
     }
 
     switch (method.type) {
-      case 'select':
+      case "select":
         loginEl = (
           <SignInForm>
             <select
               disabled={isAuthenticating}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                 this.signIn(e.currentTarget.value);
-              }}
-            >
-              <option value="" defaultValue="">Choose your role...</option>
-              {method.users.map((id: Session.UserId, idx: number) =>
-                (<option key={idx} value={id}>{id}</option>))}
+              }}>
+              <option value="" defaultValue="">
+                Choose your role...
+              </option>
+              {method.users.map((id: Session.UserId, idx: number) => (
+                <option key={idx} value={id}>
+                  {id}
+                </option>
+              ))}
             </select>
             {errorEl}
           </SignInForm>
@@ -143,14 +154,17 @@ export default class Component<A extends Action>
 
       default: {
         const { dispatch } = this.props;
-        if (!dispatch) { throw new Error('dispatch not available'); }
+        if (!dispatch) {
+          throw new Error("dispatch not available");
+        }
         const to = this.props.toSelf;
-        dispatch(sessionError(to, 'Invalid sign-in method.'));
+        dispatch(sessionError(to, "Invalid sign-in method."));
       }
     }
 
-    const logoEl =
-      this.props.logoUrl ? <Logo src={this.props.logoUrl} /> : null;
+    const logoEl = this.props.logoUrl ? (
+      <Logo src={this.props.logoUrl} />
+    ) : null;
 
     return (
       <Frame>
@@ -162,4 +176,3 @@ export default class Component<A extends Action>
     );
   }
 }
-
