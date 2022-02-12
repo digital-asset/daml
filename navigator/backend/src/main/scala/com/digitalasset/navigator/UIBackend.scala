@@ -270,7 +270,9 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         config.users.foreach { case (displayName, config) =>
           store ! Subscribe(
             displayName,
-            new PartyState(config.party, config.role, config.useDatabase),
+            config.party,
+            config.role,
+            config.useDatabase,
           )
         }
         None

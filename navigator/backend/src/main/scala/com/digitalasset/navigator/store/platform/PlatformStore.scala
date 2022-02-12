@@ -218,22 +218,24 @@ class PlatformStore(
       }
 
       usersWithPrimaryParties.foreach { case (userId, party) =>
-        self ! Subscribe(userId, new PartyState(ApiTypes.Party(party)))
+        self ! Subscribe(userId, ApiTypes.Party(party))
       }
 
     case UpdatedParties(details) =>
       details.foreach { partyDetails =>
         if (partyDetails.isLocal) {
           val displayName = partyDetails.displayName.getOrElse(partyDetails.party)
-          self ! Subscribe(displayName, new PartyState(ApiTypes.Party(partyDetails.party)))
+          self ! Subscribe(displayName, ApiTypes.Party(partyDetails.party))
         } else {
           log.debug(s"Ignoring non-local party ${partyDetails.party}")
         }
       }
 
-    case Subscribe(displayName, partyState) =>
+    case Subscribe(displayName, name, userRole, useDatabase) =>
       if (!state.parties.contains(displayName)) {
-        log.info(s"Starting actor for ${partyState.name} (aka $displayName)")
+        val partyState =
+          new PartyState(name, userRole, useDatabase) // do this allocation only once per party
+        log.info(s"Starting actor for party ${partyState.name} (display name $displayName)")
 
         // start party actor if needed (since users subscribe to their primary party,
         // we may subscribe to the same party under different display names, but we should only create one actor per party)
@@ -247,7 +249,7 @@ class PlatformStore(
         val updatedParties = state.parties + (displayName -> partyState)
         context.become(connected(state.copy(parties = updatedParties)))
       } else {
-        log.debug(s"Actor for ${partyState.name} (aka $displayName) is already running")
+        log.debug(s"Actor for party $name (display name $displayName) is already running")
       }
 
     case CreateContract(party, templateId, value) =>
