@@ -19,6 +19,6 @@ CREATE TABLE participant_metering (
     ledger_offset VARCHAR2(4000) NOT NULL
 );
 
-CREATE INDEX participant_metering_from_to_timestamp ON participant_metering(from_timestamp, to_timestamp);
+CREATE UNIQUE INDEX participant_metering_from_to_application ON participant_metering(from_timestamp, to_timestamp, application_id);
 
 

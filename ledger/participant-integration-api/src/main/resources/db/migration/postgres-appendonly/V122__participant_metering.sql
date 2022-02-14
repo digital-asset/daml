@@ -30,6 +30,6 @@ CREATE TABLE participant_metering (
 
 SELECT 'Add Participant Metering: Creating indexes...';
 
-CREATE INDEX participant_metering_from_to_timestamp ON participant_metering(from_timestamp, to_timestamp);
+CREATE UNIQUE INDEX participant_metering_from_to_application ON participant_metering(from_timestamp, to_timestamp, application_id);
 
 SELECT 'Add Participant Metering: Done.';

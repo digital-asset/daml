@@ -25,9 +25,11 @@ import java.time.{OffsetDateTime, ZoneOffset}
 import java.util.{Timer, TimerTask}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object MeteringAggregator {
+
+  private val logger = ContextualizedLogger.get(getClass)
 
   class Owner(
       meteringStore: MeteringStorageWriteBackend,
@@ -35,6 +37,7 @@ object MeteringAggregator {
       meteringParameterStore: MeteringParameterStorageBackend,
       metrics: Metrics,
       period: FiniteDuration = 6.minutes,
+      maxTaskDuration: FiniteDuration = 6.hours,
   ) {
 
     private[platform] def apply(
@@ -53,8 +56,13 @@ object MeteringAggregator {
           timer.scheduleAtFixedRate(
             new TimerTask {
               override def run(): Unit = {
-                Await.ready(aggregator.run(), 60.minutes)
-                ()
+                Try {
+                  Await.ready(aggregator.run(), maxTaskDuration)
+                } match {
+                  case Success(_) => ()
+                  case Failure(e) =>
+                    logger.error(s"Metering not aggregated after ${maxTaskDuration}", e)
+                }
               }
             },
             period.toMillis,
