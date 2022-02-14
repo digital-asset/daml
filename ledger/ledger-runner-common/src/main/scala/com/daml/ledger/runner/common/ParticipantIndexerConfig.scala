@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.app
+package com.daml.ledger.runner.common
 
 import com.daml.platform.indexer.IndexerConfig
 import com.daml.platform.indexer.ha.HaConfig

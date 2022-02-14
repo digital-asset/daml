@@ -5,13 +5,12 @@ package com.daml.ledger.on.memory
 
 import akka.stream.Materializer
 import com.daml.caching
+import com.daml.ledger.runner.common._
 import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.app.{
-  Config,
   KeyValueReadWriteFactory,
   LedgerFactory,
-  ParticipantConfig,
   ReadWriteServiceFactory,
 }
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`

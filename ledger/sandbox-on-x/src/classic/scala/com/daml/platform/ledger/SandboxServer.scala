@@ -7,7 +7,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
-import com.daml.ledger.participant.state.kvutils.app.Config
+import com.daml.ledger.runner.common.Config
 import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.sandbox.SandboxServer._
