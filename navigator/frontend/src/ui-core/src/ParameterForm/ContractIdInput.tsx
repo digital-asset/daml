@@ -5,6 +5,10 @@ import * as React from "react";
 import { DamlLfTypePrim } from "../api/DamlLfType";
 import { DamlLfValue } from "../api/DamlLfValue";
 import * as DamlLfValueF from "../api/DamlLfValue";
+import {
+  shortenContractId,
+  shortenTemplateId,
+} from "../api/IdentifierShortening";
 import Autosuggest from "../Autosuggest";
 import styled from "../theme";
 import { TypeErrorElement } from "../util";
@@ -15,11 +19,6 @@ const Container = styled.div`
   width: 560px;
 `;
 
-const SmallColumn = styled.div`
-  flex: 0.2;
-  width: 100%;
-`;
-
 const BigColumn = styled.div`
   flex: 0.4;
   width: 100%;
@@ -28,8 +27,8 @@ const BigColumn = styled.div`
 function renderSuggestion(c: ParameterFormContract): JSX.Element {
   return (
     <Container>
-      <SmallColumn>{c.id}</SmallColumn>
-      <BigColumn>{c.template.id}</BigColumn>
+      <BigColumn>{shortenContractId(c.id)}</BigColumn>
+      <BigColumn>{shortenTemplateId(c.template.id)}</BigColumn>
       <BigColumn>{c.createEvent.transaction.effectiveAt}</BigColumn>
     </Container>
   );
