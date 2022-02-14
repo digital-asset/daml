@@ -14,6 +14,9 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
   override val createParameterStorageBackend: ParameterStorageBackend =
     ParameterStorageBackendTemplate
 
+  override val createMeteringParameterStorageBackend: MeteringParameterStorageBackend =
+    MeteringParameterStorageBackendTemplate
+
   override def createConfigurationStorageBackend(
       ledgerEndCache: LedgerEndCache
   ): ConfigurationStorageBackend =
@@ -28,8 +31,13 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
   override val createUserManagementStorageBackend: UserManagementStorageBackend =
     UserManagementStorageBackendTemplate
 
-  override def createMeteringStorageBackend(
+  override def createMeteringStorageReadBackend(
       ledgerEndCache: LedgerEndCache
-  ): MeteringStorageBackend =
-    new MeteringStorageBackendTemplate(ledgerEndCache)
+  ): MeteringStorageReadBackend =
+    new MeteringStorageBackendReadTemplate(ledgerEndCache)
+
+  def createMeteringStorageWriteBackend: MeteringStorageWriteBackend = {
+    MeteringStorageBackendWriteTemplate
+  }
+
 }
