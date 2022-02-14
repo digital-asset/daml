@@ -784,7 +784,7 @@ excluded_test_tool_tests = [
         "end": before_removing_legacy_error_codes,
         "platform_ranges": [
             {
-               "start": after_removing_legacy_error_codes,
+                "start": after_removing_legacy_error_codes,
                 "exclusions": [
                     "CommandSubmissionCompletionIT",
                     "ConfigManagementServiceIT",
@@ -792,20 +792,20 @@ excluded_test_tool_tests = [
                     "SemanticTests",
                     "TransactionService",
                 ],
-            }
-        ]
+            },
+        ],
     },
     {
         "start": "1.16.0",
         "end": before_removing_legacy_error_codes,
         "platform_ranges": [
             {
-               "start": after_removing_legacy_error_codes,
+                "start": after_removing_legacy_error_codes,
                 "exclusions": [
                     "ExceptionsIT",
                 ],
-            }
-        ]
+            },
+        ],
     },
     {
         # Sandbox-on-X starts forwarding rejections on duplicate party allocation starting with next release
