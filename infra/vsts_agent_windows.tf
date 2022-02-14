@@ -14,82 +14,12 @@ locals {
       size       = 6,
       assignment = "default",
       disk_size  = 400,
-      workdirs   = <<EOF
-New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40'
-New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40\da86374d7fbb90b47db2b7fe49e04373d7a0f7dc'
-Set-Content -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40\da86374d7fbb90b47db2b7fe49e04373d7a0f7dc\SourceFolder.json' `
-  -Value '{
-  "build_artifactstagingdirectory": "4\\a",
-  "agent_builddirectory": "4",
-  "collectionUrl": "https://dev.azure.com/digitalasset/",
-  "definitionName": "digital-asset.daml.daily-snapshot",
-  "repositoryTrackingInfo": [
-    {
-      "identifier": "self",
-      "repositoryType": "GitHub",
-      "repositoryUrl": "https://github.com/digital-asset/daml",
-      "sourcesDirectory": "4\\s\\daml"
-    }
-  ],
-  "fileFormatVersion": 3,
-  "lastRunOn": "02/14/2022 11:38:15 +00:00",
-  "repositoryType": "GitHub",
-  "lastMaintenanceAttemptedOn": "",
-  "lastMaintenanceCompletedOn": "",
-  "build_sourcesdirectory": "4\\s",
-  "common_testresultsdirectory": "4\\TestResults",
-  "collectionId": "cb88e308-485c-40f9-81b5-dcabba9e55d2",
-  "definitionId": "40",
-  "hashKey": "da86374d7fbb90b47db2b7fe49e04373d7a0f7dc",
-  "repositoryUrl": "https://github.com/digital-asset/daml",
-  "system": "build"
-}'
-Set-Content -Path 'D:\a\SourceRootMapping\Mappings.json' -Value '{
-  "lastBuildFolderCreatedOn": "02/14/2022 11:38:15 +00:00",
-  "lastBuildFolderNumber": 4
-}'
-EOF
     },
     {
       name       = "ci-w2"
       size       = 0,
       assignment = "default",
       disk_size  = 400,
-      workdirs   = <<EOF
-New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40'
-New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40\da86374d7fbb90b47db2b7fe49e04373d7a0f7dc'
-Set-Content -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40\da86374d7fbb90b47db2b7fe49e04373d7a0f7dc\SourceFolder.json' `
-  -Value '{
-  "build_artifactstagingdirectory": "4\\a",
-  "agent_builddirectory": "4",
-  "collectionUrl": "https://dev.azure.com/digitalasset/",
-  "definitionName": "digital-asset.daml.daily-snapshot",
-  "repositoryTrackingInfo": [
-    {
-      "identifier": "self",
-      "repositoryType": "GitHub",
-      "repositoryUrl": "https://github.com/digital-asset/daml",
-      "sourcesDirectory": "4\\s\\daml"
-    }
-  ],
-  "fileFormatVersion": 3,
-  "lastRunOn": "02/14/2022 11:38:15 +00:00",
-  "repositoryType": "GitHub",
-  "lastMaintenanceAttemptedOn": "",
-  "lastMaintenanceCompletedOn": "",
-  "build_sourcesdirectory": "4\\s",
-  "common_testresultsdirectory": "4\\TestResults",
-  "collectionId": "cb88e308-485c-40f9-81b5-dcabba9e55d2",
-  "definitionId": "40",
-  "hashKey": "da86374d7fbb90b47db2b7fe49e04373d7a0f7dc",
-  "repositoryUrl": "https://github.com/digital-asset/daml",
-  "system": "build"
-}'
-Set-Content -Path 'D:\a\SourceRootMapping\Mappings.json' -Value '{
-  "lastBuildFolderCreatedOn": "02/14/2022 11:38:15 +00:00",
-  "lastBuildFolderNumber": 4
-}'
-EOF
     },
   ]
   windows-startup-script-ps1 = <<SYSPREP_SPECIALIZE
@@ -264,7 +194,39 @@ Set-Content -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\4
   "repositoryUrl": "https://github.com/digital-asset/daml",
   "system": "build"
 }'
-%s
+New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40'
+New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40\da86374d7fbb90b47db2b7fe49e04373d7a0f7dc'
+Set-Content -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40\da86374d7fbb90b47db2b7fe49e04373d7a0f7dc\SourceFolder.json' `
+  -Value '{
+  "build_artifactstagingdirectory": "4\\a",
+  "agent_builddirectory": "4",
+  "collectionUrl": "https://dev.azure.com/digitalasset/",
+  "definitionName": "digital-asset.daml.daily-snapshot",
+  "repositoryTrackingInfo": [
+    {
+      "identifier": "self",
+      "repositoryType": "GitHub",
+      "repositoryUrl": "https://github.com/digital-asset/daml",
+      "sourcesDirectory": "4\\s\\daml"
+    }
+  ],
+  "fileFormatVersion": 3,
+  "lastRunOn": "02/14/2022 11:38:15 +00:00",
+  "repositoryType": "GitHub",
+  "lastMaintenanceAttemptedOn": "",
+  "lastMaintenanceCompletedOn": "",
+  "build_sourcesdirectory": "4\\s",
+  "common_testresultsdirectory": "4\\TestResults",
+  "collectionId": "cb88e308-485c-40f9-81b5-dcabba9e55d2",
+  "definitionId": "40",
+  "hashKey": "da86374d7fbb90b47db2b7fe49e04373d7a0f7dc",
+  "repositoryUrl": "https://github.com/digital-asset/daml",
+  "system": "build"
+}'
+Set-Content -Path 'D:\a\SourceRootMapping\Mappings.json' -Value '{
+  "lastBuildFolderCreatedOn": "02/14/2022 11:38:15 +00:00",
+  "lastBuildFolderNumber": 4
+}'
 # end folder pinning
 
 $MachineName = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object CSName | ForEach{ $_.CSName }
@@ -334,7 +296,7 @@ resource "google_compute_instance_template" "vsts-agent-windows" {
 
   metadata = {
     // Prepare the machine
-    windows-startup-script-ps1  = nonsensitive(format(local.windows-startup-script-ps1, local.w[count.index].assignment, chomp(local.w[count.index].workdirs)))
+    windows-startup-script-ps1  = nonsensitive(format(local.windows-startup-script-ps1, local.w[count.index].assignment))
     windows-shutdown-script-ps1 = nonsensitive("c://agent/config remove --unattended --auth PAT --token '${secret_resource.vsts-token.value}'")
   }
 
