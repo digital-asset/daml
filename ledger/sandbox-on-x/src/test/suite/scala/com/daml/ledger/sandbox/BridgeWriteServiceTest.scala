@@ -50,7 +50,7 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
       applicationId = Ref.ApplicationId.assertFromString("a0"),
       commandId = Ref.CommandId.assertFromString("c0"),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationOffset(Offset.beforeBegin),
-      submissionId = None,
+      submissionId = Some(Ref.SubmissionId.assertFromString("some-submission-id")),
       ledgerConfiguration = Configuration.reasonableInitialConfiguration,
     )
 

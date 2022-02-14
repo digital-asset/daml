@@ -9,10 +9,10 @@ import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.kvutils.app.{Config, ParticipantConfig}
+import com.daml.ledger.runner.common.{Config, ParticipantConfig}
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.sandbox.BridgeConfig
+import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider}
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.data.Ref.ParticipantId
@@ -90,6 +90,11 @@ object LedgerBridge {
       ),
       validatePartyAllocation = !config.extra.implicitPartyAllocation,
       servicesThreadPoolSize = servicesThreadPoolSize,
+      maxDeduplicationDuration = initialLedgerConfiguration
+        .map(_.maxDeduplicationTime)
+        .getOrElse(
+          BridgeConfigProvider.initialLedgerConfig(config).configuration.maxDeduplicationTime
+        ),
     )
 
   private[bridge] def packageUploadSuccess(
@@ -120,10 +125,11 @@ object LedgerBridge {
       participantId: ParticipantId,
       currentTimestamp: Time.Timestamp,
   ): Update.PartyAddedToParticipant = {
-    val party = s.hint.getOrElse(UUID.randomUUID().toString)
+    val party =
+      s.hint.getOrElse(Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}"))
     Update.PartyAddedToParticipant(
       party = Ref.Party.assertFromString(party),
-      displayName = s.displayName.getOrElse(party),
+      displayName = s.displayName.getOrElse(""),
       participantId = participantId,
       recordTime = currentTimestamp,
       submissionId = Some(s.submissionId),

@@ -60,7 +60,7 @@ The project contains the following files:
 
 - ``daml.yaml`` is a Daml project config file used by the SDK to find out how to build the Daml project and how to run it.
 - ``daml`` contains the :ref:`Daml code <quickstart-daml>` specifying the contract model for the ledger.
-- ``daml/Tests`` contains :ref:`test scenarios <quickstart-scenarios>` for the Daml model.
+- ``daml/Tests`` contains :ref:`test scripts <quickstart-scripts>` for the Daml model.
 - ``frontend-config.js`` and ``ui-backend.conf`` are configuration files for the :ref:`Navigator <quickstart-navigator>` frontend.
 - ``pom.xml`` and ``src/main/java`` constitute a :ref:`Java application <quickstart-application>` that provides REST services to interact with the ledger.
 
@@ -121,20 +121,18 @@ In this section, you will run the quickstart application and get introduced to t
 
    .. _quickstart-sandbox:
 
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox .daml/dist/quickstart-0.0.1.dar``
+#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --dar .daml/dist/quickstart-0.0.1.dar``
 
    The output should look like this:
 
    .. code-block:: none
 
-      INFO: Slf4jLogger started
-      INFO: Listening on localhost:6865 over plain text.
-         ____             ____
-        / __/__ ____  ___/ / /  ___ __ __
-       _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
-      /___/\_,_/_//_/\_,_/_.__/\___/_\_\
+      Starting Canton sandbox.
+      Listening at port 6865
+      Uploading .daml/dist/quickstart-0.0.1.dar to localhost:6865
+      DAR upload succeeded.
+      Canton sandbox is ready.
 
-      INFO: Initialized sandbox version 1.6.0 with ledger-id = 3528b0dd-069b-420c-9df4-4af6b8fd4f47, port = 6865, dar file = List(.daml/dist/quickstart-0.0.1.dar), time mode = wall-clock time, ledger = in-memory, auth-service = AuthServiceWildcard$, contract ids seeding = strong
 
    The sandbox is now running, and you can access its :doc:`ledger API </app-dev/ledger-api>` on port ``6865``.
 
@@ -246,7 +244,7 @@ Now everything is running, you can try out the quickstart application:
 
    .. note::
 
-     *USD_Bank* does know about an intermediate *IouTransfer* contract that was created and consumed as part of the atomic settlement in the previous step. Since that contract was never active on the ledger, it is not shown in Navigator. You will see how to view a complete transaction graph, including who knows what, in :ref:`quickstart-scenarios` below.
+     *USD_Bank* does know about an intermediate *IouTransfer* contract that was created and consumed as part of the atomic settlement in the previous step. Since that contract was never active on the ledger, it is not shown in Navigator. You will see how to view a complete transaction graph, including who knows what, in :ref:`quickstart-scripts` below.
 
 .. _quickstart-daml:
 
@@ -356,55 +354,55 @@ The *Issuers* of the two Ious, which are involved in the transaction because the
 
 For a deeper introduction to Daml, consult the :doc:`Daml Reference </daml/reference/index>`.
 
-.. _quickstart-scenarios:
+.. _quickstart-scripts:
 
-Test using scenarios
-====================
+Test using Daml Script
+======================
 
-You can check the correct authorization and privacy of a contract model using *scenarios*: tests that are written in Daml.
+You can check the correct authorization and privacy of a contract model using *scripts*: tests that are written in Daml.
 
-Scenarios are a linear sequence of transactions that is evaluated using the same consistency, conformance and authorization rules as it would be on the full ledger server or the sandbox ledger. They are integrated into Daml Studio, which can show you the resulting transaction graph, making them a powerful tool to test and troubleshoot the contract model.
+Scripts are a linear sequence of transactions that is evaluated using the same consistency, conformance and authorization rules as it would be on the full ledger server or the sandbox ledger. They are integrated into Daml Studio, which can show you the resulting transaction graph, making them a powerful tool to test and troubleshoot the contract model.
 
-To take a look at the scenarios in the quickstart application, open ``daml/Tests/Trade.daml`` in Daml Studio.
+To take a look at the scripts in the quickstart application, open ``daml/Tests/Trade.daml`` in Daml Studio.
 
-A scenario test is defined with ``trade_test = scenario do``. The ``submit`` function takes a submitting party and a transaction, which is specified the same way as in contract choices.
+A script test is defined with ``trade_test = script do``. The ``submit`` function takes a submitting party and a transaction, which is specified the same way as in contract choices.
 
 The following block, for example, issues an ``Iou`` and transfers it to Alice:
 
 .. literalinclude:: quickstart/template-root/daml/Tests/Trade.daml
   :language: daml
-  :start-after: -- BEGIN_SCENARIO
-  :end-before: -- END_SCENARIO
+  :start-after: -- BEGIN_SCRIPT
+  :end-before: -- END_SCRIPT
 
-Compare the scenario with the ``setup`` scenario in ``daml/Main.daml``. You will see that the scenario you used to initialize the sandbox is an initial segment of the ``trade_test`` scenario. The latter adds transactions to perform the trade you performed through Navigator, and a couple of transactions in which expectations are verified.
+Compare the script with the ``initialize`` script in ``daml/Main.daml``. You will see that the script you used to initialize the sandbox is an initial segment of the ``trade_test`` script. The latter adds transactions to perform the trade you performed through Navigator, and a couple of transactions in which expectations are verified.
 
-After a short time, the text *Scenario results* should appear above the test. Click on it to open the visualization of the resulting ledger state.
+After a short time, the text *Script results* should appear above the test. Click on it to open the visualization of the resulting ledger state.
 
 .. figure:: quickstart/images/ledger.png
 
 Each row shows a contract on the ledger. The first four columns show which parties know of which contracts. The remaining columns show the data on the contracts. You can see past contracts by checking the **Show archived** box at the top. Click the adjacent **Show transaction view** button to switch to a view of the entire transaction tree.
 
-In the transaction view, transaction ``#6`` is of particular interest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``known to (since)`` show that the Banks do indeed not know anything they should not:
+In the transaction view, transaction ``6`` is of particular interest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``known to (since)`` show that the Banks do indeed not know anything they should not:
 
 .. code-block:: none
 
-  TX #6 1970-01-01T00:00:00Z (Tests.Trade:61:14)
+  TX 6 1970-01-01T00:00:00Z (Tests.Trade:70:14)
   #6:0
-  │   known to (since): 'Alice' (#6), 'Bob' (#6)
+  │   known to (since): 'Alice' (6), 'Bob' (6)
   └─> 'Bob' exercises IouTrade_Accept on #5:0 (IouTrade:IouTrade)
             with
               quoteIouCid = #3:1
       children:
       #6:1
-      │   known to (since): 'Alice' (#6), 'Bob' (#6)
+      │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
       └─> fetch #4:1 (Iou:Iou)
 
       #6:2
-      │   known to (since): 'Alice' (#6), 'Bob' (#6)
+      │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
       └─> fetch #3:1 (Iou:Iou)
 
       #6:3
-      │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
+      │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
       └─> 'Bob' exercises Iou_Transfer on #3:1 (Iou:Iou)
                 with
                   newOwner = 'Alice'
@@ -412,7 +410,7 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
           #6:4
           │   consumed by: #6:5
           │   referenced by #6:5
-          │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
+          │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
           └─> create Iou:IouTransfer
               with
                 iou =
@@ -420,28 +418,27 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
                      issuer = 'USD_Bank';
                      owner = 'Bob';
                      currency = "USD";
-                     amount = 110.0;
+                     amount = 110.0000000000;
                      observers = []);
                 newOwner = 'Alice'
 
       #6:5
-      │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
+      │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
       └─> 'Alice' exercises IouTransfer_Accept on #6:4 (Iou:IouTransfer)
                   with
           children:
           #6:6
-          │   referenced by #7:0
-          │   known to (since): 'Alice' (#6), 'USD_Bank' (#6), 'Bob' (#6)
+          │   known to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
           └─> create Iou:Iou
               with
                 issuer = 'USD_Bank';
                 owner = 'Alice';
                 currency = "USD";
-                amount = 110.0;
+                amount = 110.0000000000;
                 observers = []
 
       #6:7
-      │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
+      │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
       └─> 'Alice' exercises Iou_Transfer on #4:1 (Iou:Iou)
                   with
                     newOwner = 'Bob'
@@ -449,7 +446,7 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
           #6:8
           │   consumed by: #6:9
           │   referenced by #6:9
-          │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
+          │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
           └─> create Iou:IouTransfer
               with
                 iou =
@@ -457,23 +454,26 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
                      issuer = 'EUR_Bank';
                      owner = 'Alice';
                      currency = "EUR";
-                     amount = 100.0;
+                     amount = 100.0000000000;
                      observers = ['Bob']);
                 newOwner = 'Bob'
 
       #6:9
-      │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
+      │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
       └─> 'Bob' exercises IouTransfer_Accept on #6:8 (Iou:IouTransfer)
                 with
           children:
           #6:10
-          │   referenced by #8:0
-          │   known to (since): 'Bob' (#6), 'EUR_Bank' (#6), 'Alice' (#6)
+          │   known to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
           └─> create Iou:Iou
               with
-                issuer = 'EUR_Bank'; owner = 'Bob'; currency = "EUR"; amount = 100.0; observers = []
+                issuer = 'EUR_Bank';
+                owner = 'Bob';
+                currency = "EUR";
+                amount = 100.0000000000;
+                observers = []
 
-The ``submit`` function used in this scenario tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/Iou.daml``, for example, to confirm that the ledger model prevents double spends.
+The ``submit`` function used in this script tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/Iou.daml``, for example, to confirm that the ledger model prevents double spends.
 
 ..  Interact with the ledger through the command line
     *************************************************
@@ -497,7 +497,7 @@ Integrate with the ledger
 
 A distributed ledger only forms the core of a full Daml application.
 
-To build automations and integrations around the ledger, Daml Connect has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
+To build automations and integrations around the ledger, Daml has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
 
 
 To compile the Java integration for the quickstart application, we first need to run the Java codegen on the DAR we built before::

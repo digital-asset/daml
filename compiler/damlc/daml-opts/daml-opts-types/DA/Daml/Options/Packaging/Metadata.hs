@@ -46,7 +46,6 @@ data PackageDbMetadata = PackageDbMetadata
   -- package db or not.
   } deriving Generic
 
-deriving instance Generic Fingerprint
 instance ToJSON Fingerprint
 instance FromJSON Fingerprint
 

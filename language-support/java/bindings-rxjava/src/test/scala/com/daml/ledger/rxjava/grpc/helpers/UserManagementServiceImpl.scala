@@ -26,11 +26,11 @@ final class UserManagementServiceImpl extends UserManagementService with FakeAut
     Future.successful(result)
   }
 
-  override def createUser(request: CreateUserRequest): Future[User] =
-    record(request)(User.defaultInstance)
+  override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
+    record(request)(CreateUserResponse.defaultInstance)
 
-  override def getUser(request: GetUserRequest): Future[User] =
-    record(request)(User.defaultInstance)
+  override def getUser(request: GetUserRequest): Future[GetUserResponse] =
+    record(request)(GetUserResponse.defaultInstance)
 
   override def deleteUser(request: DeleteUserRequest): Future[DeleteUserResponse] =
     record(request)(DeleteUserResponse.defaultInstance)

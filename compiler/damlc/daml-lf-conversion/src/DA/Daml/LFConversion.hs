@@ -690,9 +690,6 @@ convertSimpleRecordDef env tycon = do
 
 convertTypeSynonym :: Env -> TyCon -> ConvertM [Definition]
 convertTypeSynonym env tycon
-    | NameIn DA_Generics _ <- GHC.tyConName tycon
-    = pure []
-
     | Just (params, body) <- synTyConDefn_maybe tycon
     , not (isKindTyCon tycon)
     = do
@@ -2120,9 +2117,6 @@ convertTyCon env t
         arity = tyConArity t
         defaultTyCon = TCon <$> convertQualifiedTyCon env t
 
-metadataTys :: UniqSet FastString
-metadataTys = mkUniqSet ["MetaData", "MetaCons", "MetaSel"]
-
 convertType :: Env -> GHC.Type -> ConvertM LF.Type
 convertType env = go env
   where
@@ -2130,9 +2124,6 @@ convertType env = go env
     go env o@(TypeCon t ts)
         | t == listTyCon, ts `eqTypes` [charTy] =
             pure TText
-        | NameIn DA_Generics n <- t
-        , n `elementOfUniqSet` metadataTys
-        , [_] <- ts = erasedTy env
         | t == anyTyCon, [_] <- ts =
             -- used for type-zonking
             -- We translate this to Erased instead of TUnit since we do
@@ -2190,7 +2181,6 @@ convertKind x@(TypeCon t ts)
     | t == typeSymbolKindCon, null ts = pure KStar
     | t == tYPETyCon, [_] <- ts = pure KStar
     | t == runtimeRepTyCon, null ts = pure KStar
-    | NameIn DA_Generics "Meta" <- getName t, null ts = pure KStar
     | NameIn GHC_Types "Nat" <- getName t, null ts = pure KNat
     | t == funTyCon, [_,_,t1,t2] <- ts = do
         k1 <- convertKind t1

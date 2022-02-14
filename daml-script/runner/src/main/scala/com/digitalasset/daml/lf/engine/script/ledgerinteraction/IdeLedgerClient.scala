@@ -13,7 +13,14 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
-import com.daml.lf.transaction.{GlobalKey, Node, NodeId, Versioned}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  IncompleteTransaction,
+  Node,
+  NodeId,
+  Transaction,
+  Versioned,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.script.converter.ConverterException
@@ -131,8 +138,19 @@ class IdeLedgerClient(
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext): Future[
     ScenarioRunner.SubmissionResult[ScenarioLedger.CommitResult]
-  ] =
-    Future {
+  ] = Future {
+    val unallocatedSubmitters: Set[Party] =
+      (actAs.toSet union readAs) -- allocatedParties.values.map(_.party)
+    if (unallocatedSubmitters.nonEmpty) {
+      ScenarioRunner.SubmissionError(
+        scenario.Error.PartiesNotAllocated(unallocatedSubmitters),
+        IncompleteTransaction(
+          transaction = Transaction(Map.empty, ImmArray.empty),
+          locationInfo = Map.empty,
+        ),
+      )
+    } else {
+
       val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
 
@@ -148,8 +166,24 @@ class IdeLedgerClient(
         traceLog,
         warningLog,
       )
-      result
+      result match {
+        case err: ScenarioRunner.SubmissionError => err
+        case commit: ScenarioRunner.Commit[_] =>
+          val referencedParties: Set[Party] =
+            commit.result.richTransaction.blindingInfo.disclosure.values
+              .foldLeft(Set.empty[Party])(_ union _)
+          val unallocatedParties = referencedParties -- allocatedParties.values.map(_.party)
+          if (unallocatedParties.nonEmpty) {
+            ScenarioRunner.SubmissionError(
+              scenario.Error.PartiesNotAllocated(unallocatedParties),
+              commit.tx,
+            )
+          } else {
+            commit
+          }
+      }
     }
+  }
 
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
@@ -245,17 +279,11 @@ class IdeLedgerClient(
     }
   }
 
-  // All parties known to the ledger. This may include parties that were not
-  // allocated explicitly, e.g. parties created by `partyFromText`.
-  private def getLedgerParties(): Iterable[Ref.Party] = {
-    ledger.ledgerData.nodeInfos.values.flatMap(_.disclosures.keys)
-  }
-
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ) = {
-    val usedNames = getLedgerParties().toSet ++ allocatedParties.keySet
+    val usedNames = allocatedParties.keySet
     Future.fromTry(for {
       name <-
         if (partyIdHint != "") {
@@ -284,10 +312,7 @@ class IdeLedgerClient(
   }
 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
-    val ledgerParties: Map[String, PartyDetails] = getLedgerParties()
-      .map(p => (p -> PartyDetails(party = p, displayName = None, isLocal = true)))
-      .toMap
-    Future.successful((ledgerParties ++ allocatedParties).values.toList)
+    Future.successful(allocatedParties.values.toList)
   }
 
   override def getStaticTime()(implicit
@@ -334,7 +359,7 @@ class IdeLedgerClient(
   ): Future[Option[Unit]] =
     Future.successful(userManagementStore.deleteUser(id))
 
-  override def listUsers()(implicit
+  override def listAllUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,

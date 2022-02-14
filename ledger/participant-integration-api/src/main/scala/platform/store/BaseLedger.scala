@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{CommandId, LedgerId}
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -20,11 +20,9 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, ContractStore}
-import com.daml.lf.archive.Decode
+import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
@@ -32,10 +30,10 @@ import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, LedgerReadDao}
+import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.concurrent.Future
 
 private[platform] abstract class BaseLedger(
     val ledgerId: LedgerId,
@@ -127,8 +125,8 @@ private[platform] abstract class BaseLedger(
 
   override def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Timestamp]] =
-    contractStore.lookupMaximumLedgerTime(contractIds)
+  )(implicit loggingContext: LoggingContext): Future[MaximumLedgerTime] =
+    contractStore.lookupMaximumLedgerTimeAfterInterpretation(contractIds)
 
   override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
@@ -155,15 +153,6 @@ private[platform] abstract class BaseLedger(
   ): Future[Option[DamlLf.Archive]] =
     ledgerDao.getLfArchive(packageId)
 
-  override def getLfPackage(packageId: Ref.PackageId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Ast.Package]] =
-    ledgerDao
-      .getLfArchive(packageId)
-      .flatMap(archiveO =>
-        Future.fromTry(Try(archiveO.map(archive => Decode.assertDecodeArchive(archive)._2)))
-      )(ExecutionContext.parasitic)
-
   override def packageEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, PackageLedgerEntry), NotUsed] =
@@ -179,29 +168,19 @@ private[platform] abstract class BaseLedger(
   ): Source[(Offset, ConfigurationEntry), NotUsed] =
     dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getConfigurationEntries))
 
-  override def deduplicateCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
-    ledgerDao.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil)
-
-  override def removeExpiredDeduplicationData(currentTime: Timestamp)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
-    ledgerDao.removeExpiredDeduplicationData(currentTime)
-
-  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Ref.Party])(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
-    ledgerDao.stopDeduplicatingCommand(commandId, submitters)
-
   override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] = {
     pruneBuffers(pruneUpToInclusive)
     ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
+  }
+
+  override def getTransactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[Ref.ApplicationId],
+  )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]] = {
+    ledgerDao.getTransactionMetering(from, to, applicationId)
   }
 
   override def close(): Unit = ()

@@ -28,9 +28,8 @@ object PackageValidationMode {
 
   /** Specifies that the committer should not perform any validation of
     * packages before committing them to the ledger.
-    * This should be used only by non distributed ledgers, like
-    * Daml-on-SQL, where the validation done in the API server
-    * can be trusted.
+    * This should be used only by non distributed ledgers, where the
+    * validation done in the API server can be trusted.
     */
   case object No extends PackageValidationMode
 }

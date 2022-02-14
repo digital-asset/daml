@@ -5,12 +5,8 @@ import {
   IconName as ComponentIconName,
   IconType,
   UntypedIcon,
-} from '@da/ui-core';
+} from "@da/ui-core";
 
-export type IconName
-  = ComponentIconName
-  | 'sign-out'
-  | 'clock'
-  | 'user';
+export type IconName = ComponentIconName | "sign-out" | "clock" | "user";
 
 export const Icon = UntypedIcon as IconType<IconName>;

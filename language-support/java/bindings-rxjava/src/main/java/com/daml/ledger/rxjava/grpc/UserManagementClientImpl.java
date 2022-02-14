@@ -30,22 +30,23 @@ public final class UserManagementClientImpl implements UserManagementClient {
     this.sequencerFactory = sequencerFactory;
   }
 
-  private Single<User> createUser(
+  private Single<CreateUserResponse> createUser(
       @NonNull CreateUserRequest request, @NonNull Optional<String> maybeToken) {
     return CreateSingle.fromFuture(
             StubHelper.authenticating(this.serviceFutureStub, maybeToken)
                 .createUser(request.toProto()),
             sequencerFactory)
-        .map(User::fromProto);
+        .map(CreateUserResponse::fromProto);
   }
 
   @Override
-  public Single<User> createUser(@NonNull CreateUserRequest request) {
+  public Single<CreateUserResponse> createUser(@NonNull CreateUserRequest request) {
     return createUser(request, Optional.empty());
   }
 
   @Override
-  public Single<User> createUser(@NonNull CreateUserRequest request, @NonNull String accessToken) {
+  public Single<CreateUserResponse> createUser(
+      @NonNull CreateUserRequest request, @NonNull String accessToken) {
     return createUser(request, Optional.of(accessToken));
   }
 
@@ -55,7 +56,7 @@ public final class UserManagementClientImpl implements UserManagementClient {
             StubHelper.authenticating(this.serviceFutureStub, maybeToken)
                 .getUser(request.toProto()),
             sequencerFactory)
-        .map(User::fromProto);
+        .map(res -> User.fromProto(res.getUser()));
   }
 
   @Override

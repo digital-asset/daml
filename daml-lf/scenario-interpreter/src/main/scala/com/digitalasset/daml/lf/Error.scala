@@ -74,4 +74,7 @@ object Error {
 
   /** Tried to allocate a party that already exists. */
   final case class PartyAlreadyExists(name: String) extends Error
+
+  /** Submitted commands for parties that have not been allocated. */
+  final case class PartiesNotAllocated(parties: Set[Party]) extends Error
 }

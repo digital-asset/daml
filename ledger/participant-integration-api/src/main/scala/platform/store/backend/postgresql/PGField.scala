@@ -19,12 +19,6 @@ private[postgresql] trait PGStringArrayBase[FROM, TO] extends Field[FROM, TO, St
   }
 }
 
-private[postgresql] case class PGStringArray[FROM](
-    extract: StringInterning => FROM => Iterable[String]
-) extends PGStringArrayBase[FROM, Iterable[String]] {
-  override def convert: Iterable[String] => String = convertBase
-}
-
 private[postgresql] case class PGStringArrayOptional[FROM](
     extract: StringInterning => FROM => Option[Iterable[String]]
 ) extends PGStringArrayBase[FROM, Option[Iterable[String]]] {

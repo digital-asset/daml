@@ -31,16 +31,20 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
-rules_scala_sha256 = "a8faef92f59a4f1428ed9a93c7c313a996466a66ad64c119fc49b5c7dea98c59"
+rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
 
-rules_haskell_version = "156b091fc1b8d0736ad9f072cdc9abdadacbf57f"
-rules_haskell_sha256 = "e3fb9e6da187d0ef79f1e6240325092c011dd1c7db207cd3f3793806642bd2c4"
+rules_haskell_version = "e2a74e5c29588f2107daae7c438e0d4117fcafb3"
+rules_haskell_sha256 = "db8bf1813a07948269e622f646be3e7acc2799664fce548ed6c1afbe141d7085"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+    # This should be upstreamed
+    "@com_github_digital_asset_daml//bazel_tools:haskell-rts-docs.patch",
+    # This should be upstreamed
+    "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-includes.patch",
 ]
 rules_nixpkgs_version = "81f61c4b5afcf50665b7073f7fce4c1755b4b9a3"
 rules_nixpkgs_sha256 = "33fd540d0283cf9956d0a5a640acb1430c81539a84069114beaf9640c96d221a"
@@ -67,7 +71,7 @@ rules_go_sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53
 bazel_gazelle_version = "67a3e22af6547f43bb9b8e4dd0bad5f354ad4e60"
 bazel_gazelle_sha256 = "c71b12d890d1e299e012bfa6f08dc3d9e57281a0955dc28a1e9c16769d556203"
 rules_bazel_common_version = "9e3880428c1837db9fb13335ed390b7e33e346a7"
-rules_bazel_common_sha256 = "48a209fed9575c9d108eaf11fb77f7fe6178a90135e4d60cac6f70c2603aa53a"
+rules_bazel_common_sha256 = "5290e0c8e0b7639f20b70f8d0046b50ad340cb55a4733545f6ec8f43af8727fe"
 
 # Recent davl.
 davl_version = "f2d7480d118f32626533d6a150a8ee7552cc0222"  # 2020-03-23, "Deploy upgrade to SDK 0.13.56-snapshot.20200318",https://github.com/digital-asset/davl/pull/233/commits.
@@ -168,8 +172,7 @@ def daml_deps():
     if "io_bazel_rules_scala" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_scala",
-            url = "https://github.com/bazelbuild/rules_scala/archive/%s.zip" % rules_scala_version,
-            type = "zip",
+            url = "https://github.com/bazelbuild/rules_scala/archive/%s.tar.gz" % rules_scala_version,
             strip_prefix = "rules_scala-%s" % rules_scala_version,
             sha256 = rules_scala_sha256,
             patches = [
@@ -229,28 +232,28 @@ def daml_deps():
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "c6003e1d2e7fefa78a3039f19f383b4f3a61e81be8c19356f85b6461998ad3db",
-            strip_prefix = "protobuf-3.17.3",
+            sha256 = "4dd35e788944b7686aac898f77df4e9a54da0ca694b8801bd6b2a9ffc1b3085e",
+            strip_prefix = "protobuf-3.19.2",
             urls = [
-                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.17.3.tar.gz",
+                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.19.2.tar.gz",
             ],
         )
 
     if "io_grpc_grpc_java" not in native.existing_rules():
         http_archive(
             name = "io_grpc_grpc_java",
-            strip_prefix = "grpc-java-1.35.0",
-            urls = ["https://github.com/grpc/grpc-java/archive/v1.35.0.tar.gz"],
-            sha256 = "537d01bdc5ae2bdb267853a75578d671db3075b33e3a00a93f5a572191d3a7b3",
+            strip_prefix = "grpc-java-1.44.0",
+            urls = ["https://github.com/grpc/grpc-java/archive/v1.44.0.tar.gz"],
+            sha256 = "e3781bcab2a410a7cd138f13b2e6a643e111575f6811b154c570f4d020e87507",
             patch_args = ["-p1"],
         )
 
     if "com_github_johnynek_bazel_jar_jar" not in native.existing_rules():
         http_archive(
             name = "com_github_johnynek_bazel_jar_jar",
-            sha256 = "841ae424eec3f322d411eb49d949622cc84787cb4189a30698fa9adadb98deac",
+            sha256 = "64748da73bc82ecbbb2a872722690a3be52c06bb92a1c939136e2852470f308d",
             strip_prefix = "bazel_jar_jar-20dbf71f09b1c1c2a8575a42005a968b38805519",
-            urls = ["https://github.com/johnynek/bazel_jar_jar/archive/20dbf71f09b1c1c2a8575a42005a968b38805519.zip"],  # Latest commit SHA as at 2019/02/13
+            urls = ["https://github.com/johnynek/bazel_jar_jar/archive/20dbf71f09b1c1c2a8575a42005a968b38805519.tar.gz"],  # Latest commit SHA as at 2019/02/13
         )
 
     if "com_github_bazelbuild_remote_apis" not in native.existing_rules():
@@ -287,7 +290,7 @@ def daml_deps():
             name = "com_github_google_bazel_common",
             sha256 = rules_bazel_common_sha256,
             strip_prefix = "bazel-common-{}".format(rules_bazel_common_version),
-            urls = ["https://github.com/google/bazel-common/archive/{}.zip".format(rules_bazel_common_version)],
+            urls = ["https://github.com/google/bazel-common/archive/{}.tar.gz".format(rules_bazel_common_version)],
         )
 
     maybe(
@@ -353,7 +356,7 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "aad497893c2508b14b9ca05516a8a92c0750e5531d83300c84ee21e932038194",
+            sha256 = "911b5673ac2568b74482713c91242ffecc5dcb11c2efad08960b762824137231",
             strip_prefix = "canton-community-1.0.0-SNAPSHOT",
-            urls = ["https://www.canton.io/releases/canton-community-20220124.tar.gz"],
+            urls = ["https://www.canton.io/releases/canton-community-20220209.tar.gz"],
         )

@@ -6,7 +6,7 @@ package com.daml.platform.store
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
+import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -18,10 +18,10 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
+import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, PackageDetails}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
@@ -71,7 +71,7 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
 
   def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Timestamp]]
+  )(implicit loggingContext: LoggingContext): Future[MaximumLedgerTime]
 
   def lookupKey(key: GlobalKey, forParties: Set[Ref.Party])(implicit
       loggingContext: LoggingContext
@@ -107,10 +107,6 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       loggingContext: LoggingContext
   ): Future[Option[Archive]]
 
-  def getLfPackage(packageId: Ref.PackageId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Ast.Package]]
-
   def packageEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, PackageLedgerEntry), NotUsed]
@@ -124,49 +120,16 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       startExclusive: Offset
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed]
 
-  /** Deduplicates commands.
-    * Returns CommandDeduplicationNew if this is the first time the command is submitted
-    * Returns CommandDeduplicationDuplicate if the command was submitted before
-    *
-    * Note: The deduplication cache is used by the submission service,
-    * it does not modify any on-ledger data.
-    */
-  def deduplicateCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult]
-
-  /** Stops deduplicating the given command.
-    *
-    * Note: The deduplication cache is used by the submission service,
-    * it does not modify any on-ledger data.
-    */
-  def stopDeduplicatingCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Future[Unit]
-
-  /** Remove all expired deduplication entries. This method has to be called
-    * periodically to ensure that the deduplication cache does not grow unboundedly.
-    *
-    * @param currentTime The current time. This should use the same source of time as
-    *                    the `deduplicateUntil` argument of [[deduplicateCommand]].
-    * @return when DAO has finished removing expired entries. Clients do not
-    *         need to wait for the operation to finish, it is safe to concurrently
-    *         call deduplicateCommand().
-    *
-    * Note: The deduplication cache is used by the submission service,
-    * it does not modify any on-ledger data.
-    */
-  def removeExpiredDeduplicationData(
-      currentTime: Timestamp
-  )(implicit loggingContext: LoggingContext): Future[Unit]
-
   /** Performs participant ledger pruning up to and including the specified offset.
     */
   def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit]
+
+  def getTransactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[Ref.ApplicationId],
+  )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]]
+
 }

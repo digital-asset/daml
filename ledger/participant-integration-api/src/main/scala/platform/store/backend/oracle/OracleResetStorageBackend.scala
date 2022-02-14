@@ -17,7 +17,6 @@ object OracleResetStorageBackend extends ResetStorageBackend {
       "package_entries",
       "parameters",
       "participant_command_completions",
-      "participant_command_submissions",
       "participant_events_divulgence",
       "participant_events_create",
       "participant_events_consuming_exercise",
@@ -28,6 +27,8 @@ object OracleResetStorageBackend extends ResetStorageBackend {
       "participant_users",
       "participant_user_rights",
       "transaction_metering",
-    ).map(table => SQL"truncate table #$table cascade").foreach(_.execute()(connection))
+    ) foreach { table =>
+      SQL"delete from #$table".execute()(connection)
+    }
 
 }

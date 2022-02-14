@@ -18,7 +18,7 @@ import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
 import com.daml.platform.sandbox.{SandboxRequiringAuthorization, SandboxRequiringAuthorizationFuns}
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.{AsyncTestSuite, Inside}
+import org.scalatest.{Assertion, AsyncTestSuite, Inside}
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
@@ -259,14 +259,15 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     participantAdminJwt
   ) { (uri, _, _, _, _) =>
     import spray.json._
-    import spray.json.DefaultJsonProtocol._
     val alice = getUniqueParty("Alice")
     val createUserRequest = domain.CreateUserRequest(
       "nice.user2",
       Some(alice.unwrap),
-      List[domain.UserRight](
-        domain.CanActAs(alice),
-        domain.ParticipantAdmin,
+      Some(
+        List[domain.UserRight](
+          domain.CanActAs(alice),
+          domain.ParticipantAdmin,
+        )
       ),
     )
     for {
@@ -275,11 +276,39 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         createUserRequest.toJson,
         headers = authorizationHeader(participantAdminJwt),
       )
-      assertion <- {
-        status shouldBe StatusCodes.OK
-        getResult(output).convertTo[Boolean] shouldBe true
-      }
-    } yield assertion
+    } yield {
+      status shouldBe StatusCodes.OK
+      getResult(output) shouldBe JsObject()
+    }
+  }
+
+  "creating a user with default values should be possible via the user/create endpoint" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, _, _) =>
+    import spray.json._
+    val username = getUniqueUserName("nice.user")
+    for {
+      (status, output) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/create")),
+        JsObject("userId" -> JsString(username)),
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ <- status shouldBe StatusCodes.OK
+      (status2, output2) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user")),
+        domain.GetUserRequest(username).toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ <- status2 shouldBe StatusCodes.OK
+      _ <- getResult(output2).convertTo[UserDetails] shouldEqual UserDetails(username, None)
+      (status3, output3) <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/rights")),
+        domain.ListUserRightsRequest(username).toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ <- status3 shouldBe StatusCodes.OK
+    } yield getResult(output3)
+      .convertTo[List[domain.UserRight]] shouldEqual List.empty
   }
 
   "getting all users should be possible via the users endpoint" in withHttpServiceAndClient(
@@ -295,9 +324,11 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       domain.CreateUserRequest(
         name,
         Some(alice.unwrap),
-        List[domain.UserRight](
-          domain.CanActAs(alice),
-          domain.ParticipantAdmin,
+        Some(
+          List[domain.UserRight](
+            domain.CanActAs(alice),
+            domain.ParticipantAdmin,
+          )
         ),
       )
     )
@@ -325,14 +356,15 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     participantAdminJwt
   ) { (uri, _, _, _, _) =>
     import spray.json._
-    import spray.json.DefaultJsonProtocol._
     val alice = getUniqueParty("Alice")
     val createUserRequest = domain.CreateUserRequest(
       getUniqueUserName("nice.user"),
       Some(alice.unwrap),
-      List[domain.UserRight](
-        domain.CanActAs(alice),
-        domain.ParticipantAdmin,
+      Some(
+        List[domain.UserRight](
+          domain.CanActAs(alice),
+          domain.ParticipantAdmin,
+        )
       ),
     )
     for {
@@ -343,7 +375,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       )
       _ <- {
         status1 shouldBe StatusCodes.OK
-        getResult(output1).convertTo[Boolean] shouldBe true
+        getResult(output1) shouldBe JsObject()
       }
       (status2, output2) <- postRequest(
         uri.withPath(Uri.Path(s"/v1/user")),
@@ -363,14 +395,15 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     participantAdminJwt
   ) { (uri, _, _, _, _) =>
     import spray.json._
-    import spray.json.DefaultJsonProtocol._
     val alice = getUniqueParty("Alice")
     val createUserRequest = domain.CreateUserRequest(
       getUniqueUserName("nice.user"),
       Some(alice.unwrap),
-      List[domain.UserRight](
-        domain.CanActAs(alice),
-        domain.ParticipantAdmin,
+      Some(
+        List[domain.UserRight](
+          domain.CanActAs(alice),
+          domain.ParticipantAdmin,
+        )
       ),
     )
     for {
@@ -381,7 +414,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       )
       _ <- {
         status1 shouldBe StatusCodes.OK
-        getResult(output1).convertTo[Boolean] shouldBe true
+        getResult(output1) shouldBe JsObject()
       }
       (status2, output2) <- getRequest(
         uri.withPath(Uri.Path(s"/v1/user")),
@@ -405,9 +438,11 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     val createUserRequest = domain.CreateUserRequest(
       getUniqueUserName("nice.user"),
       Some(alice.unwrap),
-      List[domain.UserRight](
-        domain.CanActAs(alice),
-        domain.ParticipantAdmin,
+      Some(
+        List[domain.UserRight](
+          domain.CanActAs(alice),
+          domain.ParticipantAdmin,
+        )
       ),
     )
     for {
@@ -418,7 +453,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       )
       _ <- {
         status1 shouldBe StatusCodes.OK
-        getResult(output1).convertTo[Boolean] shouldBe true
+        getResult(output1) shouldBe JsObject()
       }
       (status2, _) <- postRequest(
         uri.withPath(Uri.Path(s"/v1/user/delete")),
@@ -543,6 +578,71 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           )
       }
     } yield assertion
+  }
+
+  "creating and listing 20K users should be possible" in withHttpServiceAndClient(
+    participantAdminJwt
+  ) { (uri, _, _, _, _) =>
+    import spray.json._
+    import spray.json.DefaultJsonProtocol._
+
+    val createdUsers = 20000
+
+    val createUserRequests: List[domain.CreateUserRequest] =
+      List.tabulate(createdUsers) { sequenceNumber =>
+        {
+          val p = getUniqueParty(f"p$sequenceNumber%05d")
+          domain.CreateUserRequest(
+            p.unwrap,
+            Some(p.unwrap),
+            Some(
+              List[domain.UserRight](
+                domain.CanActAs(p),
+                domain.ParticipantAdmin,
+              )
+            ),
+          )
+        }
+      }
+
+    // Create users in chunks to avoid overloading the server
+    // https://doc.akka.io/docs/akka-http/current/client-side/pool-overflow.html
+    def createUsers(
+        createUserRequests: Seq[domain.CreateUserRequest],
+        chunkSize: Int = 20,
+    ): Future[Assertion] = {
+      createUserRequests.splitAt(chunkSize) match {
+        case (Nil, _) => Future.successful(succeed)
+        case (next, remainingRequests) =>
+          Future
+            .sequence {
+              next.map { request =>
+                postRequest(
+                  uri.withPath(Uri.Path("/v1/user/create")),
+                  request.toJson,
+                  headers = authorizationHeader(participantAdminJwt),
+                ).map(_._1)
+              }
+            }
+            .flatMap { statusCodes =>
+              all(statusCodes) shouldBe StatusCodes.OK
+              createUsers(remainingRequests)
+            }
+      }
+    }
+
+    for {
+      _ <- createUsers(createUserRequests)
+      (status, output) <- getRequest(
+        uri.withPath(Uri.Path("/v1/users")),
+        headers = authorizationHeader(participantAdminJwt),
+      )
+    } yield {
+      status shouldBe StatusCodes.OK
+      val userIds = getResult(output).convertTo[List[UserDetails]].map(_.userId)
+      val expectedUserIds = "participant_admin" :: createUserRequests.map(_.userId)
+      userIds should contain allElementsOf expectedUserIds
+    }
   }
 }
 

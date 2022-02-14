@@ -7,7 +7,6 @@ import java.io.{File, FileInputStream}
 import java.nio.file.{Files, Path}
 import java.util.UUID
 import java.util.stream.Collectors
-
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -24,13 +23,13 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.on.memory.Owner
-import com.daml.ledger.participant.state.kvutils.app.{
+import com.daml.ledger.runner.common.{
+  Config,
   ParticipantConfig,
   ParticipantIndexerConfig,
   ParticipantRunMode,
 }
-import com.daml.ledger.participant.state.kvutils.{app => kvutils}
+import com.daml.ledger.on.memory.Owner
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
@@ -146,7 +145,7 @@ final class MinVersionTest
     new OwnedResource[ResourceContext, Port](
       for {
         _ <- Owner(
-          kvutils.Config
+          Config
             .createDefault(())
             .copy(
               participants = Seq(participant),

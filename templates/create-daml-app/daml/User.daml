@@ -25,3 +25,23 @@ template User with
         archive self
         create this with following = userToFollow :: following
     -- FOLLOW_END
+
+-- ALIAS_BEGIN
+template Alias with
+    username: Party
+    alias: Text
+    public: Party
+  where
+    signatory username
+    observer public
+
+    key (username, public) : (Party, Party)
+    maintainer key._1
+
+    nonconsuming choice Change: ContractId Alias with
+        newAlias: Text
+      controller username
+      do
+        archive self
+        create this with alias = newAlias
+-- ALIAS_END

@@ -204,14 +204,8 @@ object domain {
       override val description: String = "DuplicateKey: contract key is not unique"
     }
 
-    final case class PartiesNotKnownOnLedger(parties: Set[String]) extends RejectionReason {
-      override val description: String = "Some parties are unallocated"
-    }
-
     /** The ledger time of the submission violated some constraint on the ledger time. */
     final case class InvalidLedgerTime(description: String) extends RejectionReason
-
-    final case class LedgerConfigNotFound(description: String) extends RejectionReason
 
     /** The transaction relied on contracts being active that were no longer
       * active at the point where it was sequenced.
@@ -404,5 +398,10 @@ object domain {
     final case object ParticipantAdmin extends UserRight
     final case class CanActAs(party: Ref.Party) extends UserRight
     final case class CanReadAs(party: Ref.Party) extends UserRight
+  }
+
+  sealed abstract class Feature extends Product with Serializable
+  object Feature {
+    case object UserManagement extends Feature
   }
 }

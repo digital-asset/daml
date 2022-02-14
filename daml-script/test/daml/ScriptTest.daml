@@ -147,7 +147,7 @@ testCreateAndExercise = do
       <*> exerciseCmd cid GetCValue
   pure r
 
--- Used in daml test-script test-case.
+-- Used in daml script --all test-case.
 failingTest : Script ()
 failingTest = do
   alice <- allocateParty "alice"
@@ -446,38 +446,59 @@ getParticipantAdmin () = do
   participant_admin <- validateUserId "participant_admin"
   pure $ User participant_admin None
 
-testUserManagement = do
+isValidUserId : Text -> Script Bool
+isValidUserId name = try do _ <- validateUserId name; pure True catch InvalidUserId _ -> pure False
+
+userExists : UserId -> Script Bool
+userExists u = do try do _ <- getUser u; pure True catch UserNotFound _ -> pure False
+
+expectUserNotFound : Script a -> Script ()
+expectUserNotFound script = try do _ <- script; undefined catch UserNotFound _ -> pure ()
+
+testUserManagementForParty : Party -> Script ()
+testUserManagementForParty p1 = do
+  True <- isValidUserId "good"
+  False <- isValidUserId "BAD"
   participantAdmin <- getParticipantAdmin ()
-  users <- listUsers
+  users <- listAllUsers
   users === [participantAdmin]
   u1 <- validateUserId "u1"
   u2 <- validateUserId "u2"
-  let user1 = User u1 None
+  let user1 = User u1 (Some p1)
   let user2 = User u2 None
+  userIdToText u1 === "u1"
+  userIdToText u2 === "u2"
+  users <- listAllUsers
+  users === [participantAdmin]
+  False <- userExists u1
   createUser user1 []
+  True <- userExists u1
+  False <- userExists u2
+  try do _ <- createUser user1 []; undefined catch UserAlreadyExists _ -> pure ()
   createUser user2 []
+  True <- userExists u1
+  True <- userExists u2
   u <- getUser u1
   u === user1
   u <- getUser u2
   u === user2
   nonexistent <- validateUserId "nonexistent"
-  try do _ <- getUser nonexistent; undefined catch UserNotFound _ -> pure ()
-  users <- listUsers
+  expectUserNotFound (getUser nonexistent)
+  expectUserNotFound (deleteUser nonexistent)
+  users <- listAllUsers
   sort users === [participantAdmin, user1, user2]
   deleteUser u1
-  users <- listUsers
+  users <- listAllUsers
   sort users === [participantAdmin, user2]
   deleteUser u2
-  users <- listUsers
+  users <- listAllUsers
   users === [participantAdmin]
   pure ()
 
-testUserRightManagement = do
-  p1 <- allocateParty "p1"
-  p2 <- allocateParty "p2"
-  u1 <- validateUserId "u1"
-  let user1 = User u1 None
-  createUser user1 []
+testUserRightManagementForParties : Party -> Party -> Script ()
+testUserRightManagementForParties p1 p2 = do
+  u1 <- validateUserId "user1_for_rights"
+  createUser (User u1 None) []
   rights <- listUserRights u1
   rights === []
   newRights <- grantUserRights u1 [ParticipantAdmin]
@@ -500,3 +521,49 @@ testUserRightManagement = do
   revoked === [CanActAs p1, CanReadAs p2]
   rights <- listUserRights u1
   rights === []
+  nonexistent <- validateUserId "nonexistent"
+  expectUserNotFound (listUserRights nonexistent)
+  expectUserNotFound (revokeUserRights nonexistent [])
+  expectUserNotFound (grantUserRights nonexistent [])
+  u2 <- validateUserId "user2_for_rights"
+  createUser (User u2 None) [ParticipantAdmin]
+  rights <- listUserRights u2
+  rights === [ParticipantAdmin]
+  pure ()
+
+testUserManagement = do
+  clearUsers
+  p1 <- allocateParty "p1"
+  testUserManagementForParty p1
+
+testUserRightManagement = do
+  clearUsers
+  p1 <- allocateParty "p1"
+  p2 <- allocateParty "p2"
+  testUserRightManagementForParties p1 p2
+
+jsonUserManagement : Party -> Script ()
+jsonUserManagement p1 = do
+  testUserManagementForParty p1
+
+jsonUserRightManagement : Party -> Script ()
+jsonUserRightManagement p1 = do
+  testUserRightManagementForParties p1 p1
+
+clearUsers : Script ()
+clearUsers = do
+  admin <- validateUserId "participant_admin"
+  users <- listAllUsers
+  forA_ users $ \u ->
+    when (u.userId /= admin) $ deleteUser u.userId
+
+testUserListPagination = do
+  participantAdmin <- getParticipantAdmin ()
+  let names = [ "u" <> show n | n <- [1..500] ]
+  ids <- mapA validateUserId names
+  let users = [ User id None | id <- ids ]
+  sequence [ createUser user [] | user <- users ]
+  users2 <- listAllUsers
+  sort users2 === sort (users ++ [participantAdmin])
+  sequence [ deleteUser id | id <- ids ]
+  pure ()

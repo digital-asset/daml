@@ -16,23 +16,27 @@ class BridgeMetrics(metrics: Metrics) {
   object Stages {
     val Prefix: MetricName = BridgeMetrics.this.Prefix :+ "stages"
 
-    val precomputeTransactionOutputs: Timer =
-      registry.timer(Prefix :+ "precompute_transaction_outputs")
-    val tagWithLedgerEnd: Timer = registry.timer(Prefix :+ "tag_with_ledger_end")
-    val conflictCheckWithCommitted: Timer =
-      registry.timer(Prefix :+ "conflict_check_with_committed")
-    val sequence: Timer = registry.timer(Prefix :+ "sequence")
+    case class StageMetrics(stageName: String) {
+      protected val prefix: MetricName = Stages.this.Prefix :+ stageName
+      val timer: Timer = registry.timer(prefix :+ "timer")
+      val bufferBefore: Counter = registry.counter(prefix :+ "buffer")
+    }
+
+    object PrepareSubmission extends StageMetrics("prepare_submission")
+    object TagWithLedgerEnd extends StageMetrics("tag_with_ledger_end")
+    object ConflictCheckWithCommitted extends StageMetrics("conflict_check_with_committed")
+    object Sequence extends StageMetrics("sequence") {
+      val statePrefix: MetricName = prefix :+ "state"
+      val keyStateSize: Histogram = registry.histogram(statePrefix :+ "keys")
+      val consumedContractsStateSize: Histogram =
+        registry.histogram(statePrefix :+ "consumed_contracts")
+      val sequencerQueueLength: Histogram = registry.histogram(statePrefix :+ "queue")
+      val deduplicationQueueLength: Histogram =
+        registry.histogram(statePrefix :+ "deduplication_queue")
+    }
   }
 
-  object SequencerState {
-    val Prefix: MetricName = BridgeMetrics.this.Prefix :+ "sequencer_state"
-
-    val keyStateSize: Histogram = registry.histogram(Prefix :+ "keys")
-    val consumedContractsStateSize: Histogram = registry.histogram(Prefix :+ "consumed_contracts")
-    val sequencerQueueLength: Histogram = registry.histogram(Prefix :+ "queue")
-  }
-
-  object InputQueue {
+  object BridgeInputQueue {
     val Prefix: MetricName = BridgeMetrics.this.Prefix :+ "input_queue"
 
     val conflictQueueCapacity: Counter = registry.counter(Prefix :+ "capacity")

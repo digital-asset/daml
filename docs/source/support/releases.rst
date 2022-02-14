@@ -22,7 +22,7 @@ Daml's "public API" is laid out in the :doc:`overview`.
 Cadence
 *******
 
-Regular snapshot releases are made every Wednesday, with additional snapshots released as needed. These releases contain Daml Connect and Integration Components, both from the `daml repository <https://github.com/digital-asset/daml>`_ as well as some others.
+Regular snapshot releases are made every Wednesday, with additional snapshots released as needed. These releases contain Daml Components, both from the `daml repository <https://github.com/digital-asset/daml>`_ as well as some others.
 
 Stable versions are released once a month. See :ref:`release_process` below for the usual schedule. This schedule is a guide, not a guarantee, and additional releases may be made, or releases may be delayed for skipped entirely.
 

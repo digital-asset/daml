@@ -1,23 +1,24 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as Moment from 'moment'
-import * as React from 'react'
-import { DamlLfDataType, DamlLfType } from './api/DamlLfType';
-import { DamlLfValue } from './api/DamlLfValue';
+import * as Moment from "moment";
+import * as React from "react";
+import { DamlLfDataType, DamlLfType } from "./api/DamlLfType";
+import { DamlLfValue } from "./api/DamlLfValue";
 
 /**
  * The argument doesnt match the specified type.
  */
 export class TypeError extends Error {
-  constructor(private parameter: Record<string, unknown>, private argument?: Record<string, unknown>) {
+  constructor(
+    private parameter: Record<string, unknown>,
+    private argument?: Record<string, unknown>,
+  ) {
     super();
-    console.error('Argument', argument, 'does not match parameter', parameter);
+    console.error("Argument", argument, "does not match parameter", parameter);
   }
   toString(): string {
-    return (
-      `Argument ${this.argument} does not match parameter ${this.parameter}`
-    );
+    return `Argument ${this.argument} does not match parameter ${this.parameter}`;
   }
   toJSON(): Record<string, unknown> {
     return {
@@ -33,10 +34,14 @@ export interface TypeErrorElementProps {
   argument: DamlLfValue;
 }
 
-export const TypeErrorElement: React.FunctionComponent<TypeErrorElementProps> = ({argument, parameter} : TypeErrorElementProps) => {
-  const message = `Argument ${JSON.stringify(argument)} does not match parameter ${JSON.stringify(parameter)}`;
-  return (<em>{message}</em>);
-}
+export const TypeErrorElement: React.FunctionComponent<
+  TypeErrorElementProps
+> = ({ argument, parameter }: TypeErrorElementProps) => {
+  const message = `Argument ${JSON.stringify(
+    argument,
+  )} does not match parameter ${JSON.stringify(parameter)}`;
+  return <em>{message}</em>;
+};
 
 /**
  * No match found for the given object, even though the compiler reported the match to be
@@ -62,12 +67,10 @@ export const TypeErrorElement: React.FunctionComponent<TypeErrorElementProps> = 
 export class NonExhaustiveMatch extends Error {
   constructor(private match: never) {
     super();
-    console.error('No match found for ', match);
+    console.error("No match found for ", match);
   }
   toString(): string {
-    return (
-      `No match found for ${this.match}`
-    );
+    return `No match found for ${this.match}`;
   }
   toJSON(): Record<string, unknown> {
     return {

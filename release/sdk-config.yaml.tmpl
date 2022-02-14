@@ -48,10 +48,6 @@ commands:
   path: daml-helper/daml-helper
   desc: "Launch Canton Sandbox"
   args: ["sandbox"]
-- name: sandbox-kv
-  path: daml-helper/daml-helper
-  desc: "Deprecated. Launch Sandbox KV (the default Sandbox implementation for SDK < 2.0.0)"
-  args: ["run-jar", "--logback-config=sandbox-logback.xml", "daml-sdk/daml-sdk.jar", "sandbox-kv"]
 - name: navigator
   path: daml-helper/daml-helper
   desc: "Launch the Navigator"
@@ -82,7 +78,7 @@ commands:
 - name: json-api
   path: daml-helper/daml-helper
   desc: "Launch the HTTP JSON API"
-  args: ["run-jar", "--logback-config=json-api-logback.xml", "daml-sdk/daml-sdk.jar", "json-api"]
+  args: ["run-jar", "--logback-config=daml-sdk/json-api-logback.xml", "daml-sdk/daml-sdk.jar", "json-api"]
 - name: trigger-service
   path: daml-helper/daml-helper
   desc: "Launch the trigger service"
@@ -99,11 +95,11 @@ commands:
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/script-logback.xml", "daml-sdk/daml-sdk.jar", "script"]
   desc: "Run a Daml script"
-- name: test-script
-  path: daml-helper/daml-helper
-  args: ["run-jar", "--logback-config=daml-sdk/test-script-logback.xml", "daml-sdk/daml-sdk.jar", "test-script"]
-  desc: "Run all Daml script tests in a DAR"
 - name: repl
   path: damlc/damlc
   args: ["repl"]
   desc: "Launch the Daml REPL"
+- name: canton-console
+  path: daml-helper/daml-helper
+  desc: "Launch the Canton Sandbox Console"
+  args: ["canton-console"]

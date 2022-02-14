@@ -3,6 +3,9 @@
 
 package com.daml.platform.apiserver.services.admin
 
+import java.nio.charset.StandardCharsets
+import java.util.Base64
+
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{
   ContextualizedErrorLogger,
@@ -10,26 +13,33 @@ import com.daml.error.{
   ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.domain._
+import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserResponse, GetUserResponse}
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
+import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.google.protobuf.InvalidProtocolBufferException
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
 import scalaz.syntax.traverse._
 import scalaz.std.list._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 private[apiserver] final class ApiUserManagementService(
-    userManagementService: UserManagementStore,
+    userManagementStore: UserManagementStore,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    maxUsersPageSize: Int,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends proto.UserManagementServiceGrpc.UserManagementService
     with GrpcApiService {
+
   import ApiUserManagementService._
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
@@ -37,6 +47,7 @@ private[apiserver] final class ApiUserManagementService(
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
   private val fieldValidations = FieldValidations(errorFactories)
+
   import fieldValidations._
 
   override def close(): Unit = ()
@@ -44,7 +55,7 @@ private[apiserver] final class ApiUserManagementService(
   override def bindService(): ServerServiceDefinition =
     proto.UserManagementServiceGrpc.bindService(this, executionContext)
 
-  override def createUser(request: proto.CreateUserRequest): Future[proto.User] =
+  override def createUser(request: proto.CreateUserRequest): Future[CreateUserResponse] =
     withValidation {
       for {
         pUser <- requirePresence(request.user, "user")
@@ -53,43 +64,65 @@ private[apiserver] final class ApiUserManagementService(
         pRights <- fromProtoRights(request.rights)
       } yield (User(pUserId, pOptPrimaryParty), pRights)
     } { case (user, pRights) =>
-      userManagementService
+      userManagementStore
         .createUser(
           user = user,
           rights = pRights,
         )
-        .flatMap(handleResult("create user"))
-        .map(_ => request.user.get)
+        .flatMap(handleResult("creating user"))
+        .map(_ => CreateUserResponse(Some(request.user.get)))
     }
 
-  override def getUser(request: proto.GetUserRequest): Future[proto.User] =
+  override def getUser(request: proto.GetUserRequest): Future[GetUserResponse] =
     withValidation(
       requireUserId(request.userId, "user_id")
     )(userId =>
-      userManagementService
+      userManagementStore
         .getUser(userId)
-        .flatMap(handleResult("get user"))
-        .map(toProtoUser)
+        .flatMap(handleResult("getting user"))
+        .map(u => GetUserResponse(Some(toProtoUser(u))))
     )
 
   override def deleteUser(request: proto.DeleteUserRequest): Future[proto.DeleteUserResponse] =
     withValidation(
       requireUserId(request.userId, "user_id")
     )(userId =>
-      userManagementService
+      userManagementStore
         .deleteUser(userId)
-        .flatMap(handleResult("delete user"))
+        .flatMap(handleResult("deleting user"))
         .map(_ => proto.DeleteUserResponse())
     )
 
-  override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] =
-    userManagementService
-      .listUsers()
-      .flatMap(handleResult("list users"))
-      .map(
-        _.map(toProtoUser)
-      )
-      .map(proto.ListUsersResponse(_))
+  override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] = {
+    withValidation(
+      for {
+        fromExcl <- decodeUserIdFromPageToken(request.pageToken)
+        rawPageSize <- Either.cond(
+          request.pageSize >= 0,
+          request.pageSize,
+          LedgerApiErrors.RequestValidation.InvalidArgument
+            .Reject("Max page size must be non-negative")
+            .asGrpcError,
+        )
+        pageSize =
+          if (rawPageSize == 0) maxUsersPageSize
+          else Math.min(request.pageSize, maxUsersPageSize)
+      } yield {
+        (fromExcl, pageSize)
+      }
+    ) { case (fromExcl, pageSize) =>
+      userManagementStore
+        .listUsers(fromExcl, pageSize)
+        .flatMap(handleResult("listing users"))
+        .map { page: UserManagementStore.UsersPage =>
+          val protoUsers = page.users.map(toProtoUser)
+          proto.ListUsersResponse(
+            protoUsers,
+            encodeNextPageToken(if (page.users.size < pageSize) None else page.lastUserIdOption),
+          )
+        }
+    }
+  }
 
   override def grantUserRights(
       request: proto.GrantUserRightsRequest
@@ -100,7 +133,7 @@ private[apiserver] final class ApiUserManagementService(
         rights <- fromProtoRights(request.rights)
       } yield (userId, rights)
     ) { case (userId, rights) =>
-      userManagementService
+      userManagementStore
         .grantRights(
           id = userId,
           rights = rights,
@@ -119,7 +152,7 @@ private[apiserver] final class ApiUserManagementService(
         rights <- fromProtoRights(request.rights)
       } yield (userId, rights)
     ) { case (userId, rights) =>
-      userManagementService
+      userManagementStore
         .revokeRights(
           id = userId,
           rights = rights,
@@ -135,7 +168,7 @@ private[apiserver] final class ApiUserManagementService(
     withValidation(
       requireUserId(request.userId, "user_id")
     )(userId =>
-      userManagementService
+      userManagementStore
         .listUserRights(userId)
         .flatMap(handleResult("list user rights"))
         .map(_.view.map(toProtoRight).toList)
@@ -152,6 +185,11 @@ private[apiserver] final class ApiUserManagementService(
       case Left(UserManagementStore.UserExists(id)) =>
         Future.failed(
           LedgerApiErrors.AdminServices.UserAlreadyExists.Reject(operation, id.toString).asGrpcError
+        )
+
+      case Left(UserManagementStore.TooManyUserRights(id)) =>
+        Future.failed(
+          LedgerApiErrors.AdminServices.TooManyUserRights.Reject(operation, id: String).asGrpcError
         )
 
       case scala.util.Right(t) =>
@@ -205,4 +243,53 @@ object ApiUserManagementService {
       proto.Right(proto.Right.Kind.CanReadAs(proto.Right.CanReadAs(party)))
   }
 
+  def encodeNextPageToken(token: Option[Ref.UserId]): String =
+    token
+      .map { id =>
+        val bytes = Base64.getUrlEncoder.encode(
+          ListUsersPageTokenPayload(userIdLowerBoundExcl = id).toByteArray
+        )
+        new String(bytes, StandardCharsets.UTF_8)
+      }
+      .getOrElse("")
+
+  def decodeUserIdFromPageToken(pageToken: String)(implicit
+      loggingContext: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[Ref.UserId]] = {
+    if (pageToken.isEmpty) {
+      Right(None)
+    } else {
+      val bytes = pageToken.getBytes(StandardCharsets.UTF_8)
+      for {
+        decodedBytes <- Try[Array[Byte]](Base64.getUrlDecoder.decode(bytes))
+          .map(Right(_))
+          .recover { case _: IllegalArgumentException =>
+            Left(invalidPageToken)
+          }
+          .get
+        tokenPayload <- Try[ListUsersPageTokenPayload] {
+          ListUsersPageTokenPayload.parseFrom(decodedBytes)
+        }.map(Right(_))
+          .recover { case _: InvalidProtocolBufferException =>
+            Left(invalidPageToken)
+          }
+          .get
+        userId <- Ref.UserId
+          .fromString(tokenPayload.userIdLowerBoundExcl)
+          .map(Some(_))
+          .left
+          .map(_ => invalidPageToken)
+      } yield {
+        userId
+      }
+    }
+  }
+
+  private def invalidPageToken(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    LedgerApiErrors.RequestValidation.InvalidArgument
+      .Reject("Invalid page token")
+      .asGrpcError
+  }
 }

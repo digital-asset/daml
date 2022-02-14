@@ -19,6 +19,7 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
 import io.grpc.{Channel, StatusRuntimeException}
 import org.slf4j.LoggerFactory
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -34,8 +35,11 @@ final class LedgerContext(channel: Channel, packageIds: Iterable[PackageId])(imp
         .blockingStub(channel)
         .getLedgerIdentity(GetLedgerIdentityRequest())
         .ledgerId
+    ): @nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
     )
 
+  @nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*")
   def reset()(implicit system: ActorSystem): Future[LedgerContext] = {
     def waitForNewLedger(retries: Int): Future[domain.LedgerId] =
       if (retries <= 0)
@@ -65,7 +69,9 @@ final class LedgerContext(channel: Channel, packageIds: Iterable[PackageId])(imp
   }
 
   def ledgerIdentityService: LedgerIdentityServiceStub =
-    LedgerIdentityServiceGrpc.stub(channel)
+    LedgerIdentityServiceGrpc.stub(channel): @nowarn(
+      "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+    )
 
   def commandService: CommandService =
     CommandServiceGrpc.stub(channel)

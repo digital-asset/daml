@@ -87,13 +87,6 @@ class CommonCliBase(name: LedgerName) {
         .action((id, c) => c.copy(participantId = Ref.ParticipantId.assertFromString(id)))
         .text(s"Participant ID. Defaults to '${SandboxConfig.DefaultParticipantId}'.")
 
-      // TODO remove in next major release.
-      opt[Unit]("dalf")
-        .optional()
-        .text(
-          "This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions."
-        )
-
       opt[Unit]('s', "static-time")
         .optional()
         .action((_, c) => setTimeProviderType(c, TimeProviderType.Static))
@@ -386,13 +379,6 @@ class CommonCliBase(name: LedgerName) {
           "Maximum command deduplication duration."
         )
 
-      opt[Unit]("use-pre-1.18-error-codes")
-        .optional()
-        .text(
-          "Enables gRPC error code compatibility mode to the pre-1.18 behaviour. This option is deprecated and will be removed in future release versions."
-        )
-        .action((_, config: SandboxConfig) => config.copy(enableSelfServiceErrorCodes = false))
-
       opt[Boolean]("enable-user-management")
         .optional()
         .text(
@@ -406,8 +392,8 @@ class CommonCliBase(name: LedgerName) {
         .optional()
         .text(
           s"Defaults to ${UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds} seconds. " +
-            // TODO participant user management: Update max delay to 2x the configured value when made use of in throttled stream authorization.
-            "Determines the maximum delay for propagating user management state changes."
+            "Used to set expiry time for user management cache. " +
+            "Also determines the maximum delay for propagating user management state changes which is double its value."
         )
         .action((value, config: SandboxConfig) =>
           config.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = value))
@@ -416,11 +402,21 @@ class CommonCliBase(name: LedgerName) {
       opt[Int]("user-management-max-cache-size")
         .optional()
         .text(
-          s"Defaults to ${UserManagementConfig.DefaultMaximumCacheSize} entries. " +
+          s"Defaults to ${UserManagementConfig.DefaultMaxCacheSize} entries. " +
             "Determines the maximum in-memory cache size for user management state."
         )
         .action((value, config: SandboxConfig) =>
-          config.withUserManagementConfig(_.copy(maximumCacheSize = value))
+          config.withUserManagementConfig(_.copy(maxCacheSize = value))
+        )
+
+      opt[Int]("max-users-page-size")
+        .optional()
+        .text(
+          s"Maximum number of users that the server can return in a single response. " +
+            s"Defaults to ${UserManagementConfig.DefaultMaxUsersPageSize} entries."
+        )
+        .action((value, config: SandboxConfig) =>
+          config.withUserManagementConfig(_.copy(maxUsersPageSize = value))
         )
 
       com.daml.cliopts.Metrics.metricsReporterParse(this)(
@@ -430,14 +426,6 @@ class CommonCliBase(name: LedgerName) {
       )
 
       help("help").text("Print the usage text")
-
-      checkConfig(c => {
-        if (c.scenario.isDefined && c.timeProviderType.contains(TimeProviderType.WallClock))
-          failure(
-            "Wall-clock time mode (`-w`/`--wall-clock-time`) and scenario initialization (`--scenario`) may not be used together."
-          )
-        else success
-      })
     }
 
   def withContractIdSeeding(

@@ -20,25 +20,59 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 //
 service UserManagementService {
 
-    // Create a new user, failing if it already exists.
-    rpc CreateUser (CreateUserRequest) returns (User);
+    // Create a new user.
+    // Errors:
+    // - ``ALREADY_EXISTS``: if the user already exists
+    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+    rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
 
     // Get the user data of a specific user or the authenticated user.
-    rpc GetUser (GetUserRequest) returns (User);
+    // Errors:
+    // - ``NOT_FOUND``: if the user doesn't exist
+    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+    rpc GetUser (GetUserRequest) returns (GetUserResponse);
 
     // Delete an existing user and all its rights.
+    // Errors:
+    // - ``NOT_FOUND``: if the user doesn't exist
+    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse);
 
     // List all existing users.
+    // Errors:
+    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
 
     // Grant rights to a user.
+    // Errors:
+    // - ``NOT_FOUND``: if the user doesn't exist
+    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc GrantUserRights (GrantUserRightsRequest) returns (GrantUserRightsResponse);
 
     // Revoke rights from a user.
+    // Errors:
+    // - ``NOT_FOUND``: if the user doesn't exist
+    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc RevokeUserRights (RevokeUserRightsRequest) returns (RevokeUserRightsResponse);
 
     // List the set of all rights granted to a user.
+    // Errors:
+    // - ``NOT_FOUND``: if the user doesn't exist
+    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc ListUserRights (ListUserRightsRequest) returns (ListUserRightsResponse);
 }
 
@@ -53,6 +87,7 @@ service UserManagementService {
 message User {
     // The user identifier, which must be a non-empty string of at most 128
     // characters that are either lowercase alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
+    // Required
     string id = 1;
 
     // The primary party as which this user reads and acts by default on the ledger
@@ -61,6 +96,7 @@ message User {
     // Ledger API clients SHOULD set this field to a non-empty value for all users to
     // enable the users to act on the ledger using their own Daml party.
     // Users for participant administrators MAY have an associated primary party.
+    // Optional
     string primary_party = 2;
 }
 
@@ -97,23 +133,37 @@ message Right {
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message CreateUserRequest {
     // The user to create.
+    // Required
     User user = 1;
 
     // The rights to be assigned to the user upon creation,
     // which SHOULD include appropriate rights for the ``user.primary_party``.
+    // Required
     repeated Right rights = 2;
+}
+
+message CreateUserResponse {
+    // Created user.
+    User user = 1;
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedUser(user_id)``
 message GetUserRequest {
     // The user whose data to retrieve.
     // If set to empty string (the default), then the data for the authenticated user will be retrieved.
+    // Required
     string user_id = 1;
+}
+
+message GetUserResponse {
+    // Retrieved user.
+    User user = 1;
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message DeleteUserRequest {
     // The user to delete.
+    // Required
     string user_id = 1;
 }
 
@@ -123,11 +173,26 @@ message DeleteUserResponse {
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message ListUsersRequest {
+
+    // Pagination token to determine the specific page to fetch.
+    // Leave empty to fetch the first page.
+    // Optional
+    string page_token = 2;
+
+    // Maximum number of results to be returned by the server. The server will return no more than that many results, but it might return fewer.
+    // If 0, the server will decide the number of results to be returned.
+    // Optional
+    int32 page_size = 3;
+
 }
 
 message ListUsersResponse {
-    // All users of the participant node.
+    // A subset of users of the participant node that fit into this page.
     repeated User users = 1;
+
+    // Pagination token to retrieve the next page.
+    // Empty, if there are no further results.
+    string next_page_token = 2;
 }
 
 // Add the rights to the set of rights granted to the user.
@@ -135,9 +200,11 @@ message ListUsersResponse {
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message GrantUserRightsRequest {
     // The user to whom to grant rights.
+    // Required
     string user_id = 1;
 
     // The rights to grant.
+    // Required
     repeated Right rights = 2;
 }
 
@@ -151,9 +218,11 @@ message GrantUserRightsResponse {
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message RevokeUserRightsRequest {
     // The user from whom to revoke rights.
+    // Required
     string user_id = 1;
 
     // The rights to revoke.
+    // Required
     repeated Right rights = 2;
 }
 
@@ -166,6 +235,7 @@ message RevokeUserRightsResponse {
 message ListUserRightsRequest {
     // The user for which to list the rights.
     // If set to empty string (the default), then the rights for the authenticated user will be listed.
+    // Required
     string user_id = 1;
 
     // TODO (i12052): add pagination following https://cloud.google.com/apis/design/design_patterns#list_pagination

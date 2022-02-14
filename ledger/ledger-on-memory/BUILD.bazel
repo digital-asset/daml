@@ -7,7 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
-load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_library(
@@ -111,6 +111,7 @@ da_scala_library(
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
@@ -132,37 +133,6 @@ da_scala_binary(
     ],
     deps = [
         ":ledger-on-memory-app",
-    ],
-)
-
-# Full conformance test (single node setup)
-conformance_test(
-    name = "conformance-test",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-    ],
-    test_tool_args = [
-        "--verbose",
-    ],
-)
-
-# Full conformance test asserting the Ledger API returning legacy error codes
-conformance_test(
-    name = "conformance-test-legacy-error-codes",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-        "--index-append-only-schema",
-        "--use-pre-1.18-error-codes",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--exclude=CommandDeduplicationPeriodValidationIT",  # The test expects the new error codes.
     ],
 )
 
@@ -201,21 +171,5 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--exclude=ConfigManagementServiceIT",
-    ],
-)
-
-conformance_test(
-    name = "benchmark-performance-envelope",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--perf-tests=PerformanceEnvelope.Throughput.TwentyOPS",
-        "--perf-tests=PerformanceEnvelope.Latency.1000ms",
-        "--perf-tests=PerformanceEnvelope.TransactionSize.1000KB",
     ],
 )

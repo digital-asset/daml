@@ -47,6 +47,11 @@ object TransactionTraversal {
           case Left(error) => Left(ConversionError.DecodeError(error))
           case Right(nodeWitnesses) =>
             val witnesses = parentWitnesses union nodeWitnesses
+            // Here node.toByteString is safe.
+            // Indeed node is a submessage of the transaction `rawTx` we got serialized
+            // as input of `traverseTransactionWithWitnesses` and successfully decoded, i.e.
+            // `rawTx` requires less than 2GB to be serialized, so does <node`.
+            // See com.daml.SafeProto for more details about issues with the toByteString method.
             f(nodeId, RawTransaction.Node(node.toByteString), witnesses)
             // Recurse into children (if any).
             node.getNodeTypeCase match {
@@ -62,7 +67,7 @@ object TransactionTraversal {
     }
   }
 
-  private def informeesOfNode(
+  private[this] def informeesOfNode(
       txVersion: TransactionVersion,
       node: TransactionOuterClass.Node,
   ): Either[ValueCoder.DecodeError, Set[Ref.Party]] =

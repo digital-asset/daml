@@ -7,7 +7,7 @@ import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
 import akka.{Done, NotUsed}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
@@ -27,12 +27,10 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
 }
 import java.util.concurrent.atomic.AtomicReference
 
-import com.daml.platform.apiserver.execution.MissingContracts
-
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
-import scala.util.{Success, Try}
+import scala.util.Success
 
 private[platform] class MutableCacheBackedContractStore(
     metrics: Metrics,
@@ -72,25 +70,55 @@ private[platform] class MutableCacheBackedContractStore(
       .getOrElse(readThroughKeyCache(key))
       .map(keyStateToResponse(_, readers))
 
-  override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
+  override def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Timestamp]] =
+  ): Future[MaximumLedgerTime] =
     Future
-      .fromTry(partitionCached(ids))
+      .successful(partitionCached(ids))
       .flatMap {
-        case (cached, toBeFetched) if toBeFetched.isEmpty =>
-          Future.successful(Some(cached.max))
-        case (cached, toBeFetched) =>
-          contractsReader
-            .lookupMaximumLedgerTime(toBeFetched)
-            .map(_.map(m => (cached + m).max))
+        case Left(archivedContracts) =>
+          Future.successful(MaximumLedgerTime.Archived(archivedContracts))
+
+        case Right((cached, toBeFetched)) if toBeFetched.isEmpty =>
+          Future.successful(MaximumLedgerTime.from(cached.maxOption))
+
+        case Right((cached, toBeFetched)) =>
+          readThroughMaximumLedgerTime(toBeFetched.toList, cached.maxOption)
       }
+
+  private def readThroughMaximumLedgerTime(
+      missing: List[ContractId],
+      acc: Option[Timestamp],
+  ): Future[MaximumLedgerTime] =
+    missing match {
+      case contractId :: restOfMissing =>
+        readThroughContractsCache(contractId).flatMap {
+          case active: Active =>
+            val newMaximumLedgerTime = Some(
+              (active.createLedgerEffectiveTime :: acc.toList).max
+            )
+            readThroughMaximumLedgerTime(restOfMissing, newMaximumLedgerTime)
+
+          case _: Archived =>
+            Future.successful(MaximumLedgerTime.Archived(Set(contractId)))
+
+          case NotFound =>
+            // If cannot be found: no create or archive event for the contract.
+            // Since this contract is part of the input, it was able to be looked up once.
+            // So this is the case of a divulged contract, which was not archived.
+            // Divulged contract does not change maximumLedgerTime
+            readThroughMaximumLedgerTime(restOfMissing, acc)
+        }
+
+      case _ =>
+        Future.successful(MaximumLedgerTime.from(acc))
+    }
 
   private def partitionCached(
       ids: Set[ContractId]
   )(implicit
       loggingContext: LoggingContext
-  ): Try[(Set[Timestamp], Set[ContractId])] = {
+  ): Either[Set[ContractId], (Set[Timestamp], Set[ContractId])] = {
     val cacheQueried = ids.map(id => id -> contractsCache.get(id))
 
     val cached = cacheQueried.view
@@ -112,9 +140,6 @@ private[platform] class MutableCacheBackedContractStore(
         val missing = cacheQueried.collect { case (id, None) => id }
         (cached, missing)
       }
-      .left
-      .map(MissingContracts)
-      .toTry
   }
 
   private def readThroughContractsCache(contractId: ContractId)(implicit

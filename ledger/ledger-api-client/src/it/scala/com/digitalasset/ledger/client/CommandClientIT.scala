@@ -5,7 +5,6 @@ package com.daml.ledger.client
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
-
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
@@ -43,7 +42,8 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.platform.sandbox.services.TestCommands
 import com.daml.util.Ctx
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}

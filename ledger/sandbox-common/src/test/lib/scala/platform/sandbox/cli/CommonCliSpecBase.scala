@@ -353,17 +353,6 @@ abstract class CommonCliSpecBase(
       )
     }
 
-    "parse gRPC error codes compatibility mode flag" in {
-      checkOption(
-        Array("--use-pre-1.18-error-codes"),
-        _.copy(enableSelfServiceErrorCodes = false),
-      )
-      checkOption(
-        Array(),
-        _.copy(enableSelfServiceErrorCodes = true),
-      )
-    }
-
     "handle '--enable-user-management' flag correctly" in {
       checkOptionFail(
         Array("--enable-user-management")
@@ -390,7 +379,7 @@ abstract class CommonCliSpecBase(
       // default
       checkOption(
         Array.empty,
-        _.withUserManagementConfig(_.copy(maximumCacheSize = 100)),
+        _.withUserManagementConfig(_.copy(maxCacheSize = 100)),
       )
       // custom value
       checkOption(
@@ -398,7 +387,7 @@ abstract class CommonCliSpecBase(
           "--user-management-max-cache-size",
           "123",
         ),
-        _.withUserManagementConfig(_.copy(maximumCacheSize = 123)),
+        _.withUserManagementConfig(_.copy(maxCacheSize = 123)),
       )
     }
 
@@ -419,6 +408,26 @@ abstract class CommonCliSpecBase(
           "123",
         ),
         _.withUserManagementConfig(_.copy(cacheExpiryAfterWriteInSeconds = 123)),
+      )
+    }
+
+    "handle '--max-users-page-size' flag correctly" in {
+      // missing value
+      checkOptionFail(
+        Array("--max-users-page-size")
+      )
+      // default
+      checkOption(
+        Array.empty,
+        _.withUserManagementConfig(_.copy(maxUsersPageSize = 1000)),
+      )
+      // custom value
+      checkOption(
+        Array(
+          "--max-users-page-size",
+          "123",
+        ),
+        _.withUserManagementConfig(_.copy(maxUsersPageSize = 123)),
       )
     }
 

@@ -43,7 +43,7 @@ CREATE TABLE participant_users (
     internal_id         INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id             VARCHAR(256)        NOT NULL UNIQUE,
     primary_party       VARCHAR(512),
-    created_at          BIGINT              NOT NULL DEFAULT CAST((1000 * 1000 * EXTRACT(epoch FROM CURRENT_TIMESTAMP)) AS BIGINT)
+    created_at          BIGINT              NOT NULL
 );
 
 CREATE TABLE participant_user_rights (
@@ -55,13 +55,13 @@ CREATE TABLE participant_user_rights (
                                                                     THEN for_party
                                                                     ELSE ''
                                                              END),
-    granted_at          BIGINT          NOT NULL DEFAULT CAST((1000 * 1000 * EXTRACT(epoch FROM CURRENT_TIMESTAMP)) AS BIGINT),
+    granted_at          BIGINT          NOT NULL,
     UNIQUE (user_internal_id, user_right, for_party2)
 );
 
-INSERT INTO participant_users(user_id, primary_party) VALUES ('participant_admin', NULL);
-INSERT INTO participant_user_rights(user_internal_id, user_right, for_party)
-    SELECT internal_id, 1, NULL
+INSERT INTO participant_users(user_id, primary_party, created_at) VALUES ('participant_admin', NULL, 0);
+INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, granted_at)
+    SELECT internal_id, 1, NULL, 0
     FROM participant_users
     WHERE user_id = 'participant_admin';
 
@@ -123,14 +123,6 @@ CREATE TABLE party_entries (
 CREATE INDEX idx_party_entries ON party_entries (submission_id);
 CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, ledger_offset);
 CREATE INDEX idx_party_entries_party_id_and_ledger_offset ON party_entries(party_id, ledger_offset);
-
----------------------------------------------------------------------------------------------------
--- Submissions table
----------------------------------------------------------------------------------------------------
-CREATE TABLE participant_command_submissions (
-    deduplication_key VARCHAR PRIMARY KEY NOT NULL,
-    deduplicate_until BIGINT NOT NULL
-);
 
 ---------------------------------------------------------------------------------------------------
 -- Completions table
@@ -254,9 +246,6 @@ CREATE INDEX participant_events_create_event_offset ON participant_events_create
 -- sequential_id index for paging
 CREATE INDEX participant_events_create_event_sequential_id ON participant_events_create (event_sequential_id);
 
--- lookup by event-id
-CREATE INDEX participant_events_create_event_id_idx ON participant_events_create (event_id);
-
 -- lookup by transaction id
 CREATE INDEX participant_events_create_transaction_id_idx ON participant_events_create (transaction_id);
 
@@ -318,9 +307,6 @@ CREATE INDEX participant_events_consuming_exercise_event_offset ON participant_e
 -- sequential_id index for paging
 CREATE INDEX participant_events_consuming_exercise_event_sequential_id ON participant_events_consuming_exercise (event_sequential_id);
 
--- lookup by event-id
-CREATE INDEX participant_events_consuming_exercise_event_id_idx ON participant_events_consuming_exercise (event_id);
-
 -- lookup by transaction id
 CREATE INDEX participant_events_consuming_exercise_transaction_id_idx ON participant_events_consuming_exercise (transaction_id);
 
@@ -378,9 +364,6 @@ CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participa
 
 -- sequential_id index for paging
 CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise (event_sequential_id);
-
--- lookup by event-id
-CREATE INDEX participant_events_non_consuming_exercise_event_id_idx ON participant_events_non_consuming_exercise (event_id);
 
 -- lookup by transaction id
 CREATE INDEX participant_events_non_consuming_exercise_transaction_id_idx ON participant_events_non_consuming_exercise (transaction_id);
@@ -555,3 +538,18 @@ CREATE TABLE transaction_metering (
 );
 
 CREATE INDEX transaction_metering_ledger_offset ON transaction_metering(ledger_offset);
+
+CREATE TABLE metering_parameters (
+    ledger_metering_end VARCHAR,
+    ledger_metering_timestamp BIGINT NOT NULL
+);
+
+CREATE TABLE participant_metering (
+    application_id VARCHAR NOT NULL,
+    from_timestamp BIGINT NOT NULL,
+    to_timestamp BIGINT NOT NULL,
+    action_count INTEGER NOT NULL,
+    ledger_offset VARCHAR NOT NULL
+);
+
+CREATE UNIQUE INDEX participant_metering_from_to_application ON participant_metering(from_timestamp, to_timestamp, application_id);

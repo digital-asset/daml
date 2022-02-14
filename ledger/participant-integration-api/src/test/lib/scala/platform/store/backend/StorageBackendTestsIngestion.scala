@@ -3,9 +3,15 @@
 
 package com.daml.platform.store.backend
 
+import java.sql.Connection
+
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
+import scala.util.Random
 
 private[backend] trait StorageBackendTestsIngestion
     extends Matchers
@@ -88,4 +94,50 @@ private[backend] trait StorageBackendTestsIngestion
     partiesAfterLedgerEndUpdate should not be empty
   }
 
+  private val NumberOfUpsertPackagesTests = 30
+  it should s"safely upsert packages concurrently ($NumberOfUpsertPackagesTests)" in withConnections(
+    2
+  ) { connections =>
+    import scala.concurrent.ExecutionContext.Implicits.global
+
+    val List(connection1, connection2) = connections
+    def packageFor(n: Int): DbDto.Package =
+      dtoPackage(offset(n.toLong))
+        .copy(
+          package_id = s"abc123$n",
+          _package = Random.nextString(Random.nextInt(200000) + 200).getBytes,
+        )
+    val conflictingPackageDtos = 11 to 20 map packageFor
+    val packages1 = 21 to 30 map packageFor
+    val packages2 = 31 to 40 map packageFor
+
+    def test() = {
+
+      executeSql(backend.parameter.initializeParameters(someIdentityParams))
+
+      def ingestPackagesF(connection: Connection, packages: Iterable[DbDto.Package]): Future[Unit] =
+        Future {
+          connection.setAutoCommit(false)
+          ingest(packages.toVector, connection)
+          connection.commit()
+        }
+
+      val ingestF1 = ingestPackagesF(connection1, packages1 ++ conflictingPackageDtos)
+      val ingestF2 = ingestPackagesF(connection2, packages2 ++ conflictingPackageDtos)
+
+      Await.result(ingestF1, Duration(10, "seconds"))
+      Await.result(ingestF2, Duration(10, "seconds"))
+
+      executeSql(updateLedgerEnd(offset(50), 0))
+
+      executeSql(backend.packageBackend.lfPackages).keySet.map(_.toString) shouldBe (
+        conflictingPackageDtos ++ packages1 ++ packages2
+      ).map(_.package_id).toSet
+    }
+
+    1 to NumberOfUpsertPackagesTests foreach { _ =>
+      test()
+      executeSql(backend.reset.resetAll)
+    }
+  }
 }

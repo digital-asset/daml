@@ -1,19 +1,17 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ApolloClient } from '@apollo/client';
-import { withApollo } from '@apollo/client/react/hoc';
-import { ParameterForm, styled, Truncate } from '@da/ui-core';
-import * as DamlLfValueF from '@da/ui-core/lib/api/DamlLfValue';
-import { DamlLfValue } from '@da/ui-core/lib/api/DamlLfValue';
-import {
-  default as ParameterDataProvider,
-} from '@da/ui-core/lib/ParameterForm/ApolloDataProvider';
-import * as React from 'react';
-import { Template } from '.'
+import { ApolloClient } from "@apollo/client";
+import { withApollo } from "@apollo/client/react/hoc";
+import { ParameterForm, styled, Truncate } from "@da/ui-core";
+import * as DamlLfValueF from "@da/ui-core/lib/api/DamlLfValue";
+import { DamlLfValue } from "@da/ui-core/lib/api/DamlLfValue";
+import { default as ParameterDataProvider } from "@da/ui-core/lib/ParameterForm/ApolloDataProvider";
+import * as React from "react";
+import { Template } from ".";
 
 const Wrapper = styled.div`
-  width: 100%
+  width: 100%;
 `;
 
 const Header = styled.div`
@@ -30,14 +28,17 @@ const Header = styled.div`
 const Content = styled.div`
   padding-left: 2.5rem;
   padding-right: 2.5rem;
-  margin-top: 1.0rem;
-  margin-bottom: 1.0rem;
-`
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+`;
 
 interface Props {
   template: Template;
   isLoading: boolean;
-  onSubmit(e: React.MouseEvent<HTMLButtonElement>, argument?: DamlLfValue): void;
+  onSubmit(
+    e: React.MouseEvent<HTMLButtonElement>,
+    argument?: DamlLfValue,
+  ): void;
   error?: string;
 }
 
@@ -47,12 +48,11 @@ interface Local {
 
 interface ApolloProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  client: ApolloClient<any>
+  client: ApolloClient<any>;
 }
 
 class Component extends React.Component<Props & ApolloProps, Local> {
-
-  private paramDataProvider: ParameterDataProvider;
+  private readonly paramDataProvider: ParameterDataProvider;
 
   constructor(props: Props & ApolloProps) {
     super(props);
@@ -66,16 +66,19 @@ class Component extends React.Component<Props & ApolloProps, Local> {
     const { template, isLoading, onSubmit, error } = this.props;
     return (
       <Wrapper>
-        <Header><Truncate>Template {template.id}</Truncate></Header>
+        <Header>
+          <Truncate>Template {template.id}</Truncate>
+        </Header>
         <Content>
           <ParameterForm
             parameter={template.parameter}
             argument={this.state.argument}
             disabled={isLoading}
-            onChange={(argument) => this.setState({ argument })}
+            onChange={argument => this.setState({ argument })}
             onSubmit={onSubmit}
             error={error}
             typeProvider={this.paramDataProvider}
+            contractIdProvider={this.paramDataProvider}
           />
         </Content>
       </Wrapper>

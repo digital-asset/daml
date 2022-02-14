@@ -14,7 +14,7 @@ Network Upgradeability
 
   Ledger Operators should be able to upgrade Daml network or Participant Nodes seamlessly to stay up to date with the latest features and fixes. A Daml application should be able to operate without significant change across such Network Upgrades.
 
-Daml Connect Upgradeability
+Daml Upgradeability
 
   Application Developers should be able to update their developer tools seamlessly to stay up to date with the latest features and fixes, and stay able to maintain and develop their existing applications.
 
@@ -33,16 +33,16 @@ Participant Nodes advertise the Ledger API version they support via the :ref:`ve
 
 As a concrete example, Daml for Postgres 1.4.0 has the Participant Node integrated, and exposes Ledger API version 1.4.0 and the Daml for VMware Blockchain 1.0 Participant Nodes expose Ledger API version 1.6.0. So any application that runs on Daml for Postgres 1.4.0 will also run on Daml for VMware Blockchain 1.0.
 
-List of Ledger API Versions supported by Daml Connect
-=====================================================
+List of Ledger API Versions supported by Daml
+=============================================
 
-The below lists with which Daml Connect version a new Ledger API version was introduced.
+The below lists with which Daml version a new Ledger API version was introduced.
 
 .. list-table::   
    :header-rows: 1
 
    * - Ledger API Version
-     - Daml Connect Version
+     - Daml Version
    * - 1.12
      - 1.15
    * - 1.11
@@ -54,7 +54,7 @@ The below lists with which Daml Connect version a new Ledger API version was int
    * - 1.8
      - 1.9
    * - <= 1.7
-     - Introduced with the same Daml Connect / SDK version
+     - Introduced with the same Daml SDK version
 
 Summary of Ledger API Changes
 =============================
@@ -77,7 +77,7 @@ Summary of Ledger API Changes
    * - 1.8
      - Introduce Multi-Party Submissions
    * - <= 1.7
-     - See Daml Connect (/SDK) `release notes <https://daml.com/release-notes>`_ of same version number.
+     - See Daml (SDK) `release notes <https://daml.com/release-notes>`_ of same version number.
 
 Driver and Participant Compatibility: Network Upgradeability
 ************************************************************
@@ -86,22 +86,22 @@ Given the Ledger API Compatibility above, network upgrades are seamless if they 
 
 As an example, from an application standpoint, the only effect of upgrading Daml for Postgres 1.4.0 to Daml for Postgres 1.6.0 is an uptick in the Ledger API version. There may be significant changes to components or database schemas, but these are not public APIs. 
 
-SDK, Runtime Component, and Library Compatibility: Daml Connect Upgradeability
-******************************************************************************
+SDK, Runtime Component, and Library Compatibility: Daml Upgradeability
+**********************************************************************
 
-As long as a major Ledger API version is supported (see :ref:`ledger-api-support`), there will be supported version of Daml Connect able to target all minor versions of that major version. This has the obvious caveat that new features may not be available with old Ledger API versions.
+As long as a major Ledger API version is supported (see :ref:`ledger-api-support`), there will be supported version of Daml able to target all minor versions of that major version. This has the obvious caveat that new features may not be available with old Ledger API versions.
 
-For example, an application built and compiled with Daml Connect 1.4.0 against Ledger API 1.4.0, it can still be compiled using SDK 1.6.0 and can be run against Ledger API 1.4.0 using 1.6.0 libraries and runtime components. 
+For example, an application built and compiled with Daml SDK 1.4.0 against Ledger API 1.4.0, it can still be compiled using SDK 1.6.0 and can be run against Ledger API 1.4.0 using 1.6.0 libraries and runtime components. 
 
 .. _ledger-api-support:
 
 Ledger API Support Duration
 ***************************
 
-Major Ledger API versions behave like stable features in :doc:`status-definitions`. They are supported from the time they are first released as "stable" to the point where they are removed from Integration Components and Daml Connect following a 12 month deprecation cycle. The earliest point a major Ledger API version can be deprecated is with the release of the next major version. The earliest it can be removed is 12 months later with a major version release of the Integration Components.
+Major Ledger API versions behave like stable features in :doc:`status-definitions`. They are supported from the time they are first released as "stable" to the point where they are removed from Integration Components and Daml following a 12 month deprecation cycle. The earliest point a major Ledger API version can be deprecated is with the release of the next major version. The earliest it can be removed is 12 months later with a major version release of the Integration Components.
 
 Other than for hotfix releases, new releases of the Integration Components will only support the latest minor/patch version of each major Ledger API version.
 
 As a result we can make this overall statement:
 
-**An application built using Daml Connect U.V.W against Ledger API X.Y.Z can be maintained using any Daml Connect version U2.V2.W2 >= U.V.W as long as Ledger API major version X is still supported at the time of release of U2.V2.W2, and run against any Daml Network with Participant Nodes exposing Ledger API X.Y2.Z2 >= X.Y.Z.**
+**An application built using Daml SDK U.V.W against Ledger API X.Y.Z can be maintained using any Daml SDK version U2.V2.W2 >= U.V.W as long as Ledger API major version X is still supported at the time of release of U2.V2.W2, and run against any Daml Network with Participant Nodes exposing Ledger API X.Y2.Z2 >= X.Y.Z.**

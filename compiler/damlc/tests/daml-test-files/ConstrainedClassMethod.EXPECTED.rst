@@ -1,4 +1,4 @@
-.. _module-constrainedclassmethod-95187:
+.. _module-constrainedclassmethod-88436:
 
 Module ConstrainedClassMethod
 -----------------------------
@@ -9,16 +9,16 @@ not present in the class itself\.
 Typeclasses
 ^^^^^^^^^^^
 
-.. _class-constrainedclassmethod-a-35350:
+.. _class-constrainedclassmethod-a-38747:
 
-**class** `A <class-constrainedclassmethod-a-35350_>`_ t **where**
+**class** `A <class-constrainedclassmethod-a-38747_>`_ t **where**
 
-  .. _function-constrainedclassmethod-foo-58176:
+  .. _function-constrainedclassmethod-foo-16027:
   
-  `foo <function-constrainedclassmethod-foo-58176_>`_
+  `foo <function-constrainedclassmethod-foo-16027_>`_
     \: t \-\> t
   
-  .. _function-constrainedclassmethod-bar-13431:
+  .. _function-constrainedclassmethod-bar-5816:
   
-  `bar <function-constrainedclassmethod-bar-13431_>`_
-    \: `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-21216>`_ t \=\> t \-\> t
+  `bar <function-constrainedclassmethod-bar-5816_>`_
+    \: `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ t \=\> t \-\> t

@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-import * as jtv from '@mojotech/json-type-validation';
-import _ from 'lodash';
+import * as jtv from "@mojotech/json-type-validation";
+import _ from "lodash";
 
 /**
  * Interface for companion objects of serializable types. Its main purpose is
@@ -29,12 +29,16 @@ export interface Serializable<T> {
  * @typeparam I The contract id type.
  *
  */
-export interface Template<T extends object, K = unknown, I extends string = string> extends Serializable<T> {
+export interface Template<
+  T extends object,
+  K = unknown,
+  I extends string = string,
+> extends Serializable<T> {
   templateId: I;
   /**
    * @internal
    */
-  sdkVersion: '0.0.0-SDKVERSION';
+  sdkVersion: "0.0.0-SDKVERSION";
   /**
    * @internal
    */
@@ -86,21 +90,27 @@ export interface Choice<T extends object, C, R, K = unknown> {
 /**
  * @internal
  */
-const registeredTemplates: {[key: string]: Template<object>} = {};
+const registeredTemplates: { [key: string]: Template<object> } = {};
 
 /**
  * @internal
  */
-export const registerTemplate = <T extends object>(template: Template<T>): void => {
+export const registerTemplate = <T extends object>(
+  template: Template<T>,
+): void => {
   const templateId = template.templateId;
   const oldTemplate = registeredTemplates[templateId];
   if (oldTemplate === undefined) {
-    registeredTemplates[templateId] = template as unknown as Template<object, unknown, string>;
+    registeredTemplates[templateId] = template as unknown as Template<
+      object,
+      unknown,
+      string
+    >;
     console.debug(`Registered template ${templateId}.`);
   } else {
     console.warn(`Trying to re-register template ${templateId}.`);
   }
-}
+};
 
 /**
  * @internal
@@ -108,10 +118,12 @@ export const registerTemplate = <T extends object>(template: Template<T>): void 
 export const lookupTemplate = (templateId: string): Template<object> => {
   const template = registeredTemplates[templateId];
   if (template === undefined) {
-    throw Error(`Failed to look up template ${templateId}. Make sure your @daml/types version agrees with the used Daml SDK version.`);
+    throw Error(
+      `Failed to look up template ${templateId}. Make sure your @daml/types version agrees with the used Daml SDK version.`,
+    );
   }
   return template;
-}
+};
 
 /**
  * @internal Turn a thunk into a memoized version of itself. The memoized thunk
@@ -121,9 +133,9 @@ export const lookupTemplate = (templateId: string): Template<object> => {
  */
 export function memo<A>(thunk: () => A): () => A {
   let memoized: () => A = () => {
-      const cache = thunk();
-      memoized = (): A => cache;
-      return cache;
+    const cache = thunk();
+    memoized = (): A => cache;
+    return cache;
   };
   // NOTE(MH): Since we change `memoized` when the resultung thunk is invoked
   // for the first time, we need to return it "by reference". Thus, we return
@@ -159,7 +171,7 @@ export interface Unit {
 export const Unit: Serializable<Unit> = {
   decoder: jtv.object({}),
   encode: (t: Unit) => t,
-}
+};
 
 /**
  * The counterpart of Daml's `Bool` type.
@@ -172,7 +184,7 @@ export type Bool = boolean;
 export const Bool: Serializable<Bool> = {
   decoder: jtv.boolean(),
   encode: (b: Bool) => b,
-}
+};
 
 /**
  * The counterpart of Daml's `Int` type.
@@ -187,7 +199,7 @@ export type Int = string;
 export const Int: Serializable<Int> = {
   decoder: jtv.string(),
   encode: (i: Int) => i,
-}
+};
 
 /**
  * The counterpart of Daml's `Numeric` type.
@@ -209,16 +221,15 @@ export type Decimal = Numeric;
  * Companion function of the [[Numeric]] type.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const Numeric = (_: number): Serializable<Numeric> =>
-  ({
-    decoder: jtv.string(),
-    encode: (n: Numeric): unknown => n,
-  })
+export const Numeric = (_: number): Serializable<Numeric> => ({
+  decoder: jtv.string(),
+  encode: (n: Numeric): unknown => n,
+});
 
 /**
  * Companion object of the [[Decimal]] type.
  */
-export const Decimal: Serializable<Decimal> = Numeric(10)
+export const Decimal: Serializable<Decimal> = Numeric(10);
 
 /**
  * The counterpart of Daml's `Text` type.
@@ -231,7 +242,7 @@ export type Text = string;
 export const Text: Serializable<Text> = {
   decoder: jtv.string(),
   encode: (t: Text) => t,
-}
+};
 
 /**
  * The counterpart of Daml's `Time` type.
@@ -246,7 +257,7 @@ export type Time = string;
 export const Time: Serializable<Time> = {
   decoder: jtv.string(),
   encode: (t: Time) => t,
-}
+};
 
 /**
  * The counterpart of Daml's `Party` type.
@@ -261,7 +272,7 @@ export type Party = string;
 export const Party: Serializable<Party> = {
   decoder: jtv.string(),
   encode: (p: Party) => p,
-}
+};
 
 /**
  * The counterpart of Daml's `[T]` list type.
@@ -293,8 +304,7 @@ export type Date = string;
 export const Date: Serializable<Date> = {
   decoder: jtv.string(),
   encode: (d: Date) => d,
-}
-
+};
 
 /**
  * Used to `brand` [[ContractId]].
@@ -314,13 +324,14 @@ const ContractIdBrand: unique symbol = Symbol();
  *
  * @typeparam T The contract template.
  */
-export type ContractId<T> = string & { [ContractIdBrand]: T }
+export type ContractId<T> = string & { [ContractIdBrand]: T };
 
 /**
  * Companion object of the [[ContractId]] type.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> => ({
+export const ContractId = <T>(
+  _t: Serializable<T>, // eslint-disable-line @typescript-eslint/no-unused-vars
+): Serializable<ContractId<T>> => ({
   decoder: jtv.string() as jtv.Decoder<ContractId<T>>,
   encode: (c: ContractId<T>): unknown => c,
 });
@@ -330,12 +341,12 @@ export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> 
  *
  * @typeparam T The type of the optionally present value.
  */
-export type Optional<T> = null | OptionalInner<T>
+export type Optional<T> = null | OptionalInner<T>;
 
 /**
  * Inner type of [[Optional]].
  */
-type OptionalInner<T> = null extends T ? [] | [Exclude<T, null>] : T
+type OptionalInner<T> = null extends T ? [] | [Exclude<T, null>] : T;
 
 /**
  * This class does the actual work behind the [[Optional]] companion function.  In addition to
@@ -356,7 +367,7 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
       // extend `OptionalInner<V>` for any `V`, this implies
       // `OptionalInner<U> = Exclude<T, null>`. This also implies
       // `OptionalInner<T> = [] | [Exclude<T, null>]`.
-      type OptionalInnerU = Exclude<T, null>
+      type OptionalInnerU = Exclude<T, null>;
       const payloadInnerDecoder =
         payload.innerDecoder as jtv.Decoder<unknown> as jtv.Decoder<OptionalInnerU>;
       this.innerDecoder = jtv.oneOf<[] | [Exclude<T, null>]>(
@@ -375,7 +386,7 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
           // encoder of the type parameter does the right thing.
           return (o as unknown as T[]).map(nested => payload.encode(nested));
         }
-      }
+      };
     } else {
       // NOTE(MH): `T` is not of the form `Optional<U>` here and hence `null`
       // does not extend `T`. Thus, `OptionalInner<T> = T`.
@@ -391,7 +402,7 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
         } else {
           return payload.encode(o as unknown as T);
         }
-      }
+      };
     }
     this.decoder = jtv.oneOf(jtv.constant(null), this.innerDecoder);
   }
@@ -418,12 +429,12 @@ export type TextMap<T> = { [key: string]: T };
 export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
   decoder: jtv.dict(t.decoder),
   encode: (tm: TextMap<T>): unknown => {
-    const out: {[key: string]: unknown} = {};
-    Object.keys(tm).forEach((k) => {
+    const out: { [key: string]: unknown } = {};
+    Object.keys(tm).forEach(k => {
       out[k] = t.encode(tm[k]);
     });
     return out;
-  }
+  },
 });
 
 /**
@@ -450,7 +461,7 @@ export interface Map<K, V> {
 }
 
 function* it<T>(arr: T[]): Iterator<T, undefined, undefined> {
-  for(let i = 0; i < arr.length; i++) {
+  for (let i = 0; i < arr.length; i++) {
     yield _.cloneDeep(arr[i]);
   }
   return undefined;
@@ -476,12 +487,14 @@ class MapImpl<K, V> implements Map<K, V> {
     this._values = this._kvs.map(e => e[1]);
   }
   private _idx(k: K): number {
-    return this._keys.findIndex((l) => _.isEqual(k, l));
+    return this._keys.findIndex(l => _.isEqual(k, l));
   }
   has(k: K): boolean {
     return this._idx(k) !== -1;
   }
-  get(k: K): V | undefined { return _.cloneDeep(this._values[this._idx(k)]); }
+  get(k: K): V | undefined {
+    return _.cloneDeep(this._values[this._idx(k)]);
+  }
   set(k: K, v: V): Map<K, V> {
     if (this.has(k)) {
       const cpy = this._kvs.slice();
@@ -500,13 +513,21 @@ class MapImpl<K, V> implements Map<K, V> {
       return this;
     }
   }
-  keys(): Iterator<K, undefined, undefined> { return it(this._keys); }
-  values(): Iterator<V, undefined, undefined> { return it(this._values); }
-  entries(): Iterator<[K, V], undefined, undefined> { return it(this._kvs); }
-  entriesArray(): [K, V][] { return _.cloneDeep(this._kvs); }
+  keys(): Iterator<K, undefined, undefined> {
+    return it(this._keys);
+  }
+  values(): Iterator<V, undefined, undefined> {
+    return it(this._values);
+  }
+  entries(): Iterator<[K, V], undefined, undefined> {
+    return it(this._kvs);
+  }
+  entriesArray(): [K, V][] {
+    return _.cloneDeep(this._kvs);
+  }
   forEach<T, U>(f: (v: V, k: K, m: Map<K, V>) => T, u?: U): void {
     const g = u ? f.bind(u) : f;
-    for(const [k, v] of this._kvs) {
+    for (const [k, v] of this._kvs) {
       g(v, k, this);
     }
   }
@@ -517,7 +538,13 @@ export const emptyMap = <K, V>(): Map<K, V> => new MapImpl<K, V>([]);
 /**
  * Companion function of the [[GenMap]] type.
  */
-export const Map = <K, V>(kd: Serializable<K>, vd: Serializable<V>): Serializable<Map<K, V>> => ({
-  decoder: jtv.array(jtv.tuple([kd.decoder, vd.decoder])).map(kvs => new MapImpl(kvs)),
-  encode: (m: Map<K, V>): unknown => m.entriesArray().map(e => [kd.encode(e[0]), vd.encode(e[1])]),
+export const Map = <K, V>(
+  kd: Serializable<K>,
+  vd: Serializable<V>,
+): Serializable<Map<K, V>> => ({
+  decoder: jtv
+    .array(jtv.tuple([kd.decoder, vd.decoder]))
+    .map(kvs => new MapImpl(kvs)),
+  encode: (m: Map<K, V>): unknown =>
+    m.entriesArray().map(e => [kd.encode(e[0]), vd.encode(e[1])]),
 });

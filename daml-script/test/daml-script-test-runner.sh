@@ -19,9 +19,29 @@ DAR_FILE=$(rlocation $TEST_WORKSPACE/$2)
 DIFF=$3
 GREP=$4
 SED=$5
+SANDBOX=$(rlocation $TEST_WORKSPACE/$6)
+
+PORTFILE_DIR=$(mktemp -d)
+PORTFILE=$PORTFILE_DIR/port-file
+$SANDBOX --port=0 --port-file $PORTFILE --static-time $DAR_FILE &
+SANDBOX_PID=$!
+
+cleanup() {
+    kill $SANDBOX_PID || true
+    rm -rf $PORTFILE_DIR
+}
+
+trap cleanup EXIT
+
+while [ ! -f $PORTFILE ]
+do
+  sleep 0.5
+done
+
+PORT=$(cat $PORTFILE)
 
 set +e
-TEST_OUTPUT="$($TEST_RUNNER --dar=$DAR_FILE --max-inbound-message-size 41943040 2>&1)"
+TEST_OUTPUT="$($TEST_RUNNER --all --static-time --dar=$DAR_FILE --max-inbound-message-size 41943040 --ledger-host localhost --ledger-port $PORT 2>&1)"
 TEST_RESULT=$?
 set -e
 
@@ -40,10 +60,11 @@ EXPECTED="$(cat <<'EOF'
 MultiTest:listKnownPartiesTest SUCCESS
 MultiTest:multiTest SUCCESS
 MultiTest:partyIdHintTest SUCCESS
+ScriptExample:allocateParties SUCCESS
 ScriptExample:initializeFixed SUCCESS
-ScriptExample:initializeFromQuery SUCCESS
-ScriptExample:queryParties SUCCESS
+ScriptExample:initializeUser SUCCESS
 ScriptExample:test SUCCESS
+ScriptTest:clearUsers SUCCESS
 ScriptTest:failingTest FAILURE (com.daml.lf.engine.script.ScriptF$FailedCmd: Command submit failed: FAILED_PRECONDITION: DAML_INTERPRETATION_ERROR(9,XXXXXXXX): Interpretation error: Error: Unhandled Daml exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = "Assertion failed" }. Details: Last location: [DA.Internal.Exception:168], partial transaction:
 ScriptTest:listKnownPartiesTest SUCCESS
 ScriptTest:multiPartySubmission SUCCESS
@@ -63,6 +84,7 @@ ScriptTest:testQueryContractId SUCCESS
 ScriptTest:testQueryContractKey SUCCESS
 ScriptTest:testSetTime SUCCESS
 ScriptTest:testStack SUCCESS
+ScriptTest:testUserListPagination SUCCESS
 ScriptTest:testUserManagement SUCCESS
 ScriptTest:testUserRightManagement SUCCESS
 ScriptTest:traceOrder SUCCESS

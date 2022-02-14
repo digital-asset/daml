@@ -5,12 +5,10 @@ package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
 import com.daml.caching
+import com.daml.ledger.runner.common._
 import com.daml.ledger.participant.state.kvutils.app.{
-  Config,
-  ConfigProvider,
   KeyValueReadWriteFactory,
   LedgerFactory,
-  ParticipantConfig,
   ReadWriteServiceFactory,
 }
 import com.daml.ledger.participant.state.kvutils.caching._

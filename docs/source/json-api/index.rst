@@ -49,7 +49,7 @@ You can run the JSON API alongside any ledger exposing the gRPC Ledger API you w
     daml new my_project --template quickstart-java
     cd my_project
     daml build
-    daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
+    daml sandbox --wall-clock-time --ledgerid MyLedger --dar ./.daml/dist/quickstart-0.0.1.dar
 
 .. _start-http-service:
 
@@ -1233,6 +1233,401 @@ HTTP Response
         "displayName": "Carol & Co. LLC",
         "isLocal": true
       },
+      "status": 200
+    }
+
+
+Creating a New User
+********************
+
+This endpoint exposes the Ledger API's :ref:`CreateUser RPC <com.daml.ledger.api.v1.admin.createuserrequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/create``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol",
+      "primaryParty": "Carol",
+      "rights": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ]
+    }
+
+Please refer to :ref:`CreateUser RPC <com.daml.ledger.api.v1.admin.createuserrequest>` documentation for information about the meaning of the fields.
+
+Only the userId fields in the request is required, this means that an JSON object containing only it is a valid request to create a new user.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": {},
+      "status": 200
+    }
+
+
+Get Authenticated User Information
+**********************************
+
+This endpoint exposes the Ledger API's :ref:`GetUser RPC <com.daml.ledger.api.v1.admin.getuserrequest>`.
+
+The user ID will always be filled out with the user specified via the currently used user token.
+
+HTTP Request
+============
+
+- URL: ``/v1/user``
+- Method: ``GET``
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": {
+        "userId": "Carol",
+        "primaryParty": "Carol",
+      },
+      "status": 200
+    }
+
+
+Get Specific User Information
+*****************************
+
+This endpoint exposes the Ledger API's :ref:`GetUser RPC <com.daml.ledger.api.v1.admin.getuserrequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/user``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol"
+    }
+
+
+Please refer to :ref:`GetUser RPC <com.daml.ledger.api.v1.admin.getuserrequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": {
+        "userId": "Carol",
+        "primaryParty": "Carol",
+      },
+      "status": 200
+    }
+
+Delete Specific User
+********************
+
+This endpoint exposes the Ledger API's :ref:`DeleteUser RPC <com.daml.ledger.api.v1.admin.DeleteUserRequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/delete``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol"
+    }
+
+
+Please refer to :ref:`DeleteUser RPC <com.daml.ledger.api.v1.admin.DeleteUserRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": {},
+      "status": 200
+    }
+
+List Users
+**********
+
+This endpoint exposes the Ledger API's :ref:`ListUsers RPC <com.daml.ledger.api.v1.admin.ListUsersRequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/users``
+- Method: ``GET``
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+            "userId": "Carol",
+            "primaryParty": "Carol",
+        },
+        {
+            "userId": "Bob",
+            "primaryParty": "Bob",
+        }
+      ],
+      "status": 200
+    }
+
+Grant User Rights
+*****************
+
+This endpoint exposes the Ledger API's :ref:`GrantUserRights RPC <com.daml.ledger.api.v1.admin.GrantUserRightsRequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/rights/grant``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol",
+      "rights": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ]
+    }
+
+Please refer to :ref:`GrantUserRights RPC <com.daml.ledger.api.v1.admin.GrantUserRightsRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ],
+      "status": 200
+    }
+
+Returns the rights that were newly granted.
+
+Revoke User Rights
+******************
+
+This endpoint exposes the Ledger API's :ref:`RevokeUserRights RPC <com.daml.ledger.api.v1.admin.RevokeUserRightsRequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/rights/revoke``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol",
+      "rights": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ]
+    }
+
+Please refer to :ref:`RevokeUserRights RPC <com.daml.ledger.api.v1.admin.RevokeUserRightsRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ],
+      "status": 200
+    }
+
+Returns the rights that were actually granted.
+
+List Authenticated User Rights
+******************************
+
+This endpoint exposes the Ledger API's :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.ListUserRightsRequest>`.
+
+The user ID will always be filled out with the user specified via the currently used user token.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/rights``
+- Method: ``GET``
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ],
+      "status": 200
+    }
+
+List Specific User Rights
+*************************
+
+This endpoint exposes the Ledger API's :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.ListUserRightsRequest>`.
+
+HTTP Request
+============
+
+- URL: ``/v1/user/rights``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "userId": "Carol"
+    }
+
+Please refer to :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.ListUserRightsRequest>` documentation for information about the meaning of the fields.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "type": "CanActAs",
+          "party": "Carol"
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Alice",
+        },
+        {
+          "type": "CanReadAs",
+          "party": "Bob",
+        },
+        {
+          "type": "ParticipantAdmin"
+        }
+      ],
       "status": 200
     }
 

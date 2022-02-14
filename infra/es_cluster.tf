@@ -23,7 +23,7 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 0,
+      size           = 5,
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
@@ -32,7 +32,7 @@ locals {
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 5,
+      size           = 0,
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
@@ -283,7 +283,7 @@ resource "google_compute_instance_group_manager" "es" {
     instance_template = google_compute_instance_template.es[count.index].self_link
   }
 
-  dynamic named_port {
+  dynamic "named_port" {
     for_each = local.es_ports
     content {
       name = named_port.value["name"]
@@ -323,7 +323,7 @@ resource "google_compute_backend_service" "es-http" {
   security_policy       = google_compute_security_policy.es.self_link
   load_balancing_scheme = "EXTERNAL"
 
-  dynamic backend {
+  dynamic "backend" {
     for_each = local.es_clusters
     content {
       group           = google_compute_instance_group_manager.es[backend.key].instance_group

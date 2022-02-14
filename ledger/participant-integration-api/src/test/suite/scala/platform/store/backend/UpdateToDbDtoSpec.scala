@@ -5,7 +5,6 @@ package com.daml.platform.store.backend
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
-import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
@@ -20,7 +19,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.appendonlydao.events.Raw.TreeEvent
 import com.daml.platform.store.appendonlydao.events._
-import com.daml.platform.store.appendonlydao.{DeduplicationKeyMaker, JdbcLedgerDao}
+import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.google.protobuf.ByteString
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
@@ -257,13 +256,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_seconds = None,
           deduplication_duration_nanos = None,
           deduplication_start = None,
-        ),
-        DbDto.CommandDeduplication(
-          DeduplicationKeyMaker.make(
-            domain.CommandId(completionInfo.commandId),
-            completionInfo.actAs,
-          )
-        ),
+        )
       )
     }
 
@@ -1285,13 +1278,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               deduplication_duration_seconds = expectedDeduplicationDurationSeconds,
               deduplication_duration_nanos = expectedDeduplicationDurationNanos,
               deduplication_start = None,
-            ),
-            DbDto.CommandDeduplication(
-              DeduplicationKeyMaker.make(
-                domain.CommandId(completionInfo.commandId),
-                completionInfo.actAs,
-              )
-            ),
+            )
           )
       }
     }

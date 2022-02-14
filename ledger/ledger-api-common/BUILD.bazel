@@ -127,6 +127,7 @@ da_scala_test_suite(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-offset",
         "//ledger/metrics",
         "//ledger/metrics:metrics-test-lib",
         "//ledger/test-common",

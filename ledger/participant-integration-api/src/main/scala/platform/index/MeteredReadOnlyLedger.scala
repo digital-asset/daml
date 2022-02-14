@@ -6,7 +6,7 @@ package com.daml.platform.index
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
+import com.daml.ledger.api.domain.{LedgerId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -18,10 +18,10 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, MeteringStore, PackageDetails}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
@@ -107,7 +107,7 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
 
   override def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Timestamp]] =
+  )(implicit loggingContext: LoggingContext): Future[MaximumLedgerTime] =
     Timed.future(
       metrics.daml.index.lookupMaximumLedgerTime,
       ledger.lookupMaximumLedgerTime(contractIds),
@@ -138,11 +138,6 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   ): Future[Option[Archive]] =
     Timed.future(metrics.daml.index.getLfArchive, ledger.getLfArchive(packageId))
 
-  override def getLfPackage(packageId: Ref.PackageId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Ast.Package]] =
-    Timed.future(metrics.daml.index.getLfPackage, ledger.getLfPackage(packageId))
-
   override def packageEntries(
       startExclusive: Offset
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed] =
@@ -162,34 +157,6 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
     ledger.configurationEntries(startExclusive)
 
-  override def deduplicateCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
-    Timed.future(
-      metrics.daml.index.deduplicateCommand,
-      ledger.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil),
-    )
-
-  override def removeExpiredDeduplicationData(currentTime: Timestamp)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
-    Timed.future(
-      metrics.daml.index.removeExpiredDeduplicationData,
-      ledger.removeExpiredDeduplicationData(currentTime),
-    )
-
-  override def stopDeduplicatingCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    Timed.future(
-      metrics.daml.index.stopDeduplicatingCommand,
-      ledger.stopDeduplicatingCommand(commandId, submitters),
-    )
-
   override def prune(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
@@ -198,6 +165,17 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       metrics.daml.index.prune,
       ledger.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
     )
+
+  override def getTransactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
+  )(implicit loggingContext: LoggingContext): Future[Vector[MeteringStore.TransactionMetering]] = {
+    Timed.future(
+      metrics.daml.index.getTransactionMetering,
+      ledger.getTransactionMetering(from, to, applicationId),
+    )
+  }
 }
 
 private[platform] object MeteredReadOnlyLedger {

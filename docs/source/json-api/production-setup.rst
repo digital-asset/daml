@@ -20,11 +20,11 @@ query performance. Details for enabling a query store are highlighted below.
 Query store
 ***********
 
-.. note:: The Community Edition of Daml Connect only supports PostgreSQL backends for the *HTTP JSON API* server, but the Enterprise Edition also supports Oracle backends.
+.. note:: Daml Open Source only supports PostgreSQL backends for the *HTTP JSON API* server, but Daml Enterprise also supports Oracle backends.
 
 The query store is a cached search index and is useful for use cases
 where the application needs to query large active contract sets (ACS). The *HTTP JSON API* server can be
-configured with PostgreSQL/Oracle (Enterprise Edition only) as the query store backend.
+configured with PostgreSQL/Oracle (Daml Enterprise only) as the query store backend.
 
 The query store is built by saving the state of the ACS up to the current ledger
 offset. This allows the *HTTP JSON API* to only request the delta on subsequent queries,
@@ -103,7 +103,7 @@ refuses to start if a new schema is detected when running with a newer version.
 To evolve, the operator of the *HTTP JSON API* query store needs to drop the database
 used to hold the *HTTP JSON API* query store and create a new one (consult your database
 vendor's documentation as to how this ought to be done) and then proceed to create and
-start the server using either ``start-mode=create-only`` and ``start-mode=create-and-start``
+start the server using either ``start-mode=create-only`` and ``start-mode=start-only``
 or ``start-mode=create-and-start`` as described above, depending on your preferred
 production setup.
 

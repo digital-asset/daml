@@ -43,7 +43,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{PartyConfiguration, ServerRole, SubmissionConfiguration}
+import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -51,7 +51,7 @@ import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
-import com.daml.platform.usermanagement.PersistentUserManagementStore
+import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import com.daml.ports.Port
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 import scalaz.syntax.tag._
@@ -225,7 +225,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           maxTransactionsInMemoryFanOutBufferSize = 0L,
           enableInMemoryFanOutForLedgerApi = false,
           enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
-          enableUserManagement = config.userManagementConfig.enabled,
+          userManagementConfig = config.userManagementConfig,
         )
         dbSupport <- DbSupport.owner(
           jdbcUrl = apiServerConfig.jdbcUrl,
@@ -239,7 +239,9 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           metrics = metrics,
           cacheExpiryAfterWriteInSeconds =
             config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-          maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+          maxCacheSize = config.userManagementConfig.maxCacheSize,
+          maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+          timeProvider = TimeProvider.UTC,
         )(servicesExecutionContext)
         indexService <- StandaloneIndexService(
           dbSupport = dbSupport,
@@ -265,7 +267,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           partyConfig = PartyConfiguration.default.copy(
             implicitPartyAllocation = config.implicitPartyAllocation
           ),
-          submissionConfig = SubmissionConfiguration.default,
           optWriteService = Some(writeServiceWithDeduplicationSupport),
           authService = authService,
           healthChecks = healthChecks,
@@ -290,6 +291,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
               v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
             ),
           ),
+          userManagementConfig = config.userManagementConfig,
         )
         _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
       } yield {

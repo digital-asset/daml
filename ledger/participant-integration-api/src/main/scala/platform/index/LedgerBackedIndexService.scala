@@ -10,7 +10,6 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
-  CommandId,
   LedgerId,
   LedgerOffset,
   PackageEntry,
@@ -30,11 +29,11 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.daml.lf.data.Ref.{ApplicationId, Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -214,11 +213,6 @@ private[platform] final class LedgerBackedIndexService(
   ): Future[Option[Archive]] =
     ledger.getLfArchive(packageId)
 
-  override def getLfPackage(packageId: PackageId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[Ast.Package]] =
-    ledger.getLfPackage(packageId)
-
   override def lookupActiveContract(
       readers: Set[Party],
       contractId: ContractId,
@@ -227,9 +221,9 @@ private[platform] final class LedgerBackedIndexService(
   ): Future[Option[VersionedContractInstance]] =
     ledger.lookupContract(contractId, readers)
 
-  override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
+  override def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Timestamp]] =
+  ): Future[MaximumLedgerTime] =
     ledger.lookupMaximumLedgerTime(ids)
 
   override def lookupContractKey(
@@ -320,21 +314,6 @@ private[platform] final class LedgerBackedIndexService(
         toAbsolute(offset) -> config.toDomain
       })
 
-  /** Deduplicate commands */
-  override def deduplicateCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
-    ledger.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil)
-
-  override def stopDeduplicatingCommand(
-      commandId: CommandId,
-      submitters: List[Ref.Party],
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    ledger.stopDeduplicatingCommand(commandId, submitters)
-
   /** Participant pruning command */
   override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
@@ -345,5 +324,17 @@ private[platform] final class LedgerBackedIndexService(
     startExclusive
       .map(off => Future.fromTry(ApiOffset.fromString(off.value)))
       .getOrElse(Future.successful(Offset.beforeBegin))
+
+  override def getTransactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
+  )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]] = {
+    ledger.getTransactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
+    )
+  }
 
 }

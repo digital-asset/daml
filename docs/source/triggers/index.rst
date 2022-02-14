@@ -172,11 +172,11 @@ with:
 
 .. code-block:: bash
 
-    daml trigger --dar .daml/dist/create-daml-app-0.1.0.dar \
+    daml trigger --dar .daml/dist/gsg-trigger-0.1.0.dar \
                  --trigger-name NoOp:noOp \
                  --ledger-host localhost \
                  --ledger-port 6865 \
-                 --ledger-party "bob"
+                 --ledger-user "bob"
 
 and then play with the app as ``alice`` and ``bob`` just like you did for
 :doc:`/getting-started/first-feature`, you should see the trigger command
@@ -239,11 +239,11 @@ its terminal, then start the trigger with:
 
 .. code-block:: bash
 
-    daml trigger --dar .daml/dist/create-daml-app-0.1.0.dar \
+    daml trigger --dar .daml/dist/gsg-trigger-0.1.0.dar \
                  --trigger-name ChatBot:autoReply \
                  --ledger-host localhost \
                  --ledger-port 6865 \
-                 --ledger-party "bob"
+                 --ledger-user "bob"
 
 Play a bit with ``alice`` and ``bob`` in your browser, to get a feel for how
 the trigger works. Watch both the messages in-browser and the debug statements

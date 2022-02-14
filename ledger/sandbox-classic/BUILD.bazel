@@ -7,243 +7,118 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
-load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
+load("//ledger/ledger-api-tests:conformance.bzl", "server_conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
 
+sandbox_classic_deps = [
+    "//daml-lf/data",
+    "//language-support/scala/bindings",
+    "//ledger/caching",
+    "//ledger/ledger-api-auth",
+    "//ledger/ledger-api-common",
+    "//ledger/ledger-configuration",
+    "//ledger/ledger-resources",
+    "//ledger/metrics",
+    "//ledger/participant-integration-api",
+    "//ledger/sandbox-common:sandbox-common-ce",
+    "//ledger/sandbox-on-x:sandbox-classic-server",
+    "//ledger-service/cli-opts",
+    "//libs-scala/contextualized-logging",
+    "//libs-scala/ports",
+    "//libs-scala/resources",
+    "@maven//:ch_qos_logback_logback_classic",
+]
+
+# TODO sandbox-classic cleanup: De-alias
 alias(
-    name = "sandbox-classic",
-    actual = "sandbox-classic-ce",
+    name = "sandbox-classic-scala-tests-lib",
+    actual = "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
     visibility = ["//visibility:public"],
 )
 
-[
-    da_scala_library(
-        name = "sandbox-classic-{}".format(edition),
-        srcs = glob(["src/main/scala/**/*.scala"]),
-        # Do not include logback.xml into the library: let the user
-        # of the sandbox-as-a-library decide how to log.
-        resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
-        scala_deps = [
-            "@maven//:com_github_scopt_scopt",
-            "@maven//:com_typesafe_akka_akka_actor",
-            "@maven//:com_typesafe_akka_akka_stream",
-            "@maven//:org_scalaz_scalaz_core",
-        ],
-        tags = ["maven_coordinates=com.daml:sandbox-classic:__VERSION__"],
-        visibility = [
-            "//visibility:public",
-        ],
-        runtime_deps = [
-            "@maven//:ch_qos_logback_logback_classic",
-            "@maven//:ch_qos_logback_logback_core",
-            "@maven//:com_h2database_h2",
-            "@maven//:org_postgresql_postgresql",
-        ],
-        deps = [
-            "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
-            "//daml-lf/archive:daml_lf_archive_reader",
-            "//daml-lf/data",
-            "//daml-lf/language",
-            "//language-support/scala/bindings",
-            "//ledger/caching",
-            "//ledger/error",
-            "//ledger/ledger-api-auth",
-            "//ledger/ledger-api-common",
-            "//ledger/ledger-api-domain",
-            "//ledger/ledger-api-health",
-            "//ledger/ledger-configuration",
-            "//ledger/ledger-resources",
-            "//ledger/metrics",
-            "//ledger/participant-integration-api",
-            "//ledger/participant-state",
-            "//ledger/participant-state/kvutils/app",
-            "//ledger/sandbox-common:sandbox-common-{}".format(edition),
-            "//ledger-service/cli-opts",
-            "//ledger/sandbox-on-x",
-            "//libs-scala/build-info",
-            "//libs-scala/contextualized-logging",
-            "//libs-scala/logging-entries",
-            "//libs-scala/ports",
-            "//libs-scala/resources",
-            "//libs-scala/resources-akka",
-            "//libs-scala/resources-grpc",
-            "@maven//:ch_qos_logback_logback_classic",
-            "@maven//:com_typesafe_config",
-            "@maven//:io_dropwizard_metrics_metrics_core",
-            "@maven//:org_slf4j_slf4j_api",
-        ],
-    )
-    for edition in [
-        "ce",
-        "ee",
-    ]
-]
+da_scala_library(
+    name = "sandbox-classic",
+    srcs = glob(["src/main/**/*.scala"]),
+    # Do not include logback.xml into the library: let the user
+    # of the sandbox-as-a-library decide how to log.
+    resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = ["maven_coordinates=com.daml:sandbox-classic:__VERSION__"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_h2database_h2",
+        "@maven//:org_postgresql_postgresql",
+    ],
+    deps = sandbox_classic_deps,
+)
 
 da_scala_binary(
     name = "sandbox-classic-binary",
-    main_class = "com.daml.platform.sandbox.SandboxMain",
+    srcs = glob(["src/main/**/*.scala"]),
+    main_class = "com.daml.sandbox.SandboxMain",
     resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":sandbox-classic",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:org_scalaz_scalaz_core",
     ],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_h2database_h2",
+        "@maven//:org_postgresql_postgresql",
+    ],
+    deps = sandbox_classic_deps,
 )
 
 da_scala_binary(
     name = "sandbox-classic-ephemeral-postgresql",
+    srcs = glob(["src/test/lib/**/*.scala"]),
     main_class = "com.daml.platform.sandbox.persistence.MainWithEphemeralPostgresql",
     resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
-    deps = [
-        ":sandbox-classic",
-        ":sandbox-classic-scala-tests-lib",
-    ],
-)
-
-da_scala_library(
-    name = "sandbox-classic-scala-tests-lib",
-    srcs = glob(["src/test/lib/**/*.scala"]),
-    scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_flatspec",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    scala_runtime_deps = [
-        "@maven//:com_typesafe_akka_akka_slf4j",
-    ],
-    visibility = ["//visibility:public"],
     runtime_deps = [
-        "@maven//:com_h2database_h2",
+        "@maven//:ch_qos_logback_logback_core",
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
         ":sandbox-classic",
-        "//daml-lf/data",
-        "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/testing-utils",
-        "//ledger/caching",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-auth-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//ledger/ledger-configuration",
-        "//ledger/ledger-resources",
-        "//ledger/metrics",
-        "//ledger/participant-integration-api",
-        "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-        "//ledger/test-common",
-        "//libs-scala/grpc-utils",
-        "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
-        "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "//libs-scala/resources-grpc",
-        "//libs-scala/timer-utils",
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:io_netty_netty_handler",
-        "@maven//:org_scalatest_scalatest_compatible",
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
-test_deps = [
-    ":sandbox-classic",
-    ":sandbox-classic-scala-tests-lib",
-    "//bazel_tools/runfiles:scala_runfiles",
-    "//daml-lf/archive:daml_lf_archive_reader",
-    "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
-    "//daml-lf/data",
-    "//daml-lf/engine",
-    "//daml-lf/interpreter",
-    "//daml-lf/language",
-    "//daml-lf/transaction",
-    "//daml-lf/transaction-test-lib",
-    "//language-support/scala/bindings",
-    "//ledger-api/rs-grpc-akka",
-    "//ledger-api/rs-grpc-akka:rs-grpc-akka-tests-lib",
-    "//ledger-api/rs-grpc-bridge",
-    "//ledger-api/sample-service",
-    "//ledger-api/testing-utils",
-    "//ledger/caching",
-    "//ledger/error",
-    "//ledger/participant-integration-api",
-    "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-    "//ledger/ledger-api-auth",
-    "//ledger/ledger-api-common",
-    "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
-    "//ledger/ledger-api-client",
-    "//ledger/ledger-api-domain",
-    "//ledger/ledger-api-health",
-    "//ledger/ledger-configuration",
-    "//ledger/ledger-offset",
-    "//ledger/ledger-resources",
-    "//ledger/ledger-resources:ledger-resources-test-lib",
-    "//ledger/metrics",
-    "//ledger/participant-state",
-    "//ledger/participant-state-metrics",
-    "//ledger/sandbox-common",
-    "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-    "//ledger/test-common",
-    "//ledger/test-common:dar-files-default-lib",
-    "//libs-scala/contextualized-logging",
-    "//libs-scala/concurrent",
-    "//libs-scala/grpc-utils",
-    "//libs-scala/logging-entries",
-    "//libs-scala/ports",
-    "//libs-scala/postgresql-testing",
-    "//libs-scala/resources",
-    "//libs-scala/timer-utils",
-    "@maven//:ch_qos_logback_logback_classic",
-    "@maven//:ch_qos_logback_logback_core",
-    "@maven//:com_typesafe_config",
-    "@maven//:commons_io_commons_io",
-    "@maven//:io_dropwizard_metrics_metrics_core",
-    "@maven//:io_grpc_grpc_services",
-    "@maven//:io_netty_netty_handler",
-    "@maven//:org_awaitility_awaitility",
-    "@maven//:org_flywaydb_flyway_core",
-    "@maven//:org_mockito_mockito_core",
-    "@maven//:org_reactivestreams_reactive_streams",
-    "@maven//:org_scalatest_scalatest_compatible",
-    "@maven//:org_slf4j_slf4j_api",
-]
-
-scala_test_deps = [
-    "@maven//:com_typesafe_akka_akka_actor",
-    "@maven//:com_typesafe_akka_akka_stream",
-    "@maven//:com_typesafe_akka_akka_stream_testkit",
-    "@maven//:com_typesafe_akka_akka_testkit",
-    "@maven//:org_mockito_mockito_scala",
-    "@maven//:org_scalacheck_scalacheck",
-    "@maven//:org_scalactic_scalactic",
-    "@maven//:org_scalatest_scalatest_core",
-    "@maven//:org_scalatest_scalatest_matchers_core",
-    "@maven//:org_scalatest_scalatest_shouldmatchers",
-    "@maven//:org_scalatest_scalatest_wordspec",
-    "@maven//:org_scalaz_scalaz_core",
-]
-
 da_scala_test_suite(
     name = "sandbox-classic-tests",
-    size = "medium",
+    size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
         "//daml-lf/encoder:testing-dars",
         "//ledger/test-common:model-tests-default.dar",
         "//ledger/test-common/test-certificates",
     ],
-    resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
-    scala_deps = scala_test_deps,
-    deps = test_deps,
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    deps = [
+        ":sandbox-classic",
+        "//daml-lf/data",
+        "//ledger/caching",
+        "//ledger/cli-opts",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-configuration",
+        "//ledger/participant-integration-api",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//libs-scala/ports",
+    ],
 )
 
 SERVERS = {
@@ -251,7 +126,6 @@ SERVERS = {
         "binary": ":sandbox-classic-binary",
         "server_args": [
             "--port=6865",
-            "--eager-package-loading",
             # "db_close_delay=-1" is needed so that the in-memory database is not closed
             # (and therefore lost) after the flyway migration
             "--sql-backend-jdbcurl=jdbc:h2:mem:conformance-test;db_close_delay=-1",
@@ -261,7 +135,6 @@ SERVERS = {
         "binary": ":sandbox-classic-ephemeral-postgresql",
         "server_args": [
             "--port=6865",
-            "--eager-package-loading",
         ],
     },
 }
@@ -294,27 +167,6 @@ server_conformance_test(
     ],
 )
 
-# Full conformance test with legacy error codes (Postgres)
-server_conformance_test(
-    name = "conformance-test-legacy-error-codes",
-    lf_versions = [
-        "default",
-        "preview",
-    ],
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--use-pre-1.18-error-codes",
-    ],
-    servers = {"postgresql": SERVERS["postgresql"]},
-    test_tool_args = [
-        "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
-        "--timeout-scale-factor=2",  # sandbox classic is slow in general
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-        "--exclude=CommandDeduplicationPeriodValidationIT",  # The test expects the new error codes.
-    ],
-)
-
 # Full conformance test (H2)
 # Only run a minimal set of tests on H2. The full test suite is very slow on H2, and prone to fail due to timeouts.
 server_conformance_test(
@@ -343,7 +195,6 @@ server_conformance_test(
         "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
-        "--static-time",
         "--exclude=ClosedWorldIT",
     ],
 )

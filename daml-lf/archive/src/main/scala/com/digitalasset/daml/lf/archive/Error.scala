@@ -6,7 +6,10 @@ package archive
 
 import java.io.File
 
-sealed abstract class Error(val msg: String) extends RuntimeException(msg)
+sealed abstract class Error(val msg: String)
+    extends RuntimeException(msg)
+    with Product
+    with Serializable
 
 object Error {
 
@@ -42,4 +45,6 @@ object Error {
       extends Error(s"Unsupported file extension: ${file.getAbsolutePath}")
 
   final case class Parsing(override val msg: String) extends Error(msg)
+
+  final case class Encoding(override val msg: String) extends Error(msg)
 }

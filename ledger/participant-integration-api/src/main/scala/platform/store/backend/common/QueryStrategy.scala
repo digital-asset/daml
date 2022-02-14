@@ -5,14 +5,7 @@ package com.daml.platform.store.backend.common
 
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 
-trait QueryStrategy {
-
-  /** An expression resulting to a boolean, to check equality between two SQL expressions
-    *
-    * @return plain SQL which fits the query template
-    */
-  def columnEqualityBoolean(column: String, value: String): String =
-    s"""$column = $value"""
+object QueryStrategy {
 
   /** This populates the following part of the query:
     *   SELECT ... WHERE ... ORDER BY ... [THIS PART]
@@ -24,6 +17,17 @@ trait QueryStrategy {
     limit
       .map(to => cSQL"fetch next $to rows only")
       .getOrElse(cSQL"")
+
+}
+
+trait QueryStrategy {
+
+  /** An expression resulting to a boolean, to check equality between two SQL expressions
+    *
+    * @return plain SQL which fits the query template
+    */
+  def columnEqualityBoolean(column: String, value: String): String =
+    s"""$column = $value"""
 
   /** An expression resulting to a boolean to check whether:
     *   - the party set defined by columnName and

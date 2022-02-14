@@ -33,6 +33,7 @@ import io.grpc.Channel
 import org.scalatest.Suite
 import scalaz.syntax.tag._
 
+import scala.annotation.nowarn
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Try
@@ -48,7 +49,9 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
         .blockingStub(channel)
         .withCallCredentials(token.map(new LedgerCallCredentials(_)).orNull)
         .getLedgerIdentity(GetLedgerIdentityRequest())
-        .ledgerId
+        .ledgerId: @nowarn(
+        "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
+      )
     )
 
   protected def getTimeProviderForClient(implicit
@@ -65,7 +68,6 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       port = Port.Dynamic,
       damlPackages = packageFiles,
       timeProviderType = Some(TimeProviderType.Static),
-      scenario = scenario,
       ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server")),
       seeding = Seeding.Weak,
       engineMode = SandboxConfig.EngineMode.Dev,

@@ -5,9 +5,9 @@
 // blueprintjs library.
 // See https://github.com/palantir/blueprint.
 // The license of this library is included in the current folder.
-import * as React from 'react';
-import { Placement } from '../Popover';
-import styled from '../theme';
+import * as React from "react";
+import { Placement } from "../Popover";
+import styled from "../theme";
 
 const arrowSize = 11;
 const arrowCrossDist = 2 * arrowSize;
@@ -44,49 +44,61 @@ const vStart = `
 const vEnd = `
   right: ${arrowCrossDist}px;
   transform: translateX(${arrowCrossDist - 4}px);
-`
+`;
 
 function getArrowAttachment(placement: Placement) {
   switch (placement) {
-    case 'left': return `right: -${arrowSize}px;${hCenter}`;
-    case 'left-start': return `right: -${arrowSize}px;${hStart}`;
-    case 'left-end': return `right: -${arrowSize}px;${hEnd}`;
-    case 'right': return `left: -${arrowSize}px;${hCenter}`;
-    case 'right-start': return `left: -${arrowSize}px;${hStart}`;
-    case 'right-end': return `left: -${arrowSize}px;${hEnd}`;
-    case 'top': return `bottom: -${arrowSize}px;${vCenter}`;
-    case 'top-start': return `bottom: -${arrowSize}px;${vStart}`;
-    case 'top-end': return `bottom: -${arrowSize}px;${vEnd}`;
-    case 'bottom': return `top: -${arrowSize}px;${vCenter}`;
-    case 'bottom-start': return `top: -${arrowSize}px;${vStart}`;
-    case 'bottom-end': return `top: -${arrowSize}px;${vEnd}`;
+    case "left":
+      return `right: -${arrowSize}px;${hCenter}`;
+    case "left-start":
+      return `right: -${arrowSize}px;${hStart}`;
+    case "left-end":
+      return `right: -${arrowSize}px;${hEnd}`;
+    case "right":
+      return `left: -${arrowSize}px;${hCenter}`;
+    case "right-start":
+      return `left: -${arrowSize}px;${hStart}`;
+    case "right-end":
+      return `left: -${arrowSize}px;${hEnd}`;
+    case "top":
+      return `bottom: -${arrowSize}px;${vCenter}`;
+    case "top-start":
+      return `bottom: -${arrowSize}px;${vStart}`;
+    case "top-end":
+      return `bottom: -${arrowSize}px;${vEnd}`;
+    case "bottom":
+      return `top: -${arrowSize}px;${vCenter}`;
+    case "bottom-start":
+      return `top: -${arrowSize}px;${vStart}`;
+    case "bottom-end":
+      return `top: -${arrowSize}px;${vEnd}`;
   }
 }
 
 function getArrowTransform(placement: Placement) {
   switch (placement) {
-    case 'left':
-    case 'left-start':
-    case 'left-end':
+    case "left":
+    case "left-start":
+    case "left-end":
       return `rotate(180deg)`;
-    case 'right':
-    case 'right-start':
-    case 'right-end':
+    case "right":
+    case "right-start":
+    case "right-end":
       return `rotate(0deg)`;
-    case 'top':
-    case 'top-start':
-    case 'top-end':
+    case "top":
+    case "top-start":
+    case "top-end":
       return `rotate(-90deg)`;
-    case 'bottom':
-    case 'bottom-start':
-    case 'bottom-end':
+    case "bottom":
+    case "bottom-start":
+    case "bottom-end":
       return `rotate(90deg)`;
   }
 }
 
-const StyledArrow = styled.div<{placement: Placement}>`
+const StyledArrow = styled.div<{ placement: Placement }>`
   position: absolute;
-  ${(props) => getArrowAttachment(props.placement)}
+  ${props => getArrowAttachment(props.placement)}
   width: 30px;
   height: 30px;
 
@@ -112,7 +124,7 @@ const StyledArrow = styled.div<{placement: Placement}>`
   }
 
   .svg {
-    transform: ${(props) => getArrowTransform(props.placement)};
+    transform: ${props => getArrowTransform(props.placement)};
   }
 `;
 
@@ -134,41 +146,40 @@ function Arrow(props: StyleProps) {
         </svg>
       </StyledArrow>
     );
-  }
-  else {
+  } else {
     return null;
   }
 }
 
 function getArrowMargin(props: StyleProps) {
   switch (props.placement) {
-    case 'left':
-    case 'left-start':
-    case 'left-end':
+    case "left":
+    case "left-start":
+    case "left-end":
       return `0 ${getMargin(props)} 0 0`;
-    case 'right':
-    case 'right-start':
-    case 'right-end':
+    case "right":
+    case "right-start":
+    case "right-end":
       return `0 0 0 ${getMargin(props)}`;
-    case 'top':
-    case 'top-start':
-    case 'top-end':
+    case "top":
+    case "top-start":
+    case "top-end":
       return `0 0 ${getMargin(props)} 0`;
-    case 'bottom':
-    case 'bottom-start':
-    case 'bottom-end':
+    case "bottom":
+    case "bottom-start":
+    case "bottom-end":
       return `${getMargin(props)} 0 0 0`;
   }
 }
 
 const ContentOuterContainer = styled.div<StyleProps>`
-  box-shadow: 0 0 0 1px rgba(16, 22, 26, 0.1),
-    0 2px 4px rgba(16, 22, 26, 0.2), 0 8px 24px rgba(16, 22, 26, 0.2);
+  box-shadow: 0 0 0 1px rgba(16, 22, 26, 0.1), 0 2px 4px rgba(16, 22, 26, 0.2),
+    0 8px 24px rgba(16, 22, 26, 0.2);
   transform: scale(1);
   display: inline-block;
   z-index: 20;
   border-radius: ${({ theme }) => theme.tooltipRadius};
-  margin: ${ (props) => getArrowMargin(props)};
+  margin: ${props => getArrowMargin(props)};
 `;
 
 const ContentInnerContainer = styled.div`
@@ -176,7 +187,7 @@ const ContentInnerContainer = styled.div`
   padding: 0;
   border-radius: ${({ theme }) => theme.tooltipRadius};
   background-color: ${({ theme }) => theme.colorBackground};
-`
+`;
 // ----------------------------------------------------------------------------
 // Tooltip component
 // ----------------------------------------------------------------------------
@@ -197,30 +208,27 @@ export interface StyleProps {
 export interface OtherProps {
   /** Content of the tooltip */
   children: React.ReactChild;
-  forwardedRef: React.Ref<HTMLDivElement>
+  forwardedRef: React.Ref<HTMLDivElement>;
 }
 
 export type Props = StyleProps & OtherProps;
 
 class Tooltip extends React.Component<Props> {
   render() {
-    const {
-      children,
-      forwardedRef,
-      ...otherProps
-    } = this.props;
+    const { children, forwardedRef, ...otherProps } = this.props;
 
     return (
-      <ContentOuterContainer {...otherProps} onClick={this.props.onClick} ref={forwardedRef}>
-        <Arrow {...otherProps}/>
-        <ContentInnerContainer>
-          {children}
-        </ContentInnerContainer>
+      <ContentOuterContainer
+        {...otherProps}
+        onClick={this.props.onClick}
+        ref={forwardedRef}>
+        <Arrow {...otherProps} />
+        <ContentInnerContainer>{children}</ContentInnerContainer>
       </ContentOuterContainer>
     );
   }
 }
 
-export default React.forwardRef<HTMLDivElement, Omit<Props, 'forwardedRef'>>((props, ref) =>
-  (<Tooltip {...props} forwardedRef={ref} />),
+export default React.forwardRef<HTMLDivElement, Omit<Props, "forwardedRef">>(
+  (props, ref) => <Tooltip {...props} forwardedRef={ref} />,
 );

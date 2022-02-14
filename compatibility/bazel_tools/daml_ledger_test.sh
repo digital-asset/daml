@@ -14,14 +14,8 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 set -euo pipefail
 
 RUNNER="$(rlocation "$TEST_WORKSPACE/$1")"
-SDK_VERSION="$2"
-DAML="$(rlocation "$TEST_WORKSPACE/$3")"
-CERTS="$4"
-SANDBOX="$(rlocation "$TEST_WORKSPACE/$5")"
 
-"$RUNNER" \
-  --sdk-version "$SDK_VERSION" \
-  --daml "$DAML" \
-  --certs "$CERTS" \
-  --sandbox "$SANDBOX" \
-  "${@:6}"
+DAML="$(rlocation "$TEST_WORKSPACE/$2")"
+SANDBOX="$(rlocation "$TEST_WORKSPACE/$3")"
+
+$RUNNER --daml $DAML --sandbox $SANDBOX ${@:4}

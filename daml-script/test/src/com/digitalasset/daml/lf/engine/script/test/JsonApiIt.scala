@@ -47,6 +47,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
+import com.daml.ledger.sandbox.SandboxServer
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -59,7 +60,6 @@ import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandbox.AbstractSandboxFixture
-import com.daml.platform.sandboxnext
 import com.daml.ports.Port
 import io.grpc.Channel
 import org.scalatest._
@@ -153,7 +153,7 @@ trait JsonApiFixture
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
             _.map(info => Some(info.jdbcUrl))
           )
-        serverPort <- new sandboxnext.Runner(config.copy(jdbcUrl = jdbcUrl))
+        serverPort <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(serverPort)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
@@ -414,6 +414,28 @@ final class JsonApiIt
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonExpectedFailureCreateAndExercise"),
+        )
+      } yield {
+        assert(result == SUnit)
+      }
+    }
+    "user management" in {
+      for {
+        clients <- getClients()
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonUserManagement"),
+        )
+      } yield {
+        assert(result == SUnit)
+      }
+    }
+    "user management rights" in {
+      for {
+        clients <- getClients()
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonUserRightManagement"),
         )
       } yield {
         assert(result == SUnit)

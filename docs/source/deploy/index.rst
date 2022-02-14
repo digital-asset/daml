@@ -21,7 +21,7 @@ for production use today.
    * - Product
      - Ledger
      - Vendor
-   * - `Daml Driver for VMware Blockchain <https://www.digitalasset.com/daml-for-vmware-blockchain/>`__
+   * - `Daml driver for VMware Blockchain <https://www.digitalasset.com/daml-for-vmware-blockchain/>`__
      - `VMware Blockchain <https://www.vmware.com/products/blockchain.html/>`__
      - `VMware <https://vmware.com/>`__
    * - `Daml on Corda <#>`__
@@ -62,9 +62,6 @@ The following table lists open source Daml integrations.
    * - `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__
      - `Digital Asset <https://digitalasset.com/>`__
      - `Github Repo <https://github.com/digital-asset/daml-on-fabric>`__
-   * - `PostgreSQL <https://www.postgresql.org/>`__
-     - `Digital Asset <https://digitalasset.com/>`__
-     - `Daml Driver for PostgreSQL Docs <https://docs.daml.com/daml-driver-for-postgresql/>`__
 
 .. _deploy-ref_in_development:
 

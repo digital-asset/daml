@@ -11,7 +11,7 @@ on BlackDuck to flag license violations and security advisories.
 
 ## Licenses
 
-Which licenses are or are not acceptable is maanged at the Blackduck level.
+Which licenses are or are not acceptable is managed at the Blackduck level.
 
 ## What if the check fails?
 

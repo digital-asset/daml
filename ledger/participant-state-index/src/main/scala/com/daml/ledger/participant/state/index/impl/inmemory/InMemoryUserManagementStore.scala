@@ -19,7 +19,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   // Structured so we can use a ConcurrentHashMap (to more closely mimic a real implementation, where performance is key).
   // We synchronize on a private object (the mutable map), not the service (which could cause deadlocks).
   // (No need to mark state as volatile -- rely on synchronized to establish the JMM's happens-before relation.)
-  private val state: mutable.Map[Ref.UserId, UserInfo] = mutable.Map()
+  private val state: mutable.TreeMap[Ref.UserId, UserInfo] = mutable.TreeMap()
   if (createAdmin) {
     state.put(AdminUser.user.id, AdminUser)
   }
@@ -64,10 +64,22 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       effectivelyRevoked
     }
 
-  def listUsers(): Future[Result[Users]] =
+  override def listUsers(
+      fromExcl: Option[Ref.UserId],
+      maxResults: Int,
+  ): Future[Result[UsersPage]] = {
     withState {
-      Right(state.values.map(_.user).toSeq)
+      val iter: Iterator[UserInfo] = fromExcl match {
+        case None => state.valuesIterator
+        case Some(after) => state.valuesIteratorFrom(start = after).dropWhile(_.user.id == after)
+      }
+      val users: Seq[User] = iter
+        .take(maxResults)
+        .map(_.user)
+        .toSeq
+      Right(UsersPage(users = users))
     }
+  }
 
   private def withState[T](t: => T): Future[T] =
     synchronized(
@@ -100,12 +112,14 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       case _ => false
     }
   }
+
 }
 
 object InMemoryUserManagementStore {
 
   private val AdminUser = UserInfo(
-    user = User(Ref.UserId.assertFromString("participant_admin"), None),
+    user =
+      User(Ref.UserId.assertFromString(UserManagementStore.DefaultParticipantAdminUserId), None),
     rights = Set(UserRight.ParticipantAdmin),
   )
 }

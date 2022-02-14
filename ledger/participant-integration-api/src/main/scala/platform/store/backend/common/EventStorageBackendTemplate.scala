@@ -379,7 +379,7 @@ abstract class EventStorageBackendTemplate(
           $additionalAndClause
           $witnessesWhereClause
         ORDER BY event_sequential_id
-        ${queryStrategy.limitClause(limit)}"""
+        ${QueryStrategy.limitClause(limit)}"""
         .withFetchSize(fetchSizeHint)
         .asVectorOf(rowParser(internedAllParties))(connection)
     }
@@ -442,7 +442,7 @@ abstract class EventStorageBackendTemplate(
            filters.party_id,
            $templateIdOrderingClause
            filters.event_sequential_id -- deliver in index order
-         ${queryStrategy.limitClause(Some(limit))}
+         ${QueryStrategy.limitClause(Some(limit))}
        """
           .asVectorOf(long("event_sequential_id"))(connection)
     }

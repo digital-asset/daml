@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.PrepareSubmissionSpec._
 import com.daml.ledger.sandbox.domain.Rejection.{
-  TransactionInternallyInconsistentContract,
+  TransactionInternallyDuplicateKeys,
   TransactionInternallyInconsistentKey,
 }
 import com.daml.ledger.sandbox.domain.Submission
@@ -125,7 +125,7 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
     )
     validationResult.map(
       _ shouldBe Left(
-        TransactionInternallyInconsistentContract(contractKey, submitterInfo.toCompletionInfo())
+        TransactionInternallyDuplicateKeys(contractKey, submitterInfo.toCompletionInfo())
       )
     )
   }

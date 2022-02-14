@@ -13,8 +13,8 @@ import Control.Exception
 import DA.Bazel.Runfiles
 import DA.PortFile
 import Data.Aeson
+import qualified Data.Aeson.KeyMap as Aeson
 import qualified Data.ByteString as BS
-import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
 import Data.Maybe
 import qualified Data.Text as T
@@ -73,7 +73,7 @@ createHttpJson httpJsonOutput getLedgerPort HttpJsonConfig {actor, mbSharedSecre
   where
     token =
       JWT.encodeSigned
-        (JWT.HMACSecret $ fromMaybe "secret" mbSharedSecret)
+        (JWT.EncodeHMACSecret $ fromMaybe "secret" mbSharedSecret)
         mempty
         mempty
           { JWT.unregisteredClaims =
@@ -81,7 +81,7 @@ createHttpJson httpJsonOutput getLedgerPort HttpJsonConfig {actor, mbSharedSecre
               Map.fromList
                 [ ( "https://daml.com/ledger-api"
                   , Object $
-                    HashMap.fromList
+                    Aeson.fromList
                       [ ("actAs", toJSON [actor])
                       , ("ledgerId", "MyLedger")
                       , ("applicationId", "foobar")

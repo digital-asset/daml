@@ -12,7 +12,7 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.api.util.TimeProvider.UTC
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.SessionJsonProtocol._
-import com.daml.navigator.config.{Arguments, UserConfig}
+import com.daml.navigator.config.Arguments
 import com.daml.navigator.model.PartyState
 import com.daml.navigator.store.Store.{
   ApplicationStateConnected,
@@ -44,8 +44,7 @@ class ServerTest
   val userId = "userId"
   val role = "role"
   val party = ApiTypes.Party("party")
-  val userConfig = UserConfig(party, Some(role), false)
-  val partyState = new PartyState(userConfig)
+  val partyState = new PartyState(party, Some(role), useDatabase = false)
   val user = User(userId, partyState, Some(role), true)
 
   val userJson = JsObject(
@@ -137,7 +136,7 @@ class ServerTest
 
   it should "respond with the Session when already signed-in" in withCleanSessions {
     val sessionId = "session-id-value"
-    Session.open(sessionId, userId, userConfig, user.party)
+    Session.open(sessionId, userId, Some(role), user.party)
     Get("/api/session/") ~> Cookie("session-id" -> sessionId) ~> connected ~> check {
       Unmarshal(response.entity).to[String].value.map(_.map(_.parseJson)) shouldEqual Some(
         Success((sessionJson))
@@ -190,7 +189,7 @@ class ServerTest
 
   "SelectMode DELETE /api/session/" should "delete a given Session when signed-in" in withCleanSessions {
     val sessionId = "session-id-value-2"
-    Session.open(sessionId, userId, userConfig, user.party)
+    Session.open(sessionId, userId, Some(role), user.party)
     Delete("/api/session/") ~> Cookie("session-id", sessionId) ~> connected ~> check {
       Session.current(sessionId) shouldBe None
     }

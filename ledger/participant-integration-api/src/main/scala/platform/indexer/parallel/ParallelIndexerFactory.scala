@@ -3,18 +3,15 @@
 
 package com.daml.platform.indexer.parallel
 
-import java.util.Timer
-import java.util.concurrent.Executors
-
 import akka.stream.{KillSwitch, Materializer}
 import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.Indexer
 import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
 import com.daml.platform.indexer.parallel.AsyncSupport._
-import com.daml.platform.indexer.Indexer
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
 import com.daml.platform.store.backend.{
@@ -25,10 +22,12 @@ import com.daml.platform.store.backend.{
 import com.daml.platform.store.interning.StringInterningView
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
+import java.util.Timer
+import java.util.concurrent.Executors
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 object ParallelIndexerFactory {
 
@@ -45,6 +44,7 @@ object ParallelIndexerFactory {
       initializeParallelIngestion: InitializeParallelIngestion,
       parallelIndexerSubscription: ParallelIndexerSubscription[_],
       stringInterningStorageBackend: StringInterningStorageBackend,
+      meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
@@ -95,24 +95,27 @@ object ParallelIndexerFactory {
       implicit val ec: ExecutionContext = resourceContext.executionContext
       haCoordinator.protectedExecution(connectionInitializer =>
         initializeHandle(
-          DbDispatcher
-            .owner(
-              // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
-              // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
-              dataSource = dataSourceStorageBackend.createDataSource(
-                jdbcUrl = jdbcUrl,
-                dataSourceConfig = dataSourceConfig,
-                connectionInitHook = Some(connectionInitializer.initialize),
-              ),
-              serverRole = ServerRole.Indexer,
-              connectionPoolSize =
-                ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
-              connectionTimeout = FiniteDuration(
-                250,
-                "millis",
-              ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
-              metrics = metrics,
-            )
+          for {
+            dbDispatcher <- DbDispatcher
+              .owner(
+                // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
+                // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
+                dataSource = dataSourceStorageBackend.createDataSource(
+                  jdbcUrl = jdbcUrl,
+                  dataSourceConfig = dataSourceConfig,
+                  connectionInitHook = Some(connectionInitializer.initialize),
+                ),
+                serverRole = ServerRole.Indexer,
+                connectionPoolSize =
+                  ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
+                connectionTimeout = FiniteDuration(
+                  250,
+                  "millis",
+                ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
+                metrics = metrics,
+              )
+            _ <- meteringAggregator(dbDispatcher)
+          } yield dbDispatcher
         ) { dbDispatcher =>
           val stringInterningView = new StringInterningView(
             loadPrefixedEntries = (fromExclusive, toInclusive) =>

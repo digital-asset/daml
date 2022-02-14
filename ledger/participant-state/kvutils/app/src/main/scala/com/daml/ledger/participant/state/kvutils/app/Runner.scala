@@ -3,9 +3,11 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.util.concurrent.{Executors, TimeUnit}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
+import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.{
@@ -21,6 +23,14 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationType,
   ExperimentalContractIds,
 }
+import com.daml.ledger.runner.common.{
+  Config,
+  ConfigProvider,
+  DumpIndexMetadata,
+  Mode,
+  ParticipantConfig,
+  ParticipantRunMode,
+}
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.{Engine, EngineConfig}
@@ -32,10 +42,9 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
-import com.daml.platform.usermanagement.PersistentUserManagementStore
+import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import com.daml.ports.Port
 
-import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.ExecutionContext
 
 final class Runner[T <: ReadWriteService, Extra](
@@ -84,6 +93,8 @@ final class Runner[T <: ReadWriteService, Extra](
           EngineConfig(
             allowedLanguageVersions = config.allowedLanguageVersions,
             forbidV0ContractId = true,
+            profileDir = config.profileDir,
+            stackTraceMode = config.stackTraces,
           )
         )
 
@@ -204,7 +215,9 @@ final class Runner[T <: ReadWriteService, Extra](
                   metrics = metrics,
                   cacheExpiryAfterWriteInSeconds =
                     config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-                  maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+                  maxCacheSize = config.userManagementConfig.maxCacheSize,
+                  maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+                  timeProvider = TimeProvider.UTC,
                 )(servicesExecutionContext)
                 indexService <- StandaloneIndexService(
                   dbSupport = dbSupport,
@@ -228,7 +241,6 @@ final class Runner[T <: ReadWriteService, Extra](
                   ledgerId = config.ledgerId,
                   config = apiServerConfig,
                   commandConfig = config.commandConfig,
-                  submissionConfig = config.submissionConfig,
                   partyConfig = configProvider.partyConfig(config),
                   optWriteService = Some(writeService),
                   authService = configProvider.authService(config),
@@ -256,6 +268,7 @@ final class Runner[T <: ReadWriteService, Extra](
                       v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
                     ),
                   ),
+                  userManagementConfig = config.userManagementConfig,
                 ).acquire()
               } yield Some(apiServer.port)
             case ParticipantRunMode.Indexer =>

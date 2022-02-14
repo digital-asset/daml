@@ -21,12 +21,9 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  PartyConfiguration,
-  SubmissionConfiguration,
-}
+import com.daml.platform.configuration.{CommandConfiguration, PartyConfiguration}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.{Port, PortFiles}
 import com.daml.telemetry.TelemetryContext
 import io.grpc.{BindableService, ServerInterceptor}
@@ -46,7 +43,6 @@ object StandaloneApiServer {
       config: ApiServerConfig,
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
-      submissionConfig: SubmissionConfiguration,
       optWriteService: Option[state.WriteService],
       authService: AuthService,
       healthChecks: HealthChecks,
@@ -59,6 +55,7 @@ object StandaloneApiServer {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
       ledgerFeatures: LedgerFeatures,
+      userManagementConfig: UserManagementConfig,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -86,6 +83,10 @@ object StandaloneApiServer {
       ledgerId,
       participantId,
       errorCodesVersionSwitcher,
+      userManagementStore,
+      servicesExecutionContext,
+      userRightsCheckIntervalInSeconds = userManagementConfig.cacheExpiryAfterWriteInSeconds,
+      akkaScheduler = actorSystem.scheduler,
     )
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
 
@@ -106,7 +107,6 @@ object StandaloneApiServer {
         initialLedgerConfiguration = config.initialLedgerConfiguration,
         commandConfig = commandConfig,
         partyConfig = partyConfig,
-        submissionConfig = submissionConfig,
         optTimeServiceBackend = timeServiceBackend,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
@@ -117,7 +117,7 @@ object StandaloneApiServer {
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
         ledgerFeatures = ledgerFeatures,
-        enableUserManagement = config.enableUserManagement,
+        userManagementConfig = config.userManagementConfig,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(
@@ -128,7 +128,7 @@ object StandaloneApiServer {
         config.tlsConfig,
         AuthorizationInterceptor(
           authService,
-          Option.when(config.enableUserManagement)(userManagementStore),
+          Option.when(config.userManagementConfig.enabled)(userManagementStore),
           servicesExecutionContext,
           errorCodesVersionSwitcher,
         ) :: otherInterceptors,

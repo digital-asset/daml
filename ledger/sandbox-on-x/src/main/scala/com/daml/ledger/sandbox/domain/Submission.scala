@@ -6,11 +6,13 @@ package com.daml.ledger.sandbox.domain
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
+import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext
 
 private[sandbox] sealed trait Submission extends Product with Serializable {
+  def submissionId: Ref.SubmissionId
   def loggingContext: LoggingContext
 }
 
@@ -21,7 +23,13 @@ private[sandbox] object Submission {
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
   )(implicit val loggingContext: LoggingContext)
-      extends Submission
+      extends Submission {
+    val submissionId: SubmissionId = {
+      // TODO SoX production-ready: Make the submissionId non-optional
+      // .get deemed safe since no transaction submission should have the submission id empty
+      submitterInfo.submissionId.get
+    }
+  }
 
   final case class Config(
       maxRecordTime: Time.Timestamp,
@@ -29,7 +37,6 @@ private[sandbox] object Submission {
       config: Configuration,
   )(implicit val loggingContext: LoggingContext)
       extends Submission
-
   final case class AllocateParty(
       hint: Option[Ref.Party],
       displayName: Option[String],

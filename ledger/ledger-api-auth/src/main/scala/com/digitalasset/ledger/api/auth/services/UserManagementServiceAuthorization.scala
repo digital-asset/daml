@@ -28,10 +28,10 @@ private[daml] final class UserManagementServiceAuthorization(
   private implicit val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  override def createUser(request: CreateUserRequest): Future[User] =
+  override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
     authorizer.requireAdminClaims(service.createUser)(request)
 
-  override def getUser(request: GetUserRequest): Future[User] =
+  override def getUser(request: GetUserRequest): Future[GetUserResponse] =
     defaultToAuthenticatedUser(request.userId) match {
       case Failure(ex) => Future.failed(ex)
       case Success(Some(userId)) => service.getUser(request.copy(userId = userId))

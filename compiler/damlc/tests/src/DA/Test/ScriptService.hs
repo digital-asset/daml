@@ -472,30 +472,20 @@ main =
                       "  where",
                       "    signatory owner",
                       "    observer observer",
-                      "    choice InventObserver : ContractId T with name : Text",
-                      "      controller owner",
-                      "        do create this { observer = fromSome $ partyFromText name }",
                       "partyManagement = do",
                       "  alice <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
                       "  alice1 <- allocateParty \"alice\"",
                       "  t1 <- submit alice $ createCmd T { owner = alice, observer = alice1 }",
-                      "  t2 <- submit alice $ exerciseCmd t1 (InventObserver \"bob\")",
-                      "  bob1 <- allocateParty \"bob\"",
+                      "  bob <- allocateParty \"bob\"",
                       "  details <- listKnownParties",
-                      "  assertEq (length details) 4",
-                      "  let [aliceDetails, alice1Details, bobDetails, bob1Details] = details",
+                      "  assertEq (length details) 3",
+                      "  let [aliceDetails, alice1Details, bobDetails] = details",
                       "  assertEq aliceDetails (PartyDetails alice (Some \"alice\") True)",
                       "  assertEq alice1Details (PartyDetails alice1 (Some \"alice\") True)",
-                      "  assertEq bobDetails (PartyDetails (fromSome $ partyFromText \"bob\") None True)",
-                      "  assertEq bob1Details (PartyDetails bob1 (Some \"bob\") True)",
+                      "  assertEq bobDetails (PartyDetails bob (Some \"bob\") True)",
                       "duplicateAllocateWithHint = do",
                       "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
                       "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
-                      "  pure ()",
-                      "duplicatePartyFromText = do",
-                      "  alice <- allocateParty \"alice\"",
-                      "  _ <- submit alice $ createAndExerciseCmd (T alice alice) (InventObserver \"bob\")",
-                      "  _ <- allocatePartyWithHint \"bob\" (PartyIdHint \"bob\")",
                       "  pure ()",
                       "partyWithEmptyDisplayName = do",
                       "  p1 <- allocateParty \"\"",
@@ -509,11 +499,9 @@ main =
                       "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "partyManagement") $ \r ->
-                  matchRegex r "Active contracts:  #1:1\n\nReturn value: {}\n\n$"
+                  matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
                 expectScriptFailure rs (vr "duplicateAllocateWithHint") $ \r ->
                   matchRegex r "Tried to allocate a party that already exists:  alice"
-                expectScriptFailure rs (vr "duplicatePartyFromText") $ \r ->
-                  matchRegex r "Tried to allocate a party that already exists:  bob"
                 expectScriptSuccess rs (vr "partyWithEmptyDisplayName") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
             , testCase "queryContractId/Key" $ do
@@ -948,7 +936,7 @@ main =
                   , "  let user2 = User u2 None"
                   , "  userIdToText u1 === \"user1\""
                   , "  userIdToText u2 === \"user2\""
-                  , "  users <- listUsers"
+                  , "  users <- listAllUsers"
                   , "  users === []"
                   , "  createUser user1 []"
                   , "  True <- userExists u1"
@@ -961,13 +949,13 @@ main =
                   , "  u === user1"
                   , "  u <- getUser u2"
                   , "  u === user2"
-                  , "  users <- listUsers"
+                  , "  users <- listAllUsers"
                   , "  sort users === [user1, user2]"
                   , "  deleteUser u1"
-                  , "  users <- listUsers"
+                  , "  users <- listAllUsers"
                   , "  users === [user2]"
                   , "  deleteUser u2"
-                  , "  users <- listUsers"
+                  , "  users <- listAllUsers"
                   , "  users === []"
                   , "  nonexistent <- validateUserId \"nonexistent\""
                   , "  expectUserNotFound (getUser nonexistent)"
@@ -1009,7 +997,37 @@ main =
                 expectScriptSuccess rs (vr "testUserManagement") $ \r ->
                     matchRegex r "Active contracts: \n"
                 expectScriptSuccess rs (vr "testUserRightManagement") $ \r ->
-                    matchRegex r "Active contracts: \n"
+                    matchRegex r "Active contracts: \n",
+              testCase "implicit party allocation" $ do
+                rs <- runScripts scriptService
+                  [ "module Test where"
+                  , "import DA.Assert"
+                  , "import DA.Optional"
+                  , "import Daml.Script"
+                  , "template T"
+                  , "  with"
+                  , "    s: Party"
+                  , "    o: Party"
+                  , "  where"
+                  , "    signatory s"
+                  , "    observer o"
+                  , "submitterNotAllocated : Script ()"
+                  , "submitterNotAllocated = do"
+                  , "  x <- allocateParty \"x\""
+                  , "  let unallocated  = fromSome (partyFromText \"y\")"
+                  , "  submitMulti [x, unallocated] [] $ createCmd (T x x)"
+                  , "  pure ()"
+                  , "observerNotAllocated : Script ()"
+                  , "observerNotAllocated = do"
+                  , "  x <- allocateParty \"x\""
+                  , "  let unallocated  = fromSome (partyFromText \"y\")"
+                  , "  submit x $ createCmd (T x unallocated)"
+                  , "  pure ()"
+                  ]
+                expectScriptFailure rs (vr "submitterNotAllocated") $ \r ->
+                    matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'"
+                expectScriptFailure rs (vr "observerNotAllocated") $ \r ->
+                    matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}

@@ -5,6 +5,7 @@ package com.daml.error.definitions
 
 import com.daml.error._
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.LedgerApiErrorGroup
+import com.daml.ledger.participant.state.v2.ChangeId
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Error.Validation.ReplayMismatch
@@ -17,11 +18,34 @@ import com.daml.lf.{VersionRange, language}
 import org.slf4j.event.Level
 
 import java.time.{Duration, Instant}
+import scala.concurrent.duration._
 
 @Explanation(
   "Errors raised by or forwarded by the Ledger API."
 )
 object LedgerApiErrors extends LedgerApiErrorGroup {
+
+  val EarliestOffsetMetadataKey = "earliest_offset"
+
+  @Explanation(
+    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request."""
+  )
+  @Resolution(
+    """This error is caused by a participant node misconfiguration or by an implementation bug.
+      |Resolution requires participant operator intervention."""
+  )
+  object UnsupportedOperation
+      extends ErrorCode(
+        id = "UNSUPPORTED_OPERATION",
+        ErrorCategory.InternalUnsupportedOperation,
+      ) {
+
+    case class Reject(_message: String)(implicit errorLogger: ContextualizedErrorLogger)
+        extends LoggingTransactionErrorImpl(
+          cause = s"The request exercised an unsupported operation: ${_message}"
+        )
+  }
+
   @Explanation(
     """This error occurs when a participant rejects a command due to excessive load.
         |Load can be caused by the following factors:
@@ -286,8 +310,30 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
   }
 
-  @Explanation("Authentication errors.")
+  @Explanation("Authentication and authorization errors.")
   object AuthorizationChecks extends ErrorGroup() {
+
+    @Explanation("""The stream was aborted because the authenticated user's rights changed,
+        |and the user might thus no longer be authorized to this stream.
+        |""")
+    @Resolution(
+      "The application should automatically retry fetching the stream. It will either succeed, or fail with an explicit denial of authentication or permission."
+    )
+    object StaleUserManagementBasedStreamClaims
+        extends ErrorCode(
+          id = "STALE_STREAM_AUTHORIZATION",
+          ErrorCategory.ContentionOnSharedResources,
+        ) {
+      case class Reject()(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl("Stale stream authorization. Retry quickly.") {
+        override def retryable: Option[ErrorCategoryRetry] = Some(
+          ErrorCategoryRetry(who = "application", duration = 0.seconds)
+        )
+      }
+
+    }
+
     @Explanation(
       """This rejection is given if the submitted command does not contain a JWT token on a participant enforcing JWT authentication."""
     )
@@ -432,9 +478,13 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "PARTICIPANT_PRUNED_DATA_ACCESSED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      case class Reject(override val cause: String)(implicit
+      case class Reject(override val cause: String, _earliestOffset: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = cause)
+      ) extends LoggingTransactionErrorImpl(cause = cause) {
+
+        override def context: Map[String, String] =
+          super.context + (EarliestOffsetMetadataKey -> _earliestOffset)
+      }
     }
 
     @Explanation(
@@ -591,7 +641,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           throwableO = Some(t),
         )
 
-    case class CommandTrackerInternalError(
+    case class Generic(
         message: String,
         override val throwableO: Option[Throwable] = None,
     )(implicit
@@ -687,7 +737,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(_operation: String, userId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"cannot ${_operation} for unknown user \"${userId}\""
+            cause = s"${_operation} failed for unknown user \"${userId}\""
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId
@@ -706,7 +756,31 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(_operation: String, userId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"cannot ${_operation}, as user \"${userId}\" already exists"
+            cause = s"${_operation} failed, as user \"${userId}\" already exists"
+          ) {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          ErrorResource.User -> userId
+        )
+      }
+    }
+
+    @Explanation(
+      """|A user can have only a limited number of user rights.
+                    |There was an attempt to create a user with too many rights or grant too many rights to a user."""
+    )
+    @Resolution(
+      """|Retry with a smaller number of rights or delete some of the already existing rights of this user.
+                   |Contact the participant operator if the limit is too low."""
+    )
+    object TooManyUserRights
+        extends ErrorCode(
+          id = "TOO_MANY_USER_RIGHTS",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(_operation: String, userId: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = s"${_operation} failed, as user \"${userId}\" would have too many rights."
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           ErrorResource.User -> userId
@@ -736,6 +810,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(
           _definiteAnswer: Boolean = false,
           _existingCommandSubmissionId: Option[String],
+          _changeId: Option[ChangeId] = None,
       )(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
@@ -743,9 +818,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             definiteAnswer = _definiteAnswer,
           ) {
         override def context: Map[String, String] =
-          super.context ++ _existingCommandSubmissionId.map("existing_submission_id" -> _).toList
+          super.context ++ _existingCommandSubmissionId
+            .map("existing_submission_id" -> _)
+            .toList ++ _changeId
+            .map(changeId => Seq("changeId" -> changeId.toString))
+            .getOrElse(Seq.empty)
       }
-
     }
 
     @Explanation("An input contract has been archived by a concurrent transaction submission.")
@@ -1021,6 +1099,46 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           details: String
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends LoggingTransactionErrorImpl(cause = s"Inconsistent: $details")
+    }
+
+    @Explanation("Errors that arise from an internal system misbehavior.")
+    object Internal extends ErrorGroup() {
+      @Explanation(
+        "The participant didn't detect an inconsistent key usage in the transaction. " +
+          "Within the transaction, an exercise, fetch or lookupByKey failed because " +
+          "the mapping of `key -> contract ID` was inconsistent with earlier actions."
+      )
+      @Resolution("Contact support.")
+      object InternallyInconsistentKeys
+          extends ErrorCode(
+            id = "INTERNALLY_INCONSISTENT_KEYS",
+            ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
+          ) {
+        case class Reject(override val cause: String, _keyO: Option[GlobalKey] = None)(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends LoggingTransactionErrorImpl(cause = cause) {
+          override def resources: Seq[(ErrorResource, String)] =
+            super.resources ++ _keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
+        }
+      }
+
+      @Explanation(
+        "The participant didn't detect an attempt by the transaction submission " +
+          "to use the same key for two active contracts."
+      )
+      @Resolution("Contact support.")
+      object InternallyDuplicateKeys
+          extends ErrorCode(
+            id = "INTERNALLY_DUPLICATE_KEYS",
+            ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
+          ) {
+        case class Reject(override val cause: String, _keyO: Option[GlobalKey] = None)(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends LoggingTransactionErrorImpl(cause = cause) {
+          override def resources: Seq[(ErrorResource, String)] =
+            super.resources ++ _keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
+        }
+      }
     }
   }
 }

@@ -18,14 +18,14 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandboxnext.SandboxNextFixture
+import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
 import scalaz.@@
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait SandboxTestLedger extends SandboxNextFixture {
+trait SandboxTestLedger extends SandboxFixture {
   self: Suite =>
 
   protected def testId: String
@@ -41,7 +41,6 @@ trait SandboxTestLedger extends SandboxNextFixture {
     tlsConfig = if (useTls) Some(serverTlsConfig) else None,
     ledgerIdMode = LedgerIdMode.Static(ledgerId),
     authService = authService,
-    scenario = scenario,
     engineMode = SandboxConfig.EngineMode.Dev,
     seeding = Seeding.Weak,
   )

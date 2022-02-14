@@ -28,7 +28,7 @@ object WorkflowConfig {
     )
   }
 
-  sealed trait StreamConfig {
+  sealed trait StreamConfig extends Product with Serializable {
     def name: String
   }
 

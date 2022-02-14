@@ -7,9 +7,13 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails, User, 
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.index.v2.MeteringStore.{
+  ParticipantMetering,
+  TransactionMetering,
+}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.UserId
+import com.daml.lf.data.Ref.{ApplicationId, UserId}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
@@ -17,6 +21,7 @@ import com.daml.platform
 import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
+import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
@@ -26,7 +31,6 @@ import com.daml.scalautil.NeverEqualsOverride
 import java.sql.Connection
 import javax.sql.DataSource
 import scala.annotation.unused
-import scala.util.Try
 
 /** Encapsulates the interface which hides database technology specific implementations.
   * Naming convention for the interface methods, which requiring Connection:
@@ -93,10 +97,13 @@ trait ParameterStorageBackend {
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit
+
   def prunedUpToInclusive(connection: Connection): Option[Offset]
+
   def updatePrunedAllDivulgedContractsUpToInclusive(
       prunedUpToInclusive: Offset
   )(connection: Connection): Unit
+
   def participantAllDivulgedContractsPrunedUpToInclusive(
       connection: Connection
   ): Option[Offset]
@@ -106,9 +113,9 @@ trait ParameterStorageBackend {
     *  - If no identity parameters are stored, then they are set to the given value.
     *  - If identity parameters are stored, then they are compared to the given ones.
     *  - Ledger identity parameters are written at most once, and are never overwritten.
-    *  No significant CPU load, mostly blocking JDBC communication with the database backend.
+    *    No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
-    *  This method is NOT safe to call concurrently.
+    * This method is NOT safe to call concurrently.
     */
   def initializeParameters(params: ParameterStorageBackend.IdentityParams)(connection: Connection)(
       implicit loggingContext: LoggingContext
@@ -116,6 +123,24 @@ trait ParameterStorageBackend {
 
   /** Returns the ledger identity parameters, or None if the database hasn't been initialized yet. */
   def ledgerIdentity(connection: Connection): Option[ParameterStorageBackend.IdentityParams]
+}
+
+object MeteringParameterStorageBackend {
+  case class LedgerMeteringEnd(offset: Offset, timestamp: Timestamp)
+}
+
+trait MeteringParameterStorageBackend {
+
+  /** Initialize the ledger metering end parameters if unset */
+  def initializeLedgerMeteringEnd(init: LedgerMeteringEnd)(connection: Connection)(implicit
+      loggingContext: LoggingContext
+  ): Unit
+
+  /** The timestamp and offset for which billable metering is available */
+  def ledgerMeteringEnd(connection: Connection): Option[LedgerMeteringEnd]
+
+  /** Update the timestamp and offset for which billable metering is available */
+  def updateLedgerMeteringEnd(ledgerMeteringEnd: LedgerMeteringEnd)(connection: Connection): Unit
 }
 
 object ParameterStorageBackend {
@@ -128,6 +153,7 @@ object ParameterStorageBackend {
       ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin, 0)
   }
   case class IdentityParams(ledgerId: LedgerId, participantId: ParticipantId)
+
 }
 
 trait ConfigurationStorageBackend {
@@ -164,17 +190,6 @@ trait PackageStorageBackend {
   )(connection: Connection): Vector[(Offset, PackageLedgerEntry)]
 }
 
-trait DeduplicationStorageBackend {
-  def deduplicatedUntil(deduplicationKey: String)(connection: Connection): Timestamp
-  def upsertDeduplicationEntry(
-      key: String,
-      submittedAt: Timestamp,
-      deduplicateUntil: Timestamp,
-  )(connection: Connection)(implicit loggingContext: LoggingContext): Int
-  def removeExpiredDeduplicationData(currentTime: Timestamp)(connection: Connection): Unit
-  def stopDeduplicatingCommand(deduplicationKey: String)(connection: Connection): Unit
-}
-
 trait CompletionStorageBackend {
   def commandCompletions(
       startExclusive: Offset,
@@ -191,8 +206,6 @@ trait CompletionStorageBackend {
 }
 
 trait ContractStorageBackend {
-  def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId]
-  def maximumLedgerTime(ids: Set[ContractId])(connection: Connection): Try[Option[Timestamp]]
   def keyState(key: Key, validAt: Long)(connection: Connection): KeyState
   def contractState(contractId: ContractId, before: Long)(
       connection: Connection
@@ -402,17 +415,19 @@ trait StringInterningStorageBackend {
 
 trait UserManagementStorageBackend {
 
-  def createUser(user: User)(connection: Connection): Int
+  def createUser(user: User, createdAt: Long)(connection: Connection): Int
 
   def deleteUser(id: UserId)(connection: Connection): Boolean
 
   def getUser(id: UserId)(connection: Connection): Option[UserManagementStorageBackend.DbUser]
 
-  def getUsers()(connection: Connection): Vector[User]
+  def getUsersOrderedById(fromExcl: Option[UserId] = None, maxResults: Int)(
+      connection: Connection
+  ): Vector[User]
 
   /** @return true if the right didn't exist and we have just added it.
     */
-  def addUserRight(internalId: Int, right: UserRight)(
+  def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(
       connection: Connection
   ): Boolean
 
@@ -422,23 +437,51 @@ trait UserManagementStorageBackend {
 
   def userRightExists(internalId: Int, right: UserRight)(connection: Connection): Boolean
 
-  def getUserRights(internalId: Int)(connection: Connection): Set[UserRight]
+  def getUserRights(internalId: Int)(
+      connection: Connection
+  ): Set[UserManagementStorageBackend.DbUserRight]
+
+  def countUserRights(internalId: Int)(connection: Connection): Int
 
 }
 
 object UserManagementStorageBackend {
-  case class DbUser(internalId: Int, domainUser: User)
+  case class DbUser(internalId: Int, domainUser: User, createdAt: Long)
+  case class DbUserRight(domainRight: UserRight, grantedAt: Long)
 }
 
-object MeteringStorageBackend {
-  case class TransactionMetering(
-      applicationId: Ref.ApplicationId,
-      actionCount: Int,
-      meteringTimestamp: Timestamp,
-      ledgerOffset: Offset,
-  )
+trait MeteringStorageReadBackend {
+
+  def transactionMetering(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
+  )(connection: Connection): Vector[TransactionMetering]
 }
 
-trait MeteringStorageBackend {
-  def entries(connection: Connection): Vector[MeteringStorageBackend.TransactionMetering]
+trait MeteringStorageWriteBackend {
+
+  /** This method will return the maximum offset of the transaction_metering record
+    * which has an offset greater than the from offset and a timestamp prior to the
+    * to timestamp, if any.
+    *
+    * Note that the offset returned may not have been fully ingested. This is to allow the metering to wait if there
+    * are still un-fully ingested records withing the time window.
+    */
+  def transactionMeteringMaxOffset(from: Offset, to: Timestamp)(
+      connection: Connection
+  ): Option[Offset]
+
+  /** This method will return all transaction metering records between the from offset (exclusive)
+    * and the to offset (inclusive).
+    */
+  def transactionMetering(from: Offset, to: Offset)(
+      connection: Connection
+  ): Vector[TransactionMetering]
+
+  def insertParticipantMetering(metering: Vector[ParticipantMetering])(connection: Connection): Unit
+
+  /** Test Only - will be removed once reporting can be based if participant metering */
+  def allParticipantMetering()(connection: Connection): Vector[ParticipantMetering]
+
 }

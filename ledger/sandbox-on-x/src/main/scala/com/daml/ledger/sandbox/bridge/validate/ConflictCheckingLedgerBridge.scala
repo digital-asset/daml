@@ -4,6 +4,7 @@
 package com.daml.ledger.sandbox.bridge.validate
 
 import akka.NotUsed
+import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Flow
 import com.daml.api.util.TimeProvider
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
@@ -20,9 +21,11 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events._
 
+import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 private[validate] class ConflictCheckingLedgerBridge(
+    bridgeMetrics: BridgeMetrics,
     prepareSubmission: PrepareSubmission,
     tagWithLedgerEnd: TagWithLedgerEnd,
     conflictCheckWithCommitted: ConflictCheckWithCommitted,
@@ -31,10 +34,28 @@ private[validate] class ConflictCheckingLedgerBridge(
 ) extends LedgerBridge {
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
+      .buffered(128)(bridgeMetrics.Stages.PrepareSubmission.bufferBefore)
       .mapAsyncUnordered(servicesThreadPoolSize)(prepareSubmission)
+      .buffered(128)(bridgeMetrics.Stages.TagWithLedgerEnd.bufferBefore)
       .mapAsync(parallelism = 1)(tagWithLedgerEnd)
+      .buffered(128)(bridgeMetrics.Stages.ConflictCheckWithCommitted.bufferBefore)
       .mapAsync(servicesThreadPoolSize)(conflictCheckWithCommitted)
+      .buffered(128)(bridgeMetrics.Stages.Sequence.bufferBefore)
       .statefulMapConcat(sequence)
+
+  private implicit class FlowWithBuffers[T, R](flow: Flow[T, R, NotUsed]) {
+    def buffered(bufferLength: Int)(counter: com.codahale.metrics.Counter): Flow[T, R, NotUsed] =
+      flow
+        .map { in =>
+          counter.inc()
+          in
+        }
+        .buffer(bufferLength, OverflowStrategy.backpressure)
+        .map { in =>
+          counter.dec()
+          in
+        }
+  }
 }
 
 private[bridge] object ConflictCheckingLedgerBridge {
@@ -63,10 +84,12 @@ private[bridge] object ConflictCheckingLedgerBridge {
       errorFactories: ErrorFactories,
       validatePartyAllocation: Boolean,
       servicesThreadPoolSize: Int,
+      maxDeduplicationDuration: Duration,
   )(implicit
       servicesExecutionContext: ExecutionContext
   ): ConflictCheckingLedgerBridge =
     new ConflictCheckingLedgerBridge(
+      bridgeMetrics = bridgeMetrics,
       prepareSubmission = new PrepareSubmissionImpl(bridgeMetrics),
       tagWithLedgerEnd = new TagWithLedgerEndImpl(indexService, bridgeMetrics),
       conflictCheckWithCommitted =
@@ -80,6 +103,7 @@ private[bridge] object ConflictCheckingLedgerBridge {
         validatePartyAllocation = validatePartyAllocation,
         bridgeMetrics = bridgeMetrics,
         errorFactories = errorFactories,
+        maxDeduplicationDuration = maxDeduplicationDuration,
       ),
       servicesThreadPoolSize = servicesThreadPoolSize,
     )

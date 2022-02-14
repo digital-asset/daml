@@ -28,11 +28,12 @@ import Control.Exception.Safe
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
 import qualified Data.Aeson as JSON
+import qualified Data.Aeson.Key as JSON
+import qualified Data.Aeson.KeyMap as JSON
 import qualified Data.ByteString.Lazy.UTF8 as LBS
 import Data.Either (isRight)
 import qualified Data.Foldable
 import Data.Function ((&))
-import qualified Data.HashMap.Strict as H
 import qualified Data.List
 import Data.Maybe (fromMaybe)
 import qualified Data.Ord
@@ -195,7 +196,7 @@ fetch_s3_versions opts = do
               let type_annotated_value :: Maybe JSON.Object
                   type_annotated_value = JSON.decode $ LBS.fromString s3_raw
               case type_annotated_value of
-                  Just s3_json -> return $ map (\s -> GitHubRelease prerelease (version s) []) $ H.keys s3_json
+                  Just s3_json -> return $ map (\s -> GitHubRelease prerelease (version $ JSON.toText s) []) $ JSON.keys s3_json
                   Nothing -> Exit.die "Failed to get versions from s3"
 
 data DocOptions = DocOptions
@@ -223,6 +224,7 @@ damlOnSqlDocOpts :: DocOptions
 damlOnSqlDocOpts = DocOptions
   { s3Subdir = Just "daml-driver-for-postgresql"
   , includedVersion = \v -> v > version "1.8.0-snapshot.20201201.5776.0.4b91f2a6"
+        && v <= version "2.0.0-snapshot.20220209.9212.0.b7fc9f57"
   , build = \temp version -> do
         proc_ ["git", "checkout", "v" <> show version]
         robustly_download_nix_packages

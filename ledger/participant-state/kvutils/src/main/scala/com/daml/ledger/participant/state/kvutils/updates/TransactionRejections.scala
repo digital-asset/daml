@@ -559,15 +559,19 @@ private[kvutils] object TransactionRejections {
 
     def internallyInconsistentKeysStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Internal.InternallyInconsistentKeys
-        .Reject()
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.WriteServiceRejections.Internal.InternallyInconsistentKeys
+          .Reject(InternallyInconsistentTransaction.InconsistentKeys.description)
+          .asGrpcStatusFromContext
+      )
 
     def internallyDuplicateKeysStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Internal.InternallyDuplicateKeys
-        .Reject()
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.WriteServiceRejections.Internal.InternallyDuplicateKeys
+          .Reject(InternallyInconsistentTransaction.DuplicateKeys.description)
+          .asGrpcStatusFromContext
+      )
 
     def submittingPartyNotKnownOnLedgerStatus(
         submitter: String

@@ -502,6 +502,17 @@ class JsonLedgerClient(
     }
   }
 
+  def recoverNotFound[A](e: Future[A]): Future[Option[A]] = {
+    e.map(Some(_)).recover { case FailedJsonApiRequest(_, _, StatusCodes.NotFound, _) =>
+      None
+    }
+  }
+  def recoverAlreadyExists[A](e: Future[A]): Future[Option[A]] = {
+    e.map(Some(_)).recover { case FailedJsonApiRequest(_, _, StatusCodes.Conflict, _) =>
+      None
+    }
+  }
+
   override def createUser(
       user: User,
       rights: List[UserRight],
@@ -509,29 +520,51 @@ class JsonLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Option[Unit]] =
-    unsupportedOn("createUser")
+  ): Future[Option[Unit]] = {
+    recoverAlreadyExists {
+      requestSuccess[CreateUserRequest, ObjectResponse](
+        uri.path./("v1")./("user")./("create"),
+        CreateUserRequest(
+          userId = user.id,
+          primaryParty = user.primaryParty,
+          rights,
+          isAdmin = false,
+        ),
+      ).map(_ => ())
+    }
+  }
 
   override def getUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[User]] =
-    unsupportedOn("getUser")
+    recoverNotFound {
+      requestSuccess[UserIdRequest, User](
+        uri.path./("v1")./("user"),
+        UserIdRequest(id),
+      )
+    }
 
   override def deleteUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[Unit]] =
-    unsupportedOn("deleteUser")
+    recoverNotFound {
+      requestSuccess[UserIdRequest, ObjectResponse](
+        uri.path./("v1")./("user")./("delete"),
+        UserIdRequest(id),
+      ).map(_ => ())
+    }
 
-  override def listUsers()(implicit
+  override def listAllUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[List[User]] =
-    unsupportedOn("listUsers")
+  ): Future[List[User]] = {
+    requestSuccess[List[User]](uri.path./("v1")./("users"))
+  }
 
   override def grantUserRights(
       id: UserId,
@@ -541,7 +574,12 @@ class JsonLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    unsupportedOn("grantUserRights")
+    recoverNotFound {
+      requestSuccess[UserIdAndRightsRequest, List[UserRight]](
+        uri.path./("v1")./("user")./("rights")./("grant"),
+        UserIdAndRightsRequest(id, rights),
+      )
+    }
 
   override def revokeUserRights(
       id: UserId,
@@ -551,17 +589,41 @@ class JsonLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    unsupportedOn("revokeUserRights")
+    recoverNotFound {
+      requestSuccess[UserIdAndRightsRequest, List[UserRight]](
+        uri.path./("v1")./("user")./("rights")./("revoke"),
+        UserIdAndRightsRequest(id, rights),
+      )
+    }
 
   override def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    unsupportedOn("listUserRights")
+    recoverNotFound {
+      requestSuccess[UserIdRequest, List[UserRight]](
+        uri.path./("v1")./("user")./("rights"),
+        UserIdRequest(id),
+      )
+    }
 }
 
 object JsonLedgerClient {
+
+  final case class CreateUserRequest(
+      userId: String,
+      primaryParty: Option[String],
+      rights: List[UserRight],
+      isAdmin: Boolean,
+  )
+
+  final case class UserIdRequest(userId: UserId)
+
+  final case class UserIdAndRightsRequest(
+      userId: UserId,
+      rights: List[UserRight],
+  )
 
   case class FailedJsonApiRequest(
       path: Path,
@@ -716,6 +778,10 @@ object JsonLedgerClient {
   )
   final case class AllocatePartyResponse(identifier: Ref.Party)
 
+// Any JS object, we validate that it’s an object to catch issues in our request but we ignore all fields
+// for forwards compatibility.
+  final case class ObjectResponse()
+
   object JsonProtocol extends SprayJsonSupport with DefaultJsonProtocol {
     implicit def optionReader[A: JsonReader]: JsonReader[Option[A]] =
       v =>
@@ -868,5 +934,80 @@ object JsonLedgerClient {
         case Seq(id) => AllocatePartyResponse(id.convertTo[Party])
         case _ => deserializationError(s"Could not parse AllocatePartyResponse: $v")
       }
+
+    implicit val userId: JsonFormat[UserId] = new JsonFormat[UserId] {
+      override def write(id: UserId) = JsString(id)
+      override def read(json: JsValue) = {
+        json match {
+          case JsString(s) => Ref.UserId.fromString(s).fold(deserializationError(_), identity)
+          case _ => deserializationError(s"Expected UserId but got $json")
+        }
+      }
+    }
+
+    implicit val userReader: JsonReader[User] = json => {
+      val o = json.asJsObject
+      (o.fields.get("userId"), o.fields.get("primaryParty")) match {
+        case (Some(id), primaryPartyOpt) =>
+          User(
+            id = id.convertTo[UserId],
+            primaryParty = primaryPartyOpt.map(_.convertTo[Party]),
+          )
+        case _ => deserializationError(s"Expected User but got $json")
+      }
+    }
+
+    implicit val listUserRight: JsonFormat[List[UserRight]] = new JsonFormat[List[UserRight]] {
+      override def write(xs: List[UserRight]) = JsArray(xs.map(_.toJson).toVector)
+      override def read(json: JsValue) = json match {
+        case JsArray(elements) => elements.iterator.map(_.convertTo[UserRight]).toList
+        case _ => deserializationError(s"must be a list, but got $json")
+      }
+    }
+
+    implicit val userRightFormat: JsonFormat[UserRight] = new JsonFormat[UserRight] {
+      override def write(x: UserRight) = x match {
+        case UserRight.CanReadAs(party) =>
+          JsObject("type" -> JsString("CanReadAs"), "party" -> JsString(party))
+        case UserRight.CanActAs(party) =>
+          JsObject("type" -> JsString("CanActAs"), "party" -> JsString(party))
+        case UserRight.ParticipantAdmin =>
+          JsObject("type" -> JsString("ParticipantAdmin"))
+      }
+      override def read(json: JsValue) = {
+        val obj = json.asJsObject
+        obj.fields.get("type") match {
+          case Some(JsString("ParticipantAdmin")) => UserRight.ParticipantAdmin
+          case Some(JsString("CanReadAs")) =>
+            obj.fields.get("party") match {
+              case None => deserializationError("UserRight.CanReadAs")
+              case Some(party) => UserRight.CanReadAs(party.convertTo[Party])
+            }
+          case Some(JsString("CanActAs")) =>
+            obj.fields.get("party") match {
+              case None => deserializationError("UserRight.CanActAs")
+              case Some(party) => UserRight.CanActAs(party.convertTo[Party])
+            }
+          case _ =>
+            deserializationError("UserRight")
+        }
+      }
+    }
+
+    implicit val createUserFormat: JsonFormat[CreateUserRequest] = jsonFormat4(CreateUserRequest)
+
+    implicit val userIdRequestFormat: JsonFormat[UserIdRequest] = jsonFormat1(UserIdRequest)
+
+    implicit val userIdAndRightsFormat: JsonFormat[UserIdAndRightsRequest] = jsonFormat2(
+      UserIdAndRightsRequest
+    )
+
+    implicit val objectResponse: RootJsonReader[ObjectResponse] = v => {
+      v match {
+        case JsObject(_) => ObjectResponse()
+        case _ => deserializationError("ObjectResponse")
+      }
+    }
+
   }
 }

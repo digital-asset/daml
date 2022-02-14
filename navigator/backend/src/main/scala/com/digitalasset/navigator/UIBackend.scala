@@ -67,10 +67,10 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       getAppState: () => Future[ApplicationStateInfo],
   ): Route = {
 
-    def openSession(userId: String, userConfig: UserConfig, state: PartyState): Route = {
+    def openSession(userId: String, userRole: Option[String], state: PartyState): Route = {
       val sessionId = UUID.randomUUID().toString
       setCookie(HttpCookie("session-id", sessionId, path = Some("/"))) {
-        complete(Session.open(sessionId, userId, userConfig, state))
+        complete(Session.open(sessionId, userId, userRole, state))
       }
     }
 
@@ -136,7 +136,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                             case Some(resp) =>
                               resp match {
                                 case PartyActorRunning(info) =>
-                                  openSession(request.userId, info.state.config, info.state)
+                                  openSession(request.userId, info.state.userRole, info.state)
                                 case Store.PartyActorUnresponsive =>
                                   complete(
                                     SignIn(SignInSelect(partyActors.keySet), Some(Unresponsive))
@@ -251,8 +251,10 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         arguments.time,
         applicationInfo,
         arguments.ledgerInboundMessageSizeMax,
+        arguments.enableUserManagement,
       )
     )
+    // TODO: usermgmt switching: for now we just poll both user and party mgmt
     // If no parties are specified, we periodically poll from the party management service.
     // If parties are specified, we only use those. This allows users to use custom display names
     // if they are non-unique or use only a subset of parties for performance reasons.
@@ -261,11 +263,17 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     val partyRefresh: Option[Cancellable] =
       if (config.users.isEmpty || arguments.ignoreProjectParties) {
         Some(
-          system.scheduler.scheduleWithFixedDelay(Duration.Zero, 1.seconds, store, UpdateParties)
+          system.scheduler
+            .scheduleWithFixedDelay(Duration.Zero, 1.seconds, store, UpdateUsersOrParties)
         )
       } else {
         config.users.foreach { case (displayName, config) =>
-          store ! Subscribe(displayName, config)
+          store ! Subscribe(
+            displayName,
+            config.party,
+            config.role,
+            config.useDatabase,
+          )
         }
         None
       }

@@ -26,7 +26,7 @@ import com.daml.ledger.api.v1.experimental_features.{
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.kvutils.app._
+import com.daml.ledger.runner.common._
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v2.{ReadService, Update, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -40,9 +40,9 @@ import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
-import com.daml.platform.usermanagement.PersistentUserManagementStore
-
+import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 import java.util.concurrent.{Executors, TimeUnit}
+
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 
@@ -50,7 +50,10 @@ object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
   private val logger = ContextualizedLogger.get(getClass)
 
-  def owner(args: collection.Seq[String]): ResourceOwner[Unit] =
+  def owner(
+      args: collection.Seq[String],
+      manipulateConfig: Config[BridgeConfig] => Config[BridgeConfig] = identity,
+  ): ResourceOwner[Unit] =
     Config
       .owner(
         RunnerName,
@@ -58,6 +61,7 @@ object SandboxOnXRunner {
         BridgeConfigProvider.defaultExtraConfig,
         args,
       )
+      .map(manipulateConfig)
       .flatMap(owner)
 
   private def owner(originalConfig: Config[BridgeConfig]): ResourceOwner[Unit] =
@@ -127,8 +131,8 @@ object SandboxOnXRunner {
     val sharedEngine = new Engine(
       EngineConfig(
         allowedLanguageVersions = config.allowedLanguageVersions,
-        profileDir = config.extra.profileDir,
-        stackTraceMode = config.extra.stackTraces,
+        profileDir = config.profileDir,
+        stackTraceMode = config.stackTraces,
       )
     )
 
@@ -152,7 +156,9 @@ object SandboxOnXRunner {
 
           readServiceWithSubscriber = new BridgeReadService(
             ledgerId = config.ledgerId,
-            maxDedupSeconds = config.extra.maxDedupSeconds,
+            maximumDeduplicationDuration = config.maxDeduplicationDuration.getOrElse(
+              BridgeConfigProvider.DefaultMaximumDeduplicationTime
+            ),
             stateUpdatesSource,
           )
 
@@ -229,10 +235,9 @@ object SandboxOnXRunner {
       ledgerId = config.ledgerId,
       config = apiServerConfig,
       commandConfig = config.commandConfig,
-      submissionConfig = config.submissionConfig,
       partyConfig = PartyConfiguration(config.extra.implicitPartyAllocation),
       optWriteService = Some(writeService),
-      authService = config.extra.authService,
+      authService = config.authService,
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
       metrics = metrics,
       timeServiceBackend = timeServiceBackend,
@@ -243,7 +248,9 @@ object SandboxOnXRunner {
         dbSupport = dbSupport,
         metrics = metrics,
         cacheExpiryAfterWriteInSeconds = config.userManagementConfig.cacheExpiryAfterWriteInSeconds,
-        maximumCacheSize = config.userManagementConfig.maximumCacheSize,
+        maxCacheSize = config.userManagementConfig.maxCacheSize,
+        maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+        timeProvider = TimeProvider.UTC,
       )(servicesExecutionContext),
       ledgerFeatures = LedgerFeatures(
         staticTime = timeServiceBackend.isDefined,
@@ -254,13 +261,14 @@ object SandboxOnXRunner {
               CommandDeduplicationPeriodSupport.DurationSupport.DURATION_NATIVE_SUPPORT,
             )
           ),
-          deduplicationType = CommandDeduplicationType.SYNC_ONLY,
-          maxDeduplicationDurationEnforced = false,
+          deduplicationType = CommandDeduplicationType.ASYNC_ONLY,
+          maxDeduplicationDurationEnforced = true,
         ),
         contractIdFeatures = ExperimentalContractIds.of(
           v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
         ),
       ),
+      userManagementConfig = config.userManagementConfig,
     )
 
   private def buildIndexerServer(
@@ -370,7 +378,7 @@ object SandboxOnXRunner {
         "participant-id" -> participantConfig.participantId,
         "ledger-id" -> config.ledgerId,
         "port" -> participantConfig.port.toString,
-        "time mode" -> config.extra.timeProviderType.description,
+        "time mode" -> config.timeProviderType.description,
         "allowed language versions" -> s"[min = ${config.allowedLanguageVersions.min}, max = ${config.allowedLanguageVersions.max}]",
         "authentication" -> authentication,
         "contract ids seeding" -> config.seeding.toString,

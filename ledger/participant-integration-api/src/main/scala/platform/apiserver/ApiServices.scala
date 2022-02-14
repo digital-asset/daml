@@ -35,7 +35,6 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   InitialLedgerConfiguration,
   PartyConfiguration,
-  SubmissionConfiguration,
 }
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
@@ -43,8 +42,10 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.telemetry.TelemetryContext
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
-
 import java.time.Duration
+
+import com.daml.platform.usermanagement.UserManagementConfig
+
 import scala.collection.immutable
 import scala.concurrent.duration.{Duration => ScalaDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -79,7 +80,6 @@ private[daml] object ApiServices {
       initialLedgerConfiguration: Option[InitialLedgerConfiguration],
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
-      submissionConfig: SubmissionConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -89,7 +89,7 @@ private[daml] object ApiServices {
       enableSelfServiceErrorCodes: Boolean,
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       ledgerFeatures: LedgerFeatures,
-      enableUserManagement: Boolean,
+      userManagementConfig: UserManagementConfig,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -104,7 +104,7 @@ private[daml] object ApiServices {
     private val completionsService: IndexCompletionsService = indexService
     private val partyManagementService: IndexPartyManagementService = indexService
     private val configManagementService: IndexConfigManagementService = indexService
-    private val submissionService: IndexSubmissionService = indexService
+    private val meteringStore: MeteringStore = indexService
 
     private val configurationInitializer = new LedgerConfigurationInitializer(
       indexService = indexService,
@@ -157,7 +157,7 @@ private[daml] object ApiServices {
         ApiVersionService.create(
           enableSelfServiceErrorCodes,
           ledgerFeatures,
-          enableUserManagement = enableUserManagement,
+          userManagementConfig = userManagementConfig,
         )
 
       val apiPackageService =
@@ -203,9 +203,13 @@ private[daml] object ApiServices {
       val apiHealthService = new GrpcHealthService(healthChecks, errorsVersionsSwitcher)
 
       val maybeApiUserManagementService: Option[UserManagementServiceAuthorization] =
-        if (enableUserManagement) {
+        if (userManagementConfig.enabled) {
           val apiUserManagementService =
-            new ApiUserManagementService(userManagementStore, errorsVersionsSwitcher)
+            new ApiUserManagementService(
+              userManagementStore,
+              errorsVersionsSwitcher,
+              maxUsersPageSize = userManagementConfig.maxUsersPageSize,
+            )
           val authorized =
             new UserManagementServiceAuthorization(apiUserManagementService, authorizer)
           Some(authorized)
@@ -213,7 +217,8 @@ private[daml] object ApiServices {
           None
         }
 
-      val apiMeteringReportService = new ApiMeteringReportService()
+      val apiMeteringReportService =
+        new ApiMeteringReportService(participantId, meteringStore, errorsVersionsSwitcher)
 
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
@@ -258,7 +263,6 @@ private[daml] object ApiServices {
         val apiSubmissionService = ApiSubmissionService.create(
           ledgerId,
           writeService,
-          submissionService,
           partyManagementService,
           timeProvider,
           timeProviderType,
@@ -267,8 +271,7 @@ private[daml] object ApiServices {
           commandExecutor,
           checkOverloaded,
           ApiSubmissionService.Configuration(
-            partyConfig.implicitPartyAllocation,
-            submissionConfig.enableDeduplication,
+            partyConfig.implicitPartyAllocation
           ),
           metrics,
           errorsVersionsSwitcher,

@@ -8,14 +8,14 @@
 // The code was copied in order to simplify extensive customization.
 // In the future, we may decide to use another library to implement
 // this component.
-import * as _ from 'lodash';
-import Moment from 'moment';
-import * as React from 'react';
-import Button from '../Button';
-import UntypedIcon from '../Icon';
-import styled from '../theme';
+import * as _ from "lodash";
+import Moment from "moment";
+import * as React from "react";
+import Button from "../Button";
+import UntypedIcon from "../Icon";
+import styled from "../theme";
 
-const weeks = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const weeks = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const isValid = (m: Moment.Moment | undefined): m is Moment.Moment =>
   m !== undefined && m.isValid();
@@ -23,68 +23,66 @@ const isValid = (m: Moment.Moment | undefined): m is Moment.Moment =>
 const isSameMonth = (
   m1: Moment.Moment | undefined,
   m2: Moment.Moment | undefined,
-) =>
-  isValid(m1) && isValid(m2) &&
-  m1.format('MMYYYY') === m2.format('MMYYYY');
+) => isValid(m1) && isValid(m2) && m1.format("MMYYYY") === m2.format("MMYYYY");
 
 const CalendarCell = styled.td`
   padding: 8px 0;
   text-align: center;
   cursor: pointer;
-`
+`;
 
 const SelectedDay = styled(CalendarCell)`
-  color: ${({theme}) => theme.colorPrimary[1]};
-  background-color: ${({theme}) => theme.colorPrimary[0]};
+  color: ${({ theme }) => theme.colorPrimary[1]};
+  background-color: ${({ theme }) => theme.colorPrimary[0]};
 `;
 
 const DefaultDay = styled(CalendarCell)`
-  color: ${({theme}) => theme.colorForeground};
+  color: ${({ theme }) => theme.colorForeground};
   font-weight: 700;
 `;
 
 const OtherMonthDay = styled(CalendarCell)`
-  color: ${({theme}) => theme.colorFaded};
+  color: ${({ theme }) => theme.colorFaded};
 `;
 
 const ThisMonthDay = styled(CalendarCell)`
-  color: ${({theme}) => theme.colorForeground};
+  color: ${({ theme }) => theme.colorForeground};
 `;
 
 const CalendarHeaderCell = styled.th`
   font-weight: initial;
   width: 14.2857%;
-  color: ${({theme}) => theme.colorFaded};
+  color: ${({ theme }) => theme.colorFaded};
   padding: 4px 4px;
-`
+`;
 
 const CalendarHeaderRow = styled.tr`
-  border-bottom: 1px solid ${({theme}) => theme.colorFaded};
-`
+  border-bottom: 1px solid ${({ theme }) => theme.colorFaded};
+`;
 const CalendarFooterRow = styled.tr`
-  border-bottom: 1px solid ${({theme}) => theme.colorFaded};
-`
+  border-bottom: 1px solid ${({ theme }) => theme.colorFaded};
+`;
 
 const CallendarTable = styled.table`
   border-collapse: collapse;
   width: 100%;
-`
+`;
 
 const CalendarWrapper = styled.div`
   width: 100%;
-`
+`;
 
 const CalendarRow = styled.tr`
   :nth-child(1) {
     margin-top: 4px;
   }
-`
+`;
 
 const CurrentMonth = styled.div`
   font-weight: 700;
   text-align: center;
   flex: 1;
-`
+`;
 
 const ToolbarWrapper = styled.div`
   display: flex;
@@ -93,7 +91,7 @@ const ToolbarWrapper = styled.div`
   align-content: flex-start;
   justify-content: center;
   padding-bottom: 15px;
-`
+`;
 
 interface DayProps {
   i: number;
@@ -108,13 +106,13 @@ const Day = ({ i, w, d, f, ...props }: DayProps) => {
   const nextMonth = w >= 4 && i <= 14;
 
   if (!prevMonth && !nextMonth && i === d) {
-    return <SelectedDay {...props}>{i}</SelectedDay>
+    return <SelectedDay {...props}>{i}</SelectedDay>;
   } else if (!prevMonth && !nextMonth && i === f) {
-    return <DefaultDay {...props}>{i}</DefaultDay>
+    return <DefaultDay {...props}>{i}</DefaultDay>;
   } else if (prevMonth || nextMonth) {
-    return <OtherMonthDay {...props}>{i}</OtherMonthDay>
+    return <OtherMonthDay {...props}>{i}</OtherMonthDay>;
   } else {
-    return <ThisMonthDay {...props}>{i}</ThisMonthDay>
+    return <ThisMonthDay {...props}>{i}</ThisMonthDay>;
   }
 };
 
@@ -134,29 +132,27 @@ interface ToolbarProps {
   prev(): void;
 }
 
-const Toolbar = ({title, next, prev}: ToolbarProps) => (
+const Toolbar = ({ title, next, prev }: ToolbarProps) => (
   <ToolbarWrapper>
     <Button
       type="minimal"
-      onClick={(e) => {
+      onClick={e => {
         e.preventDefault();
         prev();
-      }}
-    >
+      }}>
       <UntypedIcon name="chevron-left" />
     </Button>
     <CurrentMonth>{title}</CurrentMonth>
     <Button
       type="minimal"
-      onClick={(e) => {
+      onClick={e => {
         e.preventDefault();
         next();
-      }}
-    >
+      }}>
       <UntypedIcon name="chevron-right" />
     </Button>
   </ToolbarWrapper>
-)
+);
 
 /**
  * Renders a calendar (date picker)
@@ -176,17 +172,20 @@ export default class Calendar extends React.Component<Props, State> {
     super(props);
     this.state = {
       displayMoment: isValid(props.moment) ? props.moment : props.defaultMoment,
-    }
+    };
     this.prevMonth = this.prevMonth.bind(this);
     this.nextMonth = this.nextMonth.bind(this);
   }
 
   UNSAFE_componentWillReceiveProps(nextProps: Props): void {
-    if (isValid(this.props.moment) && isValid(nextProps.moment) &&
-      !this.props.moment.isSame(nextProps.moment)) {
-        this.setState({displayMoment: nextProps.moment})
+    if (
+      isValid(this.props.moment) &&
+      isValid(nextProps.moment) &&
+      !this.props.moment.isSame(nextProps.moment)
+    ) {
+      this.setState({ displayMoment: nextProps.moment });
     } else if (!this.props.defaultMoment.isSame(nextProps.defaultMoment)) {
-      this.setState({displayMoment: nextProps.defaultMoment});
+      this.setState({ displayMoment: nextProps.defaultMoment });
     }
   }
 
@@ -196,10 +195,10 @@ export default class Calendar extends React.Component<Props, State> {
     const m = Moment(this.state.displayMoment);
 
     if (prevMonth) {
-      m.subtract(1, 'month');
+      m.subtract(1, "month");
     }
     if (nextMonth) {
-      m.add(1, 'month');
+      m.add(1, "month");
     }
 
     m.date(i);
@@ -209,27 +208,30 @@ export default class Calendar extends React.Component<Props, State> {
 
   prevMonth(): void {
     const result = Moment(this.state.displayMoment);
-    result.subtract(1, 'month');
-    this.setState({displayMoment: result});
+    result.subtract(1, "month");
+    this.setState({ displayMoment: result });
   }
 
   nextMonth(): void {
     const result = Moment(this.state.displayMoment);
-    result.add(1, 'month');
-    this.setState({displayMoment: result});
+    result.add(1, "month");
+    this.setState({ displayMoment: result });
   }
 
   render(): JSX.Element {
     const m = this.state.displayMoment;
-    const displayDate =
-      isSameMonth(this.props.moment, this.state.displayMoment) ?
-      (this.props.moment as Moment.Moment).date() : null;
-    const defaultDate =
-      isSameMonth(this.props.defaultMoment, this.state.displayMoment) ?
-      (this.props.defaultMoment).date() : null;
-    const d1 = m.clone().subtract(1, 'month').endOf('month').date();
+    const displayDate = isSameMonth(this.props.moment, this.state.displayMoment)
+      ? (this.props.moment as Moment.Moment).date()
+      : null;
+    const defaultDate = isSameMonth(
+      this.props.defaultMoment,
+      this.state.displayMoment,
+    )
+      ? this.props.defaultMoment.date()
+      : null;
+    const d1 = m.clone().subtract(1, "month").endOf("month").date();
     const d2 = m.clone().date(1).day();
-    const d3 = m.clone().endOf('month').date();
+    const d3 = m.clone().endOf("month").date();
     const days = [
       // eslint-disable-next-line @typescript-eslint/restrict-plus-operands, , ,
       ..._.range(d1 - d2 + 1, d1 + 1),
@@ -241,7 +243,7 @@ export default class Calendar extends React.Component<Props, State> {
     return (
       <CalendarWrapper>
         <Toolbar
-          title={m.format('MMMM YYYY')}
+          title={m.format("MMMM YYYY")}
           prev={this.prevMonth}
           next={this.nextMonth}
         />
@@ -257,7 +259,7 @@ export default class Calendar extends React.Component<Props, State> {
           <tbody>
             {_.chunk(days, 7).map((row, w) => (
               <CalendarRow key={w}>
-                {row.map((i) => (
+                {row.map(i => (
                   <Day
                     key={i}
                     i={i}
@@ -272,7 +274,9 @@ export default class Calendar extends React.Component<Props, State> {
           </tbody>
           <tfoot>
             <CalendarFooterRow>
-              {weeks.map((_w, i) => (<td key={i} />))}
+              {weeks.map((_w, i) => (
+                <td key={i} />
+              ))}
             </CalendarFooterRow>
           </tfoot>
         </CallendarTable>

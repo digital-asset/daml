@@ -4,10 +4,8 @@
 def deps(edition):
     return [
         "//daml-script/runner:script-runner-lib",
-        "//daml-script/runner:script-test-lib-{}".format(edition),
         "//language-support/codegen-main:codegen-main-lib",
         "//ledger-service/http-json:http-json-{}".format(edition),
-        "//ledger/sandbox:sandbox-{}".format(edition),
         "//navigator/backend:navigator-library",
         "//daml-script/export",
         "//triggers/runner:trigger-runner-lib",

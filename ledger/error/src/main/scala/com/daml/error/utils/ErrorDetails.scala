@@ -7,6 +7,7 @@ import com.google.protobuf
 import com.google.rpc.{ErrorInfo, RequestInfo, ResourceInfo, RetryInfo}
 
 import scala.jdk.CollectionConverters._
+import scala.concurrent.duration._
 
 object ErrorDetails {
   sealed trait ErrorDetail extends Product with Serializable
@@ -14,7 +15,7 @@ object ErrorDetails {
   final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail
   final case class ErrorInfoDetail(reason: String, metadata: Map[String, String])
       extends ErrorDetail
-  final case class RetryInfoDetail(retryDelayInSeconds: Long) extends ErrorDetail
+  final case class RetryInfoDetail(duration: Duration) extends ErrorDetail
   final case class RequestInfoDetail(requestId: String) extends ErrorDetail
 
   def from(anys: Seq[protobuf.Any]): Seq[ErrorDetail] = anys.toList.map {
@@ -28,7 +29,9 @@ object ErrorDetails {
 
     case any if any.is(classOf[RetryInfo]) =>
       val v = any.unpack(classOf[RetryInfo])
-      RetryInfoDetail(v.getRetryDelay.getSeconds)
+      val delay = v.getRetryDelay
+      val duration = (delay.getSeconds.seconds + delay.getNanos.nanos).toCoarsest
+      RetryInfoDetail(duration)
 
     case any if any.is(classOf[RequestInfo]) =>
       val v = any.unpack(classOf[RequestInfo])

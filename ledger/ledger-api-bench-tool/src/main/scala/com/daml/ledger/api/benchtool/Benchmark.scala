@@ -23,7 +23,7 @@ object Benchmark {
   private val logger = LoggerFactory.getLogger(getClass)
 
   def run(
-      streams: List[StreamConfig],
+      streamConfigs: List[StreamConfig],
       reportingPeriod: FiniteDuration,
       apiServices: LedgerApiServices,
       metricsReporter: MetricsReporter,
@@ -42,7 +42,7 @@ object Benchmark {
 
     resources.use { case (system, registry) =>
       Future
-        .traverse(streams) {
+        .traverse(streamConfigs) {
           case streamConfig: StreamConfig.TransactionsStreamConfig =>
             StreamMetrics
               .observer(

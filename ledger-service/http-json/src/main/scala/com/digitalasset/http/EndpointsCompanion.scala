@@ -9,7 +9,7 @@ import akka.http.scaladsl.server.{RequestContext, Route}
 import akka.util.ByteString
 import com.daml.http.domain.{JwtPayload, JwtPayloadLedgerIdOnly, JwtWritePayload}
 import com.daml.http.json.SprayJson
-import com.daml.http.util.Logging.{InstanceUUID, RequestID}
+import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import util.GrpcHttpErrorCodes._
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
@@ -74,7 +74,7 @@ object EndpointsCompanion {
   trait CreateFromUserToken[A] {
     def apply(
         jwt: DecodedJwt[String],
-        listUserRights: UserId => Future[Vector[UserRight]],
+        listUserRights: UserId => Future[Seq[UserRight]],
         getLedgerId: () => Future[String],
     ): ET[A]
   }
@@ -117,7 +117,7 @@ object EndpointsCompanion {
 
     private def transformUserTokenTo[B](
         jwt: DecodedJwt[String],
-        listUserRights: UserId => Future[Vector[UserRight]],
+        listUserRights: UserId => Future[Seq[UserRight]],
         getLedgerId: () => Future[String],
     )(
         fromUser: FromUser[Unauthorized, B]
@@ -290,27 +290,35 @@ object EndpointsCompanion {
       }
   }
 
-  lazy val notFound: Route = (ctx: RequestContext) =>
+  def notFound(implicit lc: LoggingContextOf[InstanceUUID]): Route = (ctx: RequestContext) =>
     ctx.request match {
       case HttpRequest(method, uri, _, _, _) =>
-        Future.successful(
-          Complete(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
+        extendWithRequestIdLogCtx(implicit lc =>
+          Future.successful(
+            Complete(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
+          )
         )
     }
 
-  private[http] def httpResponseError(error: Error): HttpResponse = {
+  private[http] def httpResponseError(
+      error: Error
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): HttpResponse = {
     import com.daml.http.json.JsonProtocol._
     val resp = errorResponse(error)
     httpResponse(resp.status, SprayJson.encodeUnsafe(resp))
   }
   private[this] val logger = ContextualizedLogger.get(getClass)
 
-  private[http] def errorResponse(error: Error): domain.ErrorResponse = {
+  private[http] def errorResponse(
+      error: Error
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): domain.ErrorResponse = {
     val (status, errorMsg): (StatusCode, String) = error match {
       case InvalidUserInput(e) => StatusCodes.BadRequest -> e
       case ParticipantServerError(grpcStatus, d) =>
         grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus${d.cata((": " + _), "")}"
-      case ServerError(_) => StatusCodes.InternalServerError -> "HTTP JSON API Server Error"
+      case ServerError(reason) =>
+        logger.error(s"Internal server error occured: $reason")
+        StatusCodes.InternalServerError -> "HTTP JSON API Server Error"
       case Unauthorized(e) => StatusCodes.Unauthorized -> e
       case NotFound(e) => StatusCodes.NotFound -> e
     }
@@ -333,14 +341,6 @@ object EndpointsCompanion {
       a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
       p <- parse.parsePayload(a)
     } yield (jwt, p)
-
-  private[http] def decodeAndParseUserIdFromToken(rawJwt: Jwt, decodeJwt: ValidateJwt)(implicit
-      mf: Monad[Future]
-  ): ET[UserId] =
-    for {
-      decodedJwt <- EitherT.either(decodeJwt(rawJwt): Unauthorized \/ DecodedJwt[String])
-      result <- EitherT.either(CreateFromUserToken.parseUserIdFromToken(decodedJwt))
-    } yield result
 
   private[http] def decodeAndParsePayload[A](
       jwt: Jwt,

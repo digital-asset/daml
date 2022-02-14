@@ -26,8 +26,10 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.LedgerFeatures
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.usermanagement.UserManagementConfig
 import io.grpc.ServerServiceDefinition
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 import scala.util.Try
@@ -36,7 +38,7 @@ import scala.util.control.NonFatal
 private[apiserver] final class ApiVersionService private (
     enableSelfServiceErrorCodes: Boolean,
     ledgerFeatures: LedgerFeatures,
-    enableUserManagement: Boolean,
+    userManagementConfig: UserManagementConfig,
 )(implicit
     loggingContext: LoggingContext,
     executionContext: ExecutionContext,
@@ -54,11 +56,27 @@ private[apiserver] final class ApiVersionService private (
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
-      userManagement = Some(UserManagementFeature(supported = enableUserManagement)),
+      userManagement = Some(
+        if (userManagementConfig.enabled) {
+          UserManagementFeature(
+            supported = true,
+            maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+            maxUsersPageSize = userManagementConfig.maxUsersPageSize,
+          )
+        } else {
+          UserManagementFeature(
+            supported = false,
+            maxRightsPerUser = 0,
+            maxUsersPageSize = 0,
+          )
+        }
+      ),
       experimental = Some(
         ExperimentalFeatures.of(
           selfServiceErrorCodes =
-            Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes()),
+            Option.when(enableSelfServiceErrorCodes)(ExperimentalSelfServiceErrorCodes()): @nowarn(
+              "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.experimental_features\\..*"
+            ),
           staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime)),
           commandDeduplication = Some(ledgerFeatures.commandDeduplicationFeatures),
           optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
@@ -106,11 +124,11 @@ private[apiserver] object ApiVersionService {
   def create(
       enableSelfServiceErrorCodes: Boolean,
       ledgerFeatures: LedgerFeatures,
-      enableUserManagement: Boolean,
+      userManagementConfig: UserManagementConfig,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
     new ApiVersionService(
       enableSelfServiceErrorCodes,
       ledgerFeatures,
-      enableUserManagement = enableUserManagement,
+      userManagementConfig = userManagementConfig,
     )
 }

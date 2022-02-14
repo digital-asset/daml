@@ -69,7 +69,6 @@ data Command
     | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
     | LedgerReset {flags :: LedgerFlags}
     | LedgerExport { flags :: LedgerFlags, remainingArguments :: [String] }
-    | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String], shutdownStdinClose :: Bool }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
     | LedgerMeteringReport { flags :: LedgerFlags, from :: IsoTime, to :: Maybe IsoTime, application :: Maybe ApplicationId, compactOutput :: Bool }
@@ -79,6 +78,10 @@ data Command
         , darPaths :: [FilePath]
         , remainingArguments :: [String]
         , shutdownStdinClose :: Bool
+        }
+    | CantonRepl
+        { cantonReplOptions :: CantonReplOptions
+        , remainingArguments :: [String]
         }
 
 data AppTemplate
@@ -101,6 +104,7 @@ commandParser = subparser $ fold
     , command "codegen" (info (codegenCmd <**> helper) forwardOptions)
     , command "packages" (info (packagesCmd <**> helper) packagesCmdInfo)
     , command "sandbox" (info (cantonSandboxCmd <**> helper) cantonSandboxCmdInfo)
+    , command "canton-console" (info (cantonReplCmd <**> helper) cantonReplCmdInfo)
     ]
   where
 
@@ -164,17 +168,12 @@ commandParser = subparser $ fold
         jsonApiOptions <- many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API"))
         scriptOptions <- many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter"))
         shutdownStdinClose <- stdinCloseOpt
-        sandboxChoice <- sandboxChoiceOpt
+        sandboxPortSpec <- sandboxCantonPortSpecOpt
         pure $ Start StartOptions{..} shutdownStdinClose
 
     sandboxPortOpt name desc =
         optional (option (maybeReader (toSandboxPortSpec <=< readMaybe))
             (long name <> metavar "PORT_NUM" <> help desc))
-
-    sandboxChoiceOpt =
-            flag' SandboxKV (long "sandbox-kv" <> help "Deprecated. Run with Sandbox KV.")
-        <|> flag SandboxCanton SandboxCanton (long "sandbox-canton" <> help "Run with Canton Sandbox. The 2.0 default.")
-                <*> sandboxCantonPortSpecOpt
 
     sandboxCantonPortSpecOpt = do
         adminApiSpec <- sandboxPortOpt "sandbox-admin-api-port" "Port number for the canton admin API (--sandbox-canton only)"
@@ -261,12 +260,9 @@ commandParser = subparser $ fold
             , command "fetch-dar" $ info
                 (ledgerFetchDarCmd <**> helper)
                 (progDesc "Fetch DAR from ledger into file")
-            , command "navigator" $ info
-                (ledgerNavigatorCmd <**> helper)
-                (forwardOptions <> progDesc "Launch Navigator on ledger")
             , command "metering-report" $ info
                 (ledgerMeteringReportCmd <**> helper)
-                (forwardOptions <> progDesc "Report on Ledger Use")                
+                (forwardOptions <> progDesc "Report on Ledger Use")
             ]
         , subparser $ internal <> fold -- hidden subcommands
             [ command "allocate-party" $ info
@@ -336,11 +332,6 @@ commandParser = subparser $ fold
         scriptOptions = LedgerExport
           <$> ledgerFlags (ShowJsonApi False)
           <*> (("script":) <$> many (argument str (metavar "ARG" <> help "Arguments forwarded to export.")))
-
-    ledgerNavigatorCmd = LedgerNavigator
-        <$> ledgerFlags (ShowJsonApi False)
-        <*> many (argument str (metavar "ARG" <> help "Extra arguments to navigator."))
-        <*> stdinCloseOpt
 
     app :: ReadM ApplicationId
     app = fmap (ApplicationId . pack) str
@@ -437,7 +428,10 @@ commandParser = subparser $ fold
             cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value 6868)
             cantonPortFileM <- optional $ option str (long "canton-port-file" <> metavar "PATH"
                 <> help "File to write canton participant ports when ready")
-            cantonStaticTime <- StaticTime <$> switch (long "static-time")
+            cantonStaticTime <- StaticTime <$>
+                (flag' True (long "static-time") <|>
+                 flag' False (long "wall-clock-time") <|>
+                 pure False)
             pure CantonOptions{..}
         portFileM <- optional $ option str (long "port-file" <> metavar "PATH"
             <> help "File to write ledger API port when ready")
@@ -448,6 +442,34 @@ commandParser = subparser $ fold
         pure CantonSandbox {..}
 
     cantonSandboxCmdInfo =
+        forwardOptions
+
+    cantonReplOpt = do
+        host <- option str (long "host" <> value "127.0.0.1")
+        ledgerApi <- option auto (long "port" <> value 6865)
+        adminApi <- option auto (long "admin-api-port" <> value 6866)
+        domainPublicApi <- option auto (long "domain-public-port" <> value 6867)
+        domainAdminApi <- option auto (long "domain-admin-port" <> value 6868)
+        pure $ CantonReplOptions
+            [ CantonReplParticipant
+                { crpName = "sandbox"
+                , crpLedgerApi = Just (CantonReplApi host ledgerApi)
+                , crpAdminApi = Just (CantonReplApi host adminApi)
+                }
+            ]
+            [ CantonReplDomain
+                { crdName = "local"
+                , crdPublicApi = Just (CantonReplApi host domainPublicApi)
+                , crdAdminApi = Just (CantonReplApi host domainAdminApi)
+                }
+            ]
+
+    cantonReplCmd = do
+        cantonReplOptions <- cantonReplOpt
+        remainingArguments <- many (argument str (metavar "ARG"))
+        pure CantonRepl {..}
+
+    cantonReplCmdInfo =
         forwardOptions
 
 runCommand :: Command -> IO ()
@@ -486,7 +508,6 @@ runCommand = \case
     LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
     LedgerReset {..} -> runLedgerReset flags
     LedgerExport {..} -> runLedgerExport flags remainingArguments
-    LedgerNavigator {..} -> (if shutdownStdinClose then withCloseOnStdin else id) $ runLedgerNavigator flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments
     LedgerMeteringReport {..} -> runLedgerMeteringReport flags from to application compactOutput
     CantonSandbox {..} ->
@@ -502,3 +523,5 @@ runCommand = \case
                     putStrLn ("Writing ledger API port to " <> portFile)
                     writeFileUTF8 portFile (show sandboxPort)
                 putStrLn "Canton sandbox is ready."
+    CantonRepl {..} ->
+        runCantonRepl cantonReplOptions remainingArguments

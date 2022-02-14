@@ -126,8 +126,7 @@ def daml_deps():
     if "io_bazel_rules_scala" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_scala",
-            url = "https://github.com/bazelbuild/rules_scala/archive/%s.zip" % rules_scala_version,
-            type = "zip",
+            url = "https://github.com/bazelbuild/rules_scala/archive/%s.tar.gz" % rules_scala_version,
             strip_prefix = "rules_scala-%s" % rules_scala_version,
             sha256 = rules_scala_sha256,
             patches = [
@@ -161,5 +160,5 @@ def daml_deps():
             name = "com_github_google_bazel_common",
             sha256 = rules_bazel_common_sha256,
             strip_prefix = "bazel-common-{}".format(rules_bazel_common_version),
-            urls = ["https://github.com/google/bazel-common/archive/{}.zip".format(rules_bazel_common_version)],
+            urls = ["https://github.com/google/bazel-common/archive/{}.tar.gz".format(rules_bazel_common_version)],
         )

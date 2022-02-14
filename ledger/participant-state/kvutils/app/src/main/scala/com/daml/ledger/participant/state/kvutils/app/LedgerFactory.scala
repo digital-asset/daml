@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import akka.stream.Materializer
+import com.daml.ledger.runner.common.{Config, ParticipantConfig}
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantStateReader,

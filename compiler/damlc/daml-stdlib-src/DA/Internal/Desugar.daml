@@ -13,6 +13,7 @@ module DA.Internal.Desugar (
     module DA.Internal.Interface,
     Eq(..), Show(..),
     Bool(..), Text, Optional(..),
+    (&&),
     concat, magic,
     Party, ContractId, Update, Any,
     NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..),

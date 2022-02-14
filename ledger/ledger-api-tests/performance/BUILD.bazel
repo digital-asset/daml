@@ -1,0 +1,43 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:scala.bzl", "da_scala_library")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_version_configuration",
+    "lf_version_configuration_versions",
+)
+
+[
+    da_scala_library(
+        name = "performance-%s" % lf_version,
+        srcs = glob(["src/main/scala/**/*.scala"]),
+        tags = ["maven_coordinates=com.daml:ledger-api-tests-performance-%s:__VERSION__" % lf_version],
+        visibility = ["//:__subpackages__"],
+        deps = [
+            "//daml-lf/data",
+            "//language-support/scala/bindings",
+            "//ledger/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
+            "//ledger/test-common:performance-tests-%s.scala" % lf_version,
+            "@maven//:io_grpc_grpc_api",
+            "@maven//:io_grpc_grpc_context",
+            "@maven//:org_slf4j_slf4j_api",
+        ],
+    )
+    for lf_version in lf_version_configuration_versions
+]
+
+[
+    alias(
+        name = "performance-%s" % name,
+        actual = ":performance-%s" % lf_target,
+        visibility = ["//visibility:public"],
+    )
+    for (name, lf_target) in lf_version_configuration.items()
+]
+
+alias(
+    name = "performance",
+    actual = ":performance-default",
+    visibility = ["//visibility:public"],
+)

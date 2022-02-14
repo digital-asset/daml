@@ -181,6 +181,7 @@ def _proto_scala_srcs(name, grpc):
 
 def _proto_scala_deps(grpc, proto_deps):
     return [
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_lenses_{}".format(scala_major_version_suffix),
         "@maven//:com_thesamet_scalapb_scalapb_runtime_{}".format(scala_major_version_suffix),
@@ -201,6 +202,7 @@ def proto_jars(
         visibility = None,
         strip_import_prefix = "",
         grpc = False,
+        java_conversions = False,
         deps = [],
         proto_deps = [],
         java_deps = [],
@@ -298,7 +300,7 @@ def proto_jars(
         tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_scala_suffix),
         unused_dependency_checker_mode = "error",
         visibility = visibility,
-        deps = all_scala_deps,
+        deps = all_scala_deps + (["{}_java".format(name)] if java_conversions else []),
         exports = all_scala_deps,
     )
 

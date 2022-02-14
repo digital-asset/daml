@@ -4,14 +4,21 @@
 package com.daml.ledger.api.benchtool.submission
 
 import akka.actor.ActorSystem
-import akka.stream.{Materializer, OverflowStrategy}
 import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.{Materializer, OverflowStrategy}
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig
 import com.daml.ledger.api.benchtool.infrastructure.TestDars
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
+import com.daml.ledger.api.v1.admin.user_management_service.{
+  CreateUserRequest,
+  GrantUserRightsRequest,
+  User,
+}
 import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import io.grpc.StatusRuntimeException
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
@@ -19,33 +26,28 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-case class CommandSubmitter(services: LedgerApiServices) {
+case class CommandSubmitter(
+    names: Names,
+    benchtoolUserServices: LedgerApiServices,
+    adminServices: LedgerApiServices,
+) {
   private val logger = LoggerFactory.getLogger(getClass)
-
-  private val identifierSuffix = f"${System.nanoTime}%x"
-  private val applicationId = "benchtool"
-  private val workflowId = s"$applicationId-$identifierSuffix"
-  private val signatoryName = s"signatory-$identifierSuffix"
-  private def observerName(index: Int, uniqueParties: Boolean): String = {
-    if (uniqueParties) s"Obs-$index-$identifierSuffix"
-    else s"Obs-$index"
-  }
-  private def commandId(index: Int): String = s"command-$index-$identifierSuffix"
-  private def darId(index: Int) = s"submission-dars-$index-$identifierSuffix"
 
   def submit(
       config: SubmissionConfig,
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
-  )(implicit ec: ExecutionContext): Future[CommandSubmitter.SubmissionSummary] =
+  )(implicit ec: ExecutionContext): Future[CommandSubmitter.SubmissionSummary] = {
+
+    val observerPartyNames =
+      names.observerPartyNames(config.numberOfObservers, config.uniqueParties)
+
+    logger.info("Generating contracts...")
+    logger.info(s"Identifier suffix: ${names.identifierSuffix}")
     (for {
-      _ <- Future.successful(logger.info("Generating contracts..."))
-      _ <- Future.successful(logger.info(s"Identifier suffix: $identifierSuffix"))
-      signatory <- allocateParty(signatoryName)
-      observers <- allocateParties(
-        number = config.numberOfObservers,
-        name = index => observerName(index, config.uniqueParties),
-      )
+      _ <- createBenchtoolUser(observerPartyNames)
+      signatory <- allocateSignatoryParty()
+      observers <- allocateObserverParties(observerPartyNames)
       _ <- uploadTestDars()
       _ <- submitCommands(
         config,
@@ -64,23 +66,60 @@ case class CommandSubmitter(services: LedgerApiServices) {
         logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
         Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
       }
+  }
 
-  private def allocateParty(name: String)(implicit ec: ExecutionContext): Future[Primitive.Party] =
-    services.partyManagementService.allocateParty(name)
-
-  private def allocateParties(number: Int, name: Int => String)(implicit
-      ec: ExecutionContext
-  ): Future[List[Primitive.Party]] =
-    (0 until number).foldLeft(Future.successful(List.empty[Primitive.Party])) { (allocated, i) =>
-      allocated.flatMap { parties =>
-        services.partyManagementService.allocateParty(name(i)).map(party => parties :+ party)
+  private def createBenchtoolUser(
+      observerPartyNames: Seq[String]
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    import com.daml.ledger.api.v1.admin.user_management_service.{Right => UserRight}
+    val actAs = UserRight(UserRight.Kind.CanActAs(UserRight.CanActAs(names.signatoryPartyName)))
+    val readAss = observerPartyNames.map(observerPartyName =>
+      UserRight(UserRight.Kind.CanReadAs(UserRight.CanReadAs(observerPartyName)))
+    )
+    val rights = actAs +: readAss
+    adminServices.userManagementService
+      .createUser(
+        CreateUserRequest(
+          user = Some(User(id = names.benchtoolUserId, primaryParty = "")),
+          rights = rights,
+        )
+      )
+      .map(_ => ())
+      .recoverWith {
+        case e: StatusRuntimeException
+            if e.getStatus.getDescription.startsWith(
+              LedgerApiErrors.AdminServices.UserAlreadyExists.id
+            ) => {
+          logger.info(
+            s"Benchmark user already exists (received error: ${e.getStatus.getDescription}) so granting rights the existing user."
+          )
+          adminServices.userManagementService
+            .grantUserRights(
+              GrantUserRightsRequest(
+                userId = names.benchtoolUserId,
+                rights = rights,
+              )
+            )
+            .map(_ => ())
+        }
       }
-    }
+  }
+
+  private def allocateSignatoryParty()(implicit ec: ExecutionContext): Future[Primitive.Party] =
+    adminServices.partyManagementService.allocateParty(names.signatoryPartyName)
+
+  private def allocateObserverParties(observerPartyNames: Seq[String])(implicit
+      ec: ExecutionContext
+  ): Future[List[Primitive.Party]] = {
+    Future.sequence(
+      observerPartyNames.toList.map(adminServices.partyManagementService.allocateParty)
+    )
+  }
 
   private def uploadDar(dar: TestDars.DarFile, submissionId: String)(implicit
       ec: ExecutionContext
   ): Future[Unit] =
-    services.packageManagementService.uploadDar(
+    adminServices.packageManagementService.uploadDar(
       bytes = dar.bytes,
       submissionId = submissionId,
     )
@@ -91,7 +130,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
       _ <- Future.sequence {
         dars.zipWithIndex
           .map { case (dar, index) =>
-            uploadDar(dar, darId(index))
+            uploadDar(dar, names.darId(index))
           }
       }
     } yield ()
@@ -100,14 +139,14 @@ case class CommandSubmitter(services: LedgerApiServices) {
       ec: ExecutionContext
   ): Future[Unit] = {
     val result = new Commands(
-      ledgerId = services.ledgerId,
-      applicationId = applicationId,
+      ledgerId = benchtoolUserServices.ledgerId,
+      applicationId = names.benchtoolApplicationId,
       commandId = id,
       party = party.unwrap,
       commands = commands,
-      workflowId = workflowId,
+      workflowId = names.workflowId,
     )
-    services.commandService.submitAndWait(result).map(_ => ())
+    benchtoolUserServices.commandService.submitAndWait(result).map(_ => ())
   }
 
   private def submitCommands(
@@ -162,7 +201,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
             .buffer(maxInFlightCommands, OverflowStrategy.backpressure)
             .mapAsync(maxInFlightCommands) { case (index, commands) =>
               submitAndWait(
-                id = commandId(index),
+                id = names.commandId(index),
                 party = signatory,
                 commands = commands,
               )
