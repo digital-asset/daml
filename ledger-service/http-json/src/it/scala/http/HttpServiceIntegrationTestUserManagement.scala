@@ -11,7 +11,9 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.UserDetails
 import com.daml.http.json.JsonProtocol._
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.JwtSigner
+import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.ledger.api.auth.{AuthServiceJWTPayload, CustomDamlJWTPayload}
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.domain.UserRight.{CanActAs, ParticipantAdmin}
 import com.daml.ledger.api.v1.{value => v}
@@ -23,14 +25,15 @@ import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
 import scalaz.syntax.show._
-import spray.json.JsValue
+import spray.json.{JsObject, JsValue}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait HttpServiceIntegrationTestUserManagementFuns
-    extends AbstractHttpServiceIntegrationTestFuns
+    extends AbstractHttpServiceIntegrationTest
+    with AbstractHttpServiceIntegrationTestFuns
     with SandboxRequiringAuthorizationFuns {
   this: AsyncTestSuite with Matchers with Inside =>
 
@@ -54,6 +57,45 @@ trait HttpServiceIntegrationTestUserManagementFuns
     authorizationHeader(jwtForUser(userId))
 
   def getUniqueUserName(name: String): String = getUniqueParty(name).unwrap
+
+  def jwtForParties(uri: Uri)(
+      actAs: List[String],
+      readAs: List[String],
+  )(implicit ec: ExecutionContext): Future[Jwt] = {
+    val username = getUniqueUserName("test")
+    val jwt = jwtForUser(username)
+    val createUserRequest = domain.CreateUserRequest(
+      username,
+      None,
+      Some(
+        actAs.map(it => domain.CanActAs(domain.Party(it))) ++
+          readAs.map(it => domain.CanReadAs(domain.Party(it)))
+      ),
+    )
+    import spray.json._
+    for {
+      _ <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/create")),
+        createUserRequest.toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+    } yield jwt
+  }
+
+  def headersWithPartyAuth(uri: Uri)(
+      actAs: List[String],
+      readAs: List[String],
+  )(implicit ec: ExecutionContext): Future[List[Authorization]] =
+    jwtForParties(uri)(actAs, readAs).map(authorizationHeader)
+
+  protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
+    jwtForParties(uri)(List("Alice"), List())
+
+  protected def jwtAdminNoParty(implicit ec: ExecutionContext): Future[Jwt] =
+    Future.successful(participantAdminJwt)
+
+  protected def headersWithAuth(uri: Uri)(actAs: List[String], readAs: List[String] = List()) =
+    headersWithPartyAuth(uri)(actAs, readAs)
 
 }
 

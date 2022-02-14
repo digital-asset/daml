@@ -37,12 +37,13 @@ final class FailureTests
     with Matchers
     with SuiteResourceManagementAroundAll
     with Eventually
-    with Inside {
+    with Inside
+    with AbstractHttpServiceIntegrationTestFunsCustomToken {
   import HttpServiceTestFixture._
   import WebsocketTestFixture._
 
-  private def headersWithParties(actAs: List[String]) =
-    headersWithPartyAuth(actAs, List(), ledgerId().unwrap)
+  private def headersWithParties(uri: Uri)(actAs: List[String]) =
+    headersWithPartyAuth(uri)(actAs, List(), ledgerId().unwrap)
 
   "Command submission succeeds after reconnect" in withHttpService[Assertion] {
     (uri, encoder, _, client) =>
