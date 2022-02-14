@@ -85,7 +85,25 @@ object NonEmptyColl extends NonEmptyCollInstances {
   }
 
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
+
+    /** See [[NonEmptyF]] for further explanation. */
     def toF: NonEmptyF[F, A] = NonEmpty.equiv[F, A](nfa)
+  }
+
+  implicit final class UnReshapeOps[F[_], A](private val nfa: NonEmptyF[F, A]) extends AnyVal {
+
+    /** `x.toNE` is `(x: NonEmpty[F[A]])` but possibly shorter.  If code
+      * compiles without the call to `toNE`, you don't need the call.
+      */
+    def toNE: NonEmpty[F[A]] = nfa
+  }
+
+  implicit final class UnwrapOps[A](private val self: NonEmpty[A]) extends AnyVal {
+
+    /** `x.toNotNE` is `(x: A)` but possibly shorter. If code compiles without
+      * the call to `toNotNE`, you don't need the call.
+      */
+    def toNotNE: A = self
   }
 
   /** Operations that can ''return'' new maps.  There is no reason to include any other
