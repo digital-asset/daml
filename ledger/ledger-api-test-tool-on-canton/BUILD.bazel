@@ -103,7 +103,6 @@ conformance_test(
             "TLSAtLeastOnePointTwoIT",
             "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
             "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
-            "MonotonicRecordTimeIT",  # KV-utils specific
         ]),
     ],
 ) if not is_windows else None
