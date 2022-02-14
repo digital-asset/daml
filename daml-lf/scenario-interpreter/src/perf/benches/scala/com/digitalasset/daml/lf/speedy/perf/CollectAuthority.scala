@@ -37,8 +37,8 @@ class CollectAuthorityState {
   @Param(Array("CollectAuthority:test"))
   private[perf] var scenario: String = _
 
-  var machine: Machine = null
-  var the_sexpr: SExpr = null
+  private var machine: Machine = null
+  private var the_sexpr: SExpr = null
 
   @Setup(Level.Trial)
   def init(): Unit = {
@@ -57,7 +57,9 @@ class CollectAuthorityState {
       compiledPackages,
       expr,
     )
-    the_sexpr = machine.ctrl
+    the_sexpr = machine.ctrl.left.getOrElse(
+      throw new IllegalStateException("unexpected ctrl value")
+    )
 
     // fill the caches!
     setup()

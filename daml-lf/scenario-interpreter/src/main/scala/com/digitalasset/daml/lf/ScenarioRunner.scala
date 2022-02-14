@@ -261,7 +261,6 @@ object ScenarioRunner {
 
       def missingWith(err: Error) =
         if (!callback(None)) {
-          machine.returnValue = null
           machine.ctrl = null
           throw err
         }

@@ -227,11 +227,7 @@ private[lf] object Speedy {
       /* The control is what the machine should be evaluating. If this is not
        * null, then `returnValue` must be null.
        */
-      var ctrl: SExpr,
-      /* `returnValue` contains the result once the expression in `ctrl` has
-       * been fully evaluated. If this is not null, then `ctrl` must be null.
-       */
-      var returnValue: SValue,
+      var ctrl: Either[SExpr, SValue],
       /* Frame: to access values for a closure's free-vars. */
       var frame: Frame,
       /* Actuals: to access values for a function application's arguments. */
@@ -446,12 +442,12 @@ private[lf] object Speedy {
       *      i.e. run() has returned an `SResult` requiring a callback.
       */
     def setExpressionToEvaluate(expr: SExpr): Unit = {
-      ctrl = expr
-      kontStack = initialKontStack()
-      env = emptyEnv
-      envBase = 0
-      steps = 0
-      track = Instrumentation()
+      this.ctrl = Left(expr)
+      this.kontStack = initialKontStack()
+      this.env = emptyEnv
+      this.envBase = 0
+      this.steps = 0
+      this.track = Instrumentation()
     }
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
@@ -467,15 +463,14 @@ private[lf] object Speedy {
             steps += 1
             println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
           }
-          if (returnValue != null) {
-            val value = returnValue
-            returnValue = null
-            popTempStackToBase()
-            popKont().execute(value)
-          } else {
-            val expr = ctrl
-            ctrl = null
-            expr.execute(this)
+          val ctrl = this.ctrl
+          this.ctrl = null
+          ctrl match {
+            case Right(value) =>
+              popTempStackToBase()
+              popKont().execute(value)
+            case Left(expr) =>
+              expr.execute(this)
           }
           loop()
         }
@@ -500,7 +495,7 @@ private[lf] object Speedy {
       eval.cached match {
         case Some((v, stack_trace)) =>
           pushStackTrace(stack_trace)
-          returnValue = v
+          this.ctrl = Right(v)
 
         case None =>
           val ref = eval.ref
@@ -509,10 +504,10 @@ private[lf] object Speedy {
               defn.cached match {
                 case Some((svalue, stackTrace)) =>
                   eval.setCached(svalue, stackTrace)
-                  returnValue = svalue
+                  this.ctrl = Right(svalue)
                 case None =>
                   pushKont(KCacheVal(this, eval, defn, Nil))
-                  ctrl = defn.body
+                  this.ctrl = Left(defn.body)
               }
             case None =>
               if (compiledPackages.packageIds.contains(ref.packageId))
@@ -529,7 +524,7 @@ private[lf] object Speedy {
                       this.compiledPackages = packages
                       // To avoid infinite loop in case the packages are not updated properly by the caller
                       assert(compiledPackages.packageIds.contains(ref.packageId))
-                      ctrl = eval
+                      this.ctrl = Left(eval)
                     },
                   )
                 )
@@ -563,7 +558,7 @@ private[lf] object Speedy {
 
           // Not enough arguments. Return a PAP.
           if (othersLength < 0) {
-            this.returnValue = SValue.SPAP(prim, actuals, arity)
+            this.ctrl = Right(SValue.SPAP(prim, actuals, arity))
 
           } else {
             // Too many arguments: Push a continuation to re-apply the over-applied args.
@@ -585,7 +580,7 @@ private[lf] object Speedy {
                 }
                 // Start evaluating the body of the closure.
                 popTempStackToBase()
-                this.ctrl = closure.expr
+                this.ctrl = Left(closure.expr)
 
               case SValue.PBuiltin(builtin) =>
                 this.actuals = actuals
@@ -656,19 +651,20 @@ private[lf] object Speedy {
         this.pushKont(KPushTo(this, actuals, arg))
         i = i + 1
       }
-      this.ctrl = args(0)
+      this.ctrl = Left(args(0))
     }
 
     private[speedy] def print(count: Int) = {
       println(s"Step: $count")
-      if (returnValue != null) {
-        println("Control: null")
-        println("Return:")
-        println(s"  ${returnValue}")
-      } else {
-        println("Control:")
-        println(s"  ${ctrl}")
-        println("Return: null")
+      ctrl match {
+        case Right(value) =>
+          println("Control: null")
+          println("Return:")
+          println(s"  $value")
+        case Left(expr) =>
+          println("Control:")
+          println(s"  $expr")
+          println("Return: null")
       }
       println("Environment:")
       env.forEach { v =>
@@ -802,7 +798,7 @@ private[lf] object Speedy {
         }
       }
 
-      returnValue = go(typ0, value0)
+      this.ctrl = Right(go(typ0, value0))
     }
 
     def checkContractVisibility(onLedger: OnLedger, cid: V.ContractId, contract: CachedContract) = {
@@ -845,8 +841,7 @@ private[lf] object Speedy {
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     ): Machine = {
       new Machine(
-        ctrl = expr,
-        returnValue = null,
+        ctrl = Left(expr),
         frame = null,
         actuals = null,
         env = emptyEnv,
@@ -950,8 +945,7 @@ private[lf] object Speedy {
         warningLog: WarningLog = newWarningLog,
     ): Machine =
       new Machine(
-        ctrl = expr,
-        returnValue = null,
+        ctrl = Left(expr),
         frame = null,
         actuals = null,
         env = emptyEnv,
@@ -1070,7 +1064,7 @@ private[lf] object Speedy {
       }
       // Start evaluating the body of the closure.
       machine.popTempStackToBase()
-      machine.ctrl = closure.expr
+      machine.ctrl = Left(closure.expr)
     }
   }
 
@@ -1102,7 +1096,7 @@ private[lf] object Speedy {
 
     def execute(v: SValue) = {
       discard[Boolean](actuals.add(v))
-      machine.returnValue = SValue.SPAP(prim, actuals, arity)
+      machine.ctrl = Right(SValue.SPAP(prim, actuals, arity))
     }
   }
 
@@ -1179,11 +1173,13 @@ private[lf] object Speedy {
         throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "Match on non-matchable value")
     }
 
-    machine.ctrl = altOpt
-      .getOrElse(
-        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"No match for $v in ${alts.toList}")
-      )
-      .body
+    machine.ctrl = Left(
+      altOpt
+        .getOrElse(
+          throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"No match for $v in ${alts.toList}")
+        )
+        .body
+    )
   }
 
   private[speedy] final case class KMatch(machine: Machine, alts: Array[SCaseAlt])
@@ -1222,7 +1218,7 @@ private[lf] object Speedy {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       discard[Boolean](to.add(v))
-      machine.ctrl = next
+      machine.ctrl = Left(next)
     }
   }
 
@@ -1239,7 +1235,7 @@ private[lf] object Speedy {
     def execute(acc: SValue) = {
       list.pop match {
         case None =>
-          machine.returnValue = acc
+          machine.ctrl = Right(acc)
         case Some((item, rest)) =>
           machine.restoreFrameAndActuals(frame, actuals)
           // NOTE: We are "recycling" the current continuation with the
@@ -1271,7 +1267,7 @@ private[lf] object Speedy {
         machine.pushKont(this) // NOTE: We've updated `lastIndex`.
         machine.enterApplication(func, Array(SEValue(item), SEValue(acc)))
       } else {
-        machine.returnValue = acc
+        machine.ctrl = Right(acc)
       }
     }
   }
@@ -1295,7 +1291,7 @@ private[lf] object Speedy {
       list.pop match {
         case None =>
           machine.pushKont(KFoldr1Reduce(machine, revClosures))
-          machine.returnValue = init
+          machine.ctrl = Right(init)
         case Some((item, rest)) =>
           machine.restoreFrameAndActuals(frame, actuals)
           list = rest
@@ -1319,7 +1315,7 @@ private[lf] object Speedy {
     def execute(acc: SValue) = {
       revClosures.pop match {
         case None =>
-          machine.returnValue = acc
+          machine.ctrl = Right(acc)
         case Some((closure, rest)) =>
           machine.restoreFrameAndActuals(frame, actuals)
           revClosures = rest
@@ -1347,7 +1343,7 @@ private[lf] object Speedy {
       machine.pushStackTrace(stack_trace)
       v.setCached(sv, stack_trace)
       defn.setCached(sv, stack_trace)
-      machine.returnValue = sv
+      machine.ctrl = Right(sv)
     }
   }
 
@@ -1362,7 +1358,7 @@ private[lf] object Speedy {
         val cached = SBuiltin.extractCachedContract(machine, templateId, sv)
         machine.checkContractVisibility(onLedger, cid, cached);
         onLedger.addGlobalContract(cid, cached)
-        machine.returnValue = cached.value
+        machine.ctrl = Right(cached.value)
       }
     }
   }
@@ -1378,7 +1374,7 @@ private[lf] object Speedy {
         onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toNormalizedValue)
         checkAborted(onLedger.ptx)
       }
-      machine.returnValue = exerciseResult
+      machine.ctrl = Right(exerciseResult)
     }
   }
 
@@ -1408,7 +1404,7 @@ private[lf] object Speedy {
       machine.withOnLedger("KTryCatchHandler") { onLedger =>
         onLedger.ptx = onLedger.ptx.endTry
       }
-      machine.returnValue = v
+      machine.ctrl = Right(v)
     }
   }
 
@@ -1426,7 +1422,7 @@ private[lf] object Speedy {
       v match {
         case SValue.SBool(b) =>
           if (b)
-            machine.returnValue = SValue.SUnit
+            machine.ctrl = Right(SValue.SUnit)
           else
             abort()
         case _ =>
@@ -1472,7 +1468,7 @@ private[lf] object Speedy {
       case Some(kh) =>
         kh.restore()
         machine.popTempStackToBase()
-        machine.ctrl = kh.handler
+        machine.ctrl = Left(kh.handler)
         machine.pushEnv(excep) // payload on stack where handler expects it
       case None =>
         machine.kontStack.clear()
@@ -1486,9 +1482,8 @@ private[lf] object Speedy {
 
   /** A location frame stores a location annotation found in the AST. */
   final case class KLocation(machine: Machine, location: Location) extends Kont {
-    def execute(v: SValue) = {
-      machine.returnValue = v
-    }
+    def execute(v: SValue) =
+      machine.ctrl = Right(v)
   }
 
   /** Continuation produced by [[SELabelClsoure]] expressions. This is only
@@ -1500,9 +1495,9 @@ private[lf] object Speedy {
     def execute(v: SValue) = {
       v match {
         case SValue.SPAP(SValue.PClosure(_, expr, closure), args, arity) =>
-          machine.returnValue = SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity)
+          machine.ctrl = Right(SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity))
         case _ =>
-          machine.returnValue = v
+          machine.ctrl = Right(v)
       }
     }
   }
@@ -1514,7 +1509,7 @@ private[lf] object Speedy {
       extends Kont {
     def execute(v: SValue) = {
       machine.profile.addCloseEvent(label)
-      machine.returnValue = v
+      machine.ctrl = Right(v)
     }
   }
 

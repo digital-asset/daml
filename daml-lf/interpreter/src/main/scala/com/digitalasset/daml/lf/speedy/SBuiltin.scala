@@ -188,7 +188,7 @@ private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltin(
       args: util.ArrayList[SValue],
       machine: Machine,
   ): Unit = {
-    machine.returnValue = executePure(args)
+    machine.ctrl = Right(executePure(args))
   }
 
   /** Execute the (pure) builtin with 'arity' number of arguments in 'args'.
@@ -285,7 +285,7 @@ private[lf] object SBuiltin {
     ): Unit =
       compute(args) match {
         case Some(value) =>
-          machine.returnValue = value
+          machine.ctrl = Right(value)
         case None =>
           unwindToHandler(machine, buildException(args))
       }
@@ -430,9 +430,9 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 0).coid
       machine.ledgerMode match {
         case OffLedger =>
-          machine.returnValue = SOptional(Some(SText(coid)))
+          machine.ctrl = Right(SOptional(Some(SText(coid))))
         case _ =>
-          machine.returnValue = SValue.SValue.None
+          machine.ctrl = Right(SValue.SValue.None)
       }
     }
   }
@@ -534,7 +534,7 @@ private[lf] object SBuiltin {
       val init = args.get(1)
       val list = getSList(args, 2)
       machine.pushKont(KFoldl(machine, func, list))
-      machine.returnValue = init
+      machine.ctrl = Right(init)
     }
   }
 
@@ -574,11 +574,11 @@ private[lf] object SBuiltin {
       if (func.arity - func.actuals.size >= 2) {
         val array = list.toImmArray
         machine.pushKont(KFoldr(machine, func, array, array.length))
-        machine.returnValue = init
+        machine.ctrl = Right(init)
       } else {
         val stack = list
         stack.pop match {
-          case None => machine.returnValue = init
+          case None => machine.ctrl = Right(init)
           case Some((head, tail)) =>
             machine.pushKont(KFoldr1Map(machine, func, tail, FrontStack.empty, init))
             machine.enterApplication(func, Array(SEValue(head)))
@@ -951,7 +951,7 @@ private[lf] object SBuiltin {
       onLedger.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
       onLedger.ptx = newPtx
       checkAborted(onLedger.ptx)
-      machine.returnValue = SContractId(coid)
+      machine.ctrl = Right(SContractId(coid))
     }
   }
 
@@ -1014,7 +1014,7 @@ private[lf] object SBuiltin {
           version = machine.tmplId2TxVersion(templateId),
         )
       checkAborted(onLedger.ptx)
-      machine.returnValue = SUnit
+      machine.ctrl = Right(SUnit)
     }
   }
 
@@ -1039,7 +1039,7 @@ private[lf] object SBuiltin {
             .foreach(nid => throw SErrorDamlException(IE.ContractNotActive(coid, templateId, nid)))
           if (cached.templateId != templateId)
             throw SErrorDamlException(IE.WronglyTypedContract(coid, templateId, cached.templateId))
-          machine.returnValue = cached.value
+          machine.ctrl = Right(cached.value)
         case None =>
           throw SpeedyHungry(
             SResultNeedContract(
@@ -1049,7 +1049,7 @@ private[lf] object SBuiltin {
               { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
                 if (actualTmplId != templateId) {
                   machine.ctrl =
-                    SEDamlException(IE.WronglyTypedContract(coid, templateId, actualTmplId))
+                    Left(SEDamlException(IE.WronglyTypedContract(coid, templateId, actualTmplId)))
                 } else {
                   val keyExpr = args.get(1) match {
                     // No by-key operation, we have to recompute.
@@ -1060,14 +1060,16 @@ private[lf] object SBuiltin {
                     case v => crash(s"Expected SOptional, got: $v")
                   }
                   machine.pushKont(KCacheContract(machine, templateId, coid))
-                  machine.ctrl = SELet1(
-                    SEImportValue(typ, arg),
-                    cachedContractStruct(
-                      SELocS(1),
-                      SEApp(SEVal(SignatoriesDefRef(templateId)), Array(SELocS(1))),
-                      SEApp(SEVal(ObserversDefRef(templateId)), Array(SELocS(1))),
-                      keyExpr,
-                    ),
+                  machine.ctrl = Left(
+                    SELet1(
+                      SEImportValue(typ, arg),
+                      cachedContractStruct(
+                        SELocS(1),
+                        SEApp(SEVal(SignatoriesDefRef(templateId)), Array(SELocS(1))),
+                        SEApp(SEVal(ObserversDefRef(templateId)), Array(SELocS(1))),
+                        keyExpr,
+                      ),
+                    )
                   )
                 }
               },
@@ -1101,19 +1103,23 @@ private[lf] object SBuiltin {
         // in the SpeedyHungry callback. See the comment on SEDamlException.
         val expectedTemplateId = expectedTemplateIdOpt.getOrElse(actualTemplateId)
         if (actualTemplateId != expectedTemplateId) {
-          machine.ctrl = SEDamlException(
-            IE.WronglyTypedContract(coid, expectedTemplateId, actualTemplateId)
+          machine.ctrl = Left(
+            SEDamlException(
+              IE.WronglyTypedContract(coid, expectedTemplateId, actualTemplateId)
+            )
           )
         } else if (
           machine.compiledPackages
             .getDefinition(ImplementsDefRef(actualTemplateId, ifaceId))
             .isEmpty
         ) {
-          machine.ctrl = SEDamlException(
-            IE.ContractDoesNotImplementInterface(
-              interfaceId = ifaceId,
-              coid = coid,
-              templateId = actualTemplateId,
+          machine.ctrl = Left(
+            SEDamlException(
+              IE.ContractDoesNotImplementInterface(
+                interfaceId = ifaceId,
+                coid = coid,
+                templateId = actualTemplateId,
+              )
             )
           )
         } else {
@@ -1131,7 +1137,7 @@ private[lf] object SBuiltin {
               )
             )
           checkTemplateId(cached.templateId) {
-            machine.returnValue = cached.value
+            machine.ctrl = Right(cached.value)
           }
         case None =>
           throw SpeedyHungry(
@@ -1142,14 +1148,16 @@ private[lf] object SBuiltin {
               { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
                 checkTemplateId(actualTmplId) {
                   machine.pushKont(KCacheContract(machine, actualTmplId, coid))
-                  machine.ctrl = SELet1(
-                    SEImportValue(Ast.TTyCon(actualTmplId), arg),
-                    cachedContractStruct(
-                      SELocS(1),
-                      SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
-                      SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
-                      SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1))),
-                    ),
+                  machine.ctrl = Left(
+                    SELet1(
+                      SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                      cachedContractStruct(
+                        SELocS(1),
+                        SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
+                        SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
+                        SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1))),
+                      ),
+                    )
                   )
                 }
               },
@@ -1172,7 +1180,7 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 2)
       val templateId = payload.id
 
-      machine.ctrl = SEApp(SEValue(guard), Array(SEValue(payload)))
+      machine.ctrl = Left(SEApp(SEValue(guard), Array(SEValue(payload))))
       machine.pushKont(KCheckChoiceGuard(machine, coid, templateId, choiceName, byInterface))
     }
   }
@@ -1193,13 +1201,15 @@ private[lf] object SBuiltin {
       ifaceId: TypeConName,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-      machine.ctrl = SEBuiltin(
-        SBUBeginExercise(
-          getSRecord(args, 0).id,
-          choiceName,
-          consuming,
-          byKey,
-          byInterface = Some(ifaceId),
+      machine.ctrl = Left(
+        SEBuiltin(
+          SBUBeginExercise(
+            getSRecord(args, 0).id,
+            choiceName,
+            consuming,
+            byKey,
+            byInterface = Some(ifaceId),
+          )
         )
       )
   }
@@ -1208,15 +1218,17 @@ private[lf] object SBuiltin {
       ifaceId: TypeConName
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-      machine.ctrl = SEBuiltin(
-        SBUInsertFetchNode(getSRecord(args, 0).id, byKey = false, byInterface = Some(ifaceId))
+      machine.ctrl = Left(
+        SEBuiltin(
+          SBUInsertFetchNode(getSRecord(args, 0).id, byKey = false, byInterface = Some(ifaceId))
+        )
       )
   }
 
   // Return a definition matching the templateId of a given payload
   sealed class SBResolveVirtual(toDef: Ref.Identifier => SDefinitionRef) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-      machine.ctrl = SEVal(toDef(getSRecord(args, 0).id))
+      machine.ctrl = Left(SEVal(toDef(getSRecord(args, 0).id)))
   }
 
   final case class SBResolveCreateByInterface(ifaceId: TypeConName)
@@ -1258,12 +1270,13 @@ private[lf] object SBuiltin {
       // TODO https://github.com/digital-asset/daml/issues/12051
       // TODO https://github.com/digital-asset/daml/issues/11345
       //  The lookup is probably slow. We may want to investigate way to make the feature faster.
-      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(record.id) match {
+      val value = machine.compiledPackages.interface.lookupTemplate(record.id) match {
         case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIface) =>
           SOptional(Some(record))
         case _ =>
           SOptional(None)
       }
+      machine.ctrl = Right(value)
     }
   }
 
@@ -1273,8 +1286,9 @@ private[lf] object SBuiltin {
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val record = getSRecord(args, 0)
-      machine.ctrl =
+      machine.ctrl = Left(
         SEApp(SEVal(ImplementsMethodDefRef(record.id, ifaceId, methodName)), Array(SEValue(record)))
+      )
     }
   }
 
@@ -1321,7 +1335,7 @@ private[lf] object SBuiltin {
         version = machine.tmplId2TxVersion(templateId),
       )
       checkAborted(onLedger.ptx)
-      machine.returnValue = SUnit
+      machine.ctrl = Right(SUnit)
     }
   }
 
@@ -1364,7 +1378,7 @@ private[lf] object SBuiltin {
         version = machine.tmplId2TxVersion(templateId),
       )
       checkAborted(onLedger.ptx)
-      machine.returnValue = SV.Unit
+      machine.ctrl = Right(SV.Unit)
     }
   }
 
@@ -1390,18 +1404,18 @@ private[lf] object SBuiltin {
   private[this] object KeyOperation {
     final class Fetch(override val templateId: TypeConName) extends KeyOperation {
       override def handleKeyFound(machine: Machine, cid: V.ContractId): Unit =
-        machine.returnValue = SContractId(cid)
+        machine.ctrl = Right(SContractId(cid))
       override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean = {
-        machine.ctrl = SEDamlException(IE.ContractKeyNotFound(gkey))
+        machine.ctrl = Left(SEDamlException(IE.ContractKeyNotFound(gkey)))
         false
       }
     }
 
     final class Lookup(override val templateId: TypeConName) extends KeyOperation {
       override def handleKeyFound(machine: Machine, cid: V.ContractId): Unit =
-        machine.returnValue = SOptional(Some(SContractId(cid)))
+        machine.ctrl = Right(SOptional(Some(SContractId(cid))))
       override def handleKeyNotFound(machine: Machine, key: GlobalKey): Boolean = {
-        machine.returnValue = SValue.SValue.None
+        machine.ctrl = Right(SValue.SValue.None)
         true
       }
     }
@@ -1452,8 +1466,10 @@ private[lf] object SBuiltin {
             case SVisibleToStakeholders.Visible =>
               operation.handleKeyFound(machine, coid)
             case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-              machine.ctrl = SEDamlException(
-                IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+              machine.ctrl = Left(
+                SEDamlException(
+                  IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+                )
               )
           }
         case Some(keyMapping) =>
@@ -1518,7 +1534,7 @@ private[lf] object SBuiltin {
           onLedger.dependsOnTime = true
         case OffLedger =>
       }
-      throw SpeedyHungry(SResultNeedTime(timestamp => machine.returnValue = STimestamp(timestamp)))
+      throw SpeedyHungry(SResultNeedTime(timestamp => machine.ctrl = Right(STimestamp(timestamp))))
     }
   }
 
@@ -1531,7 +1547,7 @@ private[lf] object SBuiltin {
           commands = args.get(1),
           location = optLocation,
           mustFail = mustFail,
-          callback = newValue => machine.returnValue = newValue,
+          callback = newValue => machine.ctrl = Right(newValue),
         )
       )
     }
@@ -1541,7 +1557,7 @@ private[lf] object SBuiltin {
   final case object SBSPure extends SBuiltin(2) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args, 1)
-      machine.returnValue = args.get(0)
+      machine.ctrl = Right(args.get(0))
     }
   }
 
@@ -1556,7 +1572,7 @@ private[lf] object SBuiltin {
       throw SpeedyHungry(
         SResultScenarioPassTime(
           relTime,
-          timestamp => machine.returnValue = STimestamp(timestamp),
+          timestamp => machine.ctrl = Right(STimestamp(timestamp)),
         )
       )
     }
@@ -1571,7 +1587,7 @@ private[lf] object SBuiltin {
       checkToken(args, 1)
       val name = getSText(args, 0)
       throw SpeedyHungry(
-        SResultScenarioGetParty(name, party => machine.returnValue = SParty(party))
+        SResultScenarioGetParty(name, party => machine.ctrl = Right(SParty(party)))
       )
     }
   }
@@ -1584,7 +1600,7 @@ private[lf] object SBuiltin {
     ): Unit = {
       val message = getSText(args, 0)
       machine.traceLog.add(message, machine.lastLocation)
-      machine.returnValue = args.get(1)
+      machine.ctrl = Right(args.get(1))
     }
   }
 
@@ -1627,9 +1643,11 @@ private[lf] object SBuiltin {
       val exception = getSAnyException(args, 0)
       exception.id match {
         case ValueArithmeticError.tyCon =>
-          machine.returnValue = exception.values.get(0)
+          machine.ctrl = Right(exception.values.get(0))
         case tyCon =>
-          machine.ctrl = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(SEValue(exception)))
+          machine.ctrl = Left(
+            SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(SEValue(exception)))
+          )
       }
     }
   }
@@ -1862,7 +1880,7 @@ private[lf] object SBuiltin {
 
     private object SBExperimentalAnswer extends SBuiltin(1) {
       override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) =
-        machine.returnValue = SInt64(42L)
+        machine.ctrl = Right(SInt64(42L))
     }
 
     //TODO: move this into the speedy compiler code
