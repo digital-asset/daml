@@ -1,7 +1,7 @@
 # Bazel MUST only use this file to source dependencies
 #
 # This allows CI to pre-build and cache the build outputs
-{ system ? builtins.currentSystem
+{ system ? import ./system.nix
 , pkgs ? import ./nixpkgs.nix { inherit system; }
 }:
 let shared = rec {

@@ -1,4 +1,4 @@
-{ system ? builtins.currentSystem
+{ system ? import ./system.nix
 , pkgs ? import ./nixpkgs.nix { inherit system; }
 }:
 

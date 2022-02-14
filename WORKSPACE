@@ -86,6 +86,7 @@ nixpkgs_local_repository(
     nix_file_deps = [
         "//nix:nixpkgs/default.nix",
         "//nix:nixpkgs/default.src.json",
+        "//nix:system.nix",
     ],
 )
 
@@ -122,6 +123,7 @@ damlc_legacy(
 common_nix_file_deps = [
     "//nix:bazel.nix",
     "//nix:nixpkgs.nix",
+    "//nix:system.nix",
     "//nix:nixpkgs/default.nix",
     "//nix:nixpkgs/default.src.json",
 ]
