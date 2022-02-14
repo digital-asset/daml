@@ -257,6 +257,15 @@ private[lf] final class Compiler(
       s.SEAbs(5, body(Position1, Position2, Position3, Position4, Position5, Env5))
     )
 
+  val oldPhaseOne = {
+    val config1 =
+      OldPhaseOne.Config(
+        profiling = config.profiling,
+        stacktracing = config.stacktracing,
+      )
+    new OldPhaseOne(interface, config1)
+  }
+
   val phaseOne = {
     val config1 =
       PhaseOne.Config(
@@ -268,8 +277,21 @@ private[lf] final class Compiler(
 
   // "translate" indicates the first stage of compilation only (producing: SExpr0)
   // "compile" indicates the full compilation pipeline (producing: SExpr)
-  private[this] def translateExp(env: Env, expr0: Expr): s.SExpr =
-    phaseOne.translateFromLF(env, expr0)
+
+  private[this] def translateExp(env: Env, expr0: Expr): s.SExpr = {
+    val v0 = oldPhaseOne.translateFromLF(env, expr0)
+    val v1 = phaseOne.translateFromLF(env, expr0)
+
+    // TODO https://github.com/digital-asset/daml/issues/11561
+    // - Remove side-by-side diff comparison of NEW version vs OLD version
+
+    if (v0 == v1) {
+      //println("phaseOne, v0==v1")
+    } else {
+      sys.error(s"phaseOne, v0/=v1:\n- v0: $v0\n- v1: $v1")
+    }
+    v1
+  }
 
   private[this] def compileExp(expr: Expr): t.SExpr =
     pipeline(translateExp(Env.Empty, expr))
