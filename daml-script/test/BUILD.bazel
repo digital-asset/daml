@@ -238,7 +238,7 @@ sh_test(
     name = "test_daml_script_test_runner",
     srcs = [":daml-script-test-runner.sh"],
     args = [
-        "$(rootpath //daml-script/runner:test-runner)",
+        "$(rootpath //daml-script/runner:daml-script-binary)",
         "$(rootpath :script-test.dar)",
         "$(POSIX_DIFF)",
         "$(POSIX_GREP)",
@@ -247,7 +247,7 @@ sh_test(
     ],
     data = [
         ":script-test.dar",
-        "//daml-script/runner:test-runner",
+        "//daml-script/runner:daml-script-binary",
         "//ledger/sandbox-classic:sandbox-classic-binary",
     ],
     toolchains = ["@rules_sh//sh/posix:make_variables"],
