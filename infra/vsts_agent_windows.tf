@@ -17,7 +17,7 @@ locals {
       workdirs   = <<EOF
 New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40'
 New-Item -ItemType Directory -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40\da86374d7fbb90b47db2b7fe49e04373d7a0f7dc'
-Set-Content -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40\da86374d7fbb90b47db2b7fe49e04373d7a0f7dc\SourceFolder.json'
+Set-Content -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\40\da86374d7fbb90b47db2b7fe49e04373d7a0f7dc\SourceFolder.json' `
   -Value '{
   "build_artifactstagingdirectory": "4\\a",
   "agent_builddirectory": "4",
