@@ -14,12 +14,24 @@ locals {
       size       = 0,
       assignment = "default",
       disk_size  = 400,
+      workdirs   = <<EOF
+Set-Content -Path 'D:\a\SourceRootMapping\Mappings.json' -Value '{
+  "lastBuildFolderCreatedOn": "01/28/2022 11:43:49 +00:00",
+  "lastBuildFolderNumber": 3
+}'
+EOF
     },
     {
       name       = "ci-w2"
       size       = 6,
       assignment = "default",
       disk_size  = 400,
+      workdirs   = <<EOF
+Set-Content -Path 'D:\a\SourceRootMapping\Mappings.json' -Value '{
+  "lastBuildFolderCreatedOn": "01/28/2022 11:43:49 +00:00",
+  "lastBuildFolderNumber": 3
+}'
+EOF
     },
   ]
   windows-startup-script-ps1 = <<SYSPREP_SPECIALIZE
@@ -194,10 +206,7 @@ Set-Content -Path 'D:\a\SourceRootMapping\cb88e308-485c-40f9-81b5-dcabba9e55d2\4
   "repositoryUrl": "https://github.com/digital-asset/daml",
   "system": "build"
 }'
-Set-Content -Path 'D:\a\SourceRootMapping\Mappings.json' -Value '{
-  "lastBuildFolderCreatedOn": "01/28/2022 11:43:49 +00:00",
-  "lastBuildFolderNumber": 3
-}'
+%s
 # end folder pinning
 
 $MachineName = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object CSName | ForEach{ $_.CSName }
@@ -267,7 +276,7 @@ resource "google_compute_instance_template" "vsts-agent-windows" {
 
   metadata = {
     // Prepare the machine
-    windows-startup-script-ps1  = nonsensitive(format(local.windows-startup-script-ps1, local.w[count.index].assignment))
+    windows-startup-script-ps1  = nonsensitive(format(local.windows-startup-script-ps1, local.w[count.index].assignment, chomp(local.w[count.index].workdirs)))
     windows-shutdown-script-ps1 = nonsensitive("c://agent/config remove --unattended --auth PAT --token '${secret_resource.vsts-token.value}'")
   }
 
