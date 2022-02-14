@@ -170,7 +170,7 @@ interface Node {
 scalar Party
 
 type Query {
-  parties(search: String!): [Party!]!
+  parties(search: String): [Party!]!
   ledgerTime: LedgerTime!
   latestTransaction: Transaction
   node(typename: String!, id: ID!): Node
