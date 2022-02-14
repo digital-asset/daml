@@ -192,6 +192,7 @@ jobs:
           cat $f
           echo "-----"
         done
+      name: workdirs
     - bash: |
         set -euo pipefail
         git checkout $(release_sha)
