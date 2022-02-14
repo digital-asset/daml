@@ -109,9 +109,6 @@ in rec {
 
     node2nix  = pkgs.nodePackages.node2nix;
 
-    license-checker =
-      (import ./tools/license-checker { inherit pkgs; nodejs = tools.node; }).license-checker;
-
     chromedriver = pkgs.chromedriver;
 
     # Python development
