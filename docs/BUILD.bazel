@@ -671,7 +671,7 @@ daml_build_test(
     name = "daml-intro-7",
     daml_yaml = ":daml-intro-7.yaml",
     dar_dict = {
-        "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
     },
     project_dir = "source/daml/intro/daml/daml-intro-7",
 )
@@ -712,7 +712,7 @@ daml_build_test(
         ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
         ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
         ":daml-upgrade-example-upgrade": "path/to/carbon-upgrade-1.0.0.dar",
-        "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
     },
     project_dir = "source/upgrade/example/carbon-initiate-upgrade",
 )
@@ -723,8 +723,8 @@ daml_build_test(
         ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
         ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
         ":daml-upgrade-example-upgrade": "path/to/carbon-upgrade-1.0.0.dar",
-        "//triggers/daml:daml-trigger.dar": "path/to/daml-trigger.dar",
-        "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
+        "//triggers/daml:daml-trigger.dar": "daml-trigger.dar",
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
     },
     project_dir = "source/upgrade/example/carbon-upgrade-trigger",
 )
