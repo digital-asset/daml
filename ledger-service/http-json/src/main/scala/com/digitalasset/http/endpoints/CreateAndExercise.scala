@@ -148,5 +148,5 @@ private[http] object CreateAndExercise {
   import util.ErrorOps._
 
   private def lfValueToApiValue(a: LfValue): Error \/ ApiValue =
-    JsValueToApiValueConverter.lfValueToApiValue(a).liftErr(ServerError)
+    JsValueToApiValueConverter.lfValueToApiValue(a).liftErr(ServerError(_): Error)
 }

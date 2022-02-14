@@ -414,12 +414,11 @@ class Endpoints(
       .flatMap(_ => proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_)))
 
   private def handleSourceFailure[E, A](implicit
-      E: IntoEndpointsError[E],
-      lc: LoggingContextOf[InstanceUUID with RequestID],
+      E: IntoEndpointsError[E]
   ): Flow[E \/ A, Error \/ A, NotUsed] =
     Flow
       .fromFunction((_: E \/ A).leftMap(E.run))
-      .recover(logException("Source") andThen Error.fromThrowable andThen (-\/(_)))
+      .recover(Error.fromThrowable andThen (-\/(_)))
 
   private def httpResponse[T](output: T)(implicit
       T: MkHttpResponse[T],
@@ -476,7 +475,7 @@ class Endpoints(
       metrics.daml.HttpJsonApi.responseCreationTimer,
       result
         .flatMap { x =>
-          either(SprayJson.encode1(x).map(y => (y, x.status)).liftErr(ServerError))
+          either(SprayJson.encode1(x).map(y => (y, x.status)).liftErr(ServerError(_): Error))
         }
         .run
         .map {
@@ -507,7 +506,9 @@ object Endpoints {
 
     implicit val fromCommands: IntoEndpointsError[CommandService.Error] = new IntoEndpointsError({
       case CommandService.InternalError(id, message) =>
-        ServerError(s"command service error, ${id.cata(sym => s"${sym.name}: ", "")}$message")
+        ServerError(
+          s"command service error, ${id.cata(sym => s"${sym.name}: ", "")}$message"
+        )
       case CommandService.GrpcError(status) =>
         ParticipantServerError(status.getCode, Option(status.getDescription))
       case CommandService.ClientError(-\/(Category.PermissionDenied), message) =>
@@ -525,7 +526,7 @@ object Endpoints {
   private final case class MkHttpResponse[-T](run: T => Future[HttpResponse])
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
-    \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError)
+    \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError(_): Error)
 
   private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
     for {
@@ -547,6 +548,6 @@ object Endpoints {
   }
 
   private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue = {
-    SprayJson.encode(a).liftErr(ServerError)
+    SprayJson.encode(a).liftErr(ServerError(_): Error)
   }
 }
