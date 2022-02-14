@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.client.binding.Primitive.Party
 
-private[testtool] object Allocation {
+object Allocation {
   def allocate(firstPartyCount: PartyCount, partyCounts: PartyCount*): ParticipantAllocation =
     ParticipantAllocation(firstPartyCount +: partyCounts, minimumParticipantCount = 1)
 
