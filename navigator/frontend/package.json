@@ -99,6 +99,7 @@
     "**/glob-parent": "^6.0.0",
     "**/set-value": "^4.0.1",
     "**/strip-ansi": "^6.0.0",
+    "**/shelljs": "^0.8.5",
     "modernizr/**/markdown-it": "^12.3.2"
   }
 }
