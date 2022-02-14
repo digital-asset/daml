@@ -86,6 +86,7 @@ nixpkgs_local_repository(
     nix_file_deps = [
         "//nix:nixpkgs/default.nix",
         "//nix:nixpkgs/default.src.json",
+        "//nix:system.nix",
     ],
 )
 
