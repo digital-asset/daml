@@ -22,7 +22,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
     originalClaims: ClaimSet.Claims,
     nowF: () => Instant,
     errorFactories: ErrorFactories,
-    userRightsChecker: UserRightsChecker,
+    userRightsCheckerO: Option[UserRightsChangeAsyncChecker],
     userRightsCheckIntervalInSeconds: Int,
     lastUserRightsCheckTime: AtomicReference[Instant],
 )(implicit loggingContext: LoggingContext)
@@ -38,8 +38,8 @@ private[auth] final class OngoingAuthorizationObserver[A](
   // 2) upstream component that is translating upstream Akka stream into [[onNext]] and other signals.
   private var afterCompletionOrError = false
 
-  private val cancelUserRightsChecks =
-    userRightsChecker.schedule(() => onError(staleStreamAuthError))
+  private val cancelUserRightsChecksO =
+    userRightsCheckerO.map(_.schedule(() => onError(staleStreamAuthError)))
 
   override def isCancelled: Boolean = synchronized(observer.isCancelled)
 
@@ -67,7 +67,10 @@ private[auth] final class OngoingAuthorizationObserver[A](
 
   override def onNext(v: A): Unit = onlyBeforeCompletionOrError {
     val now = nowF()
-    checkClaimsExpiry(now).flatMap(_ => checkUserRightsRefreshTimeout(now)) match {
+    (for {
+      _ <- checkClaimsExpiry(now)
+      _ <- checkUserRightsRefreshTimeout(now)
+    } yield ()) match {
       case Right(_) => observer.onNext(v)
       case Left(e) => onError(e)
     }
@@ -75,13 +78,13 @@ private[auth] final class OngoingAuthorizationObserver[A](
 
   override def onError(throwable: Throwable): Unit = onlyBeforeCompletionOrError {
     afterCompletionOrError = true
-    cancelUserRightsChecks()
+    cancelUserRightsChecksO.foreach(_.apply())
     observer.onError(throwable)
   }
 
   override def onCompleted(): Unit = onlyBeforeCompletionOrError {
     afterCompletionOrError = true
-    cancelUserRightsChecks()
+    cancelUserRightsChecksO.foreach(_.apply())
     observer.onCompleted()
   }
 
@@ -136,21 +139,27 @@ private[auth] object OngoingAuthorizationObserver {
       userRightsCheckIntervalInSeconds: Int,
       akkaScheduler: Scheduler,
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ServerCallStreamObserver[A] = {
+
     val lastUserRightsCheckTime = new AtomicReference(nowF())
-    val userRightsChecker = new UserRightsCheckerImpl(
-      lastUserRightsCheckTime = lastUserRightsCheckTime,
-      originalClaims = originalClaims,
-      nowF: () => Instant,
-      userManagementStore: UserManagementStore,
-      userRightsCheckIntervalInSeconds: Int,
-      akkaScheduler: Scheduler,
-    )
+    val userRightsCheckerO = if (originalClaims.resolvedFromUser) {
+      val checker = new UserRightsChangeAsyncChecker(
+        lastUserRightsCheckTime = lastUserRightsCheckTime,
+        originalClaims = originalClaims,
+        nowF: () => Instant,
+        userManagementStore: UserManagementStore,
+        userRightsCheckIntervalInSeconds: Int,
+        akkaScheduler: Scheduler,
+      )
+      Some(checker)
+    } else {
+      None
+    }
     new OngoingAuthorizationObserver(
       observer = observer,
       originalClaims = originalClaims,
       nowF = nowF,
       errorFactories = errorFactories,
-      userRightsChecker = userRightsChecker,
+      userRightsCheckerO = userRightsCheckerO,
       userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
       lastUserRightsCheckTime = lastUserRightsCheckTime,
     )
