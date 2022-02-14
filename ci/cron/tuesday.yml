@@ -16,7 +16,8 @@ jobs:
 - job: announce_rotation
   timeoutInMinutes: 60
   pool:
-    vmImage: ubuntu-18.04
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
   steps:
   - checkout: self
     persistCredentials: true
@@ -25,7 +26,7 @@ jobs:
       var_name: bash_lib
   - bash: |
       set -euo pipefail
-
+      eval "$(./dev-env/bin/dade-assist)"
       source "$(bash_lib)"
 
       RELEASE_MANAGER=$(next_in_rotation_slack)

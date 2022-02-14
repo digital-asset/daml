@@ -223,7 +223,8 @@ jobs:
 - job: compat_versions_pr_trigger_daily
   dependsOn: compat_versions_pr
   pool:
-    vmImage: "ubuntu-18.04"
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
   variables:
     branch: $[ dependencies.compat_versions_pr.outputs['out.branch'] ]
   steps:
@@ -233,6 +234,7 @@ jobs:
       var_name: bash-lib
   - bash: |
       set -euo pipefail
+      eval "$(./dev-env/bin/dade-assist)"
       source $(bash-lib)
       trigger_azure $(System.AccessToken) PRs --branch $(branch)
       trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $(branch)
