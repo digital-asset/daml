@@ -24,6 +24,7 @@ import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
 import com.daml.http.query.ValuePredicate
+import com.daml.scalautil.nonempty.NonEmpty
 import doobie.ConnectionIO
 import doobie.syntax.string._
 import scalaz.syntax.bifunctor._
@@ -60,7 +61,7 @@ object WebSocketService {
   private val logger = ContextualizedLogger.get(getClass)
 
   private type CompiledQueries =
-    Map[domain.TemplateId.RequiredPkg, (ValuePredicate, LfV => Boolean)]
+    NonEmpty[Map[domain.TemplateId.RequiredPkg, (ValuePredicate, LfV => Boolean)]]
 
   private final case class StreamPredicate[+Positive](
       resolved: Set[domain.TemplateId.RequiredPkg],
@@ -463,7 +464,6 @@ object WebSocketService {
         lc: LoggingContextOf[InstanceUUID]
     ): Future[StreamPredicate[Positive]] = {
 
-      // invariant: every set is non-empty
       def getQ(
           resolvedWithKey: Set[
             (
@@ -471,35 +471,31 @@ object WebSocketService {
                 query.ValuePredicate.LfV,
             )
           ]
-      ): Map[domain.TemplateId.RequiredPkg, HashSet[LfV]] =
-        resolvedWithKey.foldLeft(Map.empty[domain.TemplateId.RequiredPkg, HashSet[LfV]])(
-          (acc, el) =>
-            acc.get(el._1) match {
-              case Some(v) => acc.updated(el._1, v += el._2)
-              case None => acc.updated(el._1, HashSet(el._2))
-            }
-        )
+      ): Map[domain.TemplateId.RequiredPkg, NonEmpty[Set[LfV]]] = {
+        import com.daml.scalautil.nonempty.NonEmptyReturningOps._
+        resolvedWithKey.groupBy1(_._1).transform((_, els) => els.map(_._2))
+      }
+
       def fn(
-          q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]]
+          q: Map[domain.TemplateId.RequiredPkg, NonEmpty[Set[LfV]]]
       ): (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive] = { (a, _) =>
         a.key match {
           case None => None
           case Some(k) =>
-            if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
+            if (q.get(a.templateId).exists(_ contains k)) Some(()) else None
         }
       }
       def dbQueries(
-          q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]]
+          q: Map[domain.TemplateId.RequiredPkg, NonEmpty[Set[LfV]]]
       )(implicit
           sjd: dbbackend.SupportedJdbcDriver.TC
       ): Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
         q.toSeq map { case (t, lfvKeys) =>
-          val khd +: ktl = lfvKeys.toVector
           import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
           (
             t,
             joinFragment(
-              OneAnd(khd, ktl) map (k =>
+              lfvKeys.toVector.toOneAnd map (k =>
                 keyEquality(Hash.assertHashContractKey(toLedgerApiValue(t), k))
               ),
               sql" OR ",
@@ -507,7 +503,7 @@ object WebSocketService {
           )
         }
       def streamPredicate(
-          q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]],
+          q: Map[domain.TemplateId.RequiredPkg, NonEmpty[Set[LfV]]],
           unresolved: Set[OptionalPkg],
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
