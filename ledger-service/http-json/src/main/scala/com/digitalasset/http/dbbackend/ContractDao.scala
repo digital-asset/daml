@@ -325,7 +325,7 @@ object ContractDao {
 
   private[http] def selectContractsMultiTemplate[Pos](
       parties: domain.PartySet,
-      predicates: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)],
+      predicates: NonEmpty[Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Pos],
   )(implicit
       log: LogHandler,
@@ -333,12 +333,13 @@ object ContractDao {
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[Vector[(domain.ActiveContract[JsValue], Pos)]] = {
     import sjd.q.{queries => sjdQueries}, cats.syntax.traverse._, cats.instances.vector._
-    predicates.zipWithIndex.toVector
+    predicates.zipWithIndex.toVector.toNotNE
       .traverse { case ((tid, pred), ix) =>
         surrogateTemplateId(tid) map (stid => (ix, stid, tid, pred))
       }
       .flatMap { stIdSeq =>
-        val queries = stIdSeq map { case (_, stid, _, pred) => (stid, pred) }
+        // TODO SC propagate by removing toNotNE above
+        val NonEmpty(queries) = stIdSeq map { case (_, stid, _, pred) => (stid, pred) }
 
         trackMatchIndices match {
           case MatchedQueryMarker.ByNelInt =>
