@@ -123,10 +123,10 @@ private[testtool] object ParticipantTestContext {
 
 }
 
-/** Exposes services running on some participant server to a running test case.
+/** Exposes services running on some participant server in a test case.
   *
-  * Each test case execution receives a fresh instance of [[ParticipantTestContext]]
-  * for each connected participant server.
+  * Each time a test case is run it receives a fresh instance of [[ParticipantTestContext]]
+  * (one for every used participant server).
   */
 private[testtool] final class ParticipantTestContext private[participant] (
     val ledgerId: String,
@@ -147,7 +147,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
   val begin: LedgerOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
 
-  /** Users created during execution of a test case on this participant
+  /** Users created during execution of the test case on this participant
     */
   private val createdUsers = new ConcurrentLinkedQueue[User]
 
@@ -298,7 +298,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .listKnownParties(new ListKnownPartiesRequest())
       .map(_.partyDetails.map(partyDetails => Party(partyDetails.party)).toSet)
 
-  /** @return a future that completes when all participants can list all the expected parties
+  /** @return a future that completes when all the participants can list all the expected parties
     */
   def waitForParties(
       otherParticipants: Iterable[ParticipantTestContext],

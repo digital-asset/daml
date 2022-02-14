@@ -1,17 +1,17 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { combineRoutes, Route } from '@da/ui-core';
-import * as About from '../applets/about';
-import { Action, State, toPage } from '../applets/app';
-import * as Contract from '../applets/contract';
-import * as Contracts from '../applets/contracts';
-import * as CustomView from '../applets/customview';
-import * as Info from '../applets/info';
-import * as Page from '../applets/page';
-import * as Template from '../applets/template';
-import * as TemplateContracts from '../applets/templatecontracts';
-import * as Templates from '../applets/templates';
+import { combineRoutes, Route } from "@da/ui-core";
+import * as About from "../applets/about";
+import { Action, State, toPage } from "../applets/app";
+import * as Contract from "../applets/contract";
+import * as Contracts from "../applets/contracts";
+import * as CustomView from "../applets/customview";
+import * as Info from "../applets/info";
+import * as Page from "../applets/page";
+import * as Template from "../applets/template";
+import * as TemplateContracts from "../applets/templatecontracts";
+import * as Templates from "../applets/templates";
 
 /**
  * This module defines and exports all routes for the application and three
@@ -25,38 +25,40 @@ import * as Templates from '../applets/templates';
 const set = (a: Page.State) => toPage(Page.setPage(a));
 
 export const signIn = new Route<{}, Action, State>(
-  '/sign-in(/)',
+  "/sign-in(/)",
   () => undefined,
-  ({ session }: State) =>
-    (session.type === 'required' ? {} : undefined),
+  ({ session }: State) => (session.type === "required" ? {} : undefined),
 );
 
 export const about = new Route<{}, Action, State>(
-  '/about(/)',
-  () => set({ type: 'about', state: About.init() }),
-  ({ page }: State) => (page.type === 'about' ? {} : undefined),
+  "/about(/)",
+  () => set({ type: "about", state: About.init() }),
+  ({ page }: State) => (page.type === "about" ? {} : undefined),
 );
 
 export const info = new Route<{}, Action, State>(
-  '/info(/)',
-  () => set({ type: 'info', state: Info.init() }),
-  ({ page }: State) => (page.type === 'info' ? {} : undefined),
+  "/info(/)",
+  () => set({ type: "info", state: Info.init() }),
+  ({ page }: State) => (page.type === "info" ? {} : undefined),
 );
 
 export const contracts = new Route<{}, Action, State>(
-  '/contracts(/)',
-  () => set({ type: 'contracts', state: Contracts.init() }),
-  ({ page }: State) => (page.type === 'contracts' ? {} : undefined),
+  "/contracts(/)",
+  () => set({ type: "contracts", state: Contracts.init() }),
+  ({ page }: State) => (page.type === "contracts" ? {} : undefined),
 );
 
-type ContractParams = { id: string, choice?: string }
+type ContractParams = { id: string; choice?: string };
 
 export const contract = new Route<ContractParams, Action, State>(
-  '/contracts/:id(/)(:choice)',
+  "/contracts/:id(/)(:choice)",
   ({ id, choice }) =>
-    set({ type: 'contract', state: Contract.init(decodeURIComponent(id), choice) }),
+    set({
+      type: "contract",
+      state: Contract.init(decodeURIComponent(id), choice),
+    }),
   ({ page }: State) => {
-    if (page.type === 'contract') {
+    if (page.type === "contract") {
       const { id, choice } = page.state;
       return { id: encodeURIComponent(id), choice };
     } else {
@@ -66,44 +68,42 @@ export const contract = new Route<ContractParams, Action, State>(
 );
 
 export const templates = new Route<{}, Action, State>(
-  '/templates(/)',
-  () => set({ type: 'templates', state: Templates.init() }),
-  ({ page }: State) => (page.type === 'templates' ? {} : undefined),
+  "/templates(/)",
+  () => set({ type: "templates", state: Templates.init() }),
+  ({ page }: State) => (page.type === "templates" ? {} : undefined),
 );
 
 export const template = new Route<{ id: string }, Action, State>(
-  '/templates/:id(/)',
-  ({ id }) => set({ type: 'template', state: Template.init(id) }),
+  "/templates/:id(/)",
+  ({ id }) => set({ type: "template", state: Template.init(id) }),
   ({ page }: State) =>
-    (page.type === 'template' ? { id: page.state.id } : undefined),
+    page.type === "template" ? { id: page.state.id } : undefined,
 );
 
-export const templateContracts =
-  new Route<{ id: string; }, Action, State>(
-  '/templates/:id/contracts(/)',
+export const templateContracts = new Route<{ id: string }, Action, State>(
+  "/templates/:id/contracts(/)",
   ({ id }) =>
-    set({ type: 'templatecontracts', state: TemplateContracts.init(id) }),
+    set({ type: "templatecontracts", state: TemplateContracts.init(id) }),
   ({ page }: State) =>
-    (page.type === 'templatecontracts' ? { id: page.state.id } : undefined),
+    page.type === "templatecontracts" ? { id: page.state.id } : undefined,
 );
 
 export const customView = new Route<{ id: string }, Action, State>(
-  '/custom/:id(/)',
-  ({ id }) => set({ type: 'customview', state: CustomView.init(id) }),
+  "/custom/:id(/)",
+  ({ id }) => set({ type: "customview", state: CustomView.init(id) }),
   ({ page }: State) =>
-    (page.type === 'customview' ? { id: page.state.id} : undefined),
+    page.type === "customview" ? { id: page.state.id } : undefined,
 );
 
 export const config = new Route<{}, Action, State>(
-  '/config(/)',
-  () => set({ type: 'configsource' }),
-  ({ page }: State) =>
-    (page.type === 'configsource' ? { } : undefined),
+  "/config(/)",
+  () => set({ type: "configsource" }),
+  ({ page }: State) => (page.type === "configsource" ? {} : undefined),
 );
 
 const anything = new Route<{}, Action, State>(
-  '/*anything',
-  () => set({ type: 'contracts', state: Contracts.init() }),
+  "/*anything",
+  () => set({ type: "contracts", state: Contracts.init() }),
   (_: State) => ({}),
 );
 

@@ -34,7 +34,12 @@ object Store {
   case class UpdatedParties(details: List[PartyDetails])
 
   /** Request to subscribe a party to the store (without response to sender). */
-  case class Subscribe(displayName: String, partyState: PartyState)
+  case class Subscribe(
+      displayName: String,
+      name: ApiTypes.Party,
+      userRole: Option[String] = None,
+      useDatabase: Boolean = false,
+  )
 
   /** Request to create a contract instance for a template and respond with a `scala.util.Try[CommandId]`. */
   case class CreateContract(party: PartyState, templateId: TemplateStringId, argument: ApiRecord)

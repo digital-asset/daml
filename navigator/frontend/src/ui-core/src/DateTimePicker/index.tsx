@@ -8,18 +8,18 @@
 // The code was copied in order to simplify extensive customization.
 // In the future, we may decide to use another library to implement
 // this component.
-import Moment from 'moment';
-import * as React from 'react';
-import Button from '../Button';
-import styled from '../theme';
-import { default as withLedgerTime, LedgerTime } from '../withLedgerTime';
-import Calendar from './calendar';
-import TimeInput from './timeInput';
+import Moment from "moment";
+import * as React from "react";
+import Button from "../Button";
+import styled from "../theme";
+import { default as withLedgerTime, LedgerTime } from "../withLedgerTime";
+import Calendar from "./calendar";
+import TimeInput from "./timeInput";
 
 const CalendarWrapper = styled.div`
   width: 280px;
   padding: 15px;
-`
+`;
 
 const CenteringWrapper = styled.div`
   display: flex;
@@ -28,7 +28,7 @@ const CenteringWrapper = styled.div`
   align-content: flex-start;
   justify-content: center;
   padding-top: 15px;
-`
+`;
 
 export interface Props {
   moment: Moment.Moment | undefined;
@@ -41,17 +41,22 @@ export interface State {
   moment: Moment.Moment | undefined;
 }
 
-class InputMoment extends React.Component<Props & {ledgerTime: LedgerTime}, State> {
-  constructor(props: Props & {ledgerTime: LedgerTime}) {
+class InputMoment extends React.Component<
+  Props & { ledgerTime: LedgerTime },
+  State
+> {
+  constructor(props: Props & { ledgerTime: LedgerTime }) {
     super(props);
 
-    const defaultMoment = props.ledgerTime.value
-      || Moment().utc().startOf('day');
+    const defaultMoment =
+      props.ledgerTime.value || Moment().utc().startOf("day");
 
     this.state = {
-      defaultMoment: props.enableTime ? defaultMoment : defaultMoment.startOf('day'),
+      defaultMoment: props.enableTime
+        ? defaultMoment
+        : defaultMoment.startOf("day"),
       moment: props.moment,
-    }
+    };
 
     this.onChange = this.onChange.bind(this);
     this.onSubmit = this.onSubmit.bind(this);
@@ -63,12 +68,12 @@ class InputMoment extends React.Component<Props & {ledgerTime: LedgerTime}, Stat
       this.props.moment !== undefined &&
       !this.props.moment.isSame(nextProps.moment)
     ) {
-      this.setState({moment: nextProps.moment});
+      this.setState({ moment: nextProps.moment });
     }
   }
 
   onChange(moment: Moment.Moment): void {
-    this.setState({moment});
+    this.setState({ moment });
   }
 
   onSubmit(): void {
@@ -79,14 +84,10 @@ class InputMoment extends React.Component<Props & {ledgerTime: LedgerTime}, Stat
     }
   }
 
-  render() : JSX.Element {
-    const {
-      enableTime,
-      ledgerTime,
-      children
-    } = this.props;
+  render(): JSX.Element {
+    const { enableTime, ledgerTime, children } = this.props;
     return (
-      <CalendarWrapper {...{ledgerTime, children}}>
+      <CalendarWrapper {...{ ledgerTime, children }}>
         <div>
           <Calendar
             moment={this.state.moment}
@@ -102,10 +103,7 @@ class InputMoment extends React.Component<Props & {ledgerTime: LedgerTime}, Stat
             />
           ) : (
             <CenteringWrapper>
-              <Button
-                type="main"
-                onClick={this.onSubmit}
-              >
+              <Button type="main" onClick={this.onSubmit}>
                 Set
               </Button>
             </CenteringWrapper>

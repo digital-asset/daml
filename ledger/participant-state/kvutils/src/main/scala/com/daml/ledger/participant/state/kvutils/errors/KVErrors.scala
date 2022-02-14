@@ -14,7 +14,6 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
-import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.InternallyInconsistentTransaction
 
 @Explanation(
   "Errors that are specific to ledgers based on the KV architecture: Daml Sandbox and VMBC."
@@ -159,40 +158,6 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(
             cause = s"Inconsistent: Missing input state for key $key"
-          )
-    }
-
-    @Explanation(
-      "The participant didn't detect an attempt by the transaction submission " +
-        "to use the same key for two active contracts."
-    )
-    @Resolution("Contact support.")
-    object InternallyDuplicateKeys
-        extends ErrorCode(
-          id = "INTERNALLY_DUPLICATE_KEYS",
-          ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
-        ) {
-      case class Reject(
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause = s"Disputed: ${InternallyInconsistentTransaction.DuplicateKeys.description}"
-          )
-    }
-
-    @Explanation(
-      "The participant didn't detect an attempt by the transaction submission " +
-        "to use a stale contract key."
-    )
-    @Resolution("Contact support.")
-    object InternallyInconsistentKeys
-        extends ErrorCode(
-          id = "INTERNALLY_INCONSISTENT_KEYS",
-          ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
-        ) {
-      case class Reject(
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause = s"Disputed: ${InternallyInconsistentTransaction.InconsistentKeys.description}"
           )
     }
 

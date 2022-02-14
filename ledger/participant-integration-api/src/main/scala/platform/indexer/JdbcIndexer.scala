@@ -38,7 +38,9 @@ object JdbcIndexer {
       val factory = StorageBackendFactory.of(DbType.jdbcType(config.jdbcUrl))
       val dataSourceStorageBackend = factory.createDataSourceStorageBackend
       val ingestionStorageBackend = factory.createIngestionStorageBackend
+      val meteringStoreBackend = factory.createMeteringStorageWriteBackend
       val parameterStorageBackend = factory.createParameterStorageBackend
+      val meteringParameterStorageBackend = factory.createMeteringParameterStorageBackend
       val DBLockStorageBackend = factory.createDBLockStorageBackend
       val stringInterningStorageBackend = factory.createStringInterningStorageBackend
       val indexer = ParallelIndexerFactory(
@@ -92,9 +94,16 @@ object JdbcIndexer {
           metrics = metrics,
         ),
         stringInterningStorageBackend = stringInterningStorageBackend,
+        meteringAggregator = new MeteringAggregator.Owner(
+          meteringStore = meteringStoreBackend,
+          meteringParameterStore = meteringParameterStorageBackend,
+          parameterStore = parameterStorageBackend,
+          metrics = metrics,
+        ).apply,
         mat = materializer,
         readService = readService,
       )
+
       indexer
     }
 

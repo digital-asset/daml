@@ -5,7 +5,7 @@ package com.daml.lf.engine.script.test
 
 import java.io.File
 
-import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, RunnerConfig}
+import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, ScriptConfig}
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
@@ -25,7 +25,7 @@ trait SandboxParticipantFixture
   self: Suite =>
   private implicit val ec: ExecutionContext = system.dispatcher
   def participantClients(
-      maxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize,
+      maxInboundMessageSize: Int = ScriptConfig.DefaultMaxInboundMessageSize,
       tlsConfiguration: TlsConfiguration = TlsConfiguration.Empty.copy(enabled = false),
   ) =
     Runner.connect(

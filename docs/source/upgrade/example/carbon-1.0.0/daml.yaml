@@ -8,6 +8,6 @@ version: 1.0.0
 dependencies:
   - daml-prim
   - daml-stdlib
-# END
-parties: [Alice, Bob]
+  - daml-script
 source: .
+# END

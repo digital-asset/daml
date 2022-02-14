@@ -24,7 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Failure
 import scala.util.control.NonFatal
 
-/** Represents a connection to a running participant server exposing a set of services.
+/** Represents a running participant server exposing a set of services.
   */
 private[infrastructure] final class ParticipantSession private (
     partyAllocationConfig: PartyAllocationConfiguration,

@@ -63,7 +63,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
 
       val expectedReport = ParticipantMeteringReport(
         participantId = someParticipantId,
-        toActual = Some(generationTime),
+        isFinal = false,
         applicationReports = Seq(
           ApplicationMeteringReport(appIdA, 4),
           ApplicationMeteringReport(appIdB, 2),

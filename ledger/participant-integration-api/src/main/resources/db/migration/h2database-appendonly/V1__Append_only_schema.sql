@@ -246,9 +246,6 @@ CREATE INDEX participant_events_create_event_offset ON participant_events_create
 -- sequential_id index for paging
 CREATE INDEX participant_events_create_event_sequential_id ON participant_events_create (event_sequential_id);
 
--- lookup by event-id
-CREATE INDEX participant_events_create_event_id_idx ON participant_events_create (event_id);
-
 -- lookup by transaction id
 CREATE INDEX participant_events_create_transaction_id_idx ON participant_events_create (transaction_id);
 
@@ -310,9 +307,6 @@ CREATE INDEX participant_events_consuming_exercise_event_offset ON participant_e
 -- sequential_id index for paging
 CREATE INDEX participant_events_consuming_exercise_event_sequential_id ON participant_events_consuming_exercise (event_sequential_id);
 
--- lookup by event-id
-CREATE INDEX participant_events_consuming_exercise_event_id_idx ON participant_events_consuming_exercise (event_id);
-
 -- lookup by transaction id
 CREATE INDEX participant_events_consuming_exercise_transaction_id_idx ON participant_events_consuming_exercise (transaction_id);
 
@@ -370,9 +364,6 @@ CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participa
 
 -- sequential_id index for paging
 CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise (event_sequential_id);
-
--- lookup by event-id
-CREATE INDEX participant_events_non_consuming_exercise_event_id_idx ON participant_events_non_consuming_exercise (event_id);
 
 -- lookup by transaction id
 CREATE INDEX participant_events_non_consuming_exercise_transaction_id_idx ON participant_events_non_consuming_exercise (transaction_id);
@@ -547,3 +538,18 @@ CREATE TABLE transaction_metering (
 );
 
 CREATE INDEX transaction_metering_ledger_offset ON transaction_metering(ledger_offset);
+
+CREATE TABLE metering_parameters (
+    ledger_metering_end VARCHAR,
+    ledger_metering_timestamp BIGINT NOT NULL
+);
+
+CREATE TABLE participant_metering (
+    application_id VARCHAR NOT NULL,
+    from_timestamp BIGINT NOT NULL,
+    to_timestamp BIGINT NOT NULL,
+    action_count INTEGER NOT NULL,
+    ledger_offset VARCHAR NOT NULL
+);
+
+CREATE UNIQUE INDEX participant_metering_from_to_application ON participant_metering(from_timestamp, to_timestamp, application_id);

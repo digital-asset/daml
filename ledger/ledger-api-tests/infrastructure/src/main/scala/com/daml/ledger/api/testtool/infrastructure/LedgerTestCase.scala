@@ -74,7 +74,7 @@ sealed class LedgerTestCase(
     testCaseRunResult match {
       case Success(v) => deleteCreatedUsersF.map(_ => v)
       case Failure(exception) =>
-        // Prioritizes users' clean-up failure over the original test case failure
+        // Prioritizing a failure of users' clean-up over the original failure of the test case
         // since clean-up failures can affect other test cases.
         deleteCreatedUsersF.flatMap(_ => Future.failed(exception))
     }

@@ -9,5 +9,4 @@ dependencies:
   - daml-prim
   - daml-stdlib
 # END
-parties: [Alice, Bob]
 source: .

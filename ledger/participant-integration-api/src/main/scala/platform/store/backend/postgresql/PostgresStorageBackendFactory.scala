@@ -3,24 +3,8 @@
 
 package com.daml.platform.store.backend.postgresql
 
-import com.daml.platform.store.backend.common.{
-  CommonStorageBackendFactory,
-  CompletionStorageBackendTemplate,
-  ContractStorageBackendTemplate,
-  IngestionStorageBackendTemplate,
-  PartyStorageBackendTemplate,
-}
-import com.daml.platform.store.backend.{
-  CompletionStorageBackend,
-  ContractStorageBackend,
-  DBLockStorageBackend,
-  DataSourceStorageBackend,
-  EventStorageBackend,
-  IngestionStorageBackend,
-  PartyStorageBackend,
-  ResetStorageBackend,
-  StorageBackendFactory,
-}
+import com.daml.platform.store.backend.common._
+import com.daml.platform.store.backend._
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.StringInterning
 
@@ -59,4 +43,5 @@ object PostgresStorageBackendFactory
 
   override val createResetStorageBackend: ResetStorageBackend =
     PostgresResetStorageBackend
+
 }

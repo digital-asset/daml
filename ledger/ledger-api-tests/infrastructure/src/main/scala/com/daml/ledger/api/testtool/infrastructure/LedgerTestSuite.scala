@@ -10,7 +10,7 @@ import com.daml.lf.data.Ref
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
-private[testtool] abstract class LedgerTestSuite {
+abstract class LedgerTestSuite {
   private val testCaseBuffer: ListBuffer[LedgerTestCase] = ListBuffer()
 
   final lazy val tests: Vector[LedgerTestCase] = testCaseBuffer.toVector

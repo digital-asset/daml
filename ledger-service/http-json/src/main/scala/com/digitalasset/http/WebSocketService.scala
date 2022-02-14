@@ -42,7 +42,7 @@ import Liskov.<~<
 import com.daml.http.domain.TemplateId.toLedgerApiValue
 import com.daml.http.domain.TemplateId.{OptionalPkg, RequiredPkg}
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
-import com.daml.http.util.Logging.InstanceUUID
+import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.lf.crypto.Hash
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
@@ -697,7 +697,9 @@ class WebSocketService(
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
-      .map(_.fold(e => wsErrorMessage(e), identity): Message)
+      .map(
+        _.fold(e => extendWithRequestIdLogCtx(implicit lc1 => wsErrorMessage(e)), identity): Message
+      )
   }
 
   private def parseJson(x: Message): Future[InvalidUserInput \/ JsValue] = x match {
@@ -931,7 +933,9 @@ class WebSocketService(
       .collect { case (_, Some(x)) => x }
   }
 
-  private[http] def wsErrorMessage(error: Error): TextMessage.Strict =
+  private[http] def wsErrorMessage(error: Error)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): TextMessage.Strict =
     wsMessage(SprayJson.encodeUnsafe(errorResponse(error)))
 
   private[http] def wsMessage(jsVal: JsValue): TextMessage.Strict =

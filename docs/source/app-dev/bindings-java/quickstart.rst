@@ -121,20 +121,18 @@ In this section, you will run the quickstart application and get introduced to t
 
    .. _quickstart-sandbox:
 
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox .daml/dist/quickstart-0.0.1.dar``
+#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --dar .daml/dist/quickstart-0.0.1.dar``
 
    The output should look like this:
 
    .. code-block:: none
 
-      INFO: Slf4jLogger started
-      INFO: Listening on localhost:6865 over plain text.
-         ____             ____
-        / __/__ ____  ___/ / /  ___ __ __
-       _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
-      /___/\_,_/_//_/\_,_/_.__/\___/_\_\
+      Starting Canton sandbox.
+      Listening at port 6865
+      Uploading .daml/dist/quickstart-0.0.1.dar to localhost:6865
+      DAR upload succeeded.
+      Canton sandbox is ready.
 
-      INFO: Initialized sandbox version 1.6.0 with ledger-id = 3528b0dd-069b-420c-9df4-4af6b8fd4f47, port = 6865, dar file = List(.daml/dist/quickstart-0.0.1.dar), time mode = wall-clock time, ledger = in-memory, auth-service = AuthServiceWildcard$, contract ids seeding = strong
 
    The sandbox is now running, and you can access its :doc:`ledger API </app-dev/ledger-api>` on port ``6865``.
 

@@ -3,14 +3,12 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.participant.state.kvutils.app.{Config, ConfigProvider}
+import com.daml.ledger.runner.common.{Config, ConfigProvider}
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import scopt.OptionParser
 
 import java.time.Duration
 
-// TODO SoX: Keep only ledger-bridge-related configurations in this class
-//           and extract the participant-specific configs in the main config file.
 case class BridgeConfig(
     conflictCheckingEnabled: Boolean,
     submissionBufferSize: Int,

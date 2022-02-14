@@ -58,7 +58,7 @@ private[validate] class SequenceImpl(
   override def apply(): Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)] =
     in => {
       Timed.value(
-        bridgeMetrics.Stages.sequence, {
+        bridgeMetrics.Stages.Sequence.timer, {
           offsetIdx = offsetIdx + 1L
           val newOffset = toOffset(offsetIdx)
           val recordTime = timeProvider.getCurrentTimestamp

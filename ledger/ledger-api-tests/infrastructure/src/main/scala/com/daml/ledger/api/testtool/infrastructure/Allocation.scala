@@ -6,12 +6,12 @@ package com.daml.ledger.api.testtool.infrastructure
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.client.binding.Primitive.Party
 
-private[testtool] object Allocation {
+object Allocation {
 
-  /** Specifies a sequence of party counts to be allocated on subsequent participants from a sequence of participants.
+  /** Specifies a sequence of party counts to be allocated on a sequence of participants.
     *
-    * Number of party counts does not need to match the number participants.
-    * If there are fewer participants than specified party counts,
+    * Number of party counts does not need to match the number of participants.
+    * If there are fewer participants than party counts,
     * the participants will be reused in a circular fashion.
     */
   def allocate(firstPartyCount: PartyCount, partyCounts: PartyCount*): PartyAllocation =
@@ -27,9 +27,9 @@ private[testtool] object Allocation {
       copy(minimumParticipantCount = minimumParticipantCount)
   }
 
-  /** Specifies the number of parties to allocate a participant.
+  /** Specifies the number of parties to allocate in a participant.
     *
-    * NOTE: A single participant can be allocated parties from multiple such specifications.
+    * NOTE: A single participant can be allocated parties from multiple party counts.
     */
   sealed trait PartyCount {
     val count: Int
@@ -49,7 +49,7 @@ private[testtool] object Allocation {
 
   final case class Parties(override val count: Int) extends PartyCount
 
-  /** Exposes information about configured participants and allocated parties to a running test case.
+  /** Exposes information about configured participants and allocated parties to a test case.
     */
   final case class Participants private[infrastructure] (participants: Participant*)
 

@@ -93,7 +93,7 @@ $ daml build
 ## 3.3. Start Sandbox with quickstart DAR
 Ledger ID `MyLedger` is important, it is currently hardcoded in the `com.daml.http.perf.scenario.SimulationConfig`. See `aliceJwt`.
 ```
-$ daml sandbox --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
+$ daml sandbox --ledgerid MyLedger --dar ./.daml/dist/quickstart-0.0.1.dar
 ```
 
 ## 3.4. Start JSON API

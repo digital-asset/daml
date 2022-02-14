@@ -4,19 +4,24 @@
 import {
   ArgumentDisplay,
   Breadcrumbs,
+  LongIdentifier,
   Strong,
   styled,
   Truncate,
-} from '@da/ui-core';
-import { DamlLfValue } from '@da/ui-core/lib/api/DamlLfValue';
-import * as React from 'react';
-import Link, {OwnProps} from '../../components/Link';
-import * as Routes from '../../routes';
-import { Contract } from './';
-import Exercise from './Exercise';
+} from "@da/ui-core";
+import { DamlLfValue } from "@da/ui-core/lib/api/DamlLfValue";
+import {
+  shortenContractId,
+  shortenPartyId,
+} from "@da/ui-core/lib/api/IdentifierShortening";
+import * as React from "react";
+import Link, { OwnProps } from "../../components/Link";
+import * as Routes from "../../routes";
+import { Contract } from "./";
+import Exercise from "./Exercise";
 
 const Wrapper = styled.div`
-  width: 100%
+  width: 100%;
 `;
 
 const Header = styled.div`
@@ -52,10 +57,8 @@ interface ActiveLinkProps extends OwnProps {
   isActive: boolean;
 }
 
-const ActiveLink: React.FC<ActiveLinkProps> = (props) => (
-  <Link {...props}>
-    {props.children}
-  </Link>
+const ActiveLink: React.FC<ActiveLinkProps> = props => (
+  <Link {...props}>{props.children}</Link>
 );
 
 const ChoiceLink = styled(ActiveLink)`
@@ -67,29 +70,44 @@ const ChoiceLink = styled(ActiveLink)`
   text-decoration: none;
   text-transform: capitalize;
   margin-left: 1rem;
-  box-shadow: ${({ isActive}) => isActive ?
-    '0 0 0 1px rgba(16,22,26,0.1), 0 2px 4px rgba(16,22,26,0.2)' : 'none'};
-  &, &:hover {
+  box-shadow: ${({ isActive }) =>
+    isActive
+      ? "0 0 0 1px rgba(16,22,26,0.1), 0 2px 4px rgba(16,22,26,0.2)"
+      : "none"};
+  &,
+  &:hover {
     color: ${({ theme }) => theme.colorForeground};
   }
-  border-radius: ${(_) => '999rem'};
+  border-radius: ${_ => "999rem"};
   background-color: ${({ isActive, theme }) =>
     isActive ? theme.colorBackground : theme.colorShade};
   &:hover {
-    background-color: ${({ theme }) => theme.colorShade };
+    background-color: ${({ theme }) => theme.colorShade};
   }
-`
+`;
 
-const AgreementText = ({text}: {text: string}) => (
-    <span><SubHeader><Strong>Agreement Text</Strong></SubHeader>
-        <span>{text}</span>
-    </span>
+const AgreementText = ({ text }: { text: string }) => (
+  <span>
+    <SubHeader>
+      <Strong>Agreement Text</Strong>
+    </SubHeader>
+    <span>{text}</span>
+  </span>
 );
 
-const Parties = ({title, parties}: {title: string, parties: string[]}) => (
-    <span><SubHeader><Strong>{title}</Strong></SubHeader>
-        <span>{parties.join(', ')}</span>
-    </span>
+const Parties = ({ title, parties }: { title: string; parties: string[] }) => (
+  <span>
+    <SubHeader>
+      <Strong>{title}</Strong>
+    </SubHeader>
+    {parties.map(party => (
+      <LongIdentifier
+        key={party}
+        text={shortenPartyId(party)}
+        identifier={party}
+      />
+    ))}
+  </span>
 );
 
 interface Props {
@@ -97,7 +115,10 @@ interface Props {
   choice?: string;
   choiceLoading: boolean;
   error?: string;
-  exercise(e: React.MouseEvent<HTMLButtonElement>, argument?: DamlLfValue): void;
+  exercise(
+    e: React.MouseEvent<HTMLButtonElement>,
+    argument?: DamlLfValue,
+  ): void;
 }
 
 export default (props: Props): JSX.Element => {
@@ -106,8 +127,7 @@ export default (props: Props): JSX.Element => {
   const isArchived = contract.archiveEvent !== null;
   let exerciseEl;
   if (choice) {
-    const parameter = choices
-      .filter(({ name }) => name === choice)[0]
+    const parameter = choices.filter(({ name }) => name === choice)[0]
       .parameter;
 
     exerciseEl = (
@@ -128,9 +148,8 @@ export default (props: Props): JSX.Element => {
       <ChoiceLink
         key={name}
         route={Routes.contract}
-        params={{id: encodeURIComponent(contract.id), choice: name}}
-        isActive={isActive || !isAnyActive}
-      >
+        params={{ id: encodeURIComponent(contract.id), choice: name }}
+        isActive={isActive || !isAnyActive}>
         {name}
       </ChoiceLink>
     );
@@ -139,7 +158,11 @@ export default (props: Props): JSX.Element => {
   return (
     <Wrapper>
       <Header>
-        Contract {contract.id} {choicesEl}
+        <LongIdentifier
+          text={`Contract ${shortenContractId(contract.id)}`}
+          identifier={contract.id}
+        />{" "}
+        {choicesEl}
       </Header>
       <Content>
         <div>
@@ -148,29 +171,36 @@ export default (props: Props): JSX.Element => {
             <Truncate>
               <Link
                 route={Routes.template}
-                params={{id: contract.template.id}}
-              >
+                params={{ id: contract.template.id }}>
                 {contract.template.id}
               </Link>
             </Truncate>
           </Breadcrumbs>
         </div>
-        <p>{isArchived ? 'ARCHIVED' : null}</p>
+        <p>{isArchived ? "ARCHIVED" : null}</p>
         <ColumnContainer>
           <Column>
-            {contract.agreementText && <AgreementText text={contract.agreementText} />}
-            {contract.signatories.length > 0 && <Parties title="Signatories" parties={contract.signatories} />}
-            {contract.observers.length > 0 && <Parties title="Observers" parties={contract.observers} />}
-            {contract.key && <SubHeader><Strong>Contract key</Strong></SubHeader>}
-            {contract.key && <ArgumentDisplay argument={contract.key}/>}
-            <SubHeader><Strong>Contract details</Strong></SubHeader>
-            <ArgumentDisplay
-              argument={contract.argument}
-            />
+            {contract.agreementText && (
+              <AgreementText text={contract.agreementText} />
+            )}
+            {contract.signatories.length > 0 && (
+              <Parties title="Signatories" parties={contract.signatories} />
+            )}
+            {contract.observers.length > 0 && (
+              <Parties title="Observers" parties={contract.observers} />
+            )}
+            {contract.key && (
+              <SubHeader>
+                <Strong>Contract key</Strong>
+              </SubHeader>
+            )}
+            {contract.key && <ArgumentDisplay argument={contract.key} />}
+            <SubHeader>
+              <Strong>Contract details</Strong>
+            </SubHeader>
+            <ArgumentDisplay argument={contract.argument} />
           </Column>
-          <Column>
-            {exerciseEl}
-          </Column>
+          <Column>{exerciseEl}</Column>
         </ColumnContainer>
       </Content>
     </Wrapper>
