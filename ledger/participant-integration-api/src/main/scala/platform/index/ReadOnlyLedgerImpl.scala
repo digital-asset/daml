@@ -11,16 +11,11 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
-}
+import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
+import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -175,11 +170,11 @@ private[index] class ReadOnlyLedgerImpl(
     ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
   }
 
-  override def getTransactionMetering(
+  override def meteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[Ref.ApplicationId],
-  )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]] = {
-    ledgerDao.getTransactionMetering(from, to, applicationId)
+  )(implicit loggingContext: LoggingContext): Future[ReportData] = {
+    ledgerDao.meteringReportData(from, to, applicationId)
   }
 }

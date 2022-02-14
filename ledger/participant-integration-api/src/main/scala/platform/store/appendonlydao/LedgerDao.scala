@@ -18,7 +18,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
+import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
@@ -174,11 +174,11 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   ): Future[Unit]
 
   /** Returns all TransactionMetering records matching given criteria */
-  def getTransactionMetering(
+  def meteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[Ref.ApplicationId],
-  )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]]
+  )(implicit loggingContext: LoggingContext): Future[ReportData]
 }
 
 // TODO sandbox-classic clean-up: This interface and its implementation is only used in the JdbcLedgerDao suite

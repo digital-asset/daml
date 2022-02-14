@@ -91,7 +91,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
         application_id = applicationId,
         action_count = 2 * (statistics.committed.actions + statistics.rolledBack.actions),
         metering_timestamp = timestamp,
-        ledger_offset = Ref.HexString.assertFromString("01"),
+        ledger_offset = Ref.HexString.assertFromString("99"),
       )
 
       val expected: Vector[DbDto.TransactionMetering] = Vector(metering)
@@ -99,11 +99,11 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
       val actual = UpdateToMeteringDbDto(clock = () => timestamp)(
         List(
           (
-            Offset.fromHexString(Ref.HexString.assertFromString(metering.ledger_offset)),
+            Offset.fromHexString(Ref.HexString.assertFromString("01")),
             someTransactionAccepted,
           ),
           (
-            Offset.fromHexString(Ref.HexString.assertFromString("99")),
+            Offset.fromHexString(Ref.HexString.assertFromString(metering.ledger_offset)),
             someTransactionAccepted,
           ),
         )
