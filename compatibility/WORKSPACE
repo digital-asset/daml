@@ -68,6 +68,7 @@ common_nix_file_deps = [
     "@daml//nix:nixpkgs.nix",
     "@daml//nix:nixpkgs/default.nix",
     "@daml//nix:nixpkgs/default.src.json",
+    "@daml//nix:system.nix",
 ]
 
 dev_env_nix_repos = {
@@ -80,6 +81,7 @@ nixpkgs_local_repository(
     nix_file_deps = [
         "@daml//nix:nixpkgs/default.nix",
         "@daml//nix:nixpkgs/default.src.json",
+        "@daml//nix:system.nix",
     ],
 )
 
