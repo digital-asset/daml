@@ -61,10 +61,9 @@ message ParticipantMeteringReport {
     // The reporting participant
     string participant_id = 1;
 
-    // The actual ``to`` date that was used to compute the report.
-    // This value can be smaller than than the requested ``to`` value in case events have
-    // not yet been aggregated for all times up to requested ``to``.
-    google.protobuf.Timestamp to_actual = 2;
+    // If the report is final it has been generated based on aggregated data
+    // so will never change in the future.
+    bool is_final = 2;
 
     // Per application reports.
     repeated ApplicationMeteringReport application_reports = 3;
