@@ -20,3 +20,7 @@ bazel-bin
 bazel-daml
 bazel-out
 bazel-testlogs
+
+# ignore generated code
+navigator/frontend/src/api/Queries.ts
+navigator/frontend/src/ui-core/src/api/Queries.ts

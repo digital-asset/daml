@@ -62,8 +62,9 @@ class Component extends React.Component<Props, Local> {
           onChange={argument => this.setState({ argument })}
           onSubmit={this.props.onSubmit}
           error={this.props.error}
-          typeProvider={this.paramDataProvider}
+          partyIdProvider={this.paramDataProvider}
           contractIdProvider={this.paramDataProvider}
+          typeProvider={this.paramDataProvider}
         />
       </div>
     );
