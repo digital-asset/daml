@@ -37,9 +37,6 @@ private[testtool] abstract class LedgerTestSuite {
     )((ec: ExecutionContext) => (_: Seq[ParticipantTestContext]) => testCase(ec))
   }
 
-  /** @param cleanupNewUsers Keeps track of users present before the test case started and after it has finished and deletes difference.
-    *                            NOTE: If set then the test case will not run concurrently.
-    */
   protected final def testGivenAllParticipants(
       shortIdentifier: String,
       description: String,
@@ -49,16 +46,12 @@ private[testtool] abstract class LedgerTestSuite {
       repeated: Int = 1,
       enabled: Features => Boolean = _ => true,
       disabledReason: String = "No reason",
-      cleanupNewUsers: Boolean = false,
   )(
       testCase: ExecutionContext => Seq[ParticipantTestContext] => PartialFunction[
         Participants,
         Future[Unit],
       ]
   ): Unit = {
-    if (cleanupNewUsers) {
-      assert(!runConcurrently, "Cleaning-up of created user cannot be run concurrently!")
-    }
     val shortIdentifierRef = Ref.LedgerString.assertFromString(shortIdentifier)
     testCaseBuffer.append(
       new LedgerTestCase(
