@@ -8,7 +8,7 @@ version: 1.0.0
 dependencies:
   - daml-prim
   - daml-stdlib
-  - path/to/daml-script.dar
+  - daml-script
 sandbox-options:
   - --wall-clock-time
 

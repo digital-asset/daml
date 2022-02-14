@@ -175,7 +175,7 @@ Create some carbon-1.0.0 certificates
 
 Let's create some certificates!
 
-First, we run a setup script to create two users ``alice`` and ``bob``
+First, we run a setup script to create 3 users ``alice``, ``bob`` and ``charlie``
 and corresponding parties. We write out the actual party ids to a JSON
 file so we can later use them in Navigator.
 
@@ -192,6 +192,7 @@ vary.
    {
      "alice": "party-19a21501-ba87-47be-90a6-692dfaefe64a::12203977cedf2d394073b4c58036e047fcc590f7f2d61d82503df431473c4277fe70",
      "bob": "party-7ecb1d67-1d20-4612-be67-b5741c86204d::12203977cedf2d394073b4c58036e047fcc590f7f2d61d82503df431473c4277fe70"
+     "charlie": "party-fae6a574-9860-422a-9fd4-7ca2f7295e41::12203977cedf2d394073b4c58036e047fcc590f7f2d61d82503df431473c4277fe70"
    }
 
 We'll use the navigator to connect to the ledger, and create two
