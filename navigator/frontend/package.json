@@ -37,6 +37,7 @@
     "@types/styled-components": "^5.1.0",
     "@typescript-eslint/eslint-plugin": "^4.9.0",
     "@typescript-eslint/parser": "^4.9.0",
+    "apollo": "^2.5.1",
     "case-sensitive-paths-webpack-plugin": "^2.3.0",
     "classnames": "^2.2.5",
     "css-loader": "^5.2.7",
@@ -67,7 +68,6 @@
     "deep-equal": "^2.0.5",
     "enzyme": "^3.11.0",
     "es6-promise": "^4.1.1",
-    "graphql": "^15.4.0",
     "jpeg-js": "^0.4.1",
     "lodash": "^4.17.19",
     "modernizr": "^3.11.8",
@@ -98,7 +98,7 @@
     "**/css-what": "^5.0.1",
     "**/glob-parent": "^6.0.0",
     "**/set-value": "^4.0.1",
-    "html-webpack-plugin/**/strip-ansi": "^6.0.0",
+    "**/strip-ansi": "^6.0.0",
     "modernizr/**/markdown-it": "^12.3.2"
   }
 }
