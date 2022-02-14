@@ -108,7 +108,7 @@ private[apiserver] object ApiMeteringReportService {
 
       val report = ParticipantMeteringReport(
         participantId,
-        toActual = Some(generationTime),
+        isFinal = false,
         applicationReports,
       )
 

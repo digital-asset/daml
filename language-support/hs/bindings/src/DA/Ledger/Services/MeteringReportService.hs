@@ -40,16 +40,16 @@ data MeteringReport = MeteringReport {
   participant :: ParticipantId
 , from  :: Timestamp
 , toRequested :: Maybe Timestamp
-, toActual :: Timestamp
+, isFinal :: Bool
 , applications :: [MeteredApplication]
 } deriving (Show)
 
 instance ToJSON MeteringReport where
-  toJSON (MeteringReport participant from toRequested toActual applications) =
+  toJSON (MeteringReport participant from toRequested isFinal applications) =
     object (
     [   "participant" .= unParticipantId participant
     ,   "from" .= timestampToIso8601 from
-    ,   "toActual" .= timestampToIso8601 toActual
+    ,   "final" .= isFinal
     ,   "applications" .= applications
     ]
     ++ maybeToList (fmap (("toRequested" .=) . timestampToIso8601) toRequested)
@@ -84,11 +84,10 @@ raiseApplicationMeteringReport (LL.ApplicationMeteringReport llApp events) = do
   return MeteredApplication {..}
 
 raiseParticipantMeteringReport ::  LL.GetMeteringReportRequest ->  LL.ParticipantMeteringReport -> Perhaps MeteringReport
-raiseParticipantMeteringReport (LL.GetMeteringReportRequest (Just llFrom) llTo _)  (LL.ParticipantMeteringReport llParticipantId (Just llToActual) llAppReports) = do
+raiseParticipantMeteringReport (LL.GetMeteringReportRequest (Just llFrom) llTo _)  (LL.ParticipantMeteringReport llParticipantId isFinal llAppReports) = do
   participant <- raiseParticipantId llParticipantId
   from <- raiseTimestamp llFrom
   toRequested <- traverse raiseTimestamp llTo
-  toActual <- raiseTimestamp llToActual
   applications <- raiseList raiseApplicationMeteringReport llAppReports
   return MeteringReport{..}
 
