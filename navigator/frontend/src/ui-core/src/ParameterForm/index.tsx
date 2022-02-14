@@ -1021,8 +1021,15 @@ class TypeConInput extends React.Component<
   }
 
   render() {
-    const { argument, parameter, disabled, onChange, level, typeProvider } =
-      this.props;
+    const {
+      argument,
+      parameter,
+      disabled,
+      onChange,
+      level,
+      typeProvider,
+      contractIdProvider,
+    } = this.props;
     const { dataType } = this.state;
 
     if (dataType === undefined) {
@@ -1039,6 +1046,7 @@ class TypeConInput extends React.Component<
               onChange={onChange}
               level={level}
               typeProvider={typeProvider}
+              contractIdProvider={contractIdProvider}
             />
           );
         case "variant":
@@ -1051,6 +1059,7 @@ class TypeConInput extends React.Component<
               onChange={onChange}
               level={level}
               typeProvider={typeProvider}
+              contractIdProvider={contractIdProvider}
             />
           );
         case "enum":

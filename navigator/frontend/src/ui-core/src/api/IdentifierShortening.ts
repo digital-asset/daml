@@ -21,6 +21,15 @@ function shortenHash(str: string): string {
     : str;
 }
 
+function shortenPrefixedId(separator: string): (id: string) => string {
+  return id => {
+    const parts = id.split(separator);
+    return parts.length === 2
+      ? `${parts[0]}::${shortenHash(parts[1])}`
+      : shortenHash(id);
+  };
+}
+
 // Contract identifiers are assumed to be either a hash or some sort of opaque string
 export const shortenContractId = shortenHash;
 
@@ -30,9 +39,6 @@ export const shortenContractId = shortenHash;
 //     - keep the first part whole and shorten the namespace to 12 characters
 // - some other opaque string
 //     - just shorten the entire identifier to 12 characters
-export function shortenPartyId(id: string): string {
-  const parts = id.split("::");
-  return parts.length === 2
-    ? `${parts[0]}::${shortenHash(parts[1])}`
-    : shortenHash(id);
-}
+export const shortenPartyId = shortenPrefixedId("::");
+
+export const shortenTemplateId = shortenPrefixedId("@");

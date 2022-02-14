@@ -52,7 +52,7 @@ interface ApolloProps {
 }
 
 class Component extends React.Component<Props & ApolloProps, Local> {
-  private paramDataProvider: ParameterDataProvider;
+  private readonly paramDataProvider: ParameterDataProvider;
 
   constructor(props: Props & ApolloProps) {
     super(props);
@@ -78,6 +78,7 @@ class Component extends React.Component<Props & ApolloProps, Local> {
             onSubmit={onSubmit}
             error={error}
             typeProvider={this.paramDataProvider}
+            contractIdProvider={this.paramDataProvider}
           />
         </Content>
       </Wrapper>

@@ -30,11 +30,11 @@ interface Local {
 }
 
 class Component extends React.Component<Props, Local> {
-  private typeProvider: ParameterDataProvider;
+  private readonly paramDataProvider: ParameterDataProvider;
 
   constructor(props: Props) {
     super(props);
-    this.typeProvider = new ParameterDataProvider(props.client);
+    this.paramDataProvider = new ParameterDataProvider(props.client);
     this.state = { argument: DamlLfValueF.initialValue(props.parameter) };
   }
 
@@ -62,7 +62,8 @@ class Component extends React.Component<Props, Local> {
           onChange={argument => this.setState({ argument })}
           onSubmit={this.props.onSubmit}
           error={this.props.error}
-          typeProvider={this.typeProvider}
+          typeProvider={this.paramDataProvider}
+          contractIdProvider={this.paramDataProvider}
         />
       </div>
     );
