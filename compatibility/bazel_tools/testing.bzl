@@ -89,6 +89,9 @@ grpc_error_code_breaking_change_exclusions_suites = [
     "ContractKeysIT",
 ]
 
+before_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7"
+after_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7.1"
+
 excluded_test_tool_tests = [
     {
         "start": "1.0.0",
@@ -746,9 +749,9 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        # Self-service error codes are deprecated as an experimental feature.
+        # Self-service error codes becomes the only supported option. They are deprecated as an experimental feature.
         # Switching to the legacy codes is no longer available.
-        "start": "2.0.0-snapshot.20220127.9042.0.4038d0a7.1",
+        "start": after_removing_legacy_error_codes,
         "platform_ranges": [
             {
                 "end": "1.17.1",
@@ -776,6 +779,33 @@ excluded_test_tool_tests = [
                 ],
             },
         ],
+    },
+    {
+        "end": before_removing_legacy_error_codes,
+        "platform_ranges": [
+            {
+               "start": after_removing_legacy_error_codes,
+                "exclusions": [
+                    "CommandSubmissionCompletionIT",
+                    "ConfigManagementServiceIT",
+                    "ContractKeysIT",
+                    "SemanticTests",
+                    "TransactionService",
+                ],
+            }
+        ]
+    },
+    {
+        "start": "1.16.0",
+        "end": before_removing_legacy_error_codes,
+        "platform_ranges": [
+            {
+               "start": after_removing_legacy_error_codes,
+                "exclusions": [
+                    "ExceptionsIT",
+                ],
+            }
+        ]
     },
     {
         # Sandbox-on-X starts forwarding rejections on duplicate party allocation starting with next release
@@ -1064,10 +1094,11 @@ def sdk_platform_test(sdk_version, platform_version):
 
     # Error codes are enabled by default after 1.18.0-snapshot.20211117.8399.0.a05a40ae.
     # Before this SDK version, ledger-api-test-tool cannot correctly assert the self-service error codes.
-    # For this reason, all platforms newer than 1.18.0-snapshot.20211117.8399.0.a05a40ae will run against
-    # old ledger-api-test-tools in compatibility mode (i.e. `--use-pre-1.18-error-codes`)
+    # Turning on the compatibility mode with `--use-pre-1.18-error-codes` is available up to 2.0.0-snapshot.20220127.9042.0.4038d0a7 (inclusive).
+    # For this reason, all platforms newer than 1.18.0-snapshot.20211117.8399.0.a05a40ae up to 2.0.0-snapshot.20220127.9042.0.4038d0a7 (inclusive)
+    # will run against old ledger-api-test-tools in compatibility mode (i.e. `--use-pre-1.18-error-codes`)
     error_codes_version_enabled_by_default = "1.18.0-snapshot.20211117.8399.0.a05a40ae"
-    if versions.is_at_most(error_codes_version_enabled_by_default, sdk_version):
+    if versions.is_at_most(error_codes_version_enabled_by_default, platform_version) and versions.is_at_least(before_removing_legacy_error_codes, platform_version):
         extra_sandbox_next_args += ["--use-pre-1.18-error-codes"]
         extra_sandbox_classic_args += ["--use-pre-1.18-error-codes"]
         extra_sandbox_on_x_args += ["--use-pre-1.18-error-codes"]
