@@ -1,0 +1,18 @@
+module Setup where
+
+import Daml.Script
+
+data Parties = Parties
+  with
+    alice : Party
+    bob : Party
+
+setup : Script Parties
+setup = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  aliceId <- validateUserId "alice"
+  bobId <- validateUserId "bob"
+  createUser (User aliceId (Some alice)) [CanActAs alice]
+  createUser (User bobId (Some bob)) [CanActAs bob]
+  pure Parties with ..

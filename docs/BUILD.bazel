@@ -679,6 +679,9 @@ daml_build_test(
 daml_build_test(
     name = "daml-upgrade-example-v1",
     project_dir = "source/upgrade/example/carbon-1.0.0",
+    dar_dict = {
+        "//daml-script/daml:daml-script.dar": "daml-script.dar",
+    },
 )
 
 daml_build_test(

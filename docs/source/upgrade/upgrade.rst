@@ -175,6 +175,25 @@ Create some carbon-1.0.0 certificates
 
 Let's create some certificates!
 
+First, we run a setup script to create two users ``alice`` and ``bob``
+and corresponding parties. We write out the actual party ids to a JSON
+file so we can later use them in Navigator.
+
+.. code-block:: none
+
+   $ cd example/carbon-1.0.0
+   $ daml script --dar .dar/dist/carbon-1.0.0.dar --script-name Setup:setup --ledger-host localhost --ledger-port 6865 --output-file parties.json
+
+The resulting ``parties.json`` file will look similar to the following but the actual party ids will
+vary.
+
+.. code-block:: json
+
+   {
+     "alice": "party-19a21501-ba87-47be-90a6-692dfaefe64a::12203977cedf2d394073b4c58036e047fcc590f7f2d61d82503df431473c4277fe70",
+     "bob": "party-7ecb1d67-1d20-4612-be67-b5741c86204d::12203977cedf2d394073b4c58036e047fcc590f7f2d61d82503df431473c4277fe70"
+   }
+
 We'll use the navigator to connect to the ledger, and create two
 certificates issued by Alice, and owned by Bob.
 
@@ -185,11 +204,13 @@ certificates issued by Alice, and owned by Bob.
 
 We point a browser to http://localhost:4000, and follow the steps:
 
-#. Login as Alice:
+#. Login as ``alice``:
     #. Select Templates tab.
     #. Create a *CarbonCertProposal* with Alice as issuer and Bob as owner and an arbitrary value for the ``carbon_metric_tons`` field.
+       Note that in place of Alice and Bob, you need to use the party ids from the
+       previously created ``parties.json``.
     #. Create a 2nd proposal in the same way.
-#. Login as Bob:
+#. Login as ``bob``:
     #. Exercise the *CarbonCertProposal_Accept* choice on both proposal contracts.
 
 
@@ -269,12 +290,14 @@ We start the navigator again.
 
 Finally, we point a browser to http://localhost:4000 and can start the carbon certificates upgrades:
 
-#. Login as Alice
+#. Login as ``alice``
     #. Select Templates tab.
-    #. Create an ``UpgradeCarbonCertProposal`` with Alice as issuer and Bob as owner.
-#. Login as Bob
+    #. Create an ``UpgradeCarbonCertProposal`` with Alice as issuer
+       and Bob as owner. As before, in place of Alice and Bob use the
+       party ids from ``parties.json``.
+#. Login as ``bob``
     #. Exercise the ``Accept`` choice of the upgrade proposal, creating an ``UpgradeCarbonCertAgreement``.
-#. Login again as Alice
+#. Login again as ``alice``
     #. Use the ``UpgradeCarbonCertAgreement`` repeatedly to upgrade any certificate for which Alice is issuer and Bob is owner.
 
 Further Steps
