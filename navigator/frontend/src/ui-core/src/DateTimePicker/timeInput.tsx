@@ -8,10 +8,10 @@
 // The code was copied in order to simplify extensive customization.
 // In the future, we may decide to use another library to implement
 // this component.
-import Moment from 'moment';
-import * as React from 'react';
-import Button from '../Button';
-import { default as styled, hardcodedStyle } from '../theme';
+import Moment from "moment";
+import * as React from "react";
+import Button from "../Button";
+import { default as styled, hardcodedStyle } from "../theme";
 
 const isValid = (m: Moment.Moment | undefined): m is Moment.Moment =>
   m !== undefined && m.isValid();
@@ -23,7 +23,7 @@ const TimeWrapper = styled.div`
   align-content: flex-start;
   justify-content: center;
   padding-top: 15px;
-`
+`;
 
 const RoundInput = styled.input`
   width: 120px;
@@ -32,14 +32,14 @@ const RoundInput = styled.input`
   white-space: nowrap;
   justify-content: flex-start;
   align-items: center;
-  padding: ${({ theme }) => theme.buttonPadding.join(' ')};
+  padding: ${({ theme }) => theme.buttonPadding.join(" ")};
   border-radius: ${({ theme }) => theme.buttonRadius};
   border: none;
-  font-size: ${ hardcodedStyle.buttonFontSize };
+  font-size: ${hardcodedStyle.buttonFontSize};
 
   position: relative;
   left: 20px;
-`
+`;
 
 const MovedButton = styled(Button)`
   position: relative;
@@ -53,7 +53,7 @@ const MovedButton = styled(Button)`
  * If `s` is not a valid time, returns `m`.
  */
 function setTime(s: string, m: Moment.Moment): Moment.Moment {
-  const time = Moment(s, ['H:mm', 'H:mm:ss']);
+  const time = Moment(s, ["H:mm", "H:mm:ss"]);
   if (time.isValid()) {
     const result = Moment(m);
     result.hour(time.hour());
@@ -83,7 +83,7 @@ export default class TimeInput extends React.Component<Props, State> {
     super(props);
     this.state = {
       value: undefined,
-    }
+    };
   }
 
   filterCharacters(event: React.KeyboardEvent<HTMLInputElement>): void {
@@ -97,7 +97,7 @@ export default class TimeInput extends React.Component<Props, State> {
     if (!this.input || this.input.selectionStart === null) {
       return;
     }
-    const i = this.input.value.indexOf(':');
+    const i = this.input.value.indexOf(":");
     if (this.input.selectionStart < i) {
       this.input.setSelectionRange(0, i);
     } else {
@@ -106,18 +106,20 @@ export default class TimeInput extends React.Component<Props, State> {
   }
 
   displayMoment(): Moment.Moment {
-    return isValid(this.props.moment) ?
-      this.props.moment : this.props.defaultMoment;
+    return isValid(this.props.moment)
+      ? this.props.moment
+      : this.props.defaultMoment;
   }
 
   displayValue(): string {
-    return this.state.value ?
-      this.state.value : this.displayMoment().format('HH:mm');
+    return this.state.value
+      ? this.state.value
+      : this.displayMoment().format("HH:mm");
   }
 
   handleChange(): void {
     const result = setTime(this.displayValue(), this.displayMoment());
-    this.setState({value: undefined});
+    this.setState({ value: undefined });
     this.props.onChange(result);
   }
 
@@ -126,18 +128,23 @@ export default class TimeInput extends React.Component<Props, State> {
     return (
       <TimeWrapper>
         <RoundInput
-          ref={(e) => {this.input = e}}
+          ref={e => {
+            this.input = e;
+          }}
           value={displayValue}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            this.setState({value: e.target.value})}
+            this.setState({ value: e.target.value })
+          }
           onClick={() => this.setSelection()}
-          onKeyPress={(e) => this.filterCharacters(e)}
+          onKeyPress={e => this.filterCharacters(e)}
           onBlur={() => this.handleChange()}
         />
         <MovedButton
           type="main"
-          onClick={() => {this.handleChange(); this.props.onSubmit()}}
-        >
+          onClick={() => {
+            this.handleChange();
+            this.props.onSubmit();
+          }}>
           Set
         </MovedButton>
       </TimeWrapper>

@@ -3,11 +3,12 @@
 
 import { encode } from 'jwt-simple';
 import { isRunningOnHub } from '@daml/hub-react';
-import Ledger from '@daml/ledger';
+import Ledger, { CanReadAs } from '@daml/ledger';
 
 export type UserManagement = {
   tokenPayload: (loginName: string, ledgerId: string) => Object,
   primaryParty: (loginName: string, ledger: Ledger) => Promise<string>,
+  publicParty: (loginName: string, ledger: Ledger) => Promise<string>,
 };
 
 export type Insecure = {
@@ -39,6 +40,9 @@ export const noUserManagement: UserManagement = {
     }
   }),
   primaryParty: async (loginName: string, ledger: Ledger) => loginName,
+  // Without user management, we force a specific party id here because
+  // we mainly care about this for vmbc and there we can support this.
+  publicParty: async (loginName: string, ledger: Ledger) => 'public',
 };
 
 // Used on SDK >= 2.0.0 with the exception of VMBC
@@ -56,6 +60,17 @@ export const withUserManagement: UserManagement = {
       throw new Error(`User '${loginName}' has no primary party`);
     }
 
+  },
+  publicParty: async (loginName, ledger: Ledger) => {
+    const rights = await ledger.listUserRights();
+    const readAsRights: CanReadAs[] = rights.filter((x) : x is CanReadAs => x.type === "CanReadAs");
+    if (readAsRights.length === 0) {
+      throw new Error(`User '${loginName} has no readAs claims for a public party`);
+    } else if (readAsRights.length > 1) {
+      throw new Error(`User '${loginName} has readAs claims for more than one party`);
+    } else {
+      return readAsRights[0].party;
+    }
   }
 };
 

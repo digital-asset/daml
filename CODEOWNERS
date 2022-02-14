@@ -4,7 +4,7 @@
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
 CODEOWNERS   @gerolf-da @cocreature @stefanobaghino-da
-LATEST       @gerolf-da @bame-da @cocreature @stefanobaghino-da @adriaanm-da
+LATEST       @gerolf-da @bame-da @cocreature @ray-roestenburg-da @adriaanm-da
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -35,8 +35,6 @@ NOTICES     @garyverhaegen-da @cocreature @dasormeter
 /daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da @cocreature
 /daml-lf/transaction-test-lib/ @S11001001 @remyhaemmerle-da @cocreature
 
-/ledger-service/    @S11001001 @stefanobaghino-da
-
 # KV Participant
 /ledger/      @digital-asset/kv-participant
 /ledger-api/  @digital-asset/kv-participant
@@ -55,7 +53,7 @@ NOTICES     @garyverhaegen-da @cocreature @dasormeter
 /ledger/ledger-api-common/          @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-api-domain/          @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-api-health/          @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-api-test-tool/       @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/ledger-api-tests/           @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-configuration/       @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-offset/              @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/participant-state-index/    @digital-asset/kv-participant @digital-asset/kv-committer
@@ -73,13 +71,15 @@ NOTICES     @garyverhaegen-da @cocreature @dasormeter
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da @cocreature
-/language-support/java/     @stefanobaghino-da
-/language-support/scala/    @S11001001 @stefanobaghino-da
-/language-support/ts/        @robin-da @garyverhaegen-da @stefanobaghino-da
+/language-support/java/     @stefanobaghino-da @ray-roestenburg-da
+/language-support/scala/    @S11001001 @stefanobaghino-da @ray-roestenburg-da
+/language-support/ts/       @robin-da @garyverhaegen-da @stefanobaghino-da @ray-roestenburg-da
 
 # Application Runtime
-/navigator/            @stefanobaghino-da
-/runtime-components/   @stefanobaghino-da
+/ledger-service/       @S11001001 @stefanobaghino-da @ray-roestenburg-da
+/navigator/            @stefanobaghino-da @ray-roestenburg-da
+/runtime-components/   @stefanobaghino-da @ray-roestenburg-da
+/triggers/service/     @stefanobaghino-da @ray-roestenburg-da
 /navigator/backend/src/main/scala/com/digitalasset/navigator/json/    @S11001001
 
 # Misc

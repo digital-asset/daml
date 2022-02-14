@@ -8,7 +8,7 @@ import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckWithCommittedSpec._
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
@@ -23,14 +23,13 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.server.api.validation.ErrorFactories
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.FixtureContext
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import java.time.Duration
+
 import scala.concurrent.Future
 
 class ConflictCheckWithCommittedSpec
@@ -53,7 +52,9 @@ class ConflictCheckWithCommittedSpec
         Right(offset -> submissionWithEmptyReferredContracts)
       )
     } yield {
-      verify(indexServiceMock, never).lookupMaximumLedgerTime(any[Set[ContractId]])(
+      verify(indexServiceMock, never).lookupMaximumLedgerTimeAfterInterpretation(
+        any[Set[ContractId]]
+      )(
         any[LoggingContext]
       )
       validationResult shouldBe Right(offset -> submissionWithEmptyReferredContracts)
@@ -78,8 +79,10 @@ class ConflictCheckWithCommittedSpec
 
   it should "handle missing contracts" in new TestContext {
     val missingContracts: Set[ContractId] = referredContracts
-    when(indexServiceMock.lookupMaximumLedgerTime(referredContracts)(loggingContext))
-      .thenReturn(Future.failed(MissingContracts(missingContracts)))
+    when(
+      indexServiceMock.lookupMaximumLedgerTimeAfterInterpretation(referredContracts)(loggingContext)
+    )
+      .thenReturn(Future.successful(MaximumLedgerTime.Archived(missingContracts)))
 
     conflictCheckWithCommitted(input)
       .map {
@@ -92,7 +95,9 @@ class ConflictCheckWithCommittedSpec
   it should "handle a generic lookupMaximumLedgerTime error" in new TestContext {
     val someInternalError = new RuntimeException("oh")
 
-    when(indexServiceMock.lookupMaximumLedgerTime(referredContracts)(loggingContext))
+    when(
+      indexServiceMock.lookupMaximumLedgerTimeAfterInterpretation(referredContracts)(loggingContext)
+    )
       .thenReturn(Future.failed(someInternalError))
 
     conflictCheckWithCommitted(input)
@@ -209,8 +214,10 @@ class ConflictCheckWithCommittedSpec
     val contractMaxLedgerTime: Timestamp = txLedgerEffectiveTime.addMicros(-1L)
     val input = Right(offset -> preparedTransactionSubmission)
 
-    when(indexServiceMock.lookupMaximumLedgerTime(referredContracts)(loggingContext)).thenReturn(
-      Future.successful(Some(contractMaxLedgerTime))
+    when(
+      indexServiceMock.lookupMaximumLedgerTimeAfterInterpretation(referredContracts)(loggingContext)
+    ).thenReturn(
+      Future.successful(MaximumLedgerTime.Max(contractMaxLedgerTime))
     )
 
     when(indexServiceMock.lookupContractKey(informeesSet, keyCreated))

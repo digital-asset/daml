@@ -58,7 +58,7 @@ private[validate] class SequenceImpl(
   override def apply(): Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)] =
     in => {
       Timed.value(
-        bridgeMetrics.Stages.sequence, {
+        bridgeMetrics.Stages.Sequence.timer, {
           offsetIdx = offsetIdx + 1L
           val newOffset = toOffset(offsetIdx)
           val recordTime = timeProvider.getCurrentTimestamp
@@ -177,7 +177,7 @@ private[validate] class SequenceImpl(
           inputContracts = txSubmission.inputContracts,
           completionInfo = completionInfo,
         )
-        updatedDeduplicationState <- deduplicate(
+        _ <- deduplicate(
           changeId = ChangeId(
             submitterInfo.applicationId,
             submitterInfo.commandId,
@@ -187,11 +187,10 @@ private[validate] class SequenceImpl(
           completionInfo = completionInfo,
           recordTime = recordTime,
         )
-        _ = updateStatesOnSuccessfulValidation(
+        _ = updateStateOnSuccessfulValidation(
           noConflictUpTo,
           newOffset,
           txSubmission,
-          updatedDeduplicationState,
         )
       } yield transactionAccepted(
         txSubmission.submission,
@@ -244,17 +243,15 @@ private[validate] class SequenceImpl(
       recordTime: Time.Timestamp,
   )(implicit
       errorLogger: ContextualizedErrorLogger
-  ): Validation[DeduplicationState] =
+  ): Validation[Unit] =
     deduplicationPeriod match {
       case DeduplicationPeriod.DeduplicationDuration(commandDeduplicationDuration) =>
         val (newDeduplicationState, isDuplicate) =
           deduplicationState.deduplicate(changeId, commandDeduplicationDuration, recordTime)
 
-        Either.cond(
-          !isDuplicate,
-          newDeduplicationState,
-          DuplicateCommand(changeId, completionInfo),
-        )
+        // Update the deduplication state
+        deduplicationState = newDeduplicationState
+        Either.cond(!isDuplicate, (), DuplicateCommand(changeId, completionInfo))
       case _: DeduplicationPeriod.DeduplicationOffset =>
         Left(Rejection.OffsetDeduplicationPeriodUnsupported(completionInfo))
     }
@@ -294,12 +291,11 @@ private[validate] class SequenceImpl(
       )
   }
 
-  private def updateStatesOnSuccessfulValidation(
+  private def updateStateOnSuccessfulValidation(
       noConflictUpTo: LastUpdatedAt,
       newOffset: LastUpdatedAt,
       txSubmission: PreparedTransactionSubmission,
-      updatedDeduplicationState: DeduplicationState,
-  ): Unit = {
+  ): Unit =
     sequencerState = sequencerState
       .dequeue(noConflictUpTo)
       .enqueue(
@@ -307,6 +303,4 @@ private[validate] class SequenceImpl(
         txSubmission.updatedKeys,
         txSubmission.consumedContracts,
       )
-    deduplicationState = updatedDeduplicationState
-  }
 }

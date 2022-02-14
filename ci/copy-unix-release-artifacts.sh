@@ -32,10 +32,6 @@ if [[ "$NAME" == "linux" ]]; then
     PROTOS_ZIP=protobufs-$RELEASE_TAG.zip
     cp bazel-bin/release/protobufs.zip $OUTPUT_DIR/github/$PROTOS_ZIP
 
-    DAML_ON_SQL=daml-on-sql-$RELEASE_TAG.jar
-    bazel build //ledger/daml-on-sql:daml-on-sql-binary_deploy.jar
-    cp bazel-bin/ledger/daml-on-sql/daml-on-sql-binary_deploy.jar $OUTPUT_DIR/github/$DAML_ON_SQL
-
     JSON_API=http-json-$RELEASE_TAG.jar
     JSON_API_EE=http-json-$RELEASE_TAG-ee.jar
     bazel build //ledger-service/http-json:http-json-binary_deploy.jar

@@ -25,7 +25,7 @@ private[validate] class TagWithLedgerEndImpl(
     case Right(preparedSubmission) =>
       Timed.future(
         // TODO SoX: Remove as this should be instantaneous
-        bridgeMetrics.Stages.tagWithLedgerEnd,
+        bridgeMetrics.Stages.TagWithLedgerEnd.timer,
         indexService
           .currentLedgerEnd()(preparedSubmission.submission.loggingContext)
           .map(ledgerEnd =>

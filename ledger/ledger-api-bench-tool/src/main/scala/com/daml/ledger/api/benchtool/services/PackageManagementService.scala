@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool.services
 
+import com.daml.ledger.api.benchtool.AuthorizationHelper
 import com.daml.ledger.api.v1.admin.package_management_service.{
   PackageManagementServiceGrpc,
   UploadDarFileRequest,
@@ -12,8 +13,11 @@ import io.grpc.Channel
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class PackageManagementService(channel: Channel) {
-  private val service = PackageManagementServiceGrpc.stub(channel)
+class PackageManagementService(channel: Channel, authorizationToken: Option[String]) {
+  private val service =
+    AuthorizationHelper.maybeAuthedService(authorizationToken)(
+      PackageManagementServiceGrpc.stub(channel)
+    )
 
   def uploadDar(bytes: ByteString, submissionId: String)(implicit
       ec: ExecutionContext

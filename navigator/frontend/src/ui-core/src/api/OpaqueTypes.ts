@@ -2,12 +2,12 @@
 // All rights reserved.
 
 /** Iso8601 encoded string */
-export type Time = string
+export type Time = string;
 
-export type TimeType = 'static' | 'wallclock' | 'simulated';
+export type TimeType = "static" | "wallclock" | "simulated";
 
-export type CommandId = string
+export type CommandId = string;
 
-export { DamlLfValue, DamlLfValueRecord } from './DamlLfValue'
+export { DamlLfValue, DamlLfValueRecord } from "./DamlLfValue";
 
-export { DamlLfType, DamlLfDataType } from './DamlLfType'
+export { DamlLfType, DamlLfDataType } from "./DamlLfType";

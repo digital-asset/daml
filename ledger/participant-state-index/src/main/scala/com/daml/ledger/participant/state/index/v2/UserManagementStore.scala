@@ -41,6 +41,9 @@ trait UserManagementStore {
 }
 
 object UserManagementStore {
+
+  val DefaultParticipantAdminUserId = "participant_admin"
+
   type Result[T] = Either[Error, T]
   type Users = Seq[User]
 

@@ -104,7 +104,7 @@ and ``carbon-2.0.0``.
 .. code-block:: none
 
    $ cd example/carbon-upgrade
-   $ daml sandbox .daml/dist/carbon-upgrade-1.0.0.dar
+   $ daml sandbox --dar .daml/dist/carbon-upgrade-1.0.0.dar
 
 To simplify the setup here, we use a Daml script to create 3 parties
 Alice, Bob and Charlie and two ``CarbonCert`` contracts issues by Alice, one

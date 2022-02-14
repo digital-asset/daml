@@ -917,12 +917,12 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Unit = {
       val createArg = args.get(0)
-      val createArgValue = onLedger.ptx.normValue(templateId, createArg)
+      val createArgValue = machine.normValue(templateId, createArg)
       val agreement = getSText(args, 1)
       val sigs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
       val obs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       val mbKey = extractOptionalKeyWithMaintainers(
-        onLedger,
+        machine,
         templateId,
         NameOf.qualifiedNameOfCurrentFunc,
         args.get(4),
@@ -945,6 +945,7 @@ private[lf] object SBuiltin {
           stakeholders = sigs union obs,
           key = mbKey,
           byInterface = byInterface,
+          version = machine.tmplId2TxVersion(templateId),
         )
 
       onLedger.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
@@ -978,7 +979,7 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger,
     ): Unit = {
-      val chosenValue = onLedger.ptx.normValue(templateId, args.get(0))
+      val chosenValue = machine.normValue(templateId, args.get(0))
       val coid = getSContractId(args, 1)
       val cached =
         onLedger.cachedContracts.getOrElse(
@@ -1010,6 +1011,7 @@ private[lf] object SBuiltin {
           byKey = byKey,
           chosenValue = chosenValue,
           byInterface = byInterface,
+          version = machine.tmplId2TxVersion(templateId),
         )
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
@@ -1306,16 +1308,17 @@ private[lf] object SBuiltin {
       val contextActors = machine.contextActors
       val auth = machine.auth
       onLedger.ptx = onLedger.ptx.insertFetch(
-        auth,
-        coid,
-        templateId,
-        machine.lastLocation,
-        contextActors intersect stakeholders,
-        signatories,
-        stakeholders,
-        key,
-        byKey,
-        byInterface,
+        auth = auth,
+        coid = coid,
+        templateId = templateId,
+        optLocation = machine.lastLocation,
+        actingParties = contextActors intersect stakeholders,
+        signatories = signatories,
+        stakeholders = stakeholders,
+        key = key,
+        byKey = byKey,
+        byInterface = byInterface,
+        version = machine.tmplId2TxVersion(templateId),
       )
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
@@ -1335,7 +1338,7 @@ private[lf] object SBuiltin {
     ): Unit = {
       val keyWithMaintainers =
         extractKeyWithMaintainers(
-          onLedger,
+          machine,
           templateId,
           NameOf.qualifiedNameOfCurrentFunc,
           args.get(0),
@@ -1350,14 +1353,15 @@ private[lf] object SBuiltin {
       }
       val auth = machine.auth
       onLedger.ptx = onLedger.ptx.insertLookup(
-        auth,
-        templateId,
-        machine.lastLocation,
-        Node.KeyWithMaintainers(
+        auth = auth,
+        templateId = templateId,
+        optLocation = machine.lastLocation,
+        key = Node.KeyWithMaintainers(
           key = keyWithMaintainers.key,
           maintainers = keyWithMaintainers.maintainers,
         ),
-        mbCoid,
+        result = mbCoid,
+        version = machine.tmplId2TxVersion(templateId),
       )
       checkAborted(onLedger.ptx)
       machine.returnValue = SV.Unit
@@ -1427,7 +1431,7 @@ private[lf] object SBuiltin {
       import PartialTransaction.{KeyActive, KeyInactive}
       val keyWithMaintainers =
         extractKeyWithMaintainers(
-          onLedger,
+          machine,
           operation.templateId,
           NameOf.qualifiedNameOfCurrentFunc,
           args.get(0),
@@ -1913,14 +1917,14 @@ private[lf] object SBuiltin {
   private[this] val maintainerIdx = keyWithMaintainersStructFields.indexOf(Ast.maintainersFieldName)
 
   private[this] def extractKeyWithMaintainers(
-      onLedger: OnLedger,
+      machine: Machine,
       templateId: TypeConName,
       location: String,
       v: SValue,
   ): Node.KeyWithMaintainers =
     v match {
       case SStruct(_, vals) =>
-        val key = onLedger.ptx.normValue(templateId, vals.get(keyIdx))
+        val key = machine.normValue(templateId, vals.get(keyIdx))
         key.foreachCid(_ => throw SErrorDamlException(IE.ContractIdInContractKey(key)))
         Node.KeyWithMaintainers(
           key = key,
@@ -1930,13 +1934,13 @@ private[lf] object SBuiltin {
     }
 
   private[this] def extractOptionalKeyWithMaintainers(
-      onLedger: OnLedger,
+      machine: Machine,
       templateId: TypeConName,
       where: String,
       optKey: SValue,
   ): Option[Node.KeyWithMaintainers] =
     optKey match {
-      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(onLedger, templateId, where, _))
+      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(machine, templateId, where, _))
       case v => throw SErrorCrash(where, s"Expected optional key with maintainers, got: $v")
     }
 
@@ -1959,7 +1963,7 @@ private[lf] object SBuiltin {
     cachedContractStructFields.indexOf(Ast.observersFieldName)
 
   private[speedy] def extractCachedContract(
-      onLedger: OnLedger,
+      machine: Machine,
       templateId: Ref.TypeConName,
       v: SValue,
   ): CachedContract =
@@ -1975,7 +1979,7 @@ private[lf] object SBuiltin {
           observers =
             extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(cachedContractObserversIdx)),
           key = extractOptionalKeyWithMaintainers(
-            onLedger,
+            machine,
             templateId,
             NameOf.qualifiedNameOfCurrentFunc,
             vals.get(cachedContractKeyIdx),

@@ -594,7 +594,7 @@ damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
                 queryResponse <- httpLbs queryRequest manager
                 let body = responseBody queryResponse
                 assertBool ("result is unexpected: " <> show body) $
-                    ("{\"result\":{\"displayName\":\"Alice\",\"identifier\":\"Alice::" `LBS.isPrefixOf` body) &&
+                    ("{\"result\":{\"identifier\":\"Alice::" `LBS.isPrefixOf` body) &&
                     ("\",\"isLocal\":true},\"status\":200}" `LBS.isSuffixOf` body)
 
 quickstartTests :: FilePath -> FilePath -> IO QuickSandboxResource -> TestTree
@@ -806,10 +806,10 @@ cantonTests = testGroup "daml sandbox"
                 , "--script-name Main:setup"
                 , "--ledger-host=localhost", "--ledger-port=" <> show ledgerApiPort
                 ]
-            step "Start canton-repl"
+            step "Start canton-console"
             env <- getEnvironment
             let cmd = unwords
-                    [ "daml canton-repl"
+                    [ "daml canton-console"
                     , "--port", show ledgerApiPort
                     , "--admin-api-port", show adminApiPort
                     , "--domain-public-port", show domainPublicApiPort

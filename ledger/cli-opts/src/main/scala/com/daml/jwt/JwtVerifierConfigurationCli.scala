@@ -18,7 +18,7 @@ object JwtVerifierConfigurationCli {
     opt[String]("auth-jwt-hs256-unsafe")
       .optional()
       .hidden()
-      .validate(v => Either.cond(v.length > 0, (), "HMAC secret must be a non-empty string"))
+      .validate(v => Either.cond(v.nonEmpty, (), "HMAC secret must be a non-empty string"))
       .text(
         "[UNSAFE] Enables JWT-based authorization with shared secret HMAC256 signing: USE THIS EXCLUSIVELY FOR TESTING"
       )

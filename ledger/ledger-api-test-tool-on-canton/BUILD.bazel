@@ -1,7 +1,7 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 
 java_binary(
@@ -78,40 +78,32 @@ conformance_test(
         "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
         "--timeout-scale-factor=2",  # increased to reduce flakes particularly wrt timeouts in TransactionService*IT tests
         "--exclude=" + ",".join([
-            "ParticipantPruningIT",  # see "conformance-test-participant-pruning" below
-            "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
-            "CommandServiceIT:CSsubmitAndWaitCompletionOffset",  # Canton does not fill the offsets
-            "CommandDeduplicationIT:SimpleDeduplicationBasic",  # sync vs async error (part of canton #6301)
-            "CommandDeduplicationIT:DeduplicateSubmitterBasic",
-            "CommandDeduplicationIT:DeduplicateUsingDurations",  # disabled while Canton does not support the feature descriptors
-            "CommandDeduplicationIT:DeduplicateUsingOffsets",  # disabled while Canton does not support the feature descriptors
-            "CommandDeduplicationParallelIT",  # can be re-enabled once canton exposes the feature descriptors
-            "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # TODO https://github.com/DACH-NY/canton/issues/6301
-            "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
-            "RaceConditionIT:RWArchiveVsFailedLookupByKey",  # finding a lookup failure after contract creation
             # dynamic config management not supported by Canton
             "ConfigManagementServiceIT",
             "LedgerConfigurationServiceIT",
+            "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
             # Excluding tests that require contract key uniqueness
-            "ContractKeysIT:CKFetchOrLookup",
-            "ContractKeysIT:CKMaintainerScoped",
-            "ContractKeysIT:CKNoFetchUndisclosed",
-            "RaceConditionIT:RWArchiveVsFetch",
+            "RaceConditionIT:WWDoubleNonTransientCreate",
+            "RaceConditionIT:WWArchiveVsNonTransientCreate",
+            "RaceConditionIT:RWTransientCreateVsNonTransientCreate",
+            "RaceConditionIT:RWArchiveVsFailedLookupByKey",
             "RaceConditionIT:RWArchiveVsLookupByKey",
             "RaceConditionIT:RWArchiveVsNonConsumingChoice",
-            "RaceConditionIT:RWTransientCreateVsNonTransientCreate",
-            "RaceConditionIT:WWArchiveVsNonTransientCreate",
+            "RaceConditionIT:RWArchiveVsFetch",
             "RaceConditionIT:WWDoubleArchive",
-            "RaceConditionIT:WWDoubleNonTransientCreate",
+            "ContractKeysIT:CKFetchOrLookup",
+            "ContractKeysIT:CKNoFetchUndisclosed",
+            "ContractKeysIT:CKMaintainerScoped",
             # need UCK mode - added below
             "ExceptionsIT",
             "ExceptionRaceConditionIT",
-            # Also exclude "optional tests" - which are run separately below
+            "ParticipantPruningIT",  # pruning not supported in Canton Community
+            # tests with special config run in canton enterprise-repo
             "TLSOnePointThreeIT",
             "TLSAtLeastOnePointTwoIT",
+            "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
+            "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
             "MonotonicRecordTimeIT",  # KV-utils specific
-            # Canton does not return empty display names.
-            "PartyManagementServiceIT:PMAllocateEmptyExpectMissingDisplayName",
         ]),
     ],
 ) if not is_windows else None
@@ -151,42 +143,5 @@ conformance_test(
             "ExceptionsIT",
             "RaceConditionIT",
         ]),
-    ],
-) if not is_windows else None
-
-conformance_test(
-    name = "conformance-test-participant-pruning",
-    extra_data = [
-        ":bootstrap.canton",
-        ":canton_deploy.jar",
-        ":canton.conf",
-        ":enable-faster-pruning.conf",  # needed to prevent timing out on prune requests
-        ":logback-debug.xml",
-        "@coreutils_nix//:bin/base64",
-        "@curl_nix//:bin/curl",
-        "@grpcurl_nix//:bin/grpcurl",
-        "@jq_dev_env//:jq",
-        "@bazel_tools//tools/jdk",
-    ],
-    lf_versions = [
-        "default",
-        "latest",
-    ],
-    ports = [
-        5011,
-        5021,
-        5031,
-        5041,
-    ],
-    runner = "@//bazel_tools/client_server/runner_with_port_check",
-    server = ":canton-test-runner-with-dependencies",
-    tags = [
-        "manual",  # pruning test is flaky on canton because of safe-pruning offset reconciliation checks
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
-        "--timeout-scale-factor=4",  # increased to match setting in canton repo
-        "--include=ParticipantPruningIT",
     ],
 ) if not is_windows else None

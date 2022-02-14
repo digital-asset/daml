@@ -1,4 +1,4 @@
-import * as OpaqueTypes from '@da/ui-core/lib/api/OpaqueTypes'
+import * as OpaqueTypes from "@da/ui-core/lib/api/OpaqueTypes";
 /* tslint:disable */
 /* eslint-disable */
 // @generated
@@ -9,7 +9,14 @@ import * as OpaqueTypes from '@da/ui-core/lib/api/OpaqueTypes'
 // ====================================================
 
 export interface ContractDetailsById_node_CreateCommand {
-  __typename: "CreateCommand" | "CreatedEvent" | "DamlLfDefDataType" | "ExerciseCommand" | "ExercisedEvent" | "Template" | "Transaction";
+  __typename:
+    | "CreateCommand"
+    | "CreatedEvent"
+    | "DamlLfDefDataType"
+    | "ExerciseCommand"
+    | "ExercisedEvent"
+    | "Template"
+    | "Transaction";
 }
 
 export interface ContractDetailsById_node_Contract_archiveEvent {
@@ -42,7 +49,9 @@ export interface ContractDetailsById_node_Contract {
   template: ContractDetailsById_node_Contract_template;
 }
 
-export type ContractDetailsById_node = ContractDetailsById_node_CreateCommand | ContractDetailsById_node_Contract;
+export type ContractDetailsById_node =
+  | ContractDetailsById_node_CreateCommand
+  | ContractDetailsById_node_Contract;
 
 export interface ContractDetailsById {
   node: ContractDetailsById_node | null;
@@ -149,7 +158,14 @@ export interface ContractsQueryVariables {
 // ====================================================
 
 export interface TemplateInstance_node_Contract {
-  __typename: "Contract" | "CreateCommand" | "CreatedEvent" | "DamlLfDefDataType" | "ExerciseCommand" | "ExercisedEvent" | "Transaction";
+  __typename:
+    | "Contract"
+    | "CreateCommand"
+    | "CreatedEvent"
+    | "DamlLfDefDataType"
+    | "ExerciseCommand"
+    | "ExercisedEvent"
+    | "Transaction";
 }
 
 export interface TemplateInstance_node_Template {
@@ -159,7 +175,9 @@ export interface TemplateInstance_node_Template {
   topLevelDecl: string;
 }
 
-export type TemplateInstance_node = TemplateInstance_node_Contract | TemplateInstance_node_Template;
+export type TemplateInstance_node =
+  | TemplateInstance_node_Contract
+  | TemplateInstance_node_Template;
 
 export interface TemplateInstance {
   node: TemplateInstance_node | null;
@@ -197,7 +215,14 @@ export interface CreateContractVariables {
 // ====================================================
 
 export interface ContractsByTemplateParamQuery_node_Contract {
-  __typename: "Contract" | "CreateCommand" | "CreatedEvent" | "DamlLfDefDataType" | "ExerciseCommand" | "ExercisedEvent" | "Transaction";
+  __typename:
+    | "Contract"
+    | "CreateCommand"
+    | "CreatedEvent"
+    | "DamlLfDefDataType"
+    | "ExerciseCommand"
+    | "ExercisedEvent"
+    | "Transaction";
 }
 
 export interface ContractsByTemplateParamQuery_node_Template_parameterDef {
@@ -211,7 +236,9 @@ export interface ContractsByTemplateParamQuery_node_Template {
   parameterDef: ContractsByTemplateParamQuery_node_Template_parameterDef;
 }
 
-export type ContractsByTemplateParamQuery_node = ContractsByTemplateParamQuery_node_Contract | ContractsByTemplateParamQuery_node_Template;
+export type ContractsByTemplateParamQuery_node =
+  | ContractsByTemplateParamQuery_node_Contract
+  | ContractsByTemplateParamQuery_node_Template;
 
 export interface ContractsByTemplateParamQuery {
   node: ContractsByTemplateParamQuery_node | null;
@@ -231,7 +258,14 @@ export interface ContractsByTemplateParamQueryVariables {
 // ====================================================
 
 export interface ContractsByTemplateQuery_node_Contract {
-  __typename: "Contract" | "CreateCommand" | "CreatedEvent" | "DamlLfDefDataType" | "ExerciseCommand" | "ExercisedEvent" | "Transaction";
+  __typename:
+    | "Contract"
+    | "CreateCommand"
+    | "CreatedEvent"
+    | "DamlLfDefDataType"
+    | "ExerciseCommand"
+    | "ExercisedEvent"
+    | "Transaction";
 }
 
 export interface ContractsByTemplateQuery_node_Template_choices {
@@ -293,7 +327,9 @@ export interface ContractsByTemplateQuery_node_Template {
   contracts: ContractsByTemplateQuery_node_Template_contracts;
 }
 
-export type ContractsByTemplateQuery_node = ContractsByTemplateQuery_node_Contract | ContractsByTemplateQuery_node_Template;
+export type ContractsByTemplateQuery_node =
+  | ContractsByTemplateQuery_node_Contract
+  | ContractsByTemplateQuery_node_Template;
 
 export interface ContractsByTemplateQuery {
   node: ContractsByTemplateQuery_node | null;

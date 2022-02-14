@@ -695,7 +695,7 @@ production ledger (minus persistence).
     daml sandbox --ledgerid %%LEDGER_ID%% \
                  --auth-jwt-rs256-jwks https://%%AUTH0_DOMAIN%%/.well-known/jwks.json \
                  --implicit-party-allocation false \
-                 .daml/dist/my-project-0.1.0.dar
+                 --dar .daml/dist/my-project-0.1.0.dar
 
 As before, you need to replace ``%%LEDGER_ID%%`` with a value of your choosing
 (the same one you used when configuring Auth0), and ``%%AUTH0_DOMAIN%%`` with

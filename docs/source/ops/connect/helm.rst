@@ -279,10 +279,10 @@ Helm Chart Options Reference
 ----------------------------
 
 ..
-
-  copied from https://github.com/DACH-NY/connect-helm-chart/blob/c297baae3565d92f6ff2aad5e40b7138945772b5/Configuration.md
-  This will need to be updated, but hopefully we can move the Helm chart to
-  this repo "soon" and that will stop being an problem. Also, converting md to rst sucks.
+  Copied from https://github.com/DACH-NY/connect-helm-chart/blob/c297baae3565d92f6ff2aad5e40b7138945772b5/Configuration.md
+  TODO: this will need updating across repositories, which is time-consuming and error-prone,
+        as some adjustment may be needed when converting from MD to RST -- we should evalute
+        a different strategy to deal with this documentation.
 
 These options have been extracted from the Helm chart version ``daml-connect-1.18.0-20211110.main.84.c297baae``.
 

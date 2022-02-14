@@ -176,7 +176,8 @@ jobs:
 
 - job: self_service_compat_test
   pool:
-    vmImage: ubuntu-20.04
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
   condition: eq(variables['Build.Reason'], 'PullRequest')
   steps:
   - checkout: self
@@ -185,6 +186,7 @@ jobs:
       var_name: bash-lib
   - bash: |
       set -euo pipefail
+      eval "$(./dev-env/bin/dade-assist)"
       source $(bash-lib)
       COMMIT=$(git rev-parse HEAD^2)
       REQUEST=$(git log -n1 --format="%(trailers:key=run-full-compat,valueonly)" $COMMIT)

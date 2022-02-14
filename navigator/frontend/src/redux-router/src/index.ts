@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Action, Dispatch, Middleware, MiddlewareAPI } from 'redux';
+import { Action, Dispatch, Middleware, MiddlewareAPI } from "redux";
 
 /**
  * This is Redux middleware for handling History API based routing/URLs. The
@@ -30,27 +30,31 @@ export type RouterMiddleware<S> = (options: RouterOptions<S>) => Middleware;
 
 export function middleware<S>(options: RouterOptions<S>): Middleware<{}, S> {
   const { stateToUrl, urlToAction } = options;
-  return ({ dispatch, getState }: MiddlewareAPI<Dispatch, S>): (next: Dispatch) => Dispatch => {
+  return ({
+    dispatch,
+    getState,
+  }: MiddlewareAPI<Dispatch, S>): ((next: Dispatch) => Dispatch) => {
     // Install URL change listener. This dispatches an action whenever a URL is
     // popped from the browser history.
     window.onpopstate = (_: PopStateEvent) => {
       dispatch(urlToAction(window.location.pathname));
     };
 
-    return (next: Dispatch) => ((action: Action) => {
-      // If this is a router action, we capture it and dispatch the action
-      // corresponding to the specified URL. We then get the URL for the new
-      // state and push or replace this onto the browser history. If it's not a
-      // router action, we just pass it on and update the browser URL in place.
-      const returnValue = next(action);
-      // Middleware typings are not very good in Redux 3,
-      // We know that S and S2 are the same type.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const url = stateToUrl(getState() as any as S);
-      if (window.location.pathname !== url) {
-        window.history.pushState({}, '', url);
-      }
-      return returnValue;
-    }) as Dispatch;
+    return (next: Dispatch) =>
+      ((action: Action) => {
+        // If this is a router action, we capture it and dispatch the action
+        // corresponding to the specified URL. We then get the URL for the new
+        // state and push or replace this onto the browser history. If it's not a
+        // router action, we just pass it on and update the browser URL in place.
+        const returnValue = next(action);
+        // Middleware typings are not very good in Redux 3,
+        // We know that S and S2 are the same type.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const url = stateToUrl(getState() as any as S);
+        if (window.location.pathname !== url) {
+          window.history.pushState({}, "", url);
+        }
+        return returnValue;
+      }) as Dispatch;
   };
 }

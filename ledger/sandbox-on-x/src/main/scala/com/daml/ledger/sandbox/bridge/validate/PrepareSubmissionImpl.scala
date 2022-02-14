@@ -28,7 +28,7 @@ private[validate] class PrepareSubmissionImpl(bridgeMetrics: BridgeMetrics)(impl
     submission match {
       case transactionSubmission @ Submission.Transaction(submitterInfo, _, transaction, _) =>
         Timed.future(
-          bridgeMetrics.Stages.precomputeTransactionOutputs,
+          bridgeMetrics.Stages.PrepareSubmission.timer,
           Future {
             transaction.transaction.contractKeyInputs
               .map(contractKeyInputs => {
@@ -59,6 +59,6 @@ private[validate] class PrepareSubmissionImpl(bridgeMetrics: BridgeMetrics)(impl
     case LfTransaction.InconsistentKeys(key) =>
       TransactionInternallyInconsistentKey(key, completionInfo)
     case LfTransaction.DuplicateKeys(key) =>
-      TransactionInternallyInconsistentContract(key, completionInfo)
+      TransactionInternallyDuplicateKeys(key, completionInfo)
   }
 }

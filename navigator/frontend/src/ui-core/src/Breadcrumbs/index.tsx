@@ -1,9 +1,9 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as React from 'react';
-import Icon from '../Icon';
-import styled from '../theme';
+import * as React from "react";
+import Icon from "../Icon";
+import styled from "../theme";
 
 export interface Props {
   className?: string;
@@ -46,9 +46,7 @@ const Breadcrumbs = (props: Props): JSX.Element => {
     }
     parts.push(child);
   });
-  return (
-    <StyledList className={className}>{parts}</StyledList>
-  );
-}
+  return <StyledList className={className}>{parts}</StyledList>;
+};
 
 export default Breadcrumbs;

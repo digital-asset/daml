@@ -500,11 +500,13 @@ jobs:
     condition: and(succeeded(),
                    eq(variables['Build.SourceBranchName'], 'main'))
     pool:
-      vmImage: ubuntu-20.04
+      name: 'ubuntu_20_04'
+      demands: assignment -equals default
     variables:
       need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
     steps:
       - bash: |
+          eval "$(./dev-env/bin/dade-assist)"
           if [ "$(need_to_build)" == "true" ]; then
               branch="notices-update-$(Build.BuildId)"
               az extension add --name azure-devops

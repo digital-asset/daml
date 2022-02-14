@@ -1,12 +1,12 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Dispatch, Route } from '@da/ui-core';
-import UntypedLink, { HrefTarget } from '@da/ui-core/lib/Link';
-import * as React from 'react';
-import { connect, ConnectedComponent } from 'react-redux';
-import * as App from '../applets/app'
-import { pathToAction } from '../routes';
+import { Dispatch, Route } from "@da/ui-core";
+import UntypedLink, { HrefTarget } from "@da/ui-core/lib/Link";
+import * as React from "react";
+import { connect, ConnectedComponent } from "react-redux";
+import * as App from "../applets/app";
+import { pathToAction } from "../routes";
 
 // Note: The react-redux typings for connect() try to remove
 // the 'dispatch' property from OwnProps. This makes sense since react-redux
@@ -28,7 +28,6 @@ interface ReduxProps {
 type Props = ReduxProps & OwnProps;
 
 class Link extends React.Component<Props, {}> {
-
   constructor(props: Props) {
     super(props);
     this.click = this.click.bind(this);
@@ -39,8 +38,7 @@ class Link extends React.Component<Props, {}> {
   }
 
   render(): React.ReactElement<HTMLAnchorElement> {
-    const { route, className, target, children, params } =
-      this.props;
+    const { route, className, target, children, params } = this.props;
 
     const href = route.render(params);
 
@@ -49,13 +47,15 @@ class Link extends React.Component<Props, {}> {
         onClick={this.click}
         href={href}
         className={className}
-        target={target}
-      >
+        target={target}>
         {children}
       </UntypedLink>
     );
   }
 }
 
-const C: ConnectedComponent<typeof Link, React.PropsWithChildren<OwnProps>> = connect()(Link);
+const C: ConnectedComponent<
+  typeof Link,
+  React.PropsWithChildren<OwnProps>
+> = connect()(Link);
 export default C;

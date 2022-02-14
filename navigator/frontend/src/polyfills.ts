@@ -5,7 +5,7 @@
 // they don't export any useful value.
 
 // ES6 Promise
-import 'es6-promise/auto';
+import "es6-promise/auto";
 
 // Fetch API
-import 'whatwg-fetch';
+import "whatwg-fetch";
