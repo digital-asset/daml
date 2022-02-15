@@ -4,9 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.{Clock, Instant}
-import java.util.concurrent.ConcurrentLinkedQueue
 
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
@@ -46,13 +44,6 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   ListKnownPartiesRequest,
   PartyDetails,
 }
-import com.daml.ledger.api.v1.admin.user_management_service.{
-  CreateUserRequest,
-  CreateUserResponse,
-  DeleteUserRequest,
-  User,
-}
-import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementService
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionEndRequest,
@@ -96,7 +87,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.participant.util.HexOffset
 import com.daml.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
-import io.grpc.StatusRuntimeException
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
 import io.grpc.stub.StreamObserver
 import scalaz.Tag
@@ -134,22 +124,19 @@ private[testtool] final class ParticipantTestContext private[participant] (
     val applicationId: String,
     val identifierSuffix: String,
     referenceOffset: LedgerOffset,
-    services: LedgerServices,
+    protected[participant] val services: LedgerServices,
     partyAllocationConfig: PartyAllocationConfiguration,
     val ledgerEndpoint: Endpoint,
     val clientTlsConfiguration: Option[TlsConfiguration],
     val features: Features,
-)(implicit ec: ExecutionContext) {
+)(protected[participant] implicit val ec: ExecutionContext)
+    extends UserManagementTestContext {
   private val logger = ContextualizedLogger.get(getClass)
 
   import ParticipantTestContext._
 
   val begin: LedgerOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
-
-  /** Users created during execution of the test case on this participant
-    */
-  private val createdUsers = new ConcurrentLinkedQueue[User]
 
   /** A reference to the moving ledger end. If you want a fixed reference to the offset at
     * a given point in time, use [[currentEnd]]
@@ -852,39 +839,6 @@ private[testtool] final class ParticipantTestContext private[participant] (
         }
       _ <- waitForParties(participants, parties.toSet)
     } yield parties
-
-  def userManagement: UserManagementService =
-    services.userManagement // TODO (i12059) perhaps remove and create granular accessors
-
-  def deleteCreatedUsers(): Future[Unit] = {
-    import scala.jdk.CollectionConverters._
-    val deletions = createdUsers.asScala.map(user =>
-      services.userManagement
-        .deleteUser(
-          DeleteUserRequest(userId = user.id)
-        )
-        .map(_ => ())
-        .recover {
-          case e: StatusRuntimeException
-              if e.getStatus.getDescription.startsWith(
-                LedgerApiErrors.AdminServices.UserNotFound.id
-              ) =>
-            ()
-        }
-    )
-    Future.sequence(deletions).map(_ => ())
-  }
-
-  /** Creates a new user.
-    *
-    * Additionally keeps track of the created users so that they can be automatically when the test case ends.
-    */
-  def createUser(createUserRequest: CreateUserRequest): Future[CreateUserResponse] = {
-    for {
-      response <- services.userManagement.createUser(createUserRequest)
-      _ = createdUsers.add(response.user.get)
-    } yield response
-  }
 
   private def reservePartyNames(n: Int): Future[Vector[Party]] =
     Future.successful(Vector.fill(n)(Party(nextPartyHintId())))

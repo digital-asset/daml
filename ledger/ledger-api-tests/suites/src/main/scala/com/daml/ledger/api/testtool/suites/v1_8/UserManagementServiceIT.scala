@@ -207,7 +207,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         .createUser(CreateUserRequest(Some(user1), Nil))
         .mustFail("allocating a duplicate user")
       res3 <- ledger.createUser(CreateUserRequest(Some(user2), Nil))
-      res4 <- ledger.userManagement.deleteUser(DeleteUserRequest(userId2))
+      res4 <- ledger.deleteUser(DeleteUserRequest(userId2))
     } yield {
       assertEquals(res1, CreateUserResponse(Some(user1)))
       assertUserAlreadyExists(res2)
@@ -248,7 +248,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       _ <- ledger.createUser(
         CreateUserRequest(Some(user1), Nil)
       )
-      res1 <- ledger.userManagement.deleteUser(DeleteUserRequest(userId1))
+      res1 <- ledger.deleteUser(DeleteUserRequest(userId1))
       res2 <- ledger.userManagement
         .deleteUser(DeleteUserRequest(userId2))
         .mustFail("deleting non-existent user")
@@ -261,6 +261,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   userManagementTest(
     "TestListUsersVisibilityOfNewUserWhenCreatedAndThenDeleted",
     "Exercise ListUsers rpc: Creating and deleting a user makes it visible and then absent from a page",
+    runConcurrently = false,
   )(implicit ec => { implicit ledger =>
     def assertUserPresentIn(user: User, list: ListUsersResponse, msg: String): Unit = {
       assert(list.users.contains(user), msg)
@@ -292,7 +293,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         pageAfterCreate,
         "new users should be present after it's creation",
       )
-      _ <- ledger.userManagement.deleteUser(DeleteUserRequest(newUserId))
+      _ <- ledger.deleteUser(DeleteUserRequest(newUserId))
       pageAfterDelete <- ledger.userManagement.listUsers(
         ListUsersRequest(pageToken = "", pageSize = 10)
       )
@@ -308,7 +309,8 @@ final class UserManagementServiceIT extends LedgerTestSuite {
 
   userManagementTest(
     "TestListUsersCreateOrDeleteUserOnPreviousPage",
-    "Exercise ListUsers rpc: Adding or deleting a user from  previous page doesn't affect the subsequent page",
+    "Exercise ListUsers rpc: Adding a user to a previous page doesn't affect the subsequent page",
+    runConcurrently = false,
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
@@ -326,7 +328,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       page2 <- ledger.userManagement.listUsers(
         ListUsersRequest(pageToken = page1.nextPageToken, pageSize = 2)
       )
-      // Verify that the second page stays the same even after we have created a new user that is lexicographically smaller then the last user on the first page
+      // Verify that the second page stays the same even after we have created a new user that is lexicographically smaller than the last user on the first page
       // (Note: "!" is the smallest valid user-id character)
       newUserId = "!" + page1.users.last.id
       _ <- ledger.createUser(CreateUserRequest(Some(User(newUserId)), Seq.empty))
@@ -334,14 +336,6 @@ final class UserManagementServiceIT extends LedgerTestSuite {
         ListUsersRequest(pageToken = page1.nextPageToken, pageSize = 2)
       )
       _ = assertEquals("after creating new user before the second page", page2, page2B)
-      // cleanup: deleting new user
-      _ <- ledger.userManagement.deleteUser(DeleteUserRequest(newUserId))
-      // Verify that the second page stays the same even after we have deleted the last user from the first page page
-      _ <- ledger.userManagement.deleteUser(DeleteUserRequest(page1.users.last.id))
-      page2C <- ledger.userManagement.listUsers(
-        ListUsersRequest(pageToken = page1.nextPageToken, pageSize = 2)
-      )
-      _ = assertEquals("after deleting last user from the first page", page2, page2C)
     } yield {
       ()
     }
@@ -555,6 +549,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   private def userManagementTest(
       shortIdentifier: String,
       description: String,
+      runConcurrently: Boolean = true,
   )(
       body: ExecutionContext => ParticipantTestContext => Future[Unit]
   ): Unit = {
@@ -564,6 +559,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       allocate(NoParties),
       enabled = _.userManagement.supported,
       disabledReason = "requires user management feature",
+      runConcurrently = runConcurrently,
     )(implicit ec => { case Participants(Participant(ledger)) =>
       body(ec)(ledger)
     })
