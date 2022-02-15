@@ -8,12 +8,14 @@ import java.util.Base64
 
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain._
 import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserResponse, GetUserResponse}
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
@@ -29,6 +31,7 @@ import scala.util.Try
 private[apiserver] final class ApiUserManagementService(
     userManagementStore: UserManagementStore,
     maxUsersPageSize: Int,
+    submissionIdGenerator: SubmissionIdGenerator,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -51,21 +54,23 @@ private[apiserver] final class ApiUserManagementService(
     proto.UserManagementServiceGrpc.bindService(this, executionContext)
 
   override def createUser(request: proto.CreateUserRequest): Future[CreateUserResponse] =
-    withValidation {
-      for {
-        pUser <- requirePresence(request.user, "user")
-        pUserId <- requireUserId(pUser.id, "id")
-        pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)
-        pRights <- fromProtoRights(request.rights)
-      } yield (User(pUserId, pOptPrimaryParty), pRights)
-    } { case (user, pRights) =>
-      userManagementStore
-        .createUser(
-          user = user,
-          rights = pRights,
-        )
-        .flatMap(handleResult("creating user"))
-        .map(_ => CreateUserResponse(Some(request.user.get)))
+    withSubmissionId { implicit loggingContext =>
+      withValidation {
+        for {
+          pUser <- requirePresence(request.user, "user")
+          pUserId <- requireUserId(pUser.id, "id")
+          pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)
+          pRights <- fromProtoRights(request.rights)
+        } yield (User(pUserId, pOptPrimaryParty), pRights)
+      } { case (user, pRights) =>
+        userManagementStore
+          .createUser(
+            user = user,
+            rights = pRights,
+          )
+          .flatMap(handleResult("creating user"))
+          .map(_ => CreateUserResponse(Some(request.user.get)))
+      }
     }
 
   override def getUser(request: proto.GetUserRequest): Future[GetUserResponse] =
@@ -79,14 +84,16 @@ private[apiserver] final class ApiUserManagementService(
     )
 
   override def deleteUser(request: proto.DeleteUserRequest): Future[proto.DeleteUserResponse] =
-    withValidation(
-      requireUserId(request.userId, "user_id")
-    )(userId =>
-      userManagementStore
-        .deleteUser(userId)
-        .flatMap(handleResult("deleting user"))
-        .map(_ => proto.DeleteUserResponse())
-    )
+    withSubmissionId { implicit loggingContext =>
+      withValidation(
+        requireUserId(request.userId, "user_id")
+      )(userId =>
+        userManagementStore
+          .deleteUser(userId)
+          .flatMap(handleResult("deleting user"))
+          .map(_ => proto.DeleteUserResponse())
+      )
+    }
 
   override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] = {
     withValidation(
@@ -121,7 +128,7 @@ private[apiserver] final class ApiUserManagementService(
 
   override def grantUserRights(
       request: proto.GrantUserRightsRequest
-  ): Future[proto.GrantUserRightsResponse] =
+  ): Future[proto.GrantUserRightsResponse] = withSubmissionId { implicit loggingContext =>
     withValidation(
       for {
         userId <- requireUserId(request.userId, "user_id")
@@ -137,10 +144,11 @@ private[apiserver] final class ApiUserManagementService(
         .map(_.view.map(toProtoRight).toList)
         .map(proto.GrantUserRightsResponse(_))
     }
+  }
 
   override def revokeUserRights(
       request: proto.RevokeUserRightsRequest
-  ): Future[proto.RevokeUserRightsResponse] =
+  ): Future[proto.RevokeUserRightsResponse] = withSubmissionId { implicit loggingContext =>
     withValidation(
       for {
         userId <- fieldValidations.requireUserId(request.userId, "user_id")
@@ -156,6 +164,7 @@ private[apiserver] final class ApiUserManagementService(
         .map(_.view.map(toProtoRight).toList)
         .map(proto.RevokeUserRightsResponse(_))
     }
+  }
 
   override def listUserRights(
       request: proto.ListUserRightsRequest
@@ -220,6 +229,11 @@ private[apiserver] final class ApiUserManagementService(
       rights: Seq[proto.Right]
   ): Either[StatusRuntimeException, Set[UserRight]] =
     rights.toList.traverse(fromProtoRight).map(_.toSet)
+
+  private def withSubmissionId[A](
+      f: LoggingContext => A
+  )(implicit loggingContext: LoggingContext): A =
+    withEnrichedLoggingContext("submissionId" -> submissionIdGenerator.generate())(f)
 }
 
 object ApiUserManagementService {

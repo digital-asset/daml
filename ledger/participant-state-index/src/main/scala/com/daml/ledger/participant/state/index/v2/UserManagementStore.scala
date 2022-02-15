@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.index.v2
 
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -20,13 +21,19 @@ trait UserManagementStore {
 
   // write access
 
-  def createUser(user: User, rights: Set[UserRight]): Future[Result[Unit]]
+  def createUser(user: User, rights: Set[UserRight])(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[Unit]]
 
-  def deleteUser(id: Ref.UserId): Future[Result[Unit]]
+  def deleteUser(id: Ref.UserId)(implicit loggingContext: LoggingContext): Future[Result[Unit]]
 
-  def grantRights(id: Ref.UserId, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
+  def grantRights(id: Ref.UserId, rights: Set[UserRight])(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[Set[UserRight]]]
 
-  def revokeRights(id: Ref.UserId, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
+  def revokeRights(id: Ref.UserId, rights: Set[UserRight])(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[Set[UserRight]]]
 
   // read helpers
 
