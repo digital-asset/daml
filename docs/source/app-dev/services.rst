@@ -256,7 +256,7 @@ Use the **version service** to retrieve information about the Ledger API version
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.VersionService>`.
 
-.. _ledger-api-testing-services:
+.. _pruning-service:
 
 Pruning service
 ============================
@@ -265,7 +265,25 @@ Use the **pruning service** to prune archived contracts and transactions before 
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.ParticipantPruningService>`.
 
-.. _pruning-service:
+.. _user-management-service:
+
+User Management service
+============================
+
+Use the **user management service** to manage users and their rights on a given participant.
+
+For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.UserManagementService>`.
+
+.. _metering-report-service:
+
+Metering Report service
+============================
+
+Use the **metering report service** to retrieve a participant metering report.
+
+For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.MeteringReportService>`.
+
+.. _ledger-api-testing-services:
 
 Testing services
 ****************

@@ -42,6 +42,8 @@ all cases, the Ledger API exposes the same services:
   - Use the :ref:`ledger identity service <ledger-identity-service>` to retrieve the Ledger ID of the ledger the application is connected to.
   - Use the :ref:`ledger configuration service <ledger-configuration-service>` to retrieve some dynamic properties of the ledger, like maximum deduplication time for commands.
   - Use the :ref:`version service <version-service>` to retrieve information about the Ledger API version.
+  - Use the :ref:`user management service <user-management-service>` to manage users and their rights.
+  - Use the :ref:`metering report service <metering-report-service>` to retrieve a participant metering report.
 - Testing services (on Sandbox only, *not* for production ledgers)
 
   - Use the :ref:`time service <time-service>` to obtain the time as known by the ledger.
