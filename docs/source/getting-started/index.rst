@@ -94,7 +94,7 @@ Depending on your firewall settings, you may be asked whether to allow the app t
 
 You should now see the login page for the social network. For simplicity, in this app there is no password or sign-up required.
 
-1. Enter a user name. Valid user names are bob, alice, or charlie (note that these are all lower-case, although they are displayed in the social network AI with the usual capitalization).
+1. Enter a user name. Valid user names are bob, alice, or charlie (note that these are all lower-case, although they are displayed in the social network UI by their alias instead of their user id, with the usual capitalization).
 2. Click *Log in*.
 
    .. figure:: images/create-daml-app-login-screen.png
