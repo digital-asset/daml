@@ -56,8 +56,8 @@ if [[ "$NAME" == "linux" ]]; then
     cp bazel-bin/triggers/runner/trigger-runner_deploy.jar $OUTPUT_DIR/artifactory/$TRIGGER
 
     SCRIPT=daml-script-$RELEASE_TAG.jar
-    bazel build //daml-script/runner:script-runner_deploy.jar
-    cp bazel-bin/daml-script/runner/script-runner_deploy.jar $OUTPUT_DIR/artifactory/$SCRIPT
+    bazel build //daml-script/runner:daml-script-binary_deploy.jar
+    cp bazel-bin/daml-script/runner/daml-script-binary_deploy.jar $OUTPUT_DIR/artifactory/$SCRIPT
 
     NON_REPUDIATION=non-repudiation-$RELEASE_TAG-ee.jar
     bazel build //runtime-components/non-repudiation-app:non-repudiation-app_deploy.jar
