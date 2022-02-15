@@ -29,4 +29,6 @@ object PostgresQueryStrategy extends QueryStrategy {
       longs.view.map(Long.box).toArray
     cSQL"= ANY($longArray::bigint[])"
   }
+
+  override def binaryCollation: String = "COLLATE \"C\""
 }

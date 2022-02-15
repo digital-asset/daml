@@ -18,7 +18,8 @@ import com.daml.platform.store.backend.UserManagementStorageBackend
 
 import scala.util.Try
 
-object UserManagementStorageBackendTemplate extends UserManagementStorageBackend {
+class UserManagementStorageBackendTemplate(queryStrategy: QueryStrategy)
+    extends UserManagementStorageBackend {
 
   private val ParticipantUserParser: RowParser[(Int, String, Option[String], Long)] =
     int("internal_id") ~ str("user_id") ~ str("primary_party").? ~ long("created_at") map {
@@ -83,7 +84,7 @@ object UserManagementStorageBackendTemplate extends UserManagementStorageBackend
     SQL"""SELECT user_id, primary_party
           FROM participant_users
           $whereClause
-          ORDER BY user_id
+          ORDER BY user_id #${queryStrategy.binaryCollation}
           ${QueryStrategy.limitClause(Some(maxResults))}"""
       .asVectorOf(ParticipantUserParser2)(connection)
       .map { case (userId, primaryPartyRaw) =>

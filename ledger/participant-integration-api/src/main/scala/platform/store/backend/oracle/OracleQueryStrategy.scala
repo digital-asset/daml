@@ -32,4 +32,6 @@ object OracleQueryStrategy extends QueryStrategy {
       longs.view.map(Long.box).toVector
     cSQL"= ANY($longArray)"
   }
+
+  override def binaryCollation: String = "COLLATE BINARY"
 }

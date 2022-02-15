@@ -66,4 +66,8 @@ trait QueryStrategy {
       longs.view.map(Long.box).toArray
     cSQL"= ANY($longArray)"
   }
+
+  /** A collation where strings are ordered based on their binary representation
+    */
+  def binaryCollation: String
 }
