@@ -37,7 +37,8 @@ object PostgresDataSourceConfig {
   }
 }
 
-object PostgresDataSourceStorageBackend extends DataSourceStorageBackend {
+class PostgresDataSourceStorageBackend(minMajorVersionSupported: Int)
+    extends DataSourceStorageBackend {
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def createDataSource(
@@ -68,14 +69,14 @@ object PostgresDataSourceStorageBackend extends DataSourceStorageBackend {
   )(implicit loggingContext: LoggingContext): Unit = {
     getPostgresVersion(connection) match {
       case Some((major, minor)) =>
-        if (major < 10) {
+        if (major < minMajorVersionSupported) {
           val errorMessage =
             "Deprecated Postgres version. " +
-              s"Found Postgres version $major.$minor, minimum required Postgres version is 10. " +
+              s"Found Postgres version $major.$minor, minimum required Postgres version is $minMajorVersionSupported. " +
               "This application will continue running but is at risk of data loss, as Postgres < 10 does not support crash-fault tolerant hash indices. " +
-              "Please upgrade your Postgres database to version 10 or later to fix this issue."
+              s"Please upgrade your Postgres database to version $minMajorVersionSupported or later to fix this issue."
           logger.error(errorMessage)
-          throw new UnsupportedPostgresVersion(errorMessage)
+          throw new PostgresDataSourceStorageBackend.UnsupportedPostgresVersion(errorMessage)
         }
       case None =>
         logger.warn(
@@ -103,6 +104,11 @@ object PostgresDataSourceStorageBackend extends DataSourceStorageBackend {
 
   override def checkDatabaseAvailable(connection: Connection): Unit =
     DataSourceStorageBackendTemplate.checkDatabaseAvailable(connection)
+}
+
+object PostgresDataSourceStorageBackend {
+  def apply(): PostgresDataSourceStorageBackend =
+    new PostgresDataSourceStorageBackend(minMajorVersionSupported = 10)
 
   final class UnsupportedPostgresVersion(message: String)
       extends RuntimeException(message)
