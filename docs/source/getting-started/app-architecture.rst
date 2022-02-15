@@ -1,13 +1,16 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. SPDX-License-Identifier: Apache-2.0
+
 App Architecture
 ****************
 
-In this section we'll look at the different components of our social network app. The goal is to familiarize you enough to feel comfortable extending the code with a new feature in the next section. There are two main components:
+In this section we'll look at the different components of the social network app we created in  `Building Your App <https://docs.daml.com/getting-started/index.html>`_. The goal is to familiarize yourself with the basics of Daml architecture enough to feel comfortable extending the code with a new feature in the next section. There are two main components:
 
-  * the Daml model and
-  * the React/TypeScript frontend.
+  * the Daml model
+  * the React/TypeScript frontend
 
 We generate TypeScript code to bridge the two.
 
@@ -25,7 +28,7 @@ In your terminal, navigate to the root ``create-daml-app`` directory and run::
   daml studio
 
 This should open the Visual Studio Code editor at the root of the project.
-(You may get a new tab pop up with release notes for the latest version of Daml - just close this.)
+(You may get a new tab pop up with release notes for the latest version of Daml - close this.)
 Using the file *Explorer* on the left sidebar, navigate to the ``daml`` folder and double-click on the ``User.daml`` file.
 
 The Daml code defines the *data* and *workflow* of the application.
@@ -48,14 +51,20 @@ The signatories are the parties whose authorization is required to create or arc
 The observers are the parties who are able to view the contract on the ledger.
 In this case all users that a particular user is following are able to see the user contract.
 
+It's also important to distinguish between parties, users, and aliases in terms of naming:
+ - Parties are unique across the entire Daml network. These must be allocated before you can use them to log in, and allocation results in a random-looking (but not actually random) string that identifies the party and is used in your Daml code. Parties are a builtin concept.
+ - On each participant node you can create users with human-readable user ids. Each user can be associated with a party allocated on that participant node, and refers to that party only on that node. Users are a purely local concept, meaning you can never address a user on another node by user id, and you never work with users in your Daml code; party ids are always used for these purposes. Users are also a builtin concept.
+ - Lastly we have user aliases. These are not a builtin concept, they are defined by an Alias template within the specific model used in this guide. Aliases serve as a way to address parties on all nodes via a human readable name.
+
+The social network user discussed in this guide is really a combination of all three of these concepts. Alice, Bob, and Charlie are all aliases that correspond to a single user id and party id each. 
+
 Let's see what the ``signatory`` and ``observer`` clauses mean in our app more concretely.
-A user Alice can see another user Bob in the network only when Bob is following Alice (only if Alice is in the ``following`` list in his user contract).
-For this to be true, Bob must have previously started to follow Alice, as he is the sole signatory on his user contract.
+The user with the alias Alice can see another user, alias Bob, in the network only when Bob is following Alice (only if Alice is in the ``following`` list in his user contract). For this to be true, Bob must have previously started to follow Alice, as he is the sole signatory on his user contract.
 If not, Bob will be invisible to Alice.
 
-Here we see two concepts that are central to Daml: *authorization* and *privacy*.
+This illustrates two concepts that are central to Daml: *authorization* and *privacy*.
 Authorization is about who can *do* what, and privacy is about who can *see* what.
-In Daml we must answer these questions upfront, as they fundamentally change the design of an application.
+In Daml you must answer these questions upfront, as they are fundamental to the design of the application.
 
 The last part of the Daml model is the operation to follow users, called a *choice* in Daml.
 
@@ -64,7 +73,7 @@ The last part of the Daml model is the operation to follow users, called a *choi
   :start-after: -- FOLLOW_BEGIN
   :end-before: -- FOLLOW_END
 
-Daml contracts are *immutable* (can not be changed in place), so the only way to "update" one is to archive it and create a new instance.
+Daml contracts are *immutable* (can not be changed in place), so the only way to update one is to archive it and create a new instance.
 That is what the ``Follow`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the new user to follow added to the list. Here is a quick explanation of the code:
 
     - The choice starts with the ``nonconsuming choice`` keyword followed by the choice name ``Follow``.
@@ -75,7 +84,7 @@ That is what the ``Follow`` choice does: after checking some preconditions, it a
     - After passing some checks, the current contract is archived with ``archive self``.
     - A new ``User`` contract with the new user we have started following is created (the new user is added to the ``following`` list).
 
-This information should be enough for understanding how choices work in this guide. More detailed information on choices can be found in :doc:`our docs </daml/reference/choices>`.
+More detailed information on choices can be found in :doc:`our docs </daml/reference/choices>`.
 
 Let's move on to how our Daml model is reflected and used on the UI side.
 
@@ -85,7 +94,7 @@ TypeScript Code Generation
 The user interface for our app is written in `TypeScript <https://www.typescriptlang.org/>`_.
 TypeScript is a variant of JavaScript that provides more support during development through its type system.
 
-In order to build an application on top of Daml, we need a way to refer to our Daml templates and choices in TypeScript.
+To build an application on top of Daml, we need a way to refer to our Daml templates and choices in TypeScript.
 We do this using a Daml to TypeScript code generation tool in the SDK.
 
 To run code generation, we first need to compile the Daml model to an archive format (a ``.dar`` file).
@@ -114,13 +123,13 @@ We'll first look at ``App.tsx``, which is the entry point to our application.
   :end-before: // APP_END
 
 An important tool in the design of our components is a React feature called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
-Hooks allow you to share and update state across components, avoiding having to thread it through manually.
-We take advantage of hooks in particular to share ledger state across components.
-We use custom :doc:`Daml React hooks </app-dev/bindings-ts/daml-react>` to query the ledger for contracts, create new contracts, and exercise choices. This is the library you will be using the most when interacting with the ledger [#f1]_ .
+Hooks allow you to share and update state across components, avoiding the need to thread it through manually.
+We take advantage of hooks to share ledger state across components.
+Custom :doc:`Daml React hooks </app-dev/bindings-ts/daml-react>` query the ledger for contracts, create new contracts, and exercise choices. This is the library you will use most often when interacting with the ledger [#f1]_ .
 
 The ``useState`` hook (not specific to Daml) here keeps track of the user's credentials.
 If they are not set, we render the ``LoginScreen`` with a callback to ``setCredentials``.
-If they are set, then we render the ``MainScreen`` of the app.
+If they are set, we render the ``MainScreen`` of the app.
 This is wrapped in the ``DamlLedger`` component, a `React context <https://reactjs.org/docs/context.html>`_ with a handle to the ledger.
 
 Let's move on to more advanced uses of our Daml React library.
@@ -132,7 +141,7 @@ It uses Daml React hooks to query and update ledger state.
   :start-after: // USERS_BEGIN
   :end-before: // USERS_END
 
-The ``useParty`` hook simply returns the current user as stored in the ``DamlLedger`` context.
+The ``useParty`` hook returns the current user as stored in the ``DamlLedger`` context.
 A more interesting example is the ``allUsers`` line.
 This uses the ``useStreamQueries`` hook to get all ``User`` contracts on the ledger.
 (``User.User`` here is an object generated by ``daml codegen js`` - it stores metadata of the ``User`` template defined in ``User.daml``.)
@@ -140,7 +149,7 @@ Note however that this query preserves privacy: only users that follow the curre
 This behaviour is due to the observers on the ``User`` contract being exactly in the list of users that the current user is following.
 
 A final point on this is the *streaming* aspect of the query.
-This means that results are updated as they come in - there is no need for periodic or manual reloading to see updates.
+Results are updated as they come in - there is no need for periodic or manual reloading to see updates.
 
 Another example, showing how to *update* ledger state, is how we exercise the ``Follow`` choice of the ``User`` template.
 
@@ -154,7 +163,7 @@ The core of the ``follow`` function here is the call to ``ledger.exerciseByKey``
 The *key* in this case is the username of the current user, used to look up the corresponding ``User`` contract.
 The wrapper function ``follow`` is then passed to the subcomponents of ``MainView``.
 For example, ``follow`` is passed to the ``UserList`` component as an argument (a `prop <https://reactjs.org/docs/components-and-props.html>`_ in React terms).
-This gets triggered when you click the icon next to a user's name in the *Network* panel.
+This is triggered when you click the icon next to a user's name in the *Network* panel.
 
 .. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/MainView.tsx
   :language: tsx
@@ -166,4 +175,4 @@ You'll see this more as you develop :doc:`your first feature <first-feature>` fo
 
 .. rubric:: Footnotes
 
-.. [#f1] FYI Behind the scenes the Daml React hooks library uses the :doc:`Daml Ledger TypeScript library </app-dev/bindings-ts/daml-ledger>` to communicate with a ledger implementation via the :doc:`HTTP JSON API </json-api/index>`.
+.. [#f1]  Behind the scenes the Daml React hooks library uses the :doc:`Daml Ledger TypeScript library </app-dev/bindings-ts/daml-ledger>` to communicate with a ledger implementation via the :doc:`HTTP JSON API </json-api/index>`.
