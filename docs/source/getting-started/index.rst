@@ -37,7 +37,7 @@ You will also need some common software tools to build and interact with the tem
 - A terminal application for command line interaction.
 
 
-Running the app
+Running the App
 ***************
 
 To get the app up and running:

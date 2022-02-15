@@ -4,8 +4,8 @@
 Installing the SDK
 ##################
 
-1. Installing the dependencies
-***************************
+1. Installing the Dependencies
+******************************
 
 The Daml SDK currently runs on Windows, macOS and Linux.
 
@@ -17,7 +17,7 @@ You need to install:
    As part of the installation process you may need to set up the ``JAVA_HOME`` variable. You can find instructions for this process on :doc:`Windows,macOS, and Linux here <path-variables>`.
 
 2. Installing the SDK
-*******************
+*********************
 
 Windows 10
 ==========
@@ -71,7 +71,7 @@ Downloading Manually
 
 If you want to verify the SDK download for security purposes before installing, you can look at :doc:`our detailed instructions for manual download and installation <manual-download>`.
 
-Next steps
+Next Steps
 **********
 
 - Follow the :doc:`getting started guide </getting-started/index>`.

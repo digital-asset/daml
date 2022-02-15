@@ -64,9 +64,6 @@ As with the ``Follow`` choice, there are a few aspects to note here.
 
 This completes the workflow for messaging in our app.
 
-Running the New Feature
-=======================
-
 Navigate to the terminal window where the ``daml start`` process is running and press 'r'. This will
 
   - Compile our Daml code into a *DAR file containing the new feature*
