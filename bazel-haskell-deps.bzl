@@ -58,8 +58,6 @@ haskell_cabal_library(
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:lsp-types-normalisation.patch",
-            # `mod` does not have `integer-simple` support so we swap it out for another dep.
-            "@com_github_digital_asset_daml//bazel_tools:lsp-types-modular-arithmetic.patch",
         ],
         sha256 = LSP_TYPES_SHA256,
         strip_prefix = "lsp-types-{}".format(LSP_TYPES_VERSION),
