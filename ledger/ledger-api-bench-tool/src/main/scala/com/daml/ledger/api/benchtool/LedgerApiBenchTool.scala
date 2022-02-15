@@ -80,58 +80,61 @@ object LedgerApiBenchTool {
           )
       }
 
+    def benchmarkStep(
+        regularUserServices: LedgerApiServices,
+        streamConfigs: List[WorkflowConfig.StreamConfig],
+    ): Future[Either[String, Unit]] =
+      if (streamConfigs.isEmpty) {
+        logger.info(s"No streams defined. Skipping the benchmark step.")
+        Future.successful(Right(()))
+      } else {
+        Benchmark.run(
+          streamConfigs = streamConfigs,
+          reportingPeriod = config.reportingPeriod,
+          apiServices = regularUserServices,
+          metricsReporter = config.metricsReporter,
+        )
+      }
+
+    def submissionStep(
+        regularUserServices: LedgerApiServices,
+        adminServices: LedgerApiServices,
+        submissionConfig: Option[WorkflowConfig.SubmissionConfig],
+    ): Future[Option[CommandSubmitter.SubmissionSummary]] =
+      submissionConfig match {
+        case None =>
+          logger.info(s"No submission defined. Skipping.")
+          Future.successful(None)
+        case Some(submissionConfig) =>
+          val submitter = CommandSubmitter(
+            names = names,
+            benchtoolUserServices = regularUserServices,
+            adminServices = adminServices,
+          )
+          submitter
+            .submit(
+              config = submissionConfig,
+              maxInFlightCommands = config.maxInFlightCommands,
+              submissionBatchSize = config.submissionBatchSize,
+            )
+            .map(Some(_))
+      }
+
     apiServicesOwner(config, authorizationHelper).use {
       servicesForUserId: (String => LedgerApiServices) =>
         val adminServices = servicesForUserId(UserManagementStore.DefaultParticipantAdminUserId)
         val regularUserServices = servicesForUserId(names.benchtoolUserId)
 
-        def benchmarkStep(
-            streamConfigs: List[WorkflowConfig.StreamConfig]
-        ): Future[Either[String, Unit]] =
-          if (streamConfigs.isEmpty) {
-            logger.info(s"No streams defined. Skipping the benchmark step.")
-            Future.successful(Right(()))
-          } else {
-            Benchmark.run(
-              streamConfigs = streamConfigs,
-              reportingPeriod = config.reportingPeriod,
-              apiServices = regularUserServices,
-              metricsReporter = config.metricsReporter,
-            )
-          }
-
-        def submissionStep(
-            submissionConfig: Option[WorkflowConfig.SubmissionConfig]
-        ): Future[Option[CommandSubmitter.SubmissionSummary]] =
-          submissionConfig match {
-            case None =>
-              logger.info(s"No submission defined. Skipping.")
-              Future.successful(None)
-            case Some(submissionConfig) =>
-              val submitter = CommandSubmitter(
-                names = names,
-                benchtoolUserServices = regularUserServices,
-                adminServices = adminServices,
-              )
-              submitter
-                .submit(
-                  config = submissionConfig,
-                  maxInFlightCommands = config.maxInFlightCommands,
-                  submissionBatchSize = config.submissionBatchSize,
-                )
-                .map(Some(_))
-          }
-
         for {
           _ <- regularUserCreationStep(adminServices)
-          summary <- submissionStep(config.workflow.submission)
+          summary <- submissionStep(regularUserServices, adminServices, config.workflow.submission)
           streams = config.workflow.streams.map(
             ConfigEnricher.enrichStreamConfig(_, summary)
           )
           _ = logger.info(
             s"Stream configs adapted after the submission step: ${prettyPrint(streams)}"
           )
-          benchmarkResult <- benchmarkStep(streams)
+          benchmarkResult <- benchmarkStep(regularUserServices, streams)
         } yield benchmarkResult
     }
 
