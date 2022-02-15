@@ -76,7 +76,6 @@ object Main {
       keyValueSource,
       metrics,
       failOnUnexpectedEvent = false,
-      enableSelfServiceErrorCodes = true,
     )
 
     // Note: this method is doing quite a lot of work to transform a sequence of write sets

@@ -115,12 +115,11 @@ object WriteServiceWithDeduplicationSupport {
   def apply(
       delegate: WriteService,
       indexCompletionService: IndexCompletionsService,
-      enableSelfServiceErrorCodes: Boolean,
   )(implicit
       materializer: Materializer,
       ec: ExecutionContext,
   ): WriteServiceWithDeduplicationSupport = {
-    val errorFactories = ErrorFactories(enableSelfServiceErrorCodes)
+    val errorFactories = ErrorFactories()
     new WriteServiceWithDeduplicationSupport(
       delegate,
       new DeduplicationPeriodSupport(

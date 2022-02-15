@@ -1071,7 +1071,7 @@ def sdk_platform_test(sdk_version, platform_version):
     sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
 
     sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
-    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--enable-conflict-checking", "--mutable-contract-state-cache"]
+    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache"]
 
     json_api_args = ["json-api"]
 
@@ -1222,7 +1222,7 @@ def sdk_platform_test(sdk_version, platform_version):
         sdk_version = sdk_version,
         daml = daml_assistant,
         sandbox = sandbox_on_x if versions.is_at_least("2.0.0", platform_version) else sandbox,
-        sandbox_args = ["--contract-id-seeding=testing-weak", "--enable-conflict-checking", "--mutable-contract-state-cache", "--participant=participant-id=sandbox,port=0,port-file=__PORTFILE__"] if versions.is_at_least("2.0.0", platform_version) else ["sandbox", "--port=0", "--port-file=__PORTFILE__"],
+        sandbox_args = ["--contract-id-seeding=testing-weak", "--mutable-contract-state-cache", "--participant=participant-id=sandbox,port=0,port-file=__PORTFILE__"] if versions.is_at_least("2.0.0", platform_version) else ["sandbox", "--port=0", "--port-file=__PORTFILE__"],
         size = "large",
         # We see timeouts here fairly regularly so we
         # increase the number of CPUs.
@@ -1234,21 +1234,23 @@ def sdk_platform_test(sdk_version, platform_version):
     # However, the test setup is flexible enough, that we
     # can control them individually.
 
-    create_daml_app_test(
-        name = "create-daml-app-{sdk_version}-platform-{platform_version}".format(sdk_version = version_to_name(sdk_version), platform_version = version_to_name(platform_version)),
-        daml = daml_assistant,
-        sandbox = sandbox_on_x if versions.is_at_least("2.0.0", platform_version) else sandbox,
-        sandbox_version = platform_version,
-        json_api = json_api,
-        json_api_version = platform_version,
-        daml_types = "@daml-sdk-{}//:daml-types.tgz".format(sdk_version),
-        daml_react = "@daml-sdk-{}//:daml-react.tgz".format(sdk_version),
-        daml_ledger = "@daml-sdk-{}//:daml-ledger.tgz".format(sdk_version),
-        messaging_patch = "@daml-sdk-{}//:create_daml_app.patch".format(sdk_version),
-        codegen_output = "//:create-daml-app-codegen-{}.tar.gz".format(version_to_name(sdk_version)),
-        dar = "//:create-daml-app-{}.dar".format(version_to_name(sdk_version)),
-        size = "large",
-        # Yarn gets really unhappy if it is called in parallel
-        # so we mark this exclusive for now.
-        tags = extra_tags(sdk_version, platform_version) + ["exclusive"],
-    )
+    # We allocate parties via @daml/ledger which only supports this since SDK 1.8.0
+    if versions.is_at_least("1.8.0", sdk_version):
+        create_daml_app_test(
+            name = "create-daml-app-{sdk_version}-platform-{platform_version}".format(sdk_version = version_to_name(sdk_version), platform_version = version_to_name(platform_version)),
+            daml = daml_assistant,
+            sandbox = sandbox_on_x if versions.is_at_least("2.0.0", platform_version) else sandbox,
+            sandbox_version = platform_version,
+            json_api = json_api,
+            json_api_version = platform_version,
+            daml_types = "@daml-sdk-{}//:daml-types.tgz".format(sdk_version),
+            daml_react = "@daml-sdk-{}//:daml-react.tgz".format(sdk_version),
+            daml_ledger = "@daml-sdk-{}//:daml-ledger.tgz".format(sdk_version),
+            messaging_patch = "@daml-sdk-{}//:create_daml_app.patch".format(sdk_version),
+            codegen_output = "//:create-daml-app-codegen-{}.tar.gz".format(version_to_name(sdk_version)),
+            dar = "//:create-daml-app-{}.dar".format(version_to_name(sdk_version)),
+            size = "large",
+            # Yarn gets really unhappy if it is called in parallel
+            # so we mark this exclusive for now.
+            tags = extra_tags(sdk_version, platform_version) + ["exclusive"],
+        )

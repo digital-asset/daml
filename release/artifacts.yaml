@@ -133,12 +133,6 @@
   type: jar-scala
 - target: //ledger/ledger-offset:ledger-offset
   type: jar-scala
-- target: //ledger/ledger-on-memory:ledger-on-memory
-  type: jar-scala
-- target: //ledger/ledger-on-memory:ledger-on-memory-app
-  type: jar-scala
-- target: //ledger/ledger-on-sql:ledger-on-sql
-  type: jar-scala
 - target: //ledger/ledger-resources:ledger-resources
   type: jar-scala
 - target: //ledger/metrics:metrics
@@ -170,8 +164,6 @@
 - target: //ledger/participant-state-index:participant-state-index
   type: jar-scala
 - target: //ledger/participant-state-metrics:participant-state-metrics
-  type: jar-scala
-- target: //ledger/sandbox:sandbox-ce
   type: jar-scala
 - target: //ledger/sandbox-common:sandbox-common
   type: jar-scala

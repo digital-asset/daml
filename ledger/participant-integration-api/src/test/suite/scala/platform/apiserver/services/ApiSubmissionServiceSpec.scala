@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.services
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.error.{ErrorCause, ErrorCodesVersionSwitcher}
+import com.daml.error.ErrorCause
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks}
@@ -35,7 +35,7 @@ import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, Inside}
+import org.scalatest.Inside
 import java.time.Duration
 import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.atomic.AtomicInteger
@@ -221,16 +221,6 @@ class ApiSubmissionServiceSpec
   behavior of "submit"
 
   it should "return proper gRPC status codes for DamlLf errors" in {
-    testProperGrpcStatusCodesForDamlLfErrors(useSelfServiceErrorCodes = false)
-  }
-
-  it should "return proper gRPC status codes for DamlLf errors (self service error codes a.k.a v2 error codes)" in {
-    testProperGrpcStatusCodesForDamlLfErrors(useSelfServiceErrorCodes = true)
-  }
-
-  private def testProperGrpcStatusCodesForDamlLfErrors(
-      useSelfServiceErrorCodes: Boolean
-  ): Future[Assertion] = {
     // given
     val partyManagementService = mock[IndexPartyManagementService]
     val writeService = mock[WriteService]
@@ -245,7 +235,7 @@ class ApiSubmissionServiceSpec
           ),
           None,
         )
-      ) -> ((Status.ABORTED, Status.NOT_FOUND)),
+      ) -> Status.NOT_FOUND,
       ErrorCause.DamlLf(
         LfError.Interpretation(
           LfError.Interpretation.DamlException(
@@ -255,12 +245,12 @@ class ApiSubmissionServiceSpec
           ),
           None,
         )
-      ) -> ((Status.ABORTED, Status.ALREADY_EXISTS)),
+      ) -> Status.ALREADY_EXISTS,
       ErrorCause.DamlLf(
         LfError.Validation(
           LfError.Validation.ReplayMismatch(ReplayMismatch(null, null))
         )
-      ) -> ((Status.ABORTED, Status.INTERNAL)),
+      ) -> Status.INTERNAL,
       ErrorCause.DamlLf(
         LfError.Preprocessing(
           LfError.Preprocessing.Lookup(
@@ -270,7 +260,7 @@ class ApiSubmissionServiceSpec
             )
           )
         )
-      ) -> ((Status.INVALID_ARGUMENT, Status.INVALID_ARGUMENT)),
+      ) -> Status.INVALID_ARGUMENT,
       ErrorCause.DamlLf(
         LfError.Interpretation(
           LfError.Interpretation.DamlException(
@@ -281,22 +271,15 @@ class ApiSubmissionServiceSpec
           ),
           None,
         )
-      ) -> ((Status.INVALID_ARGUMENT, Status.INVALID_ARGUMENT)),
-      ErrorCause.LedgerTime(0) -> ((Status.ABORTED, Status.ABORTED)),
-    ).map { case (key, (statusV1, statusV2)) =>
-      if (useSelfServiceErrorCodes) {
-        (key, statusV2)
-      } else {
-        (key, statusV1)
-      }
-    }
+      ) -> Status.INVALID_ARGUMENT,
+      ErrorCause.LedgerTime(0) -> Status.ABORTED,
+    )
 
     val service = newSubmissionService(
       writeService,
       partyManagementService,
       implicitPartyAllocation = true,
       commandExecutor = mockCommandExecutor,
-      useSelfServiceErrorCodes = useSelfServiceErrorCodes,
     )
 
     // when
@@ -379,7 +362,6 @@ object ApiSubmissionServiceSpec {
       partyManagementService: IndexPartyManagementService,
       implicitPartyAllocation: Boolean,
       commandExecutor: CommandExecutor = null,
-      useSelfServiceErrorCodes: Boolean = true,
       checkOverloaded: TelemetryContext => Option[SubmissionResult] = _ => None,
   )(implicit
       executionContext: ExecutionContext,
@@ -400,9 +382,6 @@ object ApiSubmissionServiceSpec {
       commandExecutor = commandExecutor,
       configuration = ApiSubmissionService.Configuration(implicitPartyAllocation),
       metrics = new Metrics(new MetricRegistry),
-      errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
-        enableSelfServiceErrorCodes = useSelfServiceErrorCodes
-      ),
       checkOverloaded = checkOverloaded,
     )
   }

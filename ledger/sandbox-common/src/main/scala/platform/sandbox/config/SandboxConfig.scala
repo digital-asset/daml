@@ -66,7 +66,6 @@ final case class SandboxConfig(
     managementServiceTimeout: Duration,
     sqlStartMode: Option[PostgresStartupMode],
     enableCompression: Boolean,
-    enableSelfServiceErrorCodes: Boolean,
     userManagementConfig: UserManagementConfig,
 ) {
 
@@ -166,7 +165,6 @@ object SandboxConfig {
       managementServiceTimeout = DefaultManagementServiceTimeout,
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableCompression = false,
-      enableSelfServiceErrorCodes = true,
       userManagementConfig = UserManagementConfig.default(true),
     )
 

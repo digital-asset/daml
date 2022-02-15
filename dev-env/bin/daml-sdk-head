@@ -61,12 +61,12 @@ for opt in "$@"; do
       echo "  --nuke  Remove existing daml installation before installing daml-head."
       echo "  --profiling  Build Haskell executables with profiling enabled."
       echo "  --skip-jars  Skip building and installing the JARs."
-      echo "  --skip-jar-docs Skips docs builds & installation for jars."
+      echo "  --skip-jar-docs  Skips docs builds & installation for jars."
       echo "  --skip-sdk  Skip building and installing the SDK."
-      echo "  --scala-version=$VERSION Only build for scala version $VERSION, can be specified multiple times. Note that you need an equal sign not spaces."
+      echo "  --scala-version=<version>  Only build for Scala version <version>. Can be specified multiple times. Note that you need an equal sign, not a space."
       echo "  --damlc  Update damlc only, if daml-head is already installed."
-      echo "  --sha Include SHA information in version number."
-      echo "  --ee Build the EE edition."
+      echo "  --sha  Include SHA information in version number."
+      echo "  --ee  Build the EE edition."
 
       exit 1
   esac

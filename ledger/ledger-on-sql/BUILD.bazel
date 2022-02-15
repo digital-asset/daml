@@ -52,7 +52,6 @@ da_scala_library(
         "@maven//:org_playframework_anorm_anorm_tokenizer",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    tags = ["maven_coordinates=com.daml:ledger-on-sql:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

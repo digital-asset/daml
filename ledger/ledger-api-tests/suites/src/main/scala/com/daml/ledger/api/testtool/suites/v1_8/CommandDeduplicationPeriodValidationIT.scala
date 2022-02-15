@@ -200,7 +200,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
         failure,
         // Canton returns INVALID_DEDUPLICATION_PERIOD with earliest_offset metadata
         // KV returns PARTICIPANT_PRUNED_DATA_ACCESSED with earliest_offset metadata
-        selfServiceErrorCode =
+        errorCode =
           if (isOffsetNativelySupported)
             LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
           else LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,

@@ -127,7 +127,7 @@ withSandbox (AppendOnly appendOnly) assistant jdbcUrl f =
     -- we spin it up directly.
     withSandboxOnX portFile f = do
           let args =
-                  [ "--contract-id-seeding=testing-weak", "--enable-conflict-checking", "--mutable-contract-state-cache"
+                  [ "--contract-id-seeding=testing-weak", "--mutable-contract-state-cache"
                   , "--ledger-id=" <> ledgerid
                   , "--participant=participant-id=sandbox-participant,port=0,port-file=" <> portFile <> ",server-jdbc-url=" <> T.unpack jdbcUrl <> ",ledgerid=" <> ledgerid
                   ]

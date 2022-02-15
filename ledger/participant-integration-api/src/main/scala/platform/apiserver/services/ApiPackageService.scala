@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.services
 
 import com.daml.daml_lf_dev.DamlLf.{Archive, HashFunction}
-import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
@@ -24,15 +24,14 @@ import io.grpc.{BindableService, ServerServiceDefinition}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPackageService private (
-    backend: IndexPackagesService,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    backend: IndexPackagesService
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends PackageService
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
 
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, executionContext)
@@ -97,7 +96,7 @@ private[apiserver] final class ApiPackageService private (
             ValidationLogger.logFailure(
               request,
               errorFactories
-                .invalidArgument(Some(true))(s"Invalid package id: $errorMessage")(
+                .invalidArgument(s"Invalid package id: $errorMessage")(
                   createContextualizedErrorLogger
                 ),
             )
@@ -127,16 +126,14 @@ private[platform] object ApiPackageService {
   def create(
       ledgerId: LedgerId,
       backend: IndexPackagesService,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): PackageService with GrpcApiService = {
     val service = new ApiPackageService(
-      backend = backend,
-      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
+      backend = backend
     )
-    val fieldValidations = FieldValidations(ErrorFactories(errorCodesVersionSwitcher))
+    val fieldValidations = FieldValidations(ErrorFactories())
     new PackageServiceValidation(
       service = service,
       ledgerId = ledgerId,

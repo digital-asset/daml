@@ -3,11 +3,7 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 
 import java.util.UUID
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
@@ -34,13 +30,12 @@ import scala.concurrent.{ExecutionContext, Future}
 final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
     writeBackend: state.WriteParticipantPruningService,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ParticipantPruningServiceGrpc.ParticipantPruningService
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
 
   import errorFactories._
 
@@ -56,7 +51,7 @@ final class ApiParticipantPruningService private (
       )
       .left
       .map(err =>
-        invalidArgument(None)(s"submission_id $err")(
+        invalidArgument(s"submission_id $err")(
           contextualizedErrorLogger(request.submissionId)
         )
       )
@@ -143,7 +138,7 @@ final class ApiParticipantPruningService private (
     Either.cond(
       offset.nonEmpty,
       offset,
-      invalidArgument(None)("prune_up_to not specified"),
+      invalidArgument("prune_up_to not specified"),
     )
 
   private def checkOffsetIsHexadecimal(
@@ -154,7 +149,7 @@ final class ApiParticipantPruningService private (
       .toEither
       .left
       .map(t =>
-        nonHexOffset(None)(
+        nonHexOffset(
           fieldName = "prune_up_to",
           offsetValue = pruneUpToString,
           message =
@@ -177,7 +172,7 @@ final class ApiParticipantPruningService private (
           Future.failed(
             // TODO error codes: Relax the constraint (pruneUpToString <= ledgerEnd.value)
             //                   and use offsetAfterLedgerEnd
-            offsetOutOfRange(None)(
+            offsetOutOfRange(
               s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
             )
           )
@@ -193,11 +188,10 @@ object ApiParticipantPruningService {
   def createApiService(
       readBackend: IndexParticipantPruningService with LedgerEndService,
       writeBackend: state.WriteParticipantPruningService,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ParticipantPruningServiceGrpc.ParticipantPruningService with GrpcApiService =
-    new ApiParticipantPruningService(readBackend, writeBackend, errorCodesVersionSwitcher)
+    new ApiParticipantPruningService(readBackend, writeBackend)
 
 }

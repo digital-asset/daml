@@ -3,11 +3,7 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.v1.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportService
 import com.daml.ledger.api.v1.admin.metering_report_service._
 import com.daml.ledger.participant.state.index.v2.MeteringStore
@@ -29,7 +25,6 @@ import scala.util.chaining.scalaUtilChainingOps
 private[apiserver] final class ApiMeteringReportService(
     participantId: Ref.ParticipantId,
     store: MeteringStore,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
     clock: () => ProtoTimestamp = () => toProtoTimestamp(Timestamp.now()),
 )(implicit
     executionContext: ExecutionContext,
@@ -42,7 +37,7 @@ private[apiserver] final class ApiMeteringReportService(
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val generator = new MeteringReportGenerator(participantId)
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
 
   override def bindService(): ServerServiceDefinition =
     MeteringReportServiceGrpc.bindService(this, executionContext)
@@ -73,7 +68,7 @@ private[apiserver] final class ApiMeteringReportService(
       case Right(f) => f
       case Left(error) =>
         Future.failed(
-          ValidationLogger.logFailure(request, errorFactories.invalidArgument(None)(error))
+          ValidationLogger.logFailure(request, errorFactories.invalidArgument(error))
         )
     }
   }

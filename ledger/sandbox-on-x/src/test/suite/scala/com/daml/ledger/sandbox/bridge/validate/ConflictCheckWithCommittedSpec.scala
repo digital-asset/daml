@@ -157,7 +157,7 @@ class ConflictCheckWithCommittedSpec
 
     val indexServiceMock: IndexService = mock[IndexService]
     val errorFactories: ErrorFactories =
-      ErrorFactories(useSelfServiceErrorCodes = true)
+      ErrorFactories()
 
     val conflictCheckWithCommitted: ConflictCheckWithCommittedImpl =
       new ConflictCheckWithCommittedImpl(

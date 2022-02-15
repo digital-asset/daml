@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils.api
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
-import com.daml.error.ValueSwitch
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader.offsetForUpdate
@@ -247,18 +246,16 @@ object KeyValueParticipantStateReaderSpec {
   private val zeroUpdateGenerator: (
       DamlLogEntryId,
       DamlLogEntry,
-      ValueSwitch,
       Option[Timestamp],
   ) => LoggingContext => List[Update] =
-    (_, _, _, _) => _ => List.empty
+    (_, _, _) => _ => List.empty
 
   private val singleUpdateGenerator: (
       DamlLogEntryId,
       DamlLogEntry,
-      ValueSwitch,
       Option[Timestamp],
   ) => LoggingContext => List[Update] =
-    (_, _, _, _) =>
+    (_, _, _) =>
       _ =>
         List(
           Update.PartyAddedToParticipant(
@@ -273,20 +270,17 @@ object KeyValueParticipantStateReaderSpec {
   private val twoUpdatesGenerator: (
       DamlLogEntryId,
       DamlLogEntry,
-      ValueSwitch,
       Option[Timestamp],
   ) => LoggingContext => List[Update] =
-    (entryId, entry, errorVersionSwitch, recordTime) =>
+    (entryId, entry, recordTime) =>
       loggingContext =>
         singleUpdateGenerator(
           entryId,
           entry,
-          errorVersionSwitch,
           recordTime,
         )(loggingContext) ::: singleUpdateGenerator(
           entryId,
           entry,
-          errorVersionSwitch,
           recordTime,
         )(loggingContext)
 
@@ -309,7 +303,6 @@ object KeyValueParticipantStateReaderSpec {
       logEntryToUpdate: (
           DamlLogEntryId,
           DamlLogEntry,
-          ValueSwitch,
           Option[Timestamp],
       ) => LoggingContext => List[Update] = singleUpdateGenerator,
       failOnUnexpectedEvent: Boolean = true,
@@ -317,7 +310,6 @@ object KeyValueParticipantStateReaderSpec {
     new KeyValueParticipantStateReader(
       reader,
       new Metrics(new MetricRegistry),
-      enableSelfServiceErrorCodes = true,
       logEntryToUpdate,
       () => None,
       failOnUnexpectedEvent,

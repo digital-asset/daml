@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.DurationConversion._
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_configuration_service._
@@ -61,14 +60,13 @@ private[apiserver] object ApiLedgerConfigurationService {
   def create(
       ledgerId: LedgerId,
       configurationService: IndexConfigurationService,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       esf: ExecutionSequencerFactory,
       materializer: Materializer,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService = {
-    val fieldValidations = FieldValidations(ErrorFactories(errorCodesVersionSwitcher))
+    val fieldValidations = FieldValidations(ErrorFactories())
     new LedgerConfigurationServiceValidation(
       service = new ApiLedgerConfigurationService(configurationService),
       ledgerId = ledgerId,

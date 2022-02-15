@@ -92,7 +92,6 @@ object StandaloneIndexService {
           maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
           maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
           enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
-          enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
     } yield indexService

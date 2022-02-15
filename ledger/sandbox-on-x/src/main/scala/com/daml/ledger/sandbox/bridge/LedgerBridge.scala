@@ -6,7 +6,6 @@ package com.daml.ledger.sandbox.bridge
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.daml.api.util.TimeProvider
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.runner.common.{Config, ParticipantConfig}
@@ -39,7 +38,6 @@ object LedgerBridge {
       timeProvider: TimeProvider,
   )(implicit
       loggingContext: LoggingContext,
-      // TODO SoX: Consider using a dedicated thread-pool for the ledger bridge
       servicesExecutionContext: ExecutionContext,
   ): ResourceOwner[LedgerBridge] =
     if (config.extra.conflictCheckingEnabled)
@@ -65,7 +63,6 @@ object LedgerBridge {
       timeProvider: TimeProvider,
   )(implicit
       loggingContext: LoggingContext,
-      // TODO SoX: Consider using a dedicated thread-pool for the ledger bridge
       servicesExecutionContext: ExecutionContext,
   ) =
     for {
@@ -85,9 +82,7 @@ object LedgerBridge {
       initialAllocatedParties = allocatedPartiesAtInitialization,
       initialLedgerConfiguration = initialLedgerConfiguration,
       bridgeMetrics = bridgeMetrics,
-      errorFactories = ErrorFactories(
-        new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
-      ),
+      errorFactories = ErrorFactories(),
       validatePartyAllocation = !config.extra.implicitPartyAllocation,
       servicesThreadPoolSize = servicesThreadPoolSize,
       maxDeduplicationDuration = initialLedgerConfiguration
