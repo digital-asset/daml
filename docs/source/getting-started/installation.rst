@@ -50,10 +50,10 @@ can install it as follows:
 - On Windows, download the installer from Artifactory_ instead of Github
   releases. 
 - On Linux and MacOS, download the corresponding tarball,
-extract it and run ``./install.sh``. Afterwards, modify the
-:ref:`global daml-config.yaml <global_daml_config>` and add an entry
-with your Artifactory API key. The API key can be found in your
-Artifactory user profile.
+  extract it and run ``./install.sh``. Afterwards, modify the
+  :ref:`global daml-config.yaml <global_daml_config>` and add an entry
+  with your Artifactory API key. The API key can be found in your
+  Artifactory user profile.
 
 .. code-block:: yaml
 
