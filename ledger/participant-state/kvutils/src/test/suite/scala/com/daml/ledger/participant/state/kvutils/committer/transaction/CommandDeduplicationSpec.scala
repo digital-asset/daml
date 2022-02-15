@@ -300,7 +300,7 @@ class CommandDeduplicationSpec
             )
             .value
         ) shouldBe maximumRecordTime
-          .add(theDefaultConfig.maxDeduplicationTime)
+          .add(theDefaultConfig.maxDeduplicationDuration)
           .add(theDefaultConfig.timeModel.minSkew)
           .add(theDefaultConfig.timeModel.maxSkew)
       }
@@ -359,7 +359,7 @@ class CommandDeduplicationSpec
             )
             .value
         ) shouldBe recordTime
-          .add(theDefaultConfig.maxDeduplicationTime)
+          .add(theDefaultConfig.maxDeduplicationDuration)
           .add(theDefaultConfig.timeModel.minSkew)
           .add(theDefaultConfig.timeModel.maxSkew)
       }

@@ -161,7 +161,7 @@ class BridgeWriteService(
       estimatedInterpretationCost: Long,
       deduplicationDuration: Duration,
   )(implicit errorLogger: ContextualizedErrorLogger): CompletionStage[SubmissionResult] = {
-    val maxDeduplicationDuration = submitterInfo.ledgerConfiguration.maxDeduplicationTime
+    val maxDeduplicationDuration = submitterInfo.ledgerConfiguration.maxDeduplicationDuration
     if (deduplicationDuration.compareTo(maxDeduplicationDuration) > 0)
       CompletableFuture.completedFuture(
         SubmissionResult.SynchronousError(

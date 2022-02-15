@@ -10,14 +10,14 @@ import scala.util.Try
 /** Ledger configuration describing the ledger's time model.
   * Emitted in [[com.daml.ledger.participant.state.v1.Update.ConfigurationChanged]].
   *
-  * @param generation            The configuration generation. Monotonically increasing.
-  * @param timeModel             The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands.
-  * @param maxDeduplicationTime  The maximum time window during which commands can be deduplicated.
+  * @param generation                The configuration generation. Monotonically increasing.
+  * @param timeModel                 The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands.
+  * @param maxDeduplicationDuration  The maximum time window during which commands can be deduplicated.
   */
 final case class Configuration(
     generation: Long,
     timeModel: LedgerTimeModel,
-    maxDeduplicationTime: Duration,
+    maxDeduplicationDuration: Duration,
 )
 
 object Configuration {
@@ -34,12 +34,12 @@ object Configuration {
   /** A duration of 1 day is likely to be longer than any application will keep retrying, barring
     * very strange events, and should work for most ledger and participant configurations.
     */
-  val reasonableMaxDeduplicationTime: Duration = Duration.ofDays(1)
+  val reasonableMaxDeduplicationDuration: Duration = Duration.ofDays(1)
 
   val reasonableInitialConfiguration: Configuration = Configuration(
     generation = StartingGeneration,
     timeModel = LedgerTimeModel.reasonableDefault,
-    maxDeduplicationTime = reasonableMaxDeduplicationTime,
+    maxDeduplicationDuration = reasonableMaxDeduplicationDuration,
   )
 
   def encode(config: Configuration): protobuf.LedgerConfiguration = {
@@ -53,7 +53,7 @@ object Configuration {
           .setMinSkew(buildDuration(tm.minSkew))
           .setMaxSkew(buildDuration(tm.maxSkew))
       )
-      .setMaxDeduplicationTime(buildDuration(config.maxDeduplicationTime))
+      .setMaxDeduplicationDuration(buildDuration(config.maxDeduplicationDuration))
       .build
   }
 
@@ -81,7 +81,7 @@ object Configuration {
       Configuration(
         generation = config.getGeneration,
         timeModel = tm,
-        maxDeduplicationTime = Duration.ofDays(1),
+        maxDeduplicationDuration = Duration.ofDays(1),
       )
     }
 
@@ -94,8 +94,8 @@ object Configuration {
           Left("Missing time model")
         }
       maxDeduplicationTime <-
-        if (config.hasMaxDeduplicationTime) {
-          val duration = parseDuration(config.getMaxDeduplicationTime)
+        if (config.hasMaxDeduplicationDuration) {
+          val duration = parseDuration(config.getMaxDeduplicationDuration)
           if (duration.isNegative) {
             Left("requirement failed: Negative maximum command time to live")
           } else {
@@ -108,7 +108,7 @@ object Configuration {
       Configuration(
         generation = config.getGeneration,
         timeModel = tm,
-        maxDeduplicationTime = maxDeduplicationTime,
+        maxDeduplicationDuration = maxDeduplicationTime,
       )
     }
 

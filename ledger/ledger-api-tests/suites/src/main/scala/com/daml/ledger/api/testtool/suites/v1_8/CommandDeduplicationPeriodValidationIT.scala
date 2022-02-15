@@ -36,8 +36,8 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     val request = ledger.submitRequest(party, Dummy(party).create.command)
     for {
       config <- ledger.configuration()
-      maxDedupTime = config.maxDeduplicationTime.get
-      _ <- ledger.submit(request.update(_.commands.deduplicationTime := maxDedupTime))
+      maxDedupDuration = config.maxDeduplicationDuration.get
+      _ <- ledger.submit(request.update(_.commands.deduplicationTime := maxDedupDuration))
     } yield {
       // No assertions to make, since the command went through as expected
     }
@@ -92,12 +92,12 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
     val expectedError = LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
     for {
       config <- ledger.configuration()
-      maxDedupTime = config.maxDeduplicationTime.get
+      maxDedupDuration = config.maxDeduplicationDuration.get
       failure <- ledger
         .submit(
           request.update(
-            _.commands.deduplicationTime := maxDedupTime.update(
-              _.seconds := maxDedupTime.seconds + 1
+            _.commands.deduplicationTime := maxDedupDuration.update(
+              _.seconds := maxDedupDuration.seconds + 1
             )
           )
         )

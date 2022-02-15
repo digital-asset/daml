@@ -90,7 +90,7 @@ package v2 {
       workflowId: WorkflowId,
   )
 
-  final case class LedgerConfiguration(maxDeduplicationTime: Duration)
+  final case class LedgerConfiguration(maxDeduplicationDuration: Duration)
 
   /** Meta-data of a Daml-LF package
     *

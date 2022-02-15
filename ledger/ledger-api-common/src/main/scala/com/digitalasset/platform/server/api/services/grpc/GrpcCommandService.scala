@@ -25,7 +25,7 @@ class GrpcCommandService(
     val ledgerId: LedgerId,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
-    maxDeduplicationTime: () => Option[Duration],
+    maxDeduplicationDuration: () => Option[Duration],
     generateSubmissionId: SubmissionIdGenerator,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandService
@@ -69,7 +69,7 @@ class GrpcCommandService(
         requestWithSubmissionId,
         currentLedgerTime(),
         currentUtcTime(),
-        maxDeduplicationTime(),
+        maxDeduplicationDuration(),
       )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),

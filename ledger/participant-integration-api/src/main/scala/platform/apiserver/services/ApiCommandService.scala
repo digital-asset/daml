@@ -235,8 +235,8 @@ private[apiserver] object ApiCommandService {
       ledgerId = configuration.ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
-      maxDeduplicationTime = () =>
-        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
+      maxDeduplicationDuration = () =>
+        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
       generateSubmissionId = SubmissionIdGenerator.Random,
     )
   }

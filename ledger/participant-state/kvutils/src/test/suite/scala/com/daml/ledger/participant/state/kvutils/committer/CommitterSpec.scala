@@ -299,7 +299,7 @@ object CommitterSpec {
   private val aConfig: Configuration = Configuration(
     generation = 1,
     timeModel = LedgerTimeModel.reasonableDefault,
-    maxDeduplicationTime = Duration.ofMinutes(1),
+    maxDeduplicationDuration = Duration.ofMinutes(1),
   )
 
   private def newMetrics() = new Metrics(new MetricRegistry)
