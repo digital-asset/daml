@@ -4,7 +4,8 @@
 package com.daml.ledger.api.benchtool
 
 import akka.actor.testkit.typed.scaladsl.{BehaviorTestKit, ScalaTestWithActorTestKit}
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.Behavior
+import com.daml.clock.AdjustableClock
 import com.daml.ledger.api.benchtool.metrics.{
   Metric,
   MetricValue,
@@ -22,8 +23,16 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
 
   "The MetricsCollector" should {
     "respond with empty periodic report" in {
-      val collector = spawn()
-      val probe = testKit.createTestProbe[Response.PeriodicReport]()
+      val now = Clock.systemUTC().instant()
+      val tenSecondsAgo = now.minusSeconds(10)
+      val clock = AdjustableClock(
+        baseClock = Clock.fixed(now, ZoneId.of("UTC")),
+        offset = Duration.ZERO,
+      )
+      val minimumReportInterval = Duration.ofSeconds(5)
+      val collector =
+        spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo, minimumReportInterval)
+      val probe = testKit.createTestProbe[Response.PeriodicReportResponse]()
 
       collector ! Message.PeriodicReportRequest(probe.ref)
 
@@ -37,8 +46,16 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
     }
 
     "respond with correct periodic report" in {
-      val collector = spawn()
-      val probe = testKit.createTestProbe[Response.PeriodicReport]()
+      val now = Clock.systemUTC().instant()
+      val tenSecondsAgo = now.minusSeconds(10)
+      val clock = AdjustableClock(
+        baseClock = Clock.fixed(now, ZoneId.of("UTC")),
+        offset = Duration.ZERO,
+      )
+      val minimumReportInterval = Duration.ofSeconds(5)
+      val collector =
+        spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo, minimumReportInterval)
+      val probe = testKit.createTestProbe[Response.PeriodicReportResponse]()
 
       collector ! Message.NewValue("banana")
       collector ! Message.NewValue("mango")
@@ -53,9 +70,41 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
       )
     }
 
+    "not respond with a periodic report when requests are too frequent" in {
+      val now = Clock.systemUTC().instant()
+      val tenSecondsAgo = now.minusSeconds(10)
+      val clock = AdjustableClock(
+        baseClock = Clock.fixed(now, ZoneId.of("UTC")),
+        offset = Duration.ZERO,
+      )
+      val minimumReportInterval = Duration.ofSeconds(5)
+      val collector =
+        spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo, minimumReportInterval)
+      val probe = testKit.createTestProbe[Response.PeriodicReportResponse]()
+
+      collector ! Message.NewValue("banana")
+      collector ! Message.NewValue("mango")
+      collector ! Message.PeriodicReportRequest(probe.ref)
+
+      probe.expectMessageType[Response.PeriodicReport]
+
+      clock.fastForward(Duration.ofSeconds(1))
+      collector ! Message.PeriodicReportRequest(probe.ref)
+
+      probe.expectMessage(Response.ReportNotReady)
+    }
+
     "include objective-violating values in periodic report" in {
-      val collector = spawn()
-      val probe = testKit.createTestProbe[Response.PeriodicReport]()
+      val now = Clock.systemUTC().instant()
+      val tenSecondsAgo = now.minusSeconds(10)
+      val clock = AdjustableClock(
+        baseClock = Clock.fixed(now, ZoneId.of("UTC")),
+        offset = Duration.ZERO,
+      )
+      val minimumReportInterval = Duration.ofSeconds(5)
+      val collector =
+        spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo, minimumReportInterval)
+      val probe = testKit.createTestProbe[Response.PeriodicReportResponse]()
 
       collector ! Message.NewValue("banana")
       collector ! Message.NewValue(TestObjective.TestViolatingValue)
@@ -75,7 +124,9 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
       val now = Clock.systemUTC().instant()
       val tenSecondsAgo = now.minusSeconds(10)
       val clock = Clock.fixed(now, ZoneId.of("UTC"))
-      val collector = spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo)
+      val minimumReportInterval = Duration.ofMillis(100)
+      val collector =
+        spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo, minimumReportInterval)
       val probe = testKit.createTestProbe[Response.FinalReport]()
 
       collector ! Message.FinalReportRequest(probe.ref)
@@ -98,7 +149,9 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
       val now = Clock.systemUTC().instant()
       val tenSecondsAgo = now.minusSeconds(10)
       val clock = Clock.fixed(now, ZoneId.of("UTC"))
-      val collector = spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo)
+      val minimumReportInterval = Duration.ofMillis(100)
+      val collector =
+        spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo, minimumReportInterval)
       val probe = testKit.createTestProbe[Response.FinalReport]()
 
       collector ! Message.NewValue("mango")
@@ -124,7 +177,9 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
       val now = Clock.systemUTC().instant()
       val tenSecondsAgo = now.minusSeconds(10)
       val clock = Clock.fixed(now, ZoneId.of("UTC"))
-      val collector = spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo)
+      val minimumReportInterval = Duration.ofMillis(100)
+      val collector =
+        spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo, minimumReportInterval)
       val probe = testKit.createTestProbe[Response.FinalReport]()
 
       collector ! Message.NewValue("mango")
@@ -163,22 +218,19 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
     }
   }
 
-  private def spawn(): ActorRef[Message] =
-    testKit.spawn(
-      behavior = behavior,
-      name = Random.alphanumeric.take(10).mkString,
-    )
-
   private def spawnWithFixedClock(
       clock: Clock,
       startTime: Instant,
       lastPeriodicCheck: Instant,
+      minimumTimePeriodBetweenSubsequentReports: Duration,
   ) = {
-    val behavior = new MetricsCollector[String](None, clock).handlingMessages(
-      metrics = List(TestMetric()),
-      lastPeriodicCheck = lastPeriodicCheck,
-      startTime = startTime,
-    )
+    val behavior =
+      new MetricsCollector[String](None, minimumTimePeriodBetweenSubsequentReports, clock)
+        .handlingMessages(
+          metrics = List(TestMetric()),
+          lastPeriodicCheck = lastPeriodicCheck,
+          startTime = startTime,
+        )
     testKit.spawn(
       behavior = behavior,
       name = Random.alphanumeric.take(10).mkString,

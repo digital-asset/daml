@@ -17,4 +17,8 @@ object TimeUtil {
 
   def durationBetween(before: Instant, after: Instant): Duration =
     Duration.between(before, after)
+
+  /** Returns `true` if `a` is longer or equal to `b`. */
+  def isAtLeast(a: Duration, b: Duration): Boolean =
+    a.compareTo(b) >= 0
 }
