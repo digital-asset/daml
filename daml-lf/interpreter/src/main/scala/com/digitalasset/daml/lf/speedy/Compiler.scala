@@ -722,17 +722,15 @@ private[lf] final class Compiler(
       // This relies on interfaces having the same representation as the underlying template
       t.InterfacePrecondDefRef(impl._1)(env2.toSEVar(tmplArgPos))
     )
-    // TODO Clean this up as part of changing how we evaluate these
-    // https://github.com/digital-asset/daml/issues/11762
+
     val precondsArray: ImmArray[s.SExpr] =
-      (Iterator(translateExp(env2, tmpl.precond)) ++ implementsPrecondsIterator ++ Iterator(
-        s.SEValue.EmptyList
-      )).to(ImmArray)
-    val preconds = s.SEApp(s.SEBuiltin(SBConsMany(precondsArray.length - 1)), precondsArray.toList)
-    // We check precondition in a separated builtin to prevent
-    // further evaluation of agreement, signatories, observers and key
-    // in case of failed precondition.
-    let(env2, SBCheckPrecond(tmplId)(env2.toSEVar(tmplArgPos), preconds)) { (_, env) =>
+      (Iterator(translateExp(env2, tmpl.precond)) ++ implementsPrecondsIterator).to(ImmArray)
+
+    val preconds = precondsArray.foldLeft[s.SExpr](s.SEValue(SUnit))((acc, precond) =>
+      SBCheckPrecond(tmplId)(env2.toSEVar(tmplArgPos), acc, precond)
+    )
+
+    let(env2, preconds) { (_, env) =>
       SBUCreate(tmplId, byInterface)(
         env.toSEVar(tmplArgPos),
         translateExp(env, tmpl.agreementText),

@@ -72,6 +72,12 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       case otherwise => unexpectedType(i, "SBool", otherwise)
     }
 
+  final protected def getSUnit(args: util.ArrayList[SValue], i: Int): Unit =
+    args.get(i) match {
+      case SUnit => ()
+      case otherwise => unexpectedType(i, "SUnit", otherwise)
+    }
+
   final protected def getSInt64(args: util.ArrayList[SValue], i: Int): Long =
     args.get(i) match {
       case SInt64(value) => value
@@ -879,17 +885,16 @@ private[lf] object SBuiltin {
 
   /** $checkPrecondition
     *    :: arg (template argument)
+    *    -> Unit
     *    -> Bool (false if ensure failed)
     *    -> Unit
     */
-  final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(2) {
+  final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(3) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SUnit.type = {
-      if (
-        !(getSList(args, 1).iterator.forall(_ match {
-          case SBool(b) => b
-          case otherwise => crash(s"type mismatch SBCheckPrecond: expected SBool, got $otherwise")
-        }))
-      )
+      val _ = getSUnit(args, 1)
+      val precond = getSBool(args, 2)
+      if (precond) SUnit
+      else
         throw SErrorDamlException(
           IE.TemplatePreconditionViolated(
             templateId = templateId,
@@ -897,7 +902,6 @@ private[lf] object SBuiltin {
             arg = args.get(0).toUnnormalizedValue,
           )
         )
-      SUnit
     }
   }
 
