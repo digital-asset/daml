@@ -4,7 +4,6 @@
 package com.daml.platform.store.backend.postgresql
 
 import java.sql.Connection
-
 import anorm.SqlParser.get
 import anorm.SqlStringInterpolation
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -13,10 +12,11 @@ import com.daml.platform.store.backend.common.{
   DataSourceStorageBackendTemplate,
   InitHookDataSourceProxy,
 }
+
 import javax.sql.DataSource
 import org.postgresql.ds.PGSimpleDataSource
-
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
+import com.daml.resources.ProgramResource.StartupException
 
 case class PostgresDataSourceConfig(
     synchronousCommit: Option[SynchronousCommitValue] = None,
@@ -69,12 +69,13 @@ object PostgresDataSourceStorageBackend extends DataSourceStorageBackend {
     getPostgresVersion(connection) match {
       case Some((major, minor)) =>
         if (major < 10) {
-          logger.error(
+          val errorMessage =
             "Deprecated Postgres version. " +
               s"Found Postgres version $major.$minor, minimum required Postgres version is 10. " +
               "This application will continue running but is at risk of data loss, as Postgres < 10 does not support crash-fault tolerant hash indices. " +
               "Please upgrade your Postgres database to version 10 or later to fix this issue."
-          )
+          logger.error(errorMessage)
+          throw new UnsupportedPostgresVersion(errorMessage)
         }
       case None =>
         logger.warn(
@@ -102,4 +103,8 @@ object PostgresDataSourceStorageBackend extends DataSourceStorageBackend {
 
   override def checkDatabaseAvailable(connection: Connection): Unit =
     DataSourceStorageBackendTemplate.checkDatabaseAvailable(connection)
+
+  final class UnsupportedPostgresVersion(message: String)
+      extends RuntimeException(message)
+      with StartupException
 }
