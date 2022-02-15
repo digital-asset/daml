@@ -3,10 +3,9 @@
 
 package com.daml.platform.index
 
+import akka.NotUsed
 import akka.stream._
-import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
-import akka.{Done, NotUsed}
-import com.codahale.metrics.Timer
+import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.definitions.IndexErrors.IndexDbException
 import com.daml.ledger.api.domain
@@ -43,7 +42,6 @@ import com.daml.platform.store.appendonlydao.{
   LedgerDaoTransactionsReader,
   LedgerReadDao,
 }
-import com.daml.platform.store.cache.MutableCacheBackedContractStore.SignalNewLedgerHead
 import com.daml.platform.store.cache.{
   EventsBuffer,
   LedgerEndCache,
@@ -52,21 +50,14 @@ import com.daml.platform.store.cache.{
 }
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interning.{
-  StringInterning,
-  StringInterningView,
-  UpdatingStringInterningView,
-}
+import com.daml.platform.store.interning.{StringInterning, StringInterningView}
 import com.daml.platform.store.{DbSupport, EventSequentialId, LfValueTranslationCache}
 import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.resources.ProgramResource.StartupException
-import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
 
-import java.util.concurrent.TimeUnit
-import scala.collection.mutable
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] class ReadOnlyLedgerImpl(
     val ledgerId: LedgerId,
@@ -74,12 +65,8 @@ private[platform] class ReadOnlyLedgerImpl(
     transactionsReader: LedgerDaoTransactionsReader,
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
-    contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
     dispatcher: Dispatcher[Offset],
-    dispatcherLagger: DispatcherLagMeter,
-    updatingStringInterningView: UpdatingStringInterningView,
-)(implicit mat: Materializer, loggingContext: LoggingContext)
-    extends ReadOnlyLedger {
+) extends ReadOnlyLedger {
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
@@ -219,39 +206,6 @@ private[platform] class ReadOnlyLedgerImpl(
   )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]] = {
     ledgerDao.getTransactionMetering(from, to, applicationId)
   }
-
-  private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =
-    RestartSource
-      .withBackoff(
-        RestartSettings(minBackoff = 1.second, maxBackoff = 10.seconds, randomFactor = 0.2)
-      )(() =>
-        Source
-          .tick(0.millis, 100.millis, ())
-          .mapAsync(1) {
-            implicit val ec: ExecutionContext = mat.executionContext
-            _ =>
-              for {
-                ledgerEnd <- ledgerDao.lookupLedgerEnd()
-                _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
-              } yield ledgerEnd
-          }
-      )
-      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.foreach { newLedgerHead =>
-        dispatcherLagger.startTimer(newLedgerHead.lastOffset)
-        contractStateEventsDispatcher.signalNewHead(
-          newLedgerHead.lastOffset -> newLedgerHead.lastEventSeqId
-        )
-      })(
-        Keep.both[UniqueKillSwitch, Future[Done]]
-      )
-      .run()
-
-  def close(): Unit = {
-    ledgerEndUpdateKillSwitch.shutdown()
-    Await.ready(ledgerEndUpdateDone, 10.seconds)
-    ()
-  }
 }
 
 private[platform] object ReadOnlyLedgerImpl {
@@ -385,20 +339,22 @@ private[platform] object ReadOnlyLedgerImpl {
           maxKeyCacheSize = maxContractKeyStateCacheSize,
           executionContext = servicesExecutionContext,
         )
-        ledger <- ResourceOwner.forCloseable(() =>
-          new ReadOnlyLedgerImpl(
-            ledgerId,
+        _ <- ResourceOwner.forCloseable(() =>
+          new LedgerEndCachesUpdater(
             ledgerReadDao,
-            ledgerReadDao.transactionsReader,
-            contractStore,
-            PruneBuffersNoOp,
-            cacheUpdatesDispatcher,
-            generalDispatcher,
-            dispatcherLagMeter,
             stringInterningView,
+            dispatcherLagMeter,
+            cacheUpdatesDispatcher,
           )
         )
-      } yield ledger
+      } yield new ReadOnlyLedgerImpl(
+        ledgerId,
+        ledgerReadDao,
+        ledgerReadDao.transactionsReader,
+        contractStore,
+        PruneBuffersNoOp,
+        generalDispatcher,
+      )
 
     private def ledgerWithMutableCacheAndInMemoryFanOut(
         ledgerReadDao: LedgerReadDao,
@@ -460,20 +416,22 @@ private[platform] object ReadOnlyLedgerImpl {
             executionContext = servicesExecutionContext,
           )
         )
-        ledger <- ResourceOwner.forCloseable(() =>
-          new ReadOnlyLedgerImpl(
-            ledgerId = ledgerId,
-            ledgerDao = ledgerReadDao,
-            transactionsReader = bufferedTransactionsReader,
-            pruneBuffers = transactionsBuffer.prune,
-            contractStore = contractStore,
-            contractStateEventsDispatcher = cacheUpdatesDispatcher,
-            dispatcher = generalDispatcher,
-            dispatcherLagger = dispatcherLagMeter,
-            updatingStringInterningView = stringInterningView,
+        _ <- ResourceOwner.forCloseable(() =>
+          new LedgerEndCachesUpdater(
+            ledgerReadDao,
+            stringInterningView,
+            dispatcherLagMeter,
+            cacheUpdatesDispatcher,
           )
         )
-      } yield ledger
+      } yield new ReadOnlyLedgerImpl(
+        ledgerId,
+        ledgerReadDao,
+        bufferedTransactionsReader,
+        contractStore,
+        PruneBuffersNoOp,
+        generalDispatcher,
+      )
     }
 
     private def dispatcherOffsetSeqIdOwner(ledgerEnd: Offset, evtSeqId: Long) = {
@@ -555,39 +513,4 @@ private[platform] object ReadOnlyLedgerImpl {
         materializer = mat,
       )
   }
-}
-
-/** Computes the lag between the contract state events dispatcher and the general dispatcher.
-  *
-  * Internally uses a size bound for preventing memory leaks if misused.
-  *
-  * @param delegate The ledger head dispatcher delegate.
-  * @param timer The timer measuring the delta.
-  */
-private[platform] class DispatcherLagMeter(delegate: SignalNewLedgerHead, maxSize: Long = 1000L)(
-    timer: Timer
-) extends SignalNewLedgerHead {
-  private val ledgerHeads = mutable.Map.empty[Offset, Long]
-
-  override def apply(offset: Offset, sequentialEventId: Long): Unit = {
-    delegate(offset, sequentialEventId)
-    ledgerHeads.synchronized {
-      ledgerHeads.remove(offset).foreach { startNanos =>
-        val endNanos = System.nanoTime()
-        timer.update(endNanos - startNanos, TimeUnit.NANOSECONDS)
-      }
-    }
-  }
-
-  private[platform] def startTimer(head: Offset): Unit =
-    ledgerHeads.synchronized {
-      ensureBounded()
-      discard(ledgerHeads.getOrElseUpdate(head, System.nanoTime()))
-    }
-
-  private def ensureBounded(): Unit =
-    if (ledgerHeads.size > maxSize) {
-      // If maxSize is reached, remove randomly ANY element.
-      ledgerHeads.headOption.foreach(head => ledgerHeads.remove(head._1))
-    } else ()
 }
