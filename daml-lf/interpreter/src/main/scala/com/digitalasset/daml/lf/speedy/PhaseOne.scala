@@ -274,7 +274,7 @@ private[lf] final class PhaseOne(
       case EThrow(_, ty, e) =>
         SBThrow(SBToAny(ty)(compile(env, e)))
       case EToInterface(iface @ _, tpl @ _, e) =>
-        compile(env, e) // interfaces have the same representation as underlying template
+        SBToInterface(tpl)(compile(env, e))
       case EFromInterface(iface @ _, tpl, e) =>
         SBFromInterface(tpl)(compile(env, e))
       case ECallInterface(iface, methodName, e) =>

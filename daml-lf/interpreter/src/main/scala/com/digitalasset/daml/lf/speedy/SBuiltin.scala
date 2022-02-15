@@ -1131,7 +1131,10 @@ private[lf] object SBuiltin {
               )
             )
           checkTemplateId(cached.templateId) {
-            machine.returnValue = cached.value
+            machine.returnValue = SAny(
+              ty = Ast.TTyCon(cached.templateId),
+              value = cached.value,
+            )
           }
         case None =>
           throw SpeedyHungry(
@@ -1141,6 +1144,7 @@ private[lf] object SBuiltin {
               onLedger.committers,
               { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
                 checkTemplateId(actualTmplId) {
+                  machine.pushKont(KWrapInterface(machine, actualTmplId))
                   machine.pushKont(KCacheContract(machine, actualTmplId, coid))
                   machine.ctrl = SELet1(
                     SEImportValue(Ast.TTyCon(actualTmplId), arg),
@@ -1228,6 +1232,19 @@ private[lf] object SBuiltin {
   final case class SBObserverInterface(ifaceId: TypeConName)
       extends SBResolveVirtual(ObserversDefRef)
 
+  // TODO(MA): add docstring
+  final case class SBToInterface(
+      tplId: TypeConName
+  ) extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
+      SAny(
+        ty = Ast.TTyCon(tplId),
+        value = args.get(0),
+      )
+    }
+  }
+
+  // TODO(MA): update docstring
   // Convert an interface to a given template type if possible. Since interfaces have the
   // same representation as the underlying template, we only need to perform a check
   // that the record type matches the template type.
@@ -1235,9 +1252,9 @@ private[lf] object SBuiltin {
       tplId: TypeConName
   ) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
-      val record = getSRecord(args, 0)
-      if (tplId == record.id) {
-        SOptional(Some(record))
+      val any = getSAny(args, 0)
+      if (Ast.TTyCon(tplId) == any.ty) {
+        SOptional(Some(any.value))
       } else {
         SOptional(None)
       }
