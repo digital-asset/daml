@@ -821,15 +821,6 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
-nixpkgs_package(
-    name = "z3_nix",
-    attribute_path = "z3",
-    fail_not_supported = False,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-) if not is_windows else None
-
 dev_env_tool(
     name = "postgresql_dev_env",
     nix_include = [
