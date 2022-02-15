@@ -127,27 +127,18 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       toMeteringDbDto = _ => Vector.empty,
     )(lc)(
       List(
+        (Offset.fromHexString(Ref.HexString.assertFromString("00")), somePackageUploadRejected),
         (
-          (Offset.fromHexString(Ref.HexString.assertFromString("00")), somePackageUploadRejected),
-          1000000001,
+          Offset.fromHexString(Ref.HexString.assertFromString("01")),
+          somePackageUploadRejected.copy(recordTime =
+            somePackageUploadRejected.recordTime.addMicros(1000)
+          ),
         ),
         (
-          (
-            Offset.fromHexString(Ref.HexString.assertFromString("01")),
-            somePackageUploadRejected.copy(recordTime =
-              somePackageUploadRejected.recordTime.addMicros(1000)
-            ),
+          Offset.fromHexString(Ref.HexString.assertFromString("02")),
+          somePackageUploadRejected.copy(recordTime =
+            somePackageUploadRejected.recordTime.addMicros(2000)
           ),
-          1000000002,
-        ),
-        (
-          (
-            Offset.fromHexString(Ref.HexString.assertFromString("02")),
-            somePackageUploadRejected.copy(recordTime =
-              somePackageUploadRejected.recordTime.addMicros(2000)
-            ),
-          ),
-          1000000003,
         ),
       )
     )
@@ -165,7 +156,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         someParty,
       ),
       batchSize = 3,
-      averageStartTime = 1000000001,
       offsets = Vector("00", "01", "02").map(offset),
     )
     actual shouldBe expected
@@ -234,10 +224,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         toMeteringDbDto = _ => expected,
       )(lc)(
         List(
-          (
-            (Offset.fromHexString(offset), someTransactionAccepted),
-            timestamp,
-          )
+          (Offset.fromHexString(offset), someTransactionAccepted)
         )
       )
       .batch
@@ -257,7 +244,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       lastRecordTime = 0,
       batch = Vector.empty,
       batchSize = 0,
-      averageStartTime = 0,
       offsets = Vector.empty,
     )
   }
@@ -266,8 +252,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
   it should "assign sequence ids correctly, and populate string-interning entries correctly in happy path case" in {
     val result = ParallelIndexerSubscription.seqMapper(
-      _.zipWithIndex.map(x => x._2 -> x._2.toString).take(2),
-      metrics,
+      _.zipWithIndex.map(x => x._2 -> x._2.toString).take(2)
     )(
       ParallelIndexerSubscription.seqMapperZero(15, 26),
       Batch(
@@ -287,13 +272,11 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someParty,
         ),
         batchSize = 3,
-        averageStartTime = 1000000001,
         offsets = Vector("00", "01", "02").map(offset),
       ),
     )
     result.lastSeqEventId shouldBe 18
     result.lastStringInterningId shouldBe 1
-    result.averageStartTime should be > System.nanoTime() - 1000000000
     result.batch(1).asInstanceOf[DbDto.EventDivulgence].event_sequential_id shouldBe 16
     result.batch(3).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 17
     result.batch(4).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 17
@@ -306,7 +289,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "preserve sequence id if nothing to assign" in {
-    val result = ParallelIndexerSubscription.seqMapper(_ => Nil, metrics)(
+    val result = ParallelIndexerSubscription.seqMapper(_ => Nil)(
       ParallelIndexerSubscription.seqMapperZero(15, 25),
       Batch(
         lastOffset = offset("02"),
@@ -320,7 +303,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someParty,
         ),
         batchSize = 3,
-        averageStartTime = 1000000001,
         offsets = Vector("00", "01", "02").map(offset),
       ),
     )
@@ -347,7 +329,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someParty,
         ),
         batchSize = 3,
-        averageStartTime = 1000000001,
         offsets = Vector("00", "01", "02").map(offset),
       )
     )
@@ -358,10 +339,8 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       lastRecordTime = someTime.toEpochMilli,
       batch = "bumm",
       batchSize = 3,
-      averageStartTime = result.averageStartTime,
       offsets = Vector("00", "01", "02").map(offset),
     )
-    result.averageStartTime should be > System.nanoTime() - 1000000000
   }
 
   behavior of "tailer"
@@ -375,7 +354,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         lastRecordTime = someTime.toEpochMilli - 1000,
         batch = "bumm1",
         batchSize = 3,
-        averageStartTime = 8,
         offsets = Vector("00", "01", "02").map(offset),
       ),
       Batch(
@@ -385,7 +363,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         lastRecordTime = someTime.toEpochMilli,
         batch = "bumm2",
         batchSize = 3,
-        averageStartTime = 10,
         offsets = Vector("03", "04", "05").map(offset),
       ),
     ) shouldBe Batch(
@@ -395,7 +372,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       lastRecordTime = someTime.toEpochMilli,
       batch = "zero",
       batchSize = 0,
-      averageStartTime = 0,
       offsets = Vector.empty,
     )
   }
@@ -411,7 +387,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
         lastRecordTime = someTime.toEpochMilli,
         batch = "zero",
         batchSize = 0,
-        averageStartTime = 0,
         offsets = Vector.empty,
       )
     ) shouldBe ParameterStorageBackend.LedgerEnd(
