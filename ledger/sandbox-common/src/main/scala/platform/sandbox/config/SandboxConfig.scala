@@ -82,7 +82,7 @@ final case class SandboxConfig(
     InitialLedgerConfiguration(
       Configuration.reasonableInitialConfiguration.copy(
         timeModel = timeModel,
-      maxDeduplicationDuration = maxDeduplicationDuration.getOrElse(
+        maxDeduplicationDuration = maxDeduplicationDuration.getOrElse(
           Configuration.reasonableInitialConfiguration.maxDeduplicationDuration
         ),
       ),

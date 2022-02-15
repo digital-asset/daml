@@ -79,7 +79,7 @@ final class CommandsValidator(
         )
       deduplicationPeriod <- validateDeduplicationPeriod(
         commands.deduplicationPeriod,
-          maxDeduplicationDuration,
+        maxDeduplicationDuration,
       )
     } yield domain.Commands(
       ledgerId = ledgerId,

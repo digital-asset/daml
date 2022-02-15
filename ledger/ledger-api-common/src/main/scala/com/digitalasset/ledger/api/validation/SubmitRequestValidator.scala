@@ -30,7 +30,7 @@ class SubmitRequestValidator(
         commands,
         currentLedgerTime,
         currentUtcTime,
-          maxDeduplicationDuration,
+        maxDeduplicationDuration,
       )
     } yield submission.SubmitRequest(validatedCommands)
 

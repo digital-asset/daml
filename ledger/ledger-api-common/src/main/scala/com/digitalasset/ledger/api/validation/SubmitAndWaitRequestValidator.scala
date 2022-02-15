@@ -31,7 +31,7 @@ class SubmitAndWaitRequestValidator(
         commands,
         currentLedgerTime,
         currentUtcTime,
-          maxDeduplicationDuration,
+        maxDeduplicationDuration,
       )
     } yield submission.SubmitRequest(validatedCommands)
 

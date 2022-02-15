@@ -94,7 +94,7 @@ class RawPreExecutingCommitStrategySupportSpec
         configuration = Configuration(
           generation = 1,
           timeModel = LedgerTimeModel.reasonableDefault,
-            maxDeduplicationDuration = Duration.ofMinutes(1),
+          maxDeduplicationDuration = Duration.ofMinutes(1),
         ),
       )
       val updateConfigurationWithInvalidMrt = newConfigurationSubmission(
@@ -106,7 +106,7 @@ class RawPreExecutingCommitStrategySupportSpec
         configuration = Configuration(
           generation = 2,
           timeModel = LedgerTimeModel.reasonableDefault,
-            maxDeduplicationDuration = Duration.ofMinutes(1),
+          maxDeduplicationDuration = Duration.ofMinutes(1),
         ),
       )
 
