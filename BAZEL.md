@@ -53,32 +53,27 @@ file, which defines external dependencies. The workspace contains several
 file. Each package holds multiple *targets*. Targets are either *files* under
 the package directory or *rules* defined in the `BUILD.bazel` file. You can
 address a target by a *label* of the form `//path/to/package:target`. For
-example, `//ledger/sandbox:sandbox`. Here `sandbox` is a target in the package
-`ledger/sandbox`. It is defined in the file `ledger/sandbox/BUILD.bazel`
+example, `//ledger/sandbox-on-x:sandbox-on-x`. Here `sandbox-on-x` is a target in the package
+`ledger/sandbox-on-x`. It is defined in the file `ledger/sandbox-on-x/BUILD.bazel`
 using `da_scala_library` as shown below.
 
 ```
 da_scala_library(
-    name = "sandbox",
+    name = "sandbox-on-x",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    resources =
-        glob(
-            ["src/main/resources/**/*"],
-            # Do not include logback.xml into the library: let the user
-            # of the sandbox-as-a-library decide how to log.
-            exclude = ["src/main/resources/logback.xml"],
-        ) + [
-            "//:MVN_VERSION",
-        ],
-    tags = ["maven_coordinates=com.daml:sandbox:__VERSION__"],
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
+    tags = ["maven_coordinates=com.daml:sandbox-on-x:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:ch_qos_logback_logback_core",
+    deps = [
+        ...list of deps
     ],
-    deps = compileDependencies,
 )
 ```
 
@@ -395,7 +390,7 @@ detailed information.
 - Build an individual target
 
     ```
-    bazel build //ledger/sandbox:sandbox
+    bazel build //ledger/sandbox-on-x:app
     ```
 
 ### Running Tests
@@ -409,13 +404,13 @@ detailed information.
 - Execute a test suite
 
     ```
-    bazel test //ledger/sandbox:sandbox-scala-tests
+    bazel test //ledger/sandbox-on-x:sandbox-on-x-unit-tests
     ```
 
 - Show test output
 
     ```
-    bazel test //ledger/sandbox:sandbox-scala-tests --test_output=streamed
+    bazel test //ledger/sandbox-on-x:sandbox-on-x-unit-tests --test_output=streamed
     ```
 
     Test outputs are also available in log files underneath the convenience
@@ -424,7 +419,7 @@ detailed information.
 - Do not cache test results
 
     ```
-    bazel test //ledger/sandbox:sandbox-scala-tests --nocache_test_results
+    bazel test //ledger/sandbox-on-x:sandbox-on-x-unit-tests --nocache_test_results
     ```
 
 - Execute a specific Scala test-suite class
@@ -458,13 +453,13 @@ detailed information.
 - Run an executable target
 
     ```
-    bazel run //ledger/sandbox:sandbox-binary
+    bazel run //ledger/sandbox-on-x:app
     ```
 
 - Pass arguments to an executable target
 
     ```
-    bazel run //ledger/sandbox:sandbox-binary -- --help
+    bazel run //ledger/sandbox-on-x:app -- --help
     ```
 
 ### Running a REPL
@@ -523,7 +518,7 @@ expressions can be combined using set operations like `intersect` or `union`.
 - List all Scala library dependencies of a target
 
     ```
-    bazel query 'kind("scala.*library rule", deps(//ledger/sandbox:sandbox))'
+    bazel query 'kind("scala.*library rule", deps(//ledger/sandbox-on-x:app))'
     ```
 
 - Find available 3rd party dependencies
@@ -540,7 +535,7 @@ query includes. These can then be rendered using Graphviz.
 - Graph all Scala library dependencies of a target
 
     ```
-    bazel query --noimplicit_deps 'kind(scala_library, deps(//ledger/sandbox:sandbox))' --output graph > graph.in
+    bazel query --noimplicit_deps 'kind(scala_library, deps(//ledger/sandbox-on-x:app))' --output graph > graph.in
     dot -Tpng < graph.in > graph.png
     ```
 
@@ -579,7 +574,7 @@ it will watch these files for changes and rerun the command on file change. For
 example:
 
 ```
-ibazel test //ledger/sandbox:sandbox-scala-tests
+ibazel test //ledger/sandbox-on-x:sandbox-on-x-unit-tests
 ```
 
 Note, that this interacts well with Bazel's test result caching (which is
