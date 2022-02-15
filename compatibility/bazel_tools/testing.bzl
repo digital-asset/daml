@@ -1071,7 +1071,7 @@ def sdk_platform_test(sdk_version, platform_version):
     sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
 
     sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
-    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--enable-conflict-checking", "--mutable-contract-state-cache"]
+    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache"]
 
     json_api_args = ["json-api"]
 
@@ -1222,7 +1222,7 @@ def sdk_platform_test(sdk_version, platform_version):
         sdk_version = sdk_version,
         daml = daml_assistant,
         sandbox = sandbox_on_x if versions.is_at_least("2.0.0", platform_version) else sandbox,
-        sandbox_args = ["--contract-id-seeding=testing-weak", "--enable-conflict-checking", "--mutable-contract-state-cache", "--participant=participant-id=sandbox,port=0,port-file=__PORTFILE__"] if versions.is_at_least("2.0.0", platform_version) else ["sandbox", "--port=0", "--port-file=__PORTFILE__"],
+        sandbox_args = ["--contract-id-seeding=testing-weak", "--mutable-contract-state-cache", "--participant=participant-id=sandbox,port=0,port-file=__PORTFILE__"] if versions.is_at_least("2.0.0", platform_version) else ["sandbox", "--port=0", "--port-file=__PORTFILE__"],
         size = "large",
         # We see timeouts here fairly regularly so we
         # increase the number of CPUs.

@@ -350,12 +350,13 @@ SERVERS = {
 }
 
 conformance_test(
-    name = "conformance-test",
+    name = "conformance-test-no-conflict-checking",
     ports = [6865],
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
+        "--disable-conflict-checking",
     ],
     test_tool_args = [
         "--verbose",
@@ -374,11 +375,10 @@ conformance_test(
 )
 
 server_conformance_test(
-    name = "conformance-test-conflict-checking",
+    name = "conformance-test",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--enable-conflict-checking",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -387,13 +387,12 @@ server_conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-conflict-checking-static-time",
+    name = "conformance-test-static-time",
     ports = [6865],
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--enable-conflict-checking",
         "--static-time",
     ],
     test_tool_args = [
@@ -408,7 +407,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865,ledger-api-transactions-buffer-max-size=10",
-        "--enable-conflict-checking",
         "--buffered-ledger-api-streams-unsafe",
     ],
     test_tool_args = [

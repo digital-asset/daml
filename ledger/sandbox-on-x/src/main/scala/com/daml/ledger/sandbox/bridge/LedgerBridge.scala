@@ -38,7 +38,6 @@ object LedgerBridge {
       timeProvider: TimeProvider,
   )(implicit
       loggingContext: LoggingContext,
-      // TODO SoX: Consider using a dedicated thread-pool for the ledger bridge
       servicesExecutionContext: ExecutionContext,
   ): ResourceOwner[LedgerBridge] =
     if (config.extra.conflictCheckingEnabled)
@@ -64,7 +63,6 @@ object LedgerBridge {
       timeProvider: TimeProvider,
   )(implicit
       loggingContext: LoggingContext,
-      // TODO SoX: Consider using a dedicated thread-pool for the ledger bridge
       servicesExecutionContext: ExecutionContext,
   ) =
     for {
