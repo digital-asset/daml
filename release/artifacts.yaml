@@ -133,12 +133,6 @@
   type: jar-scala
 - target: //ledger/ledger-offset:ledger-offset
   type: jar-scala
-- target: //ledger/ledger-on-memory:ledger-on-memory
-  type: jar-scala
-- target: //ledger/ledger-on-memory:ledger-on-memory-app
-  type: jar-scala
-- target: //ledger/ledger-on-sql:ledger-on-sql
-  type: jar-scala
 - target: //ledger/ledger-resources:ledger-resources
   type: jar-scala
 - target: //ledger/metrics:metrics
