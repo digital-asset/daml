@@ -90,7 +90,7 @@ class SequenceSpec
     sequenceImpl.ledgerConfiguration shouldBe Some(config)
 
     private val config2: Configuration =
-      config.copy(maxDeduplicationTime = config.maxDeduplicationTime.plusSeconds(60L))
+      config.copy(maxDeduplicationDuration = config.maxDeduplicationDuration.plusSeconds(60L))
     private val configUploadInput2 =
       input(NoOpPreparedSubmission(configUpload.copy(config = config2)))
 
@@ -336,7 +336,7 @@ class SequenceSpec
       Configuration(
         generation = 0L,
         timeModel = LedgerTimeModel.reasonableDefault,
-        maxDeduplicationTime = Duration.ofSeconds(60L),
+        maxDeduplicationDuration = Duration.ofSeconds(60L),
       )
     )
 
@@ -417,7 +417,7 @@ class SequenceSpec
     val config: Configuration = Configuration(
       generation = 1L,
       timeModel = LedgerTimeModel.reasonableDefault,
-      maxDeduplicationTime = Duration.ofSeconds(0L),
+      maxDeduplicationDuration = Duration.ofSeconds(0L),
     )
     val configUpload: Submission.Config = Submission.Config(
       maxRecordTime = maxConfigRecordTime,

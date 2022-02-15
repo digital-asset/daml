@@ -99,7 +99,7 @@ class GrpcCommandSubmissionServiceSpec
       ledgerId = LedgerId(ledgerId),
       currentLedgerTime = () => Instant.EPOCH,
       currentUtcTime = () => Instant.EPOCH,
-      maxDeduplicationTime = () => Some(Duration.ZERO),
+      maxDeduplicationDuration = () => Some(Duration.ZERO),
       submissionIdGenerator = () => Ref.SubmissionId.assertFromString(generatedSubmissionId),
       metrics = new Metrics(new MetricRegistry),
       errorCodesVersionSwitcher = errorCodesVersionSwitcher_mock,

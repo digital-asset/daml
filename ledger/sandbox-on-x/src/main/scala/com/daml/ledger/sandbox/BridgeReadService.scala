@@ -38,7 +38,7 @@ class BridgeReadService(
         config = Configuration(
           generation = 1L,
           timeModel = LedgerTimeModel.reasonableDefault,
-          maxDeduplicationTime = maximumDeduplicationDuration,
+            maxDeduplicationDuration = maximumDeduplicationDuration,
         ),
         initialRecordTime = Timestamp.now(),
       )

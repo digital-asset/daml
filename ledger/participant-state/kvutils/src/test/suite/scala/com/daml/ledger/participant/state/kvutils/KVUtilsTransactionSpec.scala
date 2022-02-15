@@ -555,7 +555,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         _ <- preExecuteConfig(existingConfig => {
           existingConfig.copy(
             generation = existingConfig.generation + 1,
-            maxDeduplicationTime = maxDeduplicationDuration,
+            maxDeduplicationDuration = maxDeduplicationDuration,
           )
         })
         transaction <- runSimpleCommand(alice, seed, command)

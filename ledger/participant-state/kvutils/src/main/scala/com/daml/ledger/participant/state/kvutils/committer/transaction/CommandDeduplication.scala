@@ -204,7 +204,7 @@ private[transaction] object CommandDeduplication {
         // build the maximum interval for which we might use the deduplication entry
         // we account for both time skews even if it means that the expiry time would be slightly longer than required
         val pruningInterval =
-          config.maxDeduplicationTime.plus(config.timeModel.maxSkew).plus(config.timeModel.minSkew)
+          config.maxDeduplicationDuration.plus(config.timeModel.maxSkew).plus(config.timeModel.minSkew)
         commitContext.recordTime match {
           case Some(recordTime) =>
             val prunableFrom = recordTime.add(pruningInterval)

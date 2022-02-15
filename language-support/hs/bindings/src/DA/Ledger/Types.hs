@@ -264,7 +264,7 @@ data Timestamp = Timestamp
     deriving (Eq,Ord,Show)
 
 data LedgerConfiguration = LedgerConfiguration
-    { maxDeduplicationTime :: LL.Duration
+    { maxDeduplicationDuration :: LL.Duration
     }
     deriving (Eq,Ord,Show)
 
@@ -306,4 +306,3 @@ newtype IsoTime = IsoTime { unIsoTime :: Clock.UTCTime } deriving Show
 
 instance Read IsoTime where
   readsPrec _ = ReadP.readP_to_S $ fmap IsoTime $ ISO8601.formatReadP ISO8601.iso8601Format
-

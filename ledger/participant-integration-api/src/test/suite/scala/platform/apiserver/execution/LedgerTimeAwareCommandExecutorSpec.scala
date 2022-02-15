@@ -42,7 +42,7 @@ class LedgerTimeAwareCommandExecutorSpec
       minSkew = Duration.ZERO,
       maxSkew = Duration.ZERO,
     ).get,
-    maxDeduplicationTime = Duration.ZERO,
+    maxDeduplicationDuration = Duration.ZERO,
   )
 
   val cid = TransactionBuilder.newCid

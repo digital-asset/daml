@@ -108,7 +108,7 @@ class ApiConfigManagementServiceSpec
       val initialConfiguration = Configuration(
         generation = initialGeneration,
         timeModel = initialTimeModel,
-        maxDeduplicationTime = maximumDeduplicationTime,
+        maxDeduplicationDuration = maximumDeduplicationTime,
       )
       val expectedGeneration = 3L
       val expectedTimeModel = LedgerTimeModel(
@@ -119,7 +119,7 @@ class ApiConfigManagementServiceSpec
       val expectedConfiguration = Configuration(
         generation = expectedGeneration,
         timeModel = expectedTimeModel,
-        maxDeduplicationTime = maximumDeduplicationTime,
+        maxDeduplicationDuration = maximumDeduplicationTime,
       )
 
       val timeProvider = TimeProvider.UTC

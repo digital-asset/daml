@@ -91,9 +91,9 @@ object LedgerBridge {
       validatePartyAllocation = !config.extra.implicitPartyAllocation,
       servicesThreadPoolSize = servicesThreadPoolSize,
       maxDeduplicationDuration = initialLedgerConfiguration
-        .map(_.maxDeduplicationTime)
+        .map(_.maxDeduplicationDuration)
         .getOrElse(
-          BridgeConfigProvider.initialLedgerConfig(config).configuration.maxDeduplicationTime
+          BridgeConfigProvider.initialLedgerConfig(config).configuration.maxDeduplicationDuration
         ),
     )
 

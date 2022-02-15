@@ -73,17 +73,17 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
         offset("000a") -> Configuration(
           generation = 3,
           timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(1)),
-          maxDeduplicationTime = Duration.ofDays(1),
+            maxDeduplicationDuration = Duration.ofDays(1),
         ),
         offset("0023") -> Configuration(
           generation = 4,
           timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(2)),
-          maxDeduplicationTime = Duration.ofDays(1),
+            maxDeduplicationDuration = Duration.ofDays(1),
         ),
         offset("01ef") -> Configuration(
           generation = 5,
           timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(2)),
-          maxDeduplicationTime = Duration.ofHours(6),
+            maxDeduplicationDuration = Duration.ofHours(6),
         ),
       )
       val configurationEntries = configurations.zipWithIndex.map {
@@ -126,7 +126,7 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
           proposedConfiguration = Configuration(
             generation = 10,
             timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ZERO),
-            maxDeduplicationTime = Duration.ZERO,
+              maxDeduplicationDuration = Duration.ZERO,
           ),
         )
       )
@@ -159,7 +159,7 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
       val acceptedConfiguration = Configuration(
         generation = 10,
         timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(10)),
-        maxDeduplicationTime = Duration.ZERO,
+        maxDeduplicationDuration = Duration.ZERO,
       )
       val configurationEntries = List(
         offset("0010") -> ConfigurationEntry.Rejected(
@@ -168,7 +168,7 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
           proposedConfiguration = Configuration(
             generation = 9,
             timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(5)),
-            maxDeduplicationTime = Duration.ZERO,
+              maxDeduplicationDuration = Duration.ZERO,
           ),
         ),
         offset("0020") -> ConfigurationEntry.Accepted(
@@ -181,7 +181,7 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
           Configuration(
             generation = 11,
             timeModel = LedgerTimeModel.reasonableDefault.copy(maxSkew = Duration.ofMinutes(15)),
-            maxDeduplicationTime = Duration.ZERO,
+            maxDeduplicationDuration = Duration.ZERO,
           ),
         ),
       )

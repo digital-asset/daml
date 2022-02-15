@@ -35,7 +35,7 @@ message LedgerConfiguration {
   // The default value for the ``deduplication_duration`` parameter of command submissions
   // (as described in ``commands.proto``). The ledger SHOULD accept deduplication periods
   // of length up to the maximum deduplication time and it MAY accept longer periods.
-  google.protobuf.Duration max_deduplication_time = 4;
+  google.protobuf.Duration max_deduplication_duration = 4;
 }
 
 message LedgerTimeModel {

@@ -20,7 +20,7 @@ class SubmitRequestValidator(
       req: SubmitRequest,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationTime: Option[Duration],
+      maxDeduplicationDuration: Option[Duration],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, submission.SubmitRequest] =
@@ -30,7 +30,7 @@ class SubmitRequestValidator(
         commands,
         currentLedgerTime,
         currentUtcTime,
-        maxDeduplicationTime,
+          maxDeduplicationDuration,
       )
     } yield submission.SubmitRequest(validatedCommands)
 

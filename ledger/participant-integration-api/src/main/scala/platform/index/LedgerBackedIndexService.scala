@@ -300,7 +300,7 @@ private[platform] final class LedgerBackedIndexService(
         }
         initialConfig
           .concat(configStream)
-          .map(cfg => LedgerConfiguration(cfg.maxDeduplicationTime))
+          .map(cfg => LedgerConfiguration(cfg.maxDeduplicationDuration))
       }
   }
 

@@ -45,7 +45,7 @@ private[apiserver] final class ApiLedgerConfigurationService private (
         GetLedgerConfigurationResponse(
           Some(
             LedgerConfiguration(
-              Some(toProto(configuration.maxDeduplicationTime))
+              Some(toProto(configuration.maxDeduplicationDuration))
             )
           )
         )
