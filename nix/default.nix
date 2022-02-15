@@ -152,7 +152,7 @@ in rec {
     '' + pkgs.lib.optionalString (pkgs.buildPlatform.libc == "glibc") ''
       export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive"
     '' + ''
-      exec ${pkgs.bazel_4}/bin/bazel --bazelrc "${bazelrc}" "$@"
+      exec ${pkgs.bazel_5}/bin/bazel --bazelrc "${bazelrc}" "$@"
     '');
 
     # System tools

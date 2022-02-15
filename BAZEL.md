@@ -906,7 +906,7 @@ be defined using `da_scala_test`. It is preferable to always use
 Scala benchmarks based on the JMH toolkit can be defined using the
 `scala_benchmark_jmh` macro provided by `rules_scala`. It supports a restricted
 subset of the attributes of `da_scala_binary`, namely: `name`, `deps`, `srcs`,
-`scalacopts`, `resources` and `resource_jars`.
+`scalacopts` and `resources`.
 
 The end result of building the benchmark is a Scala binary of the same name,
 which can be executed with `bazel run`.
