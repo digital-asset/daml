@@ -96,6 +96,7 @@ da_scala_test_suite(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//ledger/metrics",
+        "//libs-scala/adjustable-clock",
         "@maven//:com_typesafe_config",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",
