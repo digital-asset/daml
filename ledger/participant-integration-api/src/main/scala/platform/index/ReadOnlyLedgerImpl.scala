@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store
+package com.daml.platform.index
 
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
@@ -23,8 +23,8 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
 import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
+import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -36,7 +36,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
-import com.daml.platform.index.BuffersUpdater
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.{BufferedTransactionsReader, LfValueTranslation}
 import com.daml.platform.store.appendonlydao.{
@@ -58,6 +57,7 @@ import com.daml.platform.store.interning.{
   StringInterningView,
   UpdatingStringInterningView,
 }
+import com.daml.platform.store.{DbSupport, EventSequentialId, LfValueTranslationCache}
 import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.scalautil.Statement.discard

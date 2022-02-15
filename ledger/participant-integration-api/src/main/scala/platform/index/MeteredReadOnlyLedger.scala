@@ -26,7 +26,6 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future

@@ -10,6 +10,7 @@ import com.daml.ledger.api.domain.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.platform.api.v1.event.EventOps.EventOps
+import com.daml.platform.store.appendonlydao.events.EventFilter
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers

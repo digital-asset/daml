@@ -14,7 +14,8 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
-import com.daml.platform.index.TransactionConversion.removeTransient
+import com.daml.platform.store.appendonlydao.events.TransactionConversion
+import com.daml.platform.store.appendonlydao.events.TransactionConversion.removeTransient
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
