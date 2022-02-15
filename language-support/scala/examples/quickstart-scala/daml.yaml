@@ -5,11 +5,6 @@ sdk-version: 0.0.0
 name: quickstart
 source: daml
 init-script: Main:initialize
-parties:
-  - Alice
-  - Bob
-  - USD_Bank
-  - EUR_Bank
 version: 0.0.1
 exposed-modules:
   - Main
