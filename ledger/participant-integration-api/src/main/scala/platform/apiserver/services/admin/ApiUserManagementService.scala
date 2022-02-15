@@ -7,11 +7,7 @@ import java.nio.charset.StandardCharsets
 import java.util.Base64
 
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain._
 import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserResponse, GetUserResponse}
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
@@ -32,7 +28,6 @@ import scala.util.Try
 
 private[apiserver] final class ApiUserManagementService(
     userManagementStore: UserManagementStore,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
     maxUsersPageSize: Int,
 )(implicit
     executionContext: ExecutionContext,
@@ -43,7 +38,7 @@ private[apiserver] final class ApiUserManagementService(
   import ApiUserManagementService._
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
   private val fieldValidations = FieldValidations(errorFactories)

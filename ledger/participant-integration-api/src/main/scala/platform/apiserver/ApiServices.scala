@@ -5,7 +5,6 @@ package com.daml.platform.apiserver
 
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services._
@@ -86,7 +85,6 @@ private[daml] object ApiServices {
       healthChecks: HealthChecks,
       seedService: SeedService,
       managementServiceTimeout: Duration,
-      enableSelfServiceErrorCodes: Boolean,
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       ledgerFeatures: LedgerFeatures,
       userManagementConfig: UserManagementConfig,
@@ -113,9 +111,6 @@ private[daml] object ApiServices {
       materializer = materializer,
       servicesExecutionContext = servicesExecutionContext,
     )
-
-    private val errorsVersionsSwitcher =
-      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = enableSelfServiceErrorCodes)
 
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
       logger.info(engine.info.toString)
@@ -148,30 +143,28 @@ private[daml] object ApiServices {
         checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
       val apiTransactionService =
-        ApiTransactionService.create(ledgerId, transactionsService, metrics, errorsVersionsSwitcher)
+        ApiTransactionService.create(ledgerId, transactionsService, metrics)
 
       val apiLedgerIdentityService =
-        ApiLedgerIdentityService.create(() => identityService.getLedgerId(), errorsVersionsSwitcher)
+        ApiLedgerIdentityService.create(() => identityService.getLedgerId())
 
       val apiVersionService =
         ApiVersionService.create(
-          enableSelfServiceErrorCodes,
           ledgerFeatures,
           userManagementConfig = userManagementConfig,
         )
 
       val apiPackageService =
-        ApiPackageService.create(ledgerId, packagesService, errorsVersionsSwitcher)
+        ApiPackageService.create(ledgerId, packagesService)
 
       val apiConfigurationService =
-        ApiLedgerConfigurationService.create(ledgerId, configurationService, errorsVersionsSwitcher)
+        ApiLedgerConfigurationService.create(ledgerId, configurationService)
 
       val (completionService, grpcCompletionService) =
         ApiCommandCompletionService.create(
           ledgerId,
           completionsService,
           metrics,
-          errorsVersionsSwitcher,
         )
 
       val apiActiveContractsService =
@@ -179,13 +172,12 @@ private[daml] object ApiServices {
           ledgerId,
           activeContractsService,
           metrics,
-          errorsVersionsSwitcher,
         )
 
       val apiTimeServiceOpt =
         optTimeServiceBackend.map(tsb =>
           new TimeServiceAuthorization(
-            ApiTimeService.create(ledgerId, tsb, errorsVersionsSwitcher),
+            ApiTimeService.create(ledgerId, tsb),
             authorizer,
           )
         )
@@ -200,14 +192,13 @@ private[daml] object ApiServices {
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
-      val apiHealthService = new GrpcHealthService(healthChecks, errorsVersionsSwitcher)
+      val apiHealthService = new GrpcHealthService(healthChecks)
 
       val maybeApiUserManagementService: Option[UserManagementServiceAuthorization] =
         if (userManagementConfig.enabled) {
           val apiUserManagementService =
             new ApiUserManagementService(
               userManagementStore,
-              errorsVersionsSwitcher,
               maxUsersPageSize = userManagementConfig.maxUsersPageSize,
             )
           val authorized =
@@ -218,7 +209,7 @@ private[daml] object ApiServices {
         }
 
       val apiMeteringReportService =
-        new ApiMeteringReportService(participantId, meteringStore, errorsVersionsSwitcher)
+        new ApiMeteringReportService(participantId, meteringStore)
 
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
@@ -274,7 +265,6 @@ private[daml] object ApiServices {
             partyConfig.implicitPartyAllocation
           ),
           metrics,
-          errorsVersionsSwitcher,
         )
 
         // Note: the command service uses the command submission, command completion, and transaction
@@ -298,7 +288,6 @@ private[daml] object ApiServices {
           timeProvider = timeProvider,
           ledgerConfigurationSubscription = ledgerConfigurationSubscription,
           metrics = metrics,
-          errorsVersionsSwitcher,
         )
 
         val apiPartyManagementService = ApiPartyManagementService.createApiService(
@@ -306,7 +295,6 @@ private[daml] object ApiServices {
           transactionsService,
           writeService,
           managementServiceTimeout,
-          errorsVersionsSwitcher,
         )
 
         val apiPackageManagementService = ApiPackageManagementService.createApiService(
@@ -315,21 +303,18 @@ private[daml] object ApiServices {
           writeService,
           managementServiceTimeout,
           engine,
-          errorsVersionsSwitcher,
         )
 
         val apiConfigManagementService = ApiConfigManagementService.createApiService(
           configManagementService,
           writeService,
           timeProvider,
-          errorsVersionsSwitcher,
         )
 
         val apiParticipantPruningService =
           ApiParticipantPruningService.createApiService(
             indexService,
             writeService,
-            errorsVersionsSwitcher,
           )
 
         List(

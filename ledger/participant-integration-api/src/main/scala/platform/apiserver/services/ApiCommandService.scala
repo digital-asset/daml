@@ -10,11 +10,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
@@ -61,7 +57,6 @@ import scala.util.Try
 private[apiserver] final class ApiCommandService private[services] (
     transactionServices: TransactionServices,
     submissionTracker: Tracker,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -70,7 +65,7 @@ private[apiserver] final class ApiCommandService private[services] (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
 
   @volatile private var running = true
 
@@ -169,7 +164,7 @@ private[apiserver] final class ApiCommandService private[services] (
     } else {
       Future
         .failed(
-          errorFactories.serviceNotRunning("Command Service")(definiteAnswer = Some(false))
+          errorFactories.serviceNotRunning("Command Service")
         )
     }
 
@@ -215,13 +210,12 @@ private[apiserver] object ApiCommandService {
       timeProvider: TimeProvider,
       ledgerConfigurationSubscription: LedgerConfigurationSubscription,
       metrics: Metrics,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): CommandServiceGrpc.CommandService with GrpcApiService = {
-    val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+    val errorFactories = ErrorFactories()
     val ledgerOffsetValidator = new LedgerOffsetValidator(errorFactories)
     val submissionTracker = new TrackerMap.SelfCleaning(
       configuration.trackerRetentionPeriod,
@@ -237,10 +231,8 @@ private[apiserver] object ApiCommandService {
       trackerCleanupInterval,
     )
     new GrpcCommandService(
-      service =
-        new ApiCommandService(transactionServices, submissionTracker, errorCodesVersionSwitcher),
+      service = new ApiCommandService(transactionServices, submissionTracker),
       ledgerId = configuration.ledgerId,
-      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>

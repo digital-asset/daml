@@ -10,7 +10,7 @@ import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDedup
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.validation.ValidatorTestUtils
-import io.grpc.Status.Code.{FAILED_PRECONDITION, INVALID_ARGUMENT}
+import io.grpc.Status.Code.FAILED_PRECONDITION
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
@@ -23,28 +23,22 @@ class DeduplicationPeriodValidatorSpec
 
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
   private val maxDeduplicationDuration = time.Duration.ofSeconds(5)
-  private val deduplicationValidatorFixture = new ValidatorFixture(selfServiceErrorCodesEnabled =>
-    new DeduplicationPeriodValidator(ErrorFactories(selfServiceErrorCodesEnabled))
-  )
+  private val validator = new DeduplicationPeriodValidator(ErrorFactories())
 
   "not allow deduplication duration exceeding maximum deduplication duration" in {
     val durationSecondsExceedingMax = maxDeduplicationDuration.plusSeconds(1).getSeconds
-    deduplicationValidatorFixture.testRequestFailure(
-      _.validate(
+    requestMustFailWith(
+      request = validator.validate(
         DeduplicationDuration(
           Duration.ofSeconds(durationSecondsExceedingMax)
         ),
         maxDeduplicationDuration,
       ),
-      expectedCodeV1 = INVALID_ARGUMENT,
-      expectedDescriptionV1 =
-        s"Invalid field deduplication_period: The given deduplication duration of ${java.time.Duration
-          .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${maxDeduplicationDuration}",
-      expectedCodeV2 = FAILED_PRECONDITION,
-      expectedDescriptionV2 =
+      code = FAILED_PRECONDITION,
+      description =
         s"INVALID_DEDUPLICATION_PERIOD(9,0): The submitted command had an invalid deduplication period: The given deduplication duration of ${java.time.Duration
           .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${maxDeduplicationDuration}",
-      metadataV2 = Map(
+      metadata = Map(
         ValidMaxDeduplicationFieldKey -> maxDeduplicationDuration.toString
       ),
     )

@@ -82,7 +82,6 @@ trait ConfigProvider[ExtraConfig] {
       maxTransactionsInMemoryFanOutBufferSize =
         participantConfig.maxTransactionsInMemoryFanOutBufferSize,
       enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
-      enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
       userManagementConfig = config.userManagementConfig,
     )
 

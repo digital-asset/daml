@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ValueSwitch}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry
@@ -52,7 +52,6 @@ object KeyValueConsumption {
     *
     * @param entryId: The log entry identifier.
     * @param entry: The log entry.
-    * @param errorVersionSwitch: Decides between v1 and v2 (self-service) errors.
     * @return [[Update]]s constructed from log entry.
     */
   // TODO(BH): add participantId to ensure participant id matches in DamlLogEntry
@@ -60,7 +59,6 @@ object KeyValueConsumption {
   def logEntryToUpdate(
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
-      errorVersionSwitch: ValueSwitch,
       recordTimeForUpdate: Option[Timestamp] = None,
   )(loggingContext: LoggingContext): List[Update] = {
     implicit val logContext: LoggingContext = loggingContext
@@ -218,7 +216,6 @@ object KeyValueConsumption {
           transactionRejectionEntryToUpdate(
             recordTime,
             rejectionEntry,
-            errorVersionSwitch,
           )(contextualizedErrorLogger(loggingContext, rejectionEntry))
         )
 
@@ -226,7 +223,6 @@ object KeyValueConsumption {
         outOfTimeBoundsEntryToUpdate(
           recordTime,
           entry.getOutOfTimeBoundsEntry,
-          errorVersionSwitch,
         ).toList
 
       case DamlLogEntry.PayloadCase.TIME_UPDATE_ENTRY =>
@@ -251,9 +247,8 @@ object KeyValueConsumption {
   private def transactionRejectionEntryToUpdate(
       recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
   )(implicit loggingContext: ContextualizedErrorLogger): Update = {
-    val reason = Conversions.decodeTransactionRejectionEntry(rejEntry, errorVersionSwitch)
+    val reason = Conversions.decodeTransactionRejectionEntry(rejEntry)
     Update.CommandRejected(
       recordTime = recordTime,
       completionInfo = parseCompletionInfo(recordTime, rejEntry.getSubmitterInfo),
@@ -350,7 +345,6 @@ object KeyValueConsumption {
   private[kvutils] def outOfTimeBoundsEntryToUpdate(
       recordTime: Timestamp,
       outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry,
-      errorVersionSwitch: ValueSwitch,
   )(implicit loggingContext: LoggingContext): Option[Update] = {
     val timeBounds = parseTimeBounds(outOfTimeBoundsEntry)
     val deduplicated = timeBounds.deduplicateUntil.exists(recordTime <= _)
@@ -366,7 +360,6 @@ object KeyValueConsumption {
           duplicateCommandsRejectionUpdate(
             recordTime,
             rejectionEntry,
-            errorVersionSwitch,
             None, // Not available for historical entries
           )(contextualizedErrorLogger(loggingContext, rejectionEntry))
         )
@@ -383,7 +376,6 @@ object KeyValueConsumption {
             timeBounds.tooEarlyUntil,
             timeBounds.tooLateFrom,
             rejectionEntry,
-            errorVersionSwitch,
           )(contextualizedErrorLogger(loggingContext, rejectionEntry))
         )
 

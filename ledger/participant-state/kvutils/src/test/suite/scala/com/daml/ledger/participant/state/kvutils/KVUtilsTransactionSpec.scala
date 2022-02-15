@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.error.ValueSwitch
-
 import java.time.Duration
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
@@ -40,9 +38,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
   import KVTest._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-
-  private val errorVersionSwitch =
-    new ValueSwitch(enableSelfServiceErrorCodes = false)
 
   private val alice = party("Alice")
   private val bob = party("Bob")
@@ -101,7 +96,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           KeyValueConsumption.logEntryToUpdate(
             entryId,
             logEntry,
-            errorVersionSwitch,
           )(loggingContext)
         )
 
@@ -226,7 +220,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
               KeyValueConsumption.logEntryToUpdate(
                 entryId,
                 preExecutionResult.successfulLogEntry,
-                errorVersionSwitch,
                 Some(recordTime),
               )(loggingContext)
             )
@@ -314,7 +307,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           KeyValueConsumption.logEntryToUpdate(
             entryId,
             logEntry,
-            errorVersionSwitch,
           )(loggingContext)
         )
 
@@ -535,7 +527,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           KeyValueConsumption.logEntryToUpdate(
             entryId,
             strippedEntry.build,
-            errorVersionSwitch,
           )(loggingContext)
         inside(updates) { case Seq(txAccepted: Update.TransactionAccepted) =>
           txAccepted.optCompletionInfo should be(None)
@@ -591,7 +582,6 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       KeyValueConsumption.logEntryToUpdate(
         entryId,
         preExecutionResult.successfulLogEntry,
-        errorVersionSwitch,
         Some(recordTime),
       )(loggingContext)
     )

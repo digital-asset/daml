@@ -60,9 +60,7 @@ class DeduplicationPeriodSupport(
                   )
                   Left(
                     errorFactories.invalidDeduplicationPeriod(
-                      "deduplication_period",
                       s"Cannot convert deduplication offset to duration because there is no completion at given offset $offset.",
-                      Some(false),
                       None,
                     )
                   )

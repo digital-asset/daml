@@ -5,7 +5,6 @@ package com.daml.platform.server.api.services.grpc
 
 import java.time.{Duration, Instant}
 import com.codahale.metrics.MetricRegistry
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.MockMessages._
@@ -30,7 +29,6 @@ class GrpcCommandSubmissionServiceSpec
     with Matchers
     with ArgumentMatchersSugar {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  private val errorCodesVersionSwitcher_mock = mock[ErrorCodesVersionSwitcher]
   private val generatedSubmissionId = "generated-submission-id"
 
   import GrpcCommandSubmissionServiceSpec._
@@ -102,7 +100,6 @@ class GrpcCommandSubmissionServiceSpec
       maxDeduplicationTime = () => Some(Duration.ZERO),
       submissionIdGenerator = () => Ref.SubmissionId.assertFromString(generatedSubmissionId),
       metrics = new Metrics(new MetricRegistry),
-      errorCodesVersionSwitcher = errorCodesVersionSwitcher_mock,
     )
 }
 

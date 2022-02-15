@@ -70,58 +70,13 @@ class QueueBackedTrackerSpec
 
     "input is submitted, and the queue is backpressuring" should {
       "return a RESOURCE_EXHAUSTED error" in {
-
-        def testIt(useSelfServiceErrorCodes: Boolean, expectedStatusCode: com.google.rpc.Code) = {
-
-          val tracker = new QueueBackedTracker(
-            queue,
-            Future.successful(Done),
-            ErrorFactories(useSelfServiceErrorCodes),
-          )
-
-          tracker.track(input(1))
-          tracker.track(input(2)).map { completion =>
-            completion should matchPattern {
-              case Left(
-                    CompletionResponse
-                      .QueueSubmitFailure(RpcProtoExtractors.Status(`expectedStatusCode`))
-                  ) =>
-            }
-          }
-        }
-
-        testIt(useSelfServiceErrorCodes = false, com.google.rpc.Code.RESOURCE_EXHAUSTED)
-        testIt(useSelfServiceErrorCodes = true, com.google.rpc.Code.ABORTED)
-
-      }
-    }
-
-    "input is submitted, and the queue has been completed" should {
-      "return an UNAVAILABLE error with self-service error codes enabled" in {
         val tracker = new QueueBackedTracker(
           queue,
           Future.successful(Done),
-          ErrorFactories(useSelfServiceErrorCodes = true),
-        )
-        queue.complete()
-        tracker.track(input(2)).map { completion =>
-          completion should matchPattern {
-            case Left(
-                  CompletionResponse
-                    .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.UNAVAILABLE))
-                ) =>
-          }
-        }
-      }
-
-      "return an ABORTED error with self-service error codes disabled" in {
-        val tracker = new QueueBackedTracker(
-          queue,
-          Future.successful(Done),
-          ErrorFactories(useSelfServiceErrorCodes = false),
+          ErrorFactories(),
         )
 
-        queue.complete()
+        tracker.track(input(1))
         tracker.track(input(2)).map { completion =>
           completion should matchPattern {
             case Left(
@@ -133,12 +88,31 @@ class QueueBackedTrackerSpec
       }
     }
 
-    "input is submitted, and the queue has failed" should {
-      "return an INTERNAL error with self-service error codes enabled" in {
+    "input is submitted, and the queue has been completed" should {
+      "return an UNAVAILABLE error" in {
         val tracker = new QueueBackedTracker(
           queue,
           Future.successful(Done),
-          ErrorFactories(useSelfServiceErrorCodes = true),
+          ErrorFactories(),
+        )
+        queue.complete()
+        tracker.track(input(2)).map { completion =>
+          completion should matchPattern {
+            case Left(
+                  CompletionResponse
+                    .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.UNAVAILABLE))
+                ) =>
+          }
+        }
+      }
+    }
+
+    "input is submitted, and the queue has failed" should {
+      "return an INTERNAL error" in {
+        val tracker = new QueueBackedTracker(
+          queue,
+          Future.successful(Done),
+          ErrorFactories(),
         )
 
         queue.fail(TestingException("The queue fails with this error."))
@@ -151,58 +125,35 @@ class QueueBackedTrackerSpec
           }
         }
       }
-
-      "return an ABORTED error with self-service error codes disabled" in {
-        val tracker = new QueueBackedTracker(
-          queue,
-          Future.successful(Done),
-          ErrorFactories(useSelfServiceErrorCodes = false),
-        )
-
-        queue.fail(TestingException("The queue fails with this error."))
-        tracker.track(input(2)).map { completion =>
-          completion should matchPattern {
-            case Left(
-                  CompletionResponse
-                    .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.ABORTED))
-                ) =>
-          }
-        }
-      }
     }
 
     "input is submitted, and the offer method has thrown an exception" should {
       "return an INTERNAL error" in {
-        def testIt(useSelfServiceErrorCodes: Boolean) = {
-          val fakeQueue = new BoundedSourceQueue[QueueInput] {
-            override def offer(elem: QueueInput): QueueOfferResult =
-              throw new IllegalArgumentException("test")
+        val fakeQueue = new BoundedSourceQueue[QueueInput] {
+          override def offer(elem: QueueInput): QueueOfferResult =
+            throw new IllegalArgumentException("test")
 
-            override def size(): Int = 0
+          override def size(): Int = 0
 
-            override def complete(): Unit = ()
+          override def complete(): Unit = ()
 
-            override def fail(ex: Throwable): Unit = ()
-          }
-          val tracker = new QueueBackedTracker(
-            fakeQueue,
-            Future.successful(Done),
-            ErrorFactories(useSelfServiceErrorCodes),
-          )
+          override def fail(ex: Throwable): Unit = ()
+        }
+        val tracker = new QueueBackedTracker(
+          fakeQueue,
+          Future.successful(Done),
+          ErrorFactories(),
+        )
 
-          tracker.track(input(1))
-          tracker.track(input(2)).map { completion =>
-            completion should matchPattern {
-              case Left(
-                    CompletionResponse
-                      .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.INTERNAL))
-                  ) =>
-            }
+        tracker.track(input(1))
+        tracker.track(input(2)).map { completion =>
+          completion should matchPattern {
+            case Left(
+                  CompletionResponse
+                    .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.INTERNAL))
+                ) =>
           }
         }
-
-        testIt(useSelfServiceErrorCodes = false)
-        testIt(useSelfServiceErrorCodes = true)
       }
     }
   }

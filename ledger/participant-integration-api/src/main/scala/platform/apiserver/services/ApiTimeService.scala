@@ -7,11 +7,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion._
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
@@ -33,7 +29,6 @@ import scala.concurrent.{ExecutionContext, Future}
 private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
     backend: TimeServiceBackend,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -46,7 +41,7 @@ private[apiserver] final class ApiTimeService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
   private val fieldValidations = FieldValidations(errorFactories)
   private val dispatcher = SignalDispatcher[Instant]()
 
@@ -97,7 +92,7 @@ private[apiserver] final class ApiTimeService private (
           if (success) Right(requestedTime)
           else
             Left(
-              invalidArgument(None)(
+              invalidArgument(
                 s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"
               )
             )
@@ -115,7 +110,7 @@ private[apiserver] final class ApiTimeService private (
           Right(())
         else
           Left(
-            invalidArgument(None)(
+            invalidArgument(
               s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."
             )
           )
@@ -153,12 +148,11 @@ private[apiserver] object ApiTimeService {
   def create(
       ledgerId: LedgerId,
       backend: TimeServiceBackend,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       mat: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): TimeService with GrpcApiService =
-    new ApiTimeService(ledgerId, backend, errorCodesVersionSwitcher)
+    new ApiTimeService(ledgerId, backend)
 }

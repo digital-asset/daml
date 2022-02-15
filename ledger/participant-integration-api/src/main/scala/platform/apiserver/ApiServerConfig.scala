@@ -42,6 +42,5 @@ case class ApiServerConfig(
     maxContractKeyStateCacheSize: Long,
     maxTransactionsInMemoryFanOutBufferSize: Long,
     enableInMemoryFanOutForLedgerApi: Boolean,
-    enableSelfServiceErrorCodes: Boolean,
     userManagementConfig: UserManagementConfig,
 )

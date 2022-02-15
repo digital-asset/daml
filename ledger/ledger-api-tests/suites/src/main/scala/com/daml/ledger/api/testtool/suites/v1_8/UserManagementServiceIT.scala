@@ -58,7 +58,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     def assertTooManyUserRightsError(t: Throwable): Unit = {
       assertGrpcError(
         t = t,
-        selfServiceErrorCode = LedgerApiErrors.AdminServices.TooManyUserRights,
+        errorCode = LedgerApiErrors.AdminServices.TooManyUserRights,
         exceptionMessageSubstring = None,
       )
     }
@@ -128,7 +128,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
           .mustFail(context = problem)
       } yield assertGrpcError(
         t = throwable,
-        selfServiceErrorCode = expectedErrorCode,
+        errorCode = expectedErrorCode,
         exceptionMessageSubstring = None,
       )
     }
@@ -358,12 +358,12 @@ final class UserManagementServiceIT extends LedgerTestSuite {
 
       assertGrpcError(
         t = onBadTokenError,
-        selfServiceErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+        errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
         exceptionMessageSubstring = None,
       )
       assertGrpcError(
         t = onNegativePageSizeError,
-        selfServiceErrorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
+        errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
         exceptionMessageSubstring = None,
       )
       assert(
@@ -525,7 +525,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   private def assertUserNotFound(t: Throwable): Unit = {
     assertGrpcError(
       t = t,
-      selfServiceErrorCode = LedgerApiErrors.AdminServices.UserNotFound,
+      errorCode = LedgerApiErrors.AdminServices.UserNotFound,
       exceptionMessageSubstring = None,
     )
   }
@@ -535,7 +535,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   ): Unit = {
     assertGrpcError(
       t = t,
-      selfServiceErrorCode = LedgerApiErrors.AdminServices.UserAlreadyExists,
+      errorCode = LedgerApiErrors.AdminServices.UserAlreadyExists,
       exceptionMessageSubstring = None,
     )
   }

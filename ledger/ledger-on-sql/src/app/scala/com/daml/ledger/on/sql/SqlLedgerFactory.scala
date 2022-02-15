@@ -50,7 +50,7 @@ object SqlLedgerFactory extends LedgerFactory[ExtraConfig] {
         metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
       ),
     ).map(ledgerReaderWriter =>
-      new KeyValueReadWriteFactory(config, metrics, ledgerReaderWriter, ledgerReaderWriter)
+      new KeyValueReadWriteFactory(metrics, ledgerReaderWriter, ledgerReaderWriter)
     )
   }
 }
