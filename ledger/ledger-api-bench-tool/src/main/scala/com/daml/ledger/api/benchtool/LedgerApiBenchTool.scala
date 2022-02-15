@@ -59,8 +59,32 @@ object LedgerApiBenchTool {
     val names = new Names
     val authorizationHelper = config.authorizationTokenSecret.map(new AuthorizationHelper(_))
 
+    def regularUserCreationStep(adminServices: LedgerApiServices): Future[Unit] =
+      config.authorizationTokenSecret match {
+        case None => Future.successful(())
+        case Some(_) =>
+          // Only if the submission config is provided we can compute what parties the user can observe.
+          // Otherwise we set an empty list as a default not to prematurely block the stream reading phase.
+          val observerPartyNames = config.workflow.submission
+            .map { submissionConfig =>
+              names.observerPartyNames(
+                submissionConfig.numberOfObservers,
+                submissionConfig.uniqueParties,
+              )
+            }
+            .getOrElse(List.empty)
+          adminServices.userManagementService.createUserOrGrantRightsToExisting(
+            userId = names.benchtoolUserId,
+            observerPartyNames = observerPartyNames,
+            signatoryPartyName = names.signatoryPartyName,
+          )
+      }
+
     apiServicesOwner(config, authorizationHelper).use {
       servicesForUserId: (String => LedgerApiServices) =>
+        val adminServices = servicesForUserId(UserManagementStore.DefaultParticipantAdminUserId)
+        val regularUserServices = servicesForUserId(names.benchtoolUserId)
+
         def benchmarkStep(
             streamConfigs: List[WorkflowConfig.StreamConfig]
         ): Future[Either[String, Unit]] =
@@ -71,7 +95,7 @@ object LedgerApiBenchTool {
             Benchmark.run(
               streamConfigs = streamConfigs,
               reportingPeriod = config.reportingPeriod,
-              apiServices = servicesForUserId(names.benchtoolUserId),
+              apiServices = regularUserServices,
               metricsReporter = config.metricsReporter,
             )
           }
@@ -86,8 +110,8 @@ object LedgerApiBenchTool {
             case Some(submissionConfig) =>
               val submitter = CommandSubmitter(
                 names = names,
-                benchtoolUserServices = servicesForUserId(names.benchtoolUserId),
-                adminServices = servicesForUserId(UserManagementStore.DefaultParticipantAdminUserId),
+                benchtoolUserServices = regularUserServices,
+                adminServices = adminServices,
               )
               submitter
                 .submit(
@@ -99,6 +123,7 @@ object LedgerApiBenchTool {
           }
 
         for {
+          _ <- regularUserCreationStep(adminServices)
           summary <- submissionStep(config.workflow.submission)
           streams = config.workflow.streams.map(
             ConfigEnricher.enrichStreamConfig(_, summary)
@@ -109,6 +134,7 @@ object LedgerApiBenchTool {
           benchmarkResult <- benchmarkStep(streams)
         } yield benchmarkResult
     }
+
   }
 
   private def apiServicesOwner(
