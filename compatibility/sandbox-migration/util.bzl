@@ -7,6 +7,9 @@ load("//bazel_tools:versions.bzl", "versions")
 def runfiles(ver):
     return ["@daml-sdk-{}//:daml".format(ver)] + (["@daml-sdk-{}//:sandbox-on-x".format(ver)] if versions.is_at_least("2.0.0", ver) else [])
 
+def oracle_versions(vers):
+    return [v for v in vers if versions.is_at_least("1.18.0", v)]
+
 def migration_test(name, versions, tags, quick_tags, **kwargs):
     native.sh_test(
         name = name,
@@ -34,5 +37,20 @@ def migration_test(name, versions, tags, quick_tags, **kwargs):
             "//sandbox-migration:migration-step",
         ] + [dep for ver in versions for dep in runfiles(ver)],
         args = ["--append-only"] + versions,
+        **kwargs
+    )
+
+    # Oracle was introduced after the switch to the append-only schema
+    native.sh_test(
+        name = "{}-oracle".format(name),
+        srcs = ["//sandbox-migration:test.sh"],
+        deps = ["@bazel_tools//tools/bash/runfiles"],
+        tags = tags,
+        data = [
+            "//sandbox-migration:sandbox-migration-runner",
+            "//sandbox-migration:migration-model.dar",
+            "//sandbox-migration:migration-step",
+        ] + [dep for ver in oracle_versions(versions) for dep in runfiles(ver)],
+        args = ["--oracle"] + oracle_versions(versions),
         **kwargs
     )
