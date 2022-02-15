@@ -48,7 +48,7 @@ If you have a license for Daml Enterprise, you
 can install it as follows:
 
 - On Windows, download the installer from Artifactory_ instead of Github
-releases. 
+  releases. 
 - On Linux and MacOS, download the corresponding tarball,
 extract it and run ``./install.sh``. Afterwards, modify the
 :ref:`global daml-config.yaml <global_daml_config>` and add an entry
