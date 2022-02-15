@@ -105,10 +105,6 @@
   type: jar-scala
 - target: //ledger/ledger-api-tests/infrastructure:infrastructure-1.dev
   type: jar-scala
-- target: //ledger/ledger-api-tests/performance:performance-1.14
-  type: jar-scala
-- target: //ledger/ledger-api-tests/performance:performance-1.dev
-  type: jar-scala
 - target: //ledger/ledger-api-tests/runner:runner-1.14
   type: jar-scala
 - target: //ledger/ledger-api-tests/runner:runner-1.dev
