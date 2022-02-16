@@ -30,7 +30,7 @@ import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, 
 
 import scala.concurrent.Future
 
-private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metrics)
+private[index] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metrics)
     extends ReadOnlyLedger {
 
   override def ledgerId: LedgerId = ledger.ledgerId

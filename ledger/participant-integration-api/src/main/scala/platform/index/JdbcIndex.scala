@@ -37,7 +37,7 @@ private[platform] object JdbcIndex {
       maxTransactionsInMemoryFanOutBufferSize: Long,
       enableInMemoryFanOutForLedgerApi: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
-    new ReadOnlyLedgerImpl.Owner(
+    ReadOnlyLedgerBuilder(
       dbSupport = dbSupport,
       initialLedgerId = ledgerId,
       eventsPageSize = eventsPageSize,
@@ -57,11 +57,13 @@ private[platform] object JdbcIndex {
       participantId = participantId,
       maxTransactionsInMemoryFanOutBufferSize = maxTransactionsInMemoryFanOutBufferSize,
       errorFactories = ErrorFactories(),
-    ).map { ledger =>
-      new LedgerBackedIndexService(
-        MeteredReadOnlyLedger(ledger, metrics),
-        participantId,
-        errorFactories = ErrorFactories(),
-      )
-    }
+    )(mat, loggingContext, servicesExecutionContext)
+      .owner()
+      .map { ledger =>
+        new LedgerBackedIndexService(
+          MeteredReadOnlyLedger(ledger, metrics),
+          participantId,
+          errorFactories = ErrorFactories(),
+        )
+      }
 }

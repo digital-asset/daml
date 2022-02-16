@@ -361,33 +361,15 @@ private[platform] object MutableCacheBackedContractStore {
       ContractsStateCache(maxContractsCacheSize, metrics),
     )
 
-  final class OwnerWithSubscription(
+  final class CacheUpdateSubscription(
+      contractStore: MutableCacheBackedContractStore,
       subscribeToContractStateEvents: SubscribeToContractStateEvents,
-      contractsReader: LedgerDaoContractsReader,
-      signalNewLedgerHead: SignalNewLedgerHead,
-      startIndexExclusive: (Offset, Long),
-      metrics: Metrics,
-      maxContractsCacheSize: Long,
-      maxKeyCacheSize: Long,
-      executionContext: ExecutionContext,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
-  )(implicit
-      materializer: Materializer,
-      loggingContext: LoggingContext,
-  ) extends ResourceOwner[MutableCacheBackedContractStore] {
-
-    private val contractStore = MutableCacheBackedContractStore(
-      contractsReader,
-      signalNewLedgerHead,
-      startIndexExclusive,
-      metrics,
-      maxContractsCacheSize,
-      maxKeyCacheSize,
-    )(executionContext, loggingContext)
-
+  )(implicit materializer: Materializer)
+      extends ResourceOwner[Unit] {
     override def acquire()(implicit
         context: ResourceContext
-    ): Resource[MutableCacheBackedContractStore] =
+    ): Resource[Unit] =
       Resource(Future {
         RestartSource
           .withBackoff(
@@ -406,9 +388,8 @@ private[platform] object MutableCacheBackedContractStore {
       }(context.executionContext)) {
         case (contractStateUpdateKillSwitch, contractStateUpdateDone) =>
           contractStateUpdateKillSwitch.shutdown()
-
           contractStateUpdateDone.map(_ => ())(context.executionContext)
-      }.map(_ => contractStore)
+      }.map(_ => ())
   }
 
   final case class ContractReadThroughNotFound(contractId: ContractId) extends NoStackTrace {

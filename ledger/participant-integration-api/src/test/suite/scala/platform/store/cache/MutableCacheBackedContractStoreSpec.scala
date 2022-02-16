@@ -441,19 +441,27 @@ object MutableCacheBackedContractStoreSpec {
       sourceSubscriber: SubscribeToContractStateEvents = _ => Source.empty,
       startIndexExclusive: (Offset, EventSequentialId) =
         Offset.beforeBegin -> EventSequentialId.beforeBegin,
-  )(implicit loggingContext: LoggingContext, materializer: Materializer) =
-    new MutableCacheBackedContractStore.OwnerWithSubscription(
-      subscribeToContractStateEvents = sourceSubscriber,
-      startIndexExclusive = startIndexExclusive,
-      minBackoffStreamRestart = 10.millis,
-      contractsReader = readerFixture,
-      signalNewLedgerHead = signalNewLedgerHead,
-      metrics = new Metrics(new MetricRegistry),
-      maxContractsCacheSize = cachesSize,
-      maxKeyCacheSize = cachesSize,
-      executionContext = scala.concurrent.ExecutionContext.global,
+  )(implicit loggingContext: LoggingContext, materializer: Materializer) = {
+    implicit val resourceContext: ResourceContext = ResourceContext(
+      scala.concurrent.ExecutionContext.global
     )
-      .acquire()(ResourceContext(scala.concurrent.ExecutionContext.global))
+
+    val contractStore = MutableCacheBackedContractStore(
+      readerFixture,
+      signalNewLedgerHead,
+      startIndexExclusive,
+      new Metrics(new MetricRegistry),
+      cachesSize,
+      cachesSize,
+    )(scala.concurrent.ExecutionContext.global, loggingContext)
+
+    new MutableCacheBackedContractStore.CacheUpdateSubscription(
+      contractStore = contractStore,
+      subscribeToContractStateEvents = sourceSubscriber,
+      minBackoffStreamRestart = 10.millis,
+    ).acquire()
+      .map(_ => contractStore)
+  }
 
   case class ContractsReaderFixture() extends LedgerDaoContractsReader {
     @volatile private var initialResultForCid6 = Future.successful(Option.empty[ContractState])

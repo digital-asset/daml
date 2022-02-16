@@ -46,7 +46,7 @@ import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[platform] final class LedgerBackedIndexService(
+private[index] final class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
     participantId: Ref.ParticipantId,
     errorFactories: ErrorFactories,
