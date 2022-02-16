@@ -13,8 +13,8 @@ sealed abstract class Error(val msg: String)
 
 object Error {
 
-  final case class Internal(location: String, message: String)
-      extends Error(s"IO error: $message")
+  final case class Internal(location: String, message: String, cause: Option[Throwable])
+      extends Error(message)
       with InternalError
 
   final case class IO(location: String, cause: java.io.IOException)
