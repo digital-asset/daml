@@ -77,7 +77,7 @@ function start_oracle() {
   if [ "${OSTYPE:0:6}" = "darwin" ]; then
     # macOS: Oracle does not like if you use the host network to connect to it if it’s running in the container.
     echo "Starting oracle docker with port mapping"
-    docker run -d --rm --name oracle -p 1521:1521 -e ORACLE_PWD=$ORACLE_PWD $IMAGE
+    docker run -d --rm --name oracle -p $ORACLE_PORT:$ORACLE_PORT -e ORACLE_PWD=$ORACLE_PWD $IMAGE
   else
     # Unix: Oracle does not like if you connect to it via localhost if it’s running in the container.
     # Interestingly it works if you use the external IP of the host so the issue is
