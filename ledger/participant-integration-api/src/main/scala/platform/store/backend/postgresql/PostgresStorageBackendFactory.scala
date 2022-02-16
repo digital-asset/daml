@@ -15,19 +15,11 @@ object PostgresStorageBackendFactory
   override val createIngestionStorageBackend: IngestionStorageBackend[_] =
     new IngestionStorageBackendTemplate(PGSchema.schema)
 
-  override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
-    new PartyStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache)
-
-  override def createCompletionStorageBackend(
-      stringInterning: StringInterning
-  ): CompletionStorageBackend =
-    new CompletionStorageBackendTemplate(PostgresQueryStrategy, stringInterning)
-
   override def createContractStorageBackend(
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
   ): ContractStorageBackend =
-    new ContractStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache, stringInterning)
+    new ContractStorageBackendTemplate(queryStrategy, ledgerEndCache, stringInterning)
 
   override def createEventStorageBackend(
       ledgerEndCache: LedgerEndCache,
@@ -44,4 +36,5 @@ object PostgresStorageBackendFactory
   override val createResetStorageBackend: ResetStorageBackend =
     PostgresResetStorageBackend
 
+  override protected def queryStrategy: QueryStrategy = PostgresQueryStrategy
 }

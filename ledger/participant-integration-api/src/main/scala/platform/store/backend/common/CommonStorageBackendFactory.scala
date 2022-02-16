@@ -5,8 +5,19 @@ package com.daml.platform.store.backend.common
 
 import com.daml.platform.store.backend._
 import com.daml.platform.store.cache.LedgerEndCache
+import com.daml.platform.store.interning.StringInterning
 
 trait CommonStorageBackendFactory extends StorageBackendFactory {
+
+  protected def queryStrategy: QueryStrategy
+
+  override def createCompletionStorageBackend(
+      stringInterning: StringInterning
+  ): CompletionStorageBackend =
+    new CompletionStorageBackendTemplate(queryStrategy, stringInterning)
+
+  override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
+    new PartyStorageBackendTemplate(queryStrategy, ledgerEndCache)
 
   override def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend =
     new PackageStorageBackendTemplate(ledgerEndCache)

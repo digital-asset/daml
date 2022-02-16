@@ -5,19 +5,16 @@ package com.daml.platform.store.backend.oracle
 
 import com.daml.platform.store.backend.common.{
   CommonStorageBackendFactory,
-  CompletionStorageBackendTemplate,
   ContractStorageBackendTemplate,
   IngestionStorageBackendTemplate,
-  PartyStorageBackendTemplate,
+  QueryStrategy,
 }
 import com.daml.platform.store.backend.{
-  CompletionStorageBackend,
   ContractStorageBackend,
   DBLockStorageBackend,
   DataSourceStorageBackend,
   EventStorageBackend,
   IngestionStorageBackend,
-  PartyStorageBackend,
   ResetStorageBackend,
   StorageBackendFactory,
 }
@@ -29,19 +26,11 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
   override val createIngestionStorageBackend: IngestionStorageBackend[_] =
     new IngestionStorageBackendTemplate(OracleSchema.schema)
 
-  override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
-    new PartyStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache)
-
-  override def createCompletionStorageBackend(
-      stringInterning: StringInterning
-  ): CompletionStorageBackend =
-    new CompletionStorageBackendTemplate(OracleQueryStrategy, stringInterning)
-
   override def createContractStorageBackend(
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
   ): ContractStorageBackend =
-    new ContractStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache, stringInterning)
+    new ContractStorageBackendTemplate(queryStrategy, ledgerEndCache, stringInterning)
 
   override def createEventStorageBackend(
       ledgerEndCache: LedgerEndCache,
@@ -58,4 +47,5 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
   override val createResetStorageBackend: ResetStorageBackend =
     OracleResetStorageBackend
 
+  override protected def queryStrategy: QueryStrategy = OracleQueryStrategy
 }
