@@ -161,7 +161,7 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
     def handleLfEnginePackageError(err: Error.Package.Error)(implicit
         loggingContext: ContextualizedErrorLogger
     ): LoggingPackageServiceError = err match {
-      case Error.Package.Internal(nameOfFunc, msg) =>
+      case Error.Package.Internal(nameOfFunc, msg, _) =>
         PackageServiceError.InternalError.Validation(nameOfFunc, msg)
       case Error.Package.Validation(validationError) =>
         ValidationError.Error(validationError)
