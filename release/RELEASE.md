@@ -276,7 +276,7 @@ This testing procedure starts once the release is listed on the [releases page].
     1. Delete the `+1` and the `e` in the second `"Alice"` and verify
        that the script results are updated to the misspelled name.
 
-    1. Right click on `eurBank` in line 20 and verify that "Go to Definition"
+    1. Right click on `eurBank` in line 28 and verify that "Go to Definition"
        takes you to the definition in line 17.
 
     1. Close all files.
