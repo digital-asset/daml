@@ -10,7 +10,6 @@ import java.util.concurrent.{
   ThreadPoolExecutor,
   TimeUnit,
 }
-
 import com.daml.ledger.api.benchtool.config.{Config, ConfigMaker, WorkflowConfig}
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.submission.{CommandSubmitter, Names}
@@ -59,24 +58,27 @@ object LedgerApiBenchTool {
     val names = new Names
     val authorizationHelper = config.authorizationTokenSecret.map(new AuthorizationHelper(_))
 
-    def regularUserCreationStep(adminServices: LedgerApiServices): Future[Unit] =
-      config.authorizationTokenSecret match {
-        case None => Future.successful(())
-        case Some(_) =>
-          // Only if the submission config is provided we can compute what parties the user can observe.
-          // Otherwise we set an empty list as a default not to prematurely block the stream reading phase.
-          val observerPartyNames = config.workflow.submission
-            .map { submissionConfig =>
-              names.observerPartyNames(
-                submissionConfig.numberOfObservers,
-                submissionConfig.uniqueParties,
-              )
-            }
-            .getOrElse(List.empty)
+    def regularUserSetupStep(adminServices: LedgerApiServices): Future[Unit] =
+      (config.authorizationTokenSecret, config.workflow.submission) match {
+        case (Some(_), Some(submissionConfig)) =>
+          // We only need to setup the user when the UserManagementService is used and we're going to submit transactions
+          // The submission config is necessary to establish a set of rights that will be granted to the user.
+          logger.info(
+            s"Setting up the regular '${names.benchtoolUserId}' user prior to the submission phase."
+          )
           adminServices.userManagementService.createUserOrGrantRightsToExisting(
             userId = names.benchtoolUserId,
-            observerPartyNames = observerPartyNames,
+            observerPartyNames = names.observerPartyNames(
+              submissionConfig.numberOfObservers,
+              submissionConfig.uniqueParties,
+            ),
             signatoryPartyName = names.signatoryPartyName,
+          )
+        case _ =>
+          Future.successful(
+            logger.info(
+              s"The '${names.benchtoolUserId}' user is going to be used for authentication."
+            )
           )
       }
 
@@ -126,7 +128,7 @@ object LedgerApiBenchTool {
         val regularUserServices = servicesForUserId(names.benchtoolUserId)
 
         for {
-          _ <- regularUserCreationStep(adminServices)
+          _ <- regularUserSetupStep(adminServices)
           summary <- submissionStep(regularUserServices, adminServices, config.workflow.submission)
           streams = config.workflow.streams.map(
             ConfigEnricher.enrichStreamConfig(_, summary)
