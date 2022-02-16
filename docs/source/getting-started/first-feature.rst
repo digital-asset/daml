@@ -120,6 +120,7 @@ Again we show the entire component here; copy this into a new ``MessageEdit.tsx`
 
 .. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/MessageEdit.tsx
   :language: tsx
+  :force:
   :start-after: // MESSAGEEDIT_BEGIN
   :end-before: // MESSAGEEDIT_END
 

@@ -506,7 +506,7 @@ nixpkgs_package(
 #sphinx
 nixpkgs_package(
     name = "sphinx_nix",
-    attribute_path = "sphinx183-exts",
+    attribute_path = "sphinx-exts",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
