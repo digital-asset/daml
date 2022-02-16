@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackages}
 import com.daml.lf.speedy.Anf.flattenToAnf
@@ -723,12 +723,12 @@ private[lf] final class Compiler(
       t.InterfacePrecondDefRef(impl._1)(env2.toSEVar(tmplArgPos))
     )
 
-    val precondsArray: ImmArray[s.SExpr] =
-      (Iterator(translateExp(env2, tmpl.precond)) ++ implementsPrecondsIterator).to(ImmArray)
+    val precondsStack: FrontStack[t.SExpr] =
+      (Iterator(translateExp(env2, tmpl.precond)) ++ implementsPrecondsIterator)
+        .map(pipeline)
+        .to(FrontStack)
 
-    val preconds = precondsArray.foldLeft[s.SExpr](s.SEValue(SUnit))((acc, precond) =>
-      SBCheckPrecond(tmplId)(env2.toSEVar(tmplArgPos), acc, precond)
-    )
+    val preconds = SBCheckPreconds(tmplId, precondsStack)(env2.toSEVar(tmplArgPos))
 
     let(env2, preconds) { (_, env) =>
       SBUCreate(tmplId, byInterface)(

@@ -544,6 +544,15 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case class SBCheckPreconds(templateId: TypeConName, preconds: FrontStack[SExpr])
+      extends SBuiltin(1) {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val templ = args.get(0)
+      machine.pushKont(KCheckPrecond(machine, templateId, templ, preconds))
+      machine.returnValue = SUnit
+    }
+  }
+
   // NOTE: Past implementations of `foldr` have used the semantics given by the
   // recursive definition
   // ```
@@ -880,28 +889,6 @@ private[lf] object SBuiltin {
       val scale = getSTNat(args, 0)
       val x = getSBigNumeric(args, 1)
       Numeric.fromBigDecimal(scale, x).toOption.map(SNumeric(_))
-    }
-  }
-
-  /** $checkPrecondition
-    *    :: arg (template argument)
-    *    -> Unit
-    *    -> Bool (false if ensure failed)
-    *    -> Unit
-    */
-  final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(3) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SUnit.type = {
-      val _ = getSUnit(args, 1)
-      val precond = getSBool(args, 2)
-      if (precond) SUnit
-      else
-        throw SErrorDamlException(
-          IE.TemplatePreconditionViolated(
-            templateId = templateId,
-            optLocation = None,
-            arg = args.get(0).toUnnormalizedValue,
-          )
-        )
     }
   }
 

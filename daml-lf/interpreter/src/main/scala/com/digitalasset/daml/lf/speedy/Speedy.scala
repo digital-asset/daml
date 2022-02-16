@@ -1251,6 +1251,61 @@ private[lf] object Speedy {
     }
   }
 
+  private[speedy] final case class KCheckPrecond(
+      machine: Machine,
+      templateId: TypeConName,
+      templ: SValue,
+      var preconds: FrontStack[SExpr],
+  ) extends Kont {
+
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
+
+    def execute(unit: SValue) = {
+      unit match {
+        case SValue.SUnit =>
+          preconds.pop match {
+            case None =>
+              machine.returnValue = SValue.SUnit
+            case Some((item, rest)) =>
+              machine.restoreFrameAndActuals(frame, actuals)
+              preconds = rest
+              machine.pushKont(this)
+              machine.ctrl = item
+              machine.pushKont(KCheckPrecond1(machine, templateId, templ))
+          }
+        case _ =>
+          throw SErrorCrash("KCheckPrecond", "Expected SUnit value.")
+      }
+    }
+  }
+
+  private[speedy] final case class KCheckPrecond1(
+      machine: Machine,
+      templateId: TypeConName,
+      templ: SValue,
+  ) extends Kont {
+
+    def execute(precond: SValue) = {
+      precond match {
+        case SValue.SBool(b) =>
+          if (b)
+            machine.returnValue = SValue.SUnit
+          else
+            throw SErrorDamlException(
+              IError.TemplatePreconditionViolated(
+                templateId = templateId,
+                optLocation = None,
+                arg = templ.toUnnormalizedValue,
+              )
+            )
+        case _ =>
+          throw SErrorCrash("KCheckPrecond1", "Expected SBool value.")
+      }
+    }
+
+  }
+
   private[speedy] final case class KFoldr(
       machine: Machine,
       func: SValue,
