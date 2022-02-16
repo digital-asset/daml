@@ -57,7 +57,6 @@ load(
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
     "nixpkgs_cc_configure",
-    "nixpkgs_java_configure",
     "nixpkgs_local_repository",
     "nixpkgs_package",
     "nixpkgs_python_configure",
@@ -306,7 +305,7 @@ daml_sdk_head(
     if ver != "0.0.0"
 ]
 
-load("@daml//bazel_tools:java.bzl", "dadew_java_configure")
+load("@daml//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_configure")
 
 dadew_java_configure(
     name = "dadew_java_runtime",
