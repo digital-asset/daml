@@ -8,16 +8,18 @@ import java.io.PrintStream
 import scala.io.Source
 
 object Banner {
-  def show(out: PrintStream): Unit = {
-    val resourceName = "banner.txt"
-    if (getClass.getClassLoader.getResource(resourceName) != null)
-      out.println(
-        Source
-          .fromResource(resourceName)
-          .getLines()
-          .mkString("\n")
-      )
+  private val classLoader = getClass.getClassLoader
+
+  private val resourceName = "banner.txt"
+
+  private def banner: String =
+    if (classLoader.getResource(resourceName) != null)
+      Source
+        .fromResource(resourceName, classLoader)
+        .getLines()
+        .mkString("\n")
     else
-      out.println("Banner resource missing from classpath.")
-  }
+      "Banner resource missing from classpath."
+
+  def show(out: PrintStream): Unit = out.println(banner)
 }
