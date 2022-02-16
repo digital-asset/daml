@@ -23,7 +23,7 @@ object TransactionVersion {
 
   val All = List(V10, V11, V12, V13, V14, VDev)
 
-  private[daml] implicit val Ordering: scala.Ordering[TransactionVersion] =
+  private implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)
 
   private[this] val stringMapping = All.iterator.map(v => v.protoValue -> v).toMap
