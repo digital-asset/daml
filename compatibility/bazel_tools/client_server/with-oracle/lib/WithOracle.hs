@@ -66,11 +66,11 @@ getOracleConnection = do
     mbPort <- getEnv "ORACLE_PORT"
     mbUser <- getEnv "ORACLE_USERNAME"
     mbPwd <- getEnv "ORACLE_PWD"
-    mbDocker <- getEnv "DOCKER_PATH"
+    mbDocker <- getEnv "ORACLE_DOCKER_PATH"
     let port = read $ fromMaybe (error "ORACLE_PORT environment variable not set") mbPort
     let username = T.pack $ fromMaybe (error "ORACLE_USERNAME environment variable not set") mbUser
     let password = T.pack $ fromMaybe (error "ORACLE_PWD environment variable not set") mbPwd
-    let docker = T.pack $ fromMaybe (error "DOCKER_PATH environment variable not set") mbDocker
+    let docker = T.pack $ fromMaybe (error "ORACLE_DOCKER_PATH environment variable not set") mbDocker
     pure $ OracleConnection port username password docker
 
 createUser :: OracleConnection -> Text -> IO ()

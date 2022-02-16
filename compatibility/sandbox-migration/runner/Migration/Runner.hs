@@ -86,6 +86,7 @@ main = do
             Postgres -> withPostgres
             Oracle -> withOracle
     withDatabase $ \jdbcUrl -> do
+        hPutStrLn stderr $ T.unpack $ "Using database " <> jdbcUrl
         initialPlatform : _ <- pure platformAssistants
         hPutStrLn stderr "--> Uploading model DAR"
         withSandbox appendOnly initialPlatform jdbcUrl $ \p ->

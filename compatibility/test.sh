@@ -54,7 +54,6 @@ function stop_postgresql() {
     rm -rf "$POSTGRESQL_ROOT_DIR"
   fi
 }
-echo "Starting PostgreSQL database"
 trap stop_postgresql EXIT
 stop_postgresql # in case it's running from a previous build
 start_postgresql
@@ -75,11 +74,18 @@ function start_oracle() {
   # Cleanup stray containers that might still be running from
   # another build that didn’t get shut down cleanly.
   docker rm -f oracle || true
-  # Oracle does not like if you connect to it via localhost if it’s running in the container.
-  # Interestingly it works if you use the external IP of the host so the issue is
-  # not the host it is listening on (it claims for that to be 0.0.0.0).
-  # --network host is a cheap escape hatch for this.
-  docker run -d --rm --name oracle --network host -e ORACLE_PWD=$ORACLE_PWD $IMAGE
+  if [ "${OSTYPE:0:6}" = "darwin" ]; then
+    # macOS: Oracle does not like if you use the host network to connect to it if it’s running in the container.
+    echo "Starting oracle docker with port mapping"
+    docker run -d --rm --name oracle -p 1521:1521 -e ORACLE_PWD=$ORACLE_PWD $IMAGE
+  else
+    # Unix: Oracle does not like if you connect to it via localhost if it’s running in the container.
+    # Interestingly it works if you use the external IP of the host so the issue is
+    # not the host it is listening on (it claims for that to be 0.0.0.0).
+    # --network host is a cheap escape hatch for this.
+    echo "Starting oracle docker with host network"
+    docker run -d --rm --name oracle --network host -e ORACLE_PWD=$ORACLE_PWD $IMAGE
+  fi
 }
 function stop_oracle() {
   docker rm -f oracle
@@ -87,7 +93,6 @@ function stop_oracle() {
 function test_oracle_connection() {
   docker exec oracle bash -c 'sqlplus -L '"$ORACLE_USERNAME"'/'"$ORACLE_PWD"'@//localhost:'"$ORACLE_PORT"'/ORCLPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
 }
-echo "Starting Oracle database"
 trap stop_oracle EXIT
 start_oracle
 until test_oracle_connection
@@ -96,7 +101,9 @@ do
   sleep 1
 done
 
-DOCKER_PATH=$(which docker)
+# Pass the path to the docker executable to the tests.
+# This is because the tests need to interact with the docker container started above.
+ORACLE_DOCKER_PATH=$(which docker)
 
 bazel build //...
 
@@ -105,12 +112,12 @@ if [ "${1:-}" = "--quick" ]; then
     BAZEL_ARGS="--test_tag_filters +head-quick"
 fi
 
-bazel test //... \
+bazel test --test_output=all //:migration-oracle \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
   --test_env "POSTGRESQL_PORT=${POSTGRESQL_PORT}" \
   --test_env "POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}" \
   --test_env "ORACLE_PORT=${ORACLE_PORT}" \
   --test_env "ORACLE_USERNAME=${ORACLE_USERNAME}" \
   --test_env "ORACLE_PWD=${ORACLE_PWD}" \
-  --test_env "DOCKER_PATH=${DOCKER_PATH}"
+  --test_env "ORACLE_DOCKER_PATH=${ORACLE_DOCKER_PATH}"
   $BAZEL_ARGS

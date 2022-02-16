@@ -86,8 +86,8 @@ da_haskell_binary(
     main_function = "Migration.Runner.main",
     visibility = ["//visibility:public"],
     deps = [
-        "//bazel_tools/client_server/with-postgres",
         "//bazel_tools/client_server/with-oracle",
+        "//bazel_tools/client_server/with-postgres",
         "//bazel_tools/daml_ledger:sandbox-helper",
         "@rules_haskell//tools/runfiles",
     ],
