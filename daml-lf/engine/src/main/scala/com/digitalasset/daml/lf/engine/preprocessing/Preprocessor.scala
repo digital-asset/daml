@@ -120,7 +120,11 @@ private[engine] final class Preprocessor(
               // We assume that getDependencies is always given serializable types
               ResultError(
                 Error.Preprocessing
-                  .Internal(NameOf.qualifiedNameOfCurrentFunc, s"unserializable type ${typ.pretty}")
+                  .Internal(
+                    NameOf.qualifiedNameOfCurrentFunc,
+                    s"unserializable type ${typ.pretty}",
+                    None,
+                  )
               )
           }
         case Nil =>
