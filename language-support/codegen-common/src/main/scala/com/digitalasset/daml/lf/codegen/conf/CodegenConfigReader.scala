@@ -157,20 +157,21 @@ object CodegenConfigReader {
 
   implicit val decodePackageReference: KeyDecoder[PackageReference] =
     new KeyDecoder[PackageReference] {
-      // This regex matches IdString.PackageVersion.
-      private val refRegex = """^(.*)-((0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*)$""".r
       // TODO (MK) https://github.com/digital-asset/daml/issues/9934
       // For now we only allow name-version pairs to match the compiler. Once the compiler
       // accepts package ids we can allow for those here as well.
       final def apply(key: String): Option[PackageReference] = nameVersion(key)
 
-      private def nameVersion(key: String): Option[PackageReference] = key match {
-        case refRegex(name, version, _*) =>
+      private def nameVersion(key: String): Option[PackageReference] = {
+        val dashIndex = key.lastIndexWhere(_ == '-')
+        if (dashIndex < 0) {
+          None
+        } else {
           for {
-            name <- PackageName.fromString(name).toOption
-            version <- PackageVersion.fromString(version).toOption
+            name <- PackageName.fromString(key.slice(0, dashIndex)).toOption
+            version <- PackageVersion.fromString(key.slice(dashIndex + 1, key.length)).toOption
           } yield PackageReference.NameVersion(name, version)
-        case _ => None
+        }
       }
     }
 }
