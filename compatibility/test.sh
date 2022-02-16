@@ -112,7 +112,7 @@ if [ "${1:-}" = "--quick" ]; then
     BAZEL_ARGS="--test_tag_filters +head-quick"
 fi
 
-bazel test --test_output=all //:migration-oracle \
+bazel test //... \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
   --test_env "POSTGRESQL_PORT=${POSTGRESQL_PORT}" \
   --test_env "POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}" \
