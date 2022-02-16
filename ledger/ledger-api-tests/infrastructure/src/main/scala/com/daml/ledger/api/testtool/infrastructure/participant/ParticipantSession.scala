@@ -24,8 +24,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Failure
 import scala.util.control.NonFatal
 
+/** Represents a running participant server exposing a set of services.
+  */
 private[infrastructure] final class ParticipantSession private (
-    partyAllocation: PartyAllocationConfiguration,
+    partyAllocationConfig: PartyAllocationConfiguration,
     services: LedgerServices,
     // The ledger ID is retrieved only once when the participant session is created.
     // Changing the ledger ID during a session can result in unexpected consequences.
@@ -66,7 +68,7 @@ private[infrastructure] final class ParticipantSession private (
       identifierSuffix = identifierSuffix,
       referenceOffset = end,
       services = services,
-      partyAllocation = partyAllocation,
+      partyAllocationConfig = partyAllocationConfig,
       ledgerEndpoint = ledgerEndpoint,
       clientTlsConfiguration = clientTlsConfiguration,
       features = features,
@@ -76,15 +78,15 @@ private[infrastructure] final class ParticipantSession private (
 object ParticipantSession {
   private val logger = LoggerFactory.getLogger(classOf[ParticipantSession])
 
-  def apply(
-      partyAllocation: PartyAllocationConfiguration,
-      participants: Vector[ChannelEndpoint],
+  def createSessions(
+      partyAllocationConfig: PartyAllocationConfiguration,
+      participantChannels: Vector[ChannelEndpoint],
       maxConnectionAttempts: Int,
       commandInterceptors: Seq[ClientInterceptor],
   )(implicit
       executionContext: ExecutionContext
   ): Future[Vector[ParticipantSession]] =
-    Future.traverse(participants) { participant: ChannelEndpoint =>
+    Future.traverse(participantChannels) { participant: ChannelEndpoint =>
       val services = new LedgerServices(participant.channel, commandInterceptors)
       for {
         ledgerId <- RetryStrategy
@@ -114,7 +116,7 @@ object ParticipantSession {
               Features.defaultFeatures
             }
       } yield new ParticipantSession(
-        partyAllocation = partyAllocation,
+        partyAllocationConfig = partyAllocationConfig,
         services = services,
         ledgerId = ledgerId,
         ledgerEndpoint = participant.endpoint,

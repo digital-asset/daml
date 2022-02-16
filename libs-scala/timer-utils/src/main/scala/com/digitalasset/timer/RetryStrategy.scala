@@ -80,6 +80,10 @@ final class RetryStrategy private (
 
   private def clip(t: Duration): Duration = t.min(waitTimeCap).max(0.millis)
 
+  /** Retries `run` until:
+    * - obtaining a successful future,
+    * - or retry strategy gave up re-trying.
+    */
   def apply[A](run: (Int, Duration) => Future[A])(implicit ec: ExecutionContext): Future[A] = {
     val startTime = System.nanoTime()
     if (attempts.exists(_ <= 0)) {

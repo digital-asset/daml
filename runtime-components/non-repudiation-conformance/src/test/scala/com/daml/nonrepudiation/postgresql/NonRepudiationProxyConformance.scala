@@ -99,7 +99,7 @@ final class NonRepudiationProxyConformance
     proxy.use { _ =>
       val runner = new LedgerTestCasesRunner(
         testCases = conformanceTestCases,
-        participants = Vector(infrastructure.ChannelEndpoint.forInProcess(proxyChannel)),
+        participantChannels = Vector(infrastructure.ChannelEndpoint.forInProcess(proxyChannel)),
         commandInterceptors = Seq(
           SigningInterceptor.signCommands(key, certificate)
         ),
