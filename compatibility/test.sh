@@ -119,5 +119,5 @@ bazel test //... \
   --test_env "ORACLE_PORT=${ORACLE_PORT}" \
   --test_env "ORACLE_USERNAME=${ORACLE_USERNAME}" \
   --test_env "ORACLE_PWD=${ORACLE_PWD}" \
-  --test_env "ORACLE_DOCKER_PATH=${ORACLE_DOCKER_PATH}"
+  --test_env "ORACLE_DOCKER_PATH=${ORACLE_DOCKER_PATH}" \
   $BAZEL_ARGS
