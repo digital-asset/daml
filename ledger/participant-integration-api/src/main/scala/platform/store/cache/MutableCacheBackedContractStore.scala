@@ -25,12 +25,12 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   ContractState,
   KeyState,
 }
-import java.util.concurrent.atomic.AtomicReference
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NoStackTrace
 import scala.util.Success
+import scala.util.chaining._
+import scala.util.control.NoStackTrace
 
 private[platform] class MutableCacheBackedContractStore(
     metrics: Metrics,
@@ -44,7 +44,7 @@ private[platform] class MutableCacheBackedContractStore(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  private[cache] val cacheIndex = new CacheIndex(startIndexExclusive)
+  private[cache] val cacheIndex = MutableLedgerEndCache().tap(_.set(startIndexExclusive))
 
   def push(event: ContractStateEvent): Unit = {
     debugEvents(event)
@@ -145,7 +145,7 @@ private[platform] class MutableCacheBackedContractStore(
   private def readThroughContractsCache(contractId: ContractId)(implicit
       loggingContext: LoggingContext
   ) = {
-    val currentCacheSequentialId = cacheIndex.getEventSequentialId
+    val currentCacheSequentialId = cacheIndex()._2
     val fetchStateRequest =
       Timed.future(
         metrics.daml.index.lookupContract,
@@ -242,7 +242,7 @@ private[platform] class MutableCacheBackedContractStore(
   private def readThroughKeyCache(
       key: GlobalKey
   )(implicit loggingContext: LoggingContext) = {
-    val currentCacheSequentialId = cacheIndex.getEventSequentialId
+    val currentCacheSequentialId = cacheIndex()._2
     val eventualResult = contractsReader.lookupKeyState(key, currentCacheSequentialId)
     val eventualValue = eventualResult.map(toKeyCacheValue)
 
@@ -379,7 +379,7 @@ private[platform] object MutableCacheBackedContractStore {
               randomFactor = 0.2,
             )
           )(() =>
-            subscribeToContractStateEvents(contractStore.cacheIndex.get)
+            subscribeToContractStateEvents(contractStore.cacheIndex())
               .map(contractStore.push)
           )
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
@@ -395,18 +395,5 @@ private[platform] object MutableCacheBackedContractStore {
   final case class ContractReadThroughNotFound(contractId: ContractId) extends NoStackTrace {
     override def getMessage: String =
       s"Contract not found for contract id ${contractId.coid}. Hint: this could be due racing with a concurrent archival."
-  }
-
-  // TODO ACS: this cache can be unified with the LedgerEndCache
-  private[cache] class CacheIndex(initValue: (Offset, Long)) {
-    private val offsetRef: AtomicReference[(Offset, EventSequentialId)] =
-      new AtomicReference(initValue)
-
-    def set(offset: Offset, sequentialId: EventSequentialId): Unit =
-      offsetRef.set(offset -> sequentialId)
-
-    def get: (Offset, EventSequentialId) = offsetRef.get()
-
-    def getEventSequentialId: EventSequentialId = get._2
   }
 }

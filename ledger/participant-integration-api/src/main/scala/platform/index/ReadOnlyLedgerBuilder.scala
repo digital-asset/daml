@@ -214,7 +214,7 @@ private[index] case class ReadOnlyLedgerBuilder(
       ledgerEnd: LedgerEnd
   ): ResourceOwner[Dispatcher[(Offset, Long)]] =
     Dispatcher.owner(
-      name = "transaction-log-updates",
+      name = "cache-updates",
       zeroIndex = (Offset.beforeBegin, EventSequentialId.beforeBegin),
       headAtInitialization = (ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId),
     )
