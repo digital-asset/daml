@@ -174,6 +174,12 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       case otherwise => unexpectedType(i, "Exception", otherwise)
     }
 
+  final protected def getSAnyInterface(args: util.ArrayList[SValue], i: Int): (TypeConName, SRecord) =
+    args.get(i) match {
+      case SAnyInterface(tyCon, value) => (tyCon, value)
+      case otherwise => unexpectedType(i, "Interface", otherwise)
+    }
+
   final protected def checkToken(args: util.ArrayList[SValue], i: Int): Unit =
     args.get(i) match {
       case SToken => ()
@@ -1220,7 +1226,7 @@ private[lf] object SBuiltin {
   // Return a definition matching the templateId of a given payload
   sealed class SBResolveVirtual(toDef: Ref.Identifier => SDefinitionRef) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-      machine.ctrl = SEVal(toDef(getSRecord(args, 0).id))
+      machine.ctrl = SEVal(toDef(getSAnyInterface(args, 0)._1))
   }
 
   final case class SBResolveCreateByInterface(ifaceId: TypeConName)
@@ -1237,10 +1243,7 @@ private[lf] object SBuiltin {
       tplId: TypeConName
   ) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
-      SAny(
-        ty = Ast.TTyCon(tplId),
-        value = args.get(0),
-      )
+      SAnyInterface(tplId, getSRecord(args,0))
     }
   }
 
@@ -1252,9 +1255,9 @@ private[lf] object SBuiltin {
       tplId: TypeConName
   ) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
-      val any = getSAny(args, 0)
-      if (Ast.TTyCon(tplId) == any.ty) {
-        SOptional(Some(any.value))
+      val (tyCon, record) = getSAnyInterface(args, 0)
+      if (tplId == tyCon) {
+        SOptional(Some(record))
       } else {
         SOptional(None)
       }
@@ -1271,13 +1274,13 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ) = {
-      val record = getSRecord(args, 0)
+      val (tyCon, record) = getSAnyInterface(args, 0)
       // TODO https://github.com/digital-asset/daml/issues/12051
       // TODO https://github.com/digital-asset/daml/issues/11345
       //  The lookup is probably slow. We may want to investigate way to make the feature faster.
-      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(record.id) match {
+      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(tyCon) match {
         case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIface) =>
-          SOptional(Some(record))
+          SOptional(Some(SAnyInterface(tyCon, record)))
         case _ =>
           SOptional(None)
       }
@@ -1289,9 +1292,9 @@ private[lf] object SBuiltin {
       methodName: MethodName,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val record = getSRecord(args, 0)
+      val (tyCon, record) = getSAnyInterface(args, 0)
       machine.ctrl =
-        SEApp(SEVal(ImplementsMethodDefRef(record.id, ifaceId, methodName)), Array(SEValue(record)))
+        SEApp(SEVal(ImplementsMethodDefRef(tyCon, ifaceId, methodName)), Array(SEValue(record)))
     }
   }
 
@@ -1678,8 +1681,8 @@ private[lf] object SBuiltin {
     */
   final case class SBInterfaceTemplateTypeRep(tycon: TypeConName) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): STypeRep = {
-      val id = getSRecord(args, 0).id
-      STypeRep(Ast.TTyCon(id))
+      val (tyCon, _) = getSAnyInterface(args, 0)
+      STypeRep(Ast.TTyCon(tyCon))
     }
   }
 
