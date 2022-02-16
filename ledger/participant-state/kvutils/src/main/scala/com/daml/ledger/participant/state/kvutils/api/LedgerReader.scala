@@ -47,6 +47,6 @@ object LedgerReader {
   val DefaultConfiguration: Configuration = Configuration(
     generation = 0,
     timeModel = LedgerTimeModel.reasonableDefault,
-    maxDeduplicationTime = Duration.ofDays(1),
+    maxDeduplicationDuration = Duration.ofDays(1),
   )
 }

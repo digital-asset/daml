@@ -187,7 +187,7 @@ class IndexerBenchmark() {
       Configuration(
         generation = 0,
         timeModel = LedgerTimeModel.reasonableDefault,
-        maxDeduplicationTime = java.time.Duration.ofDays(1),
+        maxDeduplicationDuration = java.time.Duration.ofDays(1),
       ),
       Time.Timestamp.Epoch,
     )

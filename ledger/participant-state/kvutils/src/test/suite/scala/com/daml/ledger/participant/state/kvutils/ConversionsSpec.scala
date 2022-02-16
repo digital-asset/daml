@@ -126,7 +126,9 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               "Expected Resources",
             ),
             (
-              Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
+              Rejection.ValidationFailure(
+                Error.Package(Error.Package.Internal("ERROR", "ERROR", None))
+              ),
               Code.FAILED_PRECONDITION,
               Map.empty,
               Map.empty,

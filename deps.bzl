@@ -46,8 +46,8 @@ rules_haskell_patches = [
     # This should be upstreamed
     "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-includes.patch",
 ]
-rules_nixpkgs_version = "81f61c4b5afcf50665b7073f7fce4c1755b4b9a3"
-rules_nixpkgs_sha256 = "33fd540d0283cf9956d0a5a640acb1430c81539a84069114beaf9640c96d221a"
+rules_nixpkgs_version = "de066d554de5bb5fd16270aebb04c99d07d7ed38"
+rules_nixpkgs_sha256 = "bb5bd56a0784cb46419190ceb743ad713c6e00ab5b603a9cba9bbe51ef5063b6"
 rules_nixpkgs_patches = [
     # On CI and locally we observe occasional segmantation faults
     # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
@@ -56,6 +56,8 @@ rules_nixpkgs_patches = [
     # reportedly solves the issue. See
     # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
     "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
+    # This should be upstreamed.
+    "@com_github_digital_asset_daml//bazel_tools:nixpkgs-java-toolchain.patch",
 ]
 
 buildifier_version = "4.0.0"
@@ -356,7 +358,7 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "911b5673ac2568b74482713c91242ffecc5dcb11c2efad08960b762824137231",
+            sha256 = "972fb3dbf4a404e60e90e6acaaee2a9fbd8550299c9eaebdf5dcc0dbd22ddb7a",
             strip_prefix = "canton-community-1.0.0-SNAPSHOT",
-            urls = ["https://www.canton.io/releases/canton-community-20220209.tar.gz"],
+            urls = ["https://www.canton.io/releases/canton-community-20220214.tar.gz"],
         )

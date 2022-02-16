@@ -79,7 +79,7 @@ class StoreBackedCommandExecutorSpec
           minSkew = Duration.ZERO,
           maxSkew = Duration.ZERO,
         ).get,
-        maxDeduplicationTime = Duration.ZERO,
+        maxDeduplicationDuration = Duration.ZERO,
       )
 
       val instance = new StoreBackedCommandExecutor(

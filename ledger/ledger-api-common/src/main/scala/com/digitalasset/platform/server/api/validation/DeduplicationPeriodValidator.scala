@@ -34,7 +34,7 @@ class DeduplicationPeriodValidator(
       if (duration.compareTo(maxDeduplicationDuration) > 0)
         Left(
           errorFactories.invalidDeduplicationPeriod(
-            s"The given deduplication duration of $duration exceeds the maximum deduplication time of $maxDeduplicationDuration",
+            s"The given deduplication duration of $duration exceeds the maximum deduplication duration of $maxDeduplicationDuration",
             Some(maxDeduplicationDuration),
           )
         )

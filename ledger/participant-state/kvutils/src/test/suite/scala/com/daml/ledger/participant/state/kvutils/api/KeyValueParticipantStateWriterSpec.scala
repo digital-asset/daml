@@ -142,7 +142,7 @@ object KeyValueParticipantStateWriterSpec {
   private val aConfiguration: Configuration = Configuration(
     generation = 1,
     timeModel = LedgerTimeModel.reasonableDefault,
-    maxDeduplicationTime = Duration.ofDays(1),
+    maxDeduplicationDuration = Duration.ofDays(1),
   )
 
   private val anInterpretationCost = 123L

@@ -90,9 +90,9 @@ trait ConfigProvider[ExtraConfig] {
 
   def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration = {
     InitialLedgerConfiguration(
-      configuration = Configuration.reasonableInitialConfiguration.copy(maxDeduplicationTime =
+      configuration = Configuration.reasonableInitialConfiguration.copy(maxDeduplicationDuration =
         config.maxDeduplicationDuration.getOrElse(
-          Configuration.reasonableInitialConfiguration.maxDeduplicationTime
+          Configuration.reasonableInitialConfiguration.maxDeduplicationDuration
         )
       ),
       // If a new index database is added to an already existing ledger,

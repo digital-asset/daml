@@ -255,10 +255,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           Error.Preprocessing.Internal(
             funcName,
             s"CompilationError: " + LookupError.MissingPackage.pretty(pkgId, context),
+            None,
           )
         )
-      case speedy.Compiler.CompilationError(error) =>
-        ResultError(Error.Preprocessing.Internal(funcName, s"CompilationError: $error"))
+      case err @ speedy.Compiler.CompilationError(msg) =>
+        ResultError(Error.Preprocessing.Internal(funcName, s"CompilationError: $msg", Some(err)))
     }
 
   // command-list compilation, followed by interpretation
@@ -336,8 +337,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           err match {
             case SError.SErrorDamlException(error) =>
               return ResultError(Error.Interpretation.DamlException(error), detailMsg)
-            case SError.SErrorCrash(where, reason) =>
-              return ResultError(Error.Interpretation.Internal(where, reason))
+            case err @ SError.SErrorCrash(where, reason) =>
+              return ResultError(Error.Interpretation.Internal(where, reason, Some(err)))
           }
         case SResultNeedPackage(pkgId, context, callback) =>
           return Result.needPackage(
@@ -378,6 +379,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             Error.Interpretation.Internal(
               NameOf.qualifiedNameOfCurrentFunc,
               s"unexpected ${err.getClass.getSimpleName}",
+              None,
             )
           )
       }
@@ -404,6 +406,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           Error.Interpretation.Internal(
             NameOf.qualifiedNameOfCurrentFunc,
             s"Interpretation error: ended with partial result: $ptx",
+            None,
           )
         )
     }

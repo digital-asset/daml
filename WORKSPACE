@@ -37,6 +37,7 @@ load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew", "dev_env_tool")
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
     "nixpkgs_cc_configure",
+    "nixpkgs_java_configure",
     "nixpkgs_local_repository",
     "nixpkgs_package",
     "nixpkgs_python_configure",
@@ -574,7 +575,7 @@ load("@rules_haskell//tools:repositories.bzl", "rules_haskell_worker_dependencie
 # Call this after `daml_haskell_deps` to ensure that the right `stack` is used.
 rules_haskell_worker_dependencies()
 
-load("//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_configure")
+load("//bazel_tools:java.bzl", "dadew_java_configure")
 
 dadew_java_configure(
     name = "dadew_java_runtime",

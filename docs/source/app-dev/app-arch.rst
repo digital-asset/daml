@@ -136,7 +136,7 @@ If you want to make sure that a command is not executed twice, your application 
 Daml ledgers provide a mechanism for :doc:`command deduplication <command-deduplication>` to help deal with this problem.
 
 For each command the application provides a command ID and an optional parameter that specifies the deduplication period.
-If the latter parameter is not specified in the command submission itself, the ledger will use the configured maximum deduplication time.
+If the latter parameter is not specified in the command submission itself, the ledger will use the configured maximum deduplication duration.
 The ledger will then guarantee that commands with the same :ref:`change ID <change-id>` will generate a rejection within the effective deduplication period.
 
 For details on how to use command deduplication, see the :doc:`Command Deduplication Guide <command-deduplication>`.

@@ -54,7 +54,7 @@ class GrpcCommandServiceSpec
         ledgerId = LedgerId(ledgerId),
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
-        maxDeduplicationTime = () => Some(Duration.ZERO),
+        maxDeduplicationDuration = () => Some(Duration.ZERO),
         generateSubmissionId = () =>
           Ref.SubmissionId.assertFromString(
             s"$submissionIdPrefix${submissionCounter.incrementAndGet()}"

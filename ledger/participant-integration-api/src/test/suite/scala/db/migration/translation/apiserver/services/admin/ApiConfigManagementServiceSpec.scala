@@ -102,7 +102,7 @@ class ApiConfigManagementServiceSpec
     }
 
     "set a new time model" in {
-      val maximumDeduplicationTime = Duration.ofHours(6)
+      val maximumDeduplicationDuration = Duration.ofHours(6)
       val initialGeneration = 2L
       val initialTimeModel = LedgerTimeModel(
         avgTransactionLatency = Duration.ofMinutes(1),
@@ -112,7 +112,7 @@ class ApiConfigManagementServiceSpec
       val initialConfiguration = Configuration(
         generation = initialGeneration,
         timeModel = initialTimeModel,
-        maxDeduplicationTime = maximumDeduplicationTime,
+        maxDeduplicationDuration = maximumDeduplicationDuration,
       )
       val expectedGeneration = 3L
       val expectedTimeModel = LedgerTimeModel(
@@ -123,7 +123,7 @@ class ApiConfigManagementServiceSpec
       val expectedConfiguration = Configuration(
         generation = expectedGeneration,
         timeModel = expectedTimeModel,
-        maxDeduplicationTime = maximumDeduplicationTime,
+        maxDeduplicationDuration = maximumDeduplicationDuration,
       )
 
       val timeProvider = TimeProvider.UTC

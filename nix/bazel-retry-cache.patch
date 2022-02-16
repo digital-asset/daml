@@ -67,10 +67,10 @@ index 57741a8f28..6673149a20 100644
          workingDirectory,
          diskCachePath,
 diff --git a/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java b/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java
-index 350e1afa51..db81481b60 100644
+index 0e165d1521..ff33a84afb 100644
 --- a/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java
 +++ b/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java
-@@ -59,9 +59,11 @@ import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+@@ -64,9 +64,11 @@ import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
  import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
  import com.google.devtools.build.lib.packages.TargetUtils;
  import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
@@ -82,15 +82,15 @@ index 350e1afa51..db81481b60 100644
  import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
  import com.google.devtools.build.lib.remote.options.RemoteOptions;
  import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
-@@ -95,6 +97,7 @@ import io.grpc.ClientInterceptor;
- import io.grpc.ManagedChannel;
- import io.reactivex.rxjava3.plugins.RxJavaPlugins;
+@@ -103,6 +105,7 @@ import io.reactivex.rxjava3.plugins.RxJavaPlugins;
  import java.io.IOException;
+ import java.net.URI;
+ import java.net.URISyntaxException;
 +import java.nio.channels.ClosedChannelException;
  import java.util.HashSet;
  import java.util.List;
  import java.util.Map;
-@@ -213,7 +216,31 @@ public final class RemoteModule extends BlazeModule {
+@@ -232,7 +235,31 @@ public final class RemoteModule extends BlazeModule {
                remoteOptions,
                creds,
                Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
@@ -167,10 +167,10 @@ index a2e4abf9d8..93843a91dc 100644
 +  public long offset() { return offset; }
  }
 diff --git a/src/main/java/com/google/devtools/build/lib/remote/http/HttpCacheClient.java b/src/main/java/com/google/devtools/build/lib/remote/http/HttpCacheClient.java
-index 1efecd3bb1..3f360dda14 100644
+index 3cbf6cf47f..4453d5fcc6 100644
 --- a/src/main/java/com/google/devtools/build/lib/remote/http/HttpCacheClient.java
 +++ b/src/main/java/com/google/devtools/build/lib/remote/http/HttpCacheClient.java
-@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.Futures;
+@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.Futures;
  import com.google.common.util.concurrent.ListenableFuture;
  import com.google.common.util.concurrent.MoreExecutors;
  import com.google.common.util.concurrent.SettableFuture;
@@ -178,15 +178,15 @@ index 1efecd3bb1..3f360dda14 100644
  import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
  import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
  import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
-@@ -84,6 +85,7 @@ import java.util.concurrent.ConcurrentHashMap;
- import java.util.concurrent.ExecutionException;
+@@ -82,6 +83,7 @@ import java.util.NoSuchElementException;
+ import java.util.concurrent.ConcurrentHashMap;
  import java.util.concurrent.TimeUnit;
  import java.util.concurrent.atomic.AtomicBoolean;
 +import java.util.concurrent.atomic.AtomicLong;
  import java.util.function.Function;
  import java.util.regex.Pattern;
  import javax.annotation.Nullable;
-@@ -132,6 +134,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+@@ -130,6 +132,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
    private final boolean useTls;
    private final boolean verifyDownloads;
    private final DigestUtil digestUtil;
@@ -194,7 +194,7 @@ index 1efecd3bb1..3f360dda14 100644
  
    private final Object closeLock = new Object();
  
-@@ -153,6 +156,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+@@ -151,6 +154,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
        boolean verifyDownloads,
        ImmutableList<Entry<String, String>> extraHttpHeaders,
        DigestUtil digestUtil,
@@ -202,7 +202,7 @@ index 1efecd3bb1..3f360dda14 100644
        @Nullable final Credentials creds)
        throws Exception {
      return new HttpCacheClient(
-@@ -164,6 +168,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+@@ -162,6 +166,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
          verifyDownloads,
          extraHttpHeaders,
          digestUtil,
@@ -210,7 +210,7 @@ index 1efecd3bb1..3f360dda14 100644
          creds,
          null);
    }
-@@ -176,6 +181,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+@@ -174,6 +179,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
        boolean verifyDownloads,
        ImmutableList<Entry<String, String>> extraHttpHeaders,
        DigestUtil digestUtil,
@@ -218,7 +218,7 @@ index 1efecd3bb1..3f360dda14 100644
        @Nullable final Credentials creds)
        throws Exception {
  
-@@ -189,6 +195,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+@@ -187,6 +193,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
            verifyDownloads,
            extraHttpHeaders,
            digestUtil,
@@ -226,7 +226,7 @@ index 1efecd3bb1..3f360dda14 100644
            creds,
            domainSocketAddress);
      } else if (Epoll.isAvailable()) {
-@@ -201,6 +208,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+@@ -199,6 +206,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
            verifyDownloads,
            extraHttpHeaders,
            digestUtil,
@@ -234,7 +234,7 @@ index 1efecd3bb1..3f360dda14 100644
            creds,
            domainSocketAddress);
      } else {
-@@ -217,6 +225,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+@@ -215,6 +223,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
        boolean verifyDownloads,
        ImmutableList<Entry<String, String>> extraHttpHeaders,
        DigestUtil digestUtil,
@@ -242,7 +242,7 @@ index 1efecd3bb1..3f360dda14 100644
        @Nullable final Credentials creds,
        @Nullable SocketAddress socketAddress)
        throws Exception {
-@@ -285,6 +294,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+@@ -283,6 +292,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
      this.extraHttpHeaders = extraHttpHeaders;
      this.verifyDownloads = verifyDownloads;
      this.digestUtil = digestUtil;
@@ -250,7 +250,7 @@ index 1efecd3bb1..3f360dda14 100644
    }
  
    @SuppressWarnings("FutureReturnValueIgnored")
-@@ -461,6 +471,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+@@ -459,6 +469,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
    @SuppressWarnings("FutureReturnValueIgnored")
    private ListenableFuture<Void> get(Digest digest, final OutputStream out, boolean casDownload) {
      final AtomicBoolean dataWritten = new AtomicBoolean();
@@ -258,7 +258,7 @@ index 1efecd3bb1..3f360dda14 100644
      OutputStream wrappedOut =
          new OutputStream() {
            // OutputStream.close() does nothing, which is what we want to ensure that the
-@@ -470,12 +481,14 @@ public final class HttpCacheClient implements RemoteCacheClient {
+@@ -468,12 +479,14 @@ public final class HttpCacheClient implements RemoteCacheClient {
            @Override
            public void write(byte[] b, int offset, int length) throws IOException {
              dataWritten.set(true);
@@ -273,7 +273,7 @@ index 1efecd3bb1..3f360dda14 100644
              out.write(b);
            }
  
-@@ -484,57 +497,59 @@ public final class HttpCacheClient implements RemoteCacheClient {
+@@ -482,57 +495,59 @@ public final class HttpCacheClient implements RemoteCacheClient {
              out.flush();
            }
          };
@@ -378,7 +378,7 @@ index 1efecd3bb1..3f360dda14 100644
    }
  
    @SuppressWarnings("FutureReturnValueIgnored")
-@@ -673,20 +688,21 @@ public final class HttpCacheClient implements RemoteCacheClient {
+@@ -674,20 +689,21 @@ public final class HttpCacheClient implements RemoteCacheClient {
    @Override
    public ListenableFuture<Void> uploadFile(
        RemoteActionExecutionContext context, Digest digest, Path file) {

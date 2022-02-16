@@ -16,6 +16,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.jdk.CollectionConverters._
 import scala.collection.concurrent.{Map => ConcurrentMap}
+import scala.util.control.NonFatal
 
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of
   * packages.
@@ -67,6 +68,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                 Error.Package.Internal(
                   NameOf.qualifiedNameOfCurrentFunc,
                   s"broken invariant: Could not find package $pkgId",
+                  None,
                 )
               )
             case Some(pkg_) => pkg_
@@ -119,13 +121,22 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                     Error.Package
                       .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions)
                   )
-                case Compiler.CompilationError(msg) =>
+                case err @ Compiler.CompilationError(msg) =>
                   return ResultError(
                     // compilation errors are internal since typechecking should
                     // catch any errors arising during compilation
                     Error.Package.Internal(
                       NameOf.qualifiedNameOfCurrentFunc,
                       s"Compilation Error: $msg",
+                      Some(err),
+                    )
+                  )
+                case NonFatal(err) =>
+                  return ResultError(
+                    Error.Package.Internal(
+                      NameOf.qualifiedNameOfCurrentFunc,
+                      s"Unexpected ${err.getClass.getSimpleName} Exception",
+                      Some(err),
                     )
                   )
               }

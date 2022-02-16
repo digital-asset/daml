@@ -27,7 +27,7 @@ let
       };
     });
 
-    bazel_4 = pkgs.bazel_4.overrideAttrs(oldAttrs: {
+    bazel_5 = pkgs.bazel_5.overrideAttrs(oldAttrs: {
       patches = oldAttrs.patches ++ [
         # This should be upstreamed. Bazel is too aggressive
         # in treating arguments starting with @ as response files.

@@ -15,8 +15,8 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
         config <- ledger.configuration()
       } yield {
         assert(
-          config.maxDeduplicationTime.isDefined,
-          "The maxDeduplicationTime field of the configuration is empty",
+          config.maxDeduplicationDuration.isDefined,
+          "The maxDeduplicationDuration field of the configuration is empty",
         )
       }
     }

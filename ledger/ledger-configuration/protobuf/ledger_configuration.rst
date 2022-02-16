@@ -50,8 +50,8 @@ stale data.
 
 *since version 2*
 
-``max_deduplication_time`` is required and must be set to a positive duration.
-This defines the maximum value for the corresponding ``deduplication_time``
+``max_deduplication_duration`` is required and must be set to a positive duration.
+This defines the maximum value for the corresponding ``deduplication_duration``
 parameter of command submissions, i.e., the maximum time during which a command
 can be deduplicated.
 

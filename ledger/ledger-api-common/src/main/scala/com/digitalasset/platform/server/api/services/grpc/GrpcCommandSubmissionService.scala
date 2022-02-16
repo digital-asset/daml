@@ -32,7 +32,7 @@ class GrpcCommandSubmissionService(
     ledgerId: LedgerId,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
-    maxDeduplicationTime: () => Option[Duration],
+    maxDeduplicationDuration: () => Option[Duration],
     submissionIdGenerator: SubmissionIdGenerator,
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
@@ -71,7 +71,7 @@ class GrpcCommandSubmissionService(
             requestWithSubmissionId,
             currentLedgerTime(),
             currentUtcTime(),
-            maxDeduplicationTime(),
+            maxDeduplicationDuration(),
           )(errorLogger),
         )
         .fold(

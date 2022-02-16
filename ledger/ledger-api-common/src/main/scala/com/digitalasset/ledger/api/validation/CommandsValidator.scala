@@ -50,7 +50,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       commands: ProtoCommands,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationTime: Option[Duration],
+      maxDeduplicationDuration: Option[Duration],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.Commands] =
@@ -76,7 +76,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         )
       deduplicationPeriod <- validateDeduplicationPeriod(
         commands.deduplicationPeriod,
-        maxDeduplicationTime,
+        maxDeduplicationDuration,
       )
     } yield domain.Commands(
       ledgerId = ledgerId,
