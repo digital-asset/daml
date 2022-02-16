@@ -335,7 +335,7 @@ genrule(
 
 filegroup(
     name = "pdf-fonts",
-    srcs = glob(["configs/pdf/fonts/**"]),
+    srcs = glob(["configs/pdf/fonts/**"]) + ["@freefont//:fonts"],
 )
 
 pkg_tar(

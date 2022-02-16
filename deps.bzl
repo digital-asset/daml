@@ -360,3 +360,17 @@ java_import(
             strip_prefix = "canton-community-1.0.0-SNAPSHOT",
             urls = ["https://www.canton.io/releases/canton-community-20220214.tar.gz"],
         )
+
+    if "freefont" not in native.existing_rules():
+        http_archive(
+            name = "freefont",
+            build_file_content = """
+filegroup(
+  name = "fonts",
+  srcs = glob(["**/*.otf"]),
+  visibility = ["//visibility:public"],
+)""",
+            sha256 = "3a6c51868c71b006c33c4bcde63d90927e6fcca8f51c965b8ad62d021614a860",
+            strip_prefix = "freefont-20120503",
+            urls = ["http://ftp.gnu.org/gnu/freefont/freefont-otf-20120503.tar.gz"],
+        )
