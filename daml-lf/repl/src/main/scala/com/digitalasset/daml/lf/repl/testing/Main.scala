@@ -17,6 +17,7 @@ import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
 import com.daml.lf.language.{PackageInterface, LanguageVersion => LV}
+import com.daml.logging.LoggingContext
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
@@ -79,6 +80,8 @@ object Main extends App {
 
 // The Daml-LF Read-Eval-Print-Loop
 object Repl {
+
+  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   val defaultCompilerConfig: Compiler.Config =
     Compiler.Config(
@@ -206,7 +209,7 @@ object Repl {
           compiledPackages,
           expr,
         )
-      (machine, new ScenarioRunner(machine, seed).run())
+      (machine, new ScenarioRunner(machine, seed).run)
     }
   }
 

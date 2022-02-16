@@ -122,7 +122,7 @@ class CommitterModelConformanceValidatorSpec
           any[Ref.ParticipantId],
           any[Timestamp],
           any[Hash],
-        )
+        )(any[LoggingContext])
       ).thenReturn(mockValidationResult)
 
       val validator = new CommitterModelConformanceValidator(mockEngine, metrics)
@@ -149,7 +149,7 @@ class CommitterModelConformanceValidatorSpec
           any[Ref.ParticipantId],
           any[Timestamp],
           any[Hash],
-        )
+        )(any[LoggingContext])
       ).thenReturn(
         ResultError(
           LfError.Validation.ReplayMismatch(
@@ -228,7 +228,7 @@ class CommitterModelConformanceValidatorSpec
           any[Ref.ParticipantId],
           any[Timestamp],
           any[Hash],
-        )
+        )(any[LoggingContext])
       ).thenReturn(mockValidationResult)
 
       new CommitterModelConformanceValidator(mockEngine, metrics)

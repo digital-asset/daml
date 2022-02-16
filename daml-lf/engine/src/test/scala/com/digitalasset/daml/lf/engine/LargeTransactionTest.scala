@@ -16,6 +16,7 @@ import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import com.daml.lf.command._
+import com.daml.logging.LoggingContext
 import org.scalameter
 import org.scalameter.Quantity
 import org.scalatest.Assertion
@@ -25,6 +26,8 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.language.implicitConversions
 
 class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles {
+
+  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   /** Tiny wrapper around ScenarioLedger that provides
     * a mutable API for eas of use in tests.

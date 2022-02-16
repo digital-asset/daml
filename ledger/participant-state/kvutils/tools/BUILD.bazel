@@ -165,6 +165,7 @@ da_scala_library(
         "//daml-lf/transaction-test-lib",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
+        "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
