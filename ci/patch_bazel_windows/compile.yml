@@ -42,9 +42,9 @@ jobs:
   variables:
     cache_key: $[ dependencies.patch_bazel_pre_check.outputs['out.cache_key'] ]
     should_run: $[ dependencies.patch_bazel_pre_check.outputs['out.should_run'] ]
-    bazel_base_version: 5.0.0
+    bazel_base_version: 4.2.1
   pool:
-    vmImage: windows-2022
+    vmImage: windows-2019
   steps:
   - checkout: self
     condition: eq(variables.should_run, 'true')
@@ -65,7 +65,7 @@ jobs:
       BAZEL=$(mktemp)
       curl -sL https://github.com/bazelbuild/bazel/releases/download/$(bazel_base_version)/bazel-$(bazel_base_version)-windows-x86_64.exe > $BAZEL
       cd bazel
-      $BAZEL build --java_language_version=11 --java_runtime_version=11 src/main/cpp:client src:package-zip_jdk_minimal -c opt --stamp --embed_label $(bazel_base_version)-patched-$(cache_key)
+      $BAZEL build src/main/cpp:client src:package-zip_jdk_minimal -c opt --stamp --embed_label $(bazel_base_version)-patched-$(cache_key)
       # Note (MK) For some reason, the `zip` from chocolatey seems to result in
       # a “zip file structure invalid” error. I’ve tried adding msys to PATH so the Bazel
       # rules pick up `zip` from msys but that broke other things. So for now
