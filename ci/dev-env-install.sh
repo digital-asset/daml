@@ -23,7 +23,7 @@ if [[ ! -e /nix ]]; then
   sudo mkdir -m 0755 /nix
   sudo chown "$(id -u):$(id -g)" /nix
 
-  curl -sSfL https://releases.nixos.org/nix/nix-2.3.15/install | bash
+  curl -sSfL https://releases.nixos.org/nix/nix-2.6.0/install | bash
 fi
 
 # shellcheck source=../dev-env/lib/ensure-nix
