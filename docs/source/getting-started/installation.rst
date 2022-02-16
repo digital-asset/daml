@@ -12,7 +12,7 @@ The Daml SDK currently runs on Windows, macOS and Linux.
 You need to install:
 
 1. `Visual Studio Code <https://code.visualstudio.com/download>`_.
-2. JDK 8 or greater. If you don't already have a JDK installed, try `Eclipse Adoptium <https://adoptium.net>`_.
+2. JDK 11 or greater. If you don't already have a JDK installed, try `Eclipse Adoptium <https://adoptium.net>`_.
 
    As part of the installation process you may need to set up the ``JAVA_HOME`` variable. You can find instructions for this process on :doc:`Windows,macOS, and Linux here <path-variables>`.
 
