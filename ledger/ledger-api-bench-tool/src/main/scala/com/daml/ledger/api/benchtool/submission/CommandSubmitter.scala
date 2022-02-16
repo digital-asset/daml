@@ -6,19 +6,12 @@ package com.daml.ledger.api.benchtool.submission
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{Materializer, OverflowStrategy}
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig
 import com.daml.ledger.api.benchtool.infrastructure.TestDars
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
-import com.daml.ledger.api.v1.admin.user_management_service.{
-  CreateUserRequest,
-  GrantUserRightsRequest,
-  User,
-}
 import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import io.grpc.StatusRuntimeException
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
@@ -45,7 +38,6 @@ case class CommandSubmitter(
     logger.info("Generating contracts...")
     logger.info(s"Identifier suffix: ${names.identifierSuffix}")
     (for {
-      _ <- createBenchtoolUser(observerPartyNames)
       signatory <- allocateSignatoryParty()
       observers <- allocateObserverParties(observerPartyNames)
       _ <- uploadTestDars()
@@ -65,43 +57,6 @@ case class CommandSubmitter(
       .recoverWith { case NonFatal(ex) =>
         logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
         Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
-      }
-  }
-
-  private def createBenchtoolUser(
-      observerPartyNames: Seq[String]
-  )(implicit ec: ExecutionContext): Future[Unit] = {
-    import com.daml.ledger.api.v1.admin.user_management_service.{Right => UserRight}
-    val actAs = UserRight(UserRight.Kind.CanActAs(UserRight.CanActAs(names.signatoryPartyName)))
-    val readAss = observerPartyNames.map(observerPartyName =>
-      UserRight(UserRight.Kind.CanReadAs(UserRight.CanReadAs(observerPartyName)))
-    )
-    val rights = actAs +: readAss
-    adminServices.userManagementService
-      .createUser(
-        CreateUserRequest(
-          user = Some(User(id = names.benchtoolUserId, primaryParty = "")),
-          rights = rights,
-        )
-      )
-      .map(_ => ())
-      .recoverWith {
-        case e: StatusRuntimeException
-            if e.getStatus.getDescription.startsWith(
-              LedgerApiErrors.AdminServices.UserAlreadyExists.id
-            ) => {
-          logger.info(
-            s"Benchmark user already exists (received error: ${e.getStatus.getDescription}) so granting rights the existing user."
-          )
-          adminServices.userManagementService
-            .grantUserRights(
-              GrantUserRightsRequest(
-                userId = names.benchtoolUserId,
-                rights = rights,
-              )
-            )
-            .map(_ => ())
-        }
       }
   }
 
