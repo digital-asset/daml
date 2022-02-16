@@ -24,18 +24,18 @@ class FieldValidations private (errorFactories: ErrorFactories) {
     case None => Right(None)
     case Some(`ledgerId`) => Right(Some(ledgerId))
     case Some(mismatching) =>
-      Left(ledgerIdMismatch(ledgerId, mismatching, definiteAnswer = Some(false)))
+      Left(ledgerIdMismatch(ledgerId, mismatching))
   }
 
   def requireNonEmptyString(s: String, fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, String] =
-    Either.cond(s.nonEmpty, s, missingField(fieldName, definiteAnswer = Some(false)))
+    Either.cond(s.nonEmpty, s, missingField(fieldName))
 
   def requireIdentifier(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.Name] =
-    Ref.Name.fromString(s).left.map(invalidArgument(definiteAnswer = Some(false)))
+    Ref.Name.fromString(s).left.map(invalidArgument)
 
   private def requireNonEmptyParsedId[T](parser: String => Either[String, T])(
       s: String,
@@ -44,9 +44,9 @@ class FieldValidations private (errorFactories: ErrorFactories) {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, T] =
     if (s.isEmpty)
-      Left(missingField(fieldName, definiteAnswer = Some(false)))
+      Left(missingField(fieldName))
     else
-      parser(s).left.map(invalidField(fieldName, _, definiteAnswer = Some(false)))
+      parser(s).left.map(invalidField(fieldName, _))
 
   def requireName(
       s: String,
@@ -67,7 +67,7 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   def requireParty(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.Party] =
-    Ref.Party.fromString(s).left.map(invalidArgument(definiteAnswer = Some(false)))
+    Ref.Party.fromString(s).left.map(invalidArgument)
 
   def requireParties(parties: Set[String])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -107,7 +107,7 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   def requireLedgerString(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.LedgerString] =
-    Ref.LedgerString.fromString(s).left.map(invalidArgument(definiteAnswer = Some(false)))
+    Ref.LedgerString.fromString(s).left.map(invalidArgument)
 
   def validateSubmissionId(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -117,7 +117,7 @@ class FieldValidations private (errorFactories: ErrorFactories) {
         .fromString(nonEmptyString)
         .map(domain.SubmissionId(_))
         .left
-        .map(invalidField("submission_id", _, definiteAnswer = Some(false)))
+        .map(invalidField("submission_id", _))
     }
 
   def requireContractId(
@@ -126,8 +126,8 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, ContractId] =
-    if (s.isEmpty) Left(missingField(fieldName, definiteAnswer = Some(false)))
-    else ContractId.fromString(s).left.map(invalidField(fieldName, _, definiteAnswer = Some(false)))
+    if (s.isEmpty) Left(missingField(fieldName))
+    else ContractId.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireDottedName(
       s: String,
@@ -135,7 +135,7 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.DottedName] =
-    Ref.DottedName.fromString(s).left.map(invalidField(fieldName, _, definiteAnswer = Some(false)))
+    Ref.DottedName.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireNonEmpty[M[_] <: Iterable[_], T](
       s: M[T],
@@ -144,13 +144,13 @@ class FieldValidations private (errorFactories: ErrorFactories) {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, M[T]] =
     if (s.nonEmpty) Right(s)
-    else Left(missingField(fieldName, definiteAnswer = Some(false)))
+    else Left(missingField(fieldName))
 
   def requirePresence[T](option: Option[T], fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, T] =
     option.fold[Either[StatusRuntimeException, T]](
-      Left(missingField(fieldName, definiteAnswer = Some(false)))
+      Left(missingField(fieldName))
     )(Right(_))
 
   def validateIdentifier(identifier: Identifier)(implicit

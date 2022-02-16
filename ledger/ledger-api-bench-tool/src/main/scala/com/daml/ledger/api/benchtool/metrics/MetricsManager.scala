@@ -7,6 +7,7 @@ import akka.actor.{Cancellable, CoordinatedShutdown}
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
+import com.daml.ledger.api.benchtool.metrics.MetricsCollector.Response
 import com.daml.ledger.api.benchtool.util.ReportFormatter
 import org.slf4j.LoggerFactory
 
@@ -57,13 +58,15 @@ case class MetricsManager[T](
       implicit val timeout: Timeout = Timeout(logInterval)
       collector
         .ask(MetricsCollector.Message.PeriodicReportRequest)
-        .map { response =>
-          logger.info(
-            ReportFormatter.formatPeriodicReport(
-              streamName = streamName,
-              periodicReport = response,
+        .collect {
+          case Response.ReportNotReady => ()
+          case response: Response.PeriodicReport =>
+            logger.info(
+              ReportFormatter.formatPeriodicReport(
+                streamName = streamName,
+                periodicReport = response,
+              )
             )
-          )
         }(system.executionContext)
       ()
     })(system.executionContext)

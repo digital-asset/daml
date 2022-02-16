@@ -20,6 +20,11 @@
     <!-- raising the command tracker logging level -->
     <logger name="com.daml.platform.apiserver.services.tracking.TrackerMap" level="WARN" />
 
+    <!-- disable client-triggered conflict checking error messages in the ledger bridge -->
+    <logger name="com.daml.ledger.sandbox.bridge" level="WARN" />
+    <logger name="com.daml.ledger.sandbox.BridgeWriteService" level="WARN" />
+    <logger name="com.daml.ledger.sandbox.BridgeReadService" level="WARN" />
+
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
     </root>

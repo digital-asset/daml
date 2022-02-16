@@ -51,7 +51,6 @@ da_scala_library(
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-configuration/protobuf:ledger_configuration_proto_java",
-        "//ledger/ledger-grpc",
         "//ledger/ledger-offset",
         "//ledger/ledger-resources",
         "//ledger/metrics",

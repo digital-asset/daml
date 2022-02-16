@@ -45,7 +45,6 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       val reader = KeyValueParticipantStateReader(
         reader = readerWriter,
         metrics = metrics,
-        enableSelfServiceErrorCodes = true,
       )
       val writer = new KeyValueParticipantStateWriter(
         readerWriter,

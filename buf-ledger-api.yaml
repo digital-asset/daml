@@ -10,8 +10,8 @@ build:
 
 breaking:
   use:
-    # Set to FILE to ensure that all breakages of the gRPC Ledger API are explicitly
-    # discussed with Engineering and Product Leadership.
-    - FILE
+    # Set to FILE once 2.0.0 is released
+    # Set to WIRE to allow the renaming of the `max_deduplication_time` to `max_deduplication_duration`
+    - WIRE
   except:
     - FILE_NO_DELETE # Avoids errors due to refactored `buf` modules.

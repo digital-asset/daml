@@ -8,7 +8,6 @@ import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.util.concurrent.Executors
 
 import com.daml.ledger.api.testtool.infrastructure._
-import com.daml.ledger.api.testtool.performance.PerformanceTests
 import com.daml.ledger.api.testtool.runner.TestRunner._
 import com.daml.ledger.api.tls.TlsConfiguration
 import io.grpc.Channel
@@ -50,13 +49,6 @@ object TestRunner {
     tests.map(getName).sorted.foreach(println(_))
   }
 
-  private def printListOfPerformanceTests(tests: PerformanceTests): Unit = {
-    println("Alternatively, you can run performance tests.")
-    println("They are not run by default, but can be run with `--perf-tests=TEST-NAME`.")
-    println()
-    tests.names.foreach(println(_))
-  }
-
   private def printAvailableTestSuites(testSuites: Vector[LedgerTestSuite]): Unit = {
     println("Listing test suites. Run with --list-all to see individual tests.")
     printListOfTests(testSuites)(_.name)
@@ -95,30 +87,13 @@ final class TestRunner(availableTests: AvailableTests, config: Config) {
       sys.exit(64)
     }
 
-    if (tests.missingPerformanceTests.nonEmpty) {
-      println(
-        s"${tests.missingPerformanceTests.head} is not a valid performance test name. Use `--list` to see valid names."
-      )
-      sys.exit(64)
-    }
-
-    val performanceTestsToRun = tests.performanceTests.filterByName(config.performanceTests)
-    if (config.included.nonEmpty && performanceTestsToRun.nonEmpty) {
-      println("Either regular or performance tests can be run, but not both.")
-      sys.exit(64)
-    }
-
     if (config.listTestSuites) {
       printAvailableTestSuites(tests.allTests)
-      println()
-      printListOfPerformanceTests(tests.performanceTests)
       sys.exit(0)
     }
 
     if (config.listTests) {
       printAvailableTests(tests.allTests)
-      println()
-      printListOfPerformanceTests(tests.performanceTests)
       sys.exit(0)
     }
 
@@ -151,12 +126,7 @@ final class TestRunner(availableTests: AvailableTests, config: Config) {
     implicit val resourceManagementExecutionContext: ExecutionContext =
       ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
 
-    val runner =
-      if (performanceTestsToRun.nonEmpty)
-        newSequentialLedgerCasesRunner(config, performanceTestsToRun.cases)
-      else
-        newLedgerCasesRunner(config, testsToRun)
-
+    val runner = newLedgerCasesRunner(config, testsToRun)
     runner.flatMap(_.runTests(ExecutionContext.global)).onComplete {
       case Success(summaries) =>
         val excludedTestSummaries =
@@ -190,12 +160,6 @@ final class TestRunner(availableTests: AvailableTests, config: Config) {
         sys.exit(1)
     }
   }
-
-  private def newSequentialLedgerCasesRunner(
-      config: Config,
-      cases: Vector[LedgerTestCase],
-  )(implicit executionContext: ExecutionContext): Future[LedgerTestCasesRunner] =
-    createLedgerCasesRunner(config, cases, concurrentTestRuns = 1)
 
   private def newLedgerCasesRunner(
       config: Config,

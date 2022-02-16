@@ -3,7 +3,6 @@
 
 package com.daml.ledger
 
-import com.daml.error.ErrorCodesVersionSwitcher
 import java.time.Clock
 import java.util.UUID
 
@@ -35,7 +34,6 @@ package object rxjava {
       () => Clock.systemUTC().instant(),
       "testLedgerId",
       "testParticipantId",
-      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
       new InMemoryUserManagementStore(),
       ExecutionContext.parasitic,
       userRightsCheckIntervalInSeconds = 1,

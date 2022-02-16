@@ -16,7 +16,7 @@ packages:
   - proto3-wire-1.2.2
   - shake-0.19.6
   - simple-smt-0.9.4
-  - modular-arithmetic-2.0.0.1
+  - mod-0.1.2.2
   - stache-2.3.1
   - yaml-0.11.7.0
 

@@ -10,7 +10,6 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.{
   AuthServiceJWT,
   AuthServiceNone,
@@ -68,9 +67,7 @@ object SandboxOnXRunner {
     new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
         val config = BridgeConfigProvider.manipulateConfig(originalConfig)
-        val errorFactories = ErrorFactories(
-          new ErrorCodesVersionSwitcher(originalConfig.enableSelfServiceErrorCodes)
-        )
+        val errorFactories = ErrorFactories()
 
         config.mode match {
           case Mode.DumpIndexMetadata(jdbcUrls) =>
@@ -157,7 +154,7 @@ object SandboxOnXRunner {
           readServiceWithSubscriber = new BridgeReadService(
             ledgerId = config.ledgerId,
             maximumDeduplicationDuration = config.maxDeduplicationDuration.getOrElse(
-              BridgeConfigProvider.DefaultMaximumDeduplicationTime
+              BridgeConfigProvider.DefaultMaximumDeduplicationDuration
             ),
             stateUpdatesSource,
           )

@@ -4,7 +4,7 @@
 package com.daml.ledger.api.testtool
 
 import java.io.File
-import java.nio.file.{Path, Paths}
+import java.nio.file.Paths
 
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
@@ -23,8 +23,8 @@ object CliParser {
     argParser.parse(args, Config.default)
 
   private def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {
-    val arity = 2
-    val reads: String => (String, Int) = { s: String =>
+    override val arity = 2
+    override val reads: String => (String, Int) = { s: String =>
       splitAddress(s) match {
         case (k, v) => Read.stringRead.reads(k) -> Read.intRead.reads(v)
       }
@@ -37,8 +37,6 @@ object CliParser {
         throw new IllegalArgumentException("Addresses should be specified as `<host>:<port>`")
       case n: Int => (s.slice(0, n), s.slice(n + 1, s.length))
     }
-
-  private implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
 
   private val argParser: OptionParser[Config] = new scopt.OptionParser[Config](Name) {
     head(
@@ -152,18 +150,6 @@ object CliParser {
           |of the given inclusion prefixes (and none of the given exclusion prefixes) will be run.
           |Can be specified multiple times, i.e. `--additional=a,b` is the same as `--additional=a --additional=b`.
           |Mutually exclusive with `--include`.""".stripMargin
-      )
-
-    opt[Seq[String]]("perf-tests")
-      .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
-      .unbounded()
-      .text("A comma-separated list of performance tests that should be run.")
-
-    opt[Path]("perf-tests-report")
-      .action((inc, c) => c.copy(performanceTestsReport = Some(inc)))
-      .optional()
-      .text(
-        "The path of the benchmark report file produced by performance tests (default: stdout)."
       )
 
     opt[Unit]("shuffle-participants")

@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -109,9 +108,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
   private var resource: Resource[LedgerDao] = _
-  private val errorFactories = ErrorFactories(
-    new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true)
-  )
+  private val errorFactories = ErrorFactories()
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
