@@ -27,7 +27,7 @@ private[postgresql] case class PGStringArrayOptional[FROM](
 
 private[postgresql] trait PGIntArrayBase[FROM, TO] extends Field[FROM, TO, String] {
   override def selectFieldExpression(inputFieldName: String): String =
-    s"string_to_array($inputFieldName, '|')::integer[]" // TODO interning consider doing some hex magic here to compress the transport data more
+    s"string_to_array($inputFieldName, '|')::integer[]"
 
   protected def convertBase: Iterable[Int] => String = { in =>
     in.mkString("|")

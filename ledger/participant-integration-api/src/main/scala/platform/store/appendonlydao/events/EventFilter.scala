@@ -12,7 +12,6 @@ import com.daml.platform.api.v1.event.EventOps.EventOps
 
 private[platform] object EventFilter {
 
-  // TODO Remove all usages of domain objects
   private def toLfIdentifier(id: ProtoIdentifier): Ref.Identifier =
     Ref.Identifier(
       packageId = Ref.PackageId.assertFromString(id.packageId),

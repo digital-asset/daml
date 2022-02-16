@@ -29,9 +29,7 @@ private[interning] object RawStringInterning {
   ): Vector[(Int, String)] =
     strings
       .filterNot(rawStringInterning.map.contains)
-      .toVector
-      .distinct // TODO Iterators do not have .distinct in Scala 2.12
-      .view
+      .distinct
       .zipWithIndex
       .map { case (string, index) =>
         (index + 1 + rawStringInterning.lastId, string)
