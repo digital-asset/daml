@@ -8,6 +8,7 @@ import java.nio.file.{Path, Paths}
 import ch.qos.logback.classic.Level
 import com.daml.assistant.config.{ConfigMissing, ConfigParseError, ProjectConfig}
 import com.daml.lf.codegen.conf.CodegenConfigReader.{CodegenDest, Java, Result}
+import com.daml.lf.data.Ref.{PackageName, PackageVersion}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
@@ -111,6 +112,91 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
       ConfigParseError(
         "[A]Option[A]: DownField(java),DownField(codegen)"
       )
+    )
+  }
+
+  it should "parse package references with >= 1 dash" in {
+    val badConfigStr = """|
+      |name: quickstart
+      |version: 1.2.3
+      |codegen:
+      |  java:
+      |    package-prefix: my.company.java.package
+      |    output-directory: path/to/output/java/directory
+      |    decoderClass: my.company.java.DecoderClass
+      |module-prefixes:
+      |  a-0.0.0: a
+      |  a-a-0.0.0: a
+      |  a-a-a-0.0.0: a
+      |  a-a-a-a-0.0.0: a
+      |  a-a-a-a-a-0.0.0: a""".stripMargin
+
+    val version = PackageVersion.assertFromString("0.0.0")
+    val prefix = "a"
+
+    val expected = Conf(
+      darFiles = Map(
+        projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")
+      ),
+      outputDirectory = path("path/to/output/java/directory"),
+      decoderPkgAndClass = Some(("my.company.java", "DecoderClass")),
+      modulePrefixes = Seq("a", "a-a", "a-a-a", "a-a-a-a", "a-a-a-a-a").view
+        .map(x => PackageReference.NameVersion(PackageName.assertFromString(x), version) -> prefix)
+        .toMap,
+    )
+
+    codegenConf(badConfigStr, Java) shouldBe Right(
+      expected
+    )
+  }
+
+  it should "parse package references with at least one number" in {
+    val badConfigStr = """|
+      |name: quickstart
+      |version: 1.2.3
+      |codegen:
+      |  java:
+      |    package-prefix: my.company.java.package
+      |    output-directory: path/to/output/java/directory
+      |    decoderClass: my.company.java.DecoderClass
+      |module-prefixes:
+      |  a-0: a
+      |  a-0.0: a
+      |  a-0.0.0: a""".stripMargin
+
+    val name = PackageName.assertFromString("a")
+    val prefix = "a"
+
+    val expected = Conf(
+      darFiles = Map(
+        projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")
+      ),
+      outputDirectory = path("path/to/output/java/directory"),
+      decoderPkgAndClass = Some(("my.company.java", "DecoderClass")),
+      modulePrefixes = Seq("0", "0.0", "0.0.0").view
+        .map(x => PackageReference.NameVersion(name, PackageVersion.assertFromString(x)) -> prefix)
+        .toMap,
+    )
+
+    codegenConf(badConfigStr, Java) shouldBe Right(
+      expected
+    )
+  }
+
+  it should "reject package references with no dash" in {
+    val badConfigStr = """|
+      |name: quickstart
+      |version: 1.2.3
+      |codegen:
+      |  java:
+      |    package-prefix: my.company.java.package
+      |    output-directory: path/to/output/java/directory
+      |    decoderClass: my.company.java.DecoderClass
+      |module-prefixes:
+      |  a: a""".stripMargin
+
+    codegenConf(badConfigStr, Java) shouldBe Left(
+      ConfigParseError("[K, V]Map[K, V]: DownField(a),DownField(module-prefixes)")
     )
   }
 
