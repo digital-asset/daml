@@ -53,4 +53,4 @@ def migration_test(name, versions, tags, quick_tags, **kwargs):
         ] + [dep for ver in oracle_versions(versions) for dep in runfiles(ver)],
         args = ["--oracle"] + oracle_versions(versions),
         **kwargs
-    )
+    ) if len(oracle_versions(versions)) > 1 else None
