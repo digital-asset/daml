@@ -35,7 +35,7 @@ final class StorageBackendPostgresSpec
   }
 
   it should "fail the compatibility check for Postgres versions lower than minimum" in {
-    val currentlyUsedVersion = 10
+    val currentlyUsedVersion = 12
     val backend =
       new PostgresDataSourceStorageBackend(minMajorVersionSupported = currentlyUsedVersion + 1)
     an[PostgresDataSourceStorageBackend.UnsupportedPostgresVersion] should be thrownBy executeSql(
