@@ -1,7 +1,7 @@
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
-build:darwin --remote_http_cache=https://bazel-cache.da-ext.net
-build:linux --remote_http_cache=https://bazel-cache.da-ext.net/ubuntu_20_04
+build:darwin --remote_cache=https://bazel-cache.da-ext.net
+build:linux --remote_cache=https://bazel-cache.da-ext.net/ubuntu_20_04
 # Don't push local build results to the remote cache.
 build --remote_upload_local_results=false
 # Do still push local build results to the local disk cache.
@@ -62,20 +62,8 @@ test --strategy=Scalac=worker
 #  https://github.com/grpc/grpc/pull/13929/files
 build --copt -DGRPC_BAZEL_BUILD
 
-# Bazel defaults to JDK9. This makes sure we run Nix provided JDK, and
-# avoid dreaded "Unrecognized VM option 'CompactStrings'" error
-build:linux --javabase=@nixpkgs_java_runtime//:runtime
-build:linux --host_javabase=@nixpkgs_java_runtime//:runtime
-build:linux --java_toolchain=@bazel_tools//tools/jdk:toolchain_java11
-build:linux --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_java11
-build:darwin --javabase=@nixpkgs_java_runtime//:runtime
-build:darwin --host_javabase=@nixpkgs_java_runtime//:runtime
-build:darwin --java_toolchain=@bazel_tools//tools/jdk:toolchain_java11
-build:darwin --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_java11
-build:windows --javabase=@dadew_java_runtime//:runtime
-build:windows --host_javabase=@dadew_java_runtime//:runtime
-build:windows --java_toolchain=@bazel_tools//tools/jdk:toolchain_java11
-build:windows --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_java11
+build --java_language_version=11
+build --java_runtime_version=11
 
 # Do not use a distinct configuration for "host", that is, binaries used
 # at build time should be the same as release binaries.
