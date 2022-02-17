@@ -246,17 +246,6 @@ EOF
 
     export LC_ALL=en_US.UTF-8
     export LANG=en_US.UTF-8
-    # Sphinx 1.8.3 triggers the following warning:
-    #
-    #   /nix/store/1v39mhhyn48s251przk2fwcvgm71vfqi-python3.7-sphinx-1.8.3/lib/python3.7/site-packages/sphinx/writers/html.py:462: FutureWarning:
-    #      The iterable returned by Node.traverse()
-    #      will become an iterator instead of a list in Docutils > 0.16.
-    #     target_node = image_nodes and image_nodes[0] or node.parent
-    #
-    # We are using an older Sphinx (1.8.3) with a more recent nixpkgs revision.
-    # Unfortunately, an update is not so easy because Sphinx 2.3.1 breaks
-    # the PDF documentation due to issues with the FreeSerif font in the
-    # fontspec package. So, for now we ignore `FutureWarning`.
     SPHINX_BUILD_EXIT_CODE=0
     # We hide the output unless we get a failure to make the builds less noisy.
     SPHINX_BUILD_OUTPUT=$$($(location @sphinx_nix//:bin/sphinx-build) -W -b {target} -c $$DIR/source/configs/{name} $$DIR/source/source $$DIR/target 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
