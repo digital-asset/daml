@@ -62,7 +62,10 @@ object PersistentUserManagementStore {
       cacheExpiryAfterWriteInSeconds: Int,
       maxCacheSize: Int,
       maxRightsPerUser: Int,
-  )(implicit executionContext: ExecutionContext): UserManagementStore = {
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): UserManagementStore = {
     new CachedUserManagementStore(
       delegate = new PersistentUserManagementStore(
         dbSupport = dbSupport,
@@ -89,9 +92,9 @@ class PersistentUserManagementStore(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  implicit private val loggingContext: LoggingContext = LoggingContext.newLoggingContext(identity)
-
-  override def getUserInfo(id: UserId): Future[Result[UserInfo]] = {
+  override def getUserInfo(id: UserId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[UserInfo]] = {
     inTransaction(_.getUserInfo) { implicit connection =>
       withUser(id) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
@@ -103,7 +106,7 @@ class PersistentUserManagementStore(
   override def createUser(
       user: domain.User,
       rights: Set[domain.UserRight],
-  ): Future[Result[Unit]] = {
+  )(implicit loggingContext: LoggingContext): Future[Result[Unit]] = {
     inTransaction(_.createUser) { implicit connection: Connection =>
       withoutUser(user.id) {
         val now = epochMicroseconds()
@@ -127,7 +130,9 @@ class PersistentUserManagementStore(
     })(scala.concurrent.ExecutionContext.parasitic)
   }
 
-  override def deleteUser(id: UserId): Future[Result[Unit]] = {
+  override def deleteUser(
+      id: UserId
+  )(implicit loggingContext: LoggingContext): Future[Result[Unit]] = {
     inTransaction(_.deleteUser) { implicit connection =>
       if (!backend.deleteUser(id = id)(connection)) {
         Left(UserNotFound(userId = id))
@@ -142,7 +147,7 @@ class PersistentUserManagementStore(
   override def grantRights(
       id: UserId,
       rights: Set[domain.UserRight],
-  ): Future[Result[Set[domain.UserRight]]] = {
+  )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.grantRights) { implicit connection =>
       withUser(id = id) { user =>
         val now = epochMicroseconds()
@@ -173,7 +178,7 @@ class PersistentUserManagementStore(
   override def revokeRights(
       id: UserId,
       rights: Set[domain.UserRight],
-  ): Future[Result[Set[domain.UserRight]]] = {
+  )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.revokeRights) { implicit connection =>
       withUser(id = id) { user =>
         val revokedRights = rights.filter { right =>
@@ -196,6 +201,8 @@ class PersistentUserManagementStore(
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
+  )(implicit
+      loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
     inTransaction(_.listUsers) { connection =>
       val users: Seq[domain.User] = fromExcl match {
@@ -208,7 +215,7 @@ class PersistentUserManagementStore(
 
   private def inTransaction[T](
       dbMetric: metrics.daml.userManagement.type => DatabaseMetrics
-  )(thunk: Connection => Result[T]): Future[Result[T]] = {
+  )(thunk: Connection => Result[T])(implicit loggingContext: LoggingContext): Future[Result[T]] = {
     dbDispatcher
       .executeSql(dbMetric(metrics.daml.userManagement))(thunk)
       .recover { case TooManyUserRightsRuntimeException(userId) =>

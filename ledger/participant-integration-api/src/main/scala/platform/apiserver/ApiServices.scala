@@ -43,6 +43,7 @@ import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import java.time.Duration
 
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.platform.usermanagement.UserManagementConfig
 
 import scala.collection.immutable
@@ -200,6 +201,7 @@ private[daml] object ApiServices {
             new ApiUserManagementService(
               userManagementStore,
               maxUsersPageSize = userManagementConfig.maxUsersPageSize,
+              submissionIdGenerator = SubmissionIdGenerator.Random,
             )
           val authorized =
             new UserManagementServiceAuthorization(apiUserManagementService, authorizer)
