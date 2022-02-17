@@ -129,7 +129,7 @@ abstract class Test extends AsyncWordSpec with TestFixture with SuiteResourceMan
       case Right(token) => Future(token)
     }
 
-  private def expectError(
+  protected[this] def expectError(
       parties: Seq[String],
       admin: Boolean = false,
       applicationId: Option[String] = None,
@@ -146,22 +146,6 @@ abstract class Test extends AsyncWordSpec with TestFixture with SuiteResourceMan
     }
 
   "the auth server" should {
-    "deny access to unauthorized parties" in {
-      server.revokeParty(Party("Eve"))
-      for {
-        error <- expectError(Seq("Alice", "Eve"))
-      } yield {
-        assert(error == "access_denied")
-      }
-    }
-    "deny admin access if unauthorized" in {
-      server.revokeAdmin()
-      for {
-        error <- expectError(Seq(), admin = true)
-      } yield {
-        assert(error == "access_denied")
-      }
-    }
     "refresh a token" in {
       for {
         (token1, refresh1) <- expectToken(Seq())
@@ -230,11 +214,27 @@ class ClaimTokenTest extends Test {
         assert(token.actAs == Seq("Alice", "Bob"))
       }
     }
+    "deny access to unauthorized parties" in {
+      server.revokeParty(Party("Eve"))
+      for {
+        error <- expectError(Seq("Alice", "Eve"))
+      } yield {
+        assert(error == "access_denied")
+      }
+    }
     "issue a token with admin access" in {
       for {
         (token, _) <- expectToken(Seq(), admin = true)
       } yield {
         assert(token.admin)
+      }
+    }
+    "deny admin access if unauthorized" in {
+      server.revokeAdmin()
+      for {
+        error <- expectError(Seq(), admin = true)
+      } yield {
+        assert(error == "access_denied")
       }
     }
   }
@@ -245,7 +245,7 @@ class UserTokenTest extends Test {
 
   type Tok = StandardJWTPayload
   override object Tok extends TokenCompat[Tok] {
-    override def userId(t: Tok) = Some(t.userId)
+    override def userId(t: Tok) = Some(t.userId).filter(_.nonEmpty)
     override def exp(t: Tok) = t.exp.get
     override def withoutExp(t: Tok) = t copy (exp = None)
   }
