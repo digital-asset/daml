@@ -44,7 +44,6 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   ListKnownPartiesRequest,
   PartyDetails,
 }
-import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementService
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionEndRequest,
@@ -114,18 +113,24 @@ private[testtool] object ParticipantTestContext {
 
 }
 
+/** Exposes services running on some participant server in a test case.
+  *
+  * Each time a test case is run it receives a fresh instance of [[ParticipantTestContext]]
+  * (one for every used participant server).
+  */
 private[testtool] final class ParticipantTestContext private[participant] (
     val ledgerId: String,
     val endpointId: String,
     val applicationId: String,
     val identifierSuffix: String,
     referenceOffset: LedgerOffset,
-    services: LedgerServices,
-    partyAllocation: PartyAllocationConfiguration,
+    protected[participant] val services: LedgerServices,
+    partyAllocationConfig: PartyAllocationConfiguration,
     val ledgerEndpoint: Endpoint,
     val clientTlsConfiguration: Option[TlsConfiguration],
     val features: Features,
-)(implicit ec: ExecutionContext) {
+)(protected[participant] implicit val ec: ExecutionContext)
+    extends UserManagementTestContext {
   private val logger = ContextualizedLogger.get(getClass)
 
   import ParticipantTestContext._
@@ -280,21 +285,23 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .listKnownParties(new ListKnownPartiesRequest())
       .map(_.partyDetails.map(partyDetails => Party(partyDetails.party)).toSet)
 
+  /** @return a future that completes when all the participants can list all the expected parties
+    */
   def waitForParties(
       otherParticipants: Iterable[ParticipantTestContext],
       expectedParties: Set[Party],
   ): Future[Unit] =
-    if (partyAllocation.waitForAllParticipants) {
+    if (partyAllocationConfig.waitForAllParticipants) {
       eventually {
         val participants = otherParticipants.toSet + this
         Future
-          .sequence(participants.map(otherParticipant => {
-            otherParticipant
+          .sequence(participants.map(participant => {
+            participant
               .listKnownParties()
               .map { actualParties =>
                 assert(
                   expectedParties.subsetOf(actualParties),
-                  s"Parties from $this never appeared on $otherParticipant.",
+                  s"Parties from $this never appeared on $participant.",
                 )
               }
           }))
@@ -821,20 +828,17 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   private[infrastructure] def preallocateParties(
       n: Int,
-      participantsUnderTest: Iterable[ParticipantTestContext],
+      participants: Iterable[ParticipantTestContext],
   ): Future[Vector[Party]] =
     for {
       parties <-
-        if (partyAllocation.allocateParties) {
+        if (partyAllocationConfig.allocateParties) {
           allocateParties(n)
         } else {
           reservePartyNames(n)
         }
-      _ <- waitForParties(participantsUnderTest, parties.toSet)
+      _ <- waitForParties(participants, parties.toSet)
     } yield parties
-
-  def userManagement: UserManagementService =
-    services.userManagement // TODO (i12059) perhaps remove and create granular accessors
 
   private def reservePartyNames(n: Int): Future[Vector[Party]] =
     Future.successful(Vector.fill(n)(Party(nextPartyHintId())))

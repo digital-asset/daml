@@ -75,10 +75,11 @@ final class SandboxServer(
   ): Unit = {
     Banner.show(Console.out)
     logger.withoutContext.info(
-      s"Initialized Sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
+      s"Initialized Sandbox version {} with ledger-id = {}, port = {}, index DB backend = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
       BuildInfo.Version,
       genericConfig.ledgerId,
       apiServer.port.toString,
+      DbType.jdbcType(genericConfig.participants.head.serverJdbcUrl).name,
       config.damlPackages,
       genericConfig.timeProviderType.description,
       "SQL-backed conflict-checking ledger-bridge",

@@ -36,7 +36,7 @@ object PostgresStorageBackendFactory
     new PostgresEventStorageBackend(ledgerEndCache, stringInterning)
 
   override val createDataSourceStorageBackend: DataSourceStorageBackend =
-    PostgresDataSourceStorageBackend
+    PostgresDataSourceStorageBackend()
 
   override val createDBLockStorageBackend: DBLockStorageBackend =
     PostgresDBLockStorageBackend

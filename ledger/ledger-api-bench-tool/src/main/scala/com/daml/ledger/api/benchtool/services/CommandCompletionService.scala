@@ -42,10 +42,12 @@ class CommandCompletionService(
       ledgerId: String,
       config: WorkflowConfig.StreamConfig.CompletionsStreamConfig,
   ): CompletionStreamRequest = {
-    assert(
-      authorizationToken.isDefined && userId == config.applicationId,
-      s"When using user based authorization applicationId (${config.applicationId}) must be equal to userId ($userId)",
-    )
+    if (authorizationToken.isDefined) {
+      assert(
+        userId == config.applicationId,
+        s"When using user based authorization applicationId (${config.applicationId}) must be equal to userId ($userId)",
+      )
+    }
     val request = CompletionStreamRequest.defaultInstance
       .withLedgerId(ledgerId)
       .withParties(List(config.party))

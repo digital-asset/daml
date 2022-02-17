@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher, NoLogging}
+import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.{value => api}
@@ -54,10 +54,10 @@ class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldVali
     case Sum.ContractId(cId) =>
       ContractId
         .fromString(cId)
-        .bimap(invalidArgument(definiteAnswer = Some(false)), Lf.ValueContractId(_))
+        .bimap(invalidArgument, Lf.ValueContractId(_))
     case Sum.Numeric(value) =>
       def err =
-        invalidArgument(definiteAnswer = Some(false))(s"""Could not read Numeric string "$value"""")
+        invalidArgument(s"""Could not read Numeric string "$value"""")
       if (validNumericString.matcher(value).matches())
         Numeric
           .fromUnscaledBigDecimal(new java.math.BigDecimal(value))
@@ -69,20 +69,20 @@ class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldVali
       Ref.Party
         .fromString(party)
         .left
-        .map(invalidArgument(definiteAnswer = Some(false)))
+        .map(invalidArgument)
         .map(Lf.ValueParty)
     case Sum.Bool(b) => Right(Lf.ValueBool(b))
     case Sum.Timestamp(micros) =>
       Time.Timestamp
         .fromLong(micros)
         .left
-        .map(invalidArgument(definiteAnswer = Some(false)))
+        .map(invalidArgument)
         .map(Lf.ValueTimestamp)
     case Sum.Date(days) =>
       Time.Date
         .fromDaysSinceEpoch(days)
         .left
-        .map(invalidArgument(definiteAnswer = Some(false)))
+        .map(invalidArgument)
         .map(Lf.ValueDate)
     case Sum.Text(text) => Right(Lf.ValueText(text))
     case Sum.Int64(value) => Right(Lf.ValueInt64(value))
@@ -131,7 +131,7 @@ class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldVali
         map <- SortedLookupList
           .fromImmArray(entries.toImmArray)
           .left
-          .map(invalidArgument(definiteAnswer = Some(false)))
+          .map(invalidArgument)
       } yield Lf.ValueTextMap(map)
 
     case Sum.GenMap(genMap0) =>
@@ -149,7 +149,7 @@ class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldVali
         }
       genMap.map(entries => Lf.ValueGenMap(entries.toImmArray))
 
-    case Sum.Empty => Left(missingField("value", definiteAnswer = Some(false)))
+    case Sum.Empty => Left(missingField("value"))
   }
 
   private[validation] def validateOptionalIdentifier(
@@ -161,13 +161,9 @@ class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldVali
 
 }
 
-/** Implementation of self-service error codes brings logging-on-creation to
-  * error factories and validators, used in the Ledger API where automatic logging is desired.
-  * For places where the ValueValidator is needed without logging(e.g. daml-script, navigator), use this implementation instead.
-  */
 object NoLoggingValueValidator {
   // TODO error codes: re-check if using legacy error codes here is ok
-  private val errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(false))
+  private val errorFactories = ErrorFactories()
   private val valueValidator = new ValueValidator(
     errorFactories = errorFactories,
     fieldValidations = FieldValidations(errorFactories),

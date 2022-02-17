@@ -40,14 +40,13 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.telemetry.{SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[platform] final class LedgerBackedIndexService(
+private[index] final class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
     participantId: Ref.ParticipantId,
     errorFactories: ErrorFactories,
@@ -141,7 +140,7 @@ private[platform] final class LedgerBackedIndexService(
             Source.empty
           case Some(end) if begin > end =>
             Source.failed(
-              errorFactories.offsetOutOfRange(None)(
+              errorFactories.offsetOutOfRange(
                 s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."
               )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
             )
@@ -300,7 +299,7 @@ private[platform] final class LedgerBackedIndexService(
         }
         initialConfig
           .concat(configStream)
-          .map(cfg => LedgerConfiguration(cfg.maxDeduplicationTime))
+          .map(cfg => LedgerConfiguration(cfg.maxDeduplicationDuration))
       }
   }
 

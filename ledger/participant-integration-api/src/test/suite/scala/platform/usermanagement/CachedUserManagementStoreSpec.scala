@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
 }
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.platform.usermanagement.UserManagementStoreSpecBase
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -94,9 +95,13 @@ class CachedUserManagementStoreSpec
       val order = inOrder(delegate)
       order.verify(delegate, times(1)).createUser(user, userInfo.rights)
       order.verify(delegate, times(1)).getUserInfo(user.id)
-      order.verify(delegate, times(1)).grantRights(eqTo(user.id), any[Set[UserRight]])
+      order
+        .verify(delegate, times(1))
+        .grantRights(eqTo(user.id), any[Set[UserRight]])(any[LoggingContext])
       order.verify(delegate, times(1)).getUserInfo(userInfo.user.id)
-      order.verify(delegate, times(1)).revokeRights(eqTo(user.id), any[Set[UserRight]])
+      order
+        .verify(delegate, times(1))
+        .revokeRights(eqTo(user.id), any[Set[UserRight]])(any[LoggingContext])
       order.verify(delegate, times(1)).getUserInfo(userInfo.user.id)
       order.verify(delegate, times(1)).deleteUser(userInfo.user.id)
       order.verify(delegate, times(1)).getUserInfo(userInfo.user.id)
@@ -140,8 +145,10 @@ class CachedUserManagementStoreSpec
       }
     } yield {
       val order = inOrder(delegate)
-      order.verify(delegate, times(1)).createUser(any[User], any[Set[UserRight]])
-      order.verify(delegate, times(2)).getUserInfo(any[Ref.UserId])
+      order
+        .verify(delegate, times(1))
+        .createUser(any[User], any[Set[UserRight]])(any[LoggingContext])
+      order.verify(delegate, times(2)).getUserInfo(any[Ref.UserId])(any[LoggingContext])
       order.verifyNoMoreInteractions()
       create1 shouldBe Right(())
       get1 shouldBe Right(userInfo)

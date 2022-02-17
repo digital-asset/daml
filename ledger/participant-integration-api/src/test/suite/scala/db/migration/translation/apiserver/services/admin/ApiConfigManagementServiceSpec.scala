@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -53,8 +52,6 @@ class ApiConfigManagementServiceSpec
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  private val useSelfServiceErrorCodes = mock[ErrorCodesVersionSwitcher]
-
   "ApiConfigManagementService" should {
     "get the time model" in {
       val indexedTimeModel = LedgerTimeModel(
@@ -76,7 +73,6 @@ class ApiConfigManagementServiceSpec
         ),
         writeService,
         TimeProvider.UTC,
-        useSelfServiceErrorCodes,
       )
 
       apiConfigManagementService
@@ -84,21 +80,29 @@ class ApiConfigManagementServiceSpec
         .map { response =>
           response.timeModel should be(Some(expectedTimeModel))
           verifyZeroInteractions(writeService)
-          verifyZeroInteractions(useSelfServiceErrorCodes)
           succeed
         }
     }
 
-    "return a `NOT_FOUND` error if a time model is not found (V1 error codes)" in {
-      testReturnANotFoundErrorIfTimeModelNotFound(false)
-    }
+    "return a `NOT_FOUND` error if a time model is not found" in {
+      val writeService = mock[WriteConfigService]
+      val apiConfigManagementService = ApiConfigManagementService.createApiService(
+        EmptyIndexConfigManagementService,
+        writeService,
+        TimeProvider.UTC,
+      )
 
-    "return a `NOT_FOUND` error if a time model is not found (V2 self-service error codes)" in {
-      testReturnANotFoundErrorIfTimeModelNotFound(true)
+      apiConfigManagementService
+        .getTimeModel(GetTimeModelRequest.defaultInstance)
+        .transform(Success.apply)
+        .map { response =>
+          response should matchPattern { case Failure(GrpcException(GrpcStatus.NOT_FOUND(), _)) =>
+          }
+        }
     }
 
     "set a new time model" in {
-      val maximumDeduplicationTime = Duration.ofHours(6)
+      val maximumDeduplicationDuration = Duration.ofHours(6)
       val initialGeneration = 2L
       val initialTimeModel = LedgerTimeModel(
         avgTransactionLatency = Duration.ofMinutes(1),
@@ -108,7 +112,7 @@ class ApiConfigManagementServiceSpec
       val initialConfiguration = Configuration(
         generation = initialGeneration,
         timeModel = initialTimeModel,
-        maxDeduplicationTime = maximumDeduplicationTime,
+        maxDeduplicationDuration = maximumDeduplicationDuration,
       )
       val expectedGeneration = 3L
       val expectedTimeModel = LedgerTimeModel(
@@ -119,7 +123,7 @@ class ApiConfigManagementServiceSpec
       val expectedConfiguration = Configuration(
         generation = expectedGeneration,
         timeModel = expectedTimeModel,
-        maxDeduplicationTime = maximumDeduplicationTime,
+        maxDeduplicationDuration = maximumDeduplicationDuration,
       )
 
       val timeProvider = TimeProvider.UTC
@@ -133,7 +137,6 @@ class ApiConfigManagementServiceSpec
         indexService,
         writeService,
         timeProvider,
-        useSelfServiceErrorCodes,
       )
 
       apiConfigManagementService
@@ -154,17 +157,44 @@ class ApiConfigManagementServiceSpec
         .map { response =>
           response.configurationGeneration should be(expectedGeneration)
           currentConfiguration() should be(Some(expectedConfiguration))
-          verifyZeroInteractions(useSelfServiceErrorCodes)
           succeed
         }
     }
 
-    "refuse to set a new time model if none is indexed (V1 error codes)" in {
-      testRefuseToSetANewTimeModelIfNoneIsIndexedYet(false)
-    }
+    "refuse to set a new time model if none is indexed" in {
+      val initialGeneration = 0L
 
-    "refuse to set a new time model if none is indexed (V2 self-service error codes)" in {
-      testRefuseToSetANewTimeModelIfNoneIsIndexedYet(true)
+      val timeProvider = TimeProvider.UTC
+      val maximumRecordTime = timeProvider.getCurrentTime.plusSeconds(60)
+
+      val writeService = mock[WriteService]
+      val apiConfigManagementService = ApiConfigManagementService.createApiService(
+        EmptyIndexConfigManagementService,
+        writeService,
+        timeProvider,
+      )
+
+      apiConfigManagementService
+        .setTimeModel(
+          SetTimeModelRequest.of(
+            "a submission ID",
+            maximumRecordTime = Some(Timestamp.of(maximumRecordTime.getEpochSecond, 0)),
+            configurationGeneration = initialGeneration,
+            newTimeModel = Some(
+              TimeModel(
+                avgTransactionLatency = Some(DurationProto.of(10, 0)),
+                minSkew = Some(DurationProto.of(20, 0)),
+                maxSkew = Some(DurationProto.of(40, 0)),
+              )
+            ),
+          )
+        )
+        .transform(Success.apply)
+        .map { response =>
+          verifyZeroInteractions(writeService)
+          response should matchPattern { case Failure(GrpcException(GrpcStatus.NOT_FOUND(), _)) =>
+          }
+        }
     }
 
     "propagate trace context" in {
@@ -172,7 +202,6 @@ class ApiConfigManagementServiceSpec
         new FakeStreamingIndexConfigManagementService(someConfigurationEntries),
         TestWriteConfigService,
         TimeProvider.UTC,
-        useSelfServiceErrorCodes,
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
       )
 
@@ -186,72 +215,9 @@ class ApiConfigManagementServiceSpec
         }
         .map { _ =>
           spanExporter.finishedSpanAttributes should contain(anApplicationIdSpanAttribute)
-          verifyZeroInteractions(useSelfServiceErrorCodes)
           succeed
         }
     }
-  }
-
-  private def testReturnANotFoundErrorIfTimeModelNotFound(useSelfServiceErrorCodes: Boolean) = {
-    val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(useSelfServiceErrorCodes)
-    val writeService = mock[WriteConfigService]
-    val apiConfigManagementService = ApiConfigManagementService.createApiService(
-      EmptyIndexConfigManagementService,
-      writeService,
-      TimeProvider.UTC,
-      errorCodesVersionSwitcher,
-    )
-
-    apiConfigManagementService
-      .getTimeModel(GetTimeModelRequest.defaultInstance)
-      .transform(Success.apply)
-      .map { response =>
-        response should matchPattern { case Failure(GrpcException(GrpcStatus.NOT_FOUND(), _)) =>
-        }
-      }
-  }
-
-  private def testRefuseToSetANewTimeModelIfNoneIsIndexedYet(useSelfServiceErrorCodes: Boolean) = {
-    val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(useSelfServiceErrorCodes)
-    val initialGeneration = 0L
-
-    val timeProvider = TimeProvider.UTC
-    val maximumRecordTime = timeProvider.getCurrentTime.plusSeconds(60)
-
-    val writeService = mock[WriteService]
-    val apiConfigManagementService = ApiConfigManagementService.createApiService(
-      EmptyIndexConfigManagementService,
-      writeService,
-      timeProvider,
-      errorCodesVersionSwitcher,
-    )
-
-    apiConfigManagementService
-      .setTimeModel(
-        SetTimeModelRequest.of(
-          "a submission ID",
-          maximumRecordTime = Some(Timestamp.of(maximumRecordTime.getEpochSecond, 0)),
-          configurationGeneration = initialGeneration,
-          newTimeModel = Some(
-            TimeModel(
-              avgTransactionLatency = Some(DurationProto.of(10, 0)),
-              minSkew = Some(DurationProto.of(20, 0)),
-              maxSkew = Some(DurationProto.of(40, 0)),
-            )
-          ),
-        )
-      )
-      .transform(Success.apply)
-      .map { response =>
-        verifyZeroInteractions(writeService)
-        if (useSelfServiceErrorCodes) {
-          response should matchPattern { case Failure(GrpcException(GrpcStatus.NOT_FOUND(), _)) =>
-          }
-        } else {
-          response should matchPattern { case Failure(GrpcException(GrpcStatus.UNAVAILABLE(), _)) =>
-          }
-        }
-      }
   }
 }
 

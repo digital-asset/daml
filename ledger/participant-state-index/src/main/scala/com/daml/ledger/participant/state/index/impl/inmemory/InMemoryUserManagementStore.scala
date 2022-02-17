@@ -8,6 +8,7 @@ import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.participant.state.index.v2.UserManagementStore._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
+import com.daml.logging.LoggingContext
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -24,15 +25,21 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
     state.put(AdminUser.user.id, AdminUser)
   }
 
-  override def getUserInfo(id: UserId): Future[Result[UserManagementStore.UserInfo]] =
+  override def getUserInfo(id: UserId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[UserManagementStore.UserInfo]] =
     withUser(id)(identity)
 
-  override def createUser(user: User, rights: Set[UserRight]): Future[Result[Unit]] =
+  override def createUser(user: User, rights: Set[UserRight])(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[Unit]] =
     withoutUser(user.id) {
       state.update(user.id, UserInfo(user, rights))
     }
 
-  override def deleteUser(id: Ref.UserId): Future[Result[Unit]] =
+  override def deleteUser(
+      id: Ref.UserId
+  )(implicit loggingContext: LoggingContext): Future[Result[Unit]] =
     withUser(id) { _ =>
       state.remove(id)
       ()
@@ -41,7 +48,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def grantRights(
       id: Ref.UserId,
       granted: Set[UserRight],
-  ): Future[Result[Set[UserRight]]] =
+  )(implicit loggingContext: LoggingContext): Future[Result[Set[UserRight]]] =
     withUser(id) { userInfo =>
       val newlyGranted = granted.diff(userInfo.rights) // faster than filter
       // we're not doing concurrent updates -- assert as backstop and a reminder to handle the collision case in the future
@@ -54,7 +61,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def revokeRights(
       id: Ref.UserId,
       revoked: Set[UserRight],
-  ): Future[Result[Set[UserRight]]] =
+  )(implicit loggingContext: LoggingContext): Future[Result[Set[UserRight]]] =
     withUser(id) { userInfo =>
       val effectivelyRevoked = revoked.intersect(userInfo.rights) // faster than filter
       // we're not doing concurrent updates -- assert as backstop and a reminder to handle the collision case in the future
@@ -67,6 +74,8 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
+  )(implicit
+      loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
     withState {
       val iter: Iterator[UserInfo] = fromExcl match {

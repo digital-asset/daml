@@ -10,7 +10,6 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.{
   AuthServiceJWT,
   AuthServiceNone,
@@ -39,10 +38,10 @@ import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{PartyConfiguration, ServerRole}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.{DbSupport, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
 import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
-import java.util.concurrent.{Executors, TimeUnit}
 
+import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.chaining._
 
@@ -68,9 +67,7 @@ object SandboxOnXRunner {
     new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
         val config = BridgeConfigProvider.manipulateConfig(originalConfig)
-        val errorFactories = ErrorFactories(
-          new ErrorCodesVersionSwitcher(originalConfig.enableSelfServiceErrorCodes)
-        )
+        val errorFactories = ErrorFactories()
 
         config.mode match {
           case Mode.DumpIndexMetadata(jdbcUrls) =>
@@ -102,7 +99,7 @@ object SandboxOnXRunner {
         materializer,
         actorSystem,
       ).acquire()
-    } yield ()
+    } yield logInitializationHeader(config, participantConfig)
   }
 
   def validateCombinedParticipantMode(
@@ -157,7 +154,7 @@ object SandboxOnXRunner {
           readServiceWithSubscriber = new BridgeReadService(
             ledgerId = config.ledgerId,
             maximumDeduplicationDuration = config.maxDeduplicationDuration.getOrElse(
-              BridgeConfigProvider.DefaultMaximumDeduplicationTime
+              BridgeConfigProvider.DefaultMaximumDeduplicationDuration
             ),
             stateUpdatesSource,
           )
@@ -209,7 +206,6 @@ object SandboxOnXRunner {
             dbSupport,
           )
         } yield {
-          logInitializationHeader(config, participantConfig)
           apiServer -> writeService
         }
     }
@@ -251,7 +247,7 @@ object SandboxOnXRunner {
         maxCacheSize = config.userManagementConfig.maxCacheSize,
         maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
         timeProvider = TimeProvider.UTC,
-      )(servicesExecutionContext),
+      )(servicesExecutionContext, loggingContext),
       ledgerFeatures = LedgerFeatures(
         staticTime = timeServiceBackend.isDefined,
         commandDeduplicationFeatures = CommandDeduplicationFeatures.of(
@@ -375,6 +371,7 @@ object SandboxOnXRunner {
     val ledgerDetails =
       Seq[(String, String)](
         "run-mode" -> s"${participantConfig.mode} participant",
+        "index DB backend" -> DbType.jdbcType(participantConfig.serverJdbcUrl).name,
         "participant-id" -> participantConfig.participantId,
         "ledger-id" -> config.ledgerId,
         "port" -> participantConfig.port.toString,

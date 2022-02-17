@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Duration
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.error.ValueSwitch
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
@@ -65,8 +64,6 @@ object KVTest {
   )
 
   private[kvutils] val metrics = new Metrics(new MetricRegistry)
-  private[kvutils] val errorVersionSwitch =
-    new ValueSwitch(enableSelfServiceErrorCodes = true)
 
   private def initialTestState: KVTestState = {
     val engine = Engine.DevEngine()
@@ -391,7 +388,6 @@ object KVTest {
       val _ = KeyValueConsumption.logEntryToUpdate(
         entryId,
         logEntry,
-        errorVersionSwitch,
       )(loggingContext)
 
       entryId -> logEntry
@@ -422,13 +418,11 @@ object KVTest {
       KeyValueConsumption.logEntryToUpdate(
         entryId,
         successfulLogEntry,
-        errorVersionSwitch,
         recordTimeFromTimeUpdateLogEntry,
       )(loggingContext)
       KeyValueConsumption.logEntryToUpdate(
         entryId,
         outOfTimeBoundsLogEntry,
-        errorVersionSwitch,
         recordTimeFromTimeUpdateLogEntry,
       )(loggingContext)
 

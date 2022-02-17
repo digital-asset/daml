@@ -7,11 +7,7 @@ import java.time.Instant
 
 import akka.actor.Scheduler
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
@@ -31,14 +27,13 @@ final class Authorizer(
     now: () => Instant,
     ledgerId: String,
     participantId: String,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
     userManagementStore: UserManagementStore,
     ec: ExecutionContext,
     userRightsCheckIntervalInSeconds: Int,
     akkaScheduler: Scheduler,
 )(implicit loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
   private implicit val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
@@ -209,7 +204,7 @@ final class Authorizer(
         case Some(applicationId) if applicationId.nonEmpty => Right(applicationId)
         case _ =>
           Left(
-            errorFactories.invalidArgument(None)(
+            errorFactories.invalidArgument(
               "Cannot default application_id field because claims do not specify an application-id or user-id. Is authentication turned on?"
             )
           )
@@ -234,7 +229,7 @@ final class Authorizer(
   private def ongoingAuthorization[Res](
       observer: ServerCallStreamObserver[Res],
       claims: ClaimSet.Claims,
-  ) = new OngoingAuthorizationObserver[Res](
+  ) = OngoingAuthorizationObserver[Res](
     observer = observer,
     originalClaims = claims,
     nowF = now,
@@ -323,29 +318,4 @@ final class Authorizer(
       authorizationErrorAsGrpc(authorized(claims)).map(_ => req)
     )
 
-}
-
-object Authorizer {
-  def apply(
-      now: () => Instant,
-      ledgerId: String,
-      participantId: String,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
-      userManagementStore: UserManagementStore,
-      ec: ExecutionContext,
-      userRightsCheckIntervalInSeconds: Int,
-      akkaScheduler: Scheduler,
-  ): Authorizer =
-    LoggingContext.newLoggingContext { loggingContext =>
-      new Authorizer(
-        now = now,
-        ledgerId = ledgerId,
-        participantId = participantId,
-        errorCodesVersionSwitcher = errorCodesVersionSwitcher,
-        userManagementStore = userManagementStore,
-        ec = ec,
-        userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
-        akkaScheduler = akkaScheduler,
-      )(loggingContext)
-    }
 }

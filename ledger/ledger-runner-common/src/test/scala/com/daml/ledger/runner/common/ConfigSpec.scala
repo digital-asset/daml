@@ -66,17 +66,6 @@ final class ConfigSpec
     )
   behavior of "Runner"
 
-  it should "enable self-service error codes by default" in {
-    val actual = configParser(
-      Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
-      )
-    )
-
-    actual.value.enableSelfServiceErrorCodes shouldBe true
-  }
-
   it should "succeed when server's private key is encrypted and secret-url is provided" in {
     val actual = configParser(
       Seq(

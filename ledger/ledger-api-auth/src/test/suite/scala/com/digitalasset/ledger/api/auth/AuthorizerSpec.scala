@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.auth
 
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.Assertion
@@ -13,6 +12,7 @@ import java.time.Instant
 
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.logging.LoggingContext
 import org.mockito.MockitoSugar
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -36,41 +36,30 @@ class AuthorizerSpec
 
   it should "authorize if claims are valid" in {
     contextWithClaims {
-      authorizer(selfServiceErrorCodes = false)
+      authorizer()
         .authorize(dummyReqRes)(allAuthorized)(dummyRequest)
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  behavior of s"$className.authorize (V1 error codes)"
+  behavior of s"$className.authorize"
 
   it should "return permission denied on authorization error" in {
-    testPermissionDenied(selfServiceErrorCodes = false)
+    testPermissionDenied()
   }
 
-  behavior of s"$className.authorize (V2 error codes)"
-
-  it should "return permission denied on authorization error" in {
-    testPermissionDenied(selfServiceErrorCodes = true)
-  }
-
-  private def testPermissionDenied(selfServiceErrorCodes: Boolean) =
+  private def testPermissionDenied() =
     contextWithClaims {
-      authorizer(selfServiceErrorCodes).authorize(dummyReqRes)(unauthorized)(dummyRequest)
+      authorizer().authorize(dummyReqRes)(unauthorized)(dummyRequest)
     }
       .transform(
-        assertExpectedFailure(selfServiceErrorCodes = selfServiceErrorCodes)(
-          Status.PERMISSION_DENIED.getCode
-        )
+        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
       )
 
   private def assertExpectedFailure[T](
-      selfServiceErrorCodes: Boolean
-  )(expectedStatusCode: Status.Code): Try[T] => Try[Assertion] = {
+      expectedStatusCode: Status.Code
+  ): Try[T] => Try[Assertion] = {
     case Failure(ex: StatusRuntimeException) =>
       ex.getStatus.getCode shouldBe expectedStatusCode
-      if (selfServiceErrorCodes) {
-        ex.getStatus.getDescription shouldBe "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>"
-      }
       Success(succeed)
     case ex => fail(s"Expected a failure with StatusRuntimeException but got $ex")
   }
@@ -80,14 +69,13 @@ class AuthorizerSpec
       .withValue(AuthorizationInterceptor.contextKeyClaimSet, ClaimSet.Claims.Wildcard)
       .call(() => f)
 
-  private def authorizer(selfServiceErrorCodes: Boolean) = Authorizer(
+  private def authorizer() = new Authorizer(
     () => Instant.ofEpochSecond(1337L),
     "some-ledger-id",
     "participant-id",
-    new ErrorCodesVersionSwitcher(selfServiceErrorCodes),
     mock[UserManagementStore],
     mock[ExecutionContext],
     userRightsCheckIntervalInSeconds = 1,
     akkaScheduler = system.scheduler,
-  )
+  )(LoggingContext.ForTesting)
 }

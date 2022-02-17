@@ -9,12 +9,7 @@ import java.util.UUID
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggingApiException
 import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCause,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCause}
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.SubmissionIdGenerator
@@ -23,8 +18,6 @@ import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.{Error => LfError}
-import com.daml.lf.interpretation.{Error => InterpretationError}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -40,9 +33,7 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
-import io.grpc.{Status, StatusRuntimeException}
 
-import scala.annotation.nowarn
 import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -61,7 +52,6 @@ private[apiserver] object ApiSubmissionService {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       configuration: ApiSubmissionService.Configuration,
       metrics: Metrics,
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -78,16 +68,14 @@ private[apiserver] object ApiSubmissionService {
         checkOverloaded,
         configuration,
         metrics,
-        errorCodesVersionSwitcher,
       ),
       ledgerId = ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
-      maxDeduplicationTime = () =>
-        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
+      maxDeduplicationDuration = () =>
+        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
-      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
     )
 
   final case class Configuration(
@@ -107,13 +95,12 @@ private[apiserver] final class ApiSubmissionService private[services] (
     checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
-    val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
 
   override def submit(
       request: SubmitRequest
@@ -136,9 +123,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
             .transform(handleSubmissionResult)
         case None =>
           Future.failed(
-            errorFactories.missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer =
-              Some(false)
-            )
+            errorFactories.missingLedgerConfig()
           )
       }
       evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
@@ -278,41 +263,12 @@ private[apiserver] final class ApiSubmissionService private[services] (
       .toScalaUnwrapped
   }
 
-  /** This method encodes logic related to legacy error codes (V1).
-    * Cf. self-service error codes (V2) in //ledger/error
-    */
-  @nowarn("msg=deprecated")
-  private def toStatusExceptionV1(
-      errorCause: ErrorCause
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException = {
-    // Explicitly instantiate here a V1-enabled ErrorFactories to support the legacy error code dispatching logic.
-    val v1ErrorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(false))
-    errorCause match {
-      case cause @ ErrorCause.DamlLf(error) =>
-        error match {
-          case LfError.Interpretation(
-                LfError.Interpretation.DamlException(
-                  InterpretationError.ContractNotFound(_) |
-                  InterpretationError.DuplicateContractKey(_)
-                ),
-                _,
-              ) | LfError.Validation(LfError.Validation.ReplayMismatch(_)) =>
-            v1ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
-          case _ =>
-            v1ErrorFactories.invalidArgument(definiteAnswer = Some(false))(cause.explain)
-        }
-      case cause: ErrorCause.LedgerTime =>
-        v1ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
-    }
-  }
-
   private def failedOnCommandExecution(
       error: ErrorCause
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Future[CommandExecutionResult] =
-    errorCodesVersionSwitcher.chooseAsFailedFuture(
-      v1 = toStatusExceptionV1(error),
-      v2 = RejectionGenerators
-        .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error)),
+    Future.failed(
+      RejectionGenerators
+        .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error))
     )
 
   override def close(): Unit = ()

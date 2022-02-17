@@ -134,26 +134,26 @@ def _cmp_version(version1, version2):
         return _cmp(len(a), len(b))
 
 def _is_at_least(threshold, version):
-    """Check that a version is lower or equals to a threshold.
+    """Check that a version is higher or equals to a threshold.
 
     Args:
       threshold: the maximum version string
       version: the version string to be compared to the threshold
 
     Returns:
-      True if version <= threshold.
+      True if version >= threshold.
     """
     return _cmp_version(version, threshold) >= 0
 
 def _is_at_most(threshold, version):
-    """Check that a version is higher or equals to a threshold.
+    """Check that a version is lower or equals to a threshold.
 
     Args:
       threshold: the minimum version string
       version: the version string to be compared to the threshold
 
     Returns:
-      True if version >= threshold.
+      True if version <= threshold.
     """
     return _cmp_version(version, threshold) <= 0
 

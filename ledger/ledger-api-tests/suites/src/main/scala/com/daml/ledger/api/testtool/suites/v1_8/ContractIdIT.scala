@@ -9,7 +9,7 @@ import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{
   assertGrpcError,
-  assertSelfServiceErrorCode,
+  assertErrorCode,
   fail,
 }
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -80,7 +80,7 @@ final class ContractIdIT extends LedgerTestSuite {
         super.test(
           shortIdentifier = result + camelCase(cidDescription) + "Cid" + camelCase(description),
           description = result + "s " + cidDescription + " Contract Id in " + description,
-          participants = allocate(SingleParty),
+          partyAllocation = allocate(SingleParty),
           enabled = isSupported,
           disabledReason = disabledReason,
         )(implicit ec => { case Participants(Participant(alpha, party)) =>
@@ -128,7 +128,7 @@ final class ContractIdIT extends LedgerTestSuite {
           } yield result match {
             case Failure(exception: StatusRuntimeException)
                 if Try(
-                  assertSelfServiceErrorCode(
+                  assertErrorCode(
                     statusRuntimeException = exception,
                     expectedErrorCode = LedgerApiErrors.ConsistencyErrors.ContractNotFound,
                   )

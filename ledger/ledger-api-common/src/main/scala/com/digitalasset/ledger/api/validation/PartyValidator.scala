@@ -31,7 +31,7 @@ class PartyValidator(
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[Set[Party]] = {
     val unknownParties = partiesInRequest.filterNot(partyNameChecker.isKnownParty)
     if (unknownParties.nonEmpty)
-      Left(invalidArgument(None)(s"Unknown parties: ${unknownParties.mkString("[", ", ", "]")}"))
+      Left(invalidArgument(s"Unknown parties: ${unknownParties.mkString("[", ", ", "]")}"))
     else Right(partiesInRequest)
   }
 }

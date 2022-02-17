@@ -4,7 +4,6 @@
 package com.daml.platform.index
 
 import akka.stream.Materializer
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.resources.ResourceOwner
@@ -37,9 +36,8 @@ private[platform] object JdbcIndex {
       maxContractKeyStateCacheSize: Long,
       maxTransactionsInMemoryFanOutBufferSize: Long,
       enableInMemoryFanOutForLedgerApi: Boolean,
-      enableSelfServiceErrorCodes: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
-    new ReadOnlySqlLedger.Owner(
+    ReadOnlyLedgerBuilder(
       dbSupport = dbSupport,
       initialLedgerId = ledgerId,
       eventsPageSize = eventsPageSize,
@@ -58,12 +56,14 @@ private[platform] object JdbcIndex {
       enableInMemoryFanOutForLedgerApi = enableInMemoryFanOutForLedgerApi,
       participantId = participantId,
       maxTransactionsInMemoryFanOutBufferSize = maxTransactionsInMemoryFanOutBufferSize,
-      errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes)),
-    ).map { ledger =>
-      new LedgerBackedIndexService(
-        MeteredReadOnlyLedger(ledger, metrics),
-        participantId,
-        errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes)),
-      )
-    }
+      errorFactories = ErrorFactories(),
+    )(mat, loggingContext, servicesExecutionContext)
+      .owner()
+      .map { ledger =>
+        new LedgerBackedIndexService(
+          MeteredReadOnlyLedger(ledger, metrics),
+          participantId,
+          errorFactories = ErrorFactories(),
+        )
+      }
 }

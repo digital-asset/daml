@@ -26,12 +26,11 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
 
-private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metrics)
+private[index] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metrics)
     extends ReadOnlyLedger {
 
   override def ledgerId: LedgerId = ledger.ledgerId
@@ -142,10 +141,6 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       startExclusive: Offset
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed] =
     ledger.packageEntries(startExclusive)
-
-  override def close(): Unit = {
-    ledger.close()
-  }
 
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext

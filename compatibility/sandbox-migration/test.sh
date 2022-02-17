@@ -22,6 +22,10 @@ if [[ $1 == "--append-only" ]]; then
     EXTRA_ARGS="--append-only"
     VERSIONS="${@:2}"
 fi
+if [[ $1 == "--oracle" ]]; then
+    EXTRA_ARGS="--database=oracle"
+    VERSIONS="${@:2}"
+fi
 SANDBOX_ARGS=""
 for PLATFORM in $VERSIONS; do
     SANDBOX_ARGS="$SANDBOX_ARGS $(rlocation daml-sdk-$PLATFORM/daml)"
