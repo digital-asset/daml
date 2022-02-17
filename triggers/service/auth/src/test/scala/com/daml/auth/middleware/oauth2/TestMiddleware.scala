@@ -324,35 +324,16 @@ class TestMiddlewareClaimsToken extends TestMiddleware {
     "not authorize unauthorized parties" in {
       server.revokeParty(Party("Eve"))
       val claims = Request.Claims(actAs = List(Party("Eve")))
-      val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
-      for {
-        resp <- Http().singleRequest(req)
-        // Redirect to /authorize on authorization server
-        resp <- {
-          assert(resp.status == StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
-          Http().singleRequest(req)
-        }
-        // Redirect to /cb on middleware
-        resp <- {
-          assert(resp.status == StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
-          Http().singleRequest(req)
-        }
-      } yield {
-        // Redirect to client callback
-        assert(resp.status == StatusCodes.Found)
-        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == middlewareClientCallbackUri)
-        // with error parameter set
-        assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
-        // Without token in cookie
-        val cookie = resp.header[`Set-Cookie`]
-        assert(cookie == None)
-      }
+      ensureDisallowed(claims)
     }
+
     "not authorize disallowed admin claims" in {
       server.revokeAdmin()
       val claims = Request.Claims(admin = true)
+      ensureDisallowed(claims)
+    }
+
+    def ensureDisallowed(claims: Request.Claims) = {
       val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(req)
