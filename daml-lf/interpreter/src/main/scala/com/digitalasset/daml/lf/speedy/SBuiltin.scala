@@ -1178,11 +1178,10 @@ private[lf] object SBuiltin {
         machine: Machine,
     ): Unit = {
       val guard = args.get(0)
-      val payload = getSRecord(args, 1)
+      val (templateId, record) = getSAnyInterface(args, 1)
       val coid = getSContractId(args, 2)
-      val templateId = payload.id
 
-      machine.ctrl = SEApp(SEValue(guard), Array(SEValue(payload)))
+      machine.ctrl = SEApp(SEValue(guard), Array(SEValue(SAnyInterface(templateId, record))))
       machine.pushKont(KCheckChoiceGuard(machine, coid, templateId, choiceName, byInterface))
     }
   }
@@ -1191,7 +1190,7 @@ private[lf] object SBuiltin {
     override private[speedy] def executePure(
         args: util.ArrayList[SValue]
     ): SBool = {
-      discard(getSRecord(args, 0))
+      discard(getSAnyInterface(args, 0))
       SBool(true)
     }
   }
@@ -1205,7 +1204,7 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEBuiltin(
         SBUBeginExercise(
-          getSRecord(args, 0).id,
+          getSAnyInterface(args, 0)._1,
           choiceName,
           consuming,
           byKey,
