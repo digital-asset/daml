@@ -174,7 +174,10 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       case otherwise => unexpectedType(i, "Exception", otherwise)
     }
 
-  final protected def getSAnyInterface(args: util.ArrayList[SValue], i: Int): (TypeConName, SRecord) =
+  final protected def getSAnyInterface(
+      args: util.ArrayList[SValue],
+      i: Int,
+  ): (TypeConName, SRecord) =
     args.get(i) match {
       case SAnyInterface(tyCon, value) => (tyCon, value)
       case otherwise => unexpectedType(i, "Interface", otherwise)
@@ -1245,7 +1248,7 @@ private[lf] object SBuiltin {
       tplId: TypeConName
   ) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
-      SAnyInterface(tplId, getSRecord(args,0))
+      SAnyInterface(tplId, getSRecord(args, 0))
     }
   }
 
