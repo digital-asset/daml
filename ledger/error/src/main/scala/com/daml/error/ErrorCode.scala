@@ -4,7 +4,7 @@
 package com.daml.error
 
 import com.daml.error.ErrorCode.{ValidMetadataKeyRegex, truncateResourceForTransport}
-import com.daml.error.definitions.{LedgerApiErrors, LoggingTransactionErrorImpl}
+import com.daml.error.definitions.LoggingTransactionErrorImpl
 import com.daml.error.utils.ErrorDetails.{ErrorInfoDetail, from}
 import com.google.rpc.Status
 import io.grpc.Status.Code
@@ -58,9 +58,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       case ErrorInfoDetail(errorCodeId, _) => errorCodeId == this.id
       case _ => false
     }
-    val matchesMessagePrefix = e.getStatus.getDescription.startsWith(
-      LedgerApiErrors.AdminServices.UserAlreadyExists.id
-    )
+    val matchesMessagePrefix = e.getStatus.getDescription.startsWith(this.id)
     val matchesStatusCode = this.category.grpcCode.contains(e.getStatus.getCode)
     matchesErrorCodeId && matchesMessagePrefix && matchesStatusCode
   }
