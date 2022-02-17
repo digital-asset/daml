@@ -719,8 +719,10 @@ private[lf] final class Compiler(
   ) = {
     val env2 = env.bindExprVar(tmpl.param, tmplArgPos)
     val implementsPrecondsIterator = tmpl.implements.iterator.map[s.SExpr](impl =>
-      // This relies on interfaces having the same representation as the underlying template
-      t.InterfacePrecondDefRef(impl._1)(env2.toSEVar(tmplArgPos))
+      // This is because interfaces do not have the same representation as the underlying template
+      let(env2, SBToInterface(tmplId)(env2.toSEVar(tmplArgPos))) { (ifaceArgPos, env3) =>
+        t.InterfacePrecondDefRef(impl._1)(env3.toSEVar(ifaceArgPos))
+      }
     )
     // TODO Clean this up as part of changing how we evaluate these
     // https://github.com/digital-asset/daml/issues/11762
