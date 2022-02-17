@@ -21,6 +21,7 @@ import com.daml.ledger.api.auth.{
   ClaimSet,
 }
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
+import com.daml.logging.LoggingContext
 
 package object rxjava {
 
@@ -30,7 +31,7 @@ package object rxjava {
   sys.addShutdownHook(akkaSystem.terminate(): Unit)
 
   private[rxjava] val authorizer =
-    Authorizer(
+    new Authorizer(
       () => Clock.systemUTC().instant(),
       "testLedgerId",
       "testParticipantId",
@@ -38,7 +39,7 @@ package object rxjava {
       ExecutionContext.parasitic,
       userRightsCheckIntervalInSeconds = 1,
       akkaScheduler = akkaSystem.scheduler,
-    )
+    )(LoggingContext.ForTesting)
 
   private[rxjava] val emptyToken = "empty"
   private[rxjava] val publicToken = "public"
