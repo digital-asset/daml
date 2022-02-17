@@ -62,7 +62,10 @@ object PersistentUserManagementStore {
       cacheExpiryAfterWriteInSeconds: Int,
       maxCacheSize: Int,
       maxRightsPerUser: Int,
-  )(implicit executionContext: ExecutionContext): UserManagementStore = {
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): UserManagementStore = {
     new CachedUserManagementStore(
       delegate = new PersistentUserManagementStore(
         dbSupport = dbSupport,
@@ -89,15 +92,15 @@ class PersistentUserManagementStore(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  private val defaltLoggingContext: LoggingContext = LoggingContext.newLoggingContext(identity)
-
-  override def getUserInfo(id: UserId): Future[Result[UserInfo]] = {
+  override def getUserInfo(id: UserId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[UserInfo]] = {
     inTransaction(_.getUserInfo) { implicit connection =>
       withUser(id) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
         UserInfo(dbUser.domainUser, rights.map(_.domainRight))
       }
-    }(defaltLoggingContext)
+    }
   }
 
   override def createUser(
@@ -198,6 +201,8 @@ class PersistentUserManagementStore(
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
+  )(implicit
+      loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
     inTransaction(_.listUsers) { connection =>
       val users: Seq[domain.User] = fromExcl match {
@@ -205,7 +210,7 @@ class PersistentUserManagementStore(
         case Some(fromExcl) => backend.getUsersOrderedById(Some(fromExcl), maxResults)(connection)
       }
       Right(UsersPage(users = users))
-    }(defaltLoggingContext)
+    }
   }
 
   private def inTransaction[T](

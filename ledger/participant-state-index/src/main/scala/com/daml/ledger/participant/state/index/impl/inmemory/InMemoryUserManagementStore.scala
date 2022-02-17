@@ -25,7 +25,9 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
     state.put(AdminUser.user.id, AdminUser)
   }
 
-  override def getUserInfo(id: UserId): Future[Result[UserManagementStore.UserInfo]] =
+  override def getUserInfo(id: UserId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[UserManagementStore.UserInfo]] =
     withUser(id)(identity)
 
   override def createUser(user: User, rights: Set[UserRight])(implicit
@@ -72,6 +74,8 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
+  )(implicit
+      loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
     withState {
       val iter: Iterator[UserInfo] = fromExcl match {

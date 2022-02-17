@@ -15,12 +15,16 @@ trait UserManagementStore {
 
   // read access
 
-  def getUserInfo(id: Ref.UserId): Future[Result[UserInfo]]
+  def getUserInfo(id: Ref.UserId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[UserInfo]]
 
   /** Always returns `maxResults` if possible, i.e. if a call to this method
     * returned fewer than `maxResults` users, then the next page (as of calling this method) was empty.
     */
-  def listUsers(fromExcl: Option[Ref.UserId], maxResults: Int): Future[Result[UsersPage]]
+  def listUsers(fromExcl: Option[Ref.UserId], maxResults: Int)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[UsersPage]]
 
   // write access
 
@@ -40,11 +44,15 @@ trait UserManagementStore {
 
   // read helpers
 
-  final def getUser(id: Ref.UserId): Future[Result[User]] = {
+  final def getUser(id: Ref.UserId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[User]] = {
     getUserInfo(id).map(_.map(_.user))(ExecutionContext.parasitic)
   }
 
-  final def listUserRights(id: Ref.UserId): Future[Result[Set[UserRight]]] = {
+  final def listUserRights(id: Ref.UserId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[Set[UserRight]]] = {
     getUserInfo(id).map(_.map(_.rights))(ExecutionContext.parasitic)
   }
 

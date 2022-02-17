@@ -26,7 +26,7 @@ class CachedUserManagementStore(
     expiryAfterWriteInSeconds: Int,
     maximumCacheSize: Int,
     metrics: Metrics,
-)(implicit val executionContext: ExecutionContext)
+)(implicit val executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends UserManagementStore {
 
   private val cache: CaffeineCache.AsyncLoadingCaffeineCache[Ref.UserId, Result[UserInfo]] =
@@ -53,7 +53,9 @@ class CachedUserManagementStore(
       metrics.daml.userManagement.cache,
     )
 
-  override def getUserInfo(id: UserId): Future[Result[UserManagementStore.UserInfo]] = {
+  override def getUserInfo(id: UserId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[UserManagementStore.UserInfo]] = {
     cache.get(id)
   }
 
@@ -93,6 +95,8 @@ class CachedUserManagementStore(
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
+  )(implicit
+      loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UsersPage]] =
     delegate.listUsers(fromExcl, maxResults)
 

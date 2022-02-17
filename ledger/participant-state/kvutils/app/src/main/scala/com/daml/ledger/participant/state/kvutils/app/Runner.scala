@@ -215,7 +215,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   maxCacheSize = config.userManagementConfig.maxCacheSize,
                   maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
                   timeProvider = TimeProvider.UTC,
-                )(servicesExecutionContext)
+                )(servicesExecutionContext, loggingContext)
                 indexService <- StandaloneIndexService(
                   dbSupport = dbSupport,
                   ledgerId = config.ledgerId,
