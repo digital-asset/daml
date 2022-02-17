@@ -160,9 +160,7 @@ object CodegenConfigReader {
       // TODO (MK) https://github.com/digital-asset/daml/issues/9934
       // For now we only allow name-version pairs to match the compiler. Once the compiler
       // accepts package ids we can allow for those here as well.
-      final def apply(key: String): Option[PackageReference] = nameVersion(key)
-
-      private def nameVersion(key: String): Option[PackageReference] = {
+      final def apply(key: String): Option[PackageReference] = {
         val dashIndex = key.lastIndexWhere(_ == '-')
         if (dashIndex < 0) {
           None
