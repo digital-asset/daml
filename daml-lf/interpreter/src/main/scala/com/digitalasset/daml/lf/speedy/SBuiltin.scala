@@ -1219,7 +1219,7 @@ private[lf] object SBuiltin {
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEBuiltin(
-        SBUInsertFetchNode(getSRecord(args, 0).id, byKey = false, byInterface = Some(ifaceId))
+        SBUInsertFetchNode(getSAnyInterface(args, 0)._1, byKey = false, byInterface = Some(ifaceId))
       )
   }
 
