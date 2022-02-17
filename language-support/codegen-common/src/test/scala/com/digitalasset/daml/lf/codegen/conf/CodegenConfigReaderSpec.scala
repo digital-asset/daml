@@ -6,13 +6,45 @@ package com.daml.lf.codegen.conf
 import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
-import com.daml.assistant.config.{ConfigMissing, ConfigParseError, ProjectConfig}
-import com.daml.lf.codegen.conf.CodegenConfigReader.{CodegenDest, Java, Result}
+import com.daml.assistant.config.{ProjectConfig, ConfigParseError, ConfigMissing}
+import com.daml.lf.codegen.conf.CodegenConfigReader.{Java, Result, CodegenDest}
 import com.daml.lf.data.Ref.{PackageName, PackageVersion}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
+class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks {
+
+  behavior of "CodegenConfigReader.splitNameAndVersion"
+
+  it should "correctly split valid strings" in forAll {
+    (name: String, separator: Char, version: String) =>
+      whenever(name.nonEmpty && version.nonEmpty) {
+        CodegenConfigReader.splitNameAndVersion(
+          s"$name$separator$version",
+          separator,
+        ) shouldBe Some((name, version))
+      }
+  }
+
+  it should "reject empty names" in forAll { (name: String, separator: Char) =>
+    CodegenConfigReader.splitNameAndVersion(s"$name$separator", separator) shouldBe None
+  }
+
+  it should "reject empty versions" in forAll { (separator: Char, version: String) =>
+    CodegenConfigReader.splitNameAndVersion(s"$separator$version", separator) shouldBe None
+  }
+
+  it should "reject any string where only the separator appears" in forAll { (separator: Char) =>
+    CodegenConfigReader.splitNameAndVersion(separator.toString, separator) shouldBe None
+  }
+
+  it should "reject strings where the separator doesn't appear" in forAll {
+    (string: String, separator: Char) =>
+      whenever(!string.contains(separator)) {
+        CodegenConfigReader.splitNameAndVersion(string, separator) shouldBe None
+      }
+  }
 
   behavior of CodegenConfigReader.getClass.getSimpleName
 
@@ -197,6 +229,57 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
 
     codegenConf(badConfigStr, Java) shouldBe Left(
       ConfigParseError("[K, V]Map[K, V]: DownField(a),DownField(module-prefixes)")
+    )
+  }
+
+  it should "reject references with a name but no version" in {
+    val badConfigStr = """|
+      |name: quickstart
+                          |version: 1.2.3
+                          |codegen:
+                          |  java:
+                          |    package-prefix: my.company.java.package
+                          |    output-directory: path/to/output/java/directory
+                          |    decoderClass: my.company.java.DecoderClass
+                          |module-prefixes:
+                          |  a-: a""".stripMargin
+
+    codegenConf(badConfigStr, Java) shouldBe Left(
+      ConfigParseError("[K, V]Map[K, V]: DownField(a-),DownField(module-prefixes)")
+    )
+  }
+
+  it should "reject references with a version but no name" in {
+    val badConfigStr = """|
+      |name: quickstart
+                          |version: 1.2.3
+                          |codegen:
+                          |  java:
+                          |    package-prefix: my.company.java.package
+                          |    output-directory: path/to/output/java/directory
+                          |    decoderClass: my.company.java.DecoderClass
+                          |module-prefixes:
+                          |  -1.2.3: a""".stripMargin
+
+    codegenConf(badConfigStr, Java) shouldBe Left(
+      ConfigParseError("[K, V]Map[K, V]: DownField(-1.2.3),DownField(module-prefixes)")
+    )
+  }
+
+  it should "reject references without name and version" in {
+    val badConfigStr = """|
+      |name: quickstart
+                          |version: 1.2.3
+                          |codegen:
+                          |  java:
+                          |    package-prefix: my.company.java.package
+                          |    output-directory: path/to/output/java/directory
+                          |    decoderClass: my.company.java.DecoderClass
+                          |module-prefixes:
+                          |  -: a""".stripMargin
+
+    codegenConf(badConfigStr, Java) shouldBe Left(
+      ConfigParseError("[K, V]Map[K, V]: DownField(-),DownField(module-prefixes)")
     )
   }
 
