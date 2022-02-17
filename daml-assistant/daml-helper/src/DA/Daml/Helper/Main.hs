@@ -423,7 +423,7 @@ commandParser = subparser $ fold
     cantonHelpSwitch =
       switch $
       long "canton-help" <>
-      help ("Display the help of the underlying Canton JAR instead of the Sandbox wrapper. This is only required for advanced options.")
+      help "Display the help of the underlying Canton JAR instead of the Sandbox wrapper. This is only required for advanced options."
 
     -- These options are common enough that we want them to show up in --help instead of only in
     -- --canton-help.
