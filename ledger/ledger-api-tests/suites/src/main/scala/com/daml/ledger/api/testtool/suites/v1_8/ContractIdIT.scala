@@ -80,7 +80,7 @@ final class ContractIdIT extends LedgerTestSuite {
         super.test(
           shortIdentifier = result + camelCase(cidDescription) + "Cid" + camelCase(description),
           description = result + "s " + cidDescription + " Contract Id in " + description,
-          participants = allocate(SingleParty),
+          partyAllocation = allocate(SingleParty),
           enabled = isSupported,
           disabledReason = disabledReason,
         )(implicit ec => { case Participants(Participant(alpha, party)) =>

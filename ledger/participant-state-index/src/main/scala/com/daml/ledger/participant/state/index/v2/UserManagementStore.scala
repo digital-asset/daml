@@ -17,6 +17,9 @@ trait UserManagementStore {
 
   def getUserInfo(id: Ref.UserId): Future[Result[UserInfo]]
 
+  /** Always returns `maxResults` if possible, i.e. if a call to this method
+    * returned fewer than `maxResults` users, then the next page (as of calling this method) was empty.
+    */
   def listUsers(fromExcl: Option[Ref.UserId], maxResults: Int): Future[Result[UsersPage]]
 
   // write access
