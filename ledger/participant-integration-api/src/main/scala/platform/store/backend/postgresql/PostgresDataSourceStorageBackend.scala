@@ -4,7 +4,6 @@
 package com.daml.platform.store.backend.postgresql
 
 import java.sql.Connection
-
 import anorm.SqlParser.get
 import anorm.SqlStringInterpolation
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -13,10 +12,11 @@ import com.daml.platform.store.backend.common.{
   DataSourceStorageBackendTemplate,
   InitHookDataSourceProxy,
 }
+
 import javax.sql.DataSource
 import org.postgresql.ds.PGSimpleDataSource
-
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
+import com.daml.resources.ProgramResource.StartupException
 
 case class PostgresDataSourceConfig(
     synchronousCommit: Option[SynchronousCommitValue] = None,
@@ -37,7 +37,8 @@ object PostgresDataSourceConfig {
   }
 }
 
-object PostgresDataSourceStorageBackend extends DataSourceStorageBackend {
+class PostgresDataSourceStorageBackend(minMajorVersionSupported: Int)
+    extends DataSourceStorageBackend {
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def createDataSource(
@@ -68,13 +69,14 @@ object PostgresDataSourceStorageBackend extends DataSourceStorageBackend {
   )(implicit loggingContext: LoggingContext): Unit = {
     getPostgresVersion(connection) match {
       case Some((major, minor)) =>
-        if (major < 10) {
-          logger.error(
+        if (major < minMajorVersionSupported) {
+          val errorMessage =
             "Deprecated Postgres version. " +
-              s"Found Postgres version $major.$minor, minimum required Postgres version is 10. " +
+              s"Found Postgres version $major.$minor, minimum required Postgres version is $minMajorVersionSupported. " +
               "This application will continue running but is at risk of data loss, as Postgres < 10 does not support crash-fault tolerant hash indices. " +
-              "Please upgrade your Postgres database to version 10 or later to fix this issue."
-          )
+              s"Please upgrade your Postgres database to version $minMajorVersionSupported or later to fix this issue."
+          logger.error(errorMessage)
+          throw new PostgresDataSourceStorageBackend.UnsupportedPostgresVersion(errorMessage)
         }
       case None =>
         logger.warn(
@@ -102,4 +104,13 @@ object PostgresDataSourceStorageBackend extends DataSourceStorageBackend {
 
   override def checkDatabaseAvailable(connection: Connection): Unit =
     DataSourceStorageBackendTemplate.checkDatabaseAvailable(connection)
+}
+
+object PostgresDataSourceStorageBackend {
+  def apply(): PostgresDataSourceStorageBackend =
+    new PostgresDataSourceStorageBackend(minMajorVersionSupported = 10)
+
+  final class UnsupportedPostgresVersion(message: String)
+      extends RuntimeException(message)
+      with StartupException
 }

@@ -1,4 +1,4 @@
-{ system ? builtins.currentSystem
+{ system ? import ./system.nix
 , pkgs ? import ./nixpkgs.nix { inherit system; }
 }:
 
@@ -108,9 +108,6 @@ in rec {
     });
 
     node2nix  = pkgs.nodePackages.node2nix;
-
-    license-checker =
-      (import ./tools/license-checker { inherit pkgs; nodejs = tools.node; }).license-checker;
 
     chromedriver = pkgs.chromedriver;
 

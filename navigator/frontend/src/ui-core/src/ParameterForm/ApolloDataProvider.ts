@@ -7,12 +7,25 @@ import { DamlLfDefDataType, DamlLfIdentifier } from "../api/DamlLfType";
 import {
   ParameterFormContractIdQuery,
   ParameterFormContractIdQueryVariables,
+  ParameterFormPartyQuery,
   ParameterFormTypeQuery,
   ParameterFormTypeQueryVariables,
 } from "../api/Queries";
-import { ContractIdProvider, ParameterFormContract, TypeProvider } from "./";
+import {
+  ContractIdProvider,
+  ParameterFormContract,
+  ParameterFormParty,
+  PartyIdProvider,
+  TypeProvider,
+} from "./";
 
 const MAX_CONTRACTS = 30;
+
+const partyIdQuery = gql`
+  query ParameterFormPartyQuery($filter: String!) {
+    parties(search: $filter)
+  }
+`;
 
 const contractIdQuery = gql`
   query ParameterFormContractIdQuery(
@@ -66,7 +79,7 @@ const typeQuery = gql`
 `;
 
 export default class ApolloDataProvider
-  implements ContractIdProvider, TypeProvider
+  implements PartyIdProvider, ContractIdProvider, TypeProvider
 {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly client: ApolloClient<any>;
@@ -74,6 +87,30 @@ export default class ApolloDataProvider
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(client: ApolloClient<any>) {
     this.client = client;
+  }
+
+  fetchParties(
+    filter: string,
+    onResult: (result: ParameterFormParty[]) => void,
+  ): void {
+    this.client
+      .query<ParameterFormPartyQuery>({
+        query: partyIdQuery,
+        variables: {
+          filter,
+        },
+        fetchPolicy: "network-only",
+      })
+      .then(({ data }) => {
+        onResult(
+          data.parties.map(id => {
+            return { id };
+          }),
+        );
+      })
+      .catch(reason => {
+        console.error(reason);
+      });
   }
 
   fetchContracts(

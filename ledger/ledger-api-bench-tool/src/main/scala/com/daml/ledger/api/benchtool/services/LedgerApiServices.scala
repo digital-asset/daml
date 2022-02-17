@@ -4,7 +4,6 @@
 package com.daml.ledger.api.benchtool.services
 
 import com.daml.ledger.api.benchtool.AuthorizationHelper
-import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import io.grpc.Channel
 
@@ -35,11 +34,7 @@ class LedgerApiServices(
     new PartyManagementService(channel, authorizationToken = authorizationToken)
   val transactionService =
     new TransactionService(channel, ledgerId, authorizationToken = authorizationToken)
-  val userManagementService: UserManagementServiceGrpc.UserManagementServiceStub =
-    AuthorizationHelper.maybeAuthedService(authorizationToken)(
-      UserManagementServiceGrpc.stub(channel)
-    )
-
+  val userManagementService = new UserManagementService(channel, authorizationToken)
 }
 
 object LedgerApiServices {

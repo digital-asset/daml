@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import akka.stream.Materializer
+import com.daml.ledger.runner.common.{Config, ParticipantConfig}
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantStateReader,
@@ -46,7 +47,6 @@ trait ReadWriteServiceFactory {
 }
 
 class KeyValueReadWriteFactory(
-    config: Config[_],
     metrics: Metrics,
     ledgerReader: LedgerReader,
     ledgerWriter: LedgerWriter,
@@ -55,7 +55,6 @@ class KeyValueReadWriteFactory(
     KeyValueParticipantStateReader(
       ledgerReader,
       metrics,
-      config.enableSelfServiceErrorCodes,
     )
   }
 
@@ -69,7 +68,6 @@ class KeyValueReadWriteFactory(
 
 class KeyValueDeduplicationSupportFactory(
     delegate: ReadWriteServiceFactory,
-    config: Config[_],
     completionsService: IndexCompletionsService,
 )(implicit materializer: Materializer, ec: ExecutionContext)
     extends ReadWriteServiceFactory {
@@ -77,7 +75,7 @@ class KeyValueDeduplicationSupportFactory(
 
   override def writeService(): WriteService = {
     val writeServiceDelegate = delegate.writeService()
-    val errorFactories = ErrorFactories(config.enableSelfServiceErrorCodes)
+    val errorFactories = ErrorFactories()
     new WriteServiceWithDeduplicationSupport(
       writeServiceDelegate,
       new DeduplicationPeriodSupport(

@@ -5,7 +5,7 @@ package com.daml.ledger.sandbox
 
 import com.daml.caching
 import com.daml.ledger.api.auth.AuthServiceWildcard
-import com.daml.ledger.participant.state.kvutils.app._
+import com.daml.ledger.runner.common._
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig.{DefaultTimeProviderType, EngineMode}
@@ -67,7 +67,6 @@ object ConfigConverter {
       configurationLoadTimeout = sandboxConfig.configurationLoadTimeout,
       commandConfig = sandboxConfig.commandConfig,
       enableInMemoryFanOutForLedgerApi = false,
-      enableSelfServiceErrorCodes = sandboxConfig.enableSelfServiceErrorCodes,
       eventsPageSize = sandboxConfig.eventsPageSize,
       eventsProcessingParallelism = sandboxConfig.eventsProcessingParallelism,
       extra = extraBridgeConfig,

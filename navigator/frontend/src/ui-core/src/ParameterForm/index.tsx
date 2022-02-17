@@ -25,7 +25,6 @@ import {
   DamlLfValueList,
   DamlLfValueNumeric,
   DamlLfValueOptional,
-  DamlLfValueParty,
   DamlLfValueRecord,
   DamlLfValueText,
   DamlLfValueTextMap,
@@ -44,6 +43,7 @@ import styled from "../theme";
 import TimeInput from "../TimeInput";
 import { NonExhaustiveMatch, TypeErrorElement } from "../util";
 import ContractIdInput from "./ContractIdInput";
+import PartyInput from "./PartyInput";
 
 import * as DamlLfValueF from "@da/ui-core/lib/api/DamlLfValue";
 
@@ -128,30 +128,6 @@ const TextInput = (props: InputProps<DamlLfValueText>): JSX.Element => {
         value={displayValue}
         onChange={e => {
           onChange(DamlLfValueF.text((e.target as HTMLInputElement).value));
-        }}
-      />
-    );
-  } else {
-    return <TypeErrorElement parameter={parameter} argument={argument} />;
-  }
-};
-
-//-------------------------------------------------------------------------------------------------
-// Party - primitive value
-//-------------------------------------------------------------------------------------------------
-
-const PartyInput = (props: InputProps<DamlLfValueParty>): JSX.Element => {
-  const { parameter, argument, disabled, onChange } = props;
-  if (matchPrimitiveType(argument, parameter, "party")) {
-    const displayValue = argument.type === "party" ? argument.value : undefined;
-    return (
-      <StyledTextInput
-        type="text"
-        disabled={disabled}
-        placeholder="Party"
-        value={displayValue}
-        onChange={e => {
-          onChange(DamlLfValueF.party((e.target as HTMLInputElement).value));
         }}
       />
     );
@@ -305,6 +281,7 @@ interface VariantInputProps {
   onChange(val: DamlLfValueVariant): void;
   argument: DamlLfValue;
   level: number;
+  partyIdProvider?: PartyIdProvider;
   contractIdProvider?: ContractIdProvider;
   typeProvider: TypeProvider;
 }
@@ -317,6 +294,7 @@ const VariantInput = (props: VariantInputProps): JSX.Element => {
     level,
     onChange,
     disabled,
+    partyIdProvider,
     contractIdProvider,
     typeProvider,
   } = props;
@@ -370,6 +348,7 @@ const VariantInput = (props: VariantInputProps): JSX.Element => {
         {constructor !== undefined ? (
           <LabeledElement label={"Value"} key={"value"}>
             <ParameterInput
+              partyIdProvider={partyIdProvider}
               contractIdProvider={contractIdProvider}
               typeProvider={typeProvider}
               parameter={constructor.value}
@@ -401,6 +380,7 @@ interface RecordInputProps {
   onChange(val: DamlLfValueRecord): void;
   argument: DamlLfValue;
   level: number;
+  partyIdProvider?: PartyIdProvider;
   contractIdProvider?: ContractIdProvider;
   typeProvider: TypeProvider;
 }
@@ -413,6 +393,7 @@ const RecordInput = (props: RecordInputProps): JSX.Element => {
     level,
     onChange,
     disabled,
+    partyIdProvider,
     contractIdProvider,
     typeProvider,
   } = props;
@@ -423,6 +404,7 @@ const RecordInput = (props: RecordInputProps): JSX.Element => {
         {parameter.fields.map((f, i) => (
           <LabeledElement label={f.name} key={f.name}>
             <ParameterInput
+              partyIdProvider={partyIdProvider}
               contractIdProvider={contractIdProvider}
               typeProvider={typeProvider}
               parameter={f.value}
@@ -498,6 +480,7 @@ interface OptionalInputProps {
   onChange(val: DamlLfValueOptional): void;
   argument: DamlLfValue;
   level: number;
+  partyIdProvider?: PartyIdProvider;
   contractIdProvider?: ContractIdProvider;
   typeProvider: TypeProvider;
 }
@@ -509,6 +492,7 @@ const OptionalInput = (props: OptionalInputProps): JSX.Element => {
     level,
     onChange,
     disabled,
+    partyIdProvider,
     contractIdProvider,
     typeProvider,
   } = props;
@@ -548,6 +532,7 @@ const OptionalInput = (props: OptionalInputProps): JSX.Element => {
         {value !== null ? (
           <LabeledElement label={"Value"} key={"value"}>
             <ParameterInput
+              partyIdProvider={partyIdProvider}
               contractIdProvider={contractIdProvider}
               typeProvider={typeProvider}
               parameter={valueType}
@@ -694,6 +679,7 @@ interface ListInputProps extends InputProps<DamlLfValueList> {
   parameter: DamlLfTypePrim;
   name: string;
   level: number;
+  partyIdProvider?: PartyIdProvider;
   contractIdProvider?: ContractIdProvider;
   typeProvider: TypeProvider;
 }
@@ -706,6 +692,7 @@ const ListInput = (props: ListInputProps): JSX.Element => {
     name,
     onChange,
     disabled,
+    partyIdProvider,
     contractIdProvider,
     typeProvider,
   } = props;
@@ -717,6 +704,7 @@ const ListInput = (props: ListInputProps): JSX.Element => {
         {elements.map((k, i) => (
           <LabeledElement label={`[${i}]`} key={i}>
             <ParameterInput
+              partyIdProvider={partyIdProvider}
               contractIdProvider={contractIdProvider}
               typeProvider={typeProvider}
               parameter={elementType}
@@ -762,6 +750,7 @@ interface MapInputProps extends InputProps<DamlLfValueTextMap> {
   parameter: DamlLfTypePrim;
   name: string;
   level: number;
+  partyIdProvider?: PartyIdProvider;
   contractIdProvider?: ContractIdProvider;
   typeProvider: TypeProvider;
 }
@@ -773,6 +762,7 @@ const MapInput = (props: MapInputProps): JSX.Element => {
     level,
     onChange,
     disabled,
+    partyIdProvider,
     contractIdProvider,
     typeProvider,
   } = props;
@@ -804,6 +794,7 @@ const MapInput = (props: MapInputProps): JSX.Element => {
               </LabeledElement>
               <LabeledElement label={`value`} key={`value[${i}]`}>
                 <ParameterInput
+                  partyIdProvider={partyIdProvider}
                   contractIdProvider={contractIdProvider}
                   typeProvider={typeProvider}
                   parameter={elementType}
@@ -856,6 +847,7 @@ interface GenMapInputProps extends InputProps<DamlLfValueGenMap> {
   parameter: DamlLfTypePrim;
   name: string;
   level: number;
+  partyIdProvider?: PartyIdProvider;
   contractIdProvider?: ContractIdProvider;
   typeProvider: TypeProvider;
 }
@@ -867,6 +859,7 @@ const GenMapInput = (props: GenMapInputProps): JSX.Element => {
     level,
     onChange,
     disabled,
+    partyIdProvider,
     contractIdProvider,
     typeProvider,
   } = props;
@@ -882,6 +875,7 @@ const GenMapInput = (props: GenMapInputProps): JSX.Element => {
             <NestedForm level={level + 1}>
               <LabeledElement label={`key`} key={`entries[${i}].key`}>
                 <ParameterInput
+                  partyIdProvider={partyIdProvider}
                   contractIdProvider={contractIdProvider}
                   typeProvider={typeProvider}
                   parameter={keyType}
@@ -898,6 +892,7 @@ const GenMapInput = (props: GenMapInputProps): JSX.Element => {
               </LabeledElement>
               <LabeledElement label={`value`} key={`entries[${i}].value`}>
                 <ParameterInput
+                  partyIdProvider={partyIdProvider}
                   contractIdProvider={contractIdProvider}
                   typeProvider={typeProvider}
                   parameter={valueType}
@@ -957,6 +952,7 @@ interface TypeConInputProps {
   disabled: boolean;
   name: string;
   level: number;
+  partyIdProvider?: PartyIdProvider;
   contractIdProvider?: ContractIdProvider;
   typeProvider: TypeProvider;
 }
@@ -1021,8 +1017,16 @@ class TypeConInput extends React.Component<
   }
 
   render() {
-    const { argument, parameter, disabled, onChange, level, typeProvider } =
-      this.props;
+    const {
+      argument,
+      parameter,
+      disabled,
+      onChange,
+      level,
+      partyIdProvider,
+      contractIdProvider,
+      typeProvider,
+    } = this.props;
     const { dataType } = this.state;
 
     if (dataType === undefined) {
@@ -1038,6 +1042,8 @@ class TypeConInput extends React.Component<
               disabled={disabled}
               onChange={onChange}
               level={level}
+              partyIdProvider={partyIdProvider}
+              contractIdProvider={contractIdProvider}
               typeProvider={typeProvider}
             />
           );
@@ -1050,6 +1056,8 @@ class TypeConInput extends React.Component<
               disabled={disabled}
               onChange={onChange}
               level={level}
+              partyIdProvider={partyIdProvider}
+              contractIdProvider={contractIdProvider}
               typeProvider={typeProvider}
             />
           );
@@ -1098,6 +1106,16 @@ export interface TypeProvider {
   ): void;
 }
 
+export interface ParameterFormParty {
+  id: string;
+}
+export interface PartyIdProvider {
+  fetchParties(
+    filter: string,
+    onResult: (result: ParameterFormParty[]) => void,
+  ): void;
+}
+
 //-------------------------------------------------------------------------------------------------
 // Parameter Input
 //-------------------------------------------------------------------------------------------------
@@ -1110,6 +1128,7 @@ export interface ParameterInputProps {
   validate?(val: DamlLfValue): boolean;
   name: string;
   level: number;
+  partyIdProvider?: PartyIdProvider;
   contractIdProvider?: ContractIdProvider;
   typeProvider: TypeProvider;
 }
@@ -1121,6 +1140,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
     name,
     disabled,
     onChange,
+    partyIdProvider,
     contractIdProvider,
     typeProvider,
     validate,
@@ -1144,12 +1164,14 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
       case "party":
         return (
           <PartyInput
+            onFetchParties={
+              partyIdProvider &&
+              partyIdProvider.fetchParties.bind(partyIdProvider)
+            }
             parameter={parameter}
             disabled={disabled}
             onChange={onChange}
             argument={argument}
-            validate={validate}
-            name={name}
           />
         );
       case "contractid":
@@ -1226,6 +1248,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
             validate={validate}
             level={level}
             name={name}
+            partyIdProvider={partyIdProvider}
             contractIdProvider={contractIdProvider}
             typeProvider={typeProvider}
           />
@@ -1239,6 +1262,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
             onChange={onChange}
             argument={argument}
             level={level}
+            partyIdProvider={partyIdProvider}
             typeProvider={typeProvider}
           />
         );
@@ -1249,6 +1273,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
             parameter={parameter}
             name={name}
             level={level}
+            partyIdProvider={partyIdProvider}
             typeProvider={typeProvider}
             disabled={disabled}
             onChange={onChange}
@@ -1291,6 +1316,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
         level={level}
         name={name}
         onChange={onChange}
+        partyIdProvider={partyIdProvider}
         contractIdProvider={contractIdProvider}
         typeProvider={typeProvider}
       />
@@ -1319,6 +1345,7 @@ export interface Props {
   argument: DamlLfValue;
   className?: string;
   error?: string;
+  partyIdProvider?: PartyIdProvider;
   contractIdProvider?: ContractIdProvider;
   typeProvider: TypeProvider;
 }
@@ -1386,6 +1413,7 @@ const ParameterForm = (props: Props): JSX.Element => {
     onChange,
     onSubmit,
     error,
+    partyIdProvider,
     contractIdProvider,
     typeProvider,
   } = props;
@@ -1397,6 +1425,7 @@ const ParameterForm = (props: Props): JSX.Element => {
   return (
     <StyledForm className={className}>
       <ParameterInput
+        partyIdProvider={partyIdProvider}
         contractIdProvider={contractIdProvider}
         typeProvider={typeProvider}
         parameter={parameter}

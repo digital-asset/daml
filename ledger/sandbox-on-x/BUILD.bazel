@@ -40,13 +40,12 @@ da_scala_library(
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//ledger/participant-state-metrics",
-        "//ledger/participant-state/kvutils",
-        "//ledger/participant-state/kvutils/app",
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
@@ -92,10 +91,10 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
-        "//ledger/participant-state/kvutils/app",
         "//ledger/sandbox-common:sandbox-common-ce",
         "//ledger/sandbox-on-x",
         "//libs-scala/build-info",
@@ -238,10 +237,10 @@ da_scala_test_suite(
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/ledger-resources:ledger-resources-test-lib",
+        "//ledger/ledger-runner-common",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/participant-state/kvutils/app",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
@@ -288,8 +287,8 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state/kvutils/app",
         "//libs-scala/contextualized-logging",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
@@ -351,12 +350,13 @@ SERVERS = {
 }
 
 conformance_test(
-    name = "conformance-test",
+    name = "conformance-test-no-conflict-checking",
     ports = [6865],
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
+        "--disable-conflict-checking",
     ],
     test_tool_args = [
         "--verbose",
@@ -375,11 +375,10 @@ conformance_test(
 )
 
 server_conformance_test(
-    name = "conformance-test-conflict-checking",
+    name = "conformance-test",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--enable-conflict-checking",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -388,13 +387,12 @@ server_conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-conflict-checking-static-time",
+    name = "conformance-test-static-time",
     ports = [6865],
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
-        "--enable-conflict-checking",
         "--static-time",
     ],
     test_tool_args = [
@@ -409,25 +407,9 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865,ledger-api-transactions-buffer-max-size=10",
-        "--enable-conflict-checking",
         "--buffered-ledger-api-streams-unsafe",
     ],
     test_tool_args = [
         "--verbose",
-    ],
-)
-
-server_conformance_test(
-    name = "benchmark-performance-envelope",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-    ],
-    servers = SERVERS,
-    test_tool_args = [
-        "--verbose",
-        "--perf-tests=PerformanceEnvelope.Throughput.TwentyOPS",
-        "--perf-tests=PerformanceEnvelope.Latency.1000ms",
-        "--perf-tests=PerformanceEnvelope.TransactionSize.1000KB",
     ],
 )

@@ -75,7 +75,6 @@ da_scala_library(
         "//language-support/java/bindings:bindings-java",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-bridge",
-        "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/participant-state-index",

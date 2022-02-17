@@ -71,7 +71,7 @@ class DeduplicationStateSpec extends AnyFlatSpec with Matchers {
       }
   }
 
-  it should "evict old entries (older than max deduplication time)" in {
+  it should "evict old entries (older than max deduplication duration)" in {
     val deduplicationState = DeduplicationState.empty(
       deduplicationDuration = Duration.ofMinutes(1L),
       bridgeMetrics = bridgeMetrics,

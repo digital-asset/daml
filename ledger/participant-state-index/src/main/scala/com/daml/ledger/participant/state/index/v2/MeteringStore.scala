@@ -21,10 +21,20 @@ trait MeteringStore {
 }
 
 object MeteringStore {
+
   case class TransactionMetering(
       applicationId: Ref.ApplicationId,
       actionCount: Int,
       meteringTimestamp: Timestamp,
       ledgerOffset: Offset,
   )
+
+  case class ParticipantMetering(
+      applicationId: Ref.ApplicationId,
+      from: Timestamp,
+      to: Timestamp,
+      actionCount: Int,
+      ledgerOffset: Offset,
+  )
+
 }

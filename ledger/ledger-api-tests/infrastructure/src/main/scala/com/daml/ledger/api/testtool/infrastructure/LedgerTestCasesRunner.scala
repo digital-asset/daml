@@ -41,7 +41,7 @@ object LedgerTestCasesRunner {
 
 final class LedgerTestCasesRunner(
     testCases: Vector[LedgerTestCase],
-    participants: Vector[ChannelEndpoint],
+    participantChannels: Vector[ChannelEndpoint],
     maxConnectionAttempts: Int = 10,
     partyAllocation: PartyAllocationConfiguration = ClosedWorldWaitingForAllParticipants,
     shuffleParticipants: Boolean = false,
@@ -62,7 +62,13 @@ final class LedgerTestCasesRunner(
       require(identifierSuffix.nonEmpty, "The identifier suffix cannot be an empty string")
     }
 
-  private def start(
+  def runTests(implicit executionContext: ExecutionContext): Future[Vector[LedgerTestSummary]] =
+    verifyRequirements.fold(
+      Future.failed,
+      _ => prepareResourcesAndRun,
+    )
+
+  private def createTestContextAndStart(
       test: LedgerTestCase.Repetition,
       session: LedgerSession,
   )(implicit executionContext: ExecutionContext): Future[Duration] = {
@@ -76,7 +82,9 @@ final class LedgerTestCasesRunner(
         .createTestContext(testName, identifierSuffix)
         .flatMap { context =>
           val start = System.nanoTime()
-          val result = test(context).map(_ => Duration.fromNanos(System.nanoTime() - start))
+          val result = test
+            .allocatePartiesAndRun(context)
+            .map(_ => Duration.fromNanos(System.nanoTime() - start))
           logger.info(
             s"Started '${test.description}'${test.repetition.fold("")(r => s" (${r._1}/${r._2})")} with a timeout of $scaledTimeout."
           )
@@ -135,7 +143,7 @@ final class LedgerTestCasesRunner(
       test: LedgerTestCase.Repetition,
       session: LedgerSession,
   )(implicit executionContext: ExecutionContext): Future[Either[Result.Failure, Result.Success]] =
-    result(start(test, session))
+    result(createTestContextAndStart(test, session))
 
   private def uploadDar(
       context: ParticipantTestContext,
@@ -197,12 +205,18 @@ final class LedgerTestCasesRunner(
   }
 
   private def run(
-      participants: Vector[ChannelEndpoint]
+      participantChannels: Vector[ChannelEndpoint]
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
   ): Future[Vector[LedgerTestSummary]] = {
-    ParticipantSession(partyAllocation, participants, maxConnectionAttempts, commandInterceptors)
+    val sessions: Future[Vector[ParticipantSession]] = ParticipantSession.createSessions(
+      partyAllocationConfig = partyAllocation,
+      participantChannels = participantChannels,
+      maxConnectionAttempts = maxConnectionAttempts,
+      commandInterceptors = commandInterceptors,
+    )
+    sessions
       .flatMap { sessions: Vector[ParticipantSession] =>
         // All the participants should support the same features (for testing at least)
         val ledgerFeatures = sessions.head.features
@@ -263,7 +277,7 @@ final class LedgerTestCasesRunner(
     val results =
       for {
         materializer <- materializerResources.asFuture
-        results <- run(participants)(materializer, executionContext)
+        results <- run(participantChannels)(materializer, executionContext)
       } yield results
 
     results.onComplete(_ => materializerResources.release())
@@ -271,9 +285,4 @@ final class LedgerTestCasesRunner(
     results
   }
 
-  def runTests(implicit executionContext: ExecutionContext): Future[Vector[LedgerTestSummary]] =
-    verifyRequirements.fold(
-      Future.failed,
-      _ => prepareResourcesAndRun,
-    )
 }

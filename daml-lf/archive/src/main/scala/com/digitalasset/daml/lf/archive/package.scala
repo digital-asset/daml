@@ -34,7 +34,10 @@ package object archive {
     catch {
       case error: java.io.IOException => Left(Error.IO(where, error))
       case error: Error => Left(error)
-      case NonFatal(err) => Left(Error.Internal(where, s"Unhandled exception: ${err.getMessage}"))
+      case NonFatal(err) =>
+        Left(
+          Error.Internal(where, s"Unexpected ${err.getClass.getSimpleName} Exception", Some(err))
+        )
     }
 
   // This constant is introduced and used

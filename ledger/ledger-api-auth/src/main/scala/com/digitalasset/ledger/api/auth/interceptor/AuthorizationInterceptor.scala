@@ -4,7 +4,7 @@
 package com.daml.ledger.api.auth.interceptor
 
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
@@ -26,12 +26,11 @@ final class AuthorizationInterceptor(
     authService: AuthService,
     userManagementStoreO: Option[UserManagementStore],
     implicit val ec: ExecutionContext,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit loggingContext: LoggingContext)
     extends ServerInterceptor {
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -127,7 +126,7 @@ final class AuthorizationInterceptor(
     Ref.UserId.fromString(userIdStr) match {
       case Left(err) =>
         Future.failed(
-          errorFactories.invalidArgument(None)(s"token $err")(errorLogger)
+          errorFactories.invalidArgument(s"token $err")(errorLogger)
         )
       case Right(userId) =>
         Future.successful(userId)
@@ -155,10 +154,9 @@ object AuthorizationInterceptor {
       authService: AuthService,
       userManagementStoreO: Option[UserManagementStore],
       ec: ExecutionContext,
-      errorCodesStatusSwitcher: ErrorCodesVersionSwitcher,
   ): AuthorizationInterceptor =
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
-      new AuthorizationInterceptor(authService, userManagementStoreO, ec, errorCodesStatusSwitcher)
+      new AuthorizationInterceptor(authService, userManagementStoreO, ec)
     }
 
   def convertUserRightsToClaims(userRights: Set[UserRight]): Seq[Claim] = {

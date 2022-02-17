@@ -14,6 +14,7 @@ private[infrastructure] final class LedgerSession private (
     shuffleParticipants: Boolean,
     clientTlsConfiguration: Option[TlsConfiguration],
 )(implicit val executionContext: ExecutionContext) {
+
   private[infrastructure] def createTestContext(
       applicationId: String,
       identifierSuffix: String,
@@ -33,9 +34,11 @@ private[infrastructure] final class LedgerSession private (
       }
       .map(new LedgerTestContext(_))
   }
+
 }
 
 object LedgerSession {
+
   def apply(
       participantSessions: Vector[ParticipantSession],
       shuffleParticipants: Boolean,
@@ -50,4 +53,5 @@ object LedgerSession {
       clientTlsConfiguration,
     )
   }
+
 }

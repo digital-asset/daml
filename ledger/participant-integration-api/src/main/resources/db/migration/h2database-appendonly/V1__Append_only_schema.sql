@@ -538,3 +538,18 @@ CREATE TABLE transaction_metering (
 );
 
 CREATE INDEX transaction_metering_ledger_offset ON transaction_metering(ledger_offset);
+
+CREATE TABLE metering_parameters (
+    ledger_metering_end VARCHAR,
+    ledger_metering_timestamp BIGINT NOT NULL
+);
+
+CREATE TABLE participant_metering (
+    application_id VARCHAR NOT NULL,
+    from_timestamp BIGINT NOT NULL,
+    to_timestamp BIGINT NOT NULL,
+    action_count INTEGER NOT NULL,
+    ledger_offset VARCHAR NOT NULL
+);
+
+CREATE UNIQUE INDEX participant_metering_from_to_application ON participant_metering(from_timestamp, to_timestamp, application_id);

@@ -43,6 +43,8 @@ The below lists with which Daml version a new Ledger API version was introduced.
 
    * - Ledger API Version
      - Daml Version
+   * - 2.0
+     - 2.0
    * - 1.12
      - 1.15
    * - 1.11
@@ -64,6 +66,12 @@ Summary of Ledger API Changes
 
    * - Ledger API Version
      - Changes
+   * - 2.0
+     - | Introduce User Management Service
+       | Introduce Metering Report Service
+       | Remove Reset Service
+       | Deprecate Ledger Identity Service
+       | Make ledger_id and application_id fields optional
    * - 1.12
      - Introduce Daml-LF 1.14
    * - 1.11

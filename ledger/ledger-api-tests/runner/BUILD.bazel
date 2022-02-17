@@ -28,7 +28,6 @@ load("@os_info//:os_info.bzl", "is_windows")
         deps = [
             "//ledger/ledger-api-common",
             "//ledger/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
-            "//ledger/ledger-api-tests/performance:performance-%s" % lf_version,
             "//libs-scala/resources",
             "//libs-scala/resources-akka",
             "//libs-scala/resources-grpc",

@@ -3,20 +3,20 @@
 
 package com.daml.platform.store.backend.common
 
-import java.sql.Connection
-
 import anorm.SqlParser.{int, long}
 import anorm.{RowParser, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.offset.Offset
-import com.daml.platform.store.Conversions.{ledgerString, offset}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.common.MismatchException
 import com.daml.platform.store.Conversions
+import com.daml.platform.store.Conversions.{ledgerString, offset}
 import com.daml.platform.store.backend.ParameterStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.scalautil.Statement.discard
 import scalaz.syntax.tag._
+
+import java.sql.Connection
 
 private[backend] object ParameterStorageBackendTemplate extends ParameterStorageBackend {
 
@@ -193,4 +193,5 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
         connection
       )
   }
+
 }

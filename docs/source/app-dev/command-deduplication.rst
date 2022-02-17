@@ -43,10 +43,10 @@ The first three form the :ref:`change ID <change-id>` that identifies the intend
   It is included in the corresponding completion event so that the application can correlate specific submissions to specific completions.
   An application should never reuse a submission ID.
 
-The ledger may arbitrarily extend the deduplication period specified in the submission, even beyond the maximum deduplication time specified in the :ref:`ledger configuration <ledger-configuration-service>`.
+The ledger may arbitrarily extend the deduplication period specified in the submission, even beyond the maximum deduplication duration specified in the :ref:`ledger configuration <ledger-configuration-service>`.
 
 .. note::
-   The maximum deduplication time is the length of the deduplication period guaranteed to be supported by the participant.
+   The maximum deduplication duration is the length of the deduplication period guaranteed to be supported by the participant.
    
 The deduplication period chosen by the ledger is the *effective deduplication period*.
 The ledger may also convert a requested deduplication duration into an effective deduplication offset or vice versa.
@@ -82,7 +82,7 @@ Independently of how the outcome is communicated, command deduplication generate
   The fields ``longest_duration`` or ``earliest_offset`` in the metadata specify the longest duration or earliest offset that is currently supported on the Ledger API endpoint.
   At least one of the two fields is present.
 
-  Neither deduplication durations up to the :ref:`maximum deduplication time <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_time>` nor deduplication offsets published within that time SHOULD result in this error.
+  Neither deduplication durations up to the :ref:`maximum deduplication duration <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_duration>` nor deduplication offsets published within that duration SHOULD result in this error.
   Participants may accept longer periods at their discretion.
 
 - The gRPC status code ``FAILED_PRECONDITION`` with error code id :ref:`PARTICIPANT_PRUNED_DATA_ACCESSED <error_code_PARTICIPANT_PRUNED_DATA_ACCESSED>`, when specifying a deduplication period represented by an offset, indicates that the specified deduplication offset has been pruned.
@@ -118,7 +118,7 @@ If processing measured across all retries takes longer than your estimate ``B``,
 Under this caveat, the following strategy works for applications that use the :ref:`Command Service <command-service>` or the :ref:`Command Submission <command-submission-service>` and :ref:`Command Completion Service <command-completion-service>`.
 
 .. note::
-   The bound ``B`` should be at most the configured :ref:`maximum deduplication time <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_time>`.
+   The bound ``B`` should be at most the configured :ref:`maximum deduplication duration <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_duration>`.
    Otherwise you rely on the ledger accepting longer deduplication durations.
    Such reliance makes your application harder to port to other Daml ledgers and fragile, as the ledger may stop accepting such extended durations at its own discretion.
 
@@ -148,11 +148,11 @@ Under this caveat, the following strategy works for applications that use the :r
 
      .. note::
         It is prudent to explicitly set the deduplication duration to the desired bound ``B``,
-	to guard against the case where a ledger configuration update shortens the maximum deduplication time.
+	to guard against the case where a ledger configuration update shortens the maximum deduplication duration.
 	With the bound ``B``, you will be notified of such a problem via an :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>` error
 	if the ledger does not support deduplication durations of length ``B`` any more.
 	
-	If you omitted the deduplication period, the currently valid maximum dedupilcation time would be used.
+	If you omitted the deduplication period, the currently valid maximum deduplication duration would be used.
 	In this case, a ledger configuration update could silently shorten the deduplication period and thus invalidate your deduplication analysis.
 
    - Set the :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` to a fresh value, e.g., a random UUID.

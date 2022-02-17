@@ -41,7 +41,7 @@ done
 PORT=$(cat $PORTFILE)
 
 set +e
-TEST_OUTPUT="$($TEST_RUNNER --dar=$DAR_FILE --max-inbound-message-size 41943040 --ledger-host localhost --ledger-port $PORT 2>&1)"
+TEST_OUTPUT="$($TEST_RUNNER --all --static-time --dar=$DAR_FILE --max-inbound-message-size 41943040 --ledger-host localhost --ledger-port $PORT 2>&1)"
 TEST_RESULT=$?
 set -e
 

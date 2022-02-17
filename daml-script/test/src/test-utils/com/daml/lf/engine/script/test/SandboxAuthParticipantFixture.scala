@@ -45,7 +45,7 @@ trait SandboxAuthParticipantFixture
         participants = Map.empty,
       ),
       tlsConfig = TlsConfiguration(false, None, None, None),
-      maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
+      maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
     )
 
   private val secret = "secret"

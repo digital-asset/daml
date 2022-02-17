@@ -3,14 +3,14 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import com.daml.ledger.api.testtool.infrastructure.Allocation.{ParticipantAllocation, Participants}
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{Participants, PartyAllocation}
 import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
 import com.daml.lf.data.Ref
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
-private[testtool] abstract class LedgerTestSuite {
+abstract class LedgerTestSuite {
   private val testCaseBuffer: ListBuffer[LedgerTestCase] = ListBuffer()
 
   final lazy val tests: Vector[LedgerTestCase] = testCaseBuffer.toVector
@@ -18,7 +18,7 @@ private[testtool] abstract class LedgerTestSuite {
   protected final def test(
       shortIdentifier: String,
       description: String,
-      participants: ParticipantAllocation,
+      partyAllocation: PartyAllocation,
       timeoutScale: Double = 1.0,
       runConcurrently: Boolean = true,
       repeated: Int = 1,
@@ -28,7 +28,7 @@ private[testtool] abstract class LedgerTestSuite {
     testGivenAllParticipants(
       shortIdentifier,
       description,
-      participants,
+      partyAllocation,
       timeoutScale,
       runConcurrently,
       repeated,
@@ -40,7 +40,7 @@ private[testtool] abstract class LedgerTestSuite {
   protected final def testGivenAllParticipants(
       shortIdentifier: String,
       description: String,
-      participants: ParticipantAllocation,
+      partyAllocation: PartyAllocation,
       timeoutScale: Double = 1.0,
       runConcurrently: Boolean = true,
       repeated: Int = 1,
@@ -63,7 +63,7 @@ private[testtool] abstract class LedgerTestSuite {
         repeated,
         enabled,
         disabledReason,
-        participants,
+        partyAllocation,
         testCase,
       )
     )

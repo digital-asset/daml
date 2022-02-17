@@ -1,9 +1,6 @@
 sdk-version: __VERSION__
 name: daml-patterns
 source: daml
-parties:
-  - Alice
-  - Bob
 version: 0.0.1
 dependencies:
   - daml-prim

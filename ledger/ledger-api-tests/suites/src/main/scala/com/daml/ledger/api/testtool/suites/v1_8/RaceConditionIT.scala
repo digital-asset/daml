@@ -242,7 +242,7 @@ final class RaceConditionIT extends LedgerTestSuite {
     test(
       shortIdentifier = shortIdentifier,
       description = description,
-      participants = allocate(SingleParty),
+      partyAllocation = allocate(SingleParty),
       repeated = repeated,
       runConcurrently = runConcurrently,
     )(implicit ec => { case Participants(Participant(ledger, party)) =>

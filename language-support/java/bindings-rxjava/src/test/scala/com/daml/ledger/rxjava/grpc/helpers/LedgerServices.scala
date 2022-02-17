@@ -3,7 +3,6 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.error.ErrorCodesVersionSwitcher
 import java.net.{InetSocketAddress, SocketAddress}
 import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
@@ -55,7 +54,6 @@ final class LedgerServices(val ledgerId: String) {
       () => Clock.systemUTC().instant(),
       ledgerId,
       participantId,
-      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
       new InMemoryUserManagementStore(),
       executionContext,
       userRightsCheckIntervalInSeconds = 1,
@@ -103,7 +101,6 @@ final class LedgerServices(val ledgerId: String) {
       authService,
       Some(new InMemoryUserManagementStore()),
       executionContext,
-      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true),
     )
     services
       .foldLeft(newServerBuilder())(_ addService _)

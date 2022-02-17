@@ -4,7 +4,7 @@
 package com.daml.sdk
 
 import com.daml.codegen.{CodegenMain => Codegen}
-import com.daml.lf.engine.script.{RunnerMain => Script, TestMain => TestScript}
+import com.daml.lf.engine.script.{ScriptMain => Script}
 import com.daml.lf.engine.trigger.{RunnerMain => Trigger}
 import com.daml.lf.engine.trigger.{ServiceMain => TriggerService}
 import com.daml.auth.middleware.oauth2.{Main => Oauth2Middleware}
@@ -19,7 +19,6 @@ object SdkMain {
     command match {
       case "trigger" => Trigger.main(rest)
       case "script" => Script.main(rest)
-      case "test-script" => TestScript.main(rest)
       case "export" => Export.main(rest)
       case "codegen" => Codegen.main(rest)
       case "json-api" => JsonApi.main(rest)

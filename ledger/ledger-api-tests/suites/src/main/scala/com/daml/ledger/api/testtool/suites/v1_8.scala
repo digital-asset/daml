@@ -51,7 +51,6 @@ package object v1_8 {
 
   def optional(): Vector[LedgerTestSuite] =
     Vector(
-      new MonotonicRecordTimeIT,
       new TLSOnePointThreeIT,
       new TLSAtLeastOnePointTwoIT,
     )

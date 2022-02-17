@@ -3,7 +3,8 @@
 
 package com.daml.ledger.on.sql
 
-import com.daml.ledger.participant.state.kvutils.app.{Config, Runner}
+import com.daml.ledger.participant.state.kvutils.app.Runner
+import com.daml.ledger.runner.common.Config
 import com.daml.ledger.resources.ResourceContext
 import com.daml.resources.ProgramResource
 import com.daml.testing.oracle.OracleAround

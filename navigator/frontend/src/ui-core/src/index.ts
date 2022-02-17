@@ -10,6 +10,7 @@ export { default as Link } from "./Link";
 export { makeSidebarLink } from "./SidebarLink";
 export { default as ParameterForm } from "./ParameterForm";
 export { default as Popover } from "./Popover";
+export { default as LongIdentifier } from "./LongIdentifier";
 export { default as ArgumentDisplay } from "./ArgumentDisplay";
 export { default as Autosuggest } from "./Autosuggest";
 export { default as AdvanceTime } from "./AdvanceTime";
@@ -48,6 +49,9 @@ export { SortDirection } from "./Table";
 
 export { NonExhaustiveMatch } from "./util";
 export { utcStringToMoment, momentToUtcString } from "./util";
+
+import * as IdentifierShortening from "./api/IdentifierShortening";
+export { IdentifierShortening };
 
 import * as DamlLfValue from "./api/DamlLfValue";
 export { DamlLfValue };

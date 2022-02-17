@@ -107,8 +107,10 @@ and ``carbon-2.0.0``.
    $ daml sandbox --dar .daml/dist/carbon-upgrade-1.0.0.dar
 
 To simplify the setup here, we use a Daml script to create 3 parties
-Alice, Bob and Charlie and two ``CarbonCert`` contracts issues by Alice, one
-owned by Bob and one owned by Charlie.
+Alice, Bob and Charlie and two ``CarbonCert`` contracts issues by
+Alice, one owned by Bob and one owned by Charlie. This Daml script
+reuses the ``Setup.setup`` Daml script from the previous section to
+create the parties & users.
 
 .. literalinclude:: example/carbon-initiate-upgrade/daml/InitiateUpgrade.daml
    :language: daml
@@ -121,10 +123,12 @@ Run the script as follows:
 
    $ cd example/carbon-initiate-upgrade
    $ daml build
-   $ daml script --dar=.daml/dist/carbon-initiate-upgrade-1.0.0.dar --script-name=InitiateUpgrade:setup --ledger-host=localhost --ledger-port=6865 --wall-clock-time
+   $ daml script --dar=.daml/dist/carbon-initiate-upgrade-1.0.0.dar --script-name=InitiateUpgrade:setup --ledger-host=localhost --ledger-port=6865 --output-file parties.json
+
+As before, ``parties.json`` contains the actual party ids we can use later.
 
 If you now start Navigator from the ``carbon-initiate-upgrade``
-directory and log in as Alice, you can see the two ``CarbonCert`` contracts.
+directory and log in as ``alice``, you can see the two ``CarbonCert`` contracts.
 
 Next, we run the trigger for Alice. The trigger will keep running throughout the
 rest of this example.
@@ -133,33 +137,32 @@ rest of this example.
 
    $ cd example/carbon-upgrade-trigger
    $ daml build
-   $ daml trigger --dar=.daml/dist/carbon-upgrade-trigger-1.0.0.dar --trigger-name=UpgradeTrigger:upgradeTrigger --ledger-host=localhost --ledger-port=6865 --ledger-party=Alice --wall-clock-time
+   $ daml trigger --dar=.daml/dist/carbon-upgrade-trigger-1.0.0.dar --trigger-name=UpgradeTrigger:upgradeTrigger --ledger-host=localhost --ledger-port=6865 --ledger-user=alice
 
 With the trigger running, we can now run the script to create the
 ``UpgradeCarbonCertProposal`` contracts (we could also have done that before
 starting the trigger). The script takes an argument of type
-``Party``. We can pass this in via the ``--input-file`` argument which
-we will point to a file ``party.json`` containing ``"Alice"``. This allows us to
-change the party without having to change the code of the script.
+``Parties`` corresponding to the result of the previous ``setup`` script.
+We can pass this in via the ``--input-file`` argument.
 
 .. code-block:: none
 
    $ cd example/carbon-initiate-upgrade
    $ daml build
-   $ daml script --dar=.daml/dist/carbon-initiate-upgrade-1.0.0.dar --script-name=InitiateUpgrade:initiateUpgrade --ledger-host=localhost --ledger-port=6865 --wall-clock-time --input-file=party.json
+   $ daml script --dar=.daml/dist/carbon-initiate-upgrade-1.0.0.dar --script-name=InitiateUpgrade:initiateUpgrade --ledger-host=localhost --ledger-port=6865 --input-file=parties.json
 
 At this point, our trigger is running and the ``UpgradeCarbonCertProposal``
 contracts for Bob and Charlie have been created. What is left to do is
 to accept the proposals. Our trigger will then automatically pick them
 up and upgrade the ``CarbonCert`` contracts.
 
-First, start Navigator and log in as Bob. Click on the
+First, start Navigator and log in as ``bob``. Click on the
 ``UpgradeCarbonCertProposal`` and accept it. If you now go back to the
 contracts tab, you can see that the ``CarbonCert`` contract has been
 archived and instead there is a new ``CarbonCertWithMethod`` upgrade. Our
 trigger has successfully upgraded the ``CarbonCert``!
 
-Next, log in as Charlie and accept the ``UpgradeCarbonCertProposal``. Just
+Next, log in as ``charlie`` and accept the ``UpgradeCarbonCertProposal``. Just
 like for Bob, you can see that the ``CarbonCert`` contract has been archived
 and instead there is a new ``CarbonCertWithMethod`` contract.
 

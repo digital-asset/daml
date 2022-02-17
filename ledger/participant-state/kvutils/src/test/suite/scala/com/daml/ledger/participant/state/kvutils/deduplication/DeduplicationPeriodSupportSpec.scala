@@ -142,8 +142,6 @@ class DeduplicationPeriodSupportSpec
       when(
         errorFactories.invalidDeduplicationPeriod(
           any[String],
-          any[String],
-          any[Option[Boolean]],
           any[Option[Duration]],
         )(any[ContextualizedErrorLogger])
       ).thenReturn(statusRuntimeException)
@@ -159,8 +157,6 @@ class DeduplicationPeriodSupportSpec
           )
           verify(errorFactories).invalidDeduplicationPeriod(
             any[String],
-            any[String],
-            any[Option[Boolean]],
             any[Option[Duration]],
           )(any[ContextualizedErrorLogger])
           result shouldBe statusRuntimeException

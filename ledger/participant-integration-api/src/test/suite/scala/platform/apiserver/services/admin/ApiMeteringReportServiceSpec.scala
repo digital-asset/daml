@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.v1.admin.metering_report_service.{
   ApplicationMeteringReport,
   GetMeteringReportRequest,
@@ -30,8 +29,6 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
 
   private val someParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-
-  private val switcher = new ErrorCodesVersionSwitcher(true)
 
   private val appIdA = Ref.ApplicationId.assertFromString("AppA")
   private val appIdB = Ref.ApplicationId.assertFromString("AppB")
@@ -63,7 +60,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
 
       val expectedReport = ParticipantMeteringReport(
         participantId = someParticipantId,
-        toActual = Some(generationTime),
+        isFinal = false,
         applicationReports = Seq(
           ApplicationMeteringReport(appIdA, 4),
           ApplicationMeteringReport(appIdB, 2),
@@ -91,7 +88,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
       val expectedGenTime = toProtoTimestamp(Timestamp.now().addMicros(-1000))
 
       val underTest =
-        new ApiMeteringReportService(someParticipantId, store, switcher, () => expectedGenTime)
+        new ApiMeteringReportService(someParticipantId, store, () => expectedGenTime)
 
       val from = Timestamp(10000)
 
@@ -115,7 +112,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
       val expectedGenTime = toProtoTimestamp(Timestamp.now().addMicros(-1000))
 
       val underTest =
-        new ApiMeteringReportService(someParticipantId, store, switcher, () => expectedGenTime)
+        new ApiMeteringReportService(someParticipantId, store, () => expectedGenTime)
 
       val from = Timestamp(10000)
       val to = Timestamp(20000)
@@ -138,7 +135,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
     }
 
     "fail if the from timestamp is unset" in {
-      val underTest = new ApiMeteringReportService(someParticipantId, mock[MeteringStore], switcher)
+      val underTest = new ApiMeteringReportService(someParticipantId, mock[MeteringStore])
       val request = GetMeteringReportRequest.defaultInstance
       underTest.getMeteringReport(request).failed.map { _ => succeed }
     }

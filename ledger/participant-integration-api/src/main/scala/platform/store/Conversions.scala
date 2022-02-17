@@ -8,6 +8,7 @@ import anorm._
 import com.daml.ledger.offset.Offset
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
 import spray.json.DefaultJsonProtocol._
@@ -354,6 +355,11 @@ private[platform] object Conversions {
   def offset(name: String): RowParser[Offset] =
     SqlParser.get[String](name).map(v => Offset.fromHexString(Ref.HexString.assertFromString(v)))
 
+  def offset(position: Int): RowParser[Offset] =
+    SqlParser
+      .get[String](position)
+      .map(v => Offset.fromHexString(Ref.HexString.assertFromString(v)))
+
   implicit val columnToOffset: Column[Offset] =
     Column.nonNull((value: Any, meta) =>
       Column
@@ -363,8 +369,16 @@ private[platform] object Conversions {
 
   // Timestamp
 
+  implicit object TimestampToStatement extends ToStatement[Timestamp] {
+    override def set(s: PreparedStatement, index: Int, v: Timestamp): Unit =
+      s.setLong(index, v.micros)
+  }
+
   def timestampFromMicros(name: String): RowParser[com.daml.lf.data.Time.Timestamp] =
     SqlParser.get[Long](name).map(com.daml.lf.data.Time.Timestamp.assertFromLong)
+
+  def timestampFromMicros(position: Int): RowParser[com.daml.lf.data.Time.Timestamp] =
+    SqlParser.get[Long](position).map(com.daml.lf.data.Time.Timestamp.assertFromLong)
 
   // Hash
 

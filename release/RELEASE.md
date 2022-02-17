@@ -141,7 +141,7 @@ This testing procedure starts once the release is listed on the [releases page].
     1. Close VSCode.
 
     1. As before, open two browser windows at `localhost:3000` and log
-       in as `Alice` and `Bob`.
+       in as `alice` and `bob`.
 
     1. Make `Alice` follow `Bob`.
 
@@ -171,7 +171,7 @@ This testing procedure starts once the release is listed on the [releases page].
       `cd myproject`.
    1. Run `daml start`.
    1. Open your browser at `http://localhost:7500`, verify that you can login as
-      Alice and there is one contract, and that the template list contains
+      alice and there is one contract, and that the template list contains
       `Main:Asset` among other templates.
    1. Kill `daml start` with `Ctrl-C`.
    1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
@@ -195,7 +195,7 @@ This testing procedure starts once the release is listed on the [releases page].
     1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.
 
     1. Run `daml start`. Your browser should be opened automatically at
-       `http://localhost:7500`. Login as `Alice` and verify that there is
+       `http://localhost:7500`. Login as `alice` and verify that there is
        1 contract, and that the templates list contains `Iou:Iou`, `Iou:IouTransfer`,
        and `IouTrade:IouTrade` among other templates.
 
@@ -246,7 +246,7 @@ This testing procedure starts once the release is listed on the [releases page].
            > Maven settings. Check your `~/.m2/settings.xml` configuration and try
            > disabling them temporarily.
 
-    1. Point your browser to `http://localhost:7500`, login as `Alice` and verify
+    1. Point your browser to `http://localhost:7500`, login as `alice` and verify
        that there is 1 contract, 1 owned IOU, and the templates list contains `Iou:Iou`, `Iou:IouTransfer`,
        and `IouTrade:IouTrade` among other templates.
 
@@ -276,7 +276,7 @@ This testing procedure starts once the release is listed on the [releases page].
     1. Delete the `+1` and the `e` in the second `"Alice"` and verify
        that the script results are updated to the misspelled name.
 
-    1. Right click on `eurBank` in line 20 and verify that "Go to Definition"
+    1. Right click on `eurBank` in line 28 and verify that "Go to Definition"
        takes you to the definition in line 17.
 
     1. Close all files.

@@ -8,11 +8,10 @@ version: 1.0.0
 dependencies:
   - daml-prim
   - daml-stdlib
-  - path/to/daml-script.dar
+  - daml-script
 data-dependencies:
   - path/to/carbon-upgrade-1.0.0.dar
   - path/to/carbon-1.0.0.dar
   - path/to/carbon-2.0.0.dar
 # END
-parties: [Alice, Bob, Charlie]
 source: .

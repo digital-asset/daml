@@ -50,7 +50,7 @@ class WriteServiceWithDeduplicationSupport(
     deduplicationPeriodSupport
       .supportedDeduplicationPeriod(
         submitterInfo.deduplicationPeriod,
-        submitterInfo.ledgerConfiguration.maxDeduplicationTime,
+        submitterInfo.ledgerConfiguration.maxDeduplicationDuration,
         submitterInfo.ledgerConfiguration.timeModel,
         submitterInfo.applicationId,
         readers.toSet,
@@ -115,12 +115,11 @@ object WriteServiceWithDeduplicationSupport {
   def apply(
       delegate: WriteService,
       indexCompletionService: IndexCompletionsService,
-      enableSelfServiceErrorCodes: Boolean,
   )(implicit
       materializer: Materializer,
       ec: ExecutionContext,
   ): WriteServiceWithDeduplicationSupport = {
-    val errorFactories = ErrorFactories(enableSelfServiceErrorCodes)
+    val errorFactories = ErrorFactories()
     new WriteServiceWithDeduplicationSupport(
       delegate,
       new DeduplicationPeriodSupport(

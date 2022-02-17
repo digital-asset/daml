@@ -3,8 +3,6 @@
 
 package com.daml.platform.store.backend
 
-import java.sql.Connection
-
 import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.h2.H2StorageBackendFactory
@@ -15,6 +13,8 @@ import com.daml.platform.store.interning.MockStringInterning
 import com.daml.testing.oracle.OracleAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Suite
+
+import java.sql.Connection
 
 /** Creates a database and a [[TestBackend]].
   * Used by [[StorageBackendSpec]] to run all StorageBackend tests on different databases.
@@ -76,6 +76,7 @@ private[backend] trait StorageBackendProviderOracle
 case class TestBackend(
     ingestion: IngestionStorageBackend[_],
     parameter: ParameterStorageBackend,
+    meteringParameter: MeteringParameterStorageBackend,
     configuration: ConfigurationStorageBackend,
     party: PartyStorageBackend,
     packageBackend: PackageStorageBackend,
@@ -90,16 +91,30 @@ case class TestBackend(
     ledgerEndCache: MutableLedgerEndCache,
     stringInterningSupport: MockStringInterning,
     userManagement: UserManagementStorageBackend,
-    metering: MeteringStorageBackend,
+    metering: TestMeteringBackend,
+)
+
+case class TestMeteringBackend(
+    read: MeteringStorageReadBackend,
+    write: MeteringStorageWriteBackend,
 )
 
 object TestBackend {
   def apply(storageBackendFactory: StorageBackendFactory): TestBackend = {
     val ledgerEndCache = MutableLedgerEndCache()
     val stringInterning = new MockStringInterning
+
+    def createTestMeteringBackend: TestMeteringBackend = {
+      TestMeteringBackend(
+        read = storageBackendFactory.createMeteringStorageReadBackend(ledgerEndCache),
+        write = storageBackendFactory.createMeteringStorageWriteBackend,
+      )
+    }
+
     TestBackend(
       ingestion = storageBackendFactory.createIngestionStorageBackend,
       parameter = storageBackendFactory.createParameterStorageBackend,
+      meteringParameter = storageBackendFactory.createMeteringParameterStorageBackend,
       configuration = storageBackendFactory.createConfigurationStorageBackend(ledgerEndCache),
       party = storageBackendFactory.createPartyStorageBackend(ledgerEndCache),
       packageBackend = storageBackendFactory.createPackageStorageBackend(ledgerEndCache),
@@ -115,7 +130,8 @@ object TestBackend {
       ledgerEndCache = ledgerEndCache,
       stringInterningSupport = stringInterning,
       userManagement = storageBackendFactory.createUserManagementStorageBackend,
-      metering = storageBackendFactory.createMeteringStorageBackend(ledgerEndCache),
+      metering = createTestMeteringBackend,
     )
   }
+
 }

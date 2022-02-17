@@ -85,7 +85,7 @@ Command deduplication
 
 The command submission service deduplicates submitted commands based on their :ref:`change ID <change-id>`.
 
-- Applications can provide a deduplication period for each command. If this parameter is not set, the default maximum deduplication time is used.
+- Applications can provide a deduplication period for each command. If this parameter is not set, the default maximum deduplication duration is used.
 - A command submission is considered a duplicate submission if the Ledger API server is aware of another command within the deduplication period and with the same :ref:`change ID <change-id>`.
 - A command resubmission will generate a rejection until the original submission was rejected (i.e. the command failed and resulted in a rejected transaction) or until the effective deduplication period has elapsed since the completion of the original command, whichever comes first.
 - Command deduplication is only *guaranteed* to work if all commands are submitted to the same participant. Ledgers are free to perform additional command deduplication across participants. Consult the respective ledger's manual for more details.
@@ -256,7 +256,7 @@ Use the **version service** to retrieve information about the Ledger API version
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.VersionService>`.
 
-.. _ledger-api-testing-services:
+.. _pruning-service:
 
 Pruning service
 ============================
@@ -265,7 +265,25 @@ Use the **pruning service** to prune archived contracts and transactions before 
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.ParticipantPruningService>`.
 
-.. _pruning-service:
+.. _user-management-service:
+
+User Management service
+============================
+
+Use the **user management service** to manage users and their rights on a given participant.
+
+For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.UserManagementService>`.
+
+.. _metering-report-service:
+
+Metering Report service
+============================
+
+Use the **metering report service** to retrieve a participant metering report.
+
+For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.MeteringReportService>`.
+
+.. _ledger-api-testing-services:
 
 Testing services
 ****************

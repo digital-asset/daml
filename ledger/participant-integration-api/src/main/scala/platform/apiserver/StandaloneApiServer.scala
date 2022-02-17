@@ -9,7 +9,6 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.health.HealthChecks
@@ -75,14 +74,10 @@ object StandaloneApiServer {
       }
     }
 
-    val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
-      config.enableSelfServiceErrorCodes
-    )
     val authorizer = new Authorizer(
       Clock.systemUTC.instant _,
       ledgerId,
       participantId,
-      errorCodesVersionSwitcher,
       userManagementStore,
       servicesExecutionContext,
       userRightsCheckIntervalInSeconds = userManagementConfig.cacheExpiryAfterWriteInSeconds,
@@ -113,7 +108,6 @@ object StandaloneApiServer {
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(config.seeding),
         managementServiceTimeout = config.managementServiceTimeout,
-        enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
         ledgerFeatures = ledgerFeatures,
@@ -130,7 +124,6 @@ object StandaloneApiServer {
           authService,
           Option.when(config.userManagementConfig.enabled)(userManagementStore),
           servicesExecutionContext,
-          errorCodesVersionSwitcher,
         ) :: otherInterceptors,
         servicesExecutionContext,
         metrics,

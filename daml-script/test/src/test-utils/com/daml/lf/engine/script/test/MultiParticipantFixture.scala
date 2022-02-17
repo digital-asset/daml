@@ -6,7 +6,6 @@ package com.daml.lf.engine.script.test
 import java.net.InetAddress
 import java.nio.file.{Files, Path, Paths}
 import java.util.stream.Collectors
-
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, SuiteResource}
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -15,12 +14,12 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
   UploadDarFileRequest,
 }
 import com.daml.ledger.on.memory.Owner
-import com.daml.ledger.participant.state.kvutils.app.{
+import com.daml.ledger.runner.common.{
+  Config,
   ParticipantConfig,
   ParticipantIndexerConfig,
   ParticipantRunMode,
 }
-import com.daml.ledger.participant.state.kvutils.{app => kvutils}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.script._
@@ -87,7 +86,7 @@ trait MultiParticipantFixture
     new OwnedResource[ResourceContext, (Port, Port)](
       for {
         _ <- Owner(
-          kvutils.Config
+          Config
             .createDefault(())
             .copy(
               participants = Seq(participant1, participant2)
@@ -133,7 +132,7 @@ trait MultiParticipantFixture
         keyFile = None,
         trustCertCollectionFile = None,
       ),
-      maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
+      maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
     )
   }
 

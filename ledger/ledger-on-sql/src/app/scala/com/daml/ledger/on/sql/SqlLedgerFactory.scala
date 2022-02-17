@@ -5,12 +5,10 @@ package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
 import com.daml.caching
+import com.daml.ledger.runner.common._
 import com.daml.ledger.participant.state.kvutils.app.{
-  Config,
-  ConfigProvider,
   KeyValueReadWriteFactory,
   LedgerFactory,
-  ParticipantConfig,
   ReadWriteServiceFactory,
 }
 import com.daml.ledger.participant.state.kvutils.caching._
@@ -52,7 +50,7 @@ object SqlLedgerFactory extends LedgerFactory[ExtraConfig] {
         metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
       ),
     ).map(ledgerReaderWriter =>
-      new KeyValueReadWriteFactory(config, metrics, ledgerReaderWriter, ledgerReaderWriter)
+      new KeyValueReadWriteFactory(metrics, ledgerReaderWriter, ledgerReaderWriter)
     )
   }
 }

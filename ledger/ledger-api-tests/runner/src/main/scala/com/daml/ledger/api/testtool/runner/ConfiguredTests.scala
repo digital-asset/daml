@@ -4,12 +4,10 @@
 package com.daml.ledger.api.testtool.runner
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerTestCase, LedgerTestSuite}
-import com.daml.ledger.api.testtool.performance.PerformanceTests
 
 final class ConfiguredTests(availableTests: AvailableTests, config: Config) {
   val defaultTests: Vector[LedgerTestSuite] = availableTests.defaultTests
   val optionalTests: Vector[LedgerTestSuite] = availableTests.optionalTests
-  val performanceTests: PerformanceTests = availableTests.performanceTests
 
   val allTests: Vector[LedgerTestSuite] = defaultTests ++ optionalTests
   val missingTests: Set[String] = {
@@ -18,9 +16,6 @@ final class ConfiguredTests(availableTests: AvailableTests, config: Config) {
       allTestCaseNames.exists(_.startsWith(prefix))
     )
   }
-
-  val missingPerformanceTests: Set[String] =
-    config.performanceTests.filterNot(performanceTests.names(_))
 
   val defaultCases: Vector[LedgerTestCase] = defaultTests.flatMap(_.tests)
   val optionalCases: Vector[LedgerTestCase] = optionalTests.flatMap(_.tests)

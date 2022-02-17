@@ -29,6 +29,7 @@ object Error {
     final case class Internal(
         location: String,
         override val message: String,
+        cause: Option[Throwable],
     ) extends Error
         with InternalError
 
@@ -87,6 +88,7 @@ object Error {
     final case class Internal(
         location: String,
         override val message: String,
+        cause: Option[Throwable],
     ) extends Error
         with InternalError
 
@@ -143,6 +145,7 @@ object Error {
     final case class Internal(
         location: String,
         override val message: String,
+        cause: Option[Throwable],
     ) extends Error
         with InternalError
 

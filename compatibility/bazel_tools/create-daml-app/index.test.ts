@@ -12,9 +12,9 @@
 // even more complex and you can argue that there is value in testing
 // `daml start` which is what users use.
 
-import child_process from "child_process";
-import { ChildProcess, execFileSync, spawn, SpawnOptions } from "child_process";
+import child_process, { ChildProcess, execFileSync, spawn, SpawnOptions } from "child_process";
 import { promises as fs } from "fs";
+import { encode } from 'jwt-simple';
 import puppeteer, { Browser, Page } from "puppeteer";
 import waitOn from "wait-on";
 
@@ -56,24 +56,30 @@ let browser: Browser | undefined = undefined;
 
 let publicParty: string | undefined = undefined;
 
-// Function to generate unique party names for us.
-// This should be replaced by the party management service once that is exposed
-// in the HTTP JSON API.
-let nextPartyId = 1;
-function getParty(): string {
-  const party = `P${nextPartyId}`;
-  nextPartyId++;
-  return party;
+const adminTokenPayload = {
+  "https://daml.com/ledger-api": {
+    "ledgerId": "create-daml-app",
+    "admin": true,
+  }
+};
+
+const adminLedger = new Ledger({
+  token: encode(adminTokenPayload, "secret", "HS256")
+});
+
+const getParty = async(): string => {
+  const allocResult = await adminLedger.allocateParty({});
+  return allocResult.identifier;
 }
 
 test("Party names are unique", async () => {
-  const parties = new Set(
-    Array(10)
-      .fill({})
-      .map(() => getParty())
-  );
+  let r = [];
+  for (let i = 0; i < 10; ++i) {
+    r = r.concat(await getParty());
+  }
+  const parties = new Set(r);
   expect(parties.size).toEqual(10);
-});
+}, 20_000);
 
 const removeFile = async (path: string) => {
   try {
@@ -180,7 +186,7 @@ beforeAll(async () => {
   );
   await waitOn({ resources: [`file:../${JSON_API_PORT_FILE_NAME}`] });
 
-  publicParty = getParty();
+  publicParty = await getParty();
 
   uiProc =
     spawn(npmExeName, ["start"], {
@@ -212,7 +218,7 @@ afterAll(async () => {
 }, 60_000);
 
 test("create and look up user using ledger library", async () => {
-  const party = getParty();
+  const party = await getParty();
   const token = getToken(party);
   const ledger = new Ledger({ token });
   const users0 = await ledger.query(User.User);
@@ -298,7 +304,7 @@ const follow = async (page: Page, userToFollow: string) => {
 
 // LOGIN_TEST_BEGIN
 test("log in as a new user, log out and log back in", async () => {
-  const partyName = getParty();
+  const partyName = await getParty();
 
   // Log in as a new user.
   const page = await newUiPage();
@@ -332,9 +338,9 @@ test("log in as a new user, log out and log back in", async () => {
 // These are all successful cases.
 
 test("log in as three different users and start following each other", async () => {
-  const party1 = getParty();
-  const party2 = getParty();
-  const party3 = getParty();
+  const party1 = await getParty();
+  const party2 = await getParty();
+  const party3 = await getParty();
 
   // Log in as Party 1.
   const page1 = await newUiPage();
@@ -438,7 +444,7 @@ test("log in as three different users and start following each other", async () 
 }, 60_000);
 
 test("error when following self", async () => {
-  const party = getParty();
+  const party = await getParty();
   const page = await newUiPage();
 
   const dismissError = jest.fn((dialog) => dialog.dismiss());
@@ -453,8 +459,8 @@ test("error when following self", async () => {
 }, 60_000);
 
 test("error when adding a user that you are already following", async () => {
-  const party1 = getParty();
-  const party2 = getParty();
+  const party1 = await getParty();
+  const party2 = await getParty();
   const page = await newUiPage();
 
   const dismissError = jest.fn((dialog) => dialog.dismiss());

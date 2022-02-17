@@ -4,11 +4,16 @@
 import {
   ArgumentDisplay,
   Breadcrumbs,
+  LongIdentifier,
   Strong,
   styled,
   Truncate,
 } from "@da/ui-core";
 import { DamlLfValue } from "@da/ui-core/lib/api/DamlLfValue";
+import {
+  shortenContractId,
+  shortenPartyId,
+} from "@da/ui-core/lib/api/IdentifierShortening";
 import * as React from "react";
 import Link, { OwnProps } from "../../components/Link";
 import * as Routes from "../../routes";
@@ -95,7 +100,13 @@ const Parties = ({ title, parties }: { title: string; parties: string[] }) => (
     <SubHeader>
       <Strong>{title}</Strong>
     </SubHeader>
-    <span>{parties.join(", ")}</span>
+    {parties.map(party => (
+      <LongIdentifier
+        key={party}
+        text={shortenPartyId(party)}
+        identifier={party}
+      />
+    ))}
   </span>
 );
 
@@ -147,7 +158,11 @@ export default (props: Props): JSX.Element => {
   return (
     <Wrapper>
       <Header>
-        Contract {contract.id} {choicesEl}
+        <LongIdentifier
+          text={`Contract ${shortenContractId(contract.id)}`}
+          identifier={contract.id}
+        />{" "}
+        {choicesEl}
       </Header>
       <Content>
         <div>

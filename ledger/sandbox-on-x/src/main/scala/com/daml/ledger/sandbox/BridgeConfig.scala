@@ -3,7 +3,7 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.participant.state.kvutils.app.{Config, ConfigProvider}
+import com.daml.ledger.runner.common.{Config, ConfigProvider}
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import scopt.OptionParser
 
@@ -23,9 +23,10 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
       .action((p, c) => c.copy(extra = c.extra.copy(submissionBufferSize = p)))
 
     parser
-      .opt[Unit]("enable-conflict-checking")
-      .text("Enables the ledger-side submission conflict checking.")
-      .action((_, c) => c.copy(extra = c.extra.copy(conflictCheckingEnabled = true)))
+      .opt[Unit]("disable-conflict-checking")
+      .hidden()
+      .text("Disable ledger-side submission conflict checking.")
+      .action((_, c) => c.copy(extra = c.extra.copy(conflictCheckingEnabled = false)))
 
     parser
       .opt[Boolean](name = "implicit-party-allocation")
@@ -35,6 +36,7 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
         s"When referring to a party that doesn't yet exist on the ledger, the participant will implicitly allocate that party."
           + s" You can optionally disable this behavior to bring participant into line with other ledgers."
       )
+
     parser.checkConfig(c =>
       Either.cond(
         c.maxDeduplicationDuration.forall(_.compareTo(Duration.ofHours(1L)) <= 0),
@@ -48,16 +50,15 @@ object BridgeConfigProvider extends ConfigProvider[BridgeConfig] {
   override def initialLedgerConfig(config: Config[BridgeConfig]): InitialLedgerConfiguration = {
     val superConfig = super.initialLedgerConfig(config)
     superConfig.copy(configuration =
-      superConfig.configuration.copy(maxDeduplicationTime = DefaultMaximumDeduplicationTime)
+      superConfig.configuration.copy(maxDeduplicationDuration = DefaultMaximumDeduplicationDuration)
     )
   }
 
   override val defaultExtraConfig: BridgeConfig = BridgeConfig(
-    // TODO SoX: Enabled by default
-    conflictCheckingEnabled = false,
+    conflictCheckingEnabled = true,
     submissionBufferSize = 500,
     implicitPartyAllocation = false,
   )
 
-  val DefaultMaximumDeduplicationTime: Duration = Duration.ofMinutes(30L)
+  val DefaultMaximumDeduplicationDuration: Duration = Duration.ofMinutes(30L)
 }

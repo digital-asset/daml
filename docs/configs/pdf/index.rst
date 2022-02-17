@@ -4,7 +4,7 @@
 Daml Documentation
 ==================
 
-Getting started
+Getting Started
 ---------------
 
 .. toctree::
@@ -24,11 +24,8 @@ Writing Daml
    :titlesonly:
    :maxdepth: 2
 
-   daml/intro/0_Intro.rst
-   daml/reference/index
-   daml/stdlib/index
+   writing-daml
    daml/troubleshooting
-   /daml/patterns
 
 Building applications
 ---------------------
@@ -37,18 +34,7 @@ Building applications
    :titlesonly:
    :maxdepth: 2
 
-   app-dev/app-arch
-   app-dev/bindings-ts/index
-   json-api/index
-   Daml Script <daml-script/index>
-   Daml REPL <daml-repl/index>
-   upgrade/index
-   app-dev/authorization
-   app-dev/ledger-api
-   app-dev/command-deduplication
-   triggers/index
-   tools/trigger-service/index
-   tools/auth-middleware/index
+   building-applications
 
 Deploying to Daml ledgers
 -------------------------
@@ -57,9 +43,7 @@ Deploying to Daml ledgers
    :titlesonly:
    :maxdepth: 2
 
-   deploy/index
-   deploy/generic_ledger
-   deploy/ledger-topologies
+   deploying
 
 Operating Daml
 --------------
@@ -68,9 +52,8 @@ Operating Daml
    :titlesonly:
    :maxdepth: 2
 
+   operating-daml
    ops/requirements
-   ops/pruning
-   ops/connect/index
 
 Developer Tools
 ---------------
@@ -79,12 +62,7 @@ Developer Tools
    :titlesonly:
    :maxdepth: 2
 
-   tools/assistant
-   daml/daml-studio
-   tools/sandbox
-   tools/navigator/index
-   tools/codegen
-   tools/profiler
+   tools
 
 Background concepts
 -------------------

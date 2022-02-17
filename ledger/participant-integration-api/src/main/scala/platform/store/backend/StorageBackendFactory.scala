@@ -13,6 +13,7 @@ import com.daml.platform.store.interning.StringInterning
 trait StorageBackendFactory {
   def createIngestionStorageBackend: IngestionStorageBackend[_]
   def createParameterStorageBackend: ParameterStorageBackend
+  def createMeteringParameterStorageBackend: MeteringParameterStorageBackend
   def createConfigurationStorageBackend(ledgerEndCache: LedgerEndCache): ConfigurationStorageBackend
   def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend
   def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend
@@ -31,7 +32,8 @@ trait StorageBackendFactory {
   def createResetStorageBackend: ResetStorageBackend
   def createStringInterningStorageBackend: StringInterningStorageBackend
   def createUserManagementStorageBackend: UserManagementStorageBackend
-  def createMeteringStorageBackend(ledgerEndCache: LedgerEndCache): MeteringStorageBackend
+  def createMeteringStorageReadBackend(ledgerEndCache: LedgerEndCache): MeteringStorageReadBackend
+  def createMeteringStorageWriteBackend: MeteringStorageWriteBackend
 
   final def readStorageBackend(
       ledgerEndCache: LedgerEndCache,
@@ -44,7 +46,7 @@ trait StorageBackendFactory {
       completionStorageBackend = createCompletionStorageBackend(stringInterning),
       contractStorageBackend = createContractStorageBackend(ledgerEndCache, stringInterning),
       eventStorageBackend = createEventStorageBackend(ledgerEndCache, stringInterning),
-      meteringStorageBackend = createMeteringStorageBackend(ledgerEndCache),
+      meteringStorageBackend = createMeteringStorageReadBackend(ledgerEndCache),
     )
 }
 
@@ -64,5 +66,5 @@ case class ReadStorageBackend(
     completionStorageBackend: CompletionStorageBackend,
     contractStorageBackend: ContractStorageBackend,
     eventStorageBackend: EventStorageBackend,
-    meteringStorageBackend: MeteringStorageBackend,
+    meteringStorageBackend: MeteringStorageReadBackend,
 )
