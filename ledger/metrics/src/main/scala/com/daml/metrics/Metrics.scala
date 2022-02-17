@@ -594,10 +594,6 @@ final class Metrics(val registry: MetricRegistry) {
         // Bundle of metrics coming from instrumentation of the underlying thread-pool
         val executor: MetricName = Prefix :+ "executor"
 
-        // The latency, which during an update element is residing in the mapping-stage.
-        // Since batches are involved, this duration is divided by the batch size.
-        val duration: Timer = registry.timer(Prefix :+ "duration")
-
         // The batch size, i.e., the number of state updates per database submission
         val batchSize: Histogram = registry.histogram(Prefix :+ "batch_size")
       }
@@ -609,21 +605,19 @@ final class Metrics(val registry: MetricRegistry) {
 
         // Bundle of metrics coming from instrumentation of the underlying thread-pool
         val executor: MetricName = Prefix :+ "executor"
+      }
 
-        // The latency, which during an update element is residing in the batching-stage.
-        // Since batches are involved, this duration is divided by the batch size.
+      // Sequence Mapping stage
+      object seqMapping {
+        private val Prefix: MetricName = parallelIndexer.Prefix :+ "seqmapping"
+
+        // The latency, which during an update element is residing in the seq-mapping-stage.
         val duration: Timer = registry.timer(Prefix :+ "duration")
       }
 
       // Ingestion stage
       // Parallel ingestion of prepared data into the database
-      object ingestion extends DatabaseMetrics(registry, Prefix, "ingestion") {
-        private val Prefix: MetricName = parallelIndexer.Prefix :+ "ingestion"
-
-        // The latency, which during an update element is residing in the ingestion.
-        // Since batches are involved, this duration is divided by the batch size.
-        val duration: Timer = registry.timer(Prefix :+ "duration")
-      }
+      val ingestion = new DatabaseMetrics(registry, Prefix, "ingestion")
 
       // Tail ingestion stage
       // The throttled update of ledger end parameters

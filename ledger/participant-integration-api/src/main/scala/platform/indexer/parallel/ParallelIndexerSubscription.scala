@@ -66,11 +66,13 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         ),
         seqMapperZero =
           seqMapperZero(initialized.initialEventSeqId, initialized.initialStringInterningId),
-        seqMapper =
-          seqMapper(dtos => stringInterningView.internize(DbDtoToStringsForInterning(dtos))),
+        seqMapper = seqMapper(
+          dtos => stringInterningView.internize(DbDtoToStringsForInterning(dtos)),
+          metrics,
+        ),
         batchingParallelism = batchingParallelism,
         batcher = batcherExecutor.execute(
-          batcher(ingestionStorageBackend.batch(_, stringInterningView), metrics)
+          batcher(ingestionStorageBackend.batch(_, stringInterningView))
         ),
         ingestingParallelism = ingestionParallelism,
         ingester = ingester(ingestionStorageBackend.insertBatch, dbDispatcher, metrics),
@@ -124,7 +126,6 @@ object ParallelIndexerSubscription {
   )(implicit
       loggingContext: LoggingContext
   ): Iterable[(Offset, state.Update)] => Batch[Vector[DbDto]] = { input =>
-    val started = System.nanoTime()
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
     input.foreach { case (offset, update) =>
       withEnrichedLoggingContext("offset" -> offset, "update" -> update) {
@@ -140,12 +141,6 @@ object ParallelIndexerSubscription {
     val meteringBatch = toMeteringDbDto(input)
 
     val batch = mainBatch ++ meteringBatch
-
-    val nowNanos = System.nanoTime()
-    metrics.daml.parallelIndexer.inputMapping.duration.update(
-      (nowNanos - started) / input.size,
-      TimeUnit.NANOSECONDS,
-    )
 
     Batch(
       lastOffset = input.last._1,
@@ -174,11 +169,13 @@ object ParallelIndexerSubscription {
     )
 
   def seqMapper(
-      internize: Iterable[DbDto] => Iterable[(Int, String)]
+      internize: Iterable[DbDto] => Iterable[(Int, String)],
+      metrics: Metrics,
   )(
       previous: Batch[Vector[DbDto]],
       current: Batch[Vector[DbDto]],
   ): Batch[Vector[DbDto]] = {
+    val started = System.nanoTime()
     var eventSeqId = previous.lastSeqEventId
     val batchWithSeqIds = current.batch.map {
       case dbDto: DbDto.EventCreate =>
@@ -208,6 +205,11 @@ object ParallelIndexerSubscription {
         case newEntries => newEntries.last.internalId -> (batchWithSeqIds ++ newEntries)
       }
 
+    metrics.daml.parallelIndexer.seqMapping.duration.update(
+      System.nanoTime() - started,
+      TimeUnit.NANOSECONDS,
+    )
+
     current.copy(
       lastSeqEventId = eventSeqId,
       lastStringInterningId = newLastStringInterningId,
@@ -216,15 +218,9 @@ object ParallelIndexerSubscription {
   }
 
   def batcher[DB_BATCH](
-      batchF: Vector[DbDto] => DB_BATCH,
-      metrics: Metrics,
+      batchF: Vector[DbDto] => DB_BATCH
   ): Batch[Vector[DbDto]] => Batch[DB_BATCH] = { inBatch =>
-    val started = System.nanoTime()
     val dbBatch = batchF(inBatch.batch)
-    metrics.daml.parallelIndexer.batching.duration.update(
-      (System.nanoTime() - started) / inBatch.batchSize,
-      TimeUnit.NANOSECONDS,
-    )
     inBatch.copy(
       batch = dbBatch
     )
@@ -237,14 +233,9 @@ object ParallelIndexerSubscription {
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
       withEnrichedLoggingContext("updateOffsets" -> batch.offsets) { implicit loggingContext =>
-        val started = System.nanoTime()
         dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
           metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
           ingestFunction(connection, batch.batch)
-          metrics.daml.parallelIndexer.ingestion.duration.update(
-            (System.nanoTime() - started) / batch.batchSize,
-            TimeUnit.NANOSECONDS,
-          )
           batch
         }
       }

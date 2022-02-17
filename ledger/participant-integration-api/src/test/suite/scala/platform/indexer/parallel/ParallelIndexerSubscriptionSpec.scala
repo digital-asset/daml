@@ -252,7 +252,8 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
   it should "assign sequence ids correctly, and populate string-interning entries correctly in happy path case" in {
     val result = ParallelIndexerSubscription.seqMapper(
-      _.zipWithIndex.map(x => x._2 -> x._2.toString).take(2)
+      _.zipWithIndex.map(x => x._2 -> x._2.toString).take(2),
+      metrics,
     )(
       ParallelIndexerSubscription.seqMapperZero(15, 26),
       Batch(
@@ -289,7 +290,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "preserve sequence id if nothing to assign" in {
-    val result = ParallelIndexerSubscription.seqMapper(_ => Nil)(
+    val result = ParallelIndexerSubscription.seqMapper(_ => Nil, metrics)(
       ParallelIndexerSubscription.seqMapperZero(15, 25),
       Batch(
         lastOffset = offset("02"),
@@ -314,8 +315,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
   it should "batch correctly in happy path case" in {
     val result = ParallelIndexerSubscription.batcher(
-      batchF = _ => "bumm",
-      metrics = metrics,
+      batchF = _ => "bumm"
     )(
       Batch(
         lastOffset = offset("02"),

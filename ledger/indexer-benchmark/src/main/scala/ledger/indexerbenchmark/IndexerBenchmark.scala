@@ -148,14 +148,10 @@ class IndexerBenchmark() {
              |  inputMapping.batchSize:     ${histogramToString(
             metrics.daml.parallelIndexer.inputMapping.batchSize.getSnapshot
           )}
-             |  inputMapping.duration:      ${histogramToString(
-            metrics.daml.parallelIndexer.inputMapping.duration.getSnapshot
+             |  seqMapping.duration:      ${histogramToString(
+            metrics.daml.parallelIndexer.seqMapping.duration.getSnapshot
           )}
-             |  inputMapping.duration.rate: ${metrics.daml.parallelIndexer.inputMapping.duration.getMeanRate}
-             |  ingestion.duration:         ${histogramToString(
-            metrics.daml.parallelIndexer.ingestion.duration.getSnapshot
-          )}
-             |  ingestion.duration.rate:    ${metrics.daml.parallelIndexer.ingestion.duration.getMeanRate}
+             |  seqMapping.duration.rate: ${metrics.daml.parallelIndexer.seqMapping.duration.getMeanRate}
              |
              |Notes:
              |  The above numbers include all ingested updates, including package uploads.
