@@ -142,6 +142,9 @@ object ParallelIndexerSubscription {
 
     val batch = mainBatch ++ meteringBatch
 
+    //TODO remove before merge
+    Thread.sleep(650L)
+
     Batch(
       lastOffset = input.last._1,
       lastSeqEventId = 0, // will be filled later in the sequential step
