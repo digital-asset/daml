@@ -261,8 +261,6 @@ class UserTokenTest extends Test {
         "auth-middleware: custom tokens are not expected here"
       )
   })
-
-  "the auth server with user tokens" should {}
 }
 
 object Test {
