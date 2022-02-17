@@ -1239,7 +1239,8 @@ private[lf] object SBuiltin {
   final case class SBObserverInterface(ifaceId: TypeConName)
       extends SBResolveVirtual(ObserversDefRef)
 
-  // TODO(MA): add docstring
+  // This wraps a contract record into an SAny where the type argument corresponds to
+  // the record's templateId.
   final case class SBToInterface(
       tplId: TypeConName
   ) extends SBuiltinPure(1) {
@@ -1248,10 +1249,9 @@ private[lf] object SBuiltin {
     }
   }
 
-  // TODO(MA): update docstring
-  // Convert an interface to a given template type if possible. Since interfaces have the
-  // same representation as the underlying template, we only need to perform a check
-  // that the record type matches the template type.
+  // Convert an interface to a given template type if possible. Since interfaces are represented
+  // by an SAny wrapping the underlying template, we need to check that the SAny type constructor
+  // matches the template type, and then return the SAny internal value.
   final case class SBFromInterface(
       tplId: TypeConName
   ) extends SBuiltinPure(1) {
