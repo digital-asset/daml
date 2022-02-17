@@ -588,7 +588,7 @@ class SequenceSpec
     val actualStatusCode = status.getCode
     val actualErrorDetails = ErrorDetails.from(status.getDetailsList.asScala.toSeq)
     val actualErrorId = actualErrorDetails
-      .collectFirst { case err: ErrorDetails.ErrorInfoDetail => err.reason }
+      .collectFirst { case err: ErrorDetails.ErrorInfoDetail => err.errorCodeId }
       .getOrElse(fail("Actual error id is not defined"))
     val actualRetryability = actualErrorDetails
       .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.duration }

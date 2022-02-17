@@ -3,20 +3,27 @@
 
 package com.daml.error.utils
 
+import com.daml.error.BaseError
 import com.google.protobuf
 import com.google.rpc.{ErrorInfo, RequestInfo, ResourceInfo, RetryInfo}
+import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.protobuf.StatusProto
 
 import scala.jdk.CollectionConverters._
 import scala.concurrent.duration._
 
 object ErrorDetails {
+
   sealed trait ErrorDetail extends Product with Serializable
 
   final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail
-  final case class ErrorInfoDetail(reason: String, metadata: Map[String, String])
+  final case class ErrorInfoDetail(errorCodeId: String, metadata: Map[String, String])
       extends ErrorDetail
   final case class RetryInfoDetail(duration: Duration) extends ErrorDetail
   final case class RequestInfoDetail(requestId: String) extends ErrorDetail
+
+  def from(e: StatusRuntimeException): Seq[ErrorDetail] =
+    from(StatusProto.fromThrowable(e).getDetailsList.asScala.toSeq)
 
   def from(anys: Seq[protobuf.Any]): Seq[ErrorDetail] = anys.toList.map {
     case any if any.is(classOf[ResourceInfo]) =>
@@ -39,4 +46,15 @@ object ErrorDetails {
 
     case any => throw new IllegalStateException(s"Could not unpack value of: |$any|")
   }
+
+  def isInternalError(t: Throwable): Boolean = t match {
+    case e: StatusRuntimeException => isInternalError(e)
+    case _ => false
+  }
+
+  def isInternalError(e: StatusRuntimeException): Boolean =
+    e.getStatus.getCode == Status.Code.INTERNAL && e.getStatus.getDescription.startsWith(
+      BaseError.SecuritySensitiveMessageOnApiPrefix
+    )
+
 }

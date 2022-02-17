@@ -4,7 +4,8 @@
 package com.daml.error
 
 import com.daml.error.ErrorCode.{ValidMetadataKeyRegex, truncateResourceForTransport}
-import com.daml.error.definitions.LoggingTransactionErrorImpl
+import com.daml.error.definitions.{LedgerApiErrors, LoggingTransactionErrorImpl}
+import com.daml.error.utils.ErrorDetails.{ErrorInfoDetail, from}
 import com.google.rpc.Status
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -49,6 +50,25 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   require(id.forall(c => c.isUpper || c == '_' || c.isDigit), s"Invalid characters in error-id $id")
 
   implicit val code: ErrorCode = this
+
+  /** @return whether the supplied exception matches this error code.
+    */
+  def matches(e: StatusRuntimeException): Boolean = {
+    val matchesErrorCodeId = from(e).exists {
+      case ErrorInfoDetail(errorCodeId, _) => errorCodeId == this.id
+      case _ => false
+    }
+    val matchesMessagePrefix = e.getStatus.getDescription.startsWith(
+      LedgerApiErrors.AdminServices.UserAlreadyExists.id
+    )
+    val matchesStatusCode = this.category.grpcCode.contains(e.getStatus.getCode)
+    matchesErrorCodeId && matchesMessagePrefix && matchesStatusCode
+  }
+
+  def matches(t: Throwable): Boolean = t match {
+    case e: StatusRuntimeException => matches(e)
+    case _ => false
+  }
 
   /** The error code string, uniquely identifiable by the error id, error category and correlation id.
     * e.g. NO_DOMAINS_CONNECTED(2,ABC234)
