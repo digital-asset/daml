@@ -28,8 +28,7 @@ abstract class EventStorageBackendTemplate(
     queryStrategy: QueryStrategy,
     ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
-    // TODO Refactoring: This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
-    //                   Remove with the break-out of pruneEvents.
+    // This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
     participantAllDivulgedContractsPrunedUpToInclusive: Connection => Option[Offset],
 ) extends EventStorageBackend {
   import com.daml.platform.store.Conversions.ArrayColumnToIntArray._
@@ -552,8 +551,7 @@ abstract class EventStorageBackendTemplate(
     )(connection)
   }
 
-  // TODO Refactoring: This method is too complex for StorageBackend.
-  //                   Break the method into its constituents and trigger them from the caller of this method.
+  // This method is too complex for StorageBackend.
   override def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,

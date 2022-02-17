@@ -88,7 +88,6 @@ private[appendonlydao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[EventsTable.Entry[E]] =
     deserializeEvent(verbose)(entry).map(event => entry.copy(event = event))
 
-  // TODO append-only: as consolidating event queries, consider consolidating functionality serving the flatTransactions and transactionTrees
   override def getFlatTransactions(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -127,7 +126,8 @@ private[appendonlydao] final class TransactionsReader(
         })
         .mapMaterializedValue(_ => NotUsed)
 
-    val flatTransactionsStream = groupContiguous(events)(by = _.transactionId)
+    val flatTransactionsStream = TransactionsReader
+      .groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
         val response = EventsTable.Entry.toGetTransactionsResponse(events)
         response.map(r => offsetFor(r) -> r)
@@ -227,7 +227,8 @@ private[appendonlydao] final class TransactionsReader(
         })
         .mapMaterializedValue(_ => NotUsed)
 
-    val transactionTreesStream = groupContiguous(events)(by = _.transactionId)
+    val transactionTreesStream = TransactionsReader
+      .groupContiguous(events)(by = _.transactionId)
       .mapConcat { events =>
         val response = EventsTable.Entry.toGetTransactionTreesResponse(events)
         response.map(r => offsetFor(r) -> r)
@@ -327,7 +328,8 @@ private[appendonlydao] final class TransactionsReader(
         )
       }
 
-    val transactionLogUpdatesSource = groupContiguous(eventsSource)(by = _.transactionId)
+    val transactionLogUpdatesSource = TransactionsReader
+      .groupContiguous(eventsSource)(by = _.transactionId)
       .map { v =>
         val tx = toTransaction(v)
         (tx.offset, tx.events.last.eventSequentialId) -> tx
@@ -615,4 +617,33 @@ private[appendonlydao] object TransactionsReader {
       }
       ._3
   }
+
+  /** Groups together items of type [[A]] that share an attribute [[K]] over a
+    * contiguous stretch of the input [[Source]]. Well suited to perform group-by
+    * operations of streams where [[K]] attributes are either sorted or at least
+    * show up in blocks.
+    *
+    * Implementation detail: this method _must_ use concatSubstreams instead of
+    * mergeSubstreams to prevent the substreams to be processed in parallel,
+    * potentially causing the outputs to be delivered in a different order.
+    *
+    * Docs: https://doc.akka.io/docs/akka/2.6.10/stream/stream-substream.html#groupby
+    */
+  def groupContiguous[A, K, Mat](
+      source: Source[A, Mat]
+  )(by: A => K): Source[Vector[A], Mat] =
+    source
+      .statefulMapConcat(() => {
+        var previousSegmentKey: Option[K] = None
+        entry => {
+          val keyForEntry = by(entry)
+          val entryWithSplit = entry -> !previousSegmentKey.contains(keyForEntry)
+          previousSegmentKey = Some(keyForEntry)
+          List(entryWithSplit)
+        }
+      })
+      .splitWhen(_._2)
+      .map(_._1)
+      .fold(Vector.empty[A])(_ :+ _)
+      .concatSubstreams
 }

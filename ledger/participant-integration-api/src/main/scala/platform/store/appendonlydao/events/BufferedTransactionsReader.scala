@@ -89,9 +89,7 @@ private[events] class BufferedTransactionsReader(
       resolvedFromBufferCounter =
         metrics.daml.services.index.streamsBuffer.transactionTreesBuffered,
       totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.transactionTreesTotal,
-      bufferSizeCounter =
-        // TODO in-memory fan-out: Specialize the metric per consumer
-        metrics.daml.services.index.streamsBuffer.transactionTreesBufferSize,
+      bufferSizeCounter = metrics.daml.services.index.streamsBuffer.transactionTreesBufferSize,
       outputStreamBufferSize = outputStreamBufferSize,
     )
 
@@ -203,18 +201,18 @@ private[platform] object BufferedTransactionsReader {
 
     val transactionsSource = Timed.source(
       sourceTimer, {
-        // TODO Scala 2.13.5: Remove the @unchecked once migrated to Scala 2.13.5 where this false positive exhaustivity check for Vectors is fixed
-        (transactionsBuffer.slice(startExclusive, endInclusive): @unchecked) match {
+        transactionsBuffer.slice(startExclusive, endInclusive) match {
           case BufferSlice.Empty =>
             fetchTransactions(startExclusive, endInclusive, filter, verbose)
 
-          case BufferSlice.Prefix(slice) if slice.size <= 1 =>
-            fetchTransactions(startExclusive, endInclusive, filter, verbose)
-
-          case BufferSlice.Prefix((firstOffset: Offset, _) +: tl) =>
-            fetchTransactions(startExclusive, firstOffset, filter, verbose)
-              .concat(bufferedSource(tl))
-              .mapMaterializedValue(_ => NotUsed)
+          case BufferSlice.Prefix(slice) =>
+            if (slice.size <= 1) {
+              fetchTransactions(startExclusive, endInclusive, filter, verbose)
+            } else {
+              fetchTransactions(startExclusive, slice.head._1, filter, verbose)
+                .concat(bufferedSource(slice.tail))
+                .mapMaterializedValue(_ => NotUsed)
+            }
 
           case BufferSlice.Inclusive(slice) =>
             bufferedSource(slice).mapMaterializedValue(_ => NotUsed)
