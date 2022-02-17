@@ -212,6 +212,115 @@ abstract class TestMiddleware
         assert(token.tokenType == "bearer")
       }
     }
+  }
+  "the /refresh endpoint" should {
+    "return a new access token" in {
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val loginReq = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
+      for {
+        resp <- Http().singleRequest(loginReq)
+        // Redirect to /authorize on authorization server
+        resp <- {
+          assert(resp.status == StatusCodes.Found)
+          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          Http().singleRequest(req)
+        }
+        // Redirect to /cb on middleware
+        resp <- {
+          assert(resp.status == StatusCodes.Found)
+          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          Http().singleRequest(req)
+        }
+        // Extract token from cookie
+        (token1, refreshToken) = {
+          val cookie = resp.header[`Set-Cookie`].get.cookie
+          val token = OAuthResponse.Token.fromCookieValue(cookie.value).get
+          (AccessToken(token.accessToken), RefreshToken(token.refreshToken.get))
+        }
+        // Advance time
+        _ = clock.fastForward(Duration.ofSeconds(1))
+        // Request /refresh
+        authorize <- middlewareClient.requestRefresh(refreshToken)
+      } yield {
+        // Test that we got a new access token
+        assert(authorize.accessToken != token1)
+        // Test that we got a new refresh token
+        assert(authorize.refreshToken.get != refreshToken)
+      }
+    }
+    "fail on an invalid refresh token" in {
+      for {
+        exception <- middlewareClient.requestRefresh(RefreshToken("made-up-token")).transform {
+          case Failure(exception: Client.RefreshException) => Success(exception)
+          case value => fail(s"Expected failure with RefreshException but got $value")
+        }
+      } yield {
+        assert(exception.status.isInstanceOf[StatusCodes.ClientError])
+      }
+    }
+  }
+}
+
+class TestMiddlewareClaimsToken extends TestMiddleware {
+  override protected[this] def oauthYieldsUserTokens = false
+  override protected[this] def makeJwt(
+      claims: Request.Claims,
+      expiresIn: Option[Duration],
+  ): AuthServiceJWTPayload =
+    CustomDamlJWTPayload(
+      ledgerId = Some("test-ledger"),
+      applicationId = Some("test-application"),
+      participantId = None,
+      exp = expiresIn.map(in => clock.instant.plus(in)),
+      admin = claims.admin,
+      actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
+      readAs = claims.readAs.map(ApiTypes.Party.unwrap(_)),
+    )
+
+  "the /auth endpoint given claim token" should {
+    "return unauthorized on insufficient party claims" in {
+      val claims = Request.Claims(actAs = List(Party("Bob")))
+      def r(actAs: String*)(readAs: String*) =
+        middlewareClient
+          .requestAuth(
+            claims,
+            Seq(
+              Cookie(
+                "daml-ledger-token",
+                makeToken(
+                  Request.Claims(
+                    actAs = actAs.map(Party(_)).toList,
+                    readAs = readAs.map(Party(_)).toList,
+                  )
+                ).toCookieValue,
+              )
+            ),
+          )
+      for {
+        aliceA <- r("Alice")()
+        nothing <- r()()
+        aliceA_bobA <- r("Alice", "Bob")()
+        aliceA_bobR <- r("Alice")("Bob")
+        aliceR_bobA <- r("Bob")("Alice")
+        aliceR_bobR <- r()("Alice", "Bob")
+        bobA <- r("Bob")()
+        bobR <- r()("Bob")
+        bobAR <- r("Bob")("Bob")
+      } yield {
+        aliceA shouldBe empty
+        nothing shouldBe empty
+        aliceA_bobA should not be empty
+        aliceA_bobR shouldBe empty
+        aliceR_bobA should not be empty
+        aliceR_bobR shouldBe empty
+        bobA should not be empty
+        bobR shouldBe empty
+        bobAR should not be empty
+      }
+    }
+  }
+
+  "the /login endpoint with an oauth server checking claims" should {
     "not authorize unauthorized parties" in {
       server.revokeParty(Party("Eve"))
       val claims = Request.Claims(actAs = List(Party("Eve")))
@@ -268,111 +377,6 @@ abstract class TestMiddleware
         // Without token in cookie
         val cookie = resp.header[`Set-Cookie`]
         assert(cookie == None)
-      }
-    }
-  }
-  "the /refresh endpoint" should {
-    "return a new access token" in {
-      val claims = Request.Claims(actAs = List(Party("Alice")))
-      val loginReq = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
-      for {
-        resp <- Http().singleRequest(loginReq)
-        // Redirect to /authorize on authorization server
-        resp <- {
-          assert(resp.status == StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
-          Http().singleRequest(req)
-        }
-        // Redirect to /cb on middleware
-        resp <- {
-          assert(resp.status == StatusCodes.Found)
-          val req = HttpRequest(uri = resp.header[Location].get.uri)
-          Http().singleRequest(req)
-        }
-        // Extract token from cookie
-        (token1, refreshToken) = {
-          val cookie = resp.header[`Set-Cookie`].get.cookie
-          val token = OAuthResponse.Token.fromCookieValue(cookie.value).get
-          (AccessToken(token.accessToken), RefreshToken(token.refreshToken.get))
-        }
-        // Advance time
-        _ = clock.fastForward(Duration.ofSeconds(1))
-        // Request /refresh
-        authorize <- middlewareClient.requestRefresh(refreshToken)
-      } yield {
-        // Test that we got a new access token
-        assert(authorize.accessToken != token1)
-        // Test that we got a new refresh token
-        assert(authorize.refreshToken.get != refreshToken)
-      }
-    }
-    "fail on an invalid refresh token" in {
-      for {
-        exception <- middlewareClient.requestRefresh(RefreshToken("made-up-token")).transform {
-          case Failure(exception: Client.RefreshException) => Success(exception)
-          case value => fail(s"Expected failure with RefreshException but got $value")
-        }
-      } yield {
-        assert(exception.status.isInstanceOf[StatusCodes.ClientError])
-      }
-    }
-  }
-}
-
-class TestMiddlewareClaimsToken extends TestMiddleware {
-  override protected[this] def makeJwt(
-      claims: Request.Claims,
-      expiresIn: Option[Duration],
-  ): AuthServiceJWTPayload =
-    CustomDamlJWTPayload(
-      ledgerId = Some("test-ledger"),
-      applicationId = Some("test-application"),
-      participantId = None,
-      exp = expiresIn.map(in => clock.instant.plus(in)),
-      admin = claims.admin,
-      actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
-      readAs = claims.readAs.map(ApiTypes.Party.unwrap(_)),
-    )
-
-  "the /auth endpoint given claim token" should {
-    "return unauthorized on insufficient party claims" in {
-      val claims = Request.Claims(actAs = List(Party("Bob")))
-      def r(actAs: String*)(readAs: String*) =
-        middlewareClient
-          .requestAuth(
-            claims,
-            Seq(
-              Cookie(
-                "daml-ledger-token",
-                makeToken(
-                  Request.Claims(
-                    actAs = actAs.map(Party(_)).toList,
-                    readAs = readAs.map(Party(_)).toList,
-                  )
-                ).toCookieValue,
-              )
-            ),
-          )
-      for {
-        aliceA <- r("Alice")()
-        nothing <- r()()
-        aliceA_bobA <- r("Alice", "Bob")()
-        aliceA_bobR <- r("Alice")("Bob")
-        aliceR_bobA <- r("Bob")("Alice")
-        aliceR_bobR <- r()("Alice", "Bob")
-        bobA <- r("Bob")()
-        bobR <- r()("Bob")
-        bobAR <- r("Bob")("Bob")
-      } yield {
-        aliceA shouldBe empty
-        nothing shouldBe empty
-        aliceA_bobA should not be empty
-        aliceA_bobR shouldBe empty
-        aliceR_bobA should not be empty
-        aliceR_bobR shouldBe empty
-        bobA should not be empty
-        bobR shouldBe empty
-        bobAR should not be empty
       }
     }
   }
