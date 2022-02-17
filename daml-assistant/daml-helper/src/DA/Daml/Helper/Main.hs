@@ -420,6 +420,23 @@ commandParser = subparser $ fold
         , help "Timeout of gRPC operations in seconds. Defaults to 60s. Must be > 0."
         ]
 
+    cantonHelpSwitch =
+      switch $
+      long "canton-help" <>
+      help ("Display the help of the underlying Canton JAR instead of the Sandbox wrapper. This is only required for advanced options.")
+
+    -- These options are common enough that we want them to show up in --help instead of only in
+    -- --canton-help.
+    cantonConfigOpts =
+      many $
+      option str $
+      long "config" <>
+      short 'c' <>
+      metavar "FILE" <>
+      help (unwords [ "Set configuration file(s)."
+                    , "If several configuration files assign values to the same key, the last value is taken."
+                    ])
+
     cantonSandboxCmd = do
         cantonOptions <- do
             cantonLedgerApi <- option auto (long "port" <> value 6865)
@@ -432,6 +449,8 @@ commandParser = subparser $ fold
                 (flag' True (long "static-time") <|>
                  flag' False (long "wall-clock-time") <|>
                  pure False)
+            cantonHelp <- cantonHelpSwitch
+            cantonConfigFiles <- cantonConfigOpts
             pure CantonOptions{..}
         portFileM <- optional $ option str (long "port-file" <> metavar "PATH"
             <> help "File to write ledger API port when ready")
