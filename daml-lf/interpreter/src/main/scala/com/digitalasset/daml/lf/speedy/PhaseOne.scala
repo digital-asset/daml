@@ -287,10 +287,10 @@ private[lf] final class PhaseOne(
         SBInterfaceTemplateTypeRep(ifaceId)(compile(env, body))
       case ESignatoryInterface(ifaceId, body @ _) =>
         val arg = compile(env, body)
-        SBSignatoryInterface(ifaceId)(arg, arg)
+        SBSignatoryInterface(ifaceId)(arg)
       case EObserverInterface(ifaceId, body @ _) =>
         val arg = compile(env, body)
-        SBObserverInterface(ifaceId)(arg, arg)
+        SBObserverInterface(ifaceId)(arg)
       case EExperimental(name, _) =>
         SBExperimental(name)
     }

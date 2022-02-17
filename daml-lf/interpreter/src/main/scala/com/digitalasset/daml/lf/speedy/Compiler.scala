@@ -773,7 +773,6 @@ private[lf] final class Compiler(
     topLevelFunction2(t.CreateDefRef(ifaceId)) { (tmplArgPos, tokenPos, env) =>
       SBResolveCreateByInterface(ifaceId)(
         env.toSEVar(tmplArgPos),
-        env.toSEVar(tmplArgPos),
         env.toSEVar(tokenPos),
       )
     }

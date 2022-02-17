@@ -1225,8 +1225,10 @@ private[lf] object SBuiltin {
 
   // Return a definition matching the templateId of a given payload
   sealed class SBResolveVirtual(toDef: Ref.Identifier => SDefinitionRef) extends SBuiltin(1) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-      machine.ctrl = SEVal(toDef(getSAnyInterface(args, 0)._1))
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val (ty, record) = getSAnyInterface(args, 0)
+      machine.ctrl = SEApp(SEVal(toDef(ty)), Array(SEValue(record)))
+    }
   }
 
   final case class SBResolveCreateByInterface(ifaceId: TypeConName)
