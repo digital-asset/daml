@@ -177,6 +177,8 @@ abstract class Test extends AsyncWordSpec with TestFixture with SuiteResourceMan
 class ClaimTokenTest extends Test {
   import Test._
 
+  override def yieldUserTokens = false
+
   type Tok = CustomDamlJWTPayload
   override object Tok extends TokenCompat[Tok] {
     override def userId(t: Tok) = t.applicationId
@@ -242,6 +244,8 @@ class ClaimTokenTest extends Test {
 
 class UserTokenTest extends Test {
   import Test._
+
+  override def yieldUserTokens = true
 
   type Tok = StandardJWTPayload
   override object Tok extends TokenCompat[Tok] {

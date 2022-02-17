@@ -73,8 +73,6 @@ class Server(config: Config) {
     allowAdmin = true
   }
 
-  private val TODOconfigUserTokens = true
-
   // To keep things as simple as possible, we use a UUID as the authorization code and refresh token
   // and in the /authorize request we already pre-compute the JWT payload based on the scope.
   // The token request then only does a lookup and signs the token.
@@ -102,7 +100,7 @@ class Server(config: Config) {
         applicationId = Some(s.stripPrefix("applicationId:"))
       case _ => ()
     })
-    if (TODOconfigUserTokens) // ignore everything but the applicationId
+    if (config.yieldUserTokens) // ignore everything but the applicationId
       StandardJWTPayload(userId = applicationId getOrElse "", participantId = None, exp = None)
     else
       CustomDamlJWTPayload(
