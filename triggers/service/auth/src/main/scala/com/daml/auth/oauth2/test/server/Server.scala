@@ -17,7 +17,12 @@ import akka.http.scaladsl.unmarshalling.Unmarshaller
 import com.daml.auth.oauth2.api.{Request, Response}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 
 import scala.collection.concurrent.TrieMap
@@ -32,6 +37,8 @@ import scala.util.{Failure, Success, Try}
 // tokens with the respective claims. Requests for authorized parties will be accepted and
 // request to /authorize are immediately redirected to the redirect_uri.
 class Server(config: Config) {
+  import Server.withExp
+
   private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
   val tokenLifetimeSeconds = 24 * 60 * 60
 
@@ -66,10 +73,12 @@ class Server(config: Config) {
     allowAdmin = true
   }
 
+  private val TODOconfigUserTokens = true
+
   // To keep things as simple as possible, we use a UUID as the authorization code and refresh token
   // and in the /authorize request we already pre-compute the JWT payload based on the scope.
   // The token request then only does a lookup and signs the token.
-  private val requests = TrieMap.empty[UUID, CustomDamlJWTPayload]
+  private val requests = TrieMap.empty[UUID, AuthServiceJWTPayload]
 
   private def tokenExpiry(): Instant = {
     val now = config.clock match {
@@ -78,7 +87,7 @@ class Server(config: Config) {
     }
     now.plusSeconds(tokenLifetimeSeconds.asInstanceOf[Long])
   }
-  private def toPayload(req: Request.Authorize): CustomDamlJWTPayload = {
+  private def toPayload(req: Request.Authorize): AuthServiceJWTPayload = {
     var actAs: Seq[String] = Seq()
     var readAs: Seq[String] = Seq()
     var admin: Boolean = false
@@ -93,31 +102,36 @@ class Server(config: Config) {
         applicationId = Some(s.stripPrefix("applicationId:"))
       case _ => ()
     })
-    CustomDamlJWTPayload(
-      ledgerId = Some(config.ledgerId),
-      applicationId = applicationId,
-      // Not required by the default auth service
-      participantId = None,
-      // Expiry is set when the token is retrieved
-      exp = None,
-      // no admin claim for now.
-      admin = admin,
-      actAs = actAs.toList,
-      readAs = readAs.toList,
-    )
+    if (TODOconfigUserTokens) // ignore everything but the applicationId
+      StandardJWTPayload(userId = applicationId getOrElse "", participantId = None, exp = None)
+    else
+      CustomDamlJWTPayload(
+        ledgerId = Some(config.ledgerId),
+        applicationId = applicationId,
+        // Not required by the default auth service
+        participantId = None,
+        // Expiry is set when the token is retrieved
+        exp = None,
+        // no admin claim for now.
+        admin = admin,
+        actAs = actAs.toList,
+        readAs = readAs.toList,
+      )
   }
   // Whether the current configuration of unauthorized parties and admin rights allows to grant the given token payload.
-  private def authorize(payload: CustomDamlJWTPayload): Either[String, Unit] = {
-    val parties = Party.subst(payload.readAs ++ payload.actAs).toSet
-    val deniedParties = parties.intersect(unauthorizedParties)
-    val deniedAdmin: Boolean = payload.admin && !allowAdmin
-    if (deniedParties.nonEmpty) {
-      Left(s"Access to parties ${deniedParties.mkString(" ")} denied")
-    } else if (deniedAdmin) {
-      Left("Admin access denied")
-    } else {
-      Right(())
-    }
+  private def authorize(payload: AuthServiceJWTPayload): Either[String, Unit] = payload match {
+    case payload: CustomDamlJWTPayload =>
+      val parties = Party.subst(payload.readAs ++ payload.actAs).toSet
+      val deniedParties = parties.intersect(unauthorizedParties)
+      val deniedAdmin: Boolean = payload.admin && !allowAdmin
+      if (deniedParties.nonEmpty) {
+        Left(s"Access to parties ${deniedParties.mkString(" ")} denied")
+      } else if (deniedAdmin) {
+        Left("Admin access denied")
+      } else {
+        Right(())
+      }
+    case _: StandardJWTPayload => Right(())
   }
 
   import Request.Refresh.unmarshalHttpEntity
@@ -179,7 +193,7 @@ class Server(config: Config) {
                     .sign(
                       DecodedJwt(
                         jwtHeader,
-                        AuthServiceJWTCodec.compactPrint(payload.copy(exp = Some(tokenExpiry()))),
+                        AuthServiceJWTCodec.compactPrint(withExp(payload, Some(tokenExpiry()))),
                       ),
                       config.jwtSecret,
                     )
@@ -220,4 +234,10 @@ object Server {
   def apply(config: Config) = new Server(config)
   def stop(f: Future[ServerBinding])(implicit ec: ExecutionContext): Future[Done] =
     f.flatMap(_.unbind())
+
+  private def withExp(payload: AuthServiceJWTPayload, exp: Option[Instant]): AuthServiceJWTPayload =
+    payload match {
+      case payload: CustomDamlJWTPayload => payload.copy(exp = exp)
+      case payload: StandardJWTPayload => payload.copy(exp = exp)
+    }
 }
