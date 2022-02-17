@@ -596,6 +596,10 @@ final class Metrics(val registry: MetricRegistry) {
 
         // The batch size, i.e., the number of state updates per database submission
         val batchSize: Histogram = registry.histogram(Prefix :+ "batch_size")
+
+        // The latency, which during an update element is residing in the mapping-stage.
+        // Metric is provided from within an executor
+        val duration: Timer = registry.timer(MetricRegistry.name(executor, "duration"))
       }
 
       // Batching stage
@@ -605,6 +609,10 @@ final class Metrics(val registry: MetricRegistry) {
 
         // Bundle of metrics coming from instrumentation of the underlying thread-pool
         val executor: MetricName = Prefix :+ "executor"
+
+        // The latency, which during an update element is residing in the batching-stage.
+        // Metric is provided from within an executor
+        val duration: Timer = registry.timer(MetricRegistry.name(executor, "duration"))
       }
 
       // Sequence Mapping stage

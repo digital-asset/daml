@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{InstrumentedSource, Metrics}
+import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
 import com.daml.platform.indexer.ha.Handle
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.store.appendonlydao.DbDispatcher
@@ -21,7 +21,6 @@ import com.daml.platform.store.backend._
 import com.daml.platform.store.interning.{InternizingStringInterningView, StringInterning}
 
 import java.sql.Connection
-import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 
 private[platform] case class ParallelIndexerSubscription[DB_BATCH](
@@ -142,9 +141,6 @@ object ParallelIndexerSubscription {
 
     val batch = mainBatch ++ meteringBatch
 
-    //TODO remove before merge
-    Thread.sleep(650L)
-
     Batch(
       lastOffset = input.last._1,
       lastSeqEventId = 0, // will be filled later in the sequential step
@@ -178,45 +174,43 @@ object ParallelIndexerSubscription {
       previous: Batch[Vector[DbDto]],
       current: Batch[Vector[DbDto]],
   ): Batch[Vector[DbDto]] = {
-    val started = System.nanoTime()
-    var eventSeqId = previous.lastSeqEventId
-    val batchWithSeqIds = current.batch.map {
-      case dbDto: DbDto.EventCreate =>
-        eventSeqId += 1
-        dbDto.copy(event_sequential_id = eventSeqId)
+    Timed.value(
+      metrics.daml.parallelIndexer.seqMapping.duration, {
+        var eventSeqId = previous.lastSeqEventId
+        val batchWithSeqIds = current.batch.map {
+          case dbDto: DbDto.EventCreate =>
+            eventSeqId += 1
+            dbDto.copy(event_sequential_id = eventSeqId)
 
-      case dbDto: DbDto.EventExercise =>
-        eventSeqId += 1
-        dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.EventExercise =>
+            eventSeqId += 1
+            dbDto.copy(event_sequential_id = eventSeqId)
 
-      case dbDto: DbDto.EventDivulgence =>
-        eventSeqId += 1
-        dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.EventDivulgence =>
+            eventSeqId += 1
+            dbDto.copy(event_sequential_id = eventSeqId)
 
-      case dbDto: DbDto.CreateFilter =>
-        // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
-        dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.CreateFilter =>
+            // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
+            dbDto.copy(event_sequential_id = eventSeqId)
 
-      case unChanged => unChanged
-    }
+          case unChanged => unChanged
+        }
 
-    val (newLastStringInterningId, dbDtosWithStringInterning) =
-      internize(batchWithSeqIds)
-        .map(DbDto.StringInterningDto.from) match {
-        case noNewEntries if noNewEntries.isEmpty =>
-          previous.lastStringInterningId -> batchWithSeqIds
-        case newEntries => newEntries.last.internalId -> (batchWithSeqIds ++ newEntries)
-      }
+        val (newLastStringInterningId, dbDtosWithStringInterning) =
+          internize(batchWithSeqIds)
+            .map(DbDto.StringInterningDto.from) match {
+            case noNewEntries if noNewEntries.isEmpty =>
+              previous.lastStringInterningId -> batchWithSeqIds
+            case newEntries => newEntries.last.internalId -> (batchWithSeqIds ++ newEntries)
+          }
 
-    metrics.daml.parallelIndexer.seqMapping.duration.update(
-      System.nanoTime() - started,
-      TimeUnit.NANOSECONDS,
-    )
-
-    current.copy(
-      lastSeqEventId = eventSeqId,
-      lastStringInterningId = newLastStringInterningId,
-      batch = dbDtosWithStringInterning,
+        current.copy(
+          lastSeqEventId = eventSeqId,
+          lastStringInterningId = newLastStringInterningId,
+          batch = dbDtosWithStringInterning,
+        )
+      },
     )
   }
 

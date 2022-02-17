@@ -148,10 +148,24 @@ class IndexerBenchmark() {
              |  inputMapping.batchSize:     ${histogramToString(
             metrics.daml.parallelIndexer.inputMapping.batchSize.getSnapshot
           )}
-             |  seqMapping.duration:      ${histogramToString(
-            metrics.daml.parallelIndexer.seqMapping.duration.getSnapshot
+             |  inputMapping.duration:      ${histogramToString(
+            metrics.daml.parallelIndexer.inputMapping.duration.getSnapshot
           )}
-             |  seqMapping.duration.rate: ${metrics.daml.parallelIndexer.seqMapping.duration.getMeanRate}
+             |  inputMapping.duration.rate: ${metrics.daml.parallelIndexer.inputMapping.duration.getMeanRate}
+             |  batching.duration:      ${histogramToString(
+            metrics.daml.parallelIndexer.batching.duration.getSnapshot
+          )}
+             |  batching.duration.rate: ${metrics.daml.parallelIndexer.batching.duration.getMeanRate}
+             |  seqMapping.duration: ${metrics.daml.parallelIndexer.seqMapping.duration.getSnapshot}|
+             |  seqMapping.duration.rate: ${metrics.daml.parallelIndexer.seqMapping.duration.getMeanRate}|
+             |  ingestion.duration:         ${histogramToString(
+            metrics.daml.parallelIndexer.ingestion.executionTimer.getSnapshot
+          )}
+             |  ingestion.duration.rate:    ${metrics.daml.parallelIndexer.ingestion.executionTimer.getMeanRate}
+             |  tailIngestion.duration:         ${histogramToString(
+            metrics.daml.parallelIndexer.tailIngestion.executionTimer.getSnapshot
+          )}
+             |  tailIngestion.duration.rate:    ${metrics.daml.parallelIndexer.tailIngestion.executionTimer.getMeanRate}
              |
              |Notes:
              |  The above numbers include all ingested updates, including package uploads.
