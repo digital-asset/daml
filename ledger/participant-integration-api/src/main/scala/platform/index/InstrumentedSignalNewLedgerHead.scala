@@ -18,7 +18,10 @@ import scala.collection.mutable
   * @param delegate The ledger head dispatcher delegate.
   * @param timer The timer measuring the delta.
   */
-private[index] class DispatcherLagMeter(delegate: SignalNewLedgerHead, maxSize: Long = 1000L)(
+private[index] class InstrumentedSignalNewLedgerHead(
+    delegate: SignalNewLedgerHead,
+    maxSize: Long = 1000L,
+)(
     timer: Timer
 ) extends SignalNewLedgerHead {
   private val ledgerHeads = mutable.Map.empty[Offset, Long]

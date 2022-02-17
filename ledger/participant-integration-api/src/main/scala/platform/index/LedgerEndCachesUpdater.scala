@@ -20,7 +20,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 private[index] class LedgerEndCachesUpdater(
     ledgerReadDao: LedgerReadDao,
     updatingStringInterningView: UpdatingStringInterningView,
-    dispatcherLagger: DispatcherLagMeter,
+    instrumentedSignalNewLedgerHead: InstrumentedSignalNewLedgerHead,
     contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends AutoCloseable {
@@ -43,7 +43,7 @@ private[index] class LedgerEndCachesUpdater(
       )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
       .toMat(Sink.foreach { newLedgerHead =>
-        dispatcherLagger.startTimer(newLedgerHead.lastOffset)
+        instrumentedSignalNewLedgerHead.startTimer(newLedgerHead.lastOffset)
         contractStateEventsDispatcher.signalNewHead(
           newLedgerHead.lastOffset -> newLedgerHead.lastEventSeqId
         )

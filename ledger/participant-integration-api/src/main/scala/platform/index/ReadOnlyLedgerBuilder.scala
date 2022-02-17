@@ -78,8 +78,15 @@ private[index] case class ReadOnlyLedgerBuilder(
       )
       prefetchingDispatcher <- dispatcherOffsetSeqIdOwner(ledgerEnd)
       generalDispatcher <- dispatcherOwner(ledgerEnd.lastOffset)
-      dispatcherLagMeter = buildDispatcherLagMeter(ledgerEndCache, generalDispatcher)
-      contractStore = mutableCacheBackedContractStore(ledgerDao, ledgerEnd, dispatcherLagMeter)
+      instrumentedSignalNewLedgerHead = buildInstrumentedSignalNewLedgerHead(
+        ledgerEndCache,
+        generalDispatcher,
+      )
+      contractStore = mutableCacheBackedContractStore(
+        ledgerDao,
+        ledgerEnd,
+        instrumentedSignalNewLedgerHead,
+      )
       (transactionsReader, pruneBuffers) <- cacheComponentsAndSubscription(
         contractStore,
         ledgerDao,
@@ -90,7 +97,7 @@ private[index] case class ReadOnlyLedgerBuilder(
         new LedgerEndCachesUpdater(
           ledgerDao,
           stringInterningView,
-          dispatcherLagMeter,
+          instrumentedSignalNewLedgerHead,
           prefetchingDispatcher,
         )
       )
@@ -104,11 +111,11 @@ private[index] case class ReadOnlyLedgerBuilder(
     )
   }
 
-  private def buildDispatcherLagMeter(
+  private def buildInstrumentedSignalNewLedgerHead(
       ledgerEndCache: MutableLedgerEndCache,
       generalDispatcher: Dispatcher[Offset],
   ) =
-    new DispatcherLagMeter((offset, eventSeqId) => {
+    new InstrumentedSignalNewLedgerHead((offset, eventSeqId) => {
       ledgerEndCache.set((offset, eventSeqId))
       // the order here is very important: first we need to make data available for point-wise lookups
       // and SQL queries, and only then we can make it available on the streams.
@@ -119,7 +126,7 @@ private[index] case class ReadOnlyLedgerBuilder(
   private def mutableCacheBackedContractStore(
       ledgerDao: LedgerReadDao,
       ledgerEnd: LedgerEnd,
-      dispatcherLagMeter: DispatcherLagMeter,
+      dispatcherLagMeter: InstrumentedSignalNewLedgerHead,
   ) =
     MutableCacheBackedContractStore(
       ledgerDao.contractsReader,
