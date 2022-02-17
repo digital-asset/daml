@@ -23,7 +23,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
-import com.daml.platform.index.TransactionConversion
 
 // TODO append-only: FIXME: move to the right place
 object EventsTable {

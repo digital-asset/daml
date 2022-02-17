@@ -1,13 +1,13 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.index
+package com.daml.platform.store.appendonlydao.events
 
 import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.{BackStack, FrontStack, FrontStackCons, Ref}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.{CommittedTransaction, NodeId, Node}
+import com.daml.lf.transaction.{CommittedTransaction, Node}
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.Event

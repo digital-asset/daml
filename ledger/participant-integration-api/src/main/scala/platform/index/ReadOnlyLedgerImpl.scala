@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store
+package com.daml.platform.index
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -20,6 +20,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -30,12 +31,11 @@ import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, LedgerReadDao}
-import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
 
-private[platform] abstract class BaseLedger(
+private[index] class ReadOnlyLedgerImpl(
     val ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
     transactionsReader: LedgerDaoTransactionsReader,
@@ -182,6 +182,4 @@ private[platform] abstract class BaseLedger(
   )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]] = {
     ledgerDao.getTransactionMetering(from, to, applicationId)
   }
-
-  override def close(): Unit = ()
 }
