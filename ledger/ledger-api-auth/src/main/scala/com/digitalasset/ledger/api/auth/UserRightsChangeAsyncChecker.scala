@@ -10,6 +10,7 @@ import akka.actor.Scheduler
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -28,7 +29,9 @@ private[auth] final class UserRightsChangeAsyncChecker(
     * @param userClaimsMismatchCallback - called when user rights' state change has been detected.
     * @return a function to cancel the scheduled task
     */
-  def schedule(userClaimsMismatchCallback: () => Unit): () => Unit = {
+  def schedule(
+      userClaimsMismatchCallback: () => Unit
+  )(implicit loggingContext: LoggingContext): () => Unit = {
     val delay = userRightsCheckIntervalInSeconds.seconds
     val userId = originalClaims.applicationId.fold[Ref.UserId](
       throw new RuntimeException(
