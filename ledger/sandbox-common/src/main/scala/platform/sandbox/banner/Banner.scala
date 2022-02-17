@@ -13,13 +13,10 @@ object Banner {
   private val resourceName = "banner.txt"
 
   private def banner: String =
-    if (classLoader.getResource(resourceName) != null)
-      Source
-        .fromResource(resourceName, classLoader)
-        .getLines()
-        .mkString("\n")
-    else
-      "Banner resource missing from classpath."
+    Source
+      .fromResource(resourceName, classLoader)
+      .getLines()
+      .mkString("\n")
 
   def show(out: PrintStream): Unit = out.println(banner)
 }
