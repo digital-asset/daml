@@ -3,12 +3,10 @@
 
 package com.daml.platform.store.cache
 
-import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
-import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
-import akka.{Done, NotUsed}
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -26,7 +24,6 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyState,
 }
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 import scala.util.chaining._
@@ -44,7 +41,7 @@ private[platform] class MutableCacheBackedContractStore(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  private[cache] val cacheIndex = MutableLedgerEndCache().tap(_.set(startIndexExclusive))
+  private[platform] val cacheIndex = MutableLedgerEndCache().tap(_.set(startIndexExclusive))
 
   def push(event: ContractStateEvent): Unit = {
     debugEvents(event)
@@ -357,37 +354,6 @@ private[platform] object MutableCacheBackedContractStore {
       ContractKeyStateCache(maxKeyCacheSize, metrics),
       ContractsStateCache(maxContractsCacheSize, metrics),
     )
-
-  final class CacheUpdateSubscription(
-      contractStore: MutableCacheBackedContractStore,
-      subscribeToContractStateEvents: SubscribeToContractStateEvents,
-      minBackoffStreamRestart: FiniteDuration = 100.millis,
-  )(implicit materializer: Materializer)
-      extends ResourceOwner[Unit] {
-    override def acquire()(implicit
-        context: ResourceContext
-    ): Resource[Unit] =
-      Resource(Future {
-        RestartSource
-          .withBackoff(
-            RestartSettings(
-              minBackoff = minBackoffStreamRestart,
-              maxBackoff = 10.seconds,
-              randomFactor = 0.2,
-            )
-          )(() =>
-            subscribeToContractStateEvents(contractStore.cacheIndex())
-              .map(contractStore.push)
-          )
-          .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-          .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
-          .run()
-      }(context.executionContext)) {
-        case (contractStateUpdateKillSwitch, contractStateUpdateDone) =>
-          contractStateUpdateKillSwitch.shutdown()
-          contractStateUpdateDone.map(_ => ())(context.executionContext)
-      }.map(_ => ())
-  }
 
   final case class ContractReadThroughNotFound(contractId: ContractId) extends NoStackTrace {
     override def getMessage: String =

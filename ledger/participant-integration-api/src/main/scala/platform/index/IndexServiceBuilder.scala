@@ -98,7 +98,7 @@ private[platform] case class IndexServiceBuilder(
         prefetchingDispatcher,
         ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId,
       )
-      _ <- cachesUpdaterSubscription(
+      _ <- ledgerEndDispatcherSubscription(
         ledgerDao,
         stringInterningView,
         instrumentedSignalNewLedgerHead,
@@ -116,15 +116,15 @@ private[platform] case class IndexServiceBuilder(
     )
   }
 
-  private def cachesUpdaterSubscription(
+  private def ledgerEndDispatcherSubscription(
       ledgerDao: LedgerReadDao,
       updatingStringInterningView: UpdatingStringInterningView,
       instrumentedSignalNewLedgerHead: InstrumentedSignalNewLedgerHead,
       prefetchingDispatcher: Dispatcher[(Offset, Long)],
-  ): ResourceOwner[Unit] =
+  ) =
     ResourceOwner
       .forReleasable(() =>
-        new LedgerEndPoller(
+        LedgerEndPoller(
           ledgerDao,
           newLedgerHead =>
             for {
@@ -137,7 +137,6 @@ private[platform] case class IndexServiceBuilder(
             },
         )
       )(_.release())
-      .map(_ => ())
 
   private def buildInstrumentedSignalNewLedgerHead(
       ledgerEndCache: MutableLedgerEndCache,
@@ -209,7 +208,7 @@ private[platform] case class IndexServiceBuilder(
       )(loggingContext, servicesExecutionContext)
 
       for {
-        _ <- ResourceOwner.forCloseable(() =>
+        _ <- ResourceOwner.forReleasable(() =>
           BuffersUpdater(
             subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
               val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
@@ -227,23 +226,26 @@ private[platform] case class IndexServiceBuilder(
             },
             updateTransactionsBuffer = transactionsBuffer.push,
             updateMutableCache = contractStore.push,
-            executionContext = servicesExecutionContext,
           )
-        )
+        )(_.release())
       } yield (bufferedTransactionsReader, transactionsBuffer.prune _)
     } else
-      new MutableCacheBackedContractStore.CacheUpdateSubscription(
-        contractStore = contractStore,
-        subscribeToContractStateEvents = cacheIndex =>
-          cacheUpdatesDispatcher
-            .startingAt(
-              cacheIndex,
-              RangeSource(
-                ledgerReadDao.transactionsReader.getContractStateEvents(_, _)
-              ),
-            )
-            .map(_._2),
-      ).map(_ => (ledgerReadDao.transactionsReader, PruneBuffersNoOp))
+      ResourceOwner
+        .forReleasable { () =>
+          MutableContractStateCacheUpdater(
+            contractStore = contractStore,
+            subscribeToContractStateEvents = (cacheIndex: (Offset, Long)) =>
+              cacheUpdatesDispatcher
+                .startingAt(
+                  cacheIndex,
+                  RangeSource(
+                    ledgerReadDao.transactionsReader.getContractStateEvents(_, _)
+                  ),
+                )
+                .map(_._2),
+          )
+        }(_.release())
+        .map(_ => (ledgerReadDao.transactionsReader, PruneBuffersNoOp))
 
   private def dispatcherOffsetSeqIdOwner(
       ledgerEnd: LedgerEnd
