@@ -72,7 +72,8 @@ apt-get install -qy \
     xdg-utils \
     wget
 
-curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
+# Taken from https://cloud.google.com/logging/docs/agent/logging/installation
+curl -sSL https://dl.google.com/cloudagents/add-logging-agent-repo.sh | bash -s -- --also-install
 
 #install docker
 DOCKER_VERSION="5:20.10.2~3-0~ubuntu-$(lsb_release -cs)"
