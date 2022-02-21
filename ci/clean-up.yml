@@ -21,12 +21,14 @@ steps:
     Linux)
       MPS="/home/vsts/.cache/bazel /home/vsts/.bazel-cache"
       CMD="mount"
+      exit 0
       ;;
     *)
       echo "Unexpected uname: $UNAME"
       MPS=
       ;;
     esac
+
 
     for path in $MPS; do
       if ! ($CMD | grep -F "$path"); then
