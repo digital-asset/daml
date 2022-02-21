@@ -19,6 +19,7 @@ import scala.jdk.CollectionConverters._
 
 class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
 
+  import SpeedyTestLib.loggingContext
   import defaultParserParameters.{defaultPackageId => pkgId}
 
   private[this] val pkg =

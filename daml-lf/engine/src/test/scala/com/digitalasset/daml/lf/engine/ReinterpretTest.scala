@@ -21,6 +21,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value._
 import com.daml.lf.command._
 import com.daml.lf.transaction.test.TransactionBuilder.{assertAsVersionedContract}
+import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
 import org.scalatest.wordspec.AnyWordSpec
@@ -173,6 +174,8 @@ class ReinterpretTest
 }
 
 object ReinterpretTest {
+
+  private implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)

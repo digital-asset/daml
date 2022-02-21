@@ -329,6 +329,8 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
 
 object SBuiltinBigNumericTest {
 
+  import SpeedyTestLib.loggingContext
+
   private val pkg =
     p"""
         module BigNumeric {

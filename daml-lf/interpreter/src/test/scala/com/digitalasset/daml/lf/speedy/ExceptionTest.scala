@@ -25,6 +25,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   import com.daml.lf.testing.parser.Implicits.defaultParserParameters.defaultPackageId
+  import SpeedyTestLib.loggingContext
 
   private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
     val se = pkgs.compiler.unsafeCompile(e)

@@ -20,6 +20,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
+  import SpeedyTestLib.loggingContext
+
   import RollbackTest._
 
   private def runUpdateExprGetTx(

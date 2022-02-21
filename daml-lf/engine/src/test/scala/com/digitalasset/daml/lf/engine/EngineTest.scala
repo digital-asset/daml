@@ -30,6 +30,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
+import com.daml.logging.LoggingContext
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
@@ -2183,6 +2184,8 @@ class EngineTest
 }
 
 object EngineTest {
+
+  private implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")

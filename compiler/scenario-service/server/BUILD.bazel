@@ -37,6 +37,7 @@ da_scala_binary(
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",

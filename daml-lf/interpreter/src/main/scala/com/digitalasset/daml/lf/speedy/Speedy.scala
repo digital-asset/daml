@@ -26,7 +26,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.{Value => V}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
-import org.slf4j.LoggerFactory
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.annotation.tailrec
 import scala.util.control.NoStackTrace
@@ -253,6 +253,8 @@ private[lf] object Speedy {
       val traceLog: TraceLog,
       /* Engine-generated warnings. */
       val warningLog: WarningLog,
+      /* loggingContext */
+      implicit val loggingContext: LoggingContext,
       /* Compiled packages (Daml-LF ast + compiled speedy expressions). */
       var compiledPackages: CompiledPackages,
       /* Used when enableLightweightStepTracing is true */
@@ -824,10 +826,10 @@ private[lf] object Speedy {
 
   object Machine {
 
-    private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
-    private val damlWarnings = LoggerFactory.getLogger("daml.warnings")
+    private[this] val damlTraceLog = ContextualizedLogger.createFor("daml.tracelog")
+    private[this] val damlWarnings = ContextualizedLogger.createFor("daml.warnings")
 
-    def newTraceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100)
+    def newTraceLog: TraceLog = new RingBufferTraceLog(damlTraceLog, 100)
     def newWarningLog: WarningLog = new WarningLog(damlWarnings)
 
     def apply(
@@ -843,7 +845,7 @@ private[lf] object Speedy {
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
-    ): Machine = {
+    )(implicit loggingContext: LoggingContext): Machine = {
       new Machine(
         ctrl = expr,
         returnValue = null,
@@ -873,6 +875,7 @@ private[lf] object Speedy {
         ),
         traceLog = traceLog,
         warningLog = warningLog,
+        loggingContext = loggingContext,
         compiledPackages = compiledPackages,
         steps = 0,
         track = Instrumentation(),
@@ -889,7 +892,7 @@ private[lf] object Speedy {
         updateE: Expr,
         committers: Set[Party],
         limits: interpretation.Limits = interpretation.Limits.Lenient,
-    ): Machine = {
+    )(implicit loggingContext: LoggingContext): Machine = {
       val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
       fromUpdateSExpr(compiledPackages, transactionSeed, updateSE, committers, limits)
     }
@@ -904,7 +907,7 @@ private[lf] object Speedy {
         committers: Set[Party],
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         traceLog: TraceLog = newTraceLog,
-    ): Machine = {
+    )(implicit loggingContext: LoggingContext): Machine = {
       Machine(
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
@@ -923,7 +926,7 @@ private[lf] object Speedy {
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         scenario: SExpr,
-    ): Machine = Machine.fromPureSExpr(
+    )(implicit loggingContext: LoggingContext): Machine = Machine.fromPureSExpr(
       compiledPackages = compiledPackages,
       expr = SEApp(scenario, Array(SEValue.Token)),
     )
@@ -934,7 +937,7 @@ private[lf] object Speedy {
     def fromScenarioExpr(
         compiledPackages: CompiledPackages,
         scenario: Expr,
-    ): Machine =
+    )(implicit loggingContext: LoggingContext): Machine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,
         scenario = compiledPackages.compiler.unsafeCompile(scenario),
@@ -948,7 +951,7 @@ private[lf] object Speedy {
         expr: SExpr,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
-    ): Machine =
+    )(implicit loggingContext: LoggingContext): Machine =
       new Machine(
         ctrl = expr,
         returnValue = null,
@@ -961,6 +964,7 @@ private[lf] object Speedy {
         ledgerMode = OffLedger,
         traceLog = traceLog,
         warningLog = warningLog,
+        loggingContext = loggingContext,
         compiledPackages = compiledPackages,
         steps = 0,
         track = Instrumentation(),
@@ -973,7 +977,7 @@ private[lf] object Speedy {
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,
-    ): Machine =
+    )(implicit loggingContext: LoggingContext): Machine =
       fromPureSExpr(compiledPackages, compiledPackages.compiler.unsafeCompile(expr))
 
   }
