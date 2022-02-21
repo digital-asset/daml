@@ -275,6 +275,23 @@ jobs:
           echo "Could not connect to Oracle, trying again..."
           sleep 1
         done
+
+
+        cat <<EOT > doit.txt
+         show parameter max_string;
+         SHUTDOWN IMMEDIATE;
+         alter pluggable database ORCLPDB1 open UPGRADE;
+         alter system set MAX_STRING_SIZE='EXTENDED';
+         @?/rdbms/admin/utl32k.sql;
+         @?/rdbms/admin/utlrp.sql;
+         shutdown immediate;
+         startup;
+         show parameter max_string;
+
+        EOT
+        docker cp doit.txt oracle:/home/oracle/doit.txt
+        docker exec oracle bash -c 'sqlplus -L '"$ORACLE_USERNAME"'/'"$ORACLE_PWD"'@//localhost:'"$ORACLE_PORT"'/ORCLPDB1 as sysdba <<< "@doit.txt" '
+
         # Actually run some tests
         # Note: Oracle tests all run sequentially because they all access the same Oracle instance,
         # and we sometimes observe transient connection issues when running tests in parallel.
