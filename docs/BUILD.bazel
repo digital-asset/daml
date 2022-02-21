@@ -203,7 +203,7 @@ genrule(
     OUT_PATH=$$PWD/$@
     cd $$DIR
     $$MKTGZ $$OUT_PATH docs
-  """,
+  """.format(sdk = sdk_version),
     tools = [
         "//bazel_tools/sh:mktgz",
     ],
