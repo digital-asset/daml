@@ -204,7 +204,8 @@ final class UserManagementServiceIT extends LedgerTestSuite {
           val unexpectedErrors = results
             .collect { case x if x.isFailure => x.failed.get }
             .filterNot(t =>
-              LedgerApiErrors.AdminServices.UserAlreadyExists.matches(t) || ErrorDetails
+              ErrorDetails
+                .matches(t, LedgerApiErrors.AdminServices.UserAlreadyExists) || ErrorDetails
                 .isInternalError(t)
             )
           assertSameElements(actual = unexpectedErrors, expected = Seq.empty)
