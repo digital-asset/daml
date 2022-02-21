@@ -14,9 +14,10 @@ jobs:
     - template: bash-lib.yml
       parameters:
         var_name: bash-lib
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
     - bash: |
         set -euo pipefail
-        bash <(curl -sSfL https://nixos.org/nix/install)
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 

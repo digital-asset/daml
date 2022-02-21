@@ -55,13 +55,14 @@ jobs:
         fi
       name: out
 
-- template: da-ghc-lib/compile.yml
-  parameters:
-    final_job_name: da_ghc_lib
+
+#- template: da-ghc-lib/compile.yml
+#  parameters:
+#    final_job_name: da_ghc_lib
 
 - job: Linux
   dependsOn:
-    - da_ghc_lib
+#    - da_ghc_lib
     - check_for_release
     - git_sha
   variables:
@@ -109,7 +110,7 @@ jobs:
 
 - job: macOS
   dependsOn:
-    - da_ghc_lib
+#    - da_ghc_lib
     - check_for_release
     - git_sha
   timeoutInMinutes: 360
@@ -153,7 +154,7 @@ jobs:
 
 - job: Windows
   dependsOn:
-    - da_ghc_lib
+#    - da_ghc_lib
     - check_for_release
     - patch_bazel_windows
     - git_sha
@@ -220,7 +221,7 @@ jobs:
 
 - job: Linux_oracle
   dependsOn:
-    - da_ghc_lib
+#    - da_ghc_lib
   timeoutInMinutes: 360
   pool:
     vmImage: ubuntu-20.04
@@ -357,7 +358,7 @@ jobs:
 
 - job: compatibility_ts_libs
   dependsOn:
-    - da_ghc_lib
+#    - da_ghc_lib
     - check_for_release
   condition: and(succeeded(),
                  not(eq(dependencies.check_for_release.outputs['out.is_release'], 'true')))
@@ -374,7 +375,7 @@ jobs:
 
 - job: compatibility_linux
   dependsOn:
-    - da_ghc_lib
+#    - da_ghc_lib
     - check_for_release
     - compatibility_ts_libs
   timeoutInMinutes: 360
@@ -396,6 +397,8 @@ jobs:
     vmImage: ubuntu-20.04
   steps:
     - checkout: self
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
     - bash: ci/check-protobuf-stability.sh
     - template: tell-slack-failed.yml
 

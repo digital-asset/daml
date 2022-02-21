@@ -78,6 +78,8 @@ jobs:
     vmImage: ubuntu-20.04
   steps:
     - checkout: self
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
     - bash: ci/check-protobuf-stability.sh --target
 
 # required for collect_build_data
