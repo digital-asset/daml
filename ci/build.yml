@@ -299,7 +299,7 @@ jobs:
         # Actually run some tests
         # Note: Oracle tests all run sequentially because they all access the same Oracle instance,
         # and we sometimes observe transient connection issues when running tests in parallel.
-        bazel test \
+        bazel test -t- \
           --config=oracle \
           --test_strategy=exclusive \
           --test_tag_filters=+oracle \
