@@ -375,6 +375,7 @@ jobs:
     - template: report-end.yml
 
 - job: compatibility_linux
+  condition: false
   dependsOn:
 #    - da_ghc_lib
     - check_for_release
@@ -412,7 +413,7 @@ jobs:
     - Windows
     - release
     - git_sha
-    - compatibility_linux
+#    - compatibility_linux
     - compatibility_stable_protobuf
     - check_for_release
   pool:
@@ -438,10 +439,10 @@ jobs:
     release.machine: $[ dependencies.release.outputs['start.machine'] ]
     release.end: $[ dependencies.release.outputs['end.time'] ]
     release.status: $[ dependencies.release.result ]
-    compatibility_linux.start: $[ dependencies.compatibility_linux.outputs['start.time'] ]
-    compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
-    compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
-    compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
+#    compatibility_linux.start: $[ dependencies.compatibility_linux.outputs['start.time'] ]
+#    compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
+#    compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
+#    compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
 
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     main_sha: $[ dependencies.git_sha.outputs['out.main'] ]
@@ -482,11 +483,7 @@ jobs:
                   "release": {"start": "$(release.start)",
                               "machine": "$(release.machine)",
                               "end": "$(release.end)",
-                              "status": "$(release.status)"},
-                  "compatibility_linux": {"start": "$(compatibility_linux.start)",
-                                          "machine": "$(compatibility_linux.machine)",
-                                          "end": "$(compatibility_linux.end)",
-                                          "status": "$(compatibility_linux.status)"}},
+                              "status": "$(release.status)"}},
          "id": "$(Build.BuildId)",
          "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
          "name": "$(Build.DefinitionName)",
@@ -526,7 +523,6 @@ jobs:
         if [[ !("$(Linux.status)" == "Succeeded" || "$(Linux.status)" == "SucceededWithIssues")
             || !("$(macOS.status)" == "Succeeded" || "$(macOS.status)" == "SucceededWithIssues")
             || "$(Windows.status)" != "Succeeded"
-            || ("$(is_release)" == "false" && "$(compatibility_linux.status)" != "Succeeded")
             || "$(release.status)" == "Canceled" ]]; then
             exit 1
         fi
