@@ -64,13 +64,12 @@ data MeteringReport = MeteringReport {
 
 instance ToJSON MeteringReport where
   toJSON (MeteringReport participant request isFinal applications) =
-    object (
+    object
     [   "participant" .= unParticipantId participant
     ,   "request" .= request
     ,   "final" .= isFinal
     ,   "applications" .= applications
     ]
-    )
 
 timestampToSystemTime :: Timestamp -> System.SystemTime
 timestampToSystemTime ts = st
@@ -107,7 +106,7 @@ raiseGetMeteringReportRequest ::  LL.GetMeteringReportRequest -> Perhaps Meterin
 raiseGetMeteringReportRequest (LL.GetMeteringReportRequest (Just llFrom) llTo llApplication) = do
   from <- raiseTimestamp llFrom
   to <- traverse raiseTimestamp llTo
-  let maybeApplication = if (TL.null llApplication) then Nothing else (Just llApplication)
+  let maybeApplication = if TL.null llApplication then Nothing else Just llApplication
   application <- traverse raiseApplicationId maybeApplication
   return MeteringRequest{..}
 
