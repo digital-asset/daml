@@ -1371,6 +1371,19 @@ private[lf] object Speedy {
     }
   }
 
+  private[speedy] final case class KWrapInterface(
+      machine: Machine,
+      templateId: Ref.TypeConName,
+  ) extends Kont {
+
+    def execute(sv: SValue): Unit = {
+      machine.returnValue = SValue.SAny(
+        ty = TTyCon(templateId),
+        value = sv,
+      )
+    }
+  }
+
   /** KCloseExercise. Marks an open-exercise which needs to be closed. Either:
     * (1) by 'endExercises' if this continuation is entered normally, or
     * (2) by 'abortExercises' if we unwind the stack through this continuation

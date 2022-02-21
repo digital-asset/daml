@@ -1153,14 +1153,7 @@ private[lf] object SBuiltin {
               onLedger.committers,
               { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
                 checkTemplateId(actualTmplId) {
-                  machine.pushKont(
-                    KPap(
-                      machine,
-                      PBuiltin(SBToInterface(actualTmplId)),
-                      new util.ArrayList[SValue],
-                      1,
-                    )
-                  )
+                  machine.pushKont(KWrapInterface(machine, actualTmplId))
                   machine.pushKont(KCacheContract(machine, actualTmplId, coid))
                   machine.ctrl = SELet1(
                     SEImportValue(Ast.TTyCon(actualTmplId), arg),
