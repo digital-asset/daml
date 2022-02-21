@@ -5,7 +5,9 @@
 
 module DA.Ledger.Services.MeteringReportService (
     getMeteringReport, 
-    MeteringReport(..), 
+    MeteringReport(..),
+    MeteringRequest(..),
+    MeteredApplication(..),
     isoTimeToTimestamp,
     utcDayToTimestamp,
   ) where
