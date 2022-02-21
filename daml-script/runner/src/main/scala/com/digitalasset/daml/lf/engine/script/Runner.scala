@@ -377,12 +377,9 @@ private[lf] class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Speedy.Machine, Future[SValue]) = {
-    val machine =
-      // TODO: https://github.com/digital-asset/daml/issues/12208
-      //  plug the logging context properly in Daml-script
-      LoggingContext.newLoggingContext(
-        Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, traceLog, warningLog)(_)
-      )
+    val machine = LoggingContext.newLoggingContext(
+      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, traceLog, warningLog)(_)
+    )
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {

@@ -143,10 +143,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
     for {
       defn <- defns.get(LfDefRef(identifier))
-    } yield
-    // TODO: https://github.com/digital-asset/daml/issues/12208
-    //  plug the logging context properly in the scenario service
-    LoggingContext.newLoggingContext(
+    } yield LoggingContext.newLoggingContext(
       Speedy.Machine.fromScenarioSExpr(
         compiledPackages,
         defn.body,

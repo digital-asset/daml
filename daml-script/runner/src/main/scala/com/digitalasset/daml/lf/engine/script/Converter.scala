@@ -303,14 +303,11 @@ object Converter {
       compiledPackages: CompiledPackages,
       fun: SValue,
   ): Either[String, (SValue, SValue)] = {
-    val machine =
-      // TODO: https://github.com/digital-asset/daml/issues/12208
-      //  plug the logging context properly in Daml-script
-      LoggingContext.newLoggingContext(
-        Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractToTuple)))(
-          _
-        )
+    val machine = LoggingContext.newLoggingContext(
+      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractToTuple)))(
+        _
       )
+    )
     machine.run() match {
       case SResultFinalValue(v) =>
         v match {

@@ -156,22 +156,19 @@ class IdeLedgerClient(
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
-      val result =
-        // TODO: https://github.com/digital-asset/daml/issues/12208
-        //  plug the logging context properly in Daml-script
-        LoggingContext.newLoggingContext(
-          ScenarioRunner.submit(
-            compiledPackages,
-            ledgerApi,
-            actAs.toSet,
-            readAs,
-            translated,
-            optLocation,
-            nextSeed(),
-            traceLog,
-            warningLog,
-          )(_)
-        )
+      val result = LoggingContext.newLoggingContext(
+        ScenarioRunner.submit(
+          compiledPackages,
+          ledgerApi,
+          actAs.toSet,
+          readAs,
+          translated,
+          optLocation,
+          nextSeed(),
+          traceLog,
+          warningLog,
+        )(_)
+      )
       result match {
         case err: ScenarioRunner.SubmissionError => err
         case commit: ScenarioRunner.Commit[_] =>
