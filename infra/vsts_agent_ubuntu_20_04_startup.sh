@@ -73,6 +73,7 @@ apt-get install -qy \
     wget
 
 # Taken from https://cloud.google.com/logging/docs/agent/logging/installation
+curl -sSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 curl -sSL https://dl.google.com/cloudagents/add-logging-agent-repo.sh | bash -s -- --also-install
 
 #install docker
