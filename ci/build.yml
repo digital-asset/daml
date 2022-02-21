@@ -148,15 +148,15 @@ jobs:
         trigger_sha: '$(trigger_sha)'
     - template: report-end.yml
 
-- template: patch_bazel_windows/compile.yml
-  parameters:
-    final_job_name: patch_bazel_windows
+#- template: patch_bazel_windows/compile.yml
+#  parameters:
+#    final_job_name: patch_bazel_windows
 
 - job: Windows
   dependsOn:
 #    - da_ghc_lib
     - check_for_release
-    - patch_bazel_windows
+#    - patch_bazel_windows
     - git_sha
   variables:
     - name: release_sha
