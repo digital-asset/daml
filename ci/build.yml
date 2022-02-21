@@ -220,6 +220,7 @@ jobs:
     - template: report-end.yml
 
 - job: Linux_oracle
+  condition: false
   dependsOn:
 #    - da_ghc_lib
   timeoutInMinutes: 360
@@ -406,7 +407,7 @@ jobs:
   condition: always()
   dependsOn:
     - Linux
-    - Linux_oracle
+#    - Linux_oracle
     - macOS
     - Windows
     - release
@@ -421,10 +422,10 @@ jobs:
     Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]
     Linux.end: $[ dependencies.Linux.outputs['end.time'] ]
     Linux.status: $[ dependencies.Linux.result ]
-    Linux_oracle.start: $[ dependencies.Linux_oracle.outputs['start.time'] ]
-    Linux_oracle.machine: $[ dependencies.Linux_oracle.outputs['start.machine'] ]
-    Linux_oracle.end: $[ dependencies.Linux_oracle.outputs['end.time'] ]
-    Linux_oracle.status: $[ dependencies.Linux_oracle.result ]
+#    Linux_oracle.start: $[ dependencies.Linux_oracle.outputs['start.time'] ]
+#    Linux_oracle.machine: $[ dependencies.Linux_oracle.outputs['start.machine'] ]
+#    Linux_oracle.end: $[ dependencies.Linux_oracle.outputs['end.time'] ]
+#    Linux_oracle.status: $[ dependencies.Linux_oracle.result ]
     macOS.start: $[ dependencies.macOS.outputs['start.time'] ]
     macOS.machine: $[ dependencies.macOS.outputs['start.machine'] ]
     macOS.end: $[ dependencies.macOS.outputs['end.time'] ]
@@ -470,10 +471,6 @@ jobs:
                             "machine": "$(Linux.machine)",
                             "end": "$(Linux.end)",
                             "status": "$(Linux.status)"},
-                  "Linux_oracle": {"start": "$(Linux_oracle.start)",
-                            "machine": "$(Linux_oracle.machine)",
-                            "end": "$(Linux_oracle.end)",
-                            "status": "$(Linux_oracle.status)"},
                   "macOS": {"start": "$(macOS.start)",
                             "machine": "$(macOS.machine)",
                             "end": "$(macOS.end)",
@@ -527,7 +524,6 @@ jobs:
         #
         # release only run on releases and is skipped otherwise.
         if [[ !("$(Linux.status)" == "Succeeded" || "$(Linux.status)" == "SucceededWithIssues")
-            || "$(Linux_oracle.status)" != "Succeeded"
             || !("$(macOS.status)" == "Succeeded" || "$(macOS.status)" == "SucceededWithIssues")
             || "$(Windows.status)" != "Succeeded"
             || ("$(is_release)" == "false" && "$(compatibility_linux.status)" != "Succeeded")
