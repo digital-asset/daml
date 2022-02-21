@@ -7,6 +7,7 @@ module DA.Ledger.Services.MeteringReportService (
     getMeteringReport, 
     MeteringReport(..), 
     isoTimeToTimestamp,
+    utcDayToTimestamp,
   ) where
 
 
@@ -23,6 +24,8 @@ import qualified Data.Time.Clock.System as System
 import qualified Data.Time.Format.ISO8601 as ISO8601
 import GHC.Int (Int64)
 import GHC.Word (Word32)
+import Data.Time.Calendar (Day(..))
+import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
 
 data MeteredApplication = MeteredApplication {
   application :: ApplicationId
@@ -77,6 +80,9 @@ timestampToIso8601 ts = ISO8601.iso8601Show ut
 
 isoTimeToTimestamp :: IsoTime -> Timestamp
 isoTimeToTimestamp iso = systemTimeToTimestamp $ System.utcToSystemTime $ unIsoTime iso
+
+utcDayToTimestamp :: Day -> Timestamp
+utcDayToTimestamp day = systemTimeToTimestamp $ System.utcToSystemTime $ UTCTime day (secondsToDiffTime 0)
 
 raiseApplicationMeteringReport :: LL.ApplicationMeteringReport -> Perhaps MeteredApplication
 raiseApplicationMeteringReport (LL.ApplicationMeteringReport llApp events) = do
