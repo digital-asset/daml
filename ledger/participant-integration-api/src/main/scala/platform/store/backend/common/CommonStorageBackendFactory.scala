@@ -34,7 +34,7 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
   override def createMeteringStorageReadBackend(
       ledgerEndCache: LedgerEndCache
   ): MeteringStorageReadBackend =
-    new MeteringStorageBackendReadTemplate(ledgerEndCache)
+    MeteringStorageBackendReadTemplate
 
   def createMeteringStorageWriteBackend: MeteringStorageWriteBackend = {
     MeteringStorageBackendWriteTemplate

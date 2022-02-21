@@ -12,6 +12,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
+import com.daml.logging.LoggingContext
 
 import java.io.File
 
@@ -22,6 +23,8 @@ object ExploreDar extends App {
 }
 
 object PlaySpeedy {
+
+  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   def usage(): Unit = {
     println("""

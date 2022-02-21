@@ -49,6 +49,7 @@ import com.daml.lf.speedy.{
 }
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
+import com.daml.logging.LoggingContext
 import com.daml.script.converter.Converter.{JavaList, unrollFree}
 import com.daml.script.converter.ConverterException
 import com.typesafe.scalalogging.StrictLogging
@@ -377,7 +378,11 @@ private[lf] class Runner(
       mat: Materializer,
   ): (Speedy.Machine, Future[SValue]) = {
     val machine =
-      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, traceLog, warningLog)
+      // TODO: https://github.com/digital-asset/daml/issues/12208
+      //  plug the logging context properly in Daml-script
+      LoggingContext.newLoggingContext(
+        Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, traceLog, warningLog)(_)
+      )
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {

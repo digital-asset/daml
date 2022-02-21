@@ -132,7 +132,7 @@ da_scala_library(
 
 da_scala_binary(
     name = "oauth2-test-server-binary",
-    main_class = "com.daml.oauth.server.Main",
+    main_class = "com.daml.auth.oauth2.test.server.Main",
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],

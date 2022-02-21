@@ -22,6 +22,7 @@ import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, SubmittedTransaction}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.Value
+import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
 
 import scala.jdk.CollectionConverters._
@@ -46,6 +47,8 @@ final class BenchmarkState(
     val pkgs: Map[Ref.PackageId, Ast.Package],
     val profileDir: Option[Path],
 ) {
+
+  private[this] implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private[this] def getContractKey(globalKeyWithMaintainers: GlobalKeyWithMaintainers) =
     contractKeys.get(globalKeyWithMaintainers.globalKey)

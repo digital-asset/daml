@@ -15,6 +15,7 @@ import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueParty, ValueRecord}
+import com.daml.logging.LoggingContext
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -25,12 +26,14 @@ import scala.util.{Failure, Success, Try}
 class TestTraceLog extends TraceLog {
   private val messages: ArrayBuffer[(String, Option[Location])] = new ArrayBuffer()
 
-  override def add(message: String, optLocation: Option[Location]) = {
+  override def add(message: String, optLocation: Option[Location])(implicit
+      loggingContext: LoggingContext
+  ) = {
     messages += ((message, optLocation))
   }
 
   def tracePF[X, Y](text: String, pf: PartialFunction[X, Y]): PartialFunction[X, Y] = {
-    case x if { add(text, None); pf.isDefinedAt(x) } => pf(x)
+    case x if { add(text, None)(LoggingContext.ForTesting); pf.isDefinedAt(x) } => pf(x)
   }
 
   override def iterator = messages.iterator
@@ -39,6 +42,8 @@ class TestTraceLog extends TraceLog {
 }
 
 class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
+
+  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
     module M {

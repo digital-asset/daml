@@ -197,7 +197,8 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
     "fail if an attempt is made to run un-initialized" in new TestSetup {
       // Note this only works as we do not use a real future for testing
       intercept[IllegalStateException] {
-        when(meteringParameterStore.ledgerMeteringEnd(conn)).thenReturn(None)
+        when(meteringParameterStore.ledgerMeteringEnd(conn))
+          .thenThrow(new IllegalStateException("Blah"))
         val underTest =
           new MeteringAggregator(
             meteringStore,

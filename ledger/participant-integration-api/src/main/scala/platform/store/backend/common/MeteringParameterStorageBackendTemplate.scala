@@ -57,6 +57,12 @@ private[backend] object MeteringParameterStorageBackendTemplate
 
   }
 
+  def assertLedgerMeteringEnd(connection: Connection): LedgerMeteringEnd = {
+    ledgerMeteringEnd(connection).getOrElse(
+      throw new IllegalStateException("Ledger metering is not initialized")
+    )
+  }
+
   def updateLedgerMeteringEnd(
       ledgerMeteringEnd: LedgerMeteringEnd
   )(connection: Connection): Unit = {

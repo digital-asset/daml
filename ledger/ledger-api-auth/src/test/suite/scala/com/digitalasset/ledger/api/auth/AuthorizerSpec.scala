@@ -12,6 +12,7 @@ import java.time.Instant
 
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.logging.LoggingContext
 import org.mockito.MockitoSugar
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -68,7 +69,7 @@ class AuthorizerSpec
       .withValue(AuthorizationInterceptor.contextKeyClaimSet, ClaimSet.Claims.Wildcard)
       .call(() => f)
 
-  private def authorizer() = Authorizer(
+  private def authorizer() = new Authorizer(
     () => Instant.ofEpochSecond(1337L),
     "some-ledger-id",
     "participant-id",
@@ -76,5 +77,5 @@ class AuthorizerSpec
     mock[ExecutionContext],
     userRightsCheckIntervalInSeconds = 1,
     akkaScheduler = system.scheduler,
-  )
+  )(LoggingContext.ForTesting)
 }

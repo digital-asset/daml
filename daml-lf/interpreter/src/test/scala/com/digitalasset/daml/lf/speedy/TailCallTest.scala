@@ -16,6 +16,8 @@ import org.scalatest.wordspec.AnyWordSpec
 // TEST_EVIDENCE: Performance: Tail call optimization: Tail recursion does not blow the scala JVM stack.
 class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
+  import SpeedyTestLib.loggingContext
+
   val pkgs = SpeedyTestLib.typeAndCompile(
     p"""
        module F {

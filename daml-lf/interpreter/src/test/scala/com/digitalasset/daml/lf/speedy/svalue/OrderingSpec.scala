@@ -41,6 +41,8 @@ class OrderingSpec
     with ScalaCheckDrivenPropertyChecks
     with ScalaCheckPropertyChecks {
 
+  import SpeedyTestLib.loggingContext
+
   private[lf] def toAstType(typ: iface.Type): Ast.Type = typ match {
     case iface.TypeCon(name, typArgs) =>
       typArgs.foldLeft[Ast.Type](Ast.TTyCon(name.identifier))((acc, typ) =>

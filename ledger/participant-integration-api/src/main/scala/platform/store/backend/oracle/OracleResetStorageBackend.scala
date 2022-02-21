@@ -27,6 +27,8 @@ object OracleResetStorageBackend extends ResetStorageBackend {
       "participant_users",
       "participant_user_rights",
       "transaction_metering",
+      "participant_metering",
+      "metering_parameters",
     ) foreach { table =>
       SQL"delete from #$table".execute()(connection)
     }

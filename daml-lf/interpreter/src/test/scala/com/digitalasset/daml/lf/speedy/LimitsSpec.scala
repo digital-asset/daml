@@ -17,6 +17,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
+  import SpeedyTestLib.loggingContext
+
   private[this] val pkgs = SpeedyTestLib.typeAndCompile(
     p"""
       module Mod {

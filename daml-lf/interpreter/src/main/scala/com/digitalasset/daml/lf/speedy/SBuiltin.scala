@@ -1583,7 +1583,7 @@ private[lf] object SBuiltin {
         machine: Machine,
     ): Unit = {
       val message = getSText(args, 0)
-      machine.traceLog.add(message, machine.lastLocation)
+      machine.traceLog.add(message, machine.lastLocation)(machine.loggingContext)
       machine.returnValue = args.get(1)
     }
   }

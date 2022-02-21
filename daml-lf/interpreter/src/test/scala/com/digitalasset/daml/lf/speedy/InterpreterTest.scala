@@ -16,11 +16,13 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-import org.slf4j.LoggerFactory
+import com.daml.logging.ContextualizedLogger
 
 import scala.language.implicitConversions
 
 class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
+
+  import SpeedyTestLib.loggingContext
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
@@ -152,13 +154,13 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
   }
 
   "tracelog" should {
-    val logger = LoggerFactory.getLogger("test-daml-trace-logger")
+    val logger = ContextualizedLogger.get(getClass)
     "empty size" in {
-      val log = RingBufferTraceLog(logger, 10)
+      val log = new RingBufferTraceLog(logger, 10)
       log.iterator.hasNext shouldBe false
     }
     "half full" in {
-      val log = RingBufferTraceLog(logger, 2)
+      val log = new RingBufferTraceLog(logger, 2)
       log.add("test", None)
       val iter = log.iterator
       iter.hasNext shouldBe true
@@ -166,7 +168,7 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
       iter.hasNext shouldBe false
     }
     "overflow" in {
-      val log = RingBufferTraceLog(logger, 2)
+      val log = new RingBufferTraceLog(logger, 2)
       log.add("test1", None)
       log.add("test2", None)
       log.add("test3", None) // should replace "test1"

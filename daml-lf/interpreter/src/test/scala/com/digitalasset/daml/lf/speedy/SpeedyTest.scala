@@ -504,6 +504,8 @@ class SpeedyTest extends AnyWordSpec with Matchers {
 
 object SpeedyTest {
 
+  import SpeedyTestLib.loggingContext
+
   private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] =
     evalSExpr(packages.compiler.unsafeCompile(e), packages)
 

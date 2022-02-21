@@ -247,7 +247,7 @@ object SandboxOnXRunner {
         maxCacheSize = config.userManagementConfig.maxCacheSize,
         maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
         timeProvider = TimeProvider.UTC,
-      )(servicesExecutionContext),
+      )(servicesExecutionContext, loggingContext),
       ledgerFeatures = LedgerFeatures(
         staticTime = timeServiceBackend.isDefined,
         commandDeduplicationFeatures = CommandDeduplicationFeatures.of(

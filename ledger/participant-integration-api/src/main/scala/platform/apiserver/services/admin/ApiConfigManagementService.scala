@@ -186,7 +186,6 @@ private[apiserver] final class ApiConfigManagementService private (
         case Failure(err) => Left(invalidArgument(err.toString))
         case Success(ok) => Right(ok)
       }
-      // TODO(JM): The maximum record time should be constrained, probably by the current active time model?
       pMaxRecordTime <- requirePresence(request.maximumRecordTime, "maximum_record_time")
       mrtInstant = TimestampConversion.toInstant(pMaxRecordTime)
       timeToLive = {

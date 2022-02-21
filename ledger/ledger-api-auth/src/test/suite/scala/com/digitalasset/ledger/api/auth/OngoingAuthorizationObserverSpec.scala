@@ -28,8 +28,6 @@ class OngoingAuthorizationObserverSpec
     with ArgumentMatchersSugar
     with ErrorsAssertions {
 
-  private val loggingContext = LoggingContext.ForTesting
-
   it should "signal onError aborting the stream when user rights state hasn't been refreshed in a timely manner" in {
     val clock = AdjustableClock(
       baseClock = Clock.fixed(Instant.now(), ZoneId.systemDefault()),
@@ -45,16 +43,19 @@ class OngoingAuthorizationObserverSpec
       )
     ).thenReturn(cancellableMock)
     val userRightsCheckIntervalInSeconds = 10
-    val tested = new OngoingAuthorizationObserver(
+    val tested = OngoingAuthorizationObserver(
       observer = delegate,
-      originalClaims = ClaimSet.Claims.Empty.copy(resolvedFromUser = true),
+      originalClaims = ClaimSet.Claims.Empty.copy(
+        resolvedFromUser = true,
+        applicationId = Some("some_user_id"),
+      ),
       nowF = clock.instant,
       errorFactories = mock[ErrorFactories],
       userManagementStore = mock[UserManagementStore],
       // This is also the user rights state refresh timeout
       userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
       akkaScheduler = mockScheduler,
-    )(loggingContext, executionContext)
+    )(LoggingContext.ForTesting, executionContext)
 
     // After 20 seconds pass we expect onError to be called due to lack of user rights state refresh task inactivity
     tested.onNext(1)

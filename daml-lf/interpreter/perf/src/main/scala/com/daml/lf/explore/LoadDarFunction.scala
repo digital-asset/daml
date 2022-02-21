@@ -11,10 +11,13 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
+import com.daml.logging.LoggingContext
 
 import java.io.File
 
 object LoadDarFunction extends App {
+
+  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   def load(darFile: File, base: String, funcName: String): (Long => Long) = {
 

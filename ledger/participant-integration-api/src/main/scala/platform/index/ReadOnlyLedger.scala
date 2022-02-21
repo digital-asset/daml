@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store
+package com.daml.platform.index
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -18,7 +18,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
+import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, PackageDetails}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -30,7 +30,7 @@ import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, 
 import scala.concurrent.Future
 
 /** Defines all the functionalities a Ledger needs to provide */
-private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
+private[index] trait ReadOnlyLedger extends ReportsHealth {
 
   def ledgerId: LedgerId
 
@@ -126,10 +126,10 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       loggingContext: LoggingContext
   ): Future[Unit]
 
-  def getTransactionMetering(
+  def meteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[Ref.ApplicationId],
-  )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]]
+  )(implicit loggingContext: LoggingContext): Future[ReportData]
 
 }

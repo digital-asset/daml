@@ -18,7 +18,8 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, MeteringStore, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
+import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, PackageDetails}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
@@ -26,12 +27,11 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
 
-private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metrics)
+private[index] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metrics)
     extends ReadOnlyLedger {
 
   override def ledgerId: LedgerId = ledger.ledgerId
@@ -143,10 +143,6 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed] =
     ledger.packageEntries(startExclusive)
 
-  override def close(): Unit = {
-    ledger.close()
-  }
-
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]] =
@@ -166,14 +162,14 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       ledger.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
     )
 
-  override def getTransactionMetering(
+  override def meteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
-  )(implicit loggingContext: LoggingContext): Future[Vector[MeteringStore.TransactionMetering]] = {
+  )(implicit loggingContext: LoggingContext): Future[ReportData] = {
     Timed.future(
       metrics.daml.index.getTransactionMetering,
-      ledger.getTransactionMetering(from, to, applicationId),
+      ledger.meteringReportData(from, to, applicationId),
     )
   }
 }

@@ -81,6 +81,7 @@ trait TestFixture
             ledgerId = ledgerId,
             jwtSecret = jwtSecret,
             clock = Some(clock),
+            yieldUserTokens = false, // TODO parameterize (#12989)
           )
         )
         serverBinding <- Resources.authServerBinding(server)

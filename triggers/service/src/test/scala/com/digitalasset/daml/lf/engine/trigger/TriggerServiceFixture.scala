@@ -208,6 +208,7 @@ trait AuthMiddlewareFixture
             ledgerId = ledgerId,
             jwtSecret = authSecret,
             clock = Some(clock),
+            yieldUserTokens = false, // TODO parameterize (#12831)
           )
           oauthServer = OAuthServer(oauthConfig)
           oauth <- Resource(oauthServer.start())(closeServerBinding)

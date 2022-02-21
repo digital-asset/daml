@@ -16,6 +16,7 @@ import com.daml.lf.speedy.SExpr.{SExpr, SEValue, SEApp}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
+import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
@@ -43,8 +44,8 @@ final class ScenarioRunner(
   var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   var currentSubmission: Option[CurrentSubmission] = None
 
-  def run(): ScenarioResult =
-    handleUnsafe(runUnsafe()) match {
+  def run(implicit loggingContext: LoggingContext): ScenarioResult =
+    handleUnsafe(runUnsafe) match {
       case Left(err) =>
         ScenarioError(
           ledger,
@@ -57,7 +58,7 @@ final class ScenarioRunner(
       case Right(t) => t
     }
 
-  private def runUnsafe(): ScenarioSuccess = {
+  private def runUnsafe(implicit loggingContext: LoggingContext): ScenarioSuccess = {
     // NOTE(JM): Written with an imperative loop and exceptions for speed
     // and so that we don't need to worry about stack usage.
     val startTime = System.nanoTime()
@@ -387,7 +388,7 @@ object ScenarioRunner {
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       doEnrichment: Boolean = true,
-  ): SubmissionResult[R] = {
+  )(implicit loggingContext: LoggingContext): SubmissionResult[R] = {
     val ledgerMachine = Speedy.Machine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,

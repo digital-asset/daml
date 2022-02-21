@@ -172,8 +172,7 @@ object UpdateToDbDto {
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
                   create_key_hash = create.key
-                    .map(convertLfValueKey(create.templateId, _))
-                    .map(_.hash.bytes.toHexString),
+                    .map(key => Key.assertBuild(create.templateId, key.key).hash.bytes.toHexString),
                   create_argument_compression = compressionStrategy.createArgumentCompression.id,
                   create_key_value_compression =
                     compressionStrategy.createKeyValueCompression.id.filter(_ =>

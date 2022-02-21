@@ -47,7 +47,7 @@ class StoreBackedCommandExecutorSpec
           any[com.daml.lf.command.Commands],
           any[ParticipantId],
           any[Hash],
-        )
+        )(any[LoggingContext])
       )
         .thenReturn(
           ResultDone[(SubmittedTransaction, Transaction.Metadata)](

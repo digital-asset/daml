@@ -5,12 +5,15 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.testing.parser._
+import com.daml.logging.LoggingContext
 import org.openjdk.jmh.annotations._
 
 @State(Scope.Benchmark)
 class StructProjBench {
 
   import com.daml.lf.testing.parser.Implicits._
+
+  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   // log2 of the number of iterations
   // Above 2^12=4096 the validation/compilation seems to be a bit long
