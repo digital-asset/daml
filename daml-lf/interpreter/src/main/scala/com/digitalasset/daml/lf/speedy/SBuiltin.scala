@@ -906,7 +906,7 @@ private[lf] object SBuiltin {
     */
   final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(3) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SUnit.type = {
-      val _ = getSUnit(args, 1)
+      discard(getSUnit(args, 1))
       val precond = getSBool(args, 2)
       if (precond) SUnit
       else
