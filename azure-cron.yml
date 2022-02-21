@@ -31,8 +31,7 @@ jobs:
   - job: docs
     timeoutInMinutes: 120
     pool:
-      name: 'ubuntu_20_04'
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
@@ -51,8 +50,7 @@ jobs:
   - job: docker_image
     timeoutInMinutes: 60
     pool:
-      name: 'ubuntu_20_04'
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     steps:
       - checkout: self
       - bash: |
@@ -106,8 +104,7 @@ jobs:
   - job: vscode_marketplace
     timeoutInMinutes: 10
     pool:
-      name: 'ubuntu_20_04'
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     steps:
       - checkout: self
       - bash: |
@@ -176,8 +173,7 @@ jobs:
   - job: download_stats
     timeoutInMinutes: 10
     pool:
-      name: "ubuntu_20_04"
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     steps:
       - checkout: self
       - bash: |

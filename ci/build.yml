@@ -7,8 +7,7 @@ jobs:
   timeoutInMinutes: 120
   condition: eq(variables['System.PullRequest.IsFork'], 'False')
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
     - checkout: self
     - bash: ci/dev-env-install.sh
@@ -37,8 +36,7 @@ jobs:
 
 - job: git_sha
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
     - template: bash-lib.yml
       parameters:
@@ -78,8 +76,7 @@ jobs:
     - template: job-variables.yml
   timeoutInMinutes: 360
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
     - template: report-start.yml
     - checkout: self
@@ -226,8 +223,7 @@ jobs:
     - da_ghc_lib
   timeoutInMinutes: 360
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
     - template: report-start.yml
     - checkout: self
@@ -324,8 +320,7 @@ jobs:
     - Linux
     - macOS
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
     - checkout: self
     - bash: ci/dev-env-install.sh
@@ -368,8 +363,7 @@ jobs:
                  not(eq(dependencies.check_for_release.outputs['out.is_release'], 'true')))
   timeoutInMinutes: 360
   pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
     - template: report-start.yml
     - checkout: self
@@ -385,8 +379,7 @@ jobs:
     - compatibility_ts_libs
   timeoutInMinutes: 360
   pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
     - template: report-start.yml
     - checkout: self
@@ -400,8 +393,7 @@ jobs:
 # For main and PRs targeting main, we simply check against the most recent stable tag.
 - job: compatibility_stable_protobuf
   pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
     - checkout: self
     - bash: ci/check-protobuf-stability.sh
@@ -420,8 +412,7 @@ jobs:
     - compatibility_stable_protobuf
     - check_for_release
   pool:
-    name: "ubuntu_20_04"
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   variables:
     Linux.start: $[ dependencies.Linux.outputs['start.time'] ]
     Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]

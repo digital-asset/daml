@@ -16,8 +16,7 @@ jobs:
 - job: open_release_pr
   timeoutInMinutes: 60
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
   - checkout: self
     persistCredentials: true

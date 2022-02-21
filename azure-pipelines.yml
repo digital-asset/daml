@@ -27,8 +27,7 @@ jobs:
                  eq(dependencies.check_for_release.outputs['out.split_release_process'], 'false'),
                  eq(variables['Build.SourceBranchName'], 'main'))
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   variables:
     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
     release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
@@ -167,8 +166,7 @@ jobs:
   - release
   - check_for_release
   pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   variables:
     release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
@@ -223,8 +221,7 @@ jobs:
 - job: compat_versions_pr_trigger_daily
   dependsOn: compat_versions_pr
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   variables:
     branch: $[ dependencies.compat_versions_pr.outputs['out.branch'] ]
   steps:

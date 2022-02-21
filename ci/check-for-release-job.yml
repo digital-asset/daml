@@ -9,8 +9,7 @@ jobs:
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
   pool:
-    name: "ubuntu_20_04"
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
     - template: bash-lib.yml
       parameters:

@@ -9,8 +9,7 @@ jobs:
                  eq(dependencies.check_for_release.outputs['out.split_release_process'], 'true'),
                  eq(variables['Build.SourceBranchName'], 'main'))
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   variables:
     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
     release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]

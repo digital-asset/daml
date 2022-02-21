@@ -23,8 +23,7 @@ jobs:
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
   condition: eq(variables['Build.Reason'], 'PullRequest')
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
     - checkout: self
     - bash: |
@@ -53,8 +52,7 @@ jobs:
     pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
   condition: eq(variables['Build.Reason'], 'PullRequest')
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
     - checkout: self
     - template: bash-lib.yml
@@ -77,8 +75,7 @@ jobs:
 
 - job: compatiblity_target_protobuf
   pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   steps:
     - checkout: self
     - bash: ci/check-protobuf-stability.sh --target
@@ -98,8 +95,7 @@ jobs:
     - check_for_release
     - platform_independence_test
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   variables:
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     status: $[ dependencies.collect_build_data.result ]
@@ -153,8 +149,7 @@ jobs:
     - check_for_release
     - check_changelog_entry
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   variables:
     pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
@@ -176,8 +171,7 @@ jobs:
 
 - job: self_service_compat_test
   pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    vmImage: ubuntu-20.04
   condition: eq(variables['Build.Reason'], 'PullRequest')
   steps:
   - checkout: self

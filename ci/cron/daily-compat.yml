@@ -26,8 +26,7 @@ jobs:
   - job: compatibility_ts_libs
     timeoutInMinutes: 60
     pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     steps:
       - checkout: self
       - template: ../clean-up.yml
@@ -70,8 +69,7 @@ jobs:
   - job: perf_speedy
     timeoutInMinutes: 120
     pool:
-      name: "ubuntu_20_04"
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
@@ -118,8 +116,7 @@ jobs:
   - job: perf_http_json
     timeoutInMinutes: 120
     pool:
-      name: "ubuntu_20_04"
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
@@ -182,8 +179,7 @@ jobs:
         oracle:
           querystore: oracle
     pool:
-      name: "ubuntu_20_04"
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
@@ -328,8 +324,7 @@ jobs:
   - job: check_releases
     timeoutInMinutes: 360
     pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
@@ -351,8 +346,7 @@ jobs:
     timeoutInMinutes: 1200
     condition: eq(variables['Build.SourceBranchName'], 'main')
     pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     steps:
       - checkout: self
         persistCredentials: true
@@ -500,8 +494,7 @@ jobs:
     condition: and(succeeded(),
                    eq(variables['Build.SourceBranchName'], 'main'))
     pool:
-      name: 'ubuntu_20_04'
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     variables:
       need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
     steps:
@@ -525,8 +518,7 @@ jobs:
     condition: and(succeededOrFailed(),
                    eq(variables['Build.SourceBranchName'], 'main'))
     pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
+      vmImage: ubuntu-20.04
     variables:
       compatibility_ts_libs: $[ dependencies.compatibility_ts_libs.result ]
       compatibility: $[ dependencies.compatibility.result ]
