@@ -68,5 +68,5 @@ out
 *.swp
 
 # Visual Studio Code
-.vscode
-
+.vscode/*
+!.vscode/settings.json.default
