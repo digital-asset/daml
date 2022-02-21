@@ -52,6 +52,10 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   implicit val code: ErrorCode = this
 
   /** @return whether the supplied exception matches this error code.
+    *
+    * NOTE: This method is not suitable for:
+    * 1) security sensitive error codes (e.g. internal or authentication related) as they are stripped from all the details when being converted to instances of [[StatusRuntimeException]],
+    * 2) error codes that do not translate to gRPC level errors (i.e. error codes that don't have a corresponding gRPC status)
     */
   def matches(e: StatusRuntimeException): Boolean = {
     val matchesErrorCodeId = from(e).exists {
