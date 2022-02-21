@@ -108,6 +108,12 @@ class IndexerBenchmark() {
         val duration: Double = (stopTime - startTime).toDouble / 1000000000.0
         val updates: Long = metrics.daml.parallelIndexer.updates.getCount
         val updateRate: Double = updates / duration
+        val inputMappingDurationMetric = metrics.registry.timer(
+          MetricRegistry.name(metrics.daml.parallelIndexer.inputMapping.executor, "duration")
+        )
+        val batchingDurationMetric = metrics.registry.timer(
+          MetricRegistry.name(metrics.daml.parallelIndexer.batching.executor, "duration")
+        )
         val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
           config.minUpdateRate match {
             case Some(requiredMinUpdateRate) if requiredMinUpdateRate > updateRate =>
@@ -149,13 +155,11 @@ class IndexerBenchmark() {
             metrics.daml.parallelIndexer.inputMapping.batchSize.getSnapshot
           )}
              |  inputMapping.duration:      ${histogramToString(
-            metrics.daml.parallelIndexer.inputMapping.duration.getSnapshot
+            inputMappingDurationMetric.getSnapshot
           )}
-             |  inputMapping.duration.rate: ${metrics.daml.parallelIndexer.inputMapping.duration.getMeanRate}
-             |  batching.duration:      ${histogramToString(
-            metrics.daml.parallelIndexer.batching.duration.getSnapshot
-          )}
-             |  batching.duration.rate: ${metrics.daml.parallelIndexer.batching.duration.getMeanRate}
+             |  inputMapping.duration.rate: ${inputMappingDurationMetric.getMeanRate}
+             |  batching.duration:      ${histogramToString(batchingDurationMetric.getSnapshot)}
+             |  batching.duration.rate: ${batchingDurationMetric.getMeanRate}
              |  seqMapping.duration: ${metrics.daml.parallelIndexer.seqMapping.duration.getSnapshot}|
              |  seqMapping.duration.rate: ${metrics.daml.parallelIndexer.seqMapping.duration.getMeanRate}|
              |  ingestion.duration:         ${histogramToString(
