@@ -18,7 +18,8 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, MeteringStore, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
+import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, PackageDetails}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
@@ -161,14 +162,14 @@ private[index] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metr
       ledger.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
     )
 
-  override def getTransactionMetering(
+  override def meteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
-  )(implicit loggingContext: LoggingContext): Future[Vector[MeteringStore.TransactionMetering]] = {
+  )(implicit loggingContext: LoggingContext): Future[ReportData] = {
     Timed.future(
       metrics.daml.index.getTransactionMetering,
-      ledger.getTransactionMetering(from, to, applicationId),
+      ledger.meteringReportData(from, to, applicationId),
     )
   }
 }
