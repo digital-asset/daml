@@ -168,6 +168,12 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       case otherwise => unexpectedType(i, "SAny", otherwise)
     }
 
+  final protected def getSTypeRep(args: util.ArrayList[SValue], i: Int): Ast.Type =
+    args.get(i) match {
+      case STypeRep(ty) => ty
+      case otherwise => unexpectedType(i, "STypeRep", otherwise)
+    }
+
   final protected def getSAnyException(args: util.ArrayList[SValue], i: Int): SRecord =
     args.get(i) match {
       case SAnyException(exception) => exception
@@ -1865,10 +1871,19 @@ private[lf] object SBuiltin {
         machine.returnValue = SInt64(42L)
     }
 
+    private object SBExperimentalTypeRepTyConName extends SBuiltinPure(1) {
+      override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional =
+        getSTypeRep(args, 0) match {
+          case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
+          case _ => SOptional(None)
+        }
+    }
+
     //TODO: move this into the speedy compiler code
     private val mapping: Map[String, compileTime.SExpr] =
       List(
-        "ANSWER" -> SBExperimentalAnswer
+        "ANSWER" -> SBExperimentalAnswer,
+        "TYPEREP_TYCON_NAME" -> SBExperimentalTypeRepTyConName,
       ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap
 
     def apply(name: String): compileTime.SExpr =
