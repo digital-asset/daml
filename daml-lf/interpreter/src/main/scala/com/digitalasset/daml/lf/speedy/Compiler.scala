@@ -726,7 +726,7 @@ private[lf] final class Compiler(
     val precondsArray: ImmArray[s.SExpr] =
       (Iterator(translateExp(env2, tmpl.precond)) ++ implementsPrecondsIterator).to(ImmArray)
 
-    val preconds = precondsArray.foldLeft[s.SExpr](s.SEValue(SUnit))((acc, precond) =>
+    val preconds = precondsArray.foldLeft[s.SExpr](s.SEValue.SUnit)((acc, precond) =>
       SBCheckPrecond(tmplId)(env2.toSEVar(tmplArgPos), acc, precond)
     )
 
