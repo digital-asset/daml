@@ -277,20 +277,24 @@ jobs:
         done
 
 
-        cat <<EOT > doit.txt
-         show parameter max_string;
+        # Setting MAX_STRING_SIZE='EXTENDED' in order to enable specfying collation at column level.
+        # See 'Increasing the Maximum Size of VARCHAR2, NVARCHAR2, and RAW Columns in a PDB' at
+        # https://docs.oracle.com/en/database/oracle/oracle-database/19/refrn/MAX_STRING_SIZE.html#GUID-D424D23B-0933-425F-BC69-9C0E6724693C
+        #
+        cat <<EOT > set_max_string_size.txt
+         SHOW PARAMETER max_string_size;
          SHUTDOWN IMMEDIATE;
-         alter pluggable database ORCLPDB1 open UPGRADE;
-         alter system set MAX_STRING_SIZE='EXTENDED';
+         ALTER PLUGGABLE DATABASE orclpdb1 OPEN UPGRADE;
+         ALTER SYSTEM SET max_string_size='EXTENDED';
          @?/rdbms/admin/utl32k.sql;
          @?/rdbms/admin/utlrp.sql;
-         shutdown immediate;
-         startup;
-         show parameter max_string;
-
+         SHUTDOWN IMMEDIATE;
+         STARTUP;
+         SHOW PARAMETER max_string_size;
+         ;
         EOT
-        docker cp doit.txt oracle:/home/oracle/doit.txt
-        docker exec oracle bash -c 'sqlplus -L '"$ORACLE_USERNAME"'/'"$ORACLE_PWD"'@//localhost:'"$ORACLE_PORT"'/ORCLPDB1 as sysdba <<< "@doit.txt" '
+        docker cp set_max_string_size.txt oracle:/home/oracle/set_max_string_size.txt
+        docker exec oracle bash -c 'sqlplus -L sys/'"$ORACLE_PWD"'@//localhost:'"$ORACLE_PORT"'/ORCLPDB1 as sysdba <<< "@set_max_string_size.txt" '
 
         # Actually run some tests
         # Note: Oracle tests all run sequentially because they all access the same Oracle instance,
