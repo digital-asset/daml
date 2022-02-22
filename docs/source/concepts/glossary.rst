@@ -32,7 +32,6 @@ A Canton ledger is a privacy-enabled distributed ledger that is enhanced when de
 
 The Canton ledger is often just referred to as 'the ledger' for simplicity.
 
-.. Canton protocol.  Not Canton transaction protocol (following the example made by marketing - they don't use the word 'transaction')
 Canton Protocol
 ===============
 
@@ -50,10 +49,6 @@ Daml Drivers
 ============
 
 Daml drivers enable a `Canton ledger <#canton-ledger>`__ to be implemented on top of different `synchronization technologies <#synchronization-technology>`__; a database or distributed ledger technology. 
-
-Daml provides drivers for PostgreSQL, Oracle Database, VMware Blockchain, Hyperledger Fabric, Hyperledger Besu, and other blockchains and databases.
-
-
 
 Daml Language Concepts
 **********************
@@ -137,14 +132,14 @@ A **party** represents a person or legal entity. Parties can `create contracts <
 `Signatories <#signatory>`_, `observers <#observer>`__, `controllers <#controller>`__, and `maintainers <#maintainer>`__ all must be parties, represented by the ``Party`` data type in Daml and determine who may see
   contract data.
 
-Parties are hosted on participant nodes and a participant node can host more than one party.
+Parties are hosted on participant nodes and a participant node can host more than one party. A party can be hosted on several participant nodes simultaneously.
 
 .. Something about how they work in the `execution engine`.
 
 Signatory
 ---------
 
-A **signatory** is a `party <#party>`__ on a `contract <#contract>`__. The signatories MUST consent to the `creation <#create>`__ of the contract by `authorizing <#authorization-signing>`__ it: if they don't, contract creation will fail. Once the contract is created, signatories can see the contracts.
+A **signatory** is a `party <#party>`__ on a `contract <#contract>`__. The signatories MUST consent to the `creation <#create>`__ of the contract by `authorizing <#authorization-signing>`__ it: if they don't, contract creation will fail. Once the contract is created, signatories can see the contracts and all exercises in that contract.
 
 For documentation on signatories, see :doc:`/daml/reference/templates`.
 
@@ -291,7 +286,7 @@ See :doc:`/daml/reference/contract-keys`.
 DAR file, DALF file
 ===================
 
-A Daml Archive file, known as a ``.dar`` file is the result of compiling Daml code using the `Assistant <#assistant>`__ and contains compiled Daml code that can be interpreted using a Daml interpreter.
+A Daml Archive file, known as a ``.dar`` file is the result of compiling Daml code using the `Assistant <#assistant>`__ which can be interpreted using a Daml interpreter.
 
 You upload ``.dar`` files to a `ledger <#canton-ledger>`__ in order to be able to create contracts from the templates in that file.
 
@@ -354,7 +349,7 @@ Ledger API
 ==========
 
 The **Ledger API** is an API that's exposed by any `ledger <#canton-ledger>`__ on a participant node. Users access and manipulate the ledger state from the perspective of a party through the leger API.
-Alternative names: **Canton Ledger API** and **gRPC Ledger API** if disambiguation from other technologies is needed.
+An alternative name for the ledger API is the **gRPC Ledger API** if disambiguation from other technologies is needed.
 See :doc:`/app-dev/ledger-api` page.
 It includes the following :doc:`services </app-dev/services>`.
 
@@ -476,7 +471,6 @@ Participant Node
 The participant node is a server that provides users a consistent programmatic access to a ledger through the `Ledger API <#ledger-api>`__. The participant nodes handles transaction signing and 
 validation, such that users don't have to deal with cryptographic primitives but can trust the participant node that the data they are observing has been properly verified to be correct.
 
-.. Language for the domain was taken, and edited, from the Canton key terms page
 Domain
 ======
 
@@ -487,13 +481,11 @@ The `sequencer service <#sequencer>`__ of the domain orders these messages witho
 
 The other services of the domain are the `mediator <#mediator>`__ and the `domain identity manager <#domain-identity-manager>`__.
 
-.. Language for the Private Contract Store was taken, and edited, from the Canton key terms page
 Private Contract Store
 ======================
 
 Every participant node manages its own private contract store (PCS) which contains only contracts the participant is privy to. There is no global state or global contract store.
 
-.. Language for the Virtual Global Ledger was taken, and edited, from the Canton key terms page
 Virtual Global Ledger
 =====================
 
@@ -502,14 +494,12 @@ and that any change to the store is justified, authorized and valid. The result 
 stores together make up that *virtual global ledger* and they are thus synchronized. The Canton protocol guarantees that the virtual ledger provides integrity, privacy, 
 transparency and auditability. The ledger is logically global, even though physically, it runs on segregated and isolated domains that are not aware of each other.
 
-.. Language for the Mediator was taken, and edited, from the Canton key terms page
 Mediator
 ========
 
 The mediator is a service provided by the `domain <#domain>`__ and used by the `Canton protocol <#canton-protocol>`__. The mediator acts as commit coordinator, collecting individual transaction verdicts issued by validating 
 participants and aggregates them into a single result. The mediator does not learn about the content of the transaction, they only learn about the involved participants.
 
-.. Language for the Sequencer was taken, and edited, from the Canton key terms page
 Sequencer
 =========
 
@@ -530,19 +520,6 @@ The Canton protocol does not use PBFT or any similar consensus algorithm. There 
 two-phase commit protocol. As such, only stakeholders of a transaction are involved in it and need to process it, providing efficiency, privacy and horizontal scalability. Canton based 
 ledgers are resilient to malicious participants as long as there is at least a single honest participant. A domain integration itself might be using the consensus mechanism of the underlying 
 platform, but participant nodes will not be involved in that process.
-
-
-
-.. General concepts
-.. ****************
-
-.. _trust-domain:
-
-.. Trust domain
-.. ============
-
-.. A **trust domain** encompasses a part of the system (in particular, a Daml ledger) operated by a single real-world entity. This subsystem may consist of one or more physical nodes. A single physical machine is always assumed to be controlled by exactly one real-world entity.
-
 
 .. Transaction
 .. ===========
