@@ -89,9 +89,9 @@ partyToText = primitive @"BEToText"
 -- This function, together with `partyToText`, forms an isomorphism between
 -- valid party strings and parties. In other words, the following equations hold:
 --
--- ```
--- forall p. partyFromText (partyToText p) = Some p
--- forall txt p. partyFromText txt = Some p ==> partyToText p = txt
+-- ```daml-force
+-- ∀ p. partyFromText (partyToText p) = Some p
+-- ∀ txt p. partyFromText txt = Some p ==> partyToText p = txt
 -- ```
 --
 -- This function will crash at runtime if you compile Daml to Daml-LF < 1.2.
