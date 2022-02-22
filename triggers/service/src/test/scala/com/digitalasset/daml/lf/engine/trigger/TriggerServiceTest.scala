@@ -14,6 +14,7 @@ import java.time.{Duration => JDuration}
 import java.util.UUID
 
 import akka.http.scaladsl.model.Uri.Query
+import org.scalactic.source
 import org.scalatest._
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -88,6 +89,16 @@ trait AbstractTriggerServiceTest
   // To avoid mixing this up with the other tests, we use a separate party.
   protected val aliceAcs: Party = Tag("Alice_acs")
   protected val aliceExp: Party = Tag("Alice_exp")
+
+  protected[this] def inClaims(self: ItVerbString, testFn: Future[Assertion])(implicit
+      pos: source.Position
+  ) =
+    self in testFn
+
+  protected[this] implicit final class `InClaims syntax`(private val self: ItVerbString) {
+    def inClaims(testFn: Future[Assertion])(implicit pos: source.Position) =
+      AbstractTriggerServiceTest.this.inClaims(self, testFn)
+  }
 
   def startTrigger(
       uri: Uri,
