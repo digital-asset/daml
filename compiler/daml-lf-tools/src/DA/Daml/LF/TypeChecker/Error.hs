@@ -140,9 +140,6 @@ data Error
   | EMissingRequiredInterface { emriTemplate :: !TypeConName, emriRequiringInterface :: !(Qualified TypeConName), emriRequiredInterface :: !(Qualified TypeConName) }
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
-  | EBadInterfaceChoiceImplConsuming !ChoiceName !Bool !Bool
-  | EBadInterfaceChoiceImplArgType !ChoiceName !Type !Type
-  | EBadInterfaceChoiceImplRetType !ChoiceName !Type !Type
   | EMissingInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
   | EUnknownInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
   | ETemplateDoesNotImplementInterface !(Qualified TypeConName) !(Qualified TypeConName)
@@ -407,24 +404,6 @@ instance Pretty Error where
       , "But got: " <> pretty ebicGot
       ]
     EMissingInterfaceChoice ch -> "Missing interface choice implementation for " <> pretty ch
-    EBadInterfaceChoiceImplConsuming ch ifaceConsuming tplConsuming ->
-      vcat
-      [ "Choice implementation and interface definition for " <> pretty ch <> " differ in consuming/non-consuming behaviour."
-      , "Expected: " <> prettyConsuming ifaceConsuming
-      , "But got: " <> prettyConsuming tplConsuming
-      ]
-    EBadInterfaceChoiceImplArgType ch ifaceArgType tplArgType ->
-      vcat
-      [ "Choice implementation and interface definition for " <> pretty ch <> " differ in argument type."
-      , "Expected: " <> pretty ifaceArgType
-      , "But got: " <> pretty tplArgType
-      ]
-    EBadInterfaceChoiceImplRetType ch ifaceRetType tplRetType ->
-      vcat
-      [ "Choice implementation and interface definition for " <> pretty ch <> " differ in return type."
-      , "Expected: " <> pretty ifaceRetType
-      , "But got: " <> pretty tplRetType
-      ]
     EMissingInterfaceMethod tpl iface method ->
       "Template " <> pretty tpl <> " is missing method " <> pretty method <> " for interface " <> pretty iface
     EUnknownInterfaceMethod tpl iface method ->
@@ -435,9 +414,6 @@ instance Pretty Error where
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
     EUnknownExperimental name ty ->
       "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
-
-prettyConsuming :: Bool -> Doc ann
-prettyConsuming consuming = if consuming then "consuming" else "non-consuming"
 
 instance Pretty Context where
   pPrint = \case

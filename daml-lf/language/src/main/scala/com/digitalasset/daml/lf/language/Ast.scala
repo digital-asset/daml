@@ -732,14 +732,6 @@ object Ast {
   type DefInterfaceSignature = GenDefInterface[Unit]
   val DefInterfaceSignature = new GenDefInterfaceCompanion[Unit]
 
-  final case class InterfaceChoice(
-      name: ChoiceName,
-      consuming: Boolean,
-      argType: Type,
-      returnType: Type,
-      // TODO interfaces Should observers or controllers be part of the interface?
-  )
-
   final case class InterfaceMethod(
       name: MethodName,
       returnType: Type,

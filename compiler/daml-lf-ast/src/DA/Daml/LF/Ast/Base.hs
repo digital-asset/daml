@@ -951,15 +951,6 @@ data DefInterface = DefInterface
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
-data InterfaceChoice = InterfaceChoice
-  { ifcLocation :: !(Maybe SourceLoc)
-  , ifcName :: !ChoiceName
-  , ifcConsuming :: !Bool
-  , ifcArgType :: !Type
-  , ifcRetType :: !Type
-  }
-  deriving (Eq, Data, Generic, NFData, Show)
-
 data InterfaceMethod = InterfaceMethod
   { ifmLocation :: !(Maybe SourceLoc)
   , ifmName :: !MethodName
@@ -1052,10 +1043,6 @@ instance Hashable a => Hashable (Qualified a)
 instance NM.Named TemplateChoice where
   type Name TemplateChoice = ChoiceName
   name = chcName
-
-instance NM.Named InterfaceChoice where
-  type Name InterfaceChoice = ChoiceName
-  name = ifcName
 
 instance NM.Named InterfaceMethod where
   type Name InterfaceMethod = MethodName

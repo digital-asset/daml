@@ -434,47 +434,6 @@ final case class EBadInheritedChoices(
     s"Inherited choices for template $template implementation of interface $iface does not match interface definition.\n Expected: $expected\n But got: $got"
 }
 
-final case class EBadInterfaceChoiceImplConsuming(
-    context: Context,
-    iface: TypeConName,
-    template: TypeConName,
-    choice: ChoiceName,
-    ifaceConsuming: Boolean,
-    tplConsuming: Boolean,
-) extends ValidationError {
-
-  def prettyConsuming(consuming: Boolean): String = if (consuming) "consuming" else "non-consuming"
-
-  override protected def prettyInternal: String =
-    s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the consuming/non-consuming behaviour.\nExpected: ${prettyConsuming(ifaceConsuming)}\n But got: ${prettyConsuming(tplConsuming)}"
-}
-
-final case class EBadInterfaceChoiceImplArgType(
-    context: Context,
-    iface: TypeConName,
-    template: TypeConName,
-    choice: ChoiceName,
-    ifaceArgType: Type,
-    tplArgType: Type,
-) extends ValidationError {
-
-  override protected def prettyInternal: String =
-    s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the argument type.\nExpected: $ifaceArgType\n But got: $tplArgType"
-}
-
-final case class EBadInterfaceChoiceImplRetType(
-    context: Context,
-    iface: TypeConName,
-    template: TypeConName,
-    choice: ChoiceName,
-    ifaceRetType: Type,
-    tplRetType: Type,
-) extends ValidationError {
-
-  override protected def prettyInternal: String =
-    s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the return type.\nExpected: $ifaceRetType\n But got: $tplRetType"
-}
-
 final case class EMissingInterfaceMethod(
     context: Context,
     template: TypeConName,
