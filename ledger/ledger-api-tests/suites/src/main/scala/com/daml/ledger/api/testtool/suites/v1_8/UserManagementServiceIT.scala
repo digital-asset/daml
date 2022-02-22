@@ -32,7 +32,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Success
+import scala.util.{Failure, Success}
 
 final class UserManagementServiceIT extends LedgerTestSuite {
 
@@ -202,11 +202,10 @@ final class UserManagementServiceIT extends LedgerTestSuite {
             results.filter(_.isSuccess),
           )
           val unexpectedErrors = results
-            .collect { case x if x.isFailure => x.failed.get }
+            .collect { case Failure(e) => e }
             .filterNot(t =>
-              ErrorDetails.matches(t, LedgerApiErrors.AdminServices.UserAlreadyExists) ||
-                ErrorDetails.matches(t, IndexErrors.DatabaseErrors.SqlTransientError) ||
-                ErrorDetails.isInternalError(t)
+              ErrorDetails.matches(t, IndexErrors.DatabaseErrors.SqlTransientError) || ErrorDetails
+                .matches(t, LedgerApiErrors.AdminServices.UserAlreadyExists)
             )
           assertSameElements(actual = unexpectedErrors, expected = Seq.empty)
         }
@@ -236,12 +235,8 @@ final class UserManagementServiceIT extends LedgerTestSuite {
             "Expected at least one successful user right grant",
           )
           val unexpectedErrors = results
-            .collect { case x if x.isFailure => x.failed.get }
-            // Note: `IndexErrors.DatabaseErrors.SqlNonTransientError` is signalled on H2 and the original cause being `org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException`
-            .filterNot(e =>
-              ErrorDetails.isInternalError(e) || ErrorDetails
-                .matches(e, IndexErrors.DatabaseErrors.SqlTransientError)
-            )
+            .collect { case Failure(e) => e }
+            .filterNot(t => ErrorDetails.matches(t, IndexErrors.DatabaseErrors.SqlTransientError))
           assertSameElements(actual = unexpectedErrors, expected = Seq.empty)
         }
       }

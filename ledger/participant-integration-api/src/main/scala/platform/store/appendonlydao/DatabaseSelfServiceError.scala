@@ -65,6 +65,8 @@ object DatabaseSelfServiceError {
       case "40001" => true
       // Retry on read only transaction, which can occur on Azure
       case "25006" => true
+      // Retry on unique constraint violation
+      case "23505" => true
       // Retry on operator intervention errors, but not on `query_canceled` and `database_dropped`
       case state if state.startsWith("57P") && state != "57014" && state != "57P04" => true
       case _ => false
