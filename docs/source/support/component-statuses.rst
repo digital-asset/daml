@@ -42,6 +42,33 @@ Runtime components
    * - Component / Feature
      - Status
      - Deprecated on
+   * - **Canton**
+     -
+     -
+   * - Canton Application and Console
+     - Stable
+     -
+     - Canton Administrative APIs for participant, and domain nodes
+     - Stable
+     -
+     - Canton Protocol
+     - Stable
+     -
+     - Sequencer for PostgreSQL
+     - Stable
+     -
+     - Sequencer for Oracle DB
+     - Stable
+     -
+     - Sequencer for Hyperledger Fabric
+     - Beta
+     -
+     - Sequencer for Hyperledger Besu
+     - Beta
+     -
+     - Support for connecting a single participant to multiple domains
+     - Alpha
+     -
    * - **JSON API**
      - 
      -
@@ -58,15 +85,20 @@ Runtime components
      -
      -
    * - :doc:`Daml API of individual Triggers </triggers/index>`
-     - Stable (Since SDK 1.10.0)
+     - Stable
      -
    * - :doc:`Development CLI to start individual triggers in dev environment </triggers/index>` (``daml trigger``)
-     - Stable (Since SDK 1.10.0)
+     - Stable
      -
    * - :doc:`/tools/trigger-service/index` (``daml trigger-service``)
-     - Stable (Since SDK 1.10.0)
+     - Stable
      -
-
+   * - **Non-repudiation**
+     -
+     -
+   * - :doc:`/tools/non-repudiation`
+     - Alpha
+     -
 
 .. _libraries:
 
@@ -248,11 +280,8 @@ Developer Tools
    * - ``daml doctest``
      - Labs
      -
-   * - **Scenarios and Script**
+   * - **Script**
      -
-     -
-   * - Scenario Daml API
-     - Stable
      -
    * - :doc:`Script Daml API </daml-script/index>`
      - Stable
@@ -271,6 +300,9 @@ Developer Tools
      -
    * - ``daml script`` :doc:`CLI to run Scripts against live ledgers. </daml-script/index>`
      - Stable
+     -
+   * - ``daml ledger export script`` :doc:`CLI extract Daml Script from ledgers. </tools/export/index>`
+     - Alpha
      -
    * - **Navigator**
      -
