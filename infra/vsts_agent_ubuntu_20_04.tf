@@ -14,16 +14,6 @@ locals {
       size      = 0,
     },
   ]
-  ubuntu_temp = [
-    {
-      template = google_compute_instance_template.vsts-agent-ubuntu_20_04[0].self_link,
-      version  = local.ubuntu[0].name,
-    },
-    {
-      template = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/instanceTemplates/ci-u2-1",
-      version  = null,
-    },
-  ]
 }
 
 data "template_file" "vsts-agent-ubuntu_20_04-startup" {
@@ -46,8 +36,8 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-ubuntu_20_04
   target_size        = local.ubuntu[count.index].size
 
   version {
-    name              = local.ubuntu_temp[count.index].version  #local.ubuntu[count.index].name
-    instance_template = local.ubuntu_temp[count.index].template #google_compute_instance_template.vsts-agent-ubuntu_20_04[count.index].self_link
+    name              = local.ubuntu[count.index].name
+    instance_template = google_compute_instance_template.vsts-agent-ubuntu_20_04[count.index].self_link
   }
 
   # uncomment when we get a provider >3.55
