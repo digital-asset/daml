@@ -106,6 +106,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
       request: SubmitRequest
   )(implicit telemetryContext: TelemetryContext): Future[Unit] =
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
+      // TODO: Replace the workaround below with a proper solution.
       // Spin up a Future so that all the work is done not on the dispatcher thread
       // but using the pool provided with the ExecutionContext of this class instance.
       Future {
