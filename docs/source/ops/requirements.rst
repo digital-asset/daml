@@ -30,4 +30,4 @@ Daml is tested using the following specific dependencies in default installation
 Feature/Component System Requirements
 -------------------------------------
 
-1. :doc:`The JavaScript Client Libraries <../app-dev/bindings-ts/index>` is tested on Node 14.18.3. A version greater or equal to 14.18.3 is recommended. 
+1. :doc:`The JavaScript Client Libraries <../app-dev/bindings-ts/index>` are tested on Node 14.18.3. with typescript compiler 4.5.4. Versions greater or equal to these are recommended. 
