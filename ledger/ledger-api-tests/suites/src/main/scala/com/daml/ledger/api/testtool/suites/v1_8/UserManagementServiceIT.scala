@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.suites.v1_8
 import java.util.UUID
 
 import com.daml.error.ErrorCode
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
@@ -237,7 +237,11 @@ final class UserManagementServiceIT extends LedgerTestSuite {
           )
           val unexpectedErrors = results
             .collect { case x if x.isFailure => x.failed.get }
-            .filterNot(ErrorDetails.isInternalError)
+            // Note: `IndexErrors.DatabaseErrors.SqlNonTransientError` is signalled on H2 and the original cause being `org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException`
+            .filterNot(e =>
+              ErrorDetails.isInternalError(e) || ErrorDetails
+                .matches(e, IndexErrors.DatabaseErrors.SqlNonTransientError)
+            )
           assertSameElements(actual = unexpectedErrors, expected = Seq.empty)
         }
       }
