@@ -50,7 +50,7 @@ import scalaz.syntax.functor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
-import scalaz.{-\/, Functor, \/, \/-}
+import scalaz.{-\/, Functor, Tag, \/, \/-}
 
 import java.time.Instant
 import java.util.UUID
@@ -100,9 +100,15 @@ object Trigger extends StrictLogging {
 
   private[trigger] def newLoggingContext[P, T](
       triggerDefinition: Identifier,
+      actAs: Party,
+      readAs: Set[Party],
       triggerId: Option[UUID] = None,
   ): (LoggingContextOf[Trigger with P] => T) => T = {
-    val entries0 = List[LoggingEntry]("triggerDefinition" -> triggerDefinition.toString)
+    val entries0 = List[LoggingEntry](
+      "triggerDefinition" -> triggerDefinition.toString,
+      "triggerActAs" -> Tag.unwrap(actAs),
+      "triggerReadAs" -> Tag.unsubst(readAs),
+    )
     val entries = triggerId.fold(entries0)(uuid => entries0.+:("triggerId" -> uuid.toString))
     LoggingContextOf.newLoggingContext(LoggingContextOf.label[Trigger with P], entries: _*)
   }
@@ -747,7 +753,7 @@ object Runner extends StrictLogging {
       parties: TriggerParties,
       config: Compiler.Config,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] =
-    Trigger.newLoggingContext(triggerId) { implicit lc =>
+    Trigger.newLoggingContext(triggerId, parties.actAs, parties.readAs) { implicit lc =>
       val darMap = dar.all.toMap
       val compiledPackages = PureCompiledPackages.build(darMap, config) match {
         case Left(err) => throw new RuntimeException(s"Failed to compile packages: $err")
