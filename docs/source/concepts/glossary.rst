@@ -433,11 +433,6 @@ A **command** is an instruction to add a transaction to the `ledger <#daml-ledge
 
 .. _daml-lf:
 
-Atomic Transaction
-==================
-
-The ability to effect a set of changes atomically such that either all changes happen or nothing happens in case of a conflict or error.
-
 Sub-Transaction Privacy
 =======================
 
