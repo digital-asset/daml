@@ -89,7 +89,7 @@ partyToText = primitive @"BEToText"
 -- This function, together with `partyToText`, forms an isomorphism between
 -- valid party strings and parties. In other words, the following equations hold:
 --
--- ```
+-- ```daml-force
 -- ∀ p. partyFromText (partyToText p) = Some p
 -- ∀ txt p. partyFromText txt = Some p ==> partyToText p = txt
 -- ```

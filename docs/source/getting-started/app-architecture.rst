@@ -155,6 +155,7 @@ Another example, showing how to *update* ledger state, is how we exercise the ``
 
 .. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/MainView.tsx
   :language: tsx
+  :force:
   :start-after: // FOLLOW_BEGIN
   :end-before: // FOLLOW_END
 

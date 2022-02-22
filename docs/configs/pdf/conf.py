@@ -102,7 +102,7 @@ html_theme_options = {
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
 
 # Don't show "powered by sphinx"
 html_show_sphinx = False
@@ -155,8 +155,6 @@ latex_elements = {
         \usepackage{transparent}
         \usepackage{eso-pic}
         \usepackage{lipsum}
-
-        \usepackage{footnotebackref} %%link at the footnote to go to the place of footnote in the text
 
         %% spacing between line
         \usepackage{setspace}
@@ -340,6 +338,6 @@ rst_prolog = """
 # Import the Daml lexer
 def setup(sphinx):
     from pygments_daml_lexer import DAMLLexer
-    sphinx.add_lexer("daml", DAMLLexer())
+    sphinx.add_lexer("daml", DAMLLexer)
     from typescript import TypeScriptLexer
-    sphinx.add_lexer("tsx", TypeScriptLexer())
+    sphinx.add_lexer("tsx", TypeScriptLexer)
