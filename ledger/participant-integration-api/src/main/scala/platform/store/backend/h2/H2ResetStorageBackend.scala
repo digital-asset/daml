@@ -28,6 +28,8 @@ object H2ResetStorageBackend extends ResetStorageBackend {
       truncate table participant_users;
       truncate table participant_user_rights;
       truncate table transaction_metering;
+      truncate table participant_metering;
+      truncate table metering_parameters;
       set referential_integrity true;
     """
       .execute()(connection)

@@ -16,6 +16,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
+  import SpeedyTestLib.loggingContext
+
   import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
 
   private[this] val pkgId1 = Ref.PackageId.assertFromString("-packageId1-")

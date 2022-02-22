@@ -18,7 +18,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
+import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, PackageDetails}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -126,10 +126,10 @@ private[index] trait ReadOnlyLedger extends ReportsHealth {
       loggingContext: LoggingContext
   ): Future[Unit]
 
-  def getTransactionMetering(
+  def meteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[Ref.ApplicationId],
-  )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]]
+  )(implicit loggingContext: LoggingContext): Future[ReportData]
 
 }

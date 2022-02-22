@@ -1602,6 +1602,8 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
 object SBuiltinTest {
 
+  import SpeedyTestLib.loggingContext
+
   private val pkg =
     p"""
         module Mod {

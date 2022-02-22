@@ -787,6 +787,7 @@ typeOf' = \case
 
 checkExperimentalType :: MonadGamma m => T.Text -> Type -> m ()
 checkExperimentalType "ANSWER" (TUnit :-> TInt64) = pure ()
+checkExperimentalType "TYPEREP_TYCON_NAME" (TTypeRep :-> TOptional TText) = pure ()
 checkExperimentalType name ty =
   throwWithContext (EUnknownExperimental name ty)
 

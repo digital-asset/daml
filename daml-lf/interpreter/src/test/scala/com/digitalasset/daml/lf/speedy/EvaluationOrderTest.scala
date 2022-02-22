@@ -15,6 +15,7 @@ import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueParty, ValueRecord}
+import com.daml.logging.LoggingContext
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -25,12 +26,14 @@ import scala.util.{Failure, Success, Try}
 class TestTraceLog extends TraceLog {
   private val messages: ArrayBuffer[(String, Option[Location])] = new ArrayBuffer()
 
-  override def add(message: String, optLocation: Option[Location]) = {
+  override def add(message: String, optLocation: Option[Location])(implicit
+      loggingContext: LoggingContext
+  ) = {
     messages += ((message, optLocation))
   }
 
   def tracePF[X, Y](text: String, pf: PartialFunction[X, Y]): PartialFunction[X, Y] = {
-    case x if { add(text, None); pf.isDefinedAt(x) } => pf(x)
+    case x if { add(text, None)(LoggingContext.ForTesting); pf.isDefinedAt(x) } => pf(x)
   }
 
   override def iterator = messages.iterator
@@ -39,6 +42,8 @@ class TestTraceLog extends TraceLog {
 }
 
 class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
+
+  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
     module M {
@@ -50,14 +55,26 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         case (EQUAL @Int64 i 0) of
           True -> M:Nested { f = None @M:Nested }
           | _ -> M:Nested { f = Some @M:Nested (M:buildNested (SUB_INT64 i 1)) };
-      
+
       val toKey : Party -> M:TKey = \(p : Party) ->
          M:TKey { maintainers = Cons @Party [p] (Nil @Party), optCid = None @(ContractId Unit), nested = M:buildNested 0 };
       val keyNoMaintainers : M:TKey = M:TKey { maintainers = Nil @Party, optCid = None @(ContractId Unit), nested = M:buildNested 0 };
       val toKeyWithCid : Party -> ContractId Unit -> M:TKey = \(p : Party) (cid : ContractId Unit) -> M:TKey { maintainers = Cons @Party [p] (Nil @Party), optCid = Some @(ContractId Unit) cid, nested = M:buildNested 0 };
 
       variant @serializable Either (a:*) (b:*) = Left: a | Right : b;
-      
+
+      interface (this : I1) =  {
+        precondition TRACE @Bool "precondition1" True;
+      };
+
+      interface (this : I2) =  {
+        precondition TRACE @Bool "precondition2" False;
+      };
+
+      interface (this : I3) =  {
+        precondition TRACE @Bool "precondition3" False;
+      };
+
       record @serializable T = { signatory : Party, observer : Party, precondition : Bool, key: M:TKey, nested: M:Nested };
       template (this : T) = {
         precondition TRACE @Bool "precondition" (M:T {precondition} this);
@@ -68,98 +85,118 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           controllers TRACE @(List Party) "choice controllers" (Cons @Party [M:T {signatory} this] (Nil @Party)),
           observers TRACE @(List Party) "choice observers" (Nil @Party)
           to upure @M:Nested (TRACE @M:Nested "choice body" (M:buildNested (case arg of M:Either:Right i -> i | _ -> 0)));
-        choice Archive (self) (arg: Unit): Unit, 
+        choice Archive (self) (arg: Unit): Unit,
           controllers Cons @Party [M:T {signatory} this] (Nil @Party)
           to upure @Unit (TRACE @Unit "archive" ());
         key @M:TKey
            (TRACE @M:TKey "key" (M:T {key} this))
            (\(key : M:TKey) -> TRACE @(List Party) "maintainers" (M:TKey {maintainers} key));
       };
-      
+
+      record @serializable T2 = { signatory : Party, observer : Party, precondition : Bool};
+      template (this : T2) = {
+        precondition TRACE @Bool "precondition" (M:T2 {precondition} this);
+        signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:T2 {signatory} this] (Nil @Party));
+        observers TRACE @(List Party) "contract observers" (Cons @Party [M:T2 {observer} this] (Nil @Party));
+        agreement TRACE @Text "agreement" "";
+        choice Archive (self) (arg: Unit): Unit,
+          controllers Cons @Party [M:T2 {signatory} this] (Nil @Party)
+          to upure @Unit (TRACE @Unit "archive" ());
+        implements M:I1 {
+        };
+        implements M:I2 {
+        };
+        implements M:I3 {
+        };
+      };
+
       record @serializable Dummy = { signatory : Party };
       template (this: Dummy) = {
         precondition True;
         signatories Cons @Party [M:Dummy {signatory} this] (Nil @Party);
         observers Nil @Party;
         agreement "";
-        choice Archive (self) (arg: Unit): Unit, 
+        choice Archive (self) (arg: Unit): Unit,
           controllers Cons @Party [M:Dummy {signatory} this] (Nil @Party)
           to upure @Unit ();
-      };   
+      };
     }
-    
+
     module Test{
       val noParty: Option Party = None @Party;
       val someParty: Party -> Option Party = \(p: Party) -> Some @Party p;
       val noCid: Option (ContractId Unit) = None @(ContractId Unit);
       val someCid: ContractId Unit -> Option (ContractId Unit) = \(cid: ContractId Unit) -> Some @(ContractId Unit) cid;
-    
-      val run: forall (t: *). Update t -> Update Unit = 
-        /\(t: *). \(u: Update t) -> 
+
+      val run: forall (t: *). Update t -> Update Unit =
+        /\(t: *). \(u: Update t) ->
           ubind x:Unit <- upure @Unit (TRACE @Unit "starts test" ())
-          in ubind y:t <- u 
+          in ubind y:t <- u
           in upure @Unit (TRACE @Unit "ends test" ());
 
-      val create: M:T -> Update Unit = 
+      val create: M:T -> Update Unit =
         \(arg: M:T) -> Test:run @(ContractId M:T) (create @M:T arg);
 
+      val create2: M:T2 -> Update Unit =
+        \(arg: M:T2) -> Test:run @(ContractId M:T2) (create @M:T2 arg);
+
       val exercise_by_id: Party -> ContractId M:T -> M:Either Int64 Int64 -> Update Unit =
-        \(exercisingParty: Party) (cId: ContractId M:T) (argParams: M:Either Int64 Int64) -> 
+        \(exercisingParty: Party) (cId: ContractId M:T) (argParams: M:Either Int64 Int64) ->
           let arg: Test:ExeArg = Test:ExeArg {
             idOrKey = M:Either:Left @(ContractId M:T) @Test:TKeyParams cId,
             argParams = argParams
           }
-          in ubind 
+          in ubind
             bridgeId: ContractId Test:Bridge <- Test:createBridge exercisingParty;
             x: M:Nested <-exercise @Test:Bridge Exe bridgeId arg
           in upure @Unit ();
-      
+
       val exercise_by_key: Party -> Option Party -> Option (ContractId Unit) -> Int64 -> M:Either Int64 Int64 -> Update Unit =
-        \(exercisingParty: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) (argParams: M:Either Int64 Int64) -> 
+        \(exercisingParty: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) (argParams: M:Either Int64 Int64) ->
           let arg: Test:ExeArg = Test:ExeArg {
             idOrKey = M:Either:Right @(ContractId M:T) @Test:TKeyParams (Test:TKeyParams {maintainers = Test:optToList @Party maintainers, optCid = optCid, nesting = nesting}),
             argParams = argParams
           }
-          in ubind 
+          in ubind
             bridgeId: ContractId Test:Bridge <- Test:createBridge exercisingParty;
             x: M:Nested <-exercise @Test:Bridge Exe bridgeId arg
           in upure @Unit ();
 
       val fetch_by_id: Party -> ContractId M:T -> Update Unit =
-        \(fetchingParty: Party) (cId: ContractId M:T) -> 
-          ubind bridgeId: ContractId Test:Bridge <- Test:createBridge fetchingParty  
+        \(fetchingParty: Party) (cId: ContractId M:T) ->
+          ubind bridgeId: ContractId Test:Bridge <- Test:createBridge fetchingParty
           in exercise @Test:Bridge FetchById bridgeId cId;
 
-      val fetch_by_key: Party -> Option Party -> Option (ContractId Unit) -> Int64 -> Update Unit = 
-        \(fetchingParty: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) -> 
-           ubind bridgeId: ContractId Test:Bridge <- Test:createBridge fetchingParty  
+      val fetch_by_key: Party -> Option Party -> Option (ContractId Unit) -> Int64 -> Update Unit =
+        \(fetchingParty: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) ->
+           ubind bridgeId: ContractId Test:Bridge <- Test:createBridge fetchingParty
            in exercise @Test:Bridge FetchByKey bridgeId (Test:TKeyParams {maintainers = Test:optToList @Party maintainers, optCid = optCid, nesting = nesting});
-      
-      val lookup_by_key: Party -> Option Party -> Option (ContractId Unit) -> Int64 -> Update Unit = 
-        \(lookingParty: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) -> 
-           ubind bridgeId: ContractId Test:Bridge <- Test:createBridge lookingParty  
+
+      val lookup_by_key: Party -> Option Party -> Option (ContractId Unit) -> Int64 -> Update Unit =
+        \(lookingParty: Party) (maintainers: Option Party) (optCid: Option (ContractId Unit)) (nesting: Int64) ->
+           ubind bridgeId: ContractId Test:Bridge <- Test:createBridge lookingParty
            in exercise @Test:Bridge LookupByKey bridgeId (Test:TKeyParams {maintainers = Test:optToList @Party maintainers, optCid = optCid, nesting = nesting});
-      
-      val createBridge: Party -> Update (ContractId Test:Bridge) = 
-        \(party: Party) -> create @Test:Bridge Test:Bridge { sig = party, obs = party }; 
-      
-      val optToList: forall(t:*). Option t -> List t  = 
-        /\(t:*). \(opt: Option t) -> 
-          case opt of 
+
+      val createBridge: Party -> Update (ContractId Test:Bridge) =
+        \(party: Party) -> create @Test:Bridge Test:Bridge { sig = party, obs = party };
+
+      val optToList: forall(t:*). Option t -> List t  =
+        /\(t:*). \(opt: Option t) ->
+          case opt of
              None -> Nil @t
            | Some x -> Cons @t [x] (Nil @t);
 
       record @serializable TKeyParams = { maintainers : List Party, optCid : Option (ContractId Unit), nesting: Int64 };
-      val buildTKey: (Test:TKeyParams) -> M:TKey = 
-        \(params: Test:TKeyParams) -> M:TKey { 
+      val buildTKey: (Test:TKeyParams) -> M:TKey =
+        \(params: Test:TKeyParams) -> M:TKey {
             maintainers = Test:TKeyParams {maintainers} params,
             optCid = Test:TKeyParams {optCid} params,
             nested = M:buildNested (Test:TKeyParams {nesting} params)
           };
-       
+
       record @serializable ExeArg = {
         idOrKey: M:Either (ContractId M:T) Test:TKeyParams,
-        argParams: M:Either Int64 Int64 
+        argParams: M:Either Int64 Int64
       };
 
       record @serializable Bridge = { sig: Party, obs: Party };
@@ -171,16 +208,16 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         choice CreateNonvisibleKey (self) (arg: Unit): ContractId M:T,
           controllers Cons @Party [Test:Bridge {obs} this] (Nil @Party),
           observers Nil @Party
-           to let sig: Party = Test:Bridge {sig} this 
-           in create @M:T M:T { signatory = sig, observer = sig, precondition = True, key = M:toKey sig, nested = M:buildNested 0 };              
+           to let sig: Party = Test:Bridge {sig} this
+           in create @M:T M:T { signatory = sig, observer = sig, precondition = True, key = M:toKey sig, nested = M:buildNested 0 };
         choice Exe (self) (arg: Test:ExeArg): M:Nested,
           controllers Cons @Party [Test:Bridge {sig} this] (Nil @Party),
           observers Nil @Party
-          to 
+          to
             let choiceArg: M:Either M:Nested Int64 = case (Test:ExeArg {argParams} arg) of
                 M:Either:Left n -> M:Either:Left @M:Nested @Int64 (M:buildNested n)
               | M:Either:Right n -> M:Either:Right @M:Nested @Int64 n
-            in let update: Update M:Nested = case (Test:ExeArg {idOrKey} arg) of 
+            in let update: Update M:Nested = case (Test:ExeArg {idOrKey} arg) of
                 M:Either:Left cId -> exercise @M:T Choice cId choiceArg
               | M:Either:Right keyParams -> exercise_by_key @M:T Choice (Test:buildTKey keyParams) choiceArg
             in ubind
@@ -188,22 +225,22 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               res: M:Nested <- update;
               y:Unit <- upure @Unit (TRACE @Unit "ends test" ())
             in upure @M:Nested res;
-        choice FetchById (self) (cId: ContractId M:T): Unit, 
+        choice FetchById (self) (cId: ContractId M:T): Unit,
           controllers Cons @Party [Test:Bridge {sig} this] (Nil @Party),
           observers Nil @Party
           to Test:run @M:T (fetch @M:T cId);
         choice FetchByKey (self) (params: Test:TKeyParams): Unit,
           controllers Cons @Party [Test:Bridge {sig} this] (Nil @Party),
           observers Nil @Party
-          to let key: M:TKey = Test:buildTKey params 
+          to let key: M:TKey = Test:buildTKey params
              in Test:run @<contract: M:T, contractId: ContractId M:T> (fetch_by_key @M:T key);
         choice LookupByKey (self) (params: Test:TKeyParams): Unit,
           controllers Cons @Party [Test:Bridge {sig} this] (Nil @Party),
           observers Nil @Party
-          to let key: M:TKey = Test:buildTKey params 
+          to let key: M:TKey = Test:buildTKey params
              in Test:run @(Option (ContractId M:T)) (lookup_by_key @M:T key);
-      };   
-     
+      };
+
     }
   """)
 
@@ -211,6 +248,11 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     List("alice", "bob", "charlie").map(Ref.Party.assertFromString)
 
   private[this] val T = t"M:T" match {
+    case TTyCon(tycon) => tycon
+    case _ => sys.error("unexpect error")
+  }
+
+  private[this] val T2 = t"M:T2" match {
     case TTyCon(tycon) => tycon
     case _ => sys.error("unexpect error")
   }
@@ -323,7 +365,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "success" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) (obs : Party) -> 
+          e"""\(sig : Party) (obs : Party) ->
                  Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
            """,
           Array(SParty(alice), SParty(bob)),
@@ -349,7 +391,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         // generates code that throws an exception instead of returning False.
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) (obs : Party) -> 
+          e"""\(sig : Party) (obs : Party) ->
                 Test:create M:T { signatory = sig, observer = obs, precondition = False, key = M:toKey sig, nested = M:buildNested 0 }
            """,
           Array(SParty(alice), SParty(bob)),
@@ -358,6 +400,38 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         inside(res) {
           case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(T, _, _)))) =>
             msgs shouldBe Seq("starts test", "precondition")
+        }
+      }
+
+      // TEST_EVIDENCE: Semantics: Evaluation order: Template precondition before interface preconditions.
+      "failed template precondition and interface precondition" in {
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(sig : Party) (obs : Party) ->
+                Test:create2 M:T2 { signatory = sig, observer = obs, precondition = False}
+           """,
+          Array(SParty(alice), SParty(bob)),
+          Set(alice),
+        )
+        inside(res) {
+          case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(T2, _, _)))) =>
+            msgs shouldBe Seq("starts test", "precondition")
+        }
+      }
+
+      // TEST_EVIDENCE: Semantics: Evaluation order: Interface preconditions are evaluated in the order given by the implementation list.
+      "order of evaluation of interface preconditions" in {
+        val (res, msgs) = evalUpdateApp(
+          pkgs,
+          e"""\(sig : Party) (obs : Party) ->
+                Test:create2 M:T2 { signatory = sig, observer = obs, precondition = True}
+           """,
+          Array(SParty(alice), SParty(bob)),
+          Set(alice),
+        )
+        inside(res) {
+          case Success(Left(SErrorDamlException(IE.TemplatePreconditionViolated(T2, _, _)))) =>
+            msgs shouldBe Seq("starts test", "precondition", "precondition1", "precondition2")
         }
       }
 
@@ -390,7 +464,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "empty contract key maintainers" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) (obs : Party) -> 
+          e"""\(sig : Party) (obs : Party) ->
                 Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:keyNoMaintainers, nested = M:buildNested 0 }
            """,
           Array(SParty(alice), SParty(bob)),
@@ -414,7 +488,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "authorization failure" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) (obs : Party) -> 
+          e"""\(sig : Party) (obs : Party) ->
                 Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
            """,
           Array(SParty(alice), SParty(bob)),
@@ -437,7 +511,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "contract ID in contract key" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) (obs : Party) (cid : ContractId Unit) -> 
+          e"""\(sig : Party) (obs : Party) (cid : ContractId Unit) ->
                 Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:toKeyWithCid sig cid, nested = M:buildNested 0 }
            """,
           Array(
@@ -464,7 +538,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "create argument exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) (obs : Party) -> 
+          e"""\(sig : Party) (obs : Party) ->
                 Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 100 }
            """,
           Array(SParty(alice), SParty(bob)),
@@ -487,7 +561,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "key exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(sig : Party) (obs : Party) -> 
+          e"""\(sig : Party) (obs : Party) ->
               let key: M:TKey = M:TKey { maintainers = Cons @Party [sig] (Nil @Party), optCid = None @(ContractId Unit), nested = M:buildNested 100 }
               in Test:create M:T { signatory = sig, observer = obs, precondition = True, key = key, nested = M:buildNested 0 }
            """,
@@ -583,8 +657,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(exercisingParty : Party) (cId: ContractId M:T) -> 
-               ubind x: M:T <- fetch @M:T cId in 
+            e"""\(exercisingParty : Party) (cId: ContractId M:T) ->
+               ubind x: M:T <- fetch @M:T cId in
                Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
                """,
             Array(SParty(alice), SContractId(cId)),
@@ -606,8 +680,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(exercisingParty : Party) (cId: ContractId M:T)  -> 
-             ubind x: Unit <- exercise @M:T Archive cId () in 
+            e"""\(exercisingParty : Party) (cId: ContractId M:T)  ->
+             ubind x: Unit <- exercise @M:T Archive cId () in
                Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
              """,
             Array(SParty(alice), SContractId(cId)),
@@ -623,7 +697,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(exercisingParty : Party) (cId: ContractId M:T) -> 
+            e"""\(exercisingParty : Party) (cId: ContractId M:T) ->
                ubind x: M:Dummy <- fetch @M:Dummy cId in
                Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
                """,
@@ -641,7 +715,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "wrongly typed inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(exercisingParty : Party) (cId: ContractId M:T) -> 
+            e"""\(exercisingParty : Party) (cId: ContractId M:T) ->
                ubind x: M:Dummy <- exercise @M:Dummy Archive cId () in
                Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
                """,
@@ -658,7 +732,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(exercisingParty : Party) (cId: ContractId M:T) -> 
+            e"""\(exercisingParty : Party) (cId: ContractId M:T) ->
                ubind x: M:T <- fetch @M:T cId
                in  Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)""",
             Array(SParty(charlie), SContractId(cId)),
@@ -679,7 +753,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig: Party) (obs : Party) (exercisingParty : Party) ->
-             ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } in 
+             ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } in
              Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
              """,
             Array(SParty(alice), SParty(bob), SParty(alice)),
@@ -701,10 +775,10 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (obs : Party) (exercisingParty : Party) ->
-             ubind 
+             ubind
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } ;
                x: Unit <- exercise @M:T Archive cId ()
-             in 
+             in
                Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
              """,
             Array(SParty(alice), SParty(bob), SParty(alice)),
@@ -720,9 +794,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (exercisingParty : Party) ->
-             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig } 
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig }
              in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
-             in 
+             in
                Test:exercise_by_id exercisingParty cId1 (M:Either:Left @Int64 @Int64 0)
              """,
             Array(SParty(alice), SParty(alice)),
@@ -739,10 +813,10 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (exercisingParty : Party) ->
-             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig } 
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig }
              in ubind x: Unit <- exercise @M:Dummy Archive cId1 ()
              in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
-             in 
+             in
                Test:exercise_by_id exercisingParty cId1 (M:Either:Left @Int64 @Int64 0)
              """,
             Array(SParty(alice), SParty(alice)),
@@ -759,7 +833,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             pkgs,
             e"""\(sig: Party) (obs : Party) (exercisingParty : Party) ->
                   ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
-                  in 
+                  in
                     Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
                   """,
             Array(SParty(alice), SParty(bob), SParty(charlie)),
@@ -918,7 +992,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (sig: Party) (cId: ContractId M:T) ->
-               ubind x: M:T <- fetch @M:T cId in 
+               ubind x: M:T <- fetch @M:T cId in
                Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
                """,
             Array(SParty(alice), SParty(alice), SContractId(cId)),
@@ -943,7 +1017,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(sig: Party) (exercisingParty : Party) (cId: ContractId M:T)  -> 
+            e"""\(sig: Party) (exercisingParty : Party) (cId: ContractId M:T)  ->
              ubind x: Unit <- exercise @M:T Archive cId () in
                Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
              """,
@@ -1010,7 +1084,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig: Party) (obs : Party) (exercisingParty : Party) ->
-             ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } in 
+             ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } in
              Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
              """,
             Array(SParty(alice), SParty(bob), SParty(alice)),
@@ -1033,10 +1107,10 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (obs : Party) (exercisingParty : Party) ->
-             ubind 
+             ubind
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } ;
                x: Unit <- exercise @M:T Archive cId ()
-             in 
+             in
                Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
              """,
             Array(SParty(alice), SParty(bob), SParty(alice)),
@@ -1054,7 +1128,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             pkgs,
             e"""\(sig: Party) (obs : Party) (exercisingParty : Party) ->
                   ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
-                  in 
+                  in
                     Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
                   """,
             Array(SParty(alice), SParty(bob), SParty(charlie)),
@@ -1186,7 +1260,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "contract ID in contract key " in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(exercisingParty: Party) (sig: Party) (cId: ContractId M:T) -> 
+          e"""\(exercisingParty: Party) (sig: Party) (cId: ContractId M:T) ->
                  Test:exercise_by_key exercisingParty (Test:someParty sig) (Test:someCid cId) 0 (M:Either:Right @Int64 @Int64 100)""",
           Array(SParty(alice), SParty(alice), SContractId(cId)),
           Set(alice),
@@ -1268,8 +1342,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(fetchingParty: Party) (cId: ContractId M:T) -> 
-               ubind x: M:T <- fetch @M:T cId in 
+            e"""\(fetchingParty: Party) (cId: ContractId M:T) ->
+               ubind x: M:T <- fetch @M:T cId in
                Test:fetch_by_id fetchingParty cId
                """,
             Array(SParty(alice), SContractId(cId)),
@@ -1285,7 +1359,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(fetchingParty: Party) (cId: ContractId M:T)  -> 
+            e"""\(fetchingParty: Party) (cId: ContractId M:T)  ->
              ubind x: Unit <- exercise @M:T Archive cId ()
              in Test:fetch_by_id fetchingParty cId""",
             Array(SParty(alice), SContractId(cId)),
@@ -1301,7 +1375,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(fetchingParty: Party) (cId: ContractId M:T) -> 
+            e"""\(fetchingParty: Party) (cId: ContractId M:T) ->
                ubind x: M:Dummy <- fetch @M:Dummy cId
                in Test:fetch_by_id fetchingParty cId""",
             Array(SParty(alice), SContractId(cId)),
@@ -1318,7 +1392,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "wrongly typed inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(fetchingParty: Party) (cId: ContractId M:T) -> 
+            e"""\(fetchingParty: Party) (cId: ContractId M:T) ->
                ubind x: M:Dummy <- exercise @M:Dummy Archive cId ()
                in Test:fetch_by_id fetchingParty cId""",
             Array(SParty(alice), SContractId(cId)),
@@ -1334,7 +1408,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(fetchingParty: Party) (cId: ContractId M:T) -> 
+            e"""\(fetchingParty: Party) (cId: ContractId M:T) ->
                ubind x: M:T <- fetch @M:T cId
                in Test:fetch_by_id fetchingParty cId""",
             Array(SParty(charlie), SContractId(cId)),
@@ -1370,7 +1444,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (obs : Party) (fetchingParty: Party) ->
-             ubind 
+             ubind
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } ;
                x: Unit <- exercise @M:T Archive cId ()
              in Test:fetch_by_id fetchingParty cId""",
@@ -1387,7 +1461,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (fetchingParty: Party) ->
-             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig } 
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig }
              in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
              in Test:fetch_by_id fetchingParty cId2""",
             Array(SParty(alice), SParty(alice)),
@@ -1404,8 +1478,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (fetchingParty: Party) ->
-             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig } 
-             in ubind x: Unit <- exercise @M:Dummy Archive cId1 () 
+             ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig }
+             in ubind x: Unit <- exercise @M:Dummy Archive cId1 ()
              in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
              in Test:fetch_by_id fetchingParty cId2""",
             Array(SParty(alice), SParty(alice)),
@@ -1526,8 +1600,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(fetchingParty:Party) (sig: Party) (cId: ContractId M:T) -> 
-                 ubind x: M:T <- fetch @M:T cId 
+            e"""\(fetchingParty:Party) (sig: Party) (cId: ContractId M:T) ->
+                 ubind x: M:T <- fetch @M:T cId
                  in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
             Array(SParty(alice), SParty(alice), SContractId(cId)),
             Set(alice),
@@ -1544,7 +1618,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(cId: ContractId M:T) (fetchingParty: Party) (sig: Party) -> 
+            e"""\(cId: ContractId M:T) (fetchingParty: Party) (sig: Party) ->
              ubind x: Unit <- exercise @M:T Archive cId ()
              in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
             Array(SContractId(cId), SParty(alice), SParty(alice)),
@@ -1562,8 +1636,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(fetchingParty:Party) (sig: Party) (cId: ContractId M:T) ->                 
-               ubind x: M:T <- fetch @M:T cId                                        
+            e"""\(fetchingParty:Party) (sig: Party) (cId: ContractId M:T) ->
+               ubind x: M:T <- fetch @M:T cId
                in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
             Array(SParty(charlie), SParty(alice), SContractId(cId)),
             Set(alice, charlie),
@@ -1583,8 +1657,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (obs : Party) (fetchingParty: Party)  ->
-             ubind 
-               cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } 
+             ubind
+               cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
              in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
             Array(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
@@ -1599,7 +1673,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (obs : Party) (fetchingParty: Party) ->
-             ubind 
+             ubind
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 };
                x: Unit <- exercise @M:T Archive cId ()
              in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
@@ -1679,7 +1753,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "contract ID in contract key " in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(fetchingParty: Party) (sig: Party) (cId: ContractId M:T) -> 
+          e"""\(fetchingParty: Party) (sig: Party) (cId: ContractId M:T) ->
                  Test:fetch_by_key fetchingParty (Test:someParty sig) (Test:someCid cId) 0""",
           Array(SParty(alice), SParty(alice), SContractId(cId)),
           Set(alice),
@@ -1749,8 +1823,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(lookingParty:Party) (sig: Party) (cId: ContractId M:T) -> 
-                 ubind x: M:T <- fetch @M:T cId 
+            e"""\(lookingParty:Party) (sig: Party) (cId: ContractId M:T) ->
+                 ubind x: M:T <- fetch @M:T cId
                  in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
             Array(SParty(alice), SParty(alice), SContractId(cId)),
             Set(alice),
@@ -1767,7 +1841,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(cId: ContractId M:T) (lookingParty: Party) (sig: Party) -> 
+            e"""\(cId: ContractId M:T) (lookingParty: Party) (sig: Party) ->
              ubind x: Unit <- exercise @M:T Archive cId ()
              in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
             Array(SContractId(cId), SParty(alice), SParty(alice)),
@@ -1784,8 +1858,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
-            e"""\(lookingParty:Party) (sig: Party) (cId: ContractId M:T) ->                 
-               ubind x: M:T <- fetch @M:T cId                                        
+            e"""\(lookingParty:Party) (sig: Party) (cId: ContractId M:T) ->
+               ubind x: M:T <- fetch @M:T cId
                in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
             Array(SParty(charlie), SParty(alice), SContractId(cId)),
             Set(alice, charlie),
@@ -1805,8 +1879,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (obs : Party) (lookingParty: Party)  ->
-             ubind 
-               cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } 
+             ubind
+               cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
              in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
             Array(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
@@ -1821,7 +1895,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(sig : Party) (obs : Party) (lookingParty: Party) ->
-             ubind 
+             ubind
                cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 };
                x: Unit <- exercise @M:T Archive cId ()
              in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
@@ -1917,7 +1991,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       "contract ID in contract key " in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
-          e"""\(lookingParty: Party) (sig: Party) (cId: ContractId M:T) -> 
+          e"""\(lookingParty: Party) (sig: Party) (cId: ContractId M:T) ->
                  Test:lookup_by_key lookingParty (Test:someParty sig) (Test:someCid cId) 0""",
           Array(SParty(alice), SParty(alice), SContractId(cId)),
           Set(alice),

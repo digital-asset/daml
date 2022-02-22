@@ -19,6 +19,7 @@ import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
 import com.daml.lf.engine.script.{Participants, Runner, Script, ScriptF, ScriptIds}
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -142,22 +143,26 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
     for {
       defn <- defns.get(LfDefRef(identifier))
-    } yield Speedy.Machine.fromScenarioSExpr(
-      compiledPackages,
-      defn.body,
+    } yield
+    // TODO: https://github.com/digital-asset/daml/issues/12208
+    //  plug the logging context properly in the scenario service
+    LoggingContext.newLoggingContext(
+      Speedy.Machine.fromScenarioSExpr(
+        compiledPackages,
+        defn.body,
+      )(_)
     )
   }
 
   def interpretScenario(
       pkgId: String,
       name: String,
-  ): Option[ScenarioRunner.ScenarioResult] = {
+  ): Option[ScenarioRunner.ScenarioResult] =
     buildMachine(
       Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
-    ).map { machine =>
-      new ScenarioRunner(machine, txSeeding).run()
-    }
-  }
+    ).map(machine =>
+      LoggingContext.newLoggingContext(new ScenarioRunner(machine, txSeeding).run(_))
+    )
 
   def interpretScript(
       pkgId: String,

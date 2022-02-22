@@ -1,3 +1,4 @@
+/* Copy this file to settings.json to activate these defaults. */
 {
     "editor.tabSize": 4,
     "files.exclude": {

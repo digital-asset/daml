@@ -11,6 +11,7 @@ import SResult._
 import com.daml.lf.language.{Ast, PackageInterface}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.{Validation, ValidationError}
+import com.daml.logging.LoggingContext
 import transaction.{GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value
 import scalautil.Statement.discard
@@ -30,6 +31,8 @@ private[speedy] object SpeedyTestLib {
       extends Error(s"unknown package '$packageId'")
 
   final case object UnexpectedSResultScenarioX extends Error("unexpected SResultScenarioX")
+
+  implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 
   @throws[SError.SErrorCrash]
   def run(

@@ -25,8 +25,9 @@ import DA.Daml.Helper.Studio
 import DA.Daml.Helper.Util
 import DA.Daml.Helper.Codegen
 import DA.PortFile
-import DA.Ledger.Types (ApplicationId(..), IsoTime(..))
+import DA.Ledger.Types (ApplicationId(..))
 import Data.Text.Lazy (pack)
+import Data.Time.Calendar (Day(..))
 
 main :: IO ()
 main = do
@@ -71,7 +72,7 @@ data Command
     | LedgerExport { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
-    | LedgerMeteringReport { flags :: LedgerFlags, from :: IsoTime, to :: Maybe IsoTime, application :: Maybe ApplicationId, compactOutput :: Bool }
+    | LedgerMeteringReport { flags :: LedgerFlags, from :: Day, to :: Maybe Day, application :: Maybe ApplicationId, compactOutput :: Bool }
     | CantonSandbox
         { cantonOptions :: CantonOptions
         , portFileM :: Maybe FilePath
@@ -420,6 +421,23 @@ commandParser = subparser $ fold
         , help "Timeout of gRPC operations in seconds. Defaults to 60s. Must be > 0."
         ]
 
+    cantonHelpSwitch =
+      switch $
+      long "canton-help" <>
+      help "Display the help of the underlying Canton JAR instead of the Sandbox wrapper. This is only required for advanced options."
+
+    -- These options are common enough that we want them to show up in --help instead of only in
+    -- --canton-help.
+    cantonConfigOpts =
+      many $
+      option str $
+      long "config" <>
+      short 'c' <>
+      metavar "FILE" <>
+      help (unwords [ "Set configuration file(s)."
+                    , "If several configuration files assign values to the same key, the last value is taken."
+                    ])
+
     cantonSandboxCmd = do
         cantonOptions <- do
             cantonLedgerApi <- option auto (long "port" <> value 6865)
@@ -432,6 +450,8 @@ commandParser = subparser $ fold
                 (flag' True (long "static-time") <|>
                  flag' False (long "wall-clock-time") <|>
                  pure False)
+            cantonHelp <- cantonHelpSwitch
+            cantonConfigFiles <- cantonConfigOpts
             pure CantonOptions{..}
         portFileM <- optional $ option str (long "port-file" <> metavar "PATH"
             <> help "File to write ledger API port when ready")

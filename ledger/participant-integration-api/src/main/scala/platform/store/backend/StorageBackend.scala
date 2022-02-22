@@ -9,6 +9,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.{
   ParticipantMetering,
+  ReportData,
   TransactionMetering,
 }
 import com.daml.ledger.participant.state.index.v2.PackageDetails
@@ -452,11 +453,11 @@ object UserManagementStorageBackend {
 
 trait MeteringStorageReadBackend {
 
-  def transactionMetering(
+  def reportData(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
-  )(connection: Connection): Vector[TransactionMetering]
+  )(connection: Connection): ReportData
 }
 
 trait MeteringStorageWriteBackend {

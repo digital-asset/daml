@@ -190,7 +190,7 @@ object KVTest {
       submitter: Ref.Party,
       submissionSeed: crypto.Hash,
       command: ApiCommand,
-  ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
+  )(implicit loggingContext: LoggingContext): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
     KVReader { state =>
       state.engine
         .submit(
@@ -226,7 +226,7 @@ object KVTest {
       submitter: Ref.Party,
       submissionSeed: crypto.Hash,
       command: ApiCommand,
-  ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
+  )(implicit loggingContext: LoggingContext): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, command)
 
   def submitTransaction(

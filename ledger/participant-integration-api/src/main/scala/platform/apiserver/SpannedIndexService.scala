@@ -20,7 +20,8 @@ import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime, MeteringStore}
+import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
+import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
@@ -185,11 +186,11 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
 
-  override def getTransactionMetering(
+  override def getMeteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
-  )(implicit loggingContext: LoggingContext): Future[Vector[MeteringStore.TransactionMetering]] = {
-    delegate.getTransactionMetering(from, to, applicationId)
+  )(implicit loggingContext: LoggingContext): Future[ReportData] = {
+    delegate.getMeteringReportData(from, to, applicationId)
   }
 }

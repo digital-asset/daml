@@ -60,7 +60,7 @@ this feature.
 
 Here is an example::
 
-    sdk-version: 1.2.0
+    sdk-version: 2.0.0
     name: quickstart
     source: daml
     init-script: Main:initialize

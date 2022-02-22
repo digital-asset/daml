@@ -40,6 +40,7 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.script.converter.Converter.Implicits._
 import com.daml.script.converter.Converter.{DamlAnyModuleRecord, DamlTuple2, unrollFree}
 import com.daml.script.converter.ConverterException
+import com.daml.logging.LoggingContext
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
@@ -195,7 +196,12 @@ object Trigger extends StrictLogging {
     val heartbeat = compiler.unsafeCompile(
       ERecProj(expr.ty, Name.assertFromString("heartbeat"), expr.expr)
     )
-    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, heartbeat)
+    val machine =
+      // TODO: https://github.com/digital-asset/daml/issues/12208
+      //  plug the logging context properly in triggers
+      LoggingContext.newLoggingContext(
+        Speedy.Machine.fromPureSExpr(compiledPackages, heartbeat)(_)
+      )
     Machine.stepToValue(machine) match {
       case SOptional(None) => Right(None)
       case SOptional(Some(relTime)) => converter.toFiniteDuration(relTime).map(Some(_))
@@ -214,7 +220,12 @@ object Trigger extends StrictLogging {
       compiler.unsafeCompile(
         ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr)
       )
-    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
+    val machine =
+      // TODO: https://github.com/digital-asset/daml/issues/12208
+      //  plug the logging context properly in triggers
+      LoggingContext.newLoggingContext(
+        Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)(_)
+      )
     Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) => {
         val packages = compiledPackages.packageIds

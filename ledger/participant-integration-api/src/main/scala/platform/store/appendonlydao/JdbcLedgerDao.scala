@@ -11,7 +11,7 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
+import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.ArchiveParser
@@ -542,13 +542,13 @@ private class JdbcLedgerDao(
   }
 
   /** Returns all TransactionMetering records matching given criteria */
-  override def getTransactionMetering(
+  override def meteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
-  )(implicit loggingContext: LoggingContext): Future[Vector[TransactionMetering]] = {
+  )(implicit loggingContext: LoggingContext): Future[ReportData] = {
     dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(
-      readStorageBackend.meteringStorageBackend.transactionMetering(from, to, applicationId)
+      readStorageBackend.meteringStorageBackend.reportData(from, to, applicationId)
     )
   }
 }

@@ -259,7 +259,9 @@ withCantonSandbox options remainingArgs k = do
     let cantonJar = sdkPath </> "canton" </> "canton.jar"
     withTempFile $ \config -> do
         BSL.writeFile config (cantonConfig options)
-        withJar cantonJar [] ("daemon" : "-c" : config :  "--auto-connect-local" : remainingArgs) k
+        let args | cantonHelp options = ["--help"]
+                 | otherwise = concatMap (\f -> ["-c", f]) (cantonConfigFiles options)
+        withJar cantonJar [] ("daemon" : "-c" : config :  "--auto-connect-local" : (args <> remainingArgs)) k
 
 -- | Obtain a path to use as canton portfile, and give updated options.
 withCantonPortFile :: CantonOptions -> (CantonOptions -> FilePath -> IO a) -> IO a
@@ -281,6 +283,8 @@ data CantonOptions = CantonOptions
   , cantonDomainAdminApi :: Int
   , cantonPortFileM :: Maybe FilePath
   , cantonStaticTime :: StaticTime
+  , cantonHelp :: Bool
+  , cantonConfigFiles :: [FilePath]
   }
 
 cantonConfig :: CantonOptions -> BSL.ByteString

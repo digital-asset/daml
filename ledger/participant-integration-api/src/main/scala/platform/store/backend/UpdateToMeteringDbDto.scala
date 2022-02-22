@@ -18,7 +18,7 @@ object UpdateToMeteringDbDto {
 
     if (input.nonEmpty) {
 
-      val ledgerOffset = input.head._1.toHexString
+      val ledgerOffset = input.last._1.toHexString
 
       (for {
         optCompletionInfo <- input.collect { case (_, ta: TransactionAccepted) =>
