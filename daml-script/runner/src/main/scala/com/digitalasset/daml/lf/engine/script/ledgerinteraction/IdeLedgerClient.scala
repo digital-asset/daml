@@ -24,7 +24,6 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.script.converter.ConverterException
-import com.daml.logging.LoggingContext
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
 import scalaz.OneAnd._
@@ -156,7 +155,7 @@ class IdeLedgerClient(
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
-      val result = LoggingContext.newLoggingContext(
+      val result =
         ScenarioRunner.submit(
           compiledPackages,
           ledgerApi,
@@ -167,8 +166,7 @@ class IdeLedgerClient(
           nextSeed(),
           traceLog,
           warningLog,
-        )(_)
-      )
+        )(Script.DummyLoggingContext)
       result match {
         case err: ScenarioRunner.SubmissionError => err
         case commit: ScenarioRunner.Commit[_] =>

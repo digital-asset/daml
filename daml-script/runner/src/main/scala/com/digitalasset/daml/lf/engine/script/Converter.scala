@@ -23,7 +23,6 @@ import com.daml.lf.speedy.{Pretty, SValue, Speedy}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.logging.LoggingContext
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.script.converter.ConverterException
 import io.grpc.StatusRuntimeException
@@ -303,11 +302,10 @@ object Converter {
       compiledPackages: CompiledPackages,
       fun: SValue,
   ): Either[String, (SValue, SValue)] = {
-    val machine = LoggingContext.newLoggingContext(
+    val machine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractToTuple)))(
-        _
+        Script.DummyLoggingContext
       )
-    )
     machine.run() match {
       case SResultFinalValue(v) =>
         v match {
