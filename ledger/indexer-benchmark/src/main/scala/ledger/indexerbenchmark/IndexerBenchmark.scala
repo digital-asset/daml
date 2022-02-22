@@ -108,6 +108,12 @@ class IndexerBenchmark() {
         val duration: Double = (stopTime - startTime).toDouble / 1000000000.0
         val updates: Long = metrics.daml.parallelIndexer.updates.getCount
         val updateRate: Double = updates / duration
+        val inputMappingDurationMetric = metrics.registry.timer(
+          MetricRegistry.name(metrics.daml.parallelIndexer.inputMapping.executor, "duration")
+        )
+        val batchingDurationMetric = metrics.registry.timer(
+          MetricRegistry.name(metrics.daml.parallelIndexer.batching.executor, "duration")
+        )
         val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
           config.minUpdateRate match {
             case Some(requiredMinUpdateRate) if requiredMinUpdateRate > updateRate =>
@@ -149,13 +155,21 @@ class IndexerBenchmark() {
             metrics.daml.parallelIndexer.inputMapping.batchSize.getSnapshot
           )}
              |  inputMapping.duration:      ${histogramToString(
-            metrics.daml.parallelIndexer.inputMapping.duration.getSnapshot
+            inputMappingDurationMetric.getSnapshot
           )}
-             |  inputMapping.duration.rate: ${metrics.daml.parallelIndexer.inputMapping.duration.getMeanRate}
+             |  inputMapping.duration.rate: ${inputMappingDurationMetric.getMeanRate}
+             |  batching.duration:      ${histogramToString(batchingDurationMetric.getSnapshot)}
+             |  batching.duration.rate: ${batchingDurationMetric.getMeanRate}
+             |  seqMapping.duration: ${metrics.daml.parallelIndexer.seqMapping.duration.getSnapshot}|
+             |  seqMapping.duration.rate: ${metrics.daml.parallelIndexer.seqMapping.duration.getMeanRate}|
              |  ingestion.duration:         ${histogramToString(
-            metrics.daml.parallelIndexer.ingestion.duration.getSnapshot
+            metrics.daml.parallelIndexer.ingestion.executionTimer.getSnapshot
           )}
-             |  ingestion.duration.rate:    ${metrics.daml.parallelIndexer.ingestion.duration.getMeanRate}
+             |  ingestion.duration.rate:    ${metrics.daml.parallelIndexer.ingestion.executionTimer.getMeanRate}
+             |  tailIngestion.duration:         ${histogramToString(
+            metrics.daml.parallelIndexer.tailIngestion.executionTimer.getSnapshot
+          )}
+             |  tailIngestion.duration.rate:    ${metrics.daml.parallelIndexer.tailIngestion.executionTimer.getMeanRate}
              |
              |Notes:
              |  The above numbers include all ingested updates, including package uploads.
