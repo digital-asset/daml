@@ -353,7 +353,7 @@ Ledger API
 ==========
 
 The **Ledger API** is an API that's exposed by any `ledger <#daml-ledger>`__ on a participant node. Users access and manipulate the ledger state through the leger API.
-An alternative name for the ledger API is the **gRPC Ledger API** if disambiguation from other technologies is needed.
+An alternative name for the Ledger API is the **gRPC Ledger API** if disambiguation from other technologies is needed.
 See :doc:`/app-dev/ledger-api` page.
 It includes the following :doc:`services </app-dev/services>`.
 
