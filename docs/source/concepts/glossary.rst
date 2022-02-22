@@ -290,7 +290,7 @@ A Daml Archive file, known as a ``.dar`` file is the result of compiling Daml co
 
 You upload ``.dar`` files to a `ledger <#canton-ledger>`__ in order to be able to create contracts from the templates in that file.
 
-A ``.dar`` contains multiple 'Daml ledger fragment packages' known as ``.dalf`` files. A ``.dalf`` file is the output of a compiled Daml package or library. Its underlying format is `Daml-LF <#daml-lf>`__.
+A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of a compiled Daml package or library. Its underlying format is `Daml-LF <#daml-lf>`__.
 
 .. Package, module, library
 .. ========================
@@ -348,7 +348,7 @@ There's a lot of information available about application development, starting w
 Ledger API
 ==========
 
-The **Ledger API** is an API that's exposed by any `ledger <#canton-ledger>`__ on a participant node. Users access and manipulate the ledger state from the perspective of a party through the leger API.
+The **Ledger API** is an API that's exposed by any `ledger <#canton-ledger>`__ on a participant node. Users access and manipulate the ledger state through the leger API.
 An alternative name for the ledger API is the **gRPC Ledger API** if disambiguation from other technologies is needed.
 See :doc:`/app-dev/ledger-api` page.
 It includes the following :doc:`services </app-dev/services>`.
