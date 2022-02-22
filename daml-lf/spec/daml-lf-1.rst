@@ -1772,7 +1772,7 @@ name* construct as follows:
   … ↦ …, … } }`` defined in the module ``Mod`` is ``Mod.T.Ch``.
 * The *fully resolved name* of an inherited choice ``Ch`` of a template
   definition ``'tpl' (x : T) ↦ { …, 'implements' {  …, 'choices' { …, Ch,
-  … } }`` defined in the module ``Mod`` is ``Mod.T.Ch``.
+  … } } }`` defined in the module ``Mod`` is ``Mod.T.Ch``.
 * The *fully resolved name* of a choice ``Ch`` of an interface
   definition ``'interface' (x : T) ↦ { …, 'choices' { …, 'choice' ChKind Ch
   … ↦ …, … } }`` defined in the module ``Mod`` is ``Mod.T.Ch``.
