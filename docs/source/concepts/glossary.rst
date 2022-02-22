@@ -459,6 +459,8 @@ Composability
 Composability is the ability of a participant to extend an existing system with new Daml applications or new topologies unilaterally without requiring cooperation from anyone except the 
 directly involved participants who wish to be part of the new application functionality.
 
+.. _trust-domain:
+
 Trust domain
 ============
 
