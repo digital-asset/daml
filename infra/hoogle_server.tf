@@ -49,6 +49,17 @@ locals {
       size           = 0,
     }
   ]
+  h_temp = [
+    {
+      template = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/instanceTemplates/hoogle-blue-1",
+      version  = "0-1645452737335",
+    },
+    {
+      template = google_compute_instance_template.hoogle[1].self_link,
+      version  = "hoogle${local.h_clusters[1].suffix}",
+    },
+  ]
+
 }
 
 resource "google_compute_instance_template" "hoogle" {
@@ -196,8 +207,8 @@ resource "google_compute_instance_group_manager" "hoogle" {
   target_size        = local.h_clusters[count.index].size
 
   version {
-    name              = "hoogle${local.h_clusters[count.index].suffix}"
-    instance_template = google_compute_instance_template.hoogle[count.index].self_link
+    name              = local.h_temp[count.index].version  #"hoogle${local.h_clusters[count.index].suffix}"
+    instance_template = local.h_temp[count.index].template #google_compute_instance_template.hoogle[count.index].self_link
   }
 
   named_port {
