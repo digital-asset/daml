@@ -25,8 +25,9 @@ import DA.Daml.Helper.Studio
 import DA.Daml.Helper.Util
 import DA.Daml.Helper.Codegen
 import DA.PortFile
-import DA.Ledger.Types (ApplicationId(..), IsoTime(..))
+import DA.Ledger.Types (ApplicationId(..))
 import Data.Text.Lazy (pack)
+import Data.Time.Calendar (Day(..))
 
 main :: IO ()
 main = do
@@ -71,7 +72,7 @@ data Command
     | LedgerExport { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
-    | LedgerMeteringReport { flags :: LedgerFlags, from :: IsoTime, to :: Maybe IsoTime, application :: Maybe ApplicationId, compactOutput :: Bool }
+    | LedgerMeteringReport { flags :: LedgerFlags, from :: Day, to :: Maybe Day, application :: Maybe ApplicationId, compactOutput :: Bool }
     | CantonSandbox
         { cantonOptions :: CantonOptions
         , portFileM :: Maybe FilePath
