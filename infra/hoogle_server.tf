@@ -244,7 +244,7 @@ resource "google_compute_backend_service" "hoogle-http" {
   health_checks = [google_compute_health_check.hoogle-http.self_link]
   port_name     = "http"
 
-  dynamic backend {
+  dynamic "backend" {
     for_each = local.h_clusters
     content {
       group = google_compute_instance_group_manager.hoogle[backend.key].instance_group
@@ -284,7 +284,7 @@ resource "google_compute_backend_service" "hoogle-https" {
   health_checks = [google_compute_health_check.hoogle-https.self_link]
   port_name     = "https"
 
-  dynamic backend {
+  dynamic "backend" {
     for_each = local.h_clusters
     content {
       group = google_compute_instance_group_manager.hoogle[backend.key].instance_group
