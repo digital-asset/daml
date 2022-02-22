@@ -204,9 +204,9 @@ final class UserManagementServiceIT extends LedgerTestSuite {
           val unexpectedErrors = results
             .collect { case x if x.isFailure => x.failed.get }
             .filterNot(t =>
-              ErrorDetails
-                .matches(t, LedgerApiErrors.AdminServices.UserAlreadyExists) || ErrorDetails
-                .isInternalError(t)
+              ErrorDetails.matches(t, LedgerApiErrors.AdminServices.UserAlreadyExists) ||
+                ErrorDetails.matches(t, IndexErrors.DatabaseErrors.SqlTransientError) ||
+                ErrorDetails.isInternalError(t)
             )
           assertSameElements(actual = unexpectedErrors, expected = Seq.empty)
         }
@@ -240,7 +240,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
             // Note: `IndexErrors.DatabaseErrors.SqlNonTransientError` is signalled on H2 and the original cause being `org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException`
             .filterNot(e =>
               ErrorDetails.isInternalError(e) || ErrorDetails
-                .matches(e, IndexErrors.DatabaseErrors.SqlNonTransientError)
+                .matches(e, IndexErrors.DatabaseErrors.SqlTransientError)
             )
           assertSameElements(actual = unexpectedErrors, expected = Seq.empty)
         }
