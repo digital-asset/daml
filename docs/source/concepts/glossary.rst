@@ -46,7 +46,7 @@ applications portable between different underlying `synchronization technologies
 Synchronization Technology
 =====================
 
-The syncronisation technology is the database or blockchain that Daml uses for synchronization, messaging and toplogy. Daml runs on a range of synchronization technologies, from centralized 
+The syncronization technology is the database or blockchain that Daml uses for synchronization, messaging and topology. Daml runs on a range of synchronization technologies, from centralized 
 databases to fully distributed deployments, and users can employ the technology that best suits their technical and operational needs.
 
 Daml Drivers
