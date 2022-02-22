@@ -44,9 +44,9 @@ applications portable between different underlying `synchronization technologies
 
 .. Synchronization technology.  Not 'Environment', 'Infrastructure layer', 'Messaging layer', 'Topology layer', 'Underlying <enter-any-previous-term>'
 Synchronization Technology
-=====================
+==========================
 
-The syncronisation technology is the database or blockchain that Daml uses for synchronization, messaging and toplogy. Daml runs on a range of synchronization technologies, from centralized 
+The syncronization technology is the database or blockchain that Daml uses for synchronization, messaging and topology. Daml runs on a range of synchronization technologies, from centralized 
 databases to fully distributed deployments, and users can employ the technology that best suits their technical and operational needs.
 
 Daml Drivers
@@ -143,7 +143,7 @@ Parties are hosted on participant nodes and a participant node can host more tha
 Signatory
 ---------
 
-A **signatory** is a `party <#party>`__ on a `contract <#contract>`__. The signatories MUST consent to the `creation <#create>`__ of the contract by `authorizing <#authorization-signing>`__ it: if they don't, contract creation will fail. Once the contract is created, signatories can see the contracts and all exercises in that contract.
+A **signatory** is a `party <#party>`__ on a `contract <#contract>`__. The signatories MUST consent to the `creation <#create>`__ of the contract by `authorizing <#authorization-signing>`__ it: if they don't, contract creation will fail. Once the contract is created, signatories can see the contracts and all exercises of that contract.
 
 For documentation on signatories, see :doc:`/daml/reference/templates`.
 
@@ -353,7 +353,7 @@ Ledger API
 ==========
 
 The **Ledger API** is an API that's exposed by any `ledger <#daml-ledger>`__ on a participant node. Users access and manipulate the ledger state through the leger API.
-An alternative name for the ledger API is the **gRPC Ledger API** if disambiguation from other technologies is needed.
+An alternative name for the Ledger API is the **gRPC Ledger API** if disambiguation from other technologies is needed.
 See :doc:`/app-dev/ledger-api` page.
 It includes the following :doc:`services </app-dev/services>`.
 
