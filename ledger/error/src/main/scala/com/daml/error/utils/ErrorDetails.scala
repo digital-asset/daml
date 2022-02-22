@@ -78,4 +78,7 @@ object ErrorDetails {
     case _ => false
   }
 
+  def matchesOneOf(t: Throwable, errorCodes: ErrorCode*): Boolean =
+    errorCodes.exists(matches(t, _))
+
 }

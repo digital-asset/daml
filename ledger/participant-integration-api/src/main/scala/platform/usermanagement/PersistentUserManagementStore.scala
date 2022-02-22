@@ -182,11 +182,7 @@ class PersistentUserManagementStore(
     inTransaction(_.revokeRights) { implicit connection =>
       withUser(id = id) { user =>
         val revokedRights = rights.filter { right =>
-          if (backend.userRightExists(internalId = user.internalId, right = right)(connection)) {
-            backend.deleteUserRight(internalId = user.internalId, right = right)(connection)
-          } else {
-            false
-          }
+          backend.deleteUserRight(internalId = user.internalId, right = right)(connection)
         }
         revokedRights
       }

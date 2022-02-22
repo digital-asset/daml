@@ -35,9 +35,6 @@
     <logger name="com.daml.platform.sandbox" level="INFO" />
     <logger name="com.daml.platform.apiserver.LedgerApiServer" level="INFO" />
 
-     <!-- Enable logs from DbDispatcher to see errors originating from DB exceptions -->
-    <logger name="com.daml.platform.store.appendonlydao.DbDispatcher" level="INFO" />
-
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="ASYNC"/>

@@ -36,6 +36,8 @@ object DatabaseSelfServiceError {
     case ex: JdbcSQLIntegrityConstraintViolationException => retryable(ex)
     case ex: SQLRecoverableException => retryable(ex)
     case ex: SQLTransientException => retryable(ex)
+    // Oracle unique constraint violation
+    case ex: SQLIntegrityConstraintViolationException if ex.getErrorCode == 1 => retryable(ex)
     case ex: SQLNonTransientException => nonRetryable(ex)
     case ex: PSQLException => if (isRetryablePsqlException(ex)) retryable(ex) else nonRetryable(ex)
     // Oracle uses java.sql.SqlException and java.sql.BatchUpdateException
