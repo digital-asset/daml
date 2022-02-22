@@ -28,7 +28,7 @@ of the pitfalls that hinder multi-party application development in other languag
 Daml Ledger
 ===========
 
-A Daml ledger is a distributed ledger system running Daml smart contracts (link) according to the Daml ledger model (link) and exposes the Daml Ledger APIs.
+A Daml ledger is a distributed ledger system running `Daml smart contracts <#contract>`__ according to the :doc:`Daml ledger model </concepts/ledger-model/index>` and exposes the Daml Ledger APIs.
 All current implementations of Daml ledgers consists of a Daml driver that utilises and underlying Synchronization Technology to either implement the Daml ledger directly, or run the Canton protocol.
 
 Canton Ledger
