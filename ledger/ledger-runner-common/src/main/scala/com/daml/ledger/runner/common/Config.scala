@@ -618,7 +618,7 @@ object Config {
           .text("Legacy flag with no effect")
           .action((_, config) => config)
 
-        opt[Unit]("buffered-ledger-api-streams-unsafe")
+        opt[Unit]("buffered-ledger-api-streams")
           .optional()
           .hidden()
           .text(
