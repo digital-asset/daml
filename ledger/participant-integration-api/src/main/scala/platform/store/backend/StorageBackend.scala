@@ -474,11 +474,16 @@ trait MeteringStorageWriteBackend {
   ): Option[Offset]
 
   /** This method will return all transaction metering records between the from offset (exclusive)
-    * and the to offset (inclusive).
+    * and the to offset (inclusive).  It is called prior to aggregation.
     */
-  def transactionMetering(from: Offset, to: Offset)(
+  def selectTransactionMetering(from: Offset, to: Offset)(
       connection: Connection
   ): Vector[TransactionMetering]
+
+  /** This method will delete transaction metering records between the from offset (exclusive)
+    * and the to offset (inclusive).  It is call following aggregation.
+    */
+  def deleteTransactionMetering(from: Offset, to: Offset)(connection: Connection): Unit
 
   def insertParticipantMetering(metering: Vector[ParticipantMetering])(connection: Connection): Unit
 
