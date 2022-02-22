@@ -273,7 +273,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
-  it should "successfully start a trigger that uses multi-read-as" in withTriggerService(
+  it should "successfully start a trigger that uses multi-read-as" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     val visibleToPublicId = Identifier(testPkgId, "ReadAs", "VisibleToPublic")
@@ -353,7 +353,7 @@ trait AbstractTriggerServiceTest
       } yield succeed
   }
 
-  it should "should enable a trigger on http request" in withTriggerService(List(dar)) { uri: Uri =>
+  it should "enable a trigger on http request" inClaims withTriggerService(List(dar)) { uri: Uri =>
     for {
       client <- sandboxClient(
         ApiTypes.ApplicationId("my-app-id"),
@@ -416,7 +416,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
-  it should "restart trigger on initialization failure due to failed connection" in withTriggerService(
+  it should "restart trigger on initialization failure due to failed connection" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
@@ -435,7 +435,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
-  it should "restart trigger on run-time failure due to dropped connection" in withTriggerService(
+  it should "restart trigger on run-time failure due to dropped connection" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     // Simulate the ledger being briefly unavailable due to network connectivity loss.
@@ -471,18 +471,22 @@ trait AbstractTriggerServiceTest
       } yield succeed
   }
 
-  it should "restart triggers with update errors" in withTriggerService(List(dar)) { uri: Uri =>
-    for {
-      resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", alice)
-      aliceTrigger <- parseTriggerId(resp)
-      _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
-      // We will attempt to restart the trigger indefinitely.
-      // Just check that we see a few failures and restart attempts.
-      // This relies on a small minimum restart interval as the interval doubles after each
-      // failure.
-      _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "starting") should be > 2)
-      _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "stopped: runtime failure") should be > 2)
-    } yield succeed
+  it should "restart triggers with update errors" inClaims withTriggerService(List(dar)) {
+    uri: Uri =>
+      for {
+        resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", alice)
+        aliceTrigger <- parseTriggerId(resp)
+        _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
+        // We will attempt to restart the trigger indefinitely.
+        // Just check that we see a few failures and restart attempts.
+        // This relies on a small minimum restart interval as the interval doubles after each
+        // failure.
+        _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "starting") should be > 2)
+        _ <- assertTriggerStatus(
+          aliceTrigger,
+          _.count(_ == "stopped: runtime failure") should be > 2,
+        )
+      } yield succeed
   }
 
   it should "give a 'not found' response for a stop request with an unparseable UUID" in withTriggerService(
@@ -620,16 +624,17 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  it should "forbid a non-authorized party to start a trigger" in withTriggerService(List(dar)) {
-    uri: Uri =>
-      authServer.revokeParty(eve)
-      for {
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", eve)
-        _ <- resp.status shouldBe StatusCodes.Forbidden
-      } yield succeed
+  it should "forbid a non-authorized party to start a trigger" inClaims withTriggerService(
+    List(dar)
+  ) { uri: Uri =>
+    authServer.revokeParty(eve)
+    for {
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", eve)
+      _ <- resp.status shouldBe StatusCodes.Forbidden
+    } yield succeed
   }
 
-  it should "forbid a non-authorized party to list triggers" in withTriggerService(Nil) {
+  it should "forbid a non-authorized party to list triggers" inClaims withTriggerService(Nil) {
     uri: Uri =>
       authServer.revokeParty(eve)
       for {
@@ -638,7 +643,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
       } yield succeed
   }
 
-  it should "forbid a non-authorized party to check the status of a trigger" in withTriggerService(
+  it should "forbid a non-authorized party to check the status of a trigger" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
@@ -653,26 +658,28 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  it should "forbid a non-authorized party to stop a trigger" in withTriggerService(List(dar)) {
-    uri: Uri =>
-      for {
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
-        _ <- resp.status shouldBe StatusCodes.OK
-        triggerId <- parseTriggerId(resp)
-        // emulate access by a different user by revoking access to alice and deleting the current token cookie
-        _ = authServer.revokeParty(alice)
-        _ = deleteCookies()
-        resp <- stopTrigger(uri, triggerId, alice)
-        _ <- resp.status shouldBe StatusCodes.Forbidden
-      } yield succeed
-  }
-
-  it should "forbid a non-authorized user to upload a DAR" in withTriggerService(Nil) { uri: Uri =>
-    authServer.revokeAdmin()
+  it should "forbid a non-authorized party to stop a trigger" inClaims withTriggerService(
+    List(dar)
+  ) { uri: Uri =>
     for {
-      resp <- uploadDar(uri, darPath) // same dar as in initialization
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+      _ <- resp.status shouldBe StatusCodes.OK
+      triggerId <- parseTriggerId(resp)
+      // emulate access by a different user by revoking access to alice and deleting the current token cookie
+      _ = authServer.revokeParty(alice)
+      _ = deleteCookies()
+      resp <- stopTrigger(uri, triggerId, alice)
       _ <- resp.status shouldBe StatusCodes.Forbidden
     } yield succeed
+  }
+
+  it should "forbid a non-authorized user to upload a DAR" inClaims withTriggerService(Nil) {
+    uri: Uri =>
+      authServer.revokeAdmin()
+      for {
+        resp <- uploadDar(uri, darPath) // same dar as in initialization
+        _ <- resp.status shouldBe StatusCodes.Forbidden
+      } yield succeed
   }
 
   it should "request a fresh token after expiry on user request" in withTriggerService(Nil) {
@@ -689,88 +696,89 @@ trait AbstractTriggerServiceTestAuthMiddleware
       } yield succeed
   }
 
-  it should "refresh a token after expiry on the server side" in withTriggerService(List(dar)) {
-    uri: Uri =>
-      for {
-        client <- sandboxClient(
-          ApiTypes.ApplicationId("exp-app-id"),
-          actAs = List(ApiTypes.Party(aliceExp.unwrap)),
-        )
-        // Make sure that no contracts exist initially to guard against accidental
-        // party reuse.
-        _ <- getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
-          .map(_ shouldBe Vector())
-        // Start the trigger
-        resp <- startTrigger(
-          uri,
-          s"$testPkgId:TestTrigger:trigger",
-          aliceExp,
-          Some(ApplicationId("exp-app-id")),
-        )
-        triggerId <- parseTriggerId(resp)
+  it should "refresh a token after expiry on the server side" inClaims withTriggerService(
+    List(dar)
+  ) { uri: Uri =>
+    for {
+      client <- sandboxClient(
+        ApiTypes.ApplicationId("exp-app-id"),
+        actAs = List(ApiTypes.Party(aliceExp.unwrap)),
+      )
+      // Make sure that no contracts exist initially to guard against accidental
+      // party reuse.
+      _ <- getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
+        .map(_ shouldBe Vector())
+      // Start the trigger
+      resp <- startTrigger(
+        uri,
+        s"$testPkgId:TestTrigger:trigger",
+        aliceExp,
+        Some(ApplicationId("exp-app-id")),
+      )
+      triggerId <- parseTriggerId(resp)
 
-        // Expire old token and test that the trigger service requests a new token during trigger start-up.
-        // TODO[AH] Here we want to test token expiry during QueryingACS.
-        //   For now the test relies on timing. Find a way to enforce expiry during QueryingACS.
-        _ = authClock.fastForward(
-          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1)
-        )
+      // Expire old token and test that the trigger service requests a new token during trigger start-up.
+      // TODO[AH] Here we want to test token expiry during QueryingACS.
+      //   For now the test relies on timing. Find a way to enforce expiry during QueryingACS.
+      _ = authClock.fastForward(
+        JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1)
+      )
 
-        // Trigger is running, create an A contract
-        createACommand = { v: Long =>
-          Command().withCreate(
-            CreateCommand(
-              templateId = Some(Identifier(testPkgId, "TestTrigger", "A")),
-              createArguments = Some(
-                Record(
-                  None,
-                  Seq(
-                    RecordField(value = Some(Value().withParty(aliceExp.unwrap))),
-                    RecordField(value = Some(Value().withInt64(v))),
-                  ),
-                )
-              ),
-            )
+      // Trigger is running, create an A contract
+      createACommand = { v: Long =>
+        Command().withCreate(
+          CreateCommand(
+            templateId = Some(Identifier(testPkgId, "TestTrigger", "A")),
+            createArguments = Some(
+              Record(
+                None,
+                Seq(
+                  RecordField(value = Some(Value().withParty(aliceExp.unwrap))),
+                  RecordField(value = Some(Value().withInt64(v))),
+                ),
+              )
+            ),
           )
-        }
-        _ <- submitCmd(client, aliceExp.unwrap, createACommand(7))
-        // Query ACS until we see a B contract
-        _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
-          getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
-            .map(_.length shouldBe 1)
-        }
-
-        // Expire old token and test that the trigger service requests a new token during running trigger.
-        _ = authClock.fastForward(
-          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1)
         )
+      }
+      _ <- submitCmd(client, aliceExp.unwrap, createACommand(7))
+      // Query ACS until we see a B contract
+      _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
+        getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
+          .map(_.length shouldBe 1)
+      }
 
-        // Create another A contract
-        _ <- submitCmd(client, aliceExp.unwrap, createACommand(42))
-        // Query ACS until we see a second B contract
-        _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
-          getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
-            .map(_.length shouldBe 2)
-        }
+      // Expire old token and test that the trigger service requests a new token during running trigger.
+      _ = authClock.fastForward(
+        JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1)
+      )
 
-        // Read completions to make sure we set the right app id.
-        r <- client.commandClient
-          .completionSource(List(aliceExp.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
-          .collect({
-            case CompletionStreamElement.CompletionElement(completion, _)
-                if completion.transactionId.nonEmpty =>
-              completion
-          })
-          .take(1)
-          .runWith(Sink.seq)
-        _ = r.length shouldBe 1
-        status <- triggerStatus(uri, triggerId)
-        _ = status.status shouldBe StatusCodes.OK
-        body <- responseBodyToString(status)
-        _ =
-          body shouldBe s"""{"result":{"party":"Alice_exp","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
-        resp <- stopTrigger(uri, triggerId, aliceExp)
-        _ <- assert(resp.status.isSuccess)
-      } yield succeed
+      // Create another A contract
+      _ <- submitCmd(client, aliceExp.unwrap, createACommand(42))
+      // Query ACS until we see a second B contract
+      _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
+        getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
+          .map(_.length shouldBe 2)
+      }
+
+      // Read completions to make sure we set the right app id.
+      r <- client.commandClient
+        .completionSource(List(aliceExp.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
+        .collect({
+          case CompletionStreamElement.CompletionElement(completion, _)
+              if completion.transactionId.nonEmpty =>
+            completion
+        })
+        .take(1)
+        .runWith(Sink.seq)
+      _ = r.length shouldBe 1
+      status <- triggerStatus(uri, triggerId)
+      _ = status.status shouldBe StatusCodes.OK
+      body <- responseBodyToString(status)
+      _ =
+        body shouldBe s"""{"result":{"party":"Alice_exp","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
+      resp <- stopTrigger(uri, triggerId, aliceExp)
+      _ <- assert(resp.status.isSuccess)
+    } yield succeed
   }
 }
