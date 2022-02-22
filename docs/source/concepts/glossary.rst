@@ -459,6 +459,11 @@ Composability
 Composability is the ability of a participant to extend an existing system with new Daml applications or new topologies unilaterally without requiring cooperation from anyone except the 
 directly involved participants who wish to be part of the new application functionality.
 
+Trust domain
+============
+
+A trust domain encompasses a part of the system (in particular, a Daml ledger) operated by a single real-world entity. This subsystem may consist of one or more physical nodes. A single physical machine is always assumed to be controlled by exactly one real-world entity.
+
 
 
 
