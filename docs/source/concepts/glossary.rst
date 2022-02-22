@@ -39,6 +39,7 @@ The Canton protocol is the technology which synchronizes `participant nodes <#pa
 applications portable between different underlying `synchronization technologies <#synchronization-technology>`__, but also allows applications to transact with each other across them.
 
 .. Synchronization technology.  Not 'Environment', 'Infrastructure layer', 'Messaging layer', 'Topology layer', 'Underlying <enter-any-previous-term>'
+
 Synchronization Technology
 ==========================
 
