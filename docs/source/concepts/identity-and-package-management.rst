@@ -30,7 +30,7 @@ The remainder of the document will present:
 Identity Management
 *******************
 
-A Daml ledger may freely define its own format of party and :ref:`participant node <participant-node-def>` identifiers, with some minor constraints on the identifiers' serialized form.
+A Daml ledger may freely define its own format of party and participant node identifiers, with some minor constraints on the identifiers' serialized form.
 For example, a ledger may use human-readable strings as identifiers, such as "Alice" or "Alice's Bank".
 A different ledger might use public keys as identifiers, or the keys' fingerprints.
 The applications should thus not rely on the format of the identifier -- even a software upgrade of a Daml ledger may introduce a new format.
@@ -59,7 +59,7 @@ The Ledger API provides an :ref:`AllocateParty <com.daml.ledger.api.v1.admin.All
 The method, if successful, returns an new party identifier.
 The ``AllocateParty`` call can take the desired identifier and display name as optional parameters, but these are merely hints and the ledger implementation may completely ignore them.
 
-If the call returns a new identifier, the :ref:`participant node <participant-node-def>` serving this call is ready to host the party with this identifier.
+If the call returns a new identifier, the participant node serving this call is ready to host the party with this identifier.
 In global state topologies, the returned identifier is guaranteed to be **unique** in the ledger; namely, no other call of the ``AllocateParty`` method at this or any other ledger participant may return the same identifier.
 In partitioned state topologies, the identifier is also unique as long as the participant node is configured correctly (in particular, it does not share its private key with other participant nodes).
 If the ledger has a global state topology, the new identifier will generally be allocated and vetted by the operator of the writer node(s).
