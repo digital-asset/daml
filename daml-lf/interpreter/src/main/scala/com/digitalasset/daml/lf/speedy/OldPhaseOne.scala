@@ -279,7 +279,7 @@ private[lf] final class OldPhaseOne(
       case EThrow(_, ty, e) =>
         SBThrow(SBToAny(ty)(compile(env, e)))
       case EToInterface(iface @ _, tpl @ _, e) =>
-        compile(env, e) // interfaces have the same representation as underlying template
+        SBToInterface(tpl)(compile(env, e))
       case EFromInterface(iface @ _, tpl, e) =>
         SBFromInterface(tpl)(compile(env, e))
       case ECallInterface(iface, methodName, e) =>
@@ -292,10 +292,10 @@ private[lf] final class OldPhaseOne(
         SBInterfaceTemplateTypeRep(ifaceId)(compile(env, body))
       case ESignatoryInterface(ifaceId, body @ _) =>
         val arg = compile(env, body)
-        SBSignatoryInterface(ifaceId)(arg, arg)
+        SBSignatoryInterface(ifaceId)(arg)
       case EObserverInterface(ifaceId, body @ _) =>
         val arg = compile(env, body)
-        SBObserverInterface(ifaceId)(arg, arg)
+        SBObserverInterface(ifaceId)(arg)
       case EExperimental(name, _) =>
         SBExperimental(name)
     }
