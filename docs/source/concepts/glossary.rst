@@ -1,10 +1,6 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. TODO: Add Links to the new sentences
-.. TODO: Ask Carrie about which words to link in the glossary
-.. TODO: Ensure that the capitalisation is correct on names, such as the Canton Protocol
-
 
 Glossary of concepts
 ####################
@@ -433,6 +429,12 @@ A **command** is an instruction to add a transaction to the `ledger <#daml-ledge
 
 .. _daml-lf:
 
+Participant Node
+================
+
+The participant node is a server that provides users a consistent programmatic access to a ledger through the `Ledger API <#ledger-api>`__. The participant nodes handles transaction signing and 
+validation, such that users don't have to deal with cryptographic primitives but can trust the participant node that the data they are observing has been properly verified to be correct.
+
 Sub-Transaction Privacy
 =======================
 
@@ -462,13 +464,6 @@ directly involved participants who wish to be part of the new application functi
 
 Canton Concepts
 ***************
-
-.. Language for the participant node was taken, and edited, from the Canton key terms page
-Participant Node
-================
-
-The participant node is a server that provides users a consistent programmatic access to a ledger through the `Ledger API <#ledger-api>`__. The participant nodes handles transaction signing and 
-validation, such that users don't have to deal with cryptographic primitives but can trust the participant node that the data they are observing has been properly verified to be correct.
 
 Domain
 ======
