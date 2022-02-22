@@ -46,7 +46,7 @@ locals {
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 0,
+      size           = 3,
     }
   ]
   h_temp = [
