@@ -316,7 +316,7 @@ trait AbstractTriggerServiceTest
 
       triggerId <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(triggerId))
-      _ <- assertTriggerStatus(triggerId, _.last == "running")
+      _ <- assertTriggerStatus(triggerId, _.last shouldBe "running")
 
     } yield succeed
   }

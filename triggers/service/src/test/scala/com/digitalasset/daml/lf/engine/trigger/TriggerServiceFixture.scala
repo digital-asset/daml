@@ -291,8 +291,8 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
             participantId = None,
             exp = None,
             admin = admin,
-            actAs = actAs.map(ApiTypes.Party.unwrap),
-            readAs = readAs.map(ApiTypes.Party.unwrap),
+            actAs = ApiTypes.Party unsubst actAs,
+            readAs = ApiTypes.Party unsubst readAs,
           )
         ),
       ),
