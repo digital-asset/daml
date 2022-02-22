@@ -44,7 +44,7 @@ applications portable between different underlying `synchronization technologies
 
 .. Synchronization technology.  Not 'Environment', 'Infrastructure layer', 'Messaging layer', 'Topology layer', 'Underlying <enter-any-previous-term>'
 Synchronization Technology
-=====================
+==========================
 
 The syncronization technology is the database or blockchain that Daml uses for synchronization, messaging and topology. Daml runs on a range of synchronization technologies, from centralized 
 databases to fully distributed deployments, and users can employ the technology that best suits their technical and operational needs.
