@@ -178,6 +178,12 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
 // Function that requires an argument.
 sealed abstract class Script extends Product with Serializable
 object Script {
+
+  // For now, we do not care of the logging context for Daml-Script, so we create a
+  // global dummy context, we can feed the Speedy Machine and the Scenario service with.
+  private[script] val DummyLoggingContext: LoggingContext =
+    LoggingContext.newLoggingContext(identity)
+
   final case class Action(expr: SExpr, scriptIds: ScriptIds) extends Script
   final case class Function(expr: SExpr, param: Type, scriptIds: ScriptIds) extends Script {
     def apply(arg: SExpr): Script.Action = Script.Action(SEApp(expr, Array(arg)), scriptIds)
@@ -378,10 +384,8 @@ private[lf] class Runner(
       mat: Materializer,
   ): (Speedy.Machine, Future[SValue]) = {
     val machine =
-      // TODO: https://github.com/digital-asset/daml/issues/12208
-      //  plug the logging context properly in Daml-script
-      LoggingContext.newLoggingContext(
-        Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, traceLog, warningLog)(_)
+      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, traceLog, warningLog)(
+        Script.DummyLoggingContext
       )
 
     def stepToValue(): Either[RuntimeException, SValue] =

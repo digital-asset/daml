@@ -6,7 +6,8 @@ package com.daml.ledger.api.testtool.suites.v1_8
 import java.util.UUID
 
 import com.daml.error.ErrorCode
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
+import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -31,6 +32,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
 
 final class UserManagementServiceIT extends LedgerTestSuite {
 
@@ -177,6 +179,73 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       _ <- getAndCheck("invalid user-id", "?", LedgerApiErrors.RequestValidation.InvalidField)
     } yield ()
   })
+
+  userManagementTest(
+    "CreateUsersRaceCondition",
+    "Tests scenario of multiple concurrent create-user calls for the same user",
+    runConcurrently = false,
+  ) {
+    implicit ec =>
+      { participant =>
+        val attempts = (1 to 10).toVector
+        val userId = participant.nextUserId()
+        val request =
+          CreateUserRequest(Some(User(id = userId, primaryParty = "")), rights = Seq.empty)
+        for {
+          results <- Future
+            .traverse(attempts) { _ =>
+              participant.createUser(request).transform(Success(_))
+            }
+        } yield {
+          assertSingleton(
+            "successful user creation",
+            results.filter(_.isSuccess),
+          )
+          val unexpectedErrors = results
+            .collect { case x if x.isFailure => x.failed.get }
+            .filterNot(t =>
+              ErrorDetails.matches(t, LedgerApiErrors.AdminServices.UserAlreadyExists) ||
+                ErrorDetails.matches(t, IndexErrors.DatabaseErrors.SqlTransientError) ||
+                ErrorDetails.isInternalError(t)
+            )
+          assertSameElements(actual = unexpectedErrors, expected = Seq.empty)
+        }
+      }
+  }
+
+  userManagementTest(
+    "GrantRightsRaceCondition",
+    "Tests scenario of multiple concurrent grant-right calls for the same user and the same rights",
+    runConcurrently = false,
+  ) {
+    implicit ec =>
+      { participant =>
+        val attempts = (1 to 10).toVector
+        val userId = participant.nextUserId()
+        val createUserRequest =
+          CreateUserRequest(Some(User(id = userId, primaryParty = "")), rights = Seq.empty)
+        val grantRightsRequest = GrantUserRightsRequest(userId = userId, rights = userRightsBatch)
+        for {
+          _ <- participant.createUser(createUserRequest)
+          results <- Future.traverse(attempts) { _ =>
+            participant.userManagement.grantUserRights(grantRightsRequest).transform(Success(_))
+          }
+        } yield {
+          assert(
+            results.exists(_.isSuccess),
+            "Expected at least one successful user right grant",
+          )
+          val unexpectedErrors = results
+            .collect { case x if x.isFailure => x.failed.get }
+            // Note: `IndexErrors.DatabaseErrors.SqlNonTransientError` is signalled on H2 and the original cause being `org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException`
+            .filterNot(e =>
+              ErrorDetails.isInternalError(e) || ErrorDetails
+                .matches(e, IndexErrors.DatabaseErrors.SqlTransientError)
+            )
+          assertSameElements(actual = unexpectedErrors, expected = Seq.empty)
+        }
+      }
+  }
 
   userManagementTest(
     "TestAdminExists",

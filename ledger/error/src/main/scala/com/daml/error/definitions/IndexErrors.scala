@@ -84,4 +84,5 @@ object IndexErrors extends IndexErrorGroup {
 
   case class IndexDbException(status: io.grpc.Status, metadata: io.grpc.Metadata)
       extends LoggingApiException(status, metadata)
+
 }
