@@ -47,6 +47,6 @@ package trigger {
       triggerReadAs: Set[Party],
   ) {
     private[trigger] def withLoggingContext[T]: (LoggingContextOf[Trigger] => T) => T =
-      Trigger.newLoggingContext(triggerName, triggerParty, triggerReadAs)
+      Trigger.newLoggingContext(triggerName, Some(triggerInstance))
   }
 }

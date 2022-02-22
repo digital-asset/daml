@@ -32,7 +32,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.{CompiledPackages, PureCompiledPackages}
-import com.daml.logging.entries.{LoggingEntry, LoggingValue}
+import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
@@ -50,7 +50,7 @@ import scalaz.syntax.functor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
-import scalaz.{-\/, Functor, Tag, \/, \/-}
+import scalaz.{-\/, Functor, \/, \/-}
 
 import java.time.Instant
 import java.util.UUID
@@ -100,19 +100,11 @@ object Trigger extends StrictLogging {
 
   private[trigger] def newLoggingContext[P, T](
       triggerDefinition: Identifier,
-      triggerActAs: Party,
-      triggerReadAs: Set[Party],
-      extraLoggingEntries: LoggingEntry*
+      triggerId: Option[UUID] = None,
   ): (LoggingContextOf[Trigger with P] => T) => T = {
-    val args =
-      ("triggerDefinition" ->
-        LoggingValue.OfString(triggerDefinition.toString)) +:
-        ("triggerActAs" ->
-          LoggingValue.OfString(Tag.unwrap(triggerActAs))) +:
-        ("triggerReadAs" ->
-          LoggingValue.OfString(Tag.unsubst(triggerReadAs).mkString("[", ", ", "]"))) +:
-        extraLoggingEntries
-    LoggingContextOf.newLoggingContext(LoggingContextOf.label[Trigger with P], args: _*)
+    val entries0 = List[LoggingEntry]("triggerDefinition" -> triggerDefinition.toString)
+    val entries = triggerId.fold(entries0)(uuid => entries0.+:("triggerId" -> uuid.toString))
+    LoggingContextOf.newLoggingContext(LoggingContextOf.label[Trigger with P], entries: _*)
   }
 
   private def detectHasReadAs(
@@ -755,7 +747,7 @@ object Runner extends StrictLogging {
       parties: TriggerParties,
       config: Compiler.Config,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] =
-    Trigger.newLoggingContext(triggerId, parties.actAs, parties.readAs) { implicit lc =>
+    Trigger.newLoggingContext(triggerId) { implicit lc =>
       val darMap = dar.all.toMap
       val compiledPackages = PureCompiledPackages.build(darMap, config) match {
         case Left(err) => throw new RuntimeException(s"Failed to compile packages: $err")

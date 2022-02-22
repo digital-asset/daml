@@ -92,20 +92,19 @@ trait AbstractTriggerTest extends SandboxFixture with SandboxBackend.Postgresql 
       readAs: Set[String] = Set.empty,
   ): Runner = {
     val triggerId = Identifier(packageId, name)
-    Trigger.newLoggingContext(triggerId, Party(party), Party.subst(readAs)) {
-      implicit loggingContext =>
-        val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
-        new Runner(
-          compiledPackages,
-          trigger,
-          client,
-          config.timeProviderType.get,
-          applicationId,
-          TriggerParties(
-            actAs = Party(party),
-            readAs = Party.subst(readAs),
-          ),
-        )
+    Trigger.newLoggingContext(triggerId) { implicit loggingContext =>
+      val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
+      new Runner(
+        compiledPackages,
+        trigger,
+        client,
+        config.timeProviderType.get,
+        applicationId,
+        TriggerParties(
+          actAs = Party(party),
+          readAs = Party.subst(readAs),
+        ),
+      )
     }
   }
 

@@ -47,7 +47,7 @@ object TriggerRunner {
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Behavior[TriggerRunner.Message] =
-    config.newLoggingContext { implicit loggingContext =>
+    config.withLoggingContext { implicit loggingContext =>
       Behaviors.setup { ctx =>
         // Spawn a trigger runner impl. Supervise it. Stop immediately on
         // initialization halted exceptions, retry any initialization or
