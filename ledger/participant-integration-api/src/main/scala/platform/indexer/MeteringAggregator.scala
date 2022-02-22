@@ -182,7 +182,10 @@ class MeteringAggregator(
   ): Unit = {
 
     val transactionMetering: Seq[MeteringStore.TransactionMetering] =
-      meteringStore.transactionMetering(lastLedgerMeteringEnd.offset, thisLedgerMeteringEnd.offset)(
+      meteringStore.selectTransactionMetering(
+        lastLedgerMeteringEnd.offset,
+        thisLedgerMeteringEnd.offset,
+      )(
         conn
       )
 
@@ -200,5 +203,13 @@ class MeteringAggregator(
       .toVector
 
     meteringStore.insertParticipantMetering(participantMetering)(conn)
+
+    meteringStore.deleteTransactionMetering(
+      lastLedgerMeteringEnd.offset,
+      thisLedgerMeteringEnd.offset,
+    )(
+      conn
+    )
+
   }
 }
