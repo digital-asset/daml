@@ -63,7 +63,7 @@ If the call returns a new identifier, the participant node serving this call is 
 In global state topologies, the returned identifier is guaranteed to be **unique** in the ledger; namely, no other call of the ``AllocateParty`` method at this or any other ledger participant may return the same identifier.
 In partitioned state topologies, the identifier is also unique as long as the participant node is configured correctly (in particular, it does not share its private key with other participant nodes).
 If the ledger has a global state topology, the new identifier will generally be allocated and vetted by the operator of the writer node(s).
-For example, in the :ref:`replicated committer topology <replicated-committer-topology>`, the committers can jointly decide on whether to approve the provisioning, and which identifier to return.
+For example, in the replicated committer topology, the committers can jointly decide on whether to approve the provisioning, and which identifier to return.
 If they refuse to provision the identifier, the method call fails.
 
 After an identifier is returned, the ledger is set up in such a way that the participant node serving the call is allowed to issue commands and receive transactions on behalf of the party.
