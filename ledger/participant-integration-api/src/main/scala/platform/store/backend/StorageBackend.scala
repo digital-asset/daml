@@ -481,7 +481,7 @@ trait MeteringStorageWriteBackend {
   ): Vector[TransactionMetering]
 
   /** This method will delete transaction metering records between the from offset (exclusive)
-    * and the to offset (inclusive).  It is call following aggregation.
+    * and the to offset (inclusive).  It is called following aggregation.
     */
   def deleteTransactionMetering(from: Offset, to: Offset)(connection: Connection): Unit
 
