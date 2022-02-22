@@ -59,16 +59,31 @@ private[backend] trait StorageBackendTestsWriteMetering
 
     }
 
-    it should "select transaction metering for aggregation" in {
+    it should "select transaction metering based on offsets" in {
 
       executeSql(ingest(metering.map(dtoTransactionMetering), _))
 
       val nextLastOffset: Offset = meteringOffsets.filter(_ < lastOffset).max
       val expected = meteringOffsets.filter(_ > firstOffset).filter(_ <= nextLastOffset).toSet
       val actual = executeSql(
-        backend.metering.write.transactionMetering(firstOffset, nextLastOffset)
+        backend.metering.write.selectTransactionMetering(firstOffset, nextLastOffset)
       ).map(_.ledgerOffset).toSet
       actual shouldBe expected
+    }
+
+    it should "delete transaction metering based on offsets" in {
+
+      executeSql(ingest(metering.map(dtoTransactionMetering), _))
+
+      val nextLastOffset: Offset = meteringOffsets.filter(_ < lastOffset).max
+
+      executeSql(
+        backend.metering.write.deleteTransactionMetering(firstOffset, nextLastOffset)
+      )
+
+      executeSql(
+        backend.metering.write.selectTransactionMetering(firstOffset, lastOffset)
+      ).map(_.ledgerOffset).toSet.size shouldBe 1
     }
 
     it should "insert new participant metering records" in {

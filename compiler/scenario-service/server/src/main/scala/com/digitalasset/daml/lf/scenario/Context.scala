@@ -35,7 +35,7 @@ object Context {
 
   private val contextCounter = new AtomicLong()
 
-  def newContext(lfVerion: LanguageVersion): Context =
+  def newContext(lfVerion: LanguageVersion)(implicit loggingContext: LoggingContext): Context =
     new Context(contextCounter.incrementAndGet(), lfVerion)
 
   private val compilerConfig =
@@ -47,7 +47,9 @@ object Context {
     )
 }
 
-class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion) {
+class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion)(implicit
+    loggingContext: LoggingContext
+) {
 
   import Context._
 
@@ -143,14 +145,9 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
     for {
       defn <- defns.get(LfDefRef(identifier))
-    } yield
-    // TODO: https://github.com/digital-asset/daml/issues/12208
-    //  plug the logging context properly in the scenario service
-    LoggingContext.newLoggingContext(
-      Speedy.Machine.fromScenarioSExpr(
-        compiledPackages,
-        defn.body,
-      )(_)
+    } yield Speedy.Machine.fromScenarioSExpr(
+      compiledPackages,
+      defn.body,
     )
   }
 
@@ -160,9 +157,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   ): Option[ScenarioRunner.ScenarioResult] =
     buildMachine(
       Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
-    ).map(machine =>
-      LoggingContext.newLoggingContext(new ScenarioRunner(machine, txSeeding).run(_))
-    )
+    ).map(machine => new ScenarioRunner(machine, txSeeding).run)
 
   def interpretScript(
       pkgId: String,

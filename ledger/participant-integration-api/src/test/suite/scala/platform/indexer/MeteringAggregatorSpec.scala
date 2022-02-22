@@ -36,7 +36,6 @@ import scala.concurrent.Future
 final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar with Matchers {
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-//  private implicit val ec = scala.concurrent.ExecutionContext.global
   private val metrics = new Metrics(new MetricRegistry)
   private def toTS(t: OffsetDateTime): Timestamp = Timestamp.assertFromInstant(t.toInstant)
 
@@ -88,7 +87,7 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
           .thenReturn(LedgerEnd(ledgerEndOffset, 0L, 0))
 
         transactionMetering.lastOption.map { last =>
-          when(meteringStore.transactionMetering(lastAggOffset, last.ledgerOffset)(conn))
+          when(meteringStore.selectTransactionMetering(lastAggOffset, last.ledgerOffset)(conn))
             .thenReturn(transactionMetering)
         }
 
@@ -129,6 +128,10 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
       verify(meteringStore).insertParticipantMetering(Vector(expected))(conn)
       verify(meteringParameterStore).updateLedgerMeteringEnd(
         LedgerMeteringEnd(expected.ledgerOffset, expected.to)
+      )(conn)
+      verify(meteringStore).deleteTransactionMetering(
+        lastAggOffset,
+        transactionMetering.last.ledgerOffset,
       )(conn)
 
     }

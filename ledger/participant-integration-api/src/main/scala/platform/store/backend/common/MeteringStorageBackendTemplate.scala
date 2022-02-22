@@ -20,6 +20,7 @@ import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpola
 import com.daml.platform.store.backend.common.MeteringParameterStorageBackendTemplate.assertLedgerMeteringEnd
 import com.daml.platform.store.backend.common.MeteringStorageBackendTemplate._
 import com.daml.platform.store.backend.{MeteringStorageReadBackend, MeteringStorageWriteBackend}
+import com.daml.scalautil.Statement.discard
 
 import java.sql.Connection
 
@@ -183,7 +184,7 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
       .as(offset(1).?.single)(connection)
   }
 
-  def transactionMetering(from: Offset, to: Offset)(
+  def selectTransactionMetering(from: Offset, to: Offset)(
       connection: Connection
   ): Vector[TransactionMetering] = {
 
@@ -198,6 +199,20 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
       and ledger_offset <= $to
     """
       .asVectorOf(transactionMeteringParser)(connection)
+  }
+
+  def deleteTransactionMetering(from: Offset, to: Offset)(
+      connection: Connection
+  ): Unit = {
+
+    discard(
+      SQL"""
+      delete from transaction_metering
+      where (${hasBegun(from)} = 0 or ledger_offset > $from)
+      and ledger_offset <= $to
+    """
+        .execute()(connection)
+    )
   }
 
   def insertParticipantMetering(metering: Vector[ParticipantMetering])(
