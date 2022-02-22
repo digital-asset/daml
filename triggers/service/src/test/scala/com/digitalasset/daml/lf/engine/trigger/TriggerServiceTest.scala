@@ -90,13 +90,13 @@ trait AbstractTriggerServiceTest
   protected val aliceAcs: Party = Tag("Alice_acs")
   protected val aliceExp: Party = Tag("Alice_exp")
 
-  protected[this] def inClaims(self: ItVerbString, testFn: Future[Assertion])(implicit
+  protected[this] def inClaims(self: ItVerbString, testFn: => Future[Assertion])(implicit
       pos: source.Position
   ) =
     self in testFn
 
   protected[this] implicit final class `InClaims syntax`(private val self: ItVerbString) {
-    def inClaims(testFn: Future[Assertion])(implicit pos: source.Position) =
+    def inClaims(testFn: => Future[Assertion])(implicit pos: source.Position) =
       AbstractTriggerServiceTest.this.inClaims(self, testFn)
   }
 

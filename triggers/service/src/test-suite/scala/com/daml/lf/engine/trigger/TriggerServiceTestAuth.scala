@@ -12,7 +12,7 @@ class TriggerServiceTestAuth
     extends AbstractTriggerServiceTest
     with AbstractTriggerServiceTestInMem
     with AbstractTriggerServiceTestAuthMiddleware {
-  protected[this] override def inClaims(self: ItVerbString, testFn: Future[Assertion])(implicit
+  protected[this] override def inClaims(self: ItVerbString, testFn: => Future[Assertion])(implicit
       pos: source.Position
   ) =
     self ignore testFn
