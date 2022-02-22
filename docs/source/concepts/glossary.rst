@@ -25,12 +25,16 @@ Daml Language
 The Daml language is a purpose-built language for rapid development of composable multi-party applications. It is a modern, ergonomically designed functional language that carefully avoids many 
 of the pitfalls that hinder multi-party application development in other languages.
 
+Daml Ledger
+===========
+
+A Daml ledger is a distributed ledger system running Daml smart contracts (link) according to the Daml ledger model (link) and exposes the Daml Ledger APIs.
+All current implementations of Daml ledgers consists of a Daml driver that utilises and underlying Synchronization Technology to either implement the Daml ledger directly, or run the Canton protocol.
+
 Canton Ledger
-=============
+-------------
 
-A Canton ledger is a privacy-enabled distributed ledger that is enhanced when deployed with complementary blockchains. The Canton ledger is where the Daml `contracts <#contract>`__ live.
-
-The Canton ledger is often just referred to as 'the ledger' for simplicity.
+A Canton ledger is a privacy-enabled Daml ledger implemented using the Canton application, nodes, and protocol.
 
 Canton Protocol
 ===============
@@ -48,7 +52,7 @@ databases to fully distributed deployments, and users can employ the technology 
 Daml Drivers
 ============
 
-Daml drivers enable a `Canton ledger <#canton-ledger>`__ to be implemented on top of different `synchronization technologies <#synchronization-technology>`__; a database or distributed ledger technology. 
+Daml drivers enable a `ledger <#daml-ledger>`__ to be implemented on top of different `synchronization technologies <#synchronization-technology>`__; a database or distributed ledger technology. 
 
 Daml Language Concepts
 **********************
@@ -56,7 +60,7 @@ Daml Language Concepts
 Contract
 ========
 
-A **contract** is an item on a `ledger <#canton-ledger>`__. They are created from blueprints called `templates <#template>`__, and include:
+A **contract** is an item on a `ledger <#daml-ledger>`__. They are created from blueprints called `templates <#template>`__, and include:
 
 - data (parameters)
 - roles (`signatory`_, `observer`_)
@@ -67,7 +71,7 @@ Contracts are immutable: once they are created on the ledger, the information in
 Active contract, archived contract
 ----------------------------------
 
-When a `contract <#contract>`__ is created on a `ledger <#canton-ledger>`__, it becomes **active**. But that doesn't mean it will stay active forever: it can be **archived**. This can happen:
+When a `contract <#contract>`__ is created on a `ledger <#daml-ledger>`__, it becomes **active**. But that doesn't mean it will stay active forever: it can be **archived**. This can happen:
 
 - if the `signatories <#signatory>`__ of the contract decide to archive it
 - if a `consuming choice <#consuming-choice>`__ is exercised on the contract
@@ -233,7 +237,7 @@ See :doc:`/daml/reference/templates`.
 Create
 ======
 
-A **create** is an update that creates a `contract <#contract>`__ on the `ledger <#canton-ledger>`__.
+A **create** is an update that creates a `contract <#contract>`__ on the `ledger <#daml-ledger>`__.
 
 Contract creation requires `authorization <#authorization-signing>`__ from all its `signatories <#signatory>`__, or the create will fail. For how to get authorization, see the :doc:`propose-accept </daml/patterns/initaccept>` and :doc:`multi-party agreement </daml/patterns/multiparty-agreement>` patterns.
 
@@ -244,7 +248,7 @@ See :doc:`/daml/reference/updates`.
 Exercise
 ========
 
-An **exercise** is an action that exercises a `choice <#choice>`__ on a `contract <#contract>`__ on the `ledger <#canton-ledger>`__. If the choice is `consuming <#consuming-choice>`__, the exercise will `archive <#active-contract-archived-contract>`__ the contract; if it is `nonconsuming <#nonconsuming-choice>`__, the contract will stay active.
+An **exercise** is an action that exercises a `choice <#choice>`__ on a `contract <#contract>`__ on the `ledger <#daml-ledger>`__. If the choice is `consuming <#consuming-choice>`__, the exercise will `archive <#active-contract-archived-contract>`__ the contract; if it is `nonconsuming <#nonconsuming-choice>`__, the contract will stay active.
 
 Exercising a choice requires `authorization <#authorization-signing>`__ from all of the `controllers <#controller>`__ of the choice.
 
@@ -288,7 +292,7 @@ DAR file, DALF file
 
 A Daml Archive file, known as a ``.dar`` file is the result of compiling Daml code using the `Assistant <#assistant>`__ which can be interpreted using a Daml interpreter.
 
-You upload ``.dar`` files to a `ledger <#canton-ledger>`__ in order to be able to create contracts from the templates in that file.
+You upload ``.dar`` files to a `ledger <#daml-ledger>`__ in order to be able to create contracts from the templates in that file.
 
 A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of a compiled Daml package or library. Its underlying format is `Daml-LF <#daml-lf>`__.
 
@@ -341,14 +345,14 @@ Building applications
 Application, ledger client, integration
 =======================================
 
-**Application**, **ledger client** and **integration** are all terms for an application that sits on top of the `ledger <#canton-ledger>`__. These usually `read from the ledger <#reading-from-the-ledger>`_, `send commands <#submitting-commands-writing-to-the-ledger>`__ to the ledger, or both.
+**Application**, **ledger client** and **integration** are all terms for an application that sits on top of the `ledger <#daml-ledger>`__. These usually `read from the ledger <#reading-from-the-ledger>`_, `send commands <#submitting-commands-writing-to-the-ledger>`__ to the ledger, or both.
 
 There's a lot of information available about application development, starting with the :doc:`/app-dev/app-arch` page.
 
 Ledger API
 ==========
 
-The **Ledger API** is an API that's exposed by any `ledger <#canton-ledger>`__ on a participant node. Users access and manipulate the ledger state through the leger API.
+The **Ledger API** is an API that's exposed by any `ledger <#daml-ledger>`__ on a participant node. Users access and manipulate the ledger state through the leger API.
 An alternative name for the ledger API is the **gRPC Ledger API** if disambiguation from other technologies is needed.
 See :doc:`/app-dev/ledger-api` page.
 It includes the following :doc:`services </app-dev/services>`.
@@ -356,7 +360,7 @@ It includes the following :doc:`services </app-dev/services>`.
 Command submission service
 --------------------------
 
-Use the **command submission service** to `submit commands <#submitting-commands-writing-to-the-ledger>`__ - either create commands or exercise commands - to the `ledger <#canton-ledger>`__. See :ref:`command-submission-service`.
+Use the **command submission service** to `submit commands <#submitting-commands-writing-to-the-ledger>`__ - either create commands or exercise commands - to the `ledger <#daml-ledger>`__. See :ref:`command-submission-service`.
 
 Command completion service
 --------------------------
@@ -371,27 +375,27 @@ Use the **command service** when you want to `submit a command <#submitting-comm
 Transaction service
 -------------------
 
-Use the **transaction service** to listen to changes in the `ledger <#canton-ledger>`__, reported as a stream of `transactions <#transactions>`__. See :ref:`transaction-service`.
+Use the **transaction service** to listen to changes in the `ledger <#daml-ledger>`__, reported as a stream of `transactions <#transactions>`__. See :ref:`transaction-service`.
 
 Active contract service
 -----------------------
 
-Use the **active contract service** to obtain a party-specific view of all `contracts <#contract>`__ currently `active <#active-contract-archived-contract>`__ on the `ledger <#canton-ledger>`__. See :ref:`active-contract-service`.
+Use the **active contract service** to obtain a party-specific view of all `contracts <#contract>`__ currently `active <#active-contract-archived-contract>`__ on the `ledger <#daml-ledger>`__. See :ref:`active-contract-service`.
 
 Package service
 ---------------
 
-Use the **package service** to obtain information about Daml packages available on the `ledger <#canton-ledger>`__. See :ref:`package-service`.
+Use the **package service** to obtain information about Daml packages available on the `ledger <#daml-ledger>`__. See :ref:`package-service`.
 
 Ledger identity service
 -----------------------
 
-Use the **ledger identity service** to get the identity string of the `ledger <#canton-ledger>`__ that your application is connected to. See :ref:`ledger-identity-service`.
+Use the **ledger identity service** to get the identity string of the `ledger <#daml-ledger>`__ that your application is connected to. See :ref:`ledger-identity-service`.
 
 Ledger configuration service
 ----------------------------
 
-Use the **ledger configuration service** to subscribe to changes in `ledger <#canton-ledger>`__ configuration. See :ref:`ledger-configuration-service`.
+Use the **ledger configuration service** to subscribe to changes in `ledger <#daml-ledger>`__ configuration. See :ref:`ledger-configuration-service`.
 
 Ledger API libraries
 ====================
@@ -406,12 +410,12 @@ An idiomatic Java library for writing `ledger applications <#application-ledger-
 Reading from the ledger
 =======================
 
-`Applications <#application-ledger-client-integration>`__ get information about the `ledger <#canton-ledger>`__ by **reading** from it. You can't query the ledger, but you can subscribe to the transaction stream to get the events, or the more sophisticated active contract service.
+`Applications <#application-ledger-client-integration>`__ get information about the `ledger <#daml-ledger>`__ by **reading** from it. You can't query the ledger, but you can subscribe to the transaction stream to get the events, or the more sophisticated active contract service.
 
 Submitting commands, writing to the ledger
 ==========================================
 
-`Applications <#application-ledger-client-integration>`__ make changes to the `ledger <#canton-ledger>`__ by **submitting commands**. You can't change it directly: an application submits a command of `transactions <#transactions>`__. The command gets evaluated by the runtime, and will only be accepted if it's valid.
+`Applications <#application-ledger-client-integration>`__ make changes to the `ledger <#daml-ledger>`__ by **submitting commands**. You can't change it directly: an application submits a command of `transactions <#transactions>`__. The command gets evaluated by the runtime, and will only be accepted if it's valid.
 
 For example, a command might get rejected because the transactions aren't `well-authorized <#authorization-signing>`__; because the contract isn't `active <#active-contract-archived-contract>`__ (perhaps someone else archived it); or for other reasons.
 
@@ -420,7 +424,7 @@ This is echoed in :ref:`Daml script <daml-script>`, where you can mock an applic
 Commands
 --------
 
-A **command** is an instruction to add a transaction to the `ledger <#canton-ledger>`__.
+A **command** is an instruction to add a transaction to the `ledger <#daml-ledger>`__.
 
 .. Events
 .. ======
