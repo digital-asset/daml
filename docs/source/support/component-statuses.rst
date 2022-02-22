@@ -48,7 +48,7 @@ Runtime components
    * - Canton Application and Console
      - Stable
      -
-     - Canton Administrative APIs for participant, and domain nodes
+     - Canton Administrative APIs for participant and domain nodes
      - Stable
      -
      - Canton Protocol
