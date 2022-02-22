@@ -73,7 +73,7 @@ Assume that a new party ``Bob_456`` is next successfully allocated on ``P2``.
 This does not yet guarantee that ``Alice_123`` can now submit a command creating a new contract with ``Bob_456`` as an observer.
 In general, ``Alice_123`` will be able to do this in a ledger with a global state topology.
 In such ledgers, the nodes holding the physical shared ledger typically also maintain a central directory of all parties in the system.
-However, such a directory may not exist for a ledger with a :ref:`partitioned topology <partitioned-topologies>`.
+However, such a directory may not exist for a ledger with a partitioned topology.
 In fact, in such a ledger, the participants ``P1`` and ``P2`` might not have a way to communicate to each other, or might not even be aware of each other's existence.
 
 For diagnostics, the ledger also provides a :ref:`ListKnownParties <com.daml.ledger.api.v1.admin.ListKnownPartiesRequest>` method which lists parties known to the participant node.
