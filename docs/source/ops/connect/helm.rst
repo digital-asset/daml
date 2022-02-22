@@ -6,7 +6,7 @@
 Daml Helm Chart
 ===============
 
-As of 1.18.0, we provide an Early Access version of the Helm Chart for
+We provide an Early Access version of the Helm Chart for
 Daml Enterprise customers. This page contains documentation for that Helm
 chart.
 
@@ -192,7 +192,7 @@ You can find external documentation on, how to setup `ElasticSearch` with
 `Filebeat` and `Kibana` for analyzing logs on your Kubernetes cluster
 `here <https://www.deepnetwork.com/blog/2020/01/27/ELK-stack-filebeat-k8s-deployment.html>`_.
 
-As of 1.18.0, the :ref:`HTTP JSON API <json-api>` component in the Helm chart produces
+The :ref:`HTTP JSON API <json-api>` component in the Helm chart produces
 JSON-encoded logs. Other components log as unstructured text.
 
 Daml Metrics Options
