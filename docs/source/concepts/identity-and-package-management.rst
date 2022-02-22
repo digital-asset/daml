@@ -23,7 +23,7 @@ The remainder of the document will present:
 
 #. The minimal behavioral guarantees for identity and package services across all ledger implementations. The service users can rely on these guarantees, and the implementers must ensure that they hold.
 
-#. Guidelines for service users, explaining how the :ref:`ledger's topology <daml-ledger-topologies>` influences the unspecified part of the behavior.
+#. Guidelines for service users, explaining how the ledger's topology influences the unspecified part of the behavior.
 
 .. _identity-management:
 
@@ -62,7 +62,7 @@ The ``AllocateParty`` call can take the desired identifier and display name as o
 If the call returns a new identifier, the :ref:`participant node <participant-node-def>` serving this call is ready to host the party with this identifier.
 In global state topologies, the returned identifier is guaranteed to be **unique** in the ledger; namely, no other call of the ``AllocateParty`` method at this or any other ledger participant may return the same identifier.
 In partitioned state topologies, the identifier is also unique as long as the participant node is configured correctly (in particular, it does not share its private key with other participant nodes).
-If the ledger has a :ref:`global state topology <global-state-topologies>`, the new identifier will generally be allocated and vetted by the operator of the writer node(s).
+If the ledger has a global state topology, the new identifier will generally be allocated and vetted by the operator of the writer node(s).
 For example, in the :ref:`replicated committer topology <replicated-committer-topology>`, the committers can jointly decide on whether to approve the provisioning, and which identifier to return.
 If they refuse to provision the identifier, the method call fails.
 
@@ -71,7 +71,7 @@ However, the newly provisioned identifier need not be visible to the other parti
 For example, consider the setup with two participants ``P1`` and ``P2``, where the party ``Alice_123`` is hosted on ``P1``.
 Assume that a new party ``Bob_456`` is next successfully allocated on ``P2``.
 This does not yet guarantee that ``Alice_123`` can now submit a command creating a new contract with ``Bob_456`` as an observer.
-In general, ``Alice_123`` will be able to do this in a ledger with a :ref:`global state topology <global-state-topologies>`.
+In general, ``Alice_123`` will be able to do this in a ledger with a global state topology.
 In such ledgers, the nodes holding the physical shared ledger typically also maintain a central directory of all parties in the system.
 However, such a directory may not exist for a ledger with a :ref:`partitioned topology <partitioned-topologies>`.
 In fact, in such a ledger, the participants ``P1`` and ``P2`` might not have a way to communicate to each other, or might not even be aware of each other's existence.
@@ -101,7 +101,7 @@ The "substrate" on which Daml workflows are built are the real-world obligations
 To give value to these obligations, they must be connected to parties in the real world.
 However, the process of linking party identifiers to real-world entities is left to the ledger implementation.
 
-A :ref:`global state topology <global-state-topologies>` might simplify the process by trusting the operator of the writer node(s) with providing the link to the real world.
+A global state topology might simplify the process by trusting the operator of the writer node(s) with providing the link to the real world.
 For example, if the operator is a stock exchange, it might guarantee that a real-world exchange participant whose legal name is "Bank Inc." is represented by a ledger party with the identifier "Bank Inc.".
 Alternatively, it might use a random identifier, but guarantee that the display name is "Bank Inc.".
 Ledgers with :ref:`partitioned topologies <partitioned-topologies>` in general might not have such a single store of identities.
@@ -160,7 +160,7 @@ One reason for this is that the Daml interpreter currently lacks a notion of rep
 
 Thus, Daml ledgers generally allow some form of vetting a package before running its code on a node.
 Not all nodes in a Daml ledger must vet all packages, as it is possible that some of them will not execute the code.
-For example, in :ref:`global state topologies <global-state-topologies>`, every :ref:`trust domain <trust-domain>` that controls how commits are appended to the shared ledger must execute Daml code.
+For example, in global state topologies, every :ref:`trust domain <trust-domain>` that controls how commits are appended to the shared ledger must execute Daml code.
 Thus, the operators of these trust domains will in general be allowed to vet the code before they execute it.
 The exact vetting mechanism is ledger-dependent.
 For example, in the :ref:`Daml Sandbox <sandbox-manual>`, the vetting is implicit: uploading a package through the Ledger API already vets the package, since it's assumed that only the system administrator has access to these API facilities.

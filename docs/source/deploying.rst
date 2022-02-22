@@ -9,4 +9,3 @@ Deploying to Daml Ledgers
 
   deploy/index
   deploy/generic_ledger
-  deploy/ledger-topologies
