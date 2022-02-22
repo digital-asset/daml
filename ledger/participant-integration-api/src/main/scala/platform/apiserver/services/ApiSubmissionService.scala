@@ -106,27 +106,29 @@ private[apiserver] final class ApiSubmissionService private[services] (
       request: SubmitRequest
   )(implicit telemetryContext: TelemetryContext): Future[Unit] =
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
-      logger.info("Submitting transaction")
-      logger.trace(s"Commands: ${request.commands.commands.commands}")
-
-      implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+      // Spin up a Future so that all the work is done not on the dispatcher thread
+      // but using the pool provided with the ExecutionContext of this class instance.
+      Future {
+        logger.info("Submitting transaction")
+        logger.trace(s"Commands: ${request.commands.commands.commands}")
         new DamlContextualizedErrorLogger(
           logger,
           loggingContext,
           request.commands.submissionId.map(SubmissionId.unwrap),
         )
-
-      val evaluatedCommand = ledgerConfigurationSubscription
-        .latestConfiguration() match {
-        case Some(ledgerConfiguration) =>
-          evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
-            .transform(handleSubmissionResult)
-        case None =>
-          Future.failed(
-            errorFactories.missingLedgerConfig()
-          )
+      }.flatMap { implicit contextualizedErrorLogger: ContextualizedErrorLogger =>
+        val evaluatedCommand = ledgerConfigurationSubscription
+          .latestConfiguration() match {
+          case Some(ledgerConfiguration) =>
+            evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
+              .transform(handleSubmissionResult)
+          case None =>
+            Future.failed(
+              errorFactories.missingLedgerConfig()
+            )
+        }
+        evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
       }
-      evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
     }
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
