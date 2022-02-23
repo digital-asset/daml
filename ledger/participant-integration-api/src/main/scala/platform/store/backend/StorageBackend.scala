@@ -426,11 +426,9 @@ trait UserManagementStorageBackend {
       connection: Connection
   ): Vector[User]
 
-  /** @return true if the right didn't exist and we have just added it.
-    */
   def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(
       connection: Connection
-  ): Boolean
+  ): Unit
 
   /** @return true if the right existed and we have just deleted it.
     */

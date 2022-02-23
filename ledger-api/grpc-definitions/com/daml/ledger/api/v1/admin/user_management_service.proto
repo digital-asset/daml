@@ -230,9 +230,6 @@ message RevokeUserRightsRequest {
 
 message RevokeUserRightsResponse {
     // The rights actually revoked by a request.
-    // I.e. if a right was present in the request and is missing from the response it means:
-    // - (typically) the user did not have such right,
-    // - (in a rare race condition case) no such user existed.
     repeated Right newly_revoked_rights = 1;
 }
 

@@ -233,24 +233,21 @@ private[backend] trait StorageBackendTestsUserManagement
     val readAsRight = CanReadAs(Ref.Party.assertFromString("party_read_as_1"))
     val actAsRight = CanActAs(Ref.Party.assertFromString("party_act_as_1"))
     val internalId = executeSql(tested.createUser(user = user1, createdAt = zeroMicros))
-    val addOk1 = executeSql(tested.addUserRight(internalId, adminRight, grantedAt = zeroMicros))
+    executeSql(tested.addUserRight(internalId, adminRight, grantedAt = zeroMicros))
     // Attempting to add a duplicate user admin right
     assertThrows[SQLException](
       executeSql(tested.addUserRight(internalId, adminRight, grantedAt = zeroMicros))
     )
-    val addOk2 = executeSql(tested.addUserRight(internalId, readAsRight, grantedAt = zeroMicros))
+    executeSql(tested.addUserRight(internalId, readAsRight, grantedAt = zeroMicros))
     // Attempting to add a duplicate user readAs right
     assertThrows[SQLException](
       executeSql(tested.addUserRight(internalId, readAsRight, grantedAt = zeroMicros))
     )
-    val addOk3 = executeSql(tested.addUserRight(internalId, actAsRight, grantedAt = zeroMicros))
+    executeSql(tested.addUserRight(internalId, actAsRight, grantedAt = zeroMicros))
     // Attempting to add a duplicate user actAs right
     assertThrows[SQLException](
       executeSql(tested.addUserRight(internalId, actAsRight, grantedAt = zeroMicros))
     )
-    addOk1 shouldBe true
-    addOk2 shouldBe true
-    addOk3 shouldBe true
   }
 
   it should "handle removing absent rights" in {
@@ -268,18 +265,15 @@ private[backend] trait StorageBackendTestsUserManagement
     val user1 = newUniqueUser()
     val internalId = executeSql(tested.createUser(user1, createdAt = zeroMicros))
     val rights1 = executeSql(tested.getUserRights(internalId))
-    val addRight1 = executeSql(tested.addUserRight(internalId, right1, grantedAt = zeroMicros))
-    val addRight2 = executeSql(tested.addUserRight(internalId, right2, grantedAt = zeroMicros))
-    val addRight3 = executeSql(tested.addUserRight(internalId, right3, grantedAt = zeroMicros))
+    executeSql(tested.addUserRight(internalId, right1, grantedAt = zeroMicros))
+    executeSql(tested.addUserRight(internalId, right2, grantedAt = zeroMicros))
+    executeSql(tested.addUserRight(internalId, right3, grantedAt = zeroMicros))
     val rights2 = executeSql(tested.getUserRights(internalId))
     val deleteRight2 = executeSql(tested.deleteUserRight(internalId, right2))
     val rights3 = executeSql(tested.getUserRights(internalId))
     val deleteRight3 = executeSql(tested.deleteUserRight(internalId, right3))
     val rights4 = executeSql(tested.getUserRights(internalId))
     rights1 shouldBe empty
-    addRight1 shouldBe true
-    addRight2 shouldBe true
-    addRight3 shouldBe true
     rights2.map(_.domainRight) should contain theSameElementsAs Seq(right1, right2, right3)
     deleteRight2 shouldBe true
     rights3.map(_.domainRight) should contain theSameElementsAs Seq(right1, right3)
@@ -294,7 +288,7 @@ private[backend] trait StorageBackendTestsUserManagement
     val rightExists0 = executeSql(tested.userRightExists(internalId, right1))
     val rights0 = executeSql(tested.getUserRights(internalId))
     // add one rights
-    val addRight = executeSql(tested.addUserRight(internalId, right1, grantedAt = zeroMicros))
+    executeSql(tested.addUserRight(internalId, right1, grantedAt = zeroMicros))
     val rightExists1 = executeSql(tested.userRightExists(internalId, right1))
     val rights1 = executeSql(tested.getUserRights(internalId))
     // delete
@@ -304,8 +298,6 @@ private[backend] trait StorageBackendTestsUserManagement
     // no rights
     rightExists0 shouldBe false
     rights0 shouldBe empty
-    // added right
-    addRight shouldBe true
     rightExists1 shouldBe true
     rights1.map(_.domainRight) should contain theSameElementsAs Seq(right1)
     // deleted right

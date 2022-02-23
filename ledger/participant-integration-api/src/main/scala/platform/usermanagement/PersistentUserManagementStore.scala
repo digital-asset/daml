@@ -158,6 +158,7 @@ class PersistentUserManagementStore(
               right = right,
               grantedAt = now,
             )(connection)
+            true
           } else {
             false
           }
