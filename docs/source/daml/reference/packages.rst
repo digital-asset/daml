@@ -20,7 +20,7 @@ You can specify a different path for the Daml archive by using the ``-o`` flag:
 
   daml build -o foo.dar
 
-The rest of this page will focus on how to import a Daml package in other Daml projects.
+For details on how to upload a Daml archive to the ledger, see the :ref:`deploy documentation </deploying>`. The rest of this page will focus on how to import a Daml package in other Daml projects.
 
 .. _inspecting_dars:
 
