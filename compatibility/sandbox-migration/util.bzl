@@ -46,7 +46,7 @@ def migration_test(name, versions, tags, quick_tags, **kwargs):
         name = "{}-oracle".format(name),
         srcs = ["//sandbox-migration:test.sh"],
         deps = ["@bazel_tools//tools/bash/runfiles"],
-        tags = tags + ["manual"] if not is_linux else [],
+        tags = tags + (["manual"] if not is_linux else []),
         data = [
             "//sandbox-migration:sandbox-migration-runner",
             "//sandbox-migration:migration-model.dar",
