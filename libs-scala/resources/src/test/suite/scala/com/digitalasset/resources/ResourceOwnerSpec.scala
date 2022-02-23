@@ -622,6 +622,33 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
   }
 
+  "a function returning a class with a release method" should {
+    "convert to a ResourceOwner" in {
+      val newReleasable = new MockConstructor(acquired =>
+        // A releasable is just a more generic closeable
+        new TestCloseable(93, acquired)
+      )
+
+      val resource = for {
+        releasable <- Factories.forReleasable(newReleasable.apply)(r => Future(r.close())).acquire()
+      } yield {
+        withClue("after acquiring,") {
+          newReleasable.hasBeenAcquired should be(true)
+          releasable.value should be(93)
+        }
+      }
+
+      for {
+        _ <- resource.asFuture
+        _ <- resource.release()
+      } yield {
+        withClue("after releasing,") {
+          newReleasable.hasBeenAcquired should be(false)
+        }
+      }
+    }
+  }
+
   "a function returning an ExecutorService" should {
     "convert to a ResourceOwner" in {
       val testPromise = Promise[Unit]()

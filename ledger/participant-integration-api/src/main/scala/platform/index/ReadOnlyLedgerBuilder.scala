@@ -30,7 +30,11 @@ import com.daml.platform.store.cache.{
   MutableLedgerEndCache,
 }
 import com.daml.platform.store.interfaces.TransactionLogUpdate
-import com.daml.platform.store.interning.{StringInterning, StringInterningView}
+import com.daml.platform.store.interning.{
+  StringInterning,
+  StringInterningView,
+  UpdatingStringInterningView,
+}
 import com.daml.platform.store.{DbSupport, EventSequentialId, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
@@ -93,13 +97,11 @@ private[index] case class ReadOnlyLedgerBuilder(
         prefetchingDispatcher,
         ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId,
       )
-      _ <- ResourceOwner.forCloseable(() =>
-        new LedgerEndCachesUpdater(
-          ledgerDao,
-          stringInterningView,
-          instrumentedSignalNewLedgerHead,
-          prefetchingDispatcher,
-        )
+      _ <- cachesUpdaterSubscription(
+        ledgerDao,
+        stringInterningView,
+        instrumentedSignalNewLedgerHead,
+        prefetchingDispatcher,
       )
     } yield new ReadOnlyLedgerImpl(
       ledgerId,
@@ -110,6 +112,29 @@ private[index] case class ReadOnlyLedgerBuilder(
       generalDispatcher,
     )
   }
+
+  private def cachesUpdaterSubscription(
+      ledgerDao: LedgerReadDao,
+      updatingStringInterningView: UpdatingStringInterningView,
+      instrumentedSignalNewLedgerHead: InstrumentedSignalNewLedgerHead,
+      prefetchingDispatcher: Dispatcher[(Offset, Long)],
+  ): ResourceOwner[Unit] =
+    ResourceOwner
+      .forReleasable(() =>
+        new LedgerEndPoller(
+          ledgerDao,
+          newLedgerHead =>
+            for {
+              _ <- updatingStringInterningView.update(newLedgerHead.lastStringInterningId)
+            } yield {
+              instrumentedSignalNewLedgerHead.startTimer(newLedgerHead.lastOffset)
+              prefetchingDispatcher.signalNewHead(
+                newLedgerHead.lastOffset -> newLedgerHead.lastEventSeqId
+              )
+            },
+        )
+      )(_.release())
+      .map(_ => ())
 
   private def buildInstrumentedSignalNewLedgerHead(
       ledgerEndCache: MutableLedgerEndCache,
