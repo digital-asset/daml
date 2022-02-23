@@ -43,7 +43,7 @@ import com.daml.timer.RetryStrategy
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-private[platform] case class ReadOnlyLedgerBuilder(
+private[platform] case class IndexServiceBuilder(
     dbSupport: DbSupport,
     initialLedgerId: LedgerId,
     eventsPageSize: Int,
@@ -104,7 +104,7 @@ private[platform] case class ReadOnlyLedgerBuilder(
         instrumentedSignalNewLedgerHead,
         prefetchingDispatcher,
       )
-    } yield new ReadOnlyLedgerImpl(
+    } yield new IndexServiceImpl(
       ledgerId,
       participantId,
       ledgerDao,

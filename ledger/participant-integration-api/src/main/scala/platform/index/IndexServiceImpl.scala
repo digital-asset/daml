@@ -55,7 +55,7 @@ import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[index] class ReadOnlyLedgerImpl(
+private[index] class IndexServiceImpl(
     val ledgerId: LedgerId,
     participantId: Ref.ParticipantId,
     ledgerDao: LedgerReadDao,
