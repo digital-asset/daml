@@ -28,6 +28,12 @@ if [ -n "$SANDBOX_PID" ]; then
     echo $SANDBOX_PID | xargs kill
 fi
 
+sha256sum /nix/store/hys4dykcgmr9i2wvaxq5af5jzvqaz68a-ghc-native-bignum-9.0.2/lib/ghc-9.0.2/base-4.15.1.0/libHSbase-4.15.1.0-ghc9.0.2.dylib
+
+nix-store --delete --ignore-liveness /nix/store/hys4dykcgmr9i2wvaxq5af5jzvqaz68a-ghc-native-bignum-9.0.2
+nix-store --repair-path /nix/store/hys4dykcgmr9i2wvaxq5af5jzvqaz68a-ghc-native-bignum-9.0.2
+sha256sum /nix/store/hys4dykcgmr9i2wvaxq5af5jzvqaz68a-ghc-native-bignum-9.0.2/lib/ghc-9.0.2/base-4.15.1.0/libHSbase-4.15.1.0-ghc9.0.2.dylib
+
 bazel clean --expunge && rm -rf .bazel-cache
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
