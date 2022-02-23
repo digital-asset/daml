@@ -51,7 +51,7 @@ class PostgresEventStorageBackend(ledgerEndCache: LedgerEndCache, stringInternin
            ${selectFrom("participant_events_non_consuming_exercise")}
            UNION ALL
            ${selectFrom("participant_events_divulgence")}
-         )
+         ) as participant_events
        )
        select 1 as result
        from max_offset_before_migration
