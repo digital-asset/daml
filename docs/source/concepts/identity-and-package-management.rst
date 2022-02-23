@@ -104,7 +104,7 @@ However, the process of linking party identifiers to real-world entities is left
 A global state topology might simplify the process by trusting the operator of the writer node(s) with providing the link to the real world.
 For example, if the operator is a stock exchange, it might guarantee that a real-world exchange participant whose legal name is "Bank Inc." is represented by a ledger party with the identifier "Bank Inc.".
 Alternatively, it might use a random identifier, but guarantee that the display name is "Bank Inc.".
-Ledgers with :ref:`partitioned topologies <partitioned-topologies>` in general might not have such a single store of identities.
+Ledgers with partitioned topologies in general might not have such a single store of identities.
 The solutions for linking the identifiers to real-world identities could rely on certificate chains, `verifiable credentials <https://www.w3.org/TR/vc-data-model/>`__, or other mechanisms.
 The mechanisms can be implemented off-ledger, using Daml workflows (for instance, a "know your customer" workflow), or a combination of these.
 
@@ -167,7 +167,7 @@ For example, in the :ref:`Daml Sandbox <sandbox-manual>`, the vetting is implici
 In a replicated ledger, the vetting might require consent from all or a quorum of replicas.
 The vetting process can be manual, where an administrator inspects each package, or it can be automated, for example, by accepting only packages with a digital signature from a trusted package issuer.
 
-In :ref:`partitioned topologies <partitioned-topologies>`, individual trust domains store only parts of the ledger.
+In partitioned topologies, individual trust domains store only parts of the ledger.
 Thus, they only need to approve packages whose templates are used in the ledger part visible to them.
 For example, in Daml on `R3 Corda <https://www.corda.net>`__, participants only need to approve code for the contracts in their parties' projections.
 If non-validating Corda notaries are used, they do not need to vet code.
