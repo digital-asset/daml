@@ -14,30 +14,35 @@ today.
      - Synchronization Technology
      - Status
      - Canton Domain
+     - Open Source
    * - Daml driver for VMware Blockchain
      - VMware Blockchain
      - GA
+     - No
      - No
    * - Daml driver for PostgreSQL
      - PostgreSQL
      - GA
      - Yes
+     - Yes
    * - Daml driver for Oracle DB
      - Oracle DB
      - GA
      - Yes
+     - No
    * - Daml driver for Hyperledger Fabric
      - Hyperledger Fabric
      - Beta
      - Yes
+     - No
    * - Daml driver for Hyperledger Besu
      - Hyperledger Besu
      - Beta
      - Yes
+     - No
 
 .. toctree::
   :maxdepth: 2
   :hidden:
 
   deploy/generic_ledger
-  deploy/ledger-topologies
