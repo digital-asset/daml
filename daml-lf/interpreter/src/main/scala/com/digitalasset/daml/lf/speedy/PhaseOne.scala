@@ -767,8 +767,8 @@ private[lf] final class PhaseOne(
     }
   }
 
-  val compileAppsX = compileApps _
-  @tailrec
+  val compileAppsX = compileApps _ // This allows silencing the @tailrec warning in one place...
+  @tailrec // ...while still ensuring tail-recursion for the call in the ETyApp case.
   private[this] def compileApps(env: Env, exp: Expr, args: List[SExpr]): Work = {
     exp match {
       case EApp(fun, arg) =>
