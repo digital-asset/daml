@@ -58,7 +58,6 @@ trap stop_postgresql EXIT
 stop_postgresql # in case it's running from a previous build
 start_postgresql
 
-
 # Set up a shared Oracle instance
 # Note: this is code duplicated from ../ci/build.yml
 function start_oracle() {
@@ -93,17 +92,22 @@ function stop_oracle() {
 function test_oracle_connection() {
   docker exec oracle bash -c 'sqlplus -L '"$ORACLE_USERNAME"'/'"$ORACLE_PWD"'@//localhost:'"$ORACLE_PORT"'/ORCLPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
 }
-trap stop_oracle EXIT
-start_oracle
-until test_oracle_connection
-do
-  echo "Could not connect to Oracle, trying again..."
-  sleep 1
-done
 
 # Pass the path to the docker executable to the tests.
 # This is because the tests need to interact with the docker container started above.
-ORACLE_DOCKER_PATH=$(which docker)
+ORACLE_DOCKER_PATH=$(which docker) || true
+
+if [ -z "${ORACLE_DOCKER_PATH:-}" ]; then
+  echo "Not starting Oracle because there is no docker"
+else
+  trap stop_oracle EXIT
+  start_oracle
+  until test_oracle_connection
+  do
+    echo "Could not connect to Oracle, trying again..."
+    sleep 1
+  done
+fi
 
 bazel build //...
 
