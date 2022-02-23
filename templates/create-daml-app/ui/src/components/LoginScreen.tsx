@@ -10,7 +10,6 @@ import {
   usePublicParty,
 } from "@daml/hub-react";
 import { authConfig, Insecure } from "../config";
-import { useAuth0 } from "@auth0/auth0-react";
 
 type Props = {
   onLogin: (credentials: Credentials) => void;
@@ -154,58 +153,10 @@ const LoginScreen: React.FC<Props> = ({ onLogin }) => {
       />,
     );
 
-  const Auth0Login: React.FC = () => {
-    const {
-      user,
-      isAuthenticated,
-      isLoading,
-      loginWithRedirect,
-      getAccessTokenSilently,
-    } = useAuth0();
-    (async function () {
-      if (isLoading === false && isAuthenticated === true) {
-        if (user !== undefined) {
-          const party = user["https://daml.com/ledger-api"];
-          const creds: Credentials = {
-            user: {
-              userId: user.email ?? user.name ?? party,
-              primaryParty: party,
-            },
-            party: party,
-            token: await getAccessTokenSilently({
-              audience: "https://daml.com/ledger-api",
-            }),
-            getPublicParty: () => {
-              throw Error("FIXME");
-            },
-          };
-          login(creds);
-        }
-      }
-    })();
-    return wrap(
-      <Button
-        primary
-        fluid
-        className="test-select-login-button"
-        disabled={isLoading || isAuthenticated}
-        loading={isLoading || isAuthenticated}
-        onClick={loginWithRedirect}>
-        Log in
-      </Button>,
-    );
-  };
-
-  if (authConfig.provider === "none") {
-  } else if (authConfig.provider === "daml-hub") {
-  } else if (authConfig.provider === "auth0") {
-  }
   return authConfig.provider === "none" ? (
     <InsecureLogin auth={authConfig} />
   ) : authConfig.provider === "daml-hub" ? (
     <DamlHubLogin />
-  ) : authConfig.provider === "auth0" ? (
-    <Auth0Login />
   ) : (
     <div>Invalid configuation.</div>
   );
