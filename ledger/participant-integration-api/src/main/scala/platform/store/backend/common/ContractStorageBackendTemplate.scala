@@ -74,6 +74,7 @@ class ContractStorageBackendTemplate(
     import com.daml.platform.store.Conversions.ContractIdToStatement
     SQL"""
            (SELECT
+             event_sequential_id,
              template_id,
              flat_event_witnesses,
              create_argument,
@@ -86,6 +87,7 @@ class ContractStorageBackendTemplate(
              AND event_sequential_id <= $before)
            UNION ALL
            (SELECT
+             event_sequential_id,
              template_id,
              flat_event_witnesses,
              NULL as create_argument,
