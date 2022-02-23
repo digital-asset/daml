@@ -665,6 +665,15 @@ object Config {
           .action((value, config: Config[Extra]) =>
             config.withUserManagementConfig(_.copy(maxUsersPageSize = value))
           )
+        checkConfig(c => {
+          val v = c.userManagementConfig.maxUsersPageSize
+          if (v == 0 || v >= 100) {
+            success
+          } else {
+            failure(s"max-users-page-size must be either 0 or greater than 99, was: $v")
+          }
+        })
+
         opt[Unit]('s', "static-time")
           .optional()
           .hidden() // Only available for testing purposes

@@ -429,6 +429,26 @@ abstract class CommonCliSpecBase(
         ),
         _.withUserManagementConfig(_.copy(maxUsersPageSize = 123)),
       )
+      // values in range [1, 99] are disallowed
+      checkOptionFail(
+        Array(
+          "--max-users-page-size",
+          "1",
+        )
+      )
+      checkOptionFail(
+        Array(
+          "--max-users-page-size",
+          "99",
+        )
+      )
+      // negative values are disallowed
+      checkOptionFail(
+        Array(
+          "--max-users-page-size",
+          "-1",
+        )
+      )
     }
 
   }

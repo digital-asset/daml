@@ -210,7 +210,10 @@ In contrast to parties, users are local to a participant node.
 The relation between a participant node's users and Daml parties is best understood by analogy to classical databases:
 a participant node's users are analogous to database users while Daml parties are analogous to database roles; and further, the rights granted to a user are analogous to the user's assigned database roles.
 
-For more information, refer to :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, and delete users and their rights.
+For more information, consult the :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, and delete users and their rights.
+See the :ref:`UserManagementFeature descriptor <com.daml.ledger.api.v1.UserManagementFeature>` to learn about limits of the user management service, e.g., the maximum number of rights per user.
+The feature descriptor can be retrieved using the :ref:`Version service <version-service>`.
+
 Read the :doc:`Authorization documentation </app-dev/authorization>` to understand how Ledger API requests are authorized, and how to use user management to dynamically change an application's rights.
 
 .. _package-service:
@@ -252,7 +255,7 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 Version service
 ============================
 
-Use the **version service** to retrieve information about the Ledger API version.
+Use the **version service** to retrieve information about the Ledger API version and what optional features are supported by the ledger server.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.VersionService>`.
 
