@@ -42,7 +42,6 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.{ApiOffset, PruneBuffers}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -63,7 +62,6 @@ private[index] class IndexServiceImpl(
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: Dispatcher[Offset],
-    metrics: Metrics,
     errorFactories: ErrorFactories,
 ) extends IndexService {
   private val logger = ContextualizedLogger.get(getClass)
@@ -81,7 +79,7 @@ private[index] class IndexServiceImpl(
   override def lookupContractKey(readers: Set[Ref.Party], key: GlobalKey)(implicit
       loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
-    Timed.future(metrics.daml.index.lookupKey, contractStore.lookupContractKey(readers, key))
+    contractStore.lookupContractKey(readers, key)
 
   override def transactions(
       startExclusive: domain.LedgerOffset,
@@ -195,48 +193,36 @@ private[index] class IndexServiceImpl(
   )(implicit
       loggingContext: LoggingContext
   ): Future[Option[VersionedContractInstance]] =
-    Timed.future(
-      metrics.daml.index.lookupContract,
-      contractStore.lookupActiveContract(forParties, contractId),
-    )
+    contractStore.lookupActiveContract(forParties, contractId)
 
   override def getTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
-    Timed.future(
-      metrics.daml.index.lookupFlatTransactionById,
-      ledgerDao.transactionsReader
-        .lookupFlatTransactionById(transactionId.unwrap, requestingParties),
-    )
+    ledgerDao.transactionsReader
+      .lookupFlatTransactionById(transactionId.unwrap, requestingParties)
 
   override def getTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
-    Timed.future(
-      metrics.daml.index.lookupTransactionTreeById,
-      ledgerDao.transactionsReader
-        .lookupTransactionTreeById(transactionId.unwrap, requestingParties),
-    )
+    ledgerDao.transactionsReader
+      .lookupTransactionTreeById(transactionId.unwrap, requestingParties)
 
   override def lookupMaximumLedgerTimeAfterInterpretation(
       contractIds: Set[ContractId]
   )(implicit loggingContext: LoggingContext): Future[MaximumLedgerTime] =
-    Timed.future(
-      metrics.daml.index.lookupMaximumLedgerTime,
-      contractStore.lookupMaximumLedgerTimeAfterInterpretation(contractIds),
-    )
+    contractStore.lookupMaximumLedgerTimeAfterInterpretation(contractIds)
 
   override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[domain.PartyDetails]] =
-    Timed.future(metrics.daml.index.getParties, ledgerDao.getParties(parties))
+    ledgerDao.getParties(parties)
 
   override def listKnownParties()(implicit
       loggingContext: LoggingContext
   ): Future[List[domain.PartyDetails]] =
-    Timed.future(metrics.daml.index.listKnownParties, ledgerDao.listKnownParties())
+    ledgerDao.listKnownParties()
 
   override def partyEntries(
       startExclusive: Option[LedgerOffset.Absolute]
@@ -255,12 +241,12 @@ private[index] class IndexServiceImpl(
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
   ): Future[Map[Ref.PackageId, v2.PackageDetails]] =
-    Timed.future(metrics.daml.index.listLfPackages, ledgerDao.listLfPackages())
+    ledgerDao.listLfPackages()
 
   override def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[DamlLf.Archive]] =
-    Timed.future(metrics.daml.index.getLfArchive, ledgerDao.getLfArchive(packageId))
+    ledgerDao.getLfArchive(packageId)
 
   override def packageEntries(
       startExclusive: Option[LedgerOffset.Absolute]
@@ -277,14 +263,11 @@ private[index] class IndexServiceImpl(
   override def lookupConfiguration()(implicit
       loggingContext: LoggingContext
   ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
-    Timed.future(
-      metrics.daml.index.lookupLedgerConfiguration,
-      ledgerDao
-        .lookupLedgerConfiguration()
-        .map(
-          _.map { case (offset, config) => (toAbsolute(offset), config) }
-        )(ExecutionContext.parasitic),
-    )
+    ledgerDao
+      .lookupLedgerConfiguration()
+      .map(
+        _.map { case (offset, config) => (toAbsolute(offset), config) }
+      )(ExecutionContext.parasitic)
 
   /** Looks up the current configuration, if set, and continues to stream configuration changes.
     */
@@ -320,25 +303,20 @@ private[index] class IndexServiceImpl(
 
   override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
-  ): Future[Unit] = Timed.future(
-    metrics.daml.index.prune, {
-      pruneBuffers(pruneUpToInclusive)
-      ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
-    },
-  )
+  ): Future[Unit] = {
+    pruneBuffers(pruneUpToInclusive)
+    ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
+  }
 
   override def getMeteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
   )(implicit loggingContext: LoggingContext): Future[ReportData] =
-    Timed.future(
-      metrics.daml.index.getTransactionMetering,
-      ledgerDao.meteringReportData(
-        from: Timestamp,
-        to: Option[Timestamp],
-        applicationId: Option[ApplicationId],
-      ),
+    ledgerDao.meteringReportData(
+      from: Timestamp,
+      to: Option[Timestamp],
+      applicationId: Option[ApplicationId],
     )
 
   override def currentLedgerEnd()(implicit

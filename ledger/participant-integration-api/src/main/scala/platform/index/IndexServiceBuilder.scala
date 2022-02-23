@@ -112,7 +112,6 @@ private[platform] case class IndexServiceBuilder(
       contractStore,
       pruneBuffers,
       generalDispatcher,
-      metrics,
       errorFactories,
     )
   }

@@ -352,25 +352,6 @@ final class Metrics(val registry: MetricRegistry) {
       private val Prefix = daml.Prefix :+ "index"
 
       val decodeStateEvent: Timer = registry.timer(Prefix :+ "decode_state_event")
-      val lookupContract: Timer = registry.timer(Prefix :+ "lookup_contract")
-      val lookupKey: Timer = registry.timer(Prefix :+ "lookup_key")
-      val lookupFlatTransactionById: Timer =
-        registry.timer(Prefix :+ "lookup_flat_transaction_by_id")
-      val lookupTransactionTreeById: Timer =
-        registry.timer(Prefix :+ "lookup_transaction_tree_by_id")
-      val lookupLedgerConfiguration: Timer = registry.timer(Prefix :+ "lookup_ledger_configuration")
-      val lookupMaximumLedgerTime: Timer = registry.timer(Prefix :+ "lookup_maximum_ledger_time")
-      val getParties: Timer = registry.timer(Prefix :+ "get_parties")
-      val listKnownParties: Timer = registry.timer(Prefix :+ "list_known_parties")
-      val listLfPackages: Timer = registry.timer(Prefix :+ "list_lf_packages")
-      val getLfArchive: Timer = registry.timer(Prefix :+ "get_lf_archive")
-      val prune: Timer = registry.timer(Prefix :+ "prune")
-      val getTransactionMetering: Timer = registry.timer(Prefix :+ "get_transaction_metering")
-
-      val publishTransaction: Timer = registry.timer(Prefix :+ "publish_transaction")
-      val publishPartyAllocation: Timer = registry.timer(Prefix :+ "publish_party_allocation")
-      val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")
-      val publishConfiguration: Timer = registry.timer(Prefix :+ "publish_configuration")
 
       val decodeTransactionLogUpdate: Timer =
         registry.timer(Prefix :+ "transaction_log_update_decode")
@@ -545,9 +526,7 @@ final class Metrics(val registry: MetricRegistry) {
             registry.histogram(Prefix :+ "exercise_result_compressed")
           val exerciseResultUncompressed: Histogram =
             registry.histogram(Prefix :+ "exercise_result_uncompressed")
-
         }
-
       }
     }
 
