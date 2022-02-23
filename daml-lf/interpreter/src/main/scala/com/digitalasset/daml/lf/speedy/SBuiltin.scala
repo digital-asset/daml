@@ -72,6 +72,12 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       case otherwise => unexpectedType(i, "SBool", otherwise)
     }
 
+  final protected def getSUnit(args: util.ArrayList[SValue], i: Int): Unit =
+    args.get(i) match {
+      case SUnit => ()
+      case otherwise => unexpectedType(i, "SUnit", otherwise)
+    }
+
   final protected def getSInt64(args: util.ArrayList[SValue], i: Int): Long =
     args.get(i) match {
       case SInt64(value) => value
@@ -168,10 +174,25 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       case otherwise => unexpectedType(i, "SAny", otherwise)
     }
 
+  final protected def getSTypeRep(args: util.ArrayList[SValue], i: Int): Ast.Type =
+    args.get(i) match {
+      case STypeRep(ty) => ty
+      case otherwise => unexpectedType(i, "STypeRep", otherwise)
+    }
+
   final protected def getSAnyException(args: util.ArrayList[SValue], i: Int): SRecord =
     args.get(i) match {
       case SAnyException(exception) => exception
       case otherwise => unexpectedType(i, "Exception", otherwise)
+    }
+
+  final protected def getSAnyInterface(
+      args: util.ArrayList[SValue],
+      i: Int,
+  ): (TypeConName, SRecord) =
+    args.get(i) match {
+      case SAnyInterface(tyCon, value) => (tyCon, value)
+      case otherwise => unexpectedType(i, "Interface", otherwise)
     }
 
   final protected def checkToken(args: util.ArrayList[SValue], i: Int): Unit =
@@ -879,17 +900,16 @@ private[lf] object SBuiltin {
 
   /** $checkPrecondition
     *    :: arg (template argument)
+    *    -> Unit
     *    -> Bool (false if ensure failed)
     *    -> Unit
     */
-  final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(2) {
+  final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(3) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SUnit.type = {
-      if (
-        !(getSList(args, 1).iterator.forall(_ match {
-          case SBool(b) => b
-          case otherwise => crash(s"type mismatch SBCheckPrecond: expected SBool, got $otherwise")
-        }))
-      )
+      discard(getSUnit(args, 1))
+      val precond = getSBool(args, 2)
+      if (precond) SUnit
+      else
         throw SErrorDamlException(
           IE.TemplatePreconditionViolated(
             templateId = templateId,
@@ -897,7 +917,6 @@ private[lf] object SBuiltin {
             arg = args.get(0).toUnnormalizedValue,
           )
         )
-      SUnit
     }
   }
 
@@ -1131,7 +1150,10 @@ private[lf] object SBuiltin {
               )
             )
           checkTemplateId(cached.templateId) {
-            machine.returnValue = cached.value
+            machine.returnValue = SAny(
+              ty = Ast.TTyCon(cached.templateId),
+              value = cached.value,
+            )
           }
         case None =>
           throw SpeedyHungry(
@@ -1141,6 +1163,9 @@ private[lf] object SBuiltin {
               onLedger.committers,
               { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
                 checkTemplateId(actualTmplId) {
+                  machine.pushKont(
+                    KBuiltin(machine, SBToInterface(actualTmplId), new util.ArrayList[SValue])
+                  )
                   machine.pushKont(KCacheContract(machine, actualTmplId, coid))
                   machine.ctrl = SELet1(
                     SEImportValue(Ast.TTyCon(actualTmplId), arg),
@@ -1168,11 +1193,10 @@ private[lf] object SBuiltin {
         machine: Machine,
     ): Unit = {
       val guard = args.get(0)
-      val payload = getSRecord(args, 1)
+      val (templateId, record) = getSAnyInterface(args, 1)
       val coid = getSContractId(args, 2)
-      val templateId = payload.id
 
-      machine.ctrl = SEApp(SEValue(guard), Array(SEValue(payload)))
+      machine.ctrl = SEApp(SEValue(guard), Array(SEValue(SAnyInterface(templateId, record))))
       machine.pushKont(KCheckChoiceGuard(machine, coid, templateId, choiceName, byInterface))
     }
   }
@@ -1181,7 +1205,7 @@ private[lf] object SBuiltin {
     override private[speedy] def executePure(
         args: util.ArrayList[SValue]
     ): SBool = {
-      discard(getSRecord(args, 0))
+      discard(getSAnyInterface(args, 0))
       SBool(true)
     }
   }
@@ -1195,7 +1219,7 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEBuiltin(
         SBUBeginExercise(
-          getSRecord(args, 0).id,
+          getSAnyInterface(args, 0)._1,
           choiceName,
           consuming,
           byKey,
@@ -1209,14 +1233,16 @@ private[lf] object SBuiltin {
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEBuiltin(
-        SBUInsertFetchNode(getSRecord(args, 0).id, byKey = false, byInterface = Some(ifaceId))
+        SBUInsertFetchNode(getSAnyInterface(args, 0)._1, byKey = false, byInterface = Some(ifaceId))
       )
   }
 
   // Return a definition matching the templateId of a given payload
   sealed class SBResolveVirtual(toDef: Ref.Identifier => SDefinitionRef) extends SBuiltin(1) {
-    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-      machine.ctrl = SEVal(toDef(getSRecord(args, 0).id))
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val (ty, record) = getSAnyInterface(args, 0)
+      machine.ctrl = SEApp(SEVal(toDef(ty)), Array(SEValue(record)))
+    }
   }
 
   final case class SBResolveCreateByInterface(ifaceId: TypeConName)
@@ -1228,15 +1254,25 @@ private[lf] object SBuiltin {
   final case class SBObserverInterface(ifaceId: TypeConName)
       extends SBResolveVirtual(ObserversDefRef)
 
-  // Convert an interface to a given template type if possible. Since interfaces have the
-  // same representation as the underlying template, we only need to perform a check
-  // that the record type matches the template type.
+  // This wraps a contract record into an SAny where the type argument corresponds to
+  // the record's templateId.
+  final case class SBToInterface(
+      tplId: TypeConName
+  ) extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
+      SAnyInterface(tplId, getSRecord(args, 0))
+    }
+  }
+
+  // Convert an interface to a given template type if possible. Since interfaces are represented
+  // by an SAny wrapping the underlying template, we need to check that the SAny type constructor
+  // matches the template type, and then return the SAny internal value.
   final case class SBFromInterface(
       tplId: TypeConName
   ) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
-      val record = getSRecord(args, 0)
-      if (tplId == record.id) {
+      val (tyCon, record) = getSAnyInterface(args, 0)
+      if (tplId == tyCon) {
         SOptional(Some(record))
       } else {
         SOptional(None)
@@ -1254,13 +1290,13 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ) = {
-      val record = getSRecord(args, 0)
+      val (tyCon, record) = getSAnyInterface(args, 0)
       // TODO https://github.com/digital-asset/daml/issues/12051
       // TODO https://github.com/digital-asset/daml/issues/11345
       //  The lookup is probably slow. We may want to investigate way to make the feature faster.
-      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(record.id) match {
+      machine.returnValue = machine.compiledPackages.interface.lookupTemplate(tyCon) match {
         case Right(ifaceSignature) if ifaceSignature.implements.contains(requiringIface) =>
-          SOptional(Some(record))
+          SOptional(Some(SAnyInterface(tyCon, record)))
         case _ =>
           SOptional(None)
       }
@@ -1272,9 +1308,9 @@ private[lf] object SBuiltin {
       methodName: MethodName,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val record = getSRecord(args, 0)
+      val (tyCon, record) = getSAnyInterface(args, 0)
       machine.ctrl =
-        SEApp(SEVal(ImplementsMethodDefRef(record.id, ifaceId, methodName)), Array(SEValue(record)))
+        SEApp(SEVal(ImplementsMethodDefRef(tyCon, ifaceId, methodName)), Array(SEValue(record)))
     }
   }
 
@@ -1661,8 +1697,8 @@ private[lf] object SBuiltin {
     */
   final case class SBInterfaceTemplateTypeRep(tycon: TypeConName) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): STypeRep = {
-      val id = getSRecord(args, 0).id
-      STypeRep(Ast.TTyCon(id))
+      val (tyCon, _) = getSAnyInterface(args, 0)
+      STypeRep(Ast.TTyCon(tyCon))
     }
   }
 
@@ -1865,10 +1901,19 @@ private[lf] object SBuiltin {
         machine.returnValue = SInt64(42L)
     }
 
+    private object SBExperimentalTypeRepTyConName extends SBuiltinPure(1) {
+      override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional =
+        getSTypeRep(args, 0) match {
+          case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
+          case _ => SOptional(None)
+        }
+    }
+
     //TODO: move this into the speedy compiler code
     private val mapping: Map[String, compileTime.SExpr] =
       List(
-        "ANSWER" -> SBExperimentalAnswer
+        "ANSWER" -> SBExperimentalAnswer,
+        "TYPEREP_TYCON_NAME" -> SBExperimentalTypeRepTyConName,
       ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap
 
     def apply(name: String): compileTime.SExpr =

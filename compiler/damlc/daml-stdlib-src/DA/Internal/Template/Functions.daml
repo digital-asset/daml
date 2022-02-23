@@ -4,6 +4,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
 
 -- This is the companion module (is that a word? now it is!) to DA.Internal.Template
 -- which provides functions and typeclasses.
@@ -253,6 +254,21 @@ instance Eq TemplateTypeRep where
   TemplateTypeRep a == TemplateTypeRep b = a == b
 
 deriving instance Ord TemplateTypeRep
+
+#ifdef DAML_EXPERIMENTAL
+
+-- | (experimental, 1.dev only) Get the template id (or interface id)
+-- represented by a TemplateTypeRep, as a string.
+templateTypeRepToText : TemplateTypeRep -> Text
+templateTypeRepToText (TemplateTypeRep x) =
+  case primitive @"$TYPEREP_TYCON_NAME" x of
+    None -> error "Invalid TemplateTypeRep, does not contain a type constructor."
+    Some y -> y
+
+instance Show TemplateTypeRep where
+  show = templateTypeRepToText
+
+#endif
 
 -- | Wrap the template in `AnyTemplate`.
 --

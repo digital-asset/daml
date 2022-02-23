@@ -548,7 +548,7 @@ tMeteringReport :: SandboxTest
 tMeteringReport withSandbox = testCase "tMeteringReport" $ run withSandbox $ \_ _testId -> do
     let expected = Timestamp {seconds = 3600, nanos = 0}  -- Must be rounded to hour
     report <- getMeteringReport expected Nothing Nothing
-    let MeteringReport{from=actual} = report
+    let MeteringReport{request=MeteringRequest{from=actual}} = report
     liftIO $ assertEqual "report from date" expected actual
 
 -- Strip the rid,vid,eid tags recusively from record, variant and enum values

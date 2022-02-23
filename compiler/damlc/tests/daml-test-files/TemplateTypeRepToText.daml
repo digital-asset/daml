@@ -1,0 +1,28 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF-FEATURE DAML_EXPERIMENTAL
+module TemplateTypeRepToText where
+
+import DA.Assert ((===), (=/=))
+import qualified TemplateTypeRep as A
+import qualified TemplateTypeRep2 as B
+
+main = scenario do
+    let rep1 = templateTypeRep @A.T1
+    let rep2 = templateTypeRep @A.T2
+    let rep3 = templateTypeRep @B.T1
+
+    rep1 === rep1
+    rep2 === rep2
+    rep3 === rep3
+
+    rep1 =/= rep2
+    rep1 =/= rep3
+    rep2 =/= rep3
+
+    templateTypeRepToText rep1 === "-homePackageId-:TemplateTypeRep:T1"
+    templateTypeRepToText rep2 === "-homePackageId-:TemplateTypeRep:T2"
+    templateTypeRepToText rep3 === "-homePackageId-:TemplateTypeRep2:T1"
+
+-- @ENABLE-SCENARIOS

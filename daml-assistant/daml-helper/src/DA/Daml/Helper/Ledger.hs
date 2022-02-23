@@ -74,8 +74,9 @@ import qualified DA.Ledger as L
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import qualified SdkVersion
-import DA.Ledger.Types (Timestamp(..), ApplicationId(..), IsoTime(..))
+import DA.Ledger.Types (Timestamp(..), ApplicationId(..))
 import Data.Aeson.Encode.Pretty (encodePretty)
+import Data.Time.Calendar (Day(..))
 
 
 data LedgerApi
@@ -635,10 +636,10 @@ sanitizeToken tok
   | otherwise = "Bearer " <> tok
 
 -- | Report on Ledger Use.
-runLedgerMeteringReport :: LedgerFlags -> IsoTime -> Maybe IsoTime -> Maybe ApplicationId -> Bool -> IO ()
+runLedgerMeteringReport :: LedgerFlags -> Day -> Maybe Day -> Maybe ApplicationId -> Bool -> IO ()
 runLedgerMeteringReport flags fromIso toIso application compactOutput = do
     args <- getDefaultArgs flags
-    report <- meteringReport args (L.isoTimeToTimestamp fromIso) (fmap L.isoTimeToTimestamp toIso) application
+    report <- meteringReport args (L.utcDayToTimestamp fromIso) (fmap L.utcDayToTimestamp toIso) application
     let encodeFn = if compactOutput then encode else encodePretty  
     let encoded = encodeFn report
     let bsc = BSL.toStrict encoded

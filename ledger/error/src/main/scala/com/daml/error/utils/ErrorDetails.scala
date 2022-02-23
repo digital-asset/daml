@@ -80,5 +80,4 @@ object ErrorDetails {
 
   def matchesOneOf(t: Throwable, errorCodes: ErrorCode*): Boolean =
     errorCodes.exists(matches(t, _))
-
 }

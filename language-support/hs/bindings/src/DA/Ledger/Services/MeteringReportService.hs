@@ -5,8 +5,11 @@
 
 module DA.Ledger.Services.MeteringReportService (
     getMeteringReport, 
-    MeteringReport(..), 
+    MeteringReport(..),
+    MeteringRequest(..),
+    MeteredApplication(..),
     isoTimeToTimestamp,
+    utcDayToTimestamp,
   ) where
 
 
@@ -23,6 +26,24 @@ import qualified Data.Time.Clock.System as System
 import qualified Data.Time.Format.ISO8601 as ISO8601
 import GHC.Int (Int64)
 import GHC.Word (Word32)
+import Data.Time.Calendar (Day(..))
+import Data.Time.Clock (secondsToDiffTime, UTCTime(..))
+
+data MeteringRequest = MeteringRequest {
+  from  :: Timestamp
+, to :: Maybe Timestamp
+, application :: Maybe ApplicationId
+} deriving (Show)
+
+instance ToJSON MeteringRequest where
+  toJSON (MeteringRequest from to application) =
+    object (
+    [
+      "from" .= timestampToIso8601 from
+    ]
+    ++ maybeToList (fmap (("to" .=) . timestampToIso8601) to)
+    ++ maybeToList (fmap (("application" .=) . unApplicationId) application)
+    )
 
 data MeteredApplication = MeteredApplication {
   application :: ApplicationId
@@ -38,22 +59,19 @@ instance ToJSON MeteredApplication where
 
 data MeteringReport = MeteringReport {
   participant :: ParticipantId
-, from  :: Timestamp
-, toRequested :: Maybe Timestamp
+, request  :: MeteringRequest
 , isFinal :: Bool
 , applications :: [MeteredApplication]
 } deriving (Show)
 
 instance ToJSON MeteringReport where
-  toJSON (MeteringReport participant from toRequested isFinal applications) =
-    object (
+  toJSON (MeteringReport participant request isFinal applications) =
+    object
     [   "participant" .= unParticipantId participant
-    ,   "from" .= timestampToIso8601 from
+    ,   "request" .= request
     ,   "final" .= isFinal
     ,   "applications" .= applications
     ]
-    ++ maybeToList (fmap (("toRequested" .=) . timestampToIso8601) toRequested)
-    )
 
 timestampToSystemTime :: Timestamp -> System.SystemTime
 timestampToSystemTime ts = st
@@ -78,23 +96,33 @@ timestampToIso8601 ts = ISO8601.iso8601Show ut
 isoTimeToTimestamp :: IsoTime -> Timestamp
 isoTimeToTimestamp iso = systemTimeToTimestamp $ System.utcToSystemTime $ unIsoTime iso
 
+utcDayToTimestamp :: Day -> Timestamp
+utcDayToTimestamp day = systemTimeToTimestamp $ System.utcToSystemTime $ UTCTime day (secondsToDiffTime 0)
+
 raiseApplicationMeteringReport :: LL.ApplicationMeteringReport -> Perhaps MeteredApplication
 raiseApplicationMeteringReport (LL.ApplicationMeteringReport llApp events) = do
   application <- raiseApplicationId llApp
   return MeteredApplication {..}
 
-raiseParticipantMeteringReport ::  LL.GetMeteringReportRequest ->  LL.ParticipantMeteringReport -> Perhaps MeteringReport
-raiseParticipantMeteringReport (LL.GetMeteringReportRequest (Just llFrom) llTo _)  (LL.ParticipantMeteringReport llParticipantId isFinal llAppReports) = do
-  participant <- raiseParticipantId llParticipantId
+raiseGetMeteringReportRequest ::  LL.GetMeteringReportRequest -> Perhaps MeteringRequest
+raiseGetMeteringReportRequest (LL.GetMeteringReportRequest (Just llFrom) llTo llApplication) = do
   from <- raiseTimestamp llFrom
-  toRequested <- traverse raiseTimestamp llTo
+  to <- traverse raiseTimestamp llTo
+  let maybeApplication = if TL.null llApplication then Nothing else Just llApplication
+  application <- traverse raiseApplicationId maybeApplication
+  return MeteringRequest{..}
+
+raiseGetMeteringReportRequest response = Left $ Unexpected ("raiseGetMeteringReportRequest unable to parse response: " <> show response)
+
+raiseParticipantMeteringReport ::  LL.GetMeteringReportRequest ->  LL.ParticipantMeteringReport -> Perhaps MeteringReport
+raiseParticipantMeteringReport llRequest  (LL.ParticipantMeteringReport llParticipantId isFinal llAppReports) = do
+  participant <- raiseParticipantId llParticipantId
+  request <- raiseGetMeteringReportRequest llRequest
   applications <- raiseList raiseApplicationMeteringReport llAppReports
   return MeteringReport{..}
 
-raiseParticipantMeteringReport _ response = Left $ Unexpected ("raiseParticipantMeteringReport unable to parse response: " <> show response)
-
 raiseGetMeteringReportResponse :: LL.GetMeteringReportResponse -> Perhaps MeteringReport
-raiseGetMeteringReportResponse (LL.GetMeteringReportResponse (Just request) (Just report) (Just _)) = 
+raiseGetMeteringReportResponse (LL.GetMeteringReportResponse (Just request) (Just report) (Just _)) =
   raiseParticipantMeteringReport request report
 
 raiseGetMeteringReportResponse response = Left $ Unexpected ("raiseMeteredReport unable to parse response: " <> show response)

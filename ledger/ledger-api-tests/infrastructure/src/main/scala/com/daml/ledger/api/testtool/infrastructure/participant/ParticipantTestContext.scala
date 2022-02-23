@@ -118,7 +118,7 @@ private[testtool] object ParticipantTestContext {
   * Each time a test case is run it receives a fresh instance of [[ParticipantTestContext]]
   * (one for every used participant server).
   */
-private[testtool] final class ParticipantTestContext private[participant] (
+final class ParticipantTestContext private[participant] (
     val ledgerId: String,
     val endpointId: String,
     val applicationId: String,

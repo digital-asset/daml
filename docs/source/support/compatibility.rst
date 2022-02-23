@@ -72,6 +72,7 @@ Summary of Ledger API Changes
        | Remove Reset Service
        | Deprecate Ledger Identity Service
        | Make ledger_id and application_id fields optional
+       | Change error codes returned by the gRPC services
    * - 1.12
      - Introduce Daml-LF 1.14
    * - 1.11

@@ -260,12 +260,6 @@ private[validation] object TypeIterable {
           methods.values.iterator.flatMap(iterator)
     }
 
-  private[validation] def iterator(ichoice: InterfaceChoice): Iterator[Type] =
-    ichoice match {
-      case InterfaceChoice(name @ _, consuming @ _, argType, retType) =>
-        Iterator(argType, retType)
-    }
-
   private[validation] def iterator(imethod: InterfaceMethod): Iterator[Type] =
     imethod match {
       case InterfaceMethod(name @ _, retType) =>
