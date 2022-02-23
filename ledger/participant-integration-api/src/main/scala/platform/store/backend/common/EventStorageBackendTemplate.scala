@@ -35,7 +35,7 @@ abstract class EventStorageBackendTemplate(
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  private val baseColumnsForFlatTransactions =
+  private val baseColumnsForFlatTransactionsCreate =
     Seq(
       "event_offset",
       "transaction_id",
@@ -56,11 +56,59 @@ abstract class EventStorageBackendTemplate(
       "submitters",
     )
 
-  private val selectColumnsForFlatTransactions =
-    baseColumnsForFlatTransactions.mkString(", ")
+  private val baseColumnsForFlatTransactionsExercise =
+    Seq(
+      "event_offset",
+      "transaction_id",
+      "node_index",
+      "event_sequential_id",
+      "ledger_effective_time",
+      "workflow_id",
+      "event_id",
+      "contract_id",
+      "template_id",
+      "NULL as create_argument",
+      "NULL as create_argument_compression",
+      "NULL as create_signatories",
+      "NULL as create_observers",
+      "NULL as create_agreement_text",
+      "create_key_value",
+      "create_key_value_compression",
+      "submitters",
+    )
+
+  private val baseColumnsForFlatTransactionsDivulgence =
+    Seq(
+      "NULL as event_offset",
+      "NULL as transaction_id",
+      "NULL as node_index",
+      "event_sequential_id",
+      "NULL as ledger_effective_time",
+      "workflow_id",
+      "NULL as event_id",
+      "contract_id",
+      "template_id",
+      "NULL as create_argument",
+      "NULL as create_argument_compression",
+      "NULL as create_signatories",
+      "NULL as create_observers",
+      "NULL as create_agreement_text",
+      "NULL as create_key_value",
+      "NULL as create_key_value_compression",
+      "submitters",
+    )
+
+  private val selectColumnsForFlatTransactionsCreate =
+    baseColumnsForFlatTransactionsCreate.mkString(", ")
+
+  private val selectColumnsForFlatTransactionsExercise =
+    baseColumnsForFlatTransactionsExercise.mkString(", ")
+
+  private val selectColumnsForFlatTransactionsDivulgence =
+    baseColumnsForFlatTransactionsDivulgence.mkString(", ")
 
   private val selectColumnsForACSEvents =
-    baseColumnsForFlatTransactions.map(c => s"create_evs.$c").mkString(", ")
+    baseColumnsForFlatTransactionsCreate.map(c => s"create_evs.$c").mkString(", ")
 
   private type SharedRow =
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Timestamp ~ Int ~ Option[String] ~
@@ -291,7 +339,7 @@ abstract class EventStorageBackendTemplate(
   ): RowParser[EventsTable.Entry[Raw.TreeEvent]] =
     createdTreeEventParser(allQueryingParties) | exercisedTreeEventParser(allQueryingParties)
 
-  private val selectColumnsForTransactionTree = Seq(
+  private val selectColumnsForTransactionTreeCreate = Seq(
     "event_offset",
     "transaction_id",
     "node_index",
@@ -308,6 +356,33 @@ abstract class EventStorageBackendTemplate(
     "create_agreement_text",
     "create_key_value",
     "create_key_value_compression",
+    "NULL as exercise_choice",
+    "NULL as exercise_argument",
+    "NULL as exercise_argument_compression",
+    "NULL as exercise_result",
+    "NULL as exercise_result_compression",
+    "NULL as exercise_actors",
+    "NULL as exercise_child_event_ids",
+    "submitters",
+  ).mkString(", ")
+
+  private val selectColumnsForTransactionTreeExercise = Seq(
+    "event_offset",
+    "transaction_id",
+    "node_index",
+    "event_sequential_id",
+    "event_id",
+    "contract_id",
+    "ledger_effective_time",
+    "template_id",
+    "workflow_id",
+    "NULL as create_argument",
+    "NULL as create_argument_compression",
+    "NULL as create_signatories",
+    "NULL as create_observers",
+    "NULL as create_agreement_text",
+    "create_key_value",
+    "create_key_value_compression",
     "exercise_choice",
     "exercise_argument",
     "exercise_argument_compression",
@@ -322,7 +397,6 @@ abstract class EventStorageBackendTemplate(
       joinClause: CompositeSql,
       additionalAndClause: CompositeSql,
       rowParser: Set[Int] => RowParser[T],
-      selectColumns: String,
       witnessesColumn: String,
       partitions: List[(String, String)],
   )(
@@ -368,9 +442,9 @@ abstract class EventStorageBackendTemplate(
       val witnessesWhereClause =
         (wildcardPartiesClause ::: filterPartiesClauses).mkComposite("(", " or ", ")")
 
-      def selectFrom(table: String, additionalSelectColumns: String) = cSQL"""
+      def selectFrom(table: String, selectColumns: String) = cSQL"""
         SELECT
-          #$selectColumns, #$witnessesColumn as event_witnesses, command_id #$additionalSelectColumns
+          #$selectColumns, #$witnessesColumn as event_witnesses, command_id
         FROM
           #$table $joinClause
         WHERE
@@ -401,13 +475,12 @@ abstract class EventStorageBackendTemplate(
             event_sequential_id > ${rangeParams.startExclusive} AND
             event_sequential_id <= ${rangeParams.endInclusive} AND""",
       rowParser = rawFlatEventParser,
-      selectColumns = selectColumnsForFlatTransactions,
       witnessesColumn = "flat_event_witnesses",
       partitions = List(
-        "participant_events_create" -> "",
-        "participant_events_consuming_exercise" -> "",
-        "participant_events_nonconsuming_exercise" -> "",
-        "participant_events_divulgence" -> "",
+        "participant_events_create" -> selectColumnsForFlatTransactionsCreate,
+        "participant_events_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
+        "participant_events_non_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
+        "participant_events_divulgence" -> selectColumnsForFlatTransactionsDivulgence,
       ),
     )(
       limit = rangeParams.limit,
@@ -504,13 +577,12 @@ abstract class EventStorageBackendTemplate(
       additionalAndClause = cSQL"""
             transaction_id = $transactionId AND""",
       rowParser = rawFlatEventParser,
-      selectColumns = selectColumnsForFlatTransactions,
       witnessesColumn = "flat_event_witnesses",
       partitions = List(
         // we do not want to fetch divulgence events
-        "participant_events_create" -> "",
-        "participant_events_consuming_exercise" -> "",
-        "participant_events_nonconsuming_exercise" -> "",
+        "participant_events_create" -> selectColumnsForFlatTransactionsCreate,
+        "participant_events_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
+        "participant_events_non_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
       ),
     )(
       limit = None,
@@ -529,13 +601,12 @@ abstract class EventStorageBackendTemplate(
             event_sequential_id > ${rangeParams.startExclusive} AND
             event_sequential_id <= ${rangeParams.endInclusive} AND""",
       rowParser = rawTreeEventParser,
-      selectColumns = selectColumnsForTransactionTree,
       witnessesColumn = "tree_event_witnesses",
       partitions = List(
         // we do not want to fetch divulgence events
-        "participant_events_create" -> ", false as exercise_consuming",
-        "participant_events_consuming_exercise" -> ", true as exercise_consuming",
-        "participant_events_nonconsuming_exercise" -> ", false as exercise_consuming",
+        "participant_events_create" -> s"$selectColumnsForTransactionTreeCreate, false as exercise_consuming",
+        "participant_events_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, true as exercise_consuming",
+        "participant_events_non_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, false as exercise_consuming",
       ),
     )(
       limit = rangeParams.limit,
@@ -558,13 +629,12 @@ abstract class EventStorageBackendTemplate(
       additionalAndClause = cSQL"""
             transaction_id = $transactionId AND""",
       rowParser = rawTreeEventParser,
-      selectColumns = selectColumnsForTransactionTree,
       witnessesColumn = "tree_event_witnesses",
       partitions = List(
         // we do not want to fetch divulgence events
-        "participant_events_create" -> ", false as exercise_consuming",
-        "participant_events_consuming_exercise" -> ", true as exercise_consuming",
-        "participant_events_nonconsuming_exercise" -> ", false as exercise_consuming",
+        "participant_events_create" -> s"$selectColumnsForTransactionTreeCreate, false as exercise_consuming",
+        "participant_events_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, true as exercise_consuming",
+        "participant_events_non_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, false as exercise_consuming",
       ),
     )(
       limit = None,
@@ -752,9 +822,9 @@ abstract class EventStorageBackendTemplate(
   override def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[RawTransactionEvent] = {
-    def selectFrom(table: String) = cSQL"""
-       SELECT
-           event_kind,
+    SQL"""
+       (SELECT
+           10 as event_kind,
            transaction_id,
            node_index,
            command_id,
@@ -773,6 +843,41 @@ abstract class EventStorageBackendTemplate(
            tree_event_witnesses,
            flat_event_witnesses,
            submitters,
+           NULL as exercise_choice,
+           NULL as exercise_argument,
+           NULL as exercise_argument_compression,
+           NULL as exercise_result,
+           NULL as exercise_result_compression,
+           NULL as exercise_actors,
+           NULL as exercise_child_event_ids,
+           event_sequential_id,
+           event_offset
+       FROM
+           participant_events_create
+       WHERE
+           event_sequential_id > $startExclusive
+           and event_sequential_id <= $endInclusive)
+       UNION ALL
+       (SELECT
+           20 as event_kind,
+           transaction_id,
+           node_index,
+           command_id,
+           workflow_id,
+           event_id,
+           contract_id,
+           template_id,
+           ledger_effective_time,
+           NULL as create_signatories,
+           NULL as create_observers,
+           NULL as create_agreement_text,
+           create_key_value,
+           create_key_value_compression,
+           NULL as create_argument,
+           NULL as create_argument_compression,
+           tree_event_witnesses,
+           flat_event_witnesses,
+           submitters,
            exercise_choice,
            exercise_argument,
            exercise_argument_compression,
@@ -783,17 +888,45 @@ abstract class EventStorageBackendTemplate(
            event_sequential_id,
            event_offset
        FROM
-           #$table
+           participant_events_consuming_exercise
        WHERE
            event_sequential_id > $startExclusive
-           and event_sequential_id <= $endInclusive
-    """
-    SQL"""
-       ${selectFrom("participant_events_create")}
+           and event_sequential_id <= $endInclusive)
        UNION ALL
-       ${selectFrom("participant_events_consuming_exercise")}
-       UNION ALL
-       ${selectFrom("participant_events_nonconsuming_exercise")}
+       (SELECT
+           25 as event_kind,
+           transaction_id,
+           node_index,
+           command_id,
+           workflow_id,
+           event_id,
+           contract_id,
+           template_id,
+           ledger_effective_time,
+           NULL as create_signatories,
+           NULL as create_observers,
+           NULL as create_agreement_text,
+           create_key_value,
+           create_key_value_compression,
+           NULL as create_argument,
+           NULL as create_argument_compression,
+           tree_event_witnesses,
+           flat_event_witnesses,
+           submitters,
+           exercise_choice,
+           exercise_argument,
+           exercise_argument_compression,
+           exercise_result,
+           exercise_result_compression,
+           exercise_actors,
+           exercise_child_event_ids,
+           event_sequential_id,
+           event_offset
+       FROM
+           participant_events_non_consuming_exercise
+       WHERE
+           event_sequential_id > $startExclusive
+           and event_sequential_id <= $endInclusive)
        ORDER BY event_sequential_id ASC"""
       .asVectorOf(rawTransactionEventParser)(connection)
   }
@@ -807,12 +940,12 @@ abstract class EventStorageBackendTemplate(
       WHERE event_offset = (select max(event_offset) from #$table where event_offset <= $offset)
     """
     SQL"""SELECT max(max_esi) FROM (
-      ${selectFrom("participant_events_consuming_exercise")}
+      (${selectFrom("participant_events_consuming_exercise")})
       UNION ALL
-      ${selectFrom("participant_events_create")}
+      (${selectFrom("participant_events_create")})
       UNION ALL
-      ${selectFrom("participant_events_non_consuming_exercise")}
-    )"""
+      (${selectFrom("participant_events_non_consuming_exercise")})
+    ) as participant_events"""
       .as(get[Long](1).?.single)(connection)
   }
 }

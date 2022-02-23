@@ -48,7 +48,7 @@ class PostgresEventStorageBackend(ledgerEndCache: LedgerEndCache, stringInternin
            UNION ALL
            ${selectFrom("participant_events_consuming_exercise")}
            UNION ALL
-           ${selectFrom("participant_events_nonconsuming_exercise")}
+           ${selectFrom("participant_events_non_consuming_exercise")}
            UNION ALL
            ${selectFrom("participant_events_divulgence")}
          )

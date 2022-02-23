@@ -72,25 +72,32 @@ class ContractStorageBackendTemplate(
       connection: Connection
   ): Option[ContractStorageBackend.RawContractState] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
-    def selectFrom(table: String) = cSQL"""
-           SELECT
+    SQL"""
+           (SELECT
              template_id,
              flat_event_witnesses,
              create_argument,
              create_argument_compression,
-             event_kind,
+             10 as event_kind,
              ledger_effective_time
-           FROM #$table
+           FROM participant_events_create
            WHERE
              contract_id = $contractId
-             AND event_sequential_id <= $before
+             AND event_sequential_id <= $before)
+           UNION ALL
+           (SELECT
+             template_id,
+             flat_event_witnesses,
+             NULL as create_argument,
+             NULL as create_argument_compression,
+             20 as event_kind,
+             ledger_effective_time
+           FROM participant_events_consuming_exercise
+           WHERE
+             contract_id = $contractId
+             AND event_sequential_id <= $before)
            ORDER BY event_sequential_id DESC
            FETCH NEXT 1 ROW ONLY"""
-
-    SQL"""
-           ${selectFrom("participant_events_create")}
-           UNION ALL
-           ${selectFrom("participant_events_consuming_exercise")}"""
       .as(fullDetailsContractRowParser.singleOpt)(connection)
   }
 
@@ -127,9 +134,9 @@ class ContractStorageBackendTemplate(
   override def contractStateEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[ContractStorageBackend.RawContractStateEvent] = {
-    def selectFrom(table: String) = cSQL"""
-           SELECT
-               event_kind,
+    SQL"""
+         (SELECT
+               10 as event_kind,
                contract_id,
                template_id,
                create_key_value,
@@ -141,16 +148,29 @@ class ContractStorageBackendTemplate(
                event_sequential_id,
                event_offset
            FROM
-               #$table
+               participant_events_create
            WHERE
                event_sequential_id > $startExclusive
-               and event_sequential_id <= $endInclusive
-           ORDER BY event_sequential_id ASC"""
-
-    SQL"""
-         ${selectFrom("participant_events_create")}
+               and event_sequential_id <= $endInclusive)
          UNION ALL
-         ${selectFrom("participant_events_consuming_exercise")}"""
+         (SELECT
+               20 as event_kind,
+               contract_id,
+               template_id,
+               create_key_value,
+               create_key_value_compression,
+               NULL as create_argument,
+               NULL as create_argument_compression,
+               flat_event_witnesses,
+               ledger_effective_time,
+               event_sequential_id,
+               event_offset
+           FROM
+               participant_events_consuming_exercise
+           WHERE
+               event_sequential_id > $startExclusive
+               and event_sequential_id <= $endInclusive)
+         ORDER BY event_sequential_id ASC"""
       .asVectorOf(contractStateRowParser)(connection)
   }
 
