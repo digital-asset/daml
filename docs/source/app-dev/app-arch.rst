@@ -16,6 +16,7 @@ stack can be changed to fit your needs which we'll mention in the corresponding 
 To get started quickly with the recommended application architecture, generate a new project using the ``create-daml-app`` template:
 
 .. code-block:: bash
+
   daml new --template=create-daml-app my-project-name
 
 ``create-daml-app`` is a small, but fully functional demo application implementing the recommended
