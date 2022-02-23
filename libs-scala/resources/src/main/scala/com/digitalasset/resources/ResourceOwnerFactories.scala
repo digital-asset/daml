@@ -49,6 +49,11 @@ trait ResourceOwnerFactories[Context] {
   ): AbstractResourceOwner[Context, T] =
     new FutureCloseableResourceOwner(acquire)
 
+  def forReleasable[T](acquire: () => T)(
+      release: T => Future[Unit]
+  ): AbstractResourceOwner[Context, T] =
+    new ReleasableResourceOwner(acquire)(release)
+
   def forExecutorService[T <: ExecutorService](
       acquire: () => T
   ): AbstractResourceOwner[Context, T] =
