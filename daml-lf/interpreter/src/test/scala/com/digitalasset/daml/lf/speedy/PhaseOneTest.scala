@@ -100,7 +100,6 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           ("structUpd2", structUpd2),
           ("recCon1", recCon1),
           ("recCon2", recCon2),
-
           ("caseScrut", caseScrut),
           ("caseAlt1", caseAlt1),
           ("caseAlt2", caseAlt2),
