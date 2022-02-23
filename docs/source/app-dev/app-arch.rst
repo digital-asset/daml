@@ -47,8 +47,7 @@ with a JSON API server by running the following command in the root of the proje
 Daml Sandbox exposes the same Daml Ledger API a Participant Node would
 expose without requiring a fully-fledged Daml network to back the application. Once your
 application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
-your frontend and Daml artifacts of your project to a production Daml network. See
-:ref:`Deploying to Daml Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
+your frontend and Daml artifacts of your project to a production Daml network.
 
 Frontend
 ********
