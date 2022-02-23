@@ -192,16 +192,19 @@ private[lf] final class PhaseOne(
     CompileExp(env, exp, cont)
   }
 
-  private[this] def compileExps(acc: List[SExpr], env: Env, exps: List[Expr])(
+  private[this] def compileExps(env: Env, exps: List[Expr])(
       k: List[SExpr] => Work
   ): Work = {
-    exps match {
-      case Nil => k(acc.reverse)
-      case exp :: exps =>
-        compileExp(env, exp) { exp =>
-          compileExps(exp :: acc, env, exps)(k)
-        }
+    def loop(acc: List[SExpr], exps: List[Expr]): Work = {
+      exps match {
+        case Nil => k(acc.reverse)
+        case exp :: exps =>
+          compileExp(env, exp) { exp =>
+            loop(exp :: acc, exps)
+          }
+      }
     }
+    loop(Nil, exps)
   }
 
   private[this] def processExp(env: Env, exp: Expr): Work = {
@@ -238,7 +241,7 @@ private[lf] final class PhaseOne(
         compileERecUpd(env, erecupd)
       case EStructCon(fields) =>
         val exps = fields.toList.map { case (_, e) => e }
-        compileExps(Nil, env, exps) { exps =>
+        compileExps(env, exps) { exps =>
           val fieldsInputOrder =
             Struct.assertFromSeq(fields.iterator.map(_._1).zipWithIndex.toSeq)
           Return(SEApp(SEBuiltin(SBStructCon(fieldsInputOrder)), exps))
@@ -259,7 +262,7 @@ private[lf] final class PhaseOne(
         Return(SEValue.EmptyList)
       case ECons(_, front, tail) =>
         val exps: List[Expr] = front.toList ++ List(tail)
-        compileExps(Nil, env, exps) { exps =>
+        compileExps(env, exps) { exps =>
           if (front.length == 1) {
             Return(SEApp(SEBuiltin(SBCons), exps))
           } else {
@@ -542,7 +545,7 @@ private[lf] final class PhaseOne(
           Return(SEValue(SRecord(tycon, ImmArray.Empty, noArgs)))
         else {
           val exps = fields.toList.map(_._2)
-          compileExps(Nil, env, exps) { exps =>
+          compileExps(env, exps) { exps =>
             val fieldNames = fields.map(_._1)
             Return(SEApp(SEBuiltin(SBRecCon(tycon, fieldNames)), exps))
           }
@@ -570,7 +573,7 @@ private[lf] final class PhaseOne(
             interface.lookupRecordFieldInfo(tapp.tycon, name),
           ).index
         )
-      compileExps(Nil, env, record :: updates) { exps =>
+      compileExps(env, record :: updates) { exps =>
         Return(SBRecUpdMulti(tapp.tycon, indices.to(ImmArray))(exps: _*))
       }
     }
