@@ -152,6 +152,59 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
               (if targetLfVer /= depLfVer then 2 else 0) -- different daml-stdlib/daml-prim
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
+    [ testCaseSteps ("Cross DAML-LF version with stdlib orphan instances: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+          let proja = tmpDir </> "proja"
+          let projb = tmpDir </> "projb"
+
+          step "Build proja"
+          createDirectoryIfMissing True (proja </> "src")
+          writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
+              [ "module A where"
+              , "f : ()"
+              , "f = ()"
+              ]
+          writeFileUTF8 (proja </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proja"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          callProcessSilent (damlcForTarget tools depLfVer)
+                ["build"
+                , "--project-root", proja
+                , "--target", LF.renderVersion depLfVer
+                , "-o", proja </> "proja.dar"
+                ]
+          projaPkgIds <- darPackageIds (proja </> "proja.dar")
+          -- daml-stdlib, daml-prim and proja
+          length projaPkgIds @?= numStablePackagesForVersion depLfVer + 2 + 1
+
+          step "Build projb"
+          createDirectoryIfMissing True (projb </> "src")
+          writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
+              [ "module B where"
+              , "import A qualified"
+              , "f : ()"
+              , "f = A.f"
+              ]
+          writeFileUTF8 (projb </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projb"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
+              ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", projb
+            , "--target", LF.renderVersion targetLfVer
+            , "-o", projb </> "projb.dar" ]
+          step "Validating DAR"
+          validate $ projb </> "projb.dar"
+    | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    ] <>
     [ testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'lib'"
           createDirectoryIfMissing True (tmpDir </> "lib")
