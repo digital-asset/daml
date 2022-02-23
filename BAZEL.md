@@ -134,8 +134,12 @@ proceed to the IntelliJ integration.
 ### Setup
 
 If you use the IntelliJ IDE you should install the [Bazel integration plugin
-provided by Google][intellij_plugin]. Follow the [installation
-instructions][intellij_plugin_install] in the official documentation. In short:
+provided by Google][intellij_plugin]. 
+
+Not every version of Intellij works with the Bazel plugin. Intellij IDEA 2021.2.4 has been verified to work correctly with the Bazel plugin.
+It is advisable to use the JetBrains Toolbox to manage installations of Intellij IDEA.
+
+Follow the [installation instructions][intellij_plugin_install] in the official documentation. In short:
 Install the plugin from within the IDE (`Settings > Plugins > Marketplace`, and
 search for 'Bazel'). Multiple Bazel plugins exist, make sure to select the Bazel
 plugin referencing [ij.bazel.build][intellij_plugin].
@@ -144,6 +148,8 @@ If the correct plugin does not exist in the list, then your IntelliJ version
 might be too recent, and the Bazel plugin might not have been upgraded to
 support it, yet. Check for version compatibility on the [JetBrains plugin
 page][intellij_plugin_jetbrains].
+
+Set the Bazel binary in the Bazel plugin settings, at `Preferences -> Bazel Settings -> Bazel binary location` to point to the Bazel binary in the `dev-env/bin` directory.
 
 [intellij_plugin]: https://ij.bazel.build/
 [intellij_plugin_install]: https://ij.bazel.build/docs/bazel-plugin.html#getting-started
@@ -198,6 +204,7 @@ Make sure to add Scala, or other languages that you require, to the
 `additional_languages` section. The section will be pre-populated with a list
 of comments specifying the automatically detected supported languages.
 
+Also ensure that you install and setup the Scala plugin.
 If you'd like to work with all directories, we recommend the following project
 view configuration, which stops IntelliJ from indexing the Bazel cache, and
 avoids rebuilding the documentation:
