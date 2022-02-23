@@ -77,7 +77,7 @@ abstract class EventStorageBackendTemplate(
       "submitters",
     )
 
-  private val baseColumnsForFlatTransactionsDivulgence =
+  /*private val baseColumnsForFlatTransactionsDivulgence =
     Seq(
       "NULL as event_offset",
       "NULL as transaction_id",
@@ -96,7 +96,7 @@ abstract class EventStorageBackendTemplate(
       "NULL as create_key_value",
       "NULL as create_key_value_compression",
       "submitters",
-    )
+    )*/
 
   private val selectColumnsForFlatTransactionsCreate =
     baseColumnsForFlatTransactionsCreate.mkString(", ")
@@ -104,8 +104,8 @@ abstract class EventStorageBackendTemplate(
   private val selectColumnsForFlatTransactionsExercise =
     baseColumnsForFlatTransactionsExercise.mkString(", ")
 
-  private val selectColumnsForFlatTransactionsDivulgence =
-    baseColumnsForFlatTransactionsDivulgence.mkString(", ")
+  /*private val selectColumnsForFlatTransactionsDivulgence =
+    baseColumnsForFlatTransactionsDivulgence.mkString(", ")*/
 
   private val selectColumnsForACSEvents =
     baseColumnsForFlatTransactionsCreate.map(c => s"create_evs.$c").mkString(", ")
@@ -480,7 +480,7 @@ abstract class EventStorageBackendTemplate(
         "participant_events_create" -> selectColumnsForFlatTransactionsCreate,
         "participant_events_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
         "participant_events_non_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
-        "participant_events_divulgence" -> selectColumnsForFlatTransactionsDivulgence,
+        //"participant_events_divulgence" -> selectColumnsForFlatTransactionsDivulgence,
       ),
     )(
       limit = rangeParams.limit,
