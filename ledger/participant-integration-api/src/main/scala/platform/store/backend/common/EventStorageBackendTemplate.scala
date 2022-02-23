@@ -77,35 +77,11 @@ abstract class EventStorageBackendTemplate(
       "submitters",
     )
 
-  /*private val baseColumnsForFlatTransactionsDivulgence =
-    Seq(
-      "NULL as event_offset",
-      "NULL as transaction_id",
-      "NULL as node_index",
-      "event_sequential_id",
-      "NULL as ledger_effective_time",
-      "workflow_id",
-      "NULL as event_id",
-      "contract_id",
-      "template_id",
-      "NULL as create_argument",
-      "NULL as create_argument_compression",
-      "NULL as create_signatories",
-      "NULL as create_observers",
-      "NULL as create_agreement_text",
-      "NULL as create_key_value",
-      "NULL as create_key_value_compression",
-      "submitters",
-    )*/
-
   private val selectColumnsForFlatTransactionsCreate =
     baseColumnsForFlatTransactionsCreate.mkString(", ")
 
   private val selectColumnsForFlatTransactionsExercise =
     baseColumnsForFlatTransactionsExercise.mkString(", ")
-
-  /*private val selectColumnsForFlatTransactionsDivulgence =
-    baseColumnsForFlatTransactionsDivulgence.mkString(", ")*/
 
   private val selectColumnsForACSEvents =
     baseColumnsForFlatTransactionsCreate.map(c => s"create_evs.$c").mkString(", ")
@@ -480,6 +456,7 @@ abstract class EventStorageBackendTemplate(
         "participant_events_create" -> selectColumnsForFlatTransactionsCreate,
         "participant_events_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
         "participant_events_non_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
+        // Note: previously we used divulgence events, however they don't have flat event witnesses and were thus never included anyway
         //"participant_events_divulgence" -> selectColumnsForFlatTransactionsDivulgence,
       ),
     )(
