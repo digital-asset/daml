@@ -23,7 +23,7 @@ The remainder of the document will present:
 
 #. The minimal behavioral guarantees for identity and package services across all ledger implementations. The service users can rely on these guarantees, and the implementers must ensure that they hold.
 
-#. Guidelines for service users, explaining how the ledger's topology influences the unspecified part of the behavior.
+#. Guidelines for service users, explaining how different ledgers handle the unspecified part of the behavior.
 
 .. _identity-management:
 
@@ -60,23 +60,16 @@ The method, if successful, returns an new party identifier.
 The ``AllocateParty`` call can take the desired identifier and display name as optional parameters, but these are merely hints and the ledger implementation may completely ignore them.
 
 If the call returns a new identifier, the participant node serving this call is ready to host the party with this identifier.
-In global state topologies, the returned identifier is guaranteed to be **unique** in the ledger; namely, no other call of the ``AllocateParty`` method at this or any other ledger participant may return the same identifier.
-In partitioned state topologies, the identifier is also unique as long as the participant node is configured correctly (in particular, it does not share its private key with other participant nodes).
-If the ledger has a global state topology, the new identifier will generally be allocated and vetted by the operator of the writer node(s).
-For example, in the replicated committer topology, the committers can jointly decide on whether to approve the provisioning, and which identifier to return.
-If they refuse to provision the identifier, the method call fails.
+For some ledgers (Damlf or vmbc in particular), the returned identifier is guaranteed to be **unique** in the ledger; namely, no other call of the ``AllocateParty`` method at this or any other ledger participant may return the same identifier.
+On Canton ledgers, the identifier is also unique as long as the participant node is configured correctly (in particular, it does not share its private key with other participant nodes).
 
 After an identifier is returned, the ledger is set up in such a way that the participant node serving the call is allowed to issue commands and receive transactions on behalf of the party.
 However, the newly provisioned identifier need not be visible to the other participant nodes.
 For example, consider the setup with two participants ``P1`` and ``P2``, where the party ``Alice_123`` is hosted on ``P1``.
 Assume that a new party ``Bob_456`` is next successfully allocated on ``P2``.
-This does not yet guarantee that ``Alice_123`` can now submit a command creating a new contract with ``Bob_456`` as an observer.
-In general, ``Alice_123`` will be able to do this in a ledger with a global state topology.
-In such ledgers, the nodes holding the physical shared ledger typically also maintain a central directory of all parties in the system.
-However, such a directory may not exist for a ledger with a partitioned topology.
-In fact, in such a ledger, the participants ``P1`` and ``P2`` might not have a way to communicate to each other, or might not even be aware of each other's existence.
+As long as ``P1`` and ``P2`` are connected to the same Canton domain or Daml ledger, ``Alice_123`` can now submit a command with ``Bob_456`` as an informee.
 
-For diagnostics, the ledger also provides a :ref:`ListKnownParties <com.daml.ledger.api.v1.admin.ListKnownPartiesRequest>` method which lists parties known to the participant node.
+For diagnostics, the ledger provides a :ref:`ListKnownParties <com.daml.ledger.api.v1.admin.ListKnownPartiesRequest>` method which lists parties known to the participant node.
 The parties can be local (i.e., hosted by the participant) or not.
 
 .. _identifiers-and-authentication:
@@ -101,10 +94,10 @@ The "substrate" on which Daml workflows are built are the real-world obligations
 To give value to these obligations, they must be connected to parties in the real world.
 However, the process of linking party identifiers to real-world entities is left to the ledger implementation.
 
-A global state topology might simplify the process by trusting the operator of the writer node(s) with providing the link to the real world.
+In centralized deployments, one can simplify the process by trusting the operator of the writer node(s) with providing the link to the real world.
 For example, if the operator is a stock exchange, it might guarantee that a real-world exchange participant whose legal name is "Bank Inc." is represented by a ledger party with the identifier "Bank Inc.".
 Alternatively, it might use a random identifier, but guarantee that the display name is "Bank Inc.".
-Ledgers with partitioned topologies in general might not have such a single store of identities.
+In general, a ledger might not have such a single store of identities.
 The solutions for linking the identifiers to real-world identities could rely on certificate chains, `verifiable credentials <https://www.w3.org/TR/vc-data-model/>`__, or other mechanisms.
 The mechanisms can be implemented off-ledger, using Daml workflows (for instance, a "know your customer" workflow), or a combination of these.
 
@@ -160,18 +153,10 @@ One reason for this is that the Daml interpreter currently lacks a notion of rep
 
 Thus, Daml ledgers generally allow some form of vetting a package before running its code on a node.
 Not all nodes in a Daml ledger must vet all packages, as it is possible that some of them will not execute the code.
-For example, in global state topologies, every :ref:`trust domain <trust-domain>` that controls how commits are appended to the shared ledger must execute Daml code.
-Thus, the operators of these trust domains will in general be allowed to vet the code before they execute it.
 The exact vetting mechanism is ledger-dependent.
 For example, in the :ref:`Daml Sandbox <sandbox-manual>`, the vetting is implicit: uploading a package through the Ledger API already vets the package, since it's assumed that only the system administrator has access to these API facilities.
-In a replicated ledger, the vetting might require consent from all or a quorum of replicas.
 The vetting process can be manual, where an administrator inspects each package, or it can be automated, for example, by accepting only packages with a digital signature from a trusted package issuer.
 
-In partitioned topologies, individual trust domains store only parts of the ledger.
-Thus, they only need to approve packages whose templates are used in the ledger part visible to them.
-For example, in Daml on `R3 Corda <https://www.corda.net>`__, participants only need to approve code for the contracts in their parties' projections.
-If non-validating Corda notaries are used, they do not need to vet code.
-If validating Corda notaries are used, they can also choose which code to vet.
 In `Canton <https://canton.io>`__, participant nodes also only need to vet code for the contracts of the parties they host.
 As only participants execute contract code, only they need to vet it.
 The vetting results may also differ at different participants.
