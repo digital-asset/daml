@@ -48,25 +48,25 @@ Runtime components
    * - Canton Application and Console
      - Stable
      -
-     - Canton Administrative APIs for participant and domain nodes
+   * - Canton Administrative APIs for participant and domain nodes
      - Stable
      -
-     - Canton Protocol
+   * - Canton Protocol
      - Stable
      -
-     - Sequencer for PostgreSQL
+   * - Sequencer for PostgreSQL
      - Stable
      -
-     - Sequencer for Oracle DB
+   * - Sequencer for Oracle DB
      - Stable
      -
-     - Sequencer for Hyperledger Fabric
+   * - Sequencer for Hyperledger Fabric
      - Beta
      -
-     - Sequencer for Hyperledger Besu
+   * - Sequencer for Hyperledger Besu
      - Beta
      -
-     - Support for connecting a single participant to multiple domains
+   * - Support for connecting a single participant to multiple domains
      - Alpha
      -
    * - **JSON API**
