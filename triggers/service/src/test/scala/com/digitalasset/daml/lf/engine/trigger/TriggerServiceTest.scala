@@ -564,7 +564,7 @@ trait AbstractTriggerServiceTestWithDatabase extends AbstractTriggerServiceTest 
     }
   } yield succeed)
 
-  it should "restart triggers after shutdown" in (for {
+  it should "restart triggers after shutdown" inClaims (for {
     _ <- withTriggerService(List(dar)) { uri: Uri =>
       for {
         // Start a trigger in the first run of the service.
@@ -781,4 +781,11 @@ trait AbstractTriggerServiceTestAuthMiddleware
       _ <- assert(resp.status.isSuccess)
     } yield succeed
   }
+}
+
+trait DisableOauthClaimsTests extends AbstractTriggerServiceTest {
+  protected[this] override final def inClaims(self: ItVerbString, testFn: => Future[Assertion])(
+      implicit pos: source.Position
+  ) =
+    self ignore testFn
 }

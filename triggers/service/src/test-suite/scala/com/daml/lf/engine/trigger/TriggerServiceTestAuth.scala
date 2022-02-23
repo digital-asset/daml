@@ -3,20 +3,11 @@
 
 package com.daml.lf.engine.trigger
 
-import org.scalatest.Assertion
-import org.scalactic.source
-
-import scala.concurrent.Future
-
 class TriggerServiceTestAuth
     extends AbstractTriggerServiceTest
     with AbstractTriggerServiceTestInMem
-    with AbstractTriggerServiceTestAuthMiddleware {
-  protected[this] override def inClaims(self: ItVerbString, testFn: => Future[Assertion])(implicit
-      pos: source.Position
-  ) =
-    self ignore testFn
-}
+    with AbstractTriggerServiceTestAuthMiddleware
+    with DisableOauthClaimsTests
 
 class TriggerServiceTestAuthClaims
     extends AbstractTriggerServiceTest
