@@ -65,9 +65,6 @@ private[index] class IndexServiceImpl(
     errorFactories: ErrorFactories,
 ) extends IndexService {
   private val logger = ContextualizedLogger.get(getClass)
-  // TODO revisit redundant args lists
-  override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =
-    Future.successful(ledgerId)
 
   override def getParticipantId()(implicit
       loggingContext: LoggingContext

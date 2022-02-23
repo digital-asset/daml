@@ -35,6 +35,8 @@ import scala.concurrent.Future
 private[daml] final class TimedIndexService(delegate: IndexService, metrics: Metrics)
     extends IndexService {
 
+  override def ledgerId: LedgerId = delegate.ledgerId
+
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
   ): Future[Map[Ref.PackageId, v2.PackageDetails]] =
@@ -152,9 +154,6 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       metrics.daml.services.index.lookupMaximumLedgerTime,
       delegate.lookupMaximumLedgerTimeAfterInterpretation(ids),
     )
-
-  override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =
-    Timed.future(metrics.daml.services.index.getLedgerId, delegate.getLedgerId())
 
   override def getParticipantId()(implicit
       loggingContext: LoggingContext
