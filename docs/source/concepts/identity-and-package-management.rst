@@ -60,7 +60,7 @@ The method, if successful, returns an new party identifier.
 The ``AllocateParty`` call can take the desired identifier and display name as optional parameters, but these are merely hints and the ledger implementation may completely ignore them.
 
 If the call returns a new identifier, the participant node serving this call is ready to host the party with this identifier.
-For some ledgers (Daml or vmbc in particular), the returned identifier is guaranteed to be **unique** in the ledger; namely, no other call of the ``AllocateParty`` method at this or any other ledger participant may return the same identifier.
+For some ledgers (Daml for VMware Blockchain in particular), the returned identifier is guaranteed to be **unique** in the ledger; namely, no other call of the ``AllocateParty`` method at this or any other ledger participant may return the same identifier.
 On Canton ledgers, the identifier is also unique as long as the participant node is configured correctly (in particular, it does not share its private key with other participant nodes).
 
 After an identifier is returned, the ledger is set up in such a way that the participant node serving the call is allowed to issue commands and receive transactions on behalf of the party.
