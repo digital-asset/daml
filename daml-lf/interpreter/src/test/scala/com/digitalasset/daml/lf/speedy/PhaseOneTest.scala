@@ -100,9 +100,6 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           ("structUpd2", structUpd2),
           ("recCon1", recCon1),
           ("recCon2", recCon2),
-          //("recProj", recProj), //TODO: testcase
-          //("recUpd1", recUpd1), //TODO: testcase
-          //("recUpd2", recUpd2), //TODO: testcase
 
           ("caseScrut", caseScrut),
           ("caseAlt1", caseAlt1),
@@ -187,9 +184,9 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
   private def recCon1 = (x: Expr) => ERecCon(tapp, ImmArray((field, x), (field2, exp)))
   private def recCon2 = (x: Expr) => ERecCon(tapp, ImmArray((field, exp), (field2, x)))
-  //private def recProj = (x: Expr) => ERecProj(tapp, field, x)
-  //private def recUpd1 = (x: Expr) => ERecUpd(tapp, field, x, exp)
-  //private def recUpd2 = (x: Expr) => ERecUpd(tapp, field, exp, x)
+
+  // We dont test the recursion points ERecProj and ERecUpd, because the compiler requires
+  // access to a package signature containing info for the type constructor.
 
   private def caseScrut = (x: Expr) => ECase(x, ImmArray())
   private def caseAlt1 = (x: Expr) => ECase(exp, ImmArray(CaseAlt(CPNil, x), alt))
