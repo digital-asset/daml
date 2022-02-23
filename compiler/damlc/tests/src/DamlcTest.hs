@@ -28,12 +28,14 @@ main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
-    defaultMain (tests damlc scriptDar)
+    script1DevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar") -- TODO(MA): remove once we are on DAML-LF 1.15
+    defaultMain (tests damlc scriptDar script1DevDar)
 
-tests :: FilePath -> FilePath -> TestTree
-tests damlc scriptDar = testGroup "damlc"
+-- TODO(MA): remove script1DevDar arg once we are on DAML-LF 1.15
+tests :: FilePath -> FilePath -> FilePath -> TestTree
+tests damlc scriptDar script1DevDar = testGroup "damlc"
   [ testsForDamlcValidate damlc
-  , testsForDamlcTest damlc scriptDar
+  , testsForDamlcTest damlc scriptDar script1DevDar
   ]
 
 testsForDamlcValidate :: FilePath -> TestTree
@@ -153,8 +155,9 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
 
   ]
 
-testsForDamlcTest :: FilePath -> FilePath -> TestTree
-testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
+-- TODO(MA): remove script1DevDar arg once we are on DAML-LF 1.15
+testsForDamlcTest :: FilePath -> FilePath -> FilePath -> TestTree
+testsForDamlcTest damlc scriptDar script1DevDar = testGroup "damlc test" $
     [ testCase "Non-existent file" $ do
           (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", "foobar"] ""
           stdout @?= ""
@@ -246,6 +249,74 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                      , "choices never executed:"
                      , "Foo:S:Archive"
                      , "Foo:T:Archive\n"
+                     ] `isSuffixOf`
+                 stdout)
+    , testCase "Full test coverage report with interfaces" $ do
+        withTempDir $ \dir -> do
+            writeFileUTF8 (dir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: full-test-coverage-report-with-interfaces"
+              , "build-options: [ --target=1.dev ]" -- TODO(MA): remove once we are on DAML-LF 1.15
+              , "version: 0.0.1"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib, " <> show script1DevDar <> "]" -- TODO(MA): replace with scriptDar once we are on DAML-LF 1.15
+              ]
+            let file = dir </> "Foo.daml"
+            T.writeFileUtf8 file $ T.unlines
+              [ "module Foo where"
+              , "import Daml.Script"
+
+              , "interface I where"
+              , "  iGetParty: Party"
+              , "  choice IC: ()"
+              , "    controller iGetParty this"
+              , "    do pure ()"
+              , "interface J where"
+              , "  jGetParty: Party"
+              , "  choice JC: ()"
+              , "    controller jGetParty this"
+              , "    do pure ()"
+
+              , "template S with p: Party where"
+              , "  signatory p"
+              , "  implements I where"
+              , "    let iGetParty = p"
+              , "  implements J where"
+              , "    let jGetParty = p"
+              , "template T with p: Party where"
+              , "  signatory p"
+              , "  implements I where"
+              , "    let iGetParty = p"
+              , "  implements J where"
+              , "    let jGetParty = p"
+
+              , "x = script do"
+              , "      alice <- allocateParty \"Alice\""
+              , "      c <- submit alice $ createCmd T with p = alice"
+              , "      submit alice $ exerciseCmd c IC"
+              ]
+            (exitCode, stdout, stderr) <-
+              readProcessWithExitCode
+                damlc
+                  [ "test"
+                  , "--show-coverage"
+                  , "--project-root"
+                  , dir ]
+                  ""
+            stderr @?= ""
+            exitCode @?= ExitSuccess
+            assertBool
+                ("test coverage is reported correctly: " <> stdout)
+                (unlines
+                     [ "test coverage: templates 50%, choices 17%"
+                     , "templates never created:"
+                     , "Foo:S"
+                     , "choices never executed:"
+                     , "Foo:S:Archive"
+                     , "Foo:S:IC"
+                     , "Foo:S:JC"
+                     , "Foo:T:Archive"
+                     , "Foo:T:JC\n"
                      ] `isSuffixOf`
                  stdout)
     , testCase "Full test coverage report with --all set" $ withTempDir $ \projDir -> do

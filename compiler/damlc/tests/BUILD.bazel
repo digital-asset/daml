@@ -85,6 +85,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "//daml-script/daml:daml-script-1.dev.dar", # TODO(MA): remove once we are on DAML-LF 1.15
     ],
     hackage_deps = [
         "base",
