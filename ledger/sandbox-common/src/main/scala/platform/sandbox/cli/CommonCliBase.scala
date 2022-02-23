@@ -418,6 +418,14 @@ class CommonCliBase(name: LedgerName) {
         .action((value, config: SandboxConfig) =>
           config.withUserManagementConfig(_.copy(maxUsersPageSize = value))
         )
+      checkConfig(c => {
+        val v = c.userManagementConfig.maxUsersPageSize
+        if (v == 0 || v >= 100) {
+          success
+        } else {
+          failure(s"max-users-page-size must be either 0 or greater than 99, was: $v")
+        }
+      })
 
       com.daml.cliopts.Metrics.metricsReporterParse(this)(
         (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),
