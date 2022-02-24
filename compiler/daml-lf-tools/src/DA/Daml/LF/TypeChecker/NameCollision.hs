@@ -73,8 +73,8 @@ displayName = \case
         T.concat ["interface ", dot m, ":", dot t]
     NInterfaceChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
         T.concat ["interface choice ", dot m, ":", dot t, ".", c]
-    NInterfaceMethod (ModuleName m) (TypeConName t) (MethodName m) ->
-        T.concat ["interface method ", dot m, ":", dot t, ".", m]
+    NInterfaceMethod (ModuleName m) (TypeConName t) (MethodName f) ->
+        T.concat ["interface method ", dot m, ":", dot t, ".", f]
   where
     dot = T.intercalate "."
 
@@ -210,6 +210,13 @@ checkSynonym :: ModuleName -> DefTypeSyn -> NCMonad ()
 checkSynonym moduleName DefTypeSyn{..} =
     checkName (NTypeSynonym moduleName synName)
 
+checkInterface :: ModuleName -> DefInterface -> NCMonad ()
+checkInterface moduleName DefInterface{..} = do
+    forM_ intFixedChoices $ \TemplateChoice{..} ->
+        checkName (NInterfaceChoice moduleName intName chcName)
+    forM_ intMethods $ \InterfaceMethod{..} ->
+        checkName (NInterfaceMethod moduleName intName ifmName)
+
 checkModuleName :: Module -> NCMonad ()
 checkModuleName m =
     checkName (NModule (moduleName m))
@@ -226,6 +233,8 @@ checkModuleBody m = do
         checkTemplate (moduleName m) tpl
     forM_ (moduleSynonyms m) $ \synonym ->
         checkSynonym (moduleName m) synonym
+    forM_ (moduleInterfaces m) $ \iface ->
+        checkInterface (moduleName m) iface
 
 checkModule :: Module -> NCMonad ()
 checkModule m = do
