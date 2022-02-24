@@ -120,6 +120,8 @@ html_scaled_image_link = False
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'DigitalAssetSDKdoc'
 
+html4_writer = True
+
 
 # -- Options for LaTeX output ---------------------------------------------
 
