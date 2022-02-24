@@ -6,6 +6,13 @@
 Setting Up Auth0
 ================
 
+.. note::
+
+   This is an Early Access feature. Note that this feature does not currently
+   work with Daml 2.0. These docs refer to and use Daml 1.18. The feature is
+   under active development and it will soon be available for the 2.x major
+   release series.
+
 In this section, we will walk through a complete setup of an entire Daml
 system using Auth0 as its authentication provider.
 
