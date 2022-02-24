@@ -11,9 +11,7 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.UserDetails
 import com.daml.http.json.JsonProtocol._
-import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.ledger.api.auth.{AuthServiceJWTPayload, CustomDamlJWTPayload}
+import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.domain.UserRight.{CanActAs, ParticipantAdmin}
 import com.daml.ledger.api.v1.{value => v}
@@ -21,11 +19,10 @@ import com.daml.lf.data.Ref
 import com.daml.platform.sandbox.{SandboxRequiringAuthorization, SandboxRequiringAuthorizationFuns}
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{Assertion, AsyncTestSuite, Inside}
-import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
 import scalaz.syntax.show._
-import spray.json.{JsObject, JsValue}
+import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
@@ -58,33 +55,11 @@ trait HttpServiceIntegrationTestUserManagementFuns
 
   def getUniqueUserName(name: String): String = getUniqueParty(name).unwrap
 
-  def jwtForParties(uri: Uri)(
-      actAs: List[String],
-      readAs: List[String],
-  )(implicit ec: ExecutionContext): Future[Jwt] = {
-    val username = getUniqueUserName("test")
-    val jwt = jwtForUser(username)
-    val createUserRequest = domain.CreateUserRequest(
-      username,
-      None,
-      Some(
-        actAs.map(it => domain.CanActAs(domain.Party(it))) ++
-          readAs.map(it => domain.CanReadAs(domain.Party(it)))
-      ),
-    )
-    import spray.json._
-    for {
-      _ <- postRequest(
-        uri.withPath(Uri.Path("/v1/user/create")),
-        createUserRequest.toJson,
-        headers = authorizationHeader(participantAdminJwt),
-      )
-    } yield jwt
-  }
-
   def headersWithPartyAuth(uri: Uri)(
       actAs: List[String],
       readAs: List[String],
+      ledgerId: String,
+      withoutNamespace: Boolean = false,
   )(implicit ec: ExecutionContext): Future[List[Authorization]] =
     jwtForParties(uri)(actAs, readAs).map(authorizationHeader)
 
@@ -95,17 +70,48 @@ trait HttpServiceIntegrationTestUserManagementFuns
     Future.successful(participantAdminJwt)
 
   protected def headersWithAuth(uri: Uri)(actAs: List[String], readAs: List[String] = List()) =
-    headersWithPartyAuth(uri)(actAs, readAs)
+    headersWithPartyAuth(uri)(actAs, readAs, "")
 
+  override def jwtForParties(
+      uri: Uri
+  )(
+      actAs: List[String],
+      readAs: List[String],
+      ledgerId: String = "",
+      withoutNamespace: Boolean = true,
+  )(implicit
+      ec: ExecutionContext
+  ): Future[Jwt] = {
+    logger.error("jwt for parties")
+    val username = getUniqueUserName("test")
+    val createUserRequest = domain.CreateUserRequest(
+      username,
+      None,
+      Some(
+        actAs.map(it => domain.CanActAs(domain.Party(it))) ++
+          readAs.map(it => domain.CanReadAs(domain.Party(it)))
+      ),
+    )
+    import spray.json._
+    for {
+      _ <- Future(logger.error(s"trying to create user: $username"))
+      res <- postRequest(
+        uri.withPath(Uri.Path("/v1/user/create")),
+        createUserRequest.toJson,
+        headers = authorizationHeader(participantAdminJwt),
+      )
+      _ = logger.error(s"create user response: $res")
+      jwt = jwtForUser(username)
+    } yield jwt
+  }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class HttpServiceIntegrationTestUserManagementNoAuth
-    extends AsyncFreeSpec
-    with Matchers
-    with Inside
-    with StrictLogging
-    with HttpServiceIntegrationTestUserManagementFuns {
+    extends HttpServiceIntegrationTestUserManagementFuns
+    with StrictLogging {
+
+  this: AsyncTestSuite with Matchers with Inside =>
 
   override def jdbcConfig: Option[JdbcConfig] = None
 

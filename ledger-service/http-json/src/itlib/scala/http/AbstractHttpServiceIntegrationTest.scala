@@ -33,7 +33,6 @@ import com.daml.ledger.service.MetadataReader
 import com.daml.ledger.test.{ModelTestDar, SemanticTestDar}
 import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import com.daml.http.util.Logging.instanceUUIDLogCtx
-import com.daml.ledger.api.auth.{AuthServiceJWTPayload, CustomDamlJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.typesafe.scalalogging.StrictLogging
@@ -87,59 +86,24 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
     extends AbstractHttpServiceIntegrationTestFuns {
   this: AsyncTestSuite with Matchers with Inside =>
 
-  import HttpServiceTestFixture._
-
-  def jwtForParties(
+  def jwtForParties(uri: Uri)(
       actAs: List[String],
       readAs: List[String],
       ledgerId: String,
       withoutNamespace: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[Jwt] = {
-    import com.daml.ledger.api.auth.AuthServiceJWTCodec.JsonImplicits._
-    val payload =
-      if (withoutNamespace)
-        s"""{
-                 |  "ledgerId": "$ledgerId",
-                 |  "applicationId": "test",
-                 |  "exp": 0,
-                 |  "admin": false,
-                 |  "actAs": ${actAs.toJson.prettyPrint},
-                 |  "readAs": ${readAs.toJson.prettyPrint}
-                 |}
-                """.stripMargin
-      else
-        (CustomDamlJWTPayload(
-          ledgerId = Some(ledgerId),
-          applicationId = Some("test"),
-          actAs = actAs,
-          participantId = None,
-          exp = None,
-          admin = false,
-          readAs = readAs,
-        ): AuthServiceJWTPayload).toJson.prettyPrint
-    Future(
-      JwtSigner.HMAC256
-        .sign(
-          DecodedJwt(
-            """{"alg": "HS256", "typ": "JWT"}""",
-            payload,
-          ),
-          "secret",
-        )
-        .fold(e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.shows}"), identity)
-    )
-  }
+  )(implicit ec: ExecutionContext): Future[Jwt] =
+    HttpServiceTestFixture.jwtForParties(actAs, readAs, ledgerId, withoutNamespace)
 
-  def headersWithPartyAuth(
+  def headersWithPartyAuth(uri: Uri)(
       actAs: List[String],
       readAs: List[String],
       ledgerId: String,
       withoutNamespace: Boolean = false,
   )(implicit ec: ExecutionContext): Future[List[Authorization]] =
-    jwtForParties(actAs, readAs, ledgerId, withoutNamespace).map(authorizationHeader)
+    HttpServiceTestFixture.headersWithPartyAuth(actAs, readAs, ledgerId, withoutNamespace)
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
-    jwtForParties(List("Alice"), List(), testId)
+    jwtForParties(uri)(List("Alice"), List(), testId)
 
   protected def jwtAdminNoParty(implicit ec: ExecutionContext): Future[Jwt] = {
     val decodedJwt = DecodedJwt(
@@ -152,9 +116,6 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
         .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
     )
   }
-
-  protected def headersWithAuth(actAs: List[String], readAs: List[String] = List()) =
-    headersWithPartyAuth(actAs, readAs, testId)
 
 }
 
@@ -209,7 +170,9 @@ trait AbstractHttpServiceIntegrationTestFuns
       name: String
   ): Future[(domain.Party, List[HttpHeader])] = {
     val domain.Party(partyName) = getUniqueParty(name)
-    headersWithPartyAuth(uri)(List(partyName)).map(token => (domain.Party(partyName), token))
+    headersWithPartyAuth(uri)(List(partyName), List.empty, "").map(token =>
+      (domain.Party(partyName), token)
+    )
   }
 
   protected def withHttpServiceAndClient[A](
@@ -274,15 +237,23 @@ trait AbstractHttpServiceIntegrationTestFuns
     usingLedger[A](testId) { case (_, client, ledgerId) =>
       testFn(client, ledgerId)
     }
+  def jwtForParties(uri: Uri)(
+      actAs: List[String],
+      readAs: List[String],
+      ledgerId: String,
+      withoutNamespace: Boolean = false,
+  )(implicit ec: ExecutionContext): Future[Jwt]
 
   protected def headersWithAuth(uri: Uri)(implicit
       ec: ExecutionContext
   ): Future[List[Authorization]] =
-    jwt(uri).map(authorizationHeader)
+    jwt(uri)(ec).map(authorizationHeader)
 
   protected def headersWithPartyAuth(uri: Uri)(
-      actAs: List[String],
-      readAs: List[String] = List(),
+      actAs: List[String] = List.empty,
+      readAs: List[String] = List.empty,
+      ledgerId: String = "",
+      withoutNamespace: Boolean = false,
   )(implicit ec: ExecutionContext): Future[List[Authorization]]
 
 //  protected def headersWithPartyAuthLegacyFormat(
@@ -571,7 +542,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       cmd: domain.ContractLocator[JsValue],
       uri: Uri,
       headers: List[HttpHeader],
-      readAs: Option[List[domain.Party]] = None,
+      readAs: Option[List[domain.Party]],
   ): Future[(StatusCode, JsValue)] =
     for {
       locjson <- toFuture(SprayJson.encode(cmd)): Future[JsValue]
@@ -587,6 +558,11 @@ trait AbstractHttpServiceIntegrationTestFuns
       result <- postJsonRequest(uri.withPath(Uri.Path("/v1/fetch")), json, headers)
     } yield result
 
+  protected def postContractsLookup(
+      cmd: domain.ContractLocator[JsValue],
+      uri: Uri,
+      headers: List[HttpHeader],
+  ): Future[(StatusCode, JsValue)] = postContractsLookup(cmd, uri, headers, None)
   protected def postContractsLookup(
       cmd: domain.ContractLocator[JsValue],
       uri: Uri,
@@ -1021,7 +997,7 @@ abstract class AbstractHttpServiceIntegrationTest
       jsObject(
         """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
       )
-
+    logger.info("query returns unknown Template IDs")
     headersWithPartyAuth(uri)(List("UnknownParty")).flatMap(headers =>
       search(List(), query, uri, encoder, headers).map { response =>
         inside(response) { case domain.OkResponse(acl, warnings, StatusCodes.OK) =>
@@ -2015,7 +1991,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "package list is updated when a query request is made" in usingLedger(testId) {
-    case (ledgerPort, _, ledgerId) =>
+    case (ledgerPort, _, _) =>
       HttpServiceTestFixture.withHttpService(
         testId,
         ledgerPort,

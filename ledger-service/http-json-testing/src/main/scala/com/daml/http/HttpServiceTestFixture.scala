@@ -22,8 +22,14 @@ import com.daml.http.util.ClientUtil.boxedRecord
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.util.TestUtil.getResponseDataBytes
 import com.daml.http.util.{FutureUtil, NewBoolean}
-import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.AuthService
+import com.daml.jwt.JwtSigner
+import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.ledger.api.auth.{
+  AuthService,
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -51,6 +57,7 @@ import org.scalatest.{Assertions, Inside}
 import scalaz._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
+import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
@@ -306,54 +313,54 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   final val clientTlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt)
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
 
-//  def jwtForParties(
-//      actAs: List[String],
-//      readAs: List[String],
-//      ledgerId: String,
-//      withoutNamespace: Boolean = false,
-//  )(implicit ec: ExecutionContext): Future[Jwt] = {
-//    import AuthServiceJWTCodec.JsonImplicits._
-//    val payload =
-//      if (withoutNamespace)
-//        s"""{
-//               |  "ledgerId": "$ledgerId",
-//               |  "applicationId": "test",
-//               |  "exp": 0,
-//               |  "admin": false,
-//               |  "actAs": ${actAs.toJson.prettyPrint},
-//               |  "readAs": ${readAs.toJson.prettyPrint}
-//               |}
-//              """.stripMargin
-//      else
-//        (CustomDamlJWTPayload(
-//          ledgerId = Some(ledgerId),
-//          applicationId = Some("test"),
-//          actAs = actAs,
-//          participantId = None,
-//          exp = None,
-//          admin = false,
-//          readAs = readAs,
-//        ): AuthServiceJWTPayload).toJson.prettyPrint
-//    Future(
-//      JwtSigner.HMAC256
-//        .sign(
-//          DecodedJwt(
-//            """{"alg": "HS256", "typ": "JWT"}""",
-//            payload,
-//          ),
-//          "secret",
-//        )
-//        .fold(e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.shows}"), identity)
-//    )
-//  }
+  def jwtForParties(
+      actAs: List[String],
+      readAs: List[String],
+      ledgerId: String,
+      withoutNamespace: Boolean = false,
+  )(implicit ec: ExecutionContext): Future[Jwt] = {
+    import AuthServiceJWTCodec.JsonImplicits._
+    val payload =
+      if (withoutNamespace)
+        s"""{
+               |  "ledgerId": "$ledgerId",
+               |  "applicationId": "test",
+               |  "exp": 0,
+               |  "admin": false,
+               |  "actAs": ${actAs.toJson.prettyPrint},
+               |  "readAs": ${readAs.toJson.prettyPrint}
+               |}
+              """.stripMargin
+      else
+        (CustomDamlJWTPayload(
+          ledgerId = Some(ledgerId),
+          applicationId = Some("test"),
+          actAs = actAs,
+          participantId = None,
+          exp = None,
+          admin = false,
+          readAs = readAs,
+        ): AuthServiceJWTPayload).toJson.prettyPrint
+    Future(
+      JwtSigner.HMAC256
+        .sign(
+          DecodedJwt(
+            """{"alg": "HS256", "typ": "JWT"}""",
+            payload,
+          ),
+          "secret",
+        )
+        .fold(e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.shows}"), identity)
+    )
+  }
 
-//  def headersWithPartyAuth(
-//      actAs: List[String],
-//      readAs: List[String],
-//      ledgerId: String,
-//      withoutNamespace: Boolean = false,
-//  )(implicit ec: ExecutionContext): Future[List[Authorization]] =
-//    jwtForParties(actAs, readAs, ledgerId, withoutNamespace).map(authorizationHeader)
+  def headersWithPartyAuth(
+      actAs: List[String],
+      readAs: List[String],
+      ledgerId: String,
+      withoutNamespace: Boolean = false,
+  )(implicit ec: ExecutionContext): Future[List[Authorization]] =
+    jwtForParties(actAs, readAs, ledgerId, withoutNamespace).map(authorizationHeader)
 
   def authorizationHeader(token: Jwt): List[Authorization] =
     List(Authorization(OAuth2BearerToken(token.value)))

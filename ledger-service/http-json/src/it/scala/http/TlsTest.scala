@@ -13,7 +13,7 @@ import spray.json.{JsArray, JsObject}
 import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class TlsTest
+abstract class TlsTest
     extends AsyncFreeSpec
     with Matchers
     with Inside
@@ -40,3 +40,7 @@ class TlsTest
       }: Future[Assertion]
   }
 }
+
+final class TlsTestCustomToken
+    extends TlsTest
+    with AbstractHttpServiceIntegrationTestFunsCustomToken

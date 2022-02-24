@@ -40,6 +40,7 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
       def create(meta: Option[domain.CommandMeta]) =
         domain.CreateCommand(tplId, lav1.value.Record(), meta)
       for {
+        multiPartyJwt <- multiPartyJwt
         normal <- cs.create(multiPartyJwt, multiPartyJwp, create(None))
         overridden <- cs.create(
           multiPartyJwt,
@@ -80,7 +81,7 @@ object CommandServiceTest {
     submitter = domain.Party subst NonEmptyList("foo", "bar"),
     readAs = domain.Party subst List("baz", "quux"),
   )
-  private lazy val multiPartyJwt = jwtForParties(
+  private def multiPartyJwt(implicit ec: EC) = jwtForParties(
     actAs = domain.Party unsubst multiPartyJwp.submitter.toList,
     readAs = domain.Party unsubst multiPartyJwp.readAs,
     ledgerId = multiPartyJwp.ledgerId.unwrap,
