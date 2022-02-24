@@ -1,0 +1,32 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:scala.bzl", "da_scala_library")
+
+da_scala_library(
+    name = "ledger-security-test-lib",
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_generic",
+        "@maven//:com_github_pathikrit_better_files",
+        "@maven//:io_circe_circe_generic_extras",
+        "@maven//:com_lihaoyi_sourcecode",
+
+    ],
+    tags = ["maven_coordinates=com.daml:ledger-security-test-lib:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)

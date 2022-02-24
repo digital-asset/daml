@@ -1,0 +1,372 @@
+[
+  {
+    "suiteName" : "GetLedgerIdentityAuthIT",
+    "description" : "LedgerIdentityService#GetLedgerIdentity should deny calls with an expired read-only token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "LedgerIdentityService#GetLedgerIdentity",
+      "scenario" : {
+        "attack" : {
+          "actor" : "A user that can reach the ledger api",
+          "threat" : "Exploit an expired token",
+          "mitigation" : "Refuse to connect the user to the participant node"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 28
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetLedgerIdentityAuthIT",
+    "description" : "LedgerIdentityService#GetLedgerIdentity should allow calls with explicitly non-expired read-only token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "LedgerIdentityService#GetLedgerIdentity",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with token expiring tomorrow"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 32
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetLedgerIdentityAuthIT",
+    "description" : "LedgerIdentityService#GetLedgerIdentity should allow calls with read-only token without expiration",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "LedgerIdentityService#GetLedgerIdentity",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with token without expiration"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 35
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetLedgerIdentityAuthIT",
+    "description" : "LedgerIdentityService#GetLedgerIdentity should allow calls with 'participant_admin' user token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "LedgerIdentityService#GetLedgerIdentity",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with `participant_admin` token"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 39
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetLedgerConfigurationAuthIT",
+    "description" : "LedgerConfigurationService#GetLedgerConfiguration should deny calls with an expired read-only token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "LedgerConfigurationService#GetLedgerConfiguration",
+      "scenario" : {
+        "attack" : {
+          "actor" : "A user that can reach the ledger api",
+          "threat" : "Exploit an expired token",
+          "mitigation" : "Refuse to connect the user to the participant node"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 28
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetLedgerConfigurationAuthIT",
+    "description" : "LedgerConfigurationService#GetLedgerConfiguration should allow calls with explicitly non-expired read-only token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "LedgerConfigurationService#GetLedgerConfiguration",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with token expiring tomorrow"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 32
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetLedgerConfigurationAuthIT",
+    "description" : "LedgerConfigurationService#GetLedgerConfiguration should allow calls with read-only token without expiration",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "LedgerConfigurationService#GetLedgerConfiguration",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with token without expiration"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 35
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetLedgerConfigurationAuthIT",
+    "description" : "LedgerConfigurationService#GetLedgerConfiguration should allow calls with 'participant_admin' user token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "LedgerConfigurationService#GetLedgerConfiguration",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with `participant_admin` token"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 39
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetLedgerEndAuthIT",
+    "description" : "TransactionService#GetLedgerEnd should deny calls with an expired read-only token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "TransactionService#GetLedgerEnd",
+      "scenario" : {
+        "attack" : {
+          "actor" : "A user that can reach the ledger api",
+          "threat" : "Exploit an expired token",
+          "mitigation" : "Refuse to connect the user to the participant node"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 28
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetLedgerEndAuthIT",
+    "description" : "TransactionService#GetLedgerEnd should allow calls with explicitly non-expired read-only token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "TransactionService#GetLedgerEnd",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with token expiring tomorrow"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 32
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetLedgerEndAuthIT",
+    "description" : "TransactionService#GetLedgerEnd should allow calls with read-only token without expiration",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "TransactionService#GetLedgerEnd",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with token without expiration"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 35
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetLedgerEndAuthIT",
+    "description" : "TransactionService#GetLedgerEnd should allow calls with 'participant_admin' user token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "TransactionService#GetLedgerEnd",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with `participant_admin` token"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 39
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "CompletionEndAuthIT",
+    "description" : "CommandCompletionService#CompletionEnd should deny calls with an expired read-only token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "CommandCompletionService#CompletionEnd",
+      "scenario" : {
+        "attack" : {
+          "actor" : "A user that can reach the ledger api",
+          "threat" : "Exploit an expired token",
+          "mitigation" : "Refuse to connect the user to the participant node"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 28
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "CompletionEndAuthIT",
+    "description" : "CommandCompletionService#CompletionEnd should allow calls with explicitly non-expired read-only token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "CommandCompletionService#CompletionEnd",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with token expiring tomorrow"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 32
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "CompletionEndAuthIT",
+    "description" : "CommandCompletionService#CompletionEnd should allow calls with read-only token without expiration",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "CommandCompletionService#CompletionEnd",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with token without expiration"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 35
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "CompletionEndAuthIT",
+    "description" : "CommandCompletionService#CompletionEnd should allow calls with 'participant_admin' user token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "CommandCompletionService#CompletionEnd",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with `participant_admin` token"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 39
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetTimeAuthIT",
+    "description" : "TimeService#GetTime should deny calls with an expired read-only token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "TimeService#GetTime",
+      "scenario" : {
+        "attack" : {
+          "actor" : "A user that can reach the ledger api",
+          "threat" : "Exploit an expired token",
+          "mitigation" : "Refuse to connect the user to the participant node"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 28
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetTimeAuthIT",
+    "description" : "TimeService#GetTime should allow calls with explicitly non-expired read-only token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "TimeService#GetTime",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with token expiring tomorrow"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 32
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetTimeAuthIT",
+    "description" : "TimeService#GetTime should allow calls with read-only token without expiration",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "TimeService#GetTime",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with token without expiration"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 35
+    },
+    "ignored" : false,
+    "suite" : null
+  },
+  {
+    "suiteName" : "GetTimeAuthIT",
+    "description" : "TimeService#GetTime should allow calls with 'participant_admin' user token",
+    "tag" : {
+      "property" : "SecureConfiguration",
+      "asset" : "TimeService#GetTime",
+      "scenario" : {
+        "happy" : {
+          "description" : "Connect with `participant_admin` token"
+        }
+      },
+      "unimplemented" : false,
+      "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
+      "line" : 39
+    },
+    "ignored" : false,
+    "suite" : null
+  }
+]

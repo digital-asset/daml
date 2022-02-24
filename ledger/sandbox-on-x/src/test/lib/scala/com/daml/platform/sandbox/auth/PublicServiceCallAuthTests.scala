@@ -5,8 +5,9 @@ package com.daml.platform.sandbox.auth
 
 import java.time.Duration
 import java.util.UUID
-
 import com.daml.ledger.api.auth.AuthServiceJWTPayload
+import com.daml.ledger.security.test.SystematicTesting.Security.{Attack, SecurityTest}
+import com.daml.ledger.security.test.SystematicTesting.Security.SecurityTest.Property.SecureConfiguration
 
 import scala.concurrent.Future
 
@@ -15,17 +16,27 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   protected def serviceCallWithPayload(payload: AuthServiceJWTPayload): Future[Any] =
     serviceCallWithToken(Some(toHeader(payload)))
 
-  it should "deny calls with an expired read-only token" in {
+  val securityAsset: SecurityTest =
+    SecurityTest(property = SecureConfiguration, asset = serviceCallName)
+
+  def attack(threat: String): Attack = Attack(
+    actor = "A user that can reach the ledger api",
+    threat = threat,
+    mitigation = "Refuse to connect the user to the participant node",
+  )
+
+  it should "deny calls with an expired read-only token" taggedAs securityAsset.setAttack(attack(threat = "Exploit an expired token")) in {
     expectUnauthenticated(serviceCallWithToken(canReadAsRandomPartyExpired))
   }
-  it should "allow calls with explicitly non-expired read-only token" in {
+
+  it should "allow calls with explicitly non-expired read-only token" taggedAs securityAsset.setHappyCase("Connect with token expiring tomorrow") in {
     expectSuccess(serviceCallWithToken(canReadAsRandomPartyExpiresTomorrow))
   }
-  it should "allow calls with read-only token without expiration" in {
+  it should "allow calls with read-only token without expiration" taggedAs securityAsset.setHappyCase("Connect with token without expiration") in  {
     expectSuccess(serviceCallWithToken(canReadAsRandomParty))
   }
 
-  it should "allow calls with 'participant_admin' user token" in {
+  it should "allow calls with 'participant_admin' user token" taggedAs securityAsset.setHappyCase("Connect with `participant_admin` token") in {
     expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
   }
   it should "allow calls with non-expired 'participant_admin' user token" in {

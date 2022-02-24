@@ -122,6 +122,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_lihaoyi_sourcecode",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
@@ -150,6 +151,7 @@ da_scala_library(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
+        "//ledger/ledger-security-test-lib",
         "//libs-scala/grpc-utils",
         "//libs-scala/ports",
         "//libs-scala/resources",
@@ -194,11 +196,10 @@ da_scala_test_suite(
     ],
 )
 
-da_scala_test_suite(
+da_scala_library(
     name = "sandbox-on-x-it-tests",
     # Sandbox-on-X has high end-to-end submission latency.
     # TODO Downsize to `small` once the latency is optimized
-    size = "medium",
     srcs = glob(
         ["src/test/it/**/*.scala"],
     ),
@@ -208,12 +209,16 @@ da_scala_test_suite(
         "//ledger/test-common/test-certificates",
     ],
     resources = glob(["src/test/resources/**/*"]),
+    visibility = ["//visibility:public"],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
@@ -244,6 +249,7 @@ da_scala_test_suite(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
+        "//ledger/ledger-security-test-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/ports",
