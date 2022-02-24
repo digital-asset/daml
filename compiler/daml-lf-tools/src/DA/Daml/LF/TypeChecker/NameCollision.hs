@@ -41,6 +41,8 @@ data Name
     | NChoice ModuleName TypeConName ChoiceName
     | NChoiceViaInterface ModuleName TypeConName ChoiceName (Qualified TypeConName)
     | NInterface ModuleName TypeConName
+    | NInterfaceChoice ModuleName TypeConName ChoiceName
+    | NInterfaceMethod ModuleName TypeConName MethodName
 
 -- | Display a name in a super unambiguous way.
 displayName :: Name -> T.Text
@@ -69,6 +71,10 @@ displayName = \case
         T.concat ["choice ", dot m, ":", dot t, ".", c, " (via interface ", dot imod, ":", dot ityp, ")"]
     NInterface (ModuleName m) (TypeConName t) ->
         T.concat ["interface ", dot m, ":", dot t]
+    NInterfaceChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
+        T.concat ["interface choice ", dot m, ":", dot t, ".", c]
+    NInterfaceMethod (ModuleName m) (TypeConName t) (MethodName m) ->
+        T.concat ["interface method ", dot m, ":", dot t, ".", m]
   where
     dot = T.intercalate "."
 
@@ -127,6 +133,10 @@ fullyResolve = FRName . map T.toLower . \case
         m ++ t ++ [c]
     NInterface (ModuleName m) (TypeConName t) ->
         m ++ t
+    NInterfaceChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
+        m ++ t ++ [c]
+    NInterfaceMethod (ModuleName m) (TypeConName t) (MethodName f) ->
+        m ++ t ++ [f]
 
 -- | State of the name collision checker. This is a
 -- map from fully resolved names within a package to their
