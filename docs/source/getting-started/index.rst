@@ -103,7 +103,7 @@ You should now see the login page for the social network. For simplicity, in thi
       :class: no-scaled-link
 
 You should see the main screen with two panels. The top panel displays the social network users you are following; the bottom displays the aliases of the users who follow you. Initially these are both empty as you are not following anyone and you don't have any followers.
-To start following a user, select their name in the drop-down list and click the *Follow* button in the top panel. However, you will notice that the drop-down will only show your own user because no other user has registered yet.
+To start following a user, select their name in the drop-down list and click the *Follow* button in the top panel. At the moment, you will notice that the drop-down shows only your own user because no other user has registered yet.
 
    .. figure:: images/create-daml-app-main-screen-initial-view.png
       :alt: Main view of the create-daml-app
