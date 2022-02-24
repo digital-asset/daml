@@ -109,7 +109,7 @@ To start following a user, select their name in the drop-down list and click the
       :alt: Main view of the create-daml-app
 
 Next, open a new browser window/tab at http://localhost:3000 and log in as a different user.
-(Having separate windows/tabs allows you to see both you and the screen of the user you are following at the same time.)
+(Having separate windows/tabs allows you to see both your own screen and the screen of the user you are following at the same time.)
 
 Now that the other user (Alice in this example) has logged in, go back to the previous window/tab and select them drop-down list and click the *Follow* button in the top panel.
 
