@@ -784,7 +784,7 @@ available for usage::
             , 'agreement' e₄
             , 'choices' { ChDef₁, …, ChDefₘ }
             , KeyDef
-            , ImplDef₁, …, ImplDefₘ
+            , ImplDef₁, …, ImplDefₖ
             }
        |  'exception' T ↦ { 'message' e }           -- DefException [Daml-LF ≥ 1.14]
        |  'interface' (x : I) ↦                     -- DefInterface [Daml-LF ≥ 1.dev]
@@ -1589,7 +1589,7 @@ for the ``DefTemplate`` rule). ::
     x : Mod:T  ⊢  eₐ  :  'Text'
     x : Mod:T  ⊢  ChDef₁      ⋯      x : Mod:T  ⊢  ChDefₘ
     x : Mod:T  ⊢  KeyDef
-    x : Mod:T  ⊢  ImplDef₁    ⋯      x : Mod:T  ⊢  ImplDefₘ
+    x : Mod:T  ⊢  ImplDef₁    ⋯      x : Mod:T  ⊢  ImplDefₖ
   ——————————————————————————————————————————————————————————————— DefTemplate
     ⊢  'tpl' (x : T) ↦
          { 'precondition' eₚ
@@ -1598,7 +1598,7 @@ for the ``DefTemplate`` rule). ::
          , 'agreement' eₐ
          , 'choices' { ChDef₁, …, ChDefₘ }
          , KeyDef
-         , ImplDef₁, …, ImplDefₘ
+         , ImplDef₁, …, ImplDefₖ
          }
 
     'record' T ↦ { f₁ : τ₁, …, fₙ : τₙ }  ∈  〚Ξ〛Mod
@@ -1776,6 +1776,9 @@ name* construct as follows:
 * The *fully resolved name* of a choice ``Ch`` of an interface
   definition ``'interface' (x : I) ↦ { …, 'choices' { …, 'choice' ChKind Ch
   … ↦ …, … } }`` defined in the module ``Mod`` is ``Mod.I.Ch``.
+* The *fully resolved name* of a method ``fᵢ`` of an interface
+  definition ``'interface' (x : I) ↦ { …, 'methods' { …, fᵢ: τᵢ, … } }``
+  defined in the module ``Mod`` is ``Mod.I.fᵢ``.
 
 
 Name collisions
