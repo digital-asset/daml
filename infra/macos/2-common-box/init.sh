@@ -120,8 +120,8 @@ su -l vsts <<'END'
 set -euo pipefail
 export PATH="/usr/local/bin:/usr/sbin:$PATH"
 bash <(curl -sSfL https://releases.nixos.org/nix/nix-2.3.16/install)
-export PATH="$HOME/.nix-profile/bin:$PATH"
-nix-channel --update && nix-env -iA nixpkgs.nix_2_4
+source /Users/vsts/.nix-profile/etc/profile.d/nix.sh
+nix upgrade-nix
 echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
 END
 
