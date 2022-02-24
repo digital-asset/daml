@@ -439,7 +439,7 @@ strings as *package identifiers*.  ::
               W ::= Name                            -- ValRef
 
   Type constructors
-              T ::= Name                            -- TyCon
+           T, I ::= Name                            -- TyCon
 
   Type synonym
               S ::= Name                            -- TySyn
@@ -761,6 +761,12 @@ available for usage::
     ChDef ::= 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ e
                                                     -- ChDef
 
+  Interface implementation definition
+    ImplDef ::= 'implements' Mod:I                  -- ImplDef [Daml-LF ≥ 1.dev]
+                    { 'methods { f₁ = e₁, …, fₙ = eₙ }
+                    , 'choices' { Ch₁, …, Chₘ }
+                    }
+
   Definitions
     Def
       ::=
@@ -778,8 +784,15 @@ available for usage::
             , 'agreement' e₄
             , 'choices' { ChDef₁, …, ChDefₘ }
             , KeyDef
+            , ImplDef₁, …, ImplDefₖ
             }
        |  'exception' T ↦ { 'message' e }           -- DefException [Daml-LF ≥ 1.14]
+       |  'interface' (x : I) ↦                     -- DefInterface [Daml-LF ≥ 1.dev]
+            { 'requires' { Mod₁:I₁, …, Modₖ:Iₖ }
+            , 'precondition' e
+            , 'methods' { f₁ : τ₁, …, fₙ : τₙ }
+            , 'choices' { ChDef₁, …, ChDefₘ }
+            }
 
   Module (mnemonic: delta for definitions)
     Δ ::= ε                                         -- DefCtxEmpty
@@ -997,6 +1010,10 @@ We now formally define *well-formed types*. ::
      'enum' T ↦ … ∈ 〚Ξ〛Mod
    ————————————————————————————————————————————— TyEnumCon
      Γ  ⊢  Mod:T :  ⋆
+
+     'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod
+   ————————————————————————————————————————————— TyInterfaceCon
+     Γ  ⊢  Mod:I :  ⋆
 
      Γ  ⊢  τ₁  :  ⋆    …    Γ  ⊢  τₙ  :  ⋆
      f₁ < … < fₙ lexicographically
@@ -1541,15 +1558,15 @@ for the ``DefTemplate`` rule). ::
   Well-formed definitions │ ⊢  Def │
                           └────────┘
 
-     τ  ↠  τ₁'      αₙ : kₙ · … · α₁ : k₁  ⊢  τ₁'  :  ⋆
+     τ₁  ↠  τ₁'      αₙ : kₙ · … · α₁ : k₁  ⊢  τ₁'  :  ⋆
        ⋮
-     τ  ↠  τₘ'      αₙ : kₙ · … · α₁ : k₁  ⊢  τₘ'  :  ⋆
+     τₘ  ↠  τₘ'      αₙ : kₙ · … · α₁ : k₁  ⊢  τₘ'  :  ⋆
   ——————————————————————————————————————————————————————————————— DefRec
     ⊢  'record' T (α₁: k₁) … (αₙ: kₙ) ↦ { f₁: τ₁, …, fₘ: τₘ }
 
-    τ  ↠  τ₁'      αₙ : kₙ · … · α₁ : k₁  ⊢  τ₁'  :  ⋆
+    τ₁  ↠  τ₁'      αₙ : kₙ · … · α₁ : k₁  ⊢  τ₁'  :  ⋆
      ⋮
-    τ  ↠  τₘ'      αₙ : kₙ · … · α₁ : k₁  ⊢  τₘ'  :  ⋆
+    τₘ  ↠  τₘ'      αₙ : kₙ · … · α₁ : k₁  ⊢  τₘ'  :  ⋆
   ——————————————————————————————————————————————————————————————— DefVariant
     ⊢  'record' T (α₁: k₁) … (αₙ: kₙ) ↦ V₁: τ₁ | … | Vₘ: τₘ
 
@@ -1572,6 +1589,7 @@ for the ``DefTemplate`` rule). ::
     x : Mod:T  ⊢  eₐ  :  'Text'
     x : Mod:T  ⊢  ChDef₁      ⋯      x : Mod:T  ⊢  ChDefₘ
     x : Mod:T  ⊢  KeyDef
+    x : Mod:T  ⊢  ImplDef₁    ⋯      x : Mod:T  ⊢  ImplDefₖ
   ——————————————————————————————————————————————————————————————— DefTemplate
     ⊢  'tpl' (x : T) ↦
          { 'precondition' eₚ
@@ -1580,6 +1598,7 @@ for the ``DefTemplate`` rule). ::
          , 'agreement' eₐ
          , 'choices' { ChDef₁, …, ChDefₘ }
          , KeyDef
+         , ImplDef₁, …, ImplDefₖ
          }
 
     'record' T ↦ { f₁ : τ₁, …, fₙ : τₙ }  ∈  〚Ξ〛Mod
@@ -1587,6 +1606,23 @@ for the ``DefTemplate`` rule). ::
     ⊢  e  :  Mod:T → 'Text'
   ——————————————————————————————————————————————————————————————— DefException [Daml-LF ≥ 1.14]
     ⊢  'exception' T ↦ { 'message' e }
+
+    Mod:I  ∉  { Mod₁:I₁, …, Modₖ:Iₖ }
+    'interface' (x₁ : I₁) ↦ { 'requires' R₁ , … }  ∈ 〚Ξ〛Mod₁     R₁ ⊆ { Mod₁:I₁, …, Modₖ:Iₖ }
+      ⋮
+    'interface' (xₖ : Iₖ) ↦ { 'requires' Rₖ , … }  ∈ 〚Ξ〛Modₖ      Rₖ ⊆ { Mod₁:I₁, …, Modₖ:Iₖ }
+    x : Mod:I  ⊢  eₚ  :  'Bool'
+    τ₁  ↠  τ₁'    ⊢  τ₁' : ⋆
+      ⋮
+    τₙ  ↠  τₙ'    ⊢  τₙ' : ⋆
+    x : Mod:I  ⊢  ChDef₁      ⋯      x : Mod:I  ⊢  ChDefₘ
+  ——————————————————————————————————————————————————————————————— DefInterface [Daml-LF ≥ 1.dev]
+    ⊢  'interface' (x : I) ↦
+         { 'requires' { Mod₁:I₁, …, Modₖ:Iₖ }
+         , 'precondition' eₚ
+         , 'methods' { f₁ : τ₁, …, fₙ : τₙ }
+         , 'choices' { ChDef₁, …, ChDefₘ }
+         }
 
                           ┌───────────────────┐
   Well-formed choices     │ x : Mod:T ⊢ ChDef │
@@ -1598,6 +1634,27 @@ for the ``DefTemplate`` rule). ::
     z : τ · x : Mod:T  ⊢  eₒ  :  'List' 'Party'
   ——————————————————————————————————————————————————————————————— ChDef
     x : Mod:T  ⊢  'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ e
+
+                                            ┌─────────────────────┐
+  Well-formed interface implementations     │ x : Mod:T ⊢ ImplDef │
+                                            └─────────────────────┘
+
+    'interface' (y : I) ↦
+        { 'requires' R
+        , 'precondition' eₚ
+        , 'methods' { f₁ : τ₁, …, fₘ = τₘ }
+        , 'choices' { 'choice' ChKind₁ Ch₁ …, …, 'choice' ChKindₘ Chₘ … }
+        }  ∈ 〚Ξ〛Mod'
+    'tpl' (x : T) ↦ { …, 'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈ 〚Ξ〛Mod
+    R  ⊆  { Mod₁:I₁, …, Modₖ:Iₖ }
+    τ₁  ↠  τ₁'     x : Mod:T  ⊢  e₁ : τ₁'
+      ⋮
+    τₘ  ↠  τₘ'     x : Mod:T  ⊢  eₘ : τₘ'
+  ——————————————————————————————————————————————————————————————— ImplDef
+    x : Mod:T  ⊢  'implements' Mod':I
+                      { 'methods' { f₁ = e₁, …, fₙ = eₙ }
+                      , 'choices' { Ch₁, …, Chₘ }
+                      }
 
             ┌────────────┐
   Valid key │ ⊢ₖ e  :  τ │
@@ -1713,6 +1770,15 @@ name* construct as follows:
 * The *fully resolved name* of a choice ``Ch`` of a template
   definition ``'tpl' (x : T) ↦ { …, 'choices' { …, 'choice' ChKind Ch
   … ↦ …, … } }`` defined in the module ``Mod`` is ``Mod.T.Ch``.
+* The *fully resolved name* of an inherited choice ``Ch`` of a template
+  definition ``'tpl' (x : T) ↦ { …, 'implements' {  …, 'choices' { …, Ch,
+  … } } }`` defined in the module ``Mod`` is ``Mod.T.Ch``.
+* The *fully resolved name* of a choice ``Ch`` of an interface
+  definition ``'interface' (x : I) ↦ { …, 'choices' { …, 'choice' ChKind Ch
+  … ↦ …, … } }`` defined in the module ``Mod`` is ``Mod.I.Ch``.
+* The *fully resolved name* of a method ``fᵢ`` of an interface
+  definition ``'interface' (x : I) ↦ { …, 'methods' { …, fᵢ: τᵢ, … } }``
+  defined in the module ``Mod`` is ``Mod.I.fᵢ``.
 
 
 Name collisions
