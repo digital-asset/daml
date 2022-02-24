@@ -31,12 +31,7 @@ import com.daml.dbutils.{ConnectionPool, JdbcConfig}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth
-import com.daml.ledger.api.auth.{
-  AuthServiceJWTCodec,
-  CustomDamlJWTPayload,
-  AuthServiceJWTPayload,
-  StandardJWTPayload,
-}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload, StandardJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -139,28 +134,24 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
 trait AbstractAuthFixture extends SuiteMixin {
   self: Suite =>
 
-  protected[this] type AuthPayload
   protected def authService: Option[auth.AuthService]
-  protected[this] def authPayload(
+  protected[this] def authToken(
       admin: Boolean,
       actAs: List[ApiTypes.Party],
       readAs: List[ApiTypes.Party],
-  ): AuthPayload
-  protected[this] def authToken(payload: AuthPayload): Option[String]
+  ): Option[String]
   protected def authConfig: AuthConfig
 }
 
 trait NoAuthFixture extends AbstractAuthFixture {
   self: Suite =>
 
-  protected[this] type AuthPayload = Unit
   protected override def authService: Option[auth.AuthService] = None
-  protected[this] override final def authPayload(
+  protected[this] override final def authToken(
       admin: Boolean,
       actAs: List[ApiTypes.Party],
       readAs: List[ApiTypes.Party],
-  ) = ()
-  protected[this] override final def authToken(payload: AuthPayload): Option[String] = None
+  ) = None
   protected override def authConfig: AuthConfig = NoAuth
 }
 
@@ -171,28 +162,27 @@ trait AuthMiddlewareFixture
     with AkkaBeforeAndAfterAll {
   self: Suite =>
 
-  protected[this] type AuthPayload = AuthServiceJWTPayload
   protected def authService: Option[auth.AuthService] = Some(auth.AuthServiceJWT(authVerifier))
 
-  protected[this] override final def authPayload(
+  protected[this] override final def authToken(
       admin: Boolean,
       actAs: List[ApiTypes.Party],
       readAs: List[ApiTypes.Party],
-  ) =
-    if (sandboxClientTakesUserToken)
-      StandardJWTPayload(userId = "", participantId = None, exp = None)
-    else
-      CustomDamlJWTPayload(
-        ledgerId = None,
-        applicationId = None,
-        participantId = None,
-        exp = None,
-        admin = admin,
-        actAs = ApiTypes.Party unsubst actAs,
-        readAs = ApiTypes.Party unsubst readAs,
-      )
+  ) = Some {
+    val payload =
+      if (sandboxClientTakesUserToken)
+        StandardJWTPayload(userId = "", participantId = None, exp = None)
+      else
+        CustomDamlJWTPayload(
+          ledgerId = None,
+          applicationId = None,
+          participantId = None,
+          exp = None,
+          admin = admin,
+          actAs = ApiTypes.Party unsubst actAs,
+          readAs = ApiTypes.Party unsubst readAs,
+        )
 
-  protected[this] override final def authToken(payload: AuthPayload): Option[String] = Some {
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = JwtSigner.HMAC256
       .sign(DecodedJwt(header, AuthServiceJWTCodec.compactPrint(payload)), authSecret)
@@ -322,7 +312,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         applicationId = ApplicationId.unwrap(applicationId),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
-        token = authToken(authPayload(admin, actAs = actAs, readAs = readAs)),
+        token = authToken(admin, actAs = actAs, readAs = readAs),
       ),
     )
 
