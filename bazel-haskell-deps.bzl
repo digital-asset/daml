@@ -32,6 +32,10 @@ SHAKE_VERSION = "0.19.6"
 ZIP_VERSION = "1.7.1"
 GRPC_HASKELL_REV = "641f0bab046f2f03e5350a7c5f2044af1e19a5b1"
 GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a1536f4ca81"
+GRPC_HASKELL_PATCHES = [
+    "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-cpp-options.patch",
+    "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-upgrade.patch",
+]
 XML_CONDUIT_VERSION = "1.9.1.1"
 LSP_TYPES_VERSION = "1.4.0.0"
 LSP_TYPES_SHA256 = "7ae8a3bad0e91d4a2af9b93e3ad207e3f4c3dace40d420e0592f6323ac93fb67"
@@ -168,7 +172,6 @@ haskell_cabal_library(
     http_archive(
         name = "grpc_haskell_core",
         build_file_content = """
-load("@com_github_digital_asset_daml//bazel_tools:fat_cc_library.bzl", "fat_cc_library")
 load("@com_github_digital_asset_daml//bazel_tools:haskell.bzl", "c2hs_suite")
 load("@rules_haskell//haskell:defs.bzl", "haskell_library")
 c2hs_suite(
@@ -191,13 +194,32 @@ c2hs_suite(
     compiler_flags = ["-XCPP", "-Wno-unused-imports", "-Wno-unused-record-wildcards"],
     visibility = ["//visibility:public"],
     deps = [
-        ":fat_cbits",
+        "@grpc_haskell_core_cbits//:fat_cbits",
     ],
 )
+""",
+        patch_args = ["-p1"],
+        patches = GRPC_HASKELL_PATCHES,
+        sha256 = GRPC_HASKELL_SHA256,
+        strip_prefix = "gRPC-haskell-{}/core".format(GRPC_HASKELL_REV),
+        urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_REV)],
+    )
+
+    # We need to make sure that the cbits are in a different directory
+    # to get GHCi on MacOS to pick the dynamic library. Otherwise it first looks in the directory
+    # and it sees libfatcbits.so which has the wrong ending and libfatcbits.a and ends up loading
+    # the static library which breaks. The GHCi wrapper from rules_haskell actually sets up
+    # libfatcbits.dylib properly so moving it outside ensures that this is the only option
+    # for GHCi and things work properly.
+    http_archive(
+        name = "grpc_haskell_core_cbits",
+        build_file_content = """
+load("@com_github_digital_asset_daml//bazel_tools:fat_cc_library.bzl", "fat_cc_library")
 
 fat_cc_library(
   name = "fat_cbits",
   input_lib = "cbits",
+  visibility = ["//visibility:public"],
 )
 cc_library(
   name = "cbits",
@@ -210,10 +232,7 @@ cc_library(
 )
 """,
         patch_args = ["-p1"],
-        patches = [
-            "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-cpp-options.patch",
-            "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-upgrade.patch",
-        ],
+        patches = GRPC_HASKELL_PATCHES,
         sha256 = GRPC_HASKELL_SHA256,
         strip_prefix = "gRPC-haskell-{}/core".format(GRPC_HASKELL_REV),
         urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_REV)],
