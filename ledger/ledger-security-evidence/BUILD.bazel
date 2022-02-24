@@ -1,11 +1,11 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:scala.bzl", "da_scala_library")
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_binary")
 
 da_scala_library(
-    name = "ledger-security-test-lib",
-    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    name = "ledger-security-evidence",
+    srcs = glob(["src/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -17,16 +17,31 @@ da_scala_library(
         "@maven//:com_chuusai_shapeless",
         "@maven//:io_circe_circe_core",
         "@maven//:io_circe_circe_generic",
+        "@maven//:io_circe_circe_parser",
         "@maven//:com_github_pathikrit_better_files",
         "@maven//:io_circe_circe_generic_extras",
         "@maven//:com_lihaoyi_sourcecode",
 
     ],
-    tags = ["maven_coordinates=com.daml:ledger-security-test-lib:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-security-evidence:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_binary(
+    name = "systematic-testing-tool",
+    testonly = True,
+    main_class = "org.scalatest.daml.SystematicTestingGenerator",
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//ledger/sandbox-on-x:sandbox-on-x-it-tests",
+        ":ledger-security-evidence",
     ],
 )
