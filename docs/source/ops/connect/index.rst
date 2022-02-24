@@ -3,8 +3,8 @@
 
 .. _ops-connect_index:
 
-Operating Daml
-==============
+Operating Daml Connect
+======================
 
 
 .. toctree::

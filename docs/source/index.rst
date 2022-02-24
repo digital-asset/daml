@@ -56,7 +56,6 @@ Daml Documentation
    :caption: Operating Daml
 
    operating-daml
-   ops/requirements
 
 .. toctree::
    :titlesonly:
