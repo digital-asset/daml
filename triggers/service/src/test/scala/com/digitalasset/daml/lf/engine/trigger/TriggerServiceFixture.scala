@@ -179,6 +179,7 @@ trait AuthMiddlewareFixture
     Uri()
       .withScheme("http")
       .withAuthority(authMiddleware.localAddress.getHostString, authMiddleware.localAddress.getPort)
+  protected[this] def oauth2YieldsUserTokens: Boolean = true
 
   private val authSecret: String = "secret"
   private var resource
@@ -208,7 +209,7 @@ trait AuthMiddlewareFixture
             ledgerId = ledgerId,
             jwtSecret = authSecret,
             clock = Some(clock),
-            yieldUserTokens = false, // TODO parameterize (#12831)
+            yieldUserTokens = oauth2YieldsUserTokens,
           )
           oauthServer = OAuthServer(oauthConfig)
           oauth <- Resource(oauthServer.start())(closeServerBinding)
@@ -290,8 +291,8 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
             participantId = None,
             exp = None,
             admin = admin,
-            actAs = actAs.map(ApiTypes.Party.unwrap),
-            readAs = readAs.map(ApiTypes.Party.unwrap),
+            actAs = ApiTypes.Party unsubst actAs,
+            readAs = ApiTypes.Party unsubst readAs,
           )
         ),
       ),
