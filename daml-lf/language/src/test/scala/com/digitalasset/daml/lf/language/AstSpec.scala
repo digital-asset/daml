@@ -10,6 +10,7 @@ import com.daml.lf.language.Util._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import scala.collection.immutable.ListMap
 
 // TODO https://github.com/digital-asset/daml/issues/12051
 //  Test Interface logic
@@ -57,7 +58,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       choices = Map.empty,
       observers = eParties,
       key = None,
-      implements = Map.empty,
+      implements = ListMap.empty,
     )
     def exception = DefException(
       message = eText
