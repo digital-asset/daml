@@ -115,7 +115,7 @@ Now that the other user (Alice in this example) has logged in, go back to the pr
 
 The user you just started following appears in the *Following* panel.
 However, they do not yet appear in the *Network* panel.
-This is because they have not yet started following you
+This is because they have not yet started following you.
 This social network is similar to Twitter and Instagram, where by following someone, say Alice, you make yourself visible to her but not vice versa.
 We will see how we encode this in Daml in the next section.
 
