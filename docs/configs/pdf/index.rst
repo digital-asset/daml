@@ -97,6 +97,7 @@ Early Access Features
    tools/visual
    concepts/interoperability
    tools/non-repudiation
+   ops/connect/index
 
 Daml Ecosystem
 --------------
