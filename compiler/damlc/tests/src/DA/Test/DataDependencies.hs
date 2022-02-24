@@ -205,6 +205,87 @@ tests tools@Tools{damlc,validate,oldProjDar} = testGroup "Data Dependencies" $
           validate $ projb </> "projb.dar"
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
+    [ testCaseSteps ("Cross DAML-LF version with custom orphan instance: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+          let proja = tmpDir </> "proja"
+          let projb = tmpDir </> "projb"
+          let projc = tmpDir </> "projc"
+
+          step "Build proja"
+          createDirectoryIfMissing True (proja </> "src")
+          writeFileUTF8 (proja </> "src" </> "AC.daml") $ unlines
+              [ "module AC where"
+              , "class AC a where"
+              , "  ac : a -> a"
+              ]
+          writeFileUTF8 (proja </> "src" </> "AT.daml") $ unlines
+              [ "module AT where"
+              , "data AT"
+              ]
+          writeFileUTF8 (proja </> "src" </> "AI.daml") $ unlines
+              [ "module AI where"
+              , "import AC"
+              , "import AT"
+              , "instance AC AT where"
+              , "  ac a = a"
+              ]
+          writeFileUTF8 (proja </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proja"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          callProcessSilent (damlcForTarget tools depLfVer)
+                ["build"
+                , "--project-root", proja
+                , "--target", LF.renderVersion depLfVer
+                , "-o", proja </> "proja.dar"
+                ]
+
+          step "Build projb"
+          createDirectoryIfMissing True (projb </> "src")
+          writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
+              [ "module B where"
+              , "import AI ()"
+              ]
+          writeFileUTF8 (projb </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projb"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
+              ]
+          callProcessSilent (damlcForTarget tools depLfVer)
+            ["build"
+            , "--project-root", projb
+            , "--target", LF.renderVersion depLfVer
+            , "-o", projb </> "projb.dar"
+            ]
+
+          step "Build projc"
+          createDirectoryIfMissing True (projc </> "src")
+          writeFileUTF8 (projc </> "src" </> "C.daml") $ unlines
+              [ "module C where"
+              , "import B ()"
+              ]
+          writeFileUTF8 (projc </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projc"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (projb </> "projb.dar") <> "]"
+              ]
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", projc
+            , "--target", LF.renderVersion targetLfVer
+            , "-o", projc </> "projc.dar" ]
+          step "Validating DAR"
+          validate $ projc </> "projc.dar"
+    | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    ] <>
     [ testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'lib'"
           createDirectoryIfMissing True (tmpDir </> "lib")
