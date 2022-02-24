@@ -307,9 +307,9 @@ private[lf] final class Compiler(
       val identifier = Identifier(pkgId, QualifiedName(module.name, tmplName))
       addDef(compileCreate(identifier, tmpl))
       addDef(compileFetch(identifier, tmpl))
-      addDef(compileKey(identifier, tmpl))
       addDef(compileSignatories(identifier, tmpl))
       addDef(compileObservers(identifier, tmpl))
+      addDef(compileToCachedContract(identifier, tmpl))
       tmpl.implements.values.foreach { impl =>
         addDef(compileCreateByInterface(identifier, tmpl, impl.interfaceId))
         addDef(compileImplements(identifier, impl.interfaceId))
@@ -403,18 +403,6 @@ private[lf] final class Compiler(
       env.toSEVar(keyPos),
       app(translateExp(env, tmplKey.maintainers), env.toSEVar(keyPos)),
     )
-
-  private[this] def translateKeyWithMaintainers(
-      env: Env,
-      maybeTmplKey: Option[TemplateKey],
-  ): s.SExpr =
-    maybeTmplKey match {
-      case None => s.SEValue.None
-      case Some(tmplKey) =>
-        let(env, translateExp(env, tmplKey.body)) { (keyPos, env) =>
-          SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
-        }
-    }
 
   private[this] def translateChoiceBody(
       env: Env,
@@ -665,14 +653,6 @@ private[lf] final class Compiler(
       translateExp(env.bindExprVar(param, argPos), expr)
     )
 
-  private[this] def compileKey(
-      tmplId: Identifier,
-      tmpl: Template,
-  ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction1(t.KeyDefRef(tmplId)) { (tmplArgPos, env) =>
-      translateKeyWithMaintainers(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.key)
-    }
-
   private[this] def compileSignatories(
       tmplId: Identifier,
       tmpl: Template,
@@ -687,6 +667,37 @@ private[lf] final class Compiler(
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction1(t.ObserversDefRef(tmplId)) { (tmplArgPos, env) =>
       translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.observers)
+    }
+
+  private[this] def compileToCachedContract(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (t.SDefinitionRef, SDefinition) =
+    topLevelFunction2(t.ToCachedContractDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
+      SBuildCachedContract(
+        s.SEValue(STypeRep(TTyCon(tmplId))),
+        env.toSEVar(tmplArgPos),
+        t.SignatoriesDefRef(tmplId)(env.toSEVar(tmplArgPos)),
+        t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos)),
+        tmpl.key match {
+          case None =>
+            s.SEValue.None
+          case Some(tmplKey) =>
+            s.SECase(
+              env.toSEVar(mbKeyPos),
+              List(
+                s.SCaseAlt(
+                  t.SCPNone,
+                  let(env, translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmplKey.body)) {
+                    (keyPos, env) =>
+                      SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
+                  },
+                ),
+                s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
+              ),
+            )
+        },
+      )
     }
 
   // Turn a template value into an interface value. Since interfaces have a
@@ -731,12 +742,9 @@ private[lf] final class Compiler(
     )
 
     let(env2, preconds) { (_, env) =>
-      SBUCreate(tmplId, byInterface)(
-        env.toSEVar(tmplArgPos),
+      SBUCreate(byInterface)(
         translateExp(env, tmpl.agreementText),
-        translateExp(env, tmpl.signatories),
-        translateExp(env, tmpl.observers),
-        translateKeyWithMaintainers(env, tmpl.key),
+        t.ToCachedContractDefRef(tmplId)(env.toSEVar(tmplArgPos), s.SEValue.None),
       )
     }
   }

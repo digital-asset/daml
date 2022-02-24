@@ -239,9 +239,9 @@ object Profile {
       implicit val lfDefRef: Allowed[LfDefRef] = allowAll
       implicit val createDefRef: Allowed[CreateDefRef] = allowAll
       implicit val createByInterfaceDefRef: Allowed[CreateByInterfaceDefRef] = allowAll
-      implicit val keyDefRef: Allowed[KeyDefRef] = allowAll
       implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
       implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
+      implicit val toAnyContractDefRef: Allowed[ToCachedContractDefRef] = allowAll
       implicit val implementsDefRef: Allowed[ImplementsDefRef] = allowAll
       implicit val implementsMethodDefRef: Allowed[ImplementsMethodDefRef] = allowAll
       implicit val choiceDefRef: Allowed[ChoiceDefRef] = allowAll
@@ -266,9 +266,9 @@ object Profile {
           case CreateDefRef(tmplRef) => s"create @${tmplRef.qualifiedName}"
           case CreateByInterfaceDefRef(tmplRef, iface) =>
             s"creatByInterface @${tmplRef.qualifiedName} @${iface.qualifiedName}"
-          case KeyDefRef(tmplRef) => s"keyAndMaintainers @${tmplRef.qualifiedName}"
           case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
           case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
+          case ToCachedContractDefRef(tmplRef) => s"toAnyContract @${tmplRef.qualifiedName}"
           case ImplementsDefRef(tmplRef, ifaceId) =>
             s"implements @${tmplRef.qualifiedName} @${ifaceId.qualifiedName}"
           case ImplementsMethodDefRef(tmplRef, ifaceId, methodName) =>

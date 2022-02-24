@@ -141,13 +141,13 @@ private[lf] object Speedy {
     private[lf] def ptxInternal: PartialTransaction = ptx //deprecated
     private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
 
-    private[this] def updateCachedContracts(coid: V.ContractId, contract: CachedContract): Unit = {
+    private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
       enforceLimit(
         contract.signatories.size,
         limits.contractSignatories,
         IError.Limit
           .ContractSignatories(
-            coid,
+            cid,
             contract.templateId,
             contract.value.toUnnormalizedValue,
             contract.signatories,
@@ -159,28 +159,15 @@ private[lf] object Speedy {
         limits.contractObservers,
         IError.Limit
           .ContractObservers(
-            coid,
+            cid,
             contract.templateId,
             contract.value.toUnnormalizedValue,
             contract.observers,
             _,
           ),
       )
-      cachedContracts = cachedContracts.updated(coid, contract)
+      cachedContracts = cachedContracts.updated(cid, contract)
     }
-
-    private[speedy] def addLocalContract(
-        coid: V.ContractId,
-        templateId: Ref.TypeConName,
-        value: SValue,
-        signatories: Set[Party],
-        observers: Set[Party],
-        key: Option[Node.KeyWithMaintainers],
-    ): Unit =
-      updateCachedContracts(
-        coid,
-        CachedContract(templateId, value, signatories, observers, key),
-      )
 
     private[speedy] def addGlobalContract(coid: V.ContractId, contract: CachedContract): Unit = {
       numInputContracts += 1
@@ -1355,15 +1342,12 @@ private[lf] object Speedy {
     }
   }
 
-  private[speedy] final case class KCacheContract(
-      machine: Machine,
-      templateId: Ref.TypeConName,
-      cid: V.ContractId,
-  ) extends Kont {
+  private[speedy] final case class KCacheContract(machine: Machine, cid: V.ContractId)
+      extends Kont {
 
     def execute(sv: SValue): Unit = {
       machine.withOnLedger("KCacheContract") { onLedger =>
-        val cached = SBuiltin.extractCachedContract(machine, templateId, sv)
+        val cached = SBuiltin.extractCachedContract(machine, sv)
         machine.checkContractVisibility(onLedger, cid, cached);
         onLedger.addGlobalContract(cid, cached)
         machine.returnValue = cached.value
