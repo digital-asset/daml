@@ -86,7 +86,7 @@ That is what the ``Follow`` choice does: after checking some preconditions, it a
 
 More detailed information on choices can be found in :doc:`our docs </daml/reference/choices>`.
 
-Finally, the ``User.daml`` file contains the Alias template that manages the link between user ids and aliases:
+Finally, the ``User.daml`` file contains the Alias template that manages the link between user ids and their aliases. The alias template sets the public party we created in the setup script as the observer of the contract. Because we allow all users to read contracts visible to the public party, this allows e.g., Alice to see Bob’s `Alias` contract.
 
 .. literalinclude:: code/templates-tarball/create-daml-app/daml/User.daml
   :language: daml
