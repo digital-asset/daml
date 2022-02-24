@@ -439,7 +439,7 @@ strings as *package identifiers*.  ::
               W ::= Name                            -- ValRef
 
   Type constructors
-              T ::= Name                            -- TyCon
+           T, I ::= Name                            -- TyCon
 
   Type synonym
               S ::= Name                            -- TySyn
@@ -762,7 +762,7 @@ available for usage::
                                                     -- ChDef
 
   Interface implementation definition
-    ImplDef ::= 'implements' Mod:T                  -- ImplDef [Daml-LF ≥ 1.dev]
+    ImplDef ::= 'implements' Mod:I                  -- ImplDef [Daml-LF ≥ 1.dev]
                     { 'methods { f₁ = e₁, …, fₙ = eₙ }
                     , 'choices' { Ch₁, …, Chₘ }
                     }
@@ -787,8 +787,8 @@ available for usage::
             , ImplDef₁, …, ImplDefₘ
             }
        |  'exception' T ↦ { 'message' e }           -- DefException [Daml-LF ≥ 1.14]
-       |  'interface' (x : T) ↦                     -- DefInterface [Daml-LF ≥ 1.dev]
-            { 'requires' { Mod₁:T₁, …, Modₖ:Tₖ }
+       |  'interface' (x : I) ↦                     -- DefInterface [Daml-LF ≥ 1.dev]
+            { 'requires' { Mod₁:I₁, …, Modₖ:Iₖ }
             , 'precondition' e
             , 'methods' { f₁ : τ₁, …, fₙ : τₙ }
             , 'choices' { ChDef₁, …, ChDefₘ }
@@ -1011,9 +1011,9 @@ We now formally define *well-formed types*. ::
    ————————————————————————————————————————————— TyEnumCon
      Γ  ⊢  Mod:T :  ⋆
 
-     'interface' T ↦ … ∈ 〚Ξ〛Mod
+     'interface' (x : I) ↦ … ∈ 〚Ξ〛Mod
    ————————————————————————————————————————————— TyInterfaceCon
-     Γ  ⊢  Mod:T :  ⋆
+     Γ  ⊢  Mod:I :  ⋆
 
      Γ  ⊢  τ₁  :  ⋆    …    Γ  ⊢  τₙ  :  ⋆
      f₁ < … < fₙ lexicographically
@@ -1607,18 +1607,18 @@ for the ``DefTemplate`` rule). ::
   ——————————————————————————————————————————————————————————————— DefException [Daml-LF ≥ 1.14]
     ⊢  'exception' T ↦ { 'message' e }
 
-    Mod:T  ∉  { Mod₁:T₁, …, Modₖ:Tₖ }
-    'interface' (x₁ : T₁) ↦ { 'requires' R₁ , … }  ∈ 〚Ξ〛Mod₁     R₁ ⊆ { Mod₁:T₁, …, Modₖ:Tₖ }
+    Mod:I  ∉  { Mod₁:I₁, …, Modₖ:Iₖ }
+    'interface' (x₁ : I₁) ↦ { 'requires' R₁ , … }  ∈ 〚Ξ〛Mod₁     R₁ ⊆ { Mod₁:I₁, …, Modₖ:Iₖ }
       ⋮
-    'interface' (xₖ : Tₖ) ↦ { 'requires' Rₖ , … }  ∈ 〚Ξ〛Modₖ      Rₖ ⊆ { Mod₁:T₁, …, Modₖ:Tₖ }
-    x : Mod:T  ⊢  eₚ  :  'Bool'
+    'interface' (xₖ : Iₖ) ↦ { 'requires' Rₖ , … }  ∈ 〚Ξ〛Modₖ      Rₖ ⊆ { Mod₁:I₁, …, Modₖ:Iₖ }
+    x : Mod:I  ⊢  eₚ  :  'Bool'
     τ₁  ↠  τ₁'    ⊢  τ₁' : ⋆
       ⋮
     τₙ  ↠  τₙ'    ⊢  τₙ' : ⋆
-    x : Mod:T  ⊢  ChDef₁      ⋯      x : Mod:T  ⊢  ChDefₘ
+    x : Mod:I  ⊢  ChDef₁      ⋯      x : Mod:I  ⊢  ChDefₘ
   ——————————————————————————————————————————————————————————————— DefInterface [Daml-LF ≥ 1.dev]
-    ⊢  'interface' (x : T) ↦
-         { 'requires' { Mod₁:T₁, …, Modₖ:Tₖ }
+    ⊢  'interface' (x : I) ↦
+         { 'requires' { Mod₁:I₁, …, Modₖ:Iₖ }
          , 'precondition' eₚ
          , 'methods' { f₁ : τ₁, …, fₙ : τₙ }
          , 'choices' { ChDef₁, …, ChDefₘ }
@@ -1639,19 +1639,19 @@ for the ``DefTemplate`` rule). ::
   Well-formed interface implementations     │ x : Mod:T ⊢ ImplDef │
                                             └─────────────────────┘
 
-    'interface' (x' : T') ↦
+    'interface' (y : I) ↦
         { 'requires' R
         , 'precondition' eₚ
         , 'methods' { f₁ : τ₁, …, fₘ = τₘ }
         , 'choices' { 'choice' ChKind₁ Ch₁ …, …, 'choice' ChKindₘ Chₘ … }
         }  ∈ 〚Ξ〛Mod'
-    'tpl' (x : T) ↦ { …, 'implements' Mod₁:T₁ { … }, …, 'implements' Modₖ:Tₖ { … } }  ∈ 〚Ξ〛Mod
-    R  ⊆  { Mod₁:T₁, …, Modₖ:Tₖ }
+    'tpl' (x : T) ↦ { …, 'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈ 〚Ξ〛Mod
+    R  ⊆  { Mod₁:I₁, …, Modₖ:Iₖ }
     τ₁  ↠  τ₁'     x : Mod:T  ⊢  e₁ : τ₁'
       ⋮
     τₘ  ↠  τₘ'     x : Mod:T  ⊢  eₘ : τₘ'
   ——————————————————————————————————————————————————————————————— ImplDef
-    x : Mod:T  ⊢  'implements' Mod':T'
+    x : Mod:T  ⊢  'implements' Mod':I
                       { 'methods' { f₁ = e₁, …, fₙ = eₙ }
                       , 'choices' { Ch₁, …, Chₘ }
                       }
@@ -1774,8 +1774,8 @@ name* construct as follows:
   definition ``'tpl' (x : T) ↦ { …, 'implements' {  …, 'choices' { …, Ch,
   … } } }`` defined in the module ``Mod`` is ``Mod.T.Ch``.
 * The *fully resolved name* of a choice ``Ch`` of an interface
-  definition ``'interface' (x : T) ↦ { …, 'choices' { …, 'choice' ChKind Ch
-  … ↦ …, … } }`` defined in the module ``Mod`` is ``Mod.T.Ch``.
+  definition ``'interface' (x : I) ↦ { …, 'choices' { …, 'choice' ChKind Ch
+  … ↦ …, … } }`` defined in the module ``Mod`` is ``Mod.I.Ch``.
 
 
 Name collisions
