@@ -54,7 +54,6 @@ Operating Daml
    :maxdepth: 2
 
    operating-daml
-   ops/requirements
 
 Developer Tools
 ---------------

@@ -10,17 +10,16 @@ Daml command execution results in a Daml transaction that contains events associ
 
 The events included in the report include:
 
-    *  Contract creation
-    *  Consuming exercise by contract identifier
-    *  Non-consuming exercise by contract identifier
-    *  Consuming contract exercise by contract key
-    *  Non-consuming contract exercise by contract key
-    *  Contract fetch by contract identifier
-    *  Contract fetch by contract key
-    *  Contract lookup by contract key
+    * Contract creation
+    * Exercise of a contract (including non-consuming exercises and exercise by key)
+    * Fetch of a contract (including fetch by key)
+    * Lookup by contract key
 
-Note that only events that originated from the local participant are included in the metering.  Events received
+Only events that originated from the local participant are included in the metering.  Events received
 by the local participant from remote participants are *not* included.
+
+Only events contained in an accepted transactions (ones that maintains the
+:doc:`integrity of the ledger model </concepts/ledger-model/ledger-integrity>`) are included.
 
 Generating a Metering Report
 ----------------------------
@@ -29,18 +28,18 @@ A metering report is generated using the :doc:`Daml assistant </tools/assistant>
 
 To run a metering report ``daml ledger metering-report`` is used with the following metering specific arguments:
 
-:--from:
-    The period being reported on will start from the given date. Events on or after this date will be included.
+:``--from``:
+    A start date that is used to initiate the reporting period. Events on or after this date will be included.
 
-:--to:
+:``--to``:
     An end date that may be used to terminate the reporting period.  Events prior to this date will be included.
-    If an end date is not provided then the report will contain counts of all events that occurred after the to
-    date.
+    If an end date is not provided then the report will contain counts of all events that occurred on or after
+    the ``--from`` date.
 
-:--application:
-    An optional application can be provided to limit the report to a single application.
+:``--application``:
+    Optionally, provide an application to limit the report to that application.
 
-The from and to dates above should be provided formatted as ``yyyy-mm-dd``.  The exact timestamp used for the report
+The from and to dates above should be formatted ``yyyy-mm-dd``.  The exact timestamp used for the report
 will be the start of the UTC day provided.
 
 Other non-metering specific Daml assistant flags may also be used alongside those shown above.

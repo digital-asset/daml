@@ -7,7 +7,6 @@ Operating Daml
 .. toctree::
   :maxdepth: 2
 
-  ops/connect/index
   ops/pruning
   ops/metering
   ops/requirements
