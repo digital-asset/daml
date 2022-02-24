@@ -884,22 +884,40 @@ main =
                     , "    p : Party"
                     , "  where"
                     , "    signatory p"
-                    , "    choice C : ()"
+                    , "    postconsuming choice C : ()"
                     , "      with"
                     , "        cid : ContractId T"
                     , "      controller p"
                     , "      do try do"
-                    , "           -- rolled back create"
+                    , "           -- rolled back direct create"
                     , "           create (T p)"
                     , "           -- rolled back archive"
                     , "           archive cid"
+                    , "           -- rolled back create under exercise"
+                    , "           exercise self CreateT"
+                    , "           try do"
+                    , "             create (T p)"
+                    , "             error \"\""
+                    , "           catch"
+                    , "             (GeneralError _) -> pure ()"
+                    , "           -- rolled back create after nested rollback"
+                    , "           create (T p)"
                     , "           error \"\""
                     , "         catch"
                     , "           (GeneralError _) -> pure ()"
+                    , "    nonconsuming choice CreateT : ContractId T"
+                    , "      controller p"
+                    , "      do create (T p)"
                     , "    choice Fail : ()"
                     , "      controller p"
                     , "      do assert False"
-                    , "test = do"
+                    -- Check that we display activeness correctly.
+                    -- There are 3 main cases:
+                    -- 1. Direct children of a rollback node are rolled back.
+                    -- 2. Children of an exercise under a rollback node are rolled back.
+                    -- 3. After exiting a nested rollback node, we rollback further children
+                    --    if we’re still below a rollback node.
+                    , "testActive = do"
                     , "  p <- allocateParty \"p\""
                     , "  cid <- submit p $ createCmd (T p)"
                     , "  submit p $ createAndExerciseCmd (Helper p) (C cid)"
@@ -911,7 +929,7 @@ main =
                     , "  p <- allocateParty \"p\""
                     , "  submit p $ createAndExerciseCmd (Helper p) Fail"
                     ]
-                expectScriptSuccess rs (vr "test") $ \r ->
+                expectScriptSuccess rs (vr "testActive") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n"
                 expectScriptFailure rs (vr "unhandledOffLedger") $ \r -> matchRegex r "Unhandled exception"
                 expectScriptFailure rs (vr "unhandledOnLedger") $ \r -> matchRegex r "Unhandled exception",
