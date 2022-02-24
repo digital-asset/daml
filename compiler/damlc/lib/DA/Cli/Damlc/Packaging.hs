@@ -46,6 +46,7 @@ import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
 import DA.Daml.Compiler.Output
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
+import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import DA.Cli.Damlc.DependencyDb
@@ -458,6 +459,16 @@ buildLfPackageGraph targetLfVersion pkgs stablePkgs dependencyPkgs = (depGraph, 
             | dalfPkg <- MS.elems dependencyPkgs <> MS.elems stablePkgs <> map decodedDalfPkg pkgs
             ]
 
+    allPackageRefs :: LF.Package -> [LF.PackageRef]
+    allPackageRefs pkg =
+      toListOf packageRefs pkg
+        <>
+        [ qualPackage
+        | m <- NM.toList $ LF.packageModules pkg
+        , Just LF.DefValue{dvalBinder=(_, ty)} <- [NM.lookup LFC.moduleImportsName (LF.moduleValues m)]
+        , Just quals <- [LFC.decodeModuleImports ty]
+        , LF.Qualified { LF.qualPackage } <- Set.toList quals
+        ]
 
     -- order the packages in topological order
     (depGraph, vertexToNode, _keyToVertex) =
@@ -465,7 +476,7 @@ buildLfPackageGraph targetLfVersion pkgs stablePkgs dependencyPkgs = (depGraph, 
             [ (PackageNode src decodedUnitId decodedDalfPkg, LF.dalfPackageId decodedDalfPkg, pkgRefs)
             | DecodedDalf{decodedUnitId, decodedDalfPkg} <- pkgs
             , let pkg = LF.extPackagePkg (LF.dalfPackagePkg decodedDalfPkg)
-            , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs pkg ]
+            , let pkgRefs = [ pid | LF.PRImport pid <- allPackageRefs pkg ]
             , let src = generateSrcPkgFromLf (config (LF.dalfPackageId decodedDalfPkg) decodedUnitId) pkg
             ]
     vertexToNode' v = case vertexToNode v of
