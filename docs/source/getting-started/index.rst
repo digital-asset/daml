@@ -123,7 +123,7 @@ We will see how we encode this in Daml in the next section.
       :alt: In the create-daml-app users can follow each other in a similar fashion as in Twitter or Instagram
 
 To make this relationship reciprocal go back to the other window/tab where you logged in as the second user (Alice in this example).
-You should now Once you log in as the user you are following (Alice in this example), you'll notice your name in her network.
+You should now see your name in her network.
 In fact, Alice can see the entire list of users you are following in the *Network* panel.
 This is because this list is part of the user data that became visible when you started following her.
 
