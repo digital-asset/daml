@@ -6,6 +6,13 @@
 Daml Helm Chart
 ===============
 
+.. note::
+
+   This is an Early Access feature. Note that this feature does not currently
+   work with Daml 2.0. These docs refer to and use Daml 1.18. The feature is
+   under active development and it will soon be available for the 2.x major
+   release series.
+
 We provide an Early Access version of the Helm Chart for
 Daml Enterprise customers. This page contains documentation for that Helm
 chart.
