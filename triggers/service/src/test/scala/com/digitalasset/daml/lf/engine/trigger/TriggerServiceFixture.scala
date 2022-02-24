@@ -31,7 +31,12 @@ import com.daml.dbutils.{ConnectionPool, JdbcConfig}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  CustomDamlJWTPayload,
+  AuthServiceJWTPayload,
+  StandardJWTPayload,
+}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -64,6 +69,7 @@ import eu.rekawek.toxiproxy._
 import io.grpc.Channel
 import org.scalactic.source
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite, SuiteMixin}
+import scalaz.syntax.show._
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent._
@@ -133,16 +139,28 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
 trait AbstractAuthFixture extends SuiteMixin {
   self: Suite =>
 
+  protected[this] type AuthPayload
   protected def authService: Option[auth.AuthService]
-  protected def authToken(payload: CustomDamlJWTPayload): Option[String]
+  protected[this] def authPayload(
+      admin: Boolean,
+      actAs: List[ApiTypes.Party],
+      readAs: List[ApiTypes.Party],
+  ): AuthPayload
+  protected[this] def authToken(payload: AuthPayload): Option[String]
   protected def authConfig: AuthConfig
 }
 
 trait NoAuthFixture extends AbstractAuthFixture {
   self: Suite =>
 
+  protected[this] type AuthPayload = Unit
   protected override def authService: Option[auth.AuthService] = None
-  protected override def authToken(payload: CustomDamlJWTPayload): Option[String] = None
+  protected[this] override final def authPayload(
+      admin: Boolean,
+      actAs: List[ApiTypes.Party],
+      readAs: List[ApiTypes.Party],
+  ) = ()
+  protected[this] override final def authToken(payload: AuthPayload): Option[String] = None
   protected override def authConfig: AuthConfig = NoAuth
 }
 
@@ -153,13 +171,32 @@ trait AuthMiddlewareFixture
     with AkkaBeforeAndAfterAll {
   self: Suite =>
 
+  protected[this] type AuthPayload = AuthServiceJWTPayload
   protected def authService: Option[auth.AuthService] = Some(auth.AuthServiceJWT(authVerifier))
-  protected def authToken(payload: CustomDamlJWTPayload): Option[String] = Some {
+
+  protected[this] override final def authPayload(
+      admin: Boolean,
+      actAs: List[ApiTypes.Party],
+      readAs: List[ApiTypes.Party],
+  ) =
+    if (sandboxClientTakesUserToken)
+      StandardJWTPayload(userId = "", participantId = None, exp = None)
+    else
+      CustomDamlJWTPayload(
+        ledgerId = None,
+        applicationId = None,
+        participantId = None,
+        exp = None,
+        admin = admin,
+        actAs = ApiTypes.Party unsubst actAs,
+        readAs = ApiTypes.Party unsubst readAs,
+      )
+
+  protected[this] override final def authToken(payload: AuthPayload): Option[String] = Some {
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = JwtSigner.HMAC256
       .sign(DecodedJwt(header, AuthServiceJWTCodec.compactPrint(payload)), authSecret)
-      .toOption
-      .get
+      .fold(e => fail(e.shows), identity)
     jwt.value
   }
   protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri, authMiddlewareUri)
@@ -180,6 +217,7 @@ trait AuthMiddlewareFixture
       .withScheme("http")
       .withAuthority(authMiddleware.localAddress.getHostString, authMiddleware.localAddress.getPort)
   protected[this] def oauth2YieldsUserTokens: Boolean = true
+  protected[this] def sandboxClientTakesUserToken: Boolean = true
 
   private val authSecret: String = "secret"
   private var resource
@@ -284,17 +322,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
         applicationId = ApplicationId.unwrap(applicationId),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
-        token = authToken(
-          CustomDamlJWTPayload(
-            ledgerId = None,
-            applicationId = None,
-            participantId = None,
-            exp = None,
-            admin = admin,
-            actAs = ApiTypes.Party unsubst actAs,
-            readAs = ApiTypes.Party unsubst readAs,
-          )
-        ),
+        token = authToken(authPayload(admin, actAs = actAs, readAs = readAs)),
       ),
     )
 
