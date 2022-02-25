@@ -5,7 +5,7 @@ source: daml
 dependencies:
 - daml-prim
 - daml-stdlib
-- daml-trigger
+- daml-script
 start-navigator: false
 codegen:
   js:
