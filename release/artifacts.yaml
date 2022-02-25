@@ -119,6 +119,10 @@
   type: jar-deploy
 - target: //ledger/ledger-api-tests/tool:tool-1.dev
   type: jar-deploy
+- target: //ledger/ledger-security-evidence:lib
+  type: jar-scala
+- target: //ledger/ledger-security-evidence:tool
+  type: jar-scala
 - target: //ledger/ledger-configuration:ledger-configuration
   type: jar-scala
 - target: //ledger/ledger-configuration/protobuf:ledger_configuration_proto_jar
