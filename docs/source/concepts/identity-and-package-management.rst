@@ -157,7 +157,7 @@ The exact vetting mechanism is ledger-dependent.
 For example, in the :ref:`Daml Sandbox <sandbox-manual>`, the vetting is implicit: uploading a package through the Ledger API already vets the package, since it's assumed that only the system administrator has access to these API facilities.
 The vetting process can be manual, where an administrator inspects each package, or it can be automated, for example, by accepting only packages with a digital signature from a trusted package issuer.
 
-In `Canton <https://canton.io>`__, participant nodes also only need to vet code for the contracts of the parties they host.
+In Canton, participant nodes also only need to vet code for the contracts of the parties they host.
 As only participants execute contract code, only they need to vet it.
 The vetting results may also differ at different participants.
 For example, participants ``P1`` and ``P2`` might vet a package containing a ``NewTemplate`` template, whereas ``P3`` might reject it.
