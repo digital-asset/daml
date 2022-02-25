@@ -355,9 +355,9 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "f9068da96d277466ec8d37768c3636bd5de132c0ddff643626e67f27eec0ba26",
+            sha256 = "5b77835398b5e3629f51bc97ad26f3ee01c54622311055954e9c5236d718c1b5",
             strip_prefix = "canton-community-1.0.0-SNAPSHOT",
-            urls = ["https://www.canton.io/releases/canton-community-20220221.tar.gz"],
+            urls = ["https://www.canton.io/releases/canton-community-20220224.tar.gz"],
         )
 
     if "freefont" not in native.existing_rules():
