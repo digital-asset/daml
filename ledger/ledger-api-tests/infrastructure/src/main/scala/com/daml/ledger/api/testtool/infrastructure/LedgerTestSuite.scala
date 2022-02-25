@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{Participants, PartyAllocation}
 import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
+import com.daml.ledger.security.test.SystematicTesting
 import com.daml.lf.data.Ref
 
 import scala.collection.mutable.ListBuffer
@@ -24,6 +25,7 @@ abstract class LedgerTestSuite {
       repeated: Int = 1,
       enabled: Features => Boolean = _ => true,
       disabledReason: String = "No reason",
+      tags: List[SystematicTesting.TestTag] = List.empty,
   )(testCase: ExecutionContext => PartialFunction[Participants, Future[Unit]]): Unit = {
     testGivenAllParticipants(
       shortIdentifier,
@@ -34,6 +36,7 @@ abstract class LedgerTestSuite {
       repeated,
       enabled,
       disabledReason,
+      tags,
     )((ec: ExecutionContext) => (_: Seq[ParticipantTestContext]) => testCase(ec))
   }
 
@@ -46,6 +49,7 @@ abstract class LedgerTestSuite {
       repeated: Int = 1,
       enabled: Features => Boolean = _ => true,
       disabledReason: String = "No reason",
+      tags: List[SystematicTesting.TestTag] = List.empty,
   )(
       testCase: ExecutionContext => Seq[ParticipantTestContext] => PartialFunction[
         Participants,
@@ -61,6 +65,7 @@ abstract class LedgerTestSuite {
         timeoutScale,
         runConcurrently,
         repeated,
+        tags,
         enabled,
         disabledReason,
         partyAllocation,

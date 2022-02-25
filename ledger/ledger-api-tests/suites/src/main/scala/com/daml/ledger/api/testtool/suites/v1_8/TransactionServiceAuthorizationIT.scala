@@ -9,12 +9,24 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
+import com.daml.ledger.security.test.SystematicTesting.Security.{Attack, SecurityTest}
+import com.daml.ledger.security.test.SystematicTesting.Security.SecurityTest.Property.Authorization
 import com.daml.ledger.test.model.Test.Agreement._
 import com.daml.ledger.test.model.Test.AgreementFactory._
 import com.daml.ledger.test.model.Test.TriProposal._
 import com.daml.ledger.test.model.Test._
 
 class TransactionServiceAuthorizationIT extends LedgerTestSuite {
+
+  val securityAsset: SecurityTest =
+    SecurityTest(property = Authorization, asset = "Ledger API")
+
+  def attack(threat: String, mit: String): Attack = Attack(
+    actor = "A user that can reach the ledger api",
+    threat = threat,
+    mitigation = mit,
+  )
+
   test(
     "TXRequireAuthorization",
     "Require only authorization of chosen branching signatory",
@@ -83,6 +95,14 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
     "TXRejectMultiActorMissingAuth",
     "Reject exercising a multi-actor choice with missing authorizers",
     allocate(TwoParties, SingleParty),
+    tags = List(
+      securityAsset.setAttack(
+        attack(
+          threat = "Exploit a missing authorizer",
+          "Reject exercising a multi-actor choice with missing authorizers",
+        )
+      )
+    ),
   )(implicit ec => {
     case Participants(Participant(alpha, operator, receiver), Participant(beta, giver)) =>
       for {
