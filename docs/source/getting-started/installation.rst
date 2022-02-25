@@ -41,6 +41,8 @@ log out and log in again.
 If the ``daml`` command is not available in your terminal after logging out and logging in again, you need to set the ``PATH`` environment variable
   manually. You can find instructions on how to do this :doc:`here <path-variables>`.
 
+.. _installing_daml_enterprise:
+
 Installing Daml Enterprise
 **************************
 
