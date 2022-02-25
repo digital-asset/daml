@@ -112,9 +112,9 @@ Instead of displaying a list of users on log in, Navigator will then
 display a list of parties where each party is identified by its
 display name.
 
-Alternatively you can also specify a fixed list of parties in your
+Alternatively you can specify a fixed list of parties in your
 ``daml.yaml`` file. This will automatically disable user management
-and display those parties on log in. Note, that you still need
+and display those parties on log in. Note that you still need
 to allocate those parties before you can log in as them.
 
 .. code-block:: yaml
