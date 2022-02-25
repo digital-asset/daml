@@ -49,7 +49,7 @@ After logging in, you will interact with the ledger as the primary
 party of that user, meaning that you can see contracts visible to that
 party and submit commands (e.g. create a contract) as that party.
 
-The party you are logged in is not displayed directly. However,
+The party you are logged in as is not displayed directly. However,
 Navigator provides autocompletion based on the party id which starts
 with the party id hint so a good option is to set the party id hint to
 the user id when you allocate the party in your setup script. You can
@@ -67,7 +67,7 @@ users.
   :width: 30%
   :align: center
 
-The main Navigator screen will be displayed, with contracts that the primarty party of this user
+The main Navigator screen will be displayed, with contracts that the primary party of this user
 is entitled to view in the main pane and
 the  option to switch from contracts to templates in the pane at the left. Other options allow you to filter the
 display, include or exclude archived contracts, and exercise choices as described below.
