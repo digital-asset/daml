@@ -25,18 +25,24 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
     mitigation = "Refuse to connect the user to the participant node",
   )
 
-  it should "deny calls with an expired read-only token" taggedAs securityAsset.setAttack(attack(threat = "Exploit an expired token")) in {
+  it should "deny calls with an expired read-only token" taggedAs securityAsset.setAttack(
+    attack(threat = "Exploit an expired token")
+  ) in {
     expectUnauthenticated(serviceCallWithToken(canReadAsRandomPartyExpired))
   }
 
-  it should "allow calls with explicitly non-expired read-only token" taggedAs securityAsset.setHappyCase("Connect with token expiring tomorrow") in {
+  it should "allow calls with explicitly non-expired read-only token" taggedAs securityAsset
+    .setHappyCase("Connect with token expiring tomorrow") in {
     expectSuccess(serviceCallWithToken(canReadAsRandomPartyExpiresTomorrow))
   }
-  it should "allow calls with read-only token without expiration" taggedAs securityAsset.setHappyCase("Connect with token without expiration") in  {
+  it should "allow calls with read-only token without expiration" taggedAs securityAsset
+    .setHappyCase("Connect with token without expiration") in {
     expectSuccess(serviceCallWithToken(canReadAsRandomParty))
   }
 
-  it should "allow calls with 'participant_admin' user token" taggedAs securityAsset.setHappyCase("Connect with `participant_admin` token") in {
+  it should "allow calls with 'participant_admin' user token" taggedAs securityAsset.setHappyCase(
+    "Connect with `participant_admin` token"
+  ) in {
     expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
   }
   it should "allow calls with non-expired 'participant_admin' user token" in {
