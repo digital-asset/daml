@@ -103,23 +103,27 @@ You should now see the login page for the social network. For simplicity, in thi
       :class: no-scaled-link
 
 You should see the main screen with two panels. The top panel displays the social network users you are following; the bottom displays the aliases of the users who follow you. Initially these are both empty as you are not following anyone and you don't have any followers.
-To start following a user, type their name into the text box or select it from the drop-down list and click the *Follow* button in the top panel.
+To start following a user, select their name in the drop-down list and click the *Follow* button in the top panel. At the moment, you will notice that the drop-down shows only your own user because no other user has registered yet.
 
    .. figure:: images/create-daml-app-main-screen-initial-view.png
       :alt: Main view of the create-daml-app
 
+Next, open a new browser window/tab at http://localhost:3000 and log in as a different user.
+(Having separate windows/tabs allows you to see both your own screen and the screen of the user you are following at the same time.)
+
+Now that the other user (Alice in this example) has logged in, go back to the previous window/tab, select them drop-down list and click the *Follow* button in the top panel.
+
 The user you just started following appears in the *Following* panel.
 However, they do not yet appear in the *Network* panel.
-This is either because they have not signed up and are not parties on the ledger or they have not yet started following you.
+This is because they have not yet started following you.
 This social network is similar to Twitter and Instagram, where by following someone, say Alice, you make yourself visible to her but not vice versa.
 We will see how we encode this in Daml in the next section.
 
    .. figure:: images/create-daml-app-bob-follows-alice.png
       :alt: In the create-daml-app users can follow each other in a similar fashion as in Twitter or Instagram
 
-To make this relationship reciprocal, open a new browser window/tab at http://localhost:3000.
-(Having separate windows/tabs allows you to see both you and the screen of the user you are following at the same time.)
-Once you log in as the user you are following (Alice in this example), you'll notice your name in her network.
+To make this relationship reciprocal, go back to the other window/tab where you logged in as the second user (Alice in this example).
+You should now see your name in her network.
 In fact, Alice can see the entire list of users you are following in the *Network* panel.
 This is because this list is part of the user data that became visible when you started following her.
 
