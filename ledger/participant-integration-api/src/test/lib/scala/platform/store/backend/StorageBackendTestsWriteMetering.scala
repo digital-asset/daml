@@ -64,10 +64,13 @@ private[backend] trait StorageBackendTestsWriteMetering
       executeSql(ingest(metering.map(dtoTransactionMetering), _))
 
       val nextLastOffset: Offset = meteringOffsets.filter(_ < lastOffset).max
-      val expected = meteringOffsets.filter(_ > firstOffset).filter(_ <= nextLastOffset).toSet
+      val expected = metering
+        .filter(_.ledgerOffset > firstOffset)
+        .filter(_.ledgerOffset <= nextLastOffset)
+        .groupMapReduce(_.applicationId)(_.actionCount)(_ + _)
       val actual = executeSql(
         backend.metering.write.selectTransactionMetering(firstOffset, nextLastOffset)
-      ).map(_.ledgerOffset).toSet
+      )
       actual shouldBe expected
     }
 
@@ -82,8 +85,12 @@ private[backend] trait StorageBackendTestsWriteMetering
       )
 
       executeSql(
+        backend.metering.write.selectTransactionMetering(firstOffset, nextLastOffset)
+      ).size shouldBe 0
+
+      executeSql(
         backend.metering.write.selectTransactionMetering(firstOffset, lastOffset)
-      ).map(_.ledgerOffset).toSet.size shouldBe 1
+      ).size shouldBe 1
     }
 
     it should "insert new participant metering records" in {
