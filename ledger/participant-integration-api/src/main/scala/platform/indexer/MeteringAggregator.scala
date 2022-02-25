@@ -4,7 +4,6 @@
 package com.daml.platform.indexer
 
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.MeteringStore
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ParticipantMetering
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
@@ -61,7 +60,7 @@ object MeteringAggregator {
                 } match {
                   case Success(_) => ()
                   case Failure(e) =>
-                    logger.error(s"Metering not aggregated after ${maxTaskDuration}", e)
+                    logger.error(s"Metering not aggregated after $maxTaskDuration", e)
                 }
               }
             },
@@ -181,7 +180,7 @@ class MeteringAggregator(
       thisLedgerMeteringEnd: LedgerMeteringEnd,
   ): Unit = {
 
-    val transactionMetering: Seq[MeteringStore.TransactionMetering] =
+    val applicationCounts =
       meteringStore.selectTransactionMetering(
         lastLedgerMeteringEnd.offset,
         thisLedgerMeteringEnd.offset,
@@ -189,18 +188,15 @@ class MeteringAggregator(
         conn
       )
 
-    val participantMetering = transactionMetering
-      .groupBy(_.applicationId)
-      .map { case (applicationId, metering) =>
-        ParticipantMetering(
-          applicationId = applicationId,
-          from = lastLedgerMeteringEnd.timestamp,
-          to = thisLedgerMeteringEnd.timestamp,
-          actionCount = metering.map(_.actionCount).sum,
-          ledgerOffset = metering.map(_.ledgerOffset).max,
-        )
-      }
-      .toVector
+    val participantMetering = applicationCounts.map { case (applicationId, actionCount) =>
+      ParticipantMetering(
+        applicationId = applicationId,
+        from = lastLedgerMeteringEnd.timestamp,
+        to = thisLedgerMeteringEnd.timestamp,
+        actionCount = actionCount,
+        ledgerOffset = thisLedgerMeteringEnd.offset,
+      )
+    }.toVector
 
     meteringStore.insertParticipantMetering(participantMetering)(conn)
 

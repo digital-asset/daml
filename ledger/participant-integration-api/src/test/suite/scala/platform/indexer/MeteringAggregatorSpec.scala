@@ -71,6 +71,9 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
           maybeLedgerEnd: Option[Offset] = None,
       ): Future[Unit] = {
 
+        val applicationCounts = transactionMetering
+          .groupMapReduce(_.applicationId)(_.actionCount)(_ + _)
+
         val ledgerEndOffset = (maybeLedgerEnd, transactionMetering.lastOption) match {
           case (Some(le), _) => le
           case (None, Some(t)) => t.ledgerOffset
@@ -88,7 +91,7 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
 
         transactionMetering.lastOption.map { last =>
           when(meteringStore.selectTransactionMetering(lastAggOffset, last.ledgerOffset)(conn))
-            .thenReturn(transactionMetering)
+            .thenReturn(applicationCounts)
         }
 
         new MeteringAggregator(
