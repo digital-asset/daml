@@ -23,9 +23,9 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//ledger/ledger-security-evidence/lib:lib",
         "//ledger/ledger-api-tests/infrastructure",
         "//ledger/ledger-api-tests/suites",
+        "//ledger/ledger-security-evidence/lib",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -40,7 +40,7 @@ da_scala_binary(
     ],
     deps = [
         ":tool",
-        "//ledger/ledger-security-evidence/lib:lib",
+        "//ledger/ledger-security-evidence/lib",
         "//ledger/sandbox-on-x:sandbox-on-x-it-tests-copy",
     ],
 )
