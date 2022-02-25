@@ -32,7 +32,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 32
+      "line" : 35
     },
     "ignored" : false,
     "suite" : null
@@ -50,7 +50,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 35
+      "line" : 39
     },
     "ignored" : false,
     "suite" : null
@@ -68,7 +68,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 39
+      "line" : 43
     },
     "ignored" : false,
     "suite" : null
@@ -106,7 +106,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 32
+      "line" : 35
     },
     "ignored" : false,
     "suite" : null
@@ -124,7 +124,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 35
+      "line" : 39
     },
     "ignored" : false,
     "suite" : null
@@ -142,7 +142,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 39
+      "line" : 43
     },
     "ignored" : false,
     "suite" : null
@@ -180,7 +180,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 32
+      "line" : 35
     },
     "ignored" : false,
     "suite" : null
@@ -198,7 +198,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 35
+      "line" : 39
     },
     "ignored" : false,
     "suite" : null
@@ -216,7 +216,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 39
+      "line" : 43
     },
     "ignored" : false,
     "suite" : null
@@ -254,7 +254,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 32
+      "line" : 35
     },
     "ignored" : false,
     "suite" : null
@@ -272,7 +272,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 35
+      "line" : 39
     },
     "ignored" : false,
     "suite" : null
@@ -290,7 +290,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 39
+      "line" : 43
     },
     "ignored" : false,
     "suite" : null
@@ -328,7 +328,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 32
+      "line" : 35
     },
     "ignored" : false,
     "suite" : null
@@ -346,7 +346,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 35
+      "line" : 39
     },
     "ignored" : false,
     "suite" : null
@@ -364,7 +364,7 @@
       },
       "unimplemented" : false,
       "file" : "ledger/sandbox-on-x/src/test/lib/scala/com/daml/platform/sandbox/auth/PublicServiceCallAuthTests.scala",
-      "line" : 39
+      "line" : 43
     },
     "ignored" : false,
     "suite" : null

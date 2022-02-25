@@ -8,6 +8,8 @@ import cats.syntax.either._
 import cats.syntax.functor._
 import cats.syntax.traverse._
 import cats.syntax.functorFilter._
+import com.daml.ledger.api.testtool.suites
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import io.circe.parser.decode
 import io.circe.syntax._
 import com.daml.ledger.security.test.SystematicTesting
@@ -71,7 +73,7 @@ object SystematicTestingGenerator {
   private def isIgnored(suite: Suite, testName: String): Boolean =
     suite.tags.getOrElse(testName, Set()).contains(Suite.IgnoreTagName)
 
-  private def testEntries[TT: ClassTag, TS: ClassTag, TE](
+  private def scalaTestEntries[TT: ClassTag, TS: ClassTag, TE](
       suites: List[Suite],
       testEntry: (String, String, TT, Boolean, Option[TS]) => TE,
   ): List[TE] = {
@@ -89,10 +91,35 @@ object SystematicTestingGenerator {
     }
   }
 
+  private def testEntries[TT: ClassTag, TS: ClassTag, TE](
+      suites: List[LedgerTestSuite],
+      testEntry: (String, String, TT, Boolean, Option[TS]) => TE,
+  ): List[TE] = {
+    suites.flatMap { suite =>
+      val testSuite = suite match {
+        case testSuite: TS => Some(testSuite)
+        case _ => None
+      }
+
+      val tags = suite.tests.map { test =>
+        test.name -> test.tags.map(_.name).toSet
+      }.toMap
+
+      testNameWithTags(tags).mapFilter { case (testName, testTags) =>
+        testTags.collectFirst { case testTag: TT =>
+          testEntry(suite.name, testName, testTag, false, testSuite)
+        }
+      }
+    }
+  }
+
   private def loadIntelliJClasspath(): Option[String] =
     Some(System.getProperty("java.class.path")).filter(!_.contains("sbt-launch.jar"))
 
   def main(args: Array[String]): Unit = {
+
+    val ledgerApiTests = (suites.v1_8.default(0L) ++ suites.v1_8.optional()).toList
+
     val cp: Seq[String] = loadIntelliJClasspath()
       .getOrElse(
         sys.error("Currently I only support this to be run in Intellij")
@@ -116,7 +143,7 @@ object SystematicTestingGenerator {
 
     println("Writing security tests inventory..")
     File("/Users/sergeykisel/git/daml/security-tests.json").write(
-      testEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](
+      scalaTestEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](
         testSuites,
         SecurityTestEntry,
       ).asJson.spaces2
@@ -124,9 +151,17 @@ object SystematicTestingGenerator {
 
     println("Writing reliability tests inventory..")
     File("/Users/sergeykisel/git/daml/reliability-tests.json").write(
-      testEntries[ReliabilityTest, ReliabilityTestSuite, ReliabilityTestEntry](
+      scalaTestEntries[ReliabilityTest, ReliabilityTestSuite, ReliabilityTestEntry](
         testSuites,
         ReliabilityTestEntry,
+      ).asJson.spaces2
+    )
+
+    println("Writing Ledger Api tests inventory..")
+    File("/Users/sergeykisel/git/daml/ledger-api-tests.json").write(
+      testEntries[SecurityTest, SecurityTestSuite, SecurityTestEntry](
+        ledgerApiTests,
+        SecurityTestEntry,
       ).asJson.spaces2
     )
 

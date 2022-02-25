@@ -74,5 +74,5 @@ abstract class LedgerTestSuite {
     )
   }
 
-  private[testtool] def name: String = getClass.getSimpleName
+  def name: String = getClass.getSimpleName
 }

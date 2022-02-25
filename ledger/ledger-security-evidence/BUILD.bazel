@@ -4,8 +4,8 @@
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
 
 da_scala_library(
-    name = "ledger-security-evidence",
-    srcs = glob(["src/scala/**/*.scala"]),
+    name = "lib",
+    srcs = glob(["lib/src/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -18,7 +18,6 @@ da_scala_library(
         "@maven//:com_chuusai_shapeless",
         "@maven//:io_circe_circe_core",
         "@maven//:io_circe_circe_generic",
-        "@maven//:io_circe_circe_parser",
         "@maven//:io_circe_circe_generic_extras",
         "@maven//:com_lihaoyi_sourcecode",
     ],
@@ -27,6 +26,37 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_library(
+    name = "tool",
+    srcs = glob(["tool/src/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        #"@maven//:org_scalatest_scalatest_matchers_core",
+        #"@maven//:org_scalatest_scalatest_shouldmatchers",
+        #"@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+        "@maven//:com_github_pathikrit_better_files",
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_generic",
+        "@maven//:io_circe_circe_parser",
+        #"@maven//:io_circe_circe_generic_extras",
+        "@maven//:com_lihaoyi_sourcecode",
+    ],
+    tags = ["maven_coordinates=com.daml:ledger-security-evidence:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":lib",
+        "//ledger/ledger-api-tests/infrastructure",
+        "//ledger/ledger-api-tests/suites",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -40,7 +70,8 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        ":ledger-security-evidence",
+        ":lib",
+        ":tool",
         "//ledger/sandbox-on-x:sandbox-on-x-it-tests-copy",
     ],
 )
