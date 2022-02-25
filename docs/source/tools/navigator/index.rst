@@ -76,7 +76,7 @@ display, include or exclude archived contracts, and exercise choices as describe
   :width: 85%
   :align: center
 
-To change the active user.
+To change the active user:
 
 #. Click the name of the current user in the top right corner of the screen.
 
