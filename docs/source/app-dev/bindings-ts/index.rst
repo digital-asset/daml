@@ -24,4 +24,3 @@ and `@daml/ledger <daml-ledger/index.html>`_ libraries.
    daml-react
    daml-ledger
    daml-types
-   testing

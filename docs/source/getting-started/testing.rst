@@ -64,7 +64,7 @@ This means we use Puppeteer to type text into input forms, click buttons and sea
 In order to find those elements, we do need to make some adjustments in our React components, which we'll show later.
 Let's start at a higher level with a ``test``.
 
-.. literalinclude:: ../../getting-started/code/testing/index.test.ts
+.. literalinclude:: code/testing/index.test.ts
   :language: ts
   :start-after: // LOGIN_TEST_BEGIN
   :end-before: // LOGIN_TEST_END
@@ -90,7 +90,7 @@ We showed how to write a simple test at a high level, but haven't shown how to m
 This was hidden in the ``login()`` and ``logout()`` functions.
 Let's see how ``login()`` is implemented.
 
-.. literalinclude:: ../../getting-started/code/testing/index.test.ts
+.. literalinclude:: code/testing/index.test.ts
   :language: ts
   :start-after: // LOGIN_FUNCTION_BEGIN
   :end-before: // LOGIN_FUNCTION_END
@@ -108,7 +108,7 @@ In this case we use *class selectors*, which look for CSS classes we've given to
 This means we must manually add classes to the components we want to test.
 For example, here is a snippet of the ``LoginScreen`` React component with classes added to the ``Form`` elements.
 
-.. literalinclude:: ../../getting-started/code/templates-tarball/create-daml-app/ui/src/components/LoginScreen.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/LoginScreen.tsx
   :language: tsx
   :start-after: {/* FORM_BEGIN */}
   :end-before: {/* FORM_END */}
@@ -124,7 +124,7 @@ Writing CSS Selectors
 When writing CSS selectors for your tests, you will likely need to check the structure of the rendered HTML in your app by running it manually and inspecting elements using your browser's developer tools.
 For example, the image below is from inspecting the username field using the developer tools in Google Chrome.
 
-   .. figure:: ../../getting-started/images/inspect-element.png
+   .. figure:: images/inspect-element.png
 
 There is a subtlety to explain here due to the `Semantic UI <https://semantic-ui.com/>`_ framework we use for our app.
 Semantic UI provides a convenient set of UI elements which get translated to HTML.
@@ -138,5 +138,5 @@ While harmless in this case, in general you may need to inspect the HTML transla
 The Full Test Suite
 ===================
 
-.. literalinclude:: ../../getting-started/code/testing/index.test.ts
+.. literalinclude:: code/testing/index.test.ts
   :language: ts
