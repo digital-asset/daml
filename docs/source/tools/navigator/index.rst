@@ -108,7 +108,7 @@ To use this via ``daml start``, you can specify it in your ``daml.yaml`` file::
   navigator-options:
     - --feature-user-management=false
 
-Instead of displaying a list of users on log in, Navigator will then
+Instead of displaying a list of users on login, Navigator will
 display a list of parties where each party is identified by its
 display name.
 
