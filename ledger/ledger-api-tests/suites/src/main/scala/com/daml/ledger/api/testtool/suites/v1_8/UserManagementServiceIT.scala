@@ -466,6 +466,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
   userManagementTest(
     "TestListUsersRequestPageSizeZero",
     "Exercise ListUsers rpc: Requesting page of size zero means requesting server's default page size, which is larger than zero",
+    runConcurrently = false,
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
