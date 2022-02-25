@@ -55,8 +55,8 @@ def _fat_cc_library_impl(ctx):
             # Some libs seems to depend on libstdc++ implicitely
             ["-lstdc++"] +
             (["-framework", "CoreFoundation"] if is_darwin else []) +
-            # On Windows some libs seems to depend on Windows sockets
-            (["-lws2_32"] if is_windows else []),
+            # On Windows we have some extra deps.
+            (["-lbcrypt", "-lDbgHelp", "-lws2_32"] if is_windows else []),
         inputs = static_libs,
         env = {"PATH": ""},
     )
