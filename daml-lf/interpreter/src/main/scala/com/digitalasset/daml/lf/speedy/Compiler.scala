@@ -216,46 +216,61 @@ private[lf] final class Compiler(
   )(body: s.SExpr): (SDefRef, SDefinition) =
     ref -> SDefinition(pipeline(withLabelS(ref, body)))
 
-  private val Position1 = Env.Empty.nextPosition
+  private val Pos1 = Env.Empty.nextPosition
   private val Env1 = Env.Empty.pushVar
-  private val Position2 = Env1.nextPosition
+  private val Pos2 = Env1.nextPosition
   private val Env2 = Env1.pushVar
-  private val Position3 = Env2.nextPosition
+  private val Pos3 = Env2.nextPosition
   private val Env3 = Env2.pushVar
-  private val Position4 = Env3.nextPosition
+  private val Pos4 = Env3.nextPosition
   private val Env4 = Env3.pushVar
-  private val Position5 = Env4.nextPosition
+  private val Pos5 = Env4.nextPosition
   private val Env5 = Env4.pushVar
+
+  private[this] def fun1(body: (Position, Env) => s.SExpr) =
+    s.SEAbs(1, body(Pos1, Env1))
+
+  private[this] def fun2(body: (Position, Position, Env) => s.SExpr) =
+    s.SEAbs(2, body(Pos1, Pos2, Env2))
+
+  private[this] def fun3(body: (Position, Position, Position, Env) => s.SExpr) =
+    s.SEAbs(3, body(Pos1, Pos2, Pos3, Env3))
+
+  private[this] def fun5(body: (Position, Position, Position, Position, Position, Env) => s.SExpr) =
+    s.SEAbs(5, body(Pos1, Pos2, Pos3, Pos4, Pos5, Env5))
 
   private[this] def topLevelFunction1[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(
       body: (Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
-    topLevelFunction(ref)(s.SEAbs(1, body(Position1, Env1)))
+    topLevelFunction(ref)(fun1(body))
+
+  private[this] def unlabelledTopLevelFunction2(ref: t.SDefinitionRef)(
+      body: (Position, Position, Env) => s.SExpr
+  ): (t.SDefinitionRef, SDefinition) =
+    ref -> SDefinition(pipeline(fun2(body)))
 
   private[this] def topLevelFunction2[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(
       body: (Position, Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
-    topLevelFunction(ref)(s.SEAbs(2, body(Position1, Position2, Env2)))
+    topLevelFunction(ref)(fun2(body))
 
   private[this] def topLevelFunction3[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(
       body: (Position, Position, Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
-    topLevelFunction(ref)(s.SEAbs(3, body(Position1, Position2, Position3, Env3)))
+    topLevelFunction(ref)(fun3(body))
 
   private[this] def topLevelFunction5[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(
       body: (Position, Position, Position, Position, Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
-    topLevelFunction(ref)(
-      s.SEAbs(5, body(Position1, Position2, Position3, Position4, Position5, Env5))
-    )
+    topLevelFunction(ref)(fun5(body))
 
   val phaseOne = {
     val config1 =
@@ -387,9 +402,6 @@ private[lf] final class Compiler(
 
     result
   }
-
-  @inline
-  private[this] def translateIdentity(env: Env) = s.SEAbs(1, s.SEVarLevel(env.position))
 
   private[this] val KeyWithMaintainersStruct =
     SBStructCon(Struct.assertFromSeq(List(keyFieldName, maintainersFieldName).zipWithIndex))
@@ -673,7 +685,7 @@ private[lf] final class Compiler(
       tmplId: Identifier,
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction2(t.ToCachedContractDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
+    unlabelledTopLevelFunction2(t.ToCachedContractDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
       SBuildCachedContract(
         s.SEValue(STypeRep(TTyCon(tmplId))),
         env.toSEVar(tmplArgPos),
@@ -700,6 +712,8 @@ private[lf] final class Compiler(
       )
     }
 
+  private[this] val IdentityDef = SDefinition(pipeline(fun1((pos, env) => env.toSEVar(pos))))
+
   // Turn a template value into an interface value. Since interfaces have a
   // toll-free representation (for now), this is just the identity function.
   // But the existence of ImplementsDefRef implies that the template implements
@@ -708,8 +722,7 @@ private[lf] final class Compiler(
       tmplId: Identifier,
       ifaceId: Identifier,
   ): (t.SDefinitionRef, SDefinition) =
-    t.ImplementsDefRef(tmplId, ifaceId) ->
-      SDefinition(pipeline(translateIdentity(Env.Empty)))
+    t.ImplementsDefRef(tmplId, ifaceId) -> IdentityDef
 
   // Compile the implementation of an interface method.
   private[this] def compileImplementsMethod(
