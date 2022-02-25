@@ -18,8 +18,7 @@ The events included in the report include:
 Only events that originated from the local participant are included in the metering.  Events received
 by the local participant from remote participants are *not* included.
 
-Only events contained in an accepted transactions (ones that maintains the
-:doc:`integrity of the ledger model </concepts/ledger-model/ledger-integrity>`) are included.
+Only events contained in committed transactions are included, a failed transaction has no effect on ledger metering.
 
 Generating a Metering Report
 ----------------------------
