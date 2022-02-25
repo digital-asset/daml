@@ -96,6 +96,11 @@ trait AbstractTriggerServiceTest
     self in testFn
 
   protected[this] implicit final class `InClaims syntax`(private val self: ItVerbString) {
+
+    /** Like `in`, but disables tests that would require the oauth test server
+      * to grant claims for the user tokens it manufactures; see
+      * https://github.com/digital-asset/daml/issues/13076
+      */
     def inClaims(testFn: => Future[Assertion])(implicit pos: source.Position) =
       AbstractTriggerServiceTest.this.inClaims(self, testFn)
   }

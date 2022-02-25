@@ -16,4 +16,5 @@ class TriggerServiceTestAuthWithOracleClaims
     with TriggerDaoOracleFixture
     with AbstractTriggerServiceTestAuthMiddleware {
   protected[this] override def oauth2YieldsUserTokens = false
+  protected[this] override def sandboxClientTakesUserToken = false
 }

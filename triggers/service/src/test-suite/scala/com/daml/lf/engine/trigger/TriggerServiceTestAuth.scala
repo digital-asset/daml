@@ -14,4 +14,5 @@ class TriggerServiceTestAuthClaims
     with AbstractTriggerServiceTestInMem
     with AbstractTriggerServiceTestAuthMiddleware {
   override protected[this] def oauth2YieldsUserTokens = false
+  override protected[this] def sandboxClientTakesUserToken = false
 }
