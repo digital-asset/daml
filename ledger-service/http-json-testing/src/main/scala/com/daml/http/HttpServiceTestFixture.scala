@@ -123,7 +123,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val client = DamlLedgerClient.singleHost(
       "localhost",
       ledgerPort.value,
-      clientConfig(applicationId),
+      clientConfig(applicationId, token.map(_.value)),
       clientChannelConfig(useTls),
     )
 
@@ -234,7 +234,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
   private def clientConfig(
       applicationId: ApplicationId,
-      token: Option[String] = None,
+      token: Option[String],
   ): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
@@ -318,7 +318,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       readAs: List[String],
       ledgerId: String,
       withoutNamespace: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[Jwt] = {
+      admin: Boolean = false,
+  ): Jwt = {
     import AuthServiceJWTCodec.JsonImplicits._
     val payload =
       if (withoutNamespace)
@@ -326,7 +327,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
                |  "ledgerId": "$ledgerId",
                |  "applicationId": "test",
                |  "exp": 0,
-               |  "admin": false,
+               |  "admin": $admin,
                |  "actAs": ${actAs.toJson.prettyPrint},
                |  "readAs": ${readAs.toJson.prettyPrint}
                |}
@@ -341,17 +342,15 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
           admin = false,
           readAs = readAs,
         ): AuthServiceJWTPayload).toJson.prettyPrint
-    Future(
-      JwtSigner.HMAC256
-        .sign(
-          DecodedJwt(
-            """{"alg": "HS256", "typ": "JWT"}""",
-            payload,
-          ),
-          "secret",
-        )
-        .fold(e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.shows}"), identity)
-    )
+    JwtSigner.HMAC256
+      .sign(
+        DecodedJwt(
+          """{"alg": "HS256", "typ": "JWT"}""",
+          payload,
+        ),
+        "secret",
+      )
+      .fold(e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.shows}"), identity)
   }
 
   def headersWithPartyAuth(
@@ -359,8 +358,9 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       readAs: List[String],
       ledgerId: String,
       withoutNamespace: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[List[Authorization]] =
-    jwtForParties(actAs, readAs, ledgerId, withoutNamespace).map(authorizationHeader)
+  ): List[Authorization] = {
+    authorizationHeader(jwtForParties(actAs, readAs, ledgerId, withoutNamespace))
+  }
 
   def authorizationHeader(token: Jwt): List[Authorization] =
     List(Authorization(OAuth2BearerToken(token.value)))

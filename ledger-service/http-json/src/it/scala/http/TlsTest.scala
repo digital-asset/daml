@@ -28,7 +28,7 @@ abstract class TlsTest
   override def wsConfig: Option[WebsocketConfig] = None
 
   "connect normally with tls on" in withHttpService { (uri: Uri, _, _, _) =>
-    getRequest(uri = uri.withPath(Uri.Path("/v1/query")))
+    getRequestWithMinimumAuth(uri = uri.withPath(Uri.Path("/v1/query")))
       .flatMap { case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)

@@ -11,7 +11,7 @@ import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class HttpServiceWithPostgresIntTest
-    extends AbstractHttpServiceIntegrationTest
+    extends AbstractHttpServiceIntegrationTestTokenIndependent
     with PostgresAroundAll
     with HttpServicePostgresInt {
 

@@ -16,6 +16,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.lf.data.Ref
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.HttpServiceTestFixture.jsonCodecs
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
@@ -82,43 +83,6 @@ object AbstractHttpServiceIntegrationTestFuns {
   }
 }
 
-trait AbstractHttpServiceIntegrationTestFunsCustomToken
-    extends AbstractHttpServiceIntegrationTestFuns {
-  this: AsyncTestSuite with Matchers with Inside =>
-
-  def jwtForParties(uri: Uri)(
-      actAs: List[String],
-      readAs: List[String],
-      ledgerId: String,
-      withoutNamespace: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[Jwt] =
-    HttpServiceTestFixture.jwtForParties(actAs, readAs, ledgerId, withoutNamespace)
-
-  def headersWithPartyAuth(uri: Uri)(
-      actAs: List[String],
-      readAs: List[String],
-      ledgerId: String,
-      withoutNamespace: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[List[Authorization]] =
-    HttpServiceTestFixture.headersWithPartyAuth(actAs, readAs, ledgerId, withoutNamespace)
-
-  protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
-    jwtForParties(uri)(List("Alice"), List(), testId)
-
-  protected def jwtAdminNoParty(implicit ec: ExecutionContext): Future[Jwt] = {
-    val decodedJwt = DecodedJwt(
-      """{"alg": "HS256", "typ": "JWT"}""",
-      s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "test", "admin": true}}""",
-    )
-    Future.successful(
-      JwtSigner.HMAC256
-        .sign(decodedJwt, "secret")
-        .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
-    )
-  }
-
-}
-
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait AbstractHttpServiceIntegrationTestFuns
     extends StrictLogging
@@ -147,7 +111,9 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt]
 
-  protected def jwtAdminNoParty(implicit ec: ExecutionContext): Future[Jwt]
+  protected val jwtAdminNoParty: Jwt
+
+  protected def headersWithAdminAuth: List[Authorization] = authorizationHeader(jwtAdminNoParty)
 
   import com.typesafe.config.ConfigFactory
   private val customConf = ConfigFactory.parseString("""
@@ -177,15 +143,18 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def withHttpServiceAndClient[A](
       testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
-  ): Future[A] = usingLedger[A](testId) { case (ledgerPort, _, ledgerId) =>
-    HttpServiceTestFixture.withHttpService[A](
-      testId,
-      ledgerPort,
-      jdbcConfig,
-      staticContentConfig,
-      useTls = useTls,
-      wsConfig = wsConfig,
-    )(testFn(_, _, _, _, ledgerId))
+  ): Future[A] = {
+    usingLedger[A](testId, Some(jwtAdminNoParty.value)) { case (ledgerPort, _, ledgerId) =>
+      HttpServiceTestFixture.withHttpService[A](
+        testId,
+        ledgerPort,
+        jdbcConfig,
+        staticContentConfig,
+        useTls = useTls,
+        wsConfig = wsConfig,
+        token = Some(jwtAdminNoParty),
+      )(testFn(_, _, _, _, ledgerId))
+    }
   }
 
   protected def withHttpServiceAndClient[A](maxInboundMessageSize: Int)(
@@ -199,6 +168,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       useTls = useTls,
       wsConfig = wsConfig,
       maxInboundMessageSize = maxInboundMessageSize,
+      token = Some(jwtAdminNoParty),
     )(testFn(_, _, _, _, ledgerId))
   }
 
@@ -218,8 +188,10 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def withHttpService[A](
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerId) => Future[A]
-  ): Future[A] =
+  ): Future[A] = {
+    println("======> inside withHttpService")
     withHttpServiceAndClient((a, b, c, _, ledgerId) => f(a, b, c, ledgerId))
+  }
 
   protected def withHttpServiceOnly[A](ledgerPort: Port)(
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]
@@ -231,10 +203,11 @@ trait AbstractHttpServiceIntegrationTestFuns
       staticContentConfig,
       useTls = useTls,
       wsConfig = wsConfig,
+      token = Some(jwtAdminNoParty),
     )((uri, encoder, decoder, _) => f(uri, encoder, decoder))
 
   protected def withLedger[A](testFn: (DamlLedgerClient, LedgerId) => Future[A]): Future[A] =
-    usingLedger[A](testId) { case (_, client, ledgerId) =>
+    usingLedger[A](testId, token = Some(jwtAdminNoParty.value)) { case (_, client, ledgerId) =>
       testFn(client, ledgerId)
     }
   def jwtForParties(uri: Uri)(
@@ -242,6 +215,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       readAs: List[String],
       ledgerId: String,
       withoutNamespace: Boolean = false,
+      admin: Boolean = false,
   )(implicit ec: ExecutionContext): Future[Jwt]
 
   protected def headersWithAuth(uri: Uri)(implicit
@@ -250,17 +224,14 @@ trait AbstractHttpServiceIntegrationTestFuns
     jwt(uri)(ec).map(authorizationHeader)
 
   protected def headersWithPartyAuth(uri: Uri)(
-      actAs: List[String] = List.empty,
+      actAs: List[String],
       readAs: List[String] = List.empty,
       ledgerId: String = "",
       withoutNamespace: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[List[Authorization]]
-
-//  protected def headersWithPartyAuthLegacyFormat(
-//      actAs: List[String],
-//      readAs: List[String] = List(),
-//  ) =
-//    HttpServiceTestFixture.headersWithPartyAuth(actAs, readAs, testId, withoutNamespace = true)
+      admin: Boolean = false,
+  )(implicit ec: ExecutionContext): Future[List[Authorization]] =
+    jwtForParties(uri)(actAs, readAs, ledgerId, withoutNamespace, admin)(ec)
+      .map(authorizationHeader)
 
   protected def postJsonStringRequest(
       uri: Uri,
@@ -277,19 +248,16 @@ trait AbstractHttpServiceIntegrationTestFuns
   ): Future[(StatusCode, JsValue)] =
     HttpServiceTestFixture.postJsonRequest(uri, json, headers)
 
-  protected def postJsonRequest(
+  protected def postJsonRequestWithMinimumAuth(
       uri: Uri,
       json: JsValue,
   ): Future[(StatusCode, JsValue)] =
     headersWithAuth(uri).flatMap(postJsonRequest(uri, json, _))
 
-  protected def getRequest(
-      uri: Uri,
-      headers: List[HttpHeader],
-  ): Future[(StatusCode, JsValue)] =
+  protected def getRequest(uri: Uri, headers: List[HttpHeader]): Future[(StatusCode, JsValue)] =
     HttpServiceTestFixture.getRequest(uri, headers)
 
-  protected def getRequest(
+  protected def getRequestWithMinimumAuth(
       uri: Uri
   ): Future[(StatusCode, JsValue)] =
     headersWithAuth(uri).flatMap(getRequest(uri, _))
@@ -694,11 +662,12 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def getAllPackageIds(uri: Uri): Future[domain.OkResponse[List[String]]] =
-    getRequest(uri = uri.withPath(Uri.Path("/v1/packages"))).map { case (status, output) =>
-      status shouldBe StatusCodes.OK
-      inside(decode1[domain.OkResponse, List[String]](output)) { case \/-(x) =>
-        x
-      }
+    getRequestWithMinimumAuth(uri = uri.withPath(Uri.Path("/v1/packages"))).map {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        inside(decode1[domain.OkResponse, List[String]](output)) { case \/-(x) =>
+          x
+        }
     }
 
   protected def initialIouCreate(
@@ -709,17 +678,17 @@ trait AbstractHttpServiceIntegrationTestFuns
     val partyJson = party.unwrap
     val payload =
       s"""
-        |{
-        |  "templateId": "Iou:Iou",
-        |  "payload": {
-        |    "observers": [],
-        |    "issuer": "$partyJson",
-        |    "amount": "999.99",
-        |    "currency": "USD",
-        |    "owner": "$partyJson"
-        |  }
-        |}
-        |""".stripMargin
+         |{
+         |  "templateId": "Iou:Iou",
+         |  "payload": {
+         |    "observers": [],
+         |    "issuer": "$partyJson",
+         |    "amount": "999.99",
+         |    "currency": "USD",
+         |    "owner": "$partyJson"
+         |  }
+         |}
+         |""".stripMargin
     HttpServiceTestFixture.postJsonStringRequest(
       serviceUri.withPath(Uri.Path("/v1/create")),
       payload,
@@ -800,8 +769,125 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 }
 
+trait AbstractHttpServiceIntegrationTestFunsCustomToken
+    extends AsyncFreeSpec
+    with AbstractHttpServiceIntegrationTestFuns
+    with Matchers
+    with Inside {
+
+  import json.JsonProtocol._
+
+  def jwtForParties(uri: Uri)(
+      actAs: List[String],
+      readAs: List[String],
+      ledgerId: String,
+      withoutNamespace: Boolean = false,
+      admin: Boolean = false,
+  )(implicit ec: ExecutionContext): Future[Jwt] =
+    Future.successful(
+      HttpServiceTestFixture.jwtForParties(actAs, readAs, ledgerId, withoutNamespace)
+    )
+
+  protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
+    jwtForParties(uri)(List("Alice"), List(), testId)
+
+  protected val jwtAdminNoParty: Jwt = {
+    val decodedJwt = DecodedJwt(
+      """{"alg": "HS256", "typ": "JWT"}""",
+      s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "test", "admin": true}}""",
+    )
+    JwtSigner.HMAC256
+      .sign(decodedJwt, "secret")
+      .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
+  }
+
+  protected def headersWithPartyAuthLegacyFormat(
+      actAs: List[String],
+      readAs: List[String] = List(),
+  ) =
+    HttpServiceTestFixture.headersWithPartyAuth(actAs, readAs, testId, withoutNamespace = true)
+
+  "get all parties using the legacy token format" in withHttpServiceAndClient {
+    (uri, _, _, client, _) =>
+      val partyIds = Vector("P1", "P2", "P3", "P4").map(getUniqueParty(_).unwrap)
+      val partyManagement = client.partyManagementClient
+      partyIds
+        .traverse { p =>
+          partyManagement.allocateParty(Some(p), Some(s"$p & Co. LLC"))
+        }
+        .flatMap { allocatedParties =>
+          getRequest(
+            uri = uri.withPath(Uri.Path("/v1/parties")),
+            headersWithPartyAuthLegacyFormat(List()),
+          )
+            .flatMap { case (status, output) =>
+              status shouldBe StatusCodes.OK
+              inside(
+                decode1[domain.OkResponse, List[domain.PartyDetails]](output)
+              ) { case \/-(response) =>
+                response.status shouldBe StatusCodes.OK
+                response.warnings shouldBe empty
+                val actualIds: Set[domain.Party] = response.result.view.map(_.identifier).toSet
+                actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
+                response.result.toSet should contain allElementsOf
+                  allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
+              }
+            }
+        }: Future[Assertion]
+  }
+
+  "should be able to serialize and deserialize domain commands" in withHttpServiceAndClient {
+    (uri, _, _, client, ledgerId) =>
+      instanceUUIDLogCtx(implicit lc =>
+        jsonCodecs(client, ledgerId, None).flatMap { case (encoder, decoder) =>
+          testCreateCommandEncodingDecoding(uri)(encoder, decoder, ledgerId) *>
+            testExerciseCommandEncodingDecoding(uri)(
+              encoder,
+              decoder,
+              ledgerId,
+            )
+        }: Future[Assertion]
+      )
+  }
+
+  private def testCreateCommandEncodingDecoding(uri: Uri)(
+      encoder: DomainJsonEncoder,
+      decoder: DomainJsonDecoder,
+      ledgerId: LedgerId,
+  ): Future[Assertion] = instanceUUIDLogCtx { implicit lc =>
+    import json.JsonProtocol._
+    import util.ErrorOps._
+
+    val command0: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand("Alice")
+
+    type F[A] = EitherT[Future, JsonError, A]
+    val x: F[Assertion] = for {
+      jsVal <- EitherT.either(
+        encoder.encodeCreateCommand(command0).liftErr(JsonError)
+      ): F[JsValue]
+      command1 <- (EitherT.rightT(jwt(uri)): F[Jwt])
+        .flatMap(decoder.decodeCreateCommand(jsVal, _, ledgerId))
+    } yield command1.bimap(removeRecordId, removePackageId) should ===(command0)
+
+    (x.run: Future[JsonError \/ Assertion]).map(_.fold(e => fail(e.shows), identity))
+  }
+
+  private def testExerciseCommandEncodingDecoding(uri: Uri)(
+      encoder: DomainJsonEncoder,
+      decoder: DomainJsonDecoder,
+      ledgerId: LedgerId,
+  ): Future[Assertion] = {
+    val command0 = iouExerciseTransferCommand(lar.ContractId("#a-contract-ID"))
+    val jsVal: JsValue = encodeExercise(encoder)(command0)
+    val command1 =
+      jwt(uri).flatMap(decodeExercise(decoder, _, ledgerId)(jsVal))
+    command1.map(_.bimap(removeRecordId, identity) should ===(command0))
+  }
+
+}
+
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-abstract class AbstractHttpServiceIntegrationTest
+abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     extends AsyncFreeSpec
     with Matchers
     with Inside
@@ -878,34 +964,6 @@ abstract class AbstractHttpServiceIntegrationTest
         .map(cs => cs should have size 2)
     } yield succeed
   }
-
-//  "get all parties using the legacy token format" in withHttpServiceAndClient {
-//    (uri, _, _, client, _) =>
-//      val partyIds = Vector("P1", "P2", "P3", "P4").map(getUniqueParty(_).unwrap)
-//      val partyManagement = client.partyManagementClient
-//      partyIds
-//        .traverse { p =>
-//          partyManagement.allocateParty(Some(p), Some(s"$p & Co. LLC"))
-//        }
-//        .flatMap { allocatedParties =>
-//          getRequest(
-//            uri = uri.withPath(Uri.Path("/v1/parties")),
-//            headersWithPartyAuthLegacyFormat(List()),
-//          ).flatMap { case (status, output) =>
-//            status shouldBe StatusCodes.OK
-//            inside(
-//              decode1[domain.OkResponse, List[domain.PartyDetails]](output)
-//            ) { case \/-(response) =>
-//              response.status shouldBe StatusCodes.OK
-//              response.warnings shouldBe empty
-//              val actualIds: Set[domain.Party] = response.result.view.map(_.identifier).toSet
-//              actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
-//              response.result.toSet should contain allElementsOf
-//                allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
-//            }
-//          }
-//        }: Future[Assertion]
-//  }
 
   "query POST with empty query" in withHttpService { (uri, encoder, _, _) =>
     getUniquePartyAndAuthHeaders(uri)("Alice").flatMap { case (alice, headers) =>
@@ -1346,7 +1404,7 @@ abstract class AbstractHttpServiceIntegrationTest
       val contractIdString = "0" * 66
       val contractId = lar.ContractId(contractIdString)
       val exerciseJson: JsValue = encodeExercise(encoder)(iouExerciseTransferCommand(contractId))
-      postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
+      postJsonRequestWithMinimumAuth(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
         .flatMap { case (status, output) =>
           status shouldBe StatusCodes.NotFound
           assertStatus(output, StatusCodes.NotFound)
@@ -1450,58 +1508,10 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "should be able to serialize and deserialize domain commands" in withHttpServiceAndClient {
-    (uri, _, _, client, ledgerId) =>
-      instanceUUIDLogCtx(implicit lc =>
-        jsonCodecs(client, ledgerId, None).flatMap { case (encoder, decoder) =>
-          testCreateCommandEncodingDecoding(uri)(encoder, decoder, ledgerId) *>
-            testExerciseCommandEncodingDecoding(uri)(
-              encoder,
-              decoder,
-              ledgerId,
-            )
-        }: Future[Assertion]
-      )
-  }
-
-  private def testCreateCommandEncodingDecoding(uri: Uri)(
-      encoder: DomainJsonEncoder,
-      decoder: DomainJsonDecoder,
-      ledgerId: LedgerId,
-  ): Future[Assertion] = instanceUUIDLogCtx { implicit lc =>
-    import json.JsonProtocol._
-    import util.ErrorOps._
-
-    val command0: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand("Alice")
-
-    type F[A] = EitherT[Future, JsonError, A]
-    val x: F[Assertion] = for {
-      jsVal <- EitherT.either(
-        encoder.encodeCreateCommand(command0).liftErr(JsonError)
-      ): F[JsValue]
-      command1 <- (EitherT.rightT(jwt(uri)): F[Jwt])
-        .flatMap(decoder.decodeCreateCommand(jsVal, _, ledgerId))
-    } yield command1.bimap(removeRecordId, removePackageId) should ===(command0)
-
-    (x.run: Future[JsonError \/ Assertion]).map(_.fold(e => fail(e.shows), identity))
-  }
-
-  private def testExerciseCommandEncodingDecoding(uri: Uri)(
-      encoder: DomainJsonEncoder,
-      decoder: DomainJsonDecoder,
-      ledgerId: LedgerId,
-  ): Future[Assertion] = {
-    val command0 = iouExerciseTransferCommand(lar.ContractId("#a-contract-ID"))
-    val jsVal: JsValue = encodeExercise(encoder)(command0)
-    val command1 =
-      jwt(uri).flatMap(decodeExercise(decoder, _, ledgerId)(jsVal))
-    command1.map(_.bimap(removeRecordId, identity) should ===(command0))
-  }
-
   "request non-existent endpoint should return 404 with errors" in withHttpService {
     (uri: Uri, _, _, _) =>
       val badUri = uri.withPath(Uri.Path("/contracts/does-not-exist"))
-      getRequest(uri = badUri)
+      getRequestWithMinimumAuth(uri = badUri)
         .flatMap { case (status, output) =>
           status shouldBe StatusCodes.NotFound
           assertStatus(output, StatusCodes.NotFound)
@@ -1521,19 +1531,23 @@ abstract class AbstractHttpServiceIntegrationTest
           partyManagement.allocateParty(Some(p), Some(s"$p & Co. LLC"))
         }
         .flatMap { allocatedParties =>
-          getRequest(uri = uri.withPath(Uri.Path("/v1/parties"))).flatMap { case (status, output) =>
-            status shouldBe StatusCodes.OK
-            inside(
-              decode1[domain.OkResponse, List[domain.PartyDetails]](output)
-            ) { case \/-(response) =>
-              response.status shouldBe StatusCodes.OK
-              response.warnings shouldBe empty
-              val actualIds: Set[domain.Party] = response.result.view.map(_.identifier).toSet
-              actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
-              response.result.toSet should contain allElementsOf
-                allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
+          getRequest(
+            uri = uri.withPath(Uri.Path("/v1/parties")),
+            headers = headersWithAdminAuth,
+          )
+            .flatMap { case (status, output) =>
+              status shouldBe StatusCodes.OK
+              inside(
+                decode1[domain.OkResponse, List[domain.PartyDetails]](output)
+              ) { case \/-(response) =>
+                response.status shouldBe StatusCodes.OK
+                response.warnings shouldBe empty
+                val actualIds: Set[domain.Party] = response.result.view.map(_.identifier).toSet
+                actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
+                response.result.toSet should contain allElementsOf
+                  allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
+              }
             }
-          }
         }: Future[Assertion]
   }
 
@@ -1554,6 +1568,7 @@ abstract class AbstractHttpServiceIntegrationTest
           postJsonRequest(
             uri = uri.withPath(Uri.Path("/v1/parties")),
             JsArray(requestedPartyIds.map(x => JsString(x.unwrap))),
+            headersWithAdminAuth,
           ).flatMap { case (status, output) =>
             status shouldBe StatusCodes.OK
             inside(
@@ -1574,7 +1589,7 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "parties endpoint should error if empty array passed as input" in withHttpServiceAndClient {
     (uri, _, _, _, _) =>
-      postJsonRequest(
+      postJsonRequestWithMinimumAuth(
         uri = uri.withPath(Uri.Path("/v1/parties")),
         JsArray(Vector.empty),
       ).flatMap { case (status, output) =>
@@ -1590,7 +1605,7 @@ abstract class AbstractHttpServiceIntegrationTest
     (uri, _, _, _, _) =>
       val requestedPartyIds: Vector[domain.Party] = domain.Party.subst(Vector(""))
 
-      postJsonRequest(
+      postJsonRequestWithMinimumAuth(
         uri = uri.withPath(Uri.Path("/v1/parties")),
         JsArray(requestedPartyIds.map(x => JsString(x.unwrap))),
       ).flatMap { case (status, output) =>
@@ -1606,9 +1621,11 @@ abstract class AbstractHttpServiceIntegrationTest
     (uri, _, _, _, _) =>
       val requestedPartyIds: Vector[domain.Party] =
         Vector(getUniqueParty("Alice"), getUniqueParty("Bob"))
+
       postJsonRequest(
         uri = uri.withPath(Uri.Path("/v1/parties")),
         JsArray(requestedPartyIds.map(x => JsString(x.unwrap))),
+        headers = headersWithAdminAuth,
       ).flatMap { case (status, output) =>
         status shouldBe StatusCodes.OK
         inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
@@ -1626,14 +1643,11 @@ abstract class AbstractHttpServiceIntegrationTest
       Some("Carol & Co. LLC"),
     )
     val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
-    jwtAdminNoParty
-      .flatMap(jwt =>
-        postJsonRequest(
-          uri = uri.withPath(Uri.Path("/v1/parties/allocate")),
-          json = json,
-          headers = authorizationHeader(jwt),
-        )
-      )
+    postJsonRequest(
+      uri = uri.withPath(Uri.Path("/v1/parties/allocate")),
+      json = json,
+      headers = headersWithAdminAuth,
+    )
       .flatMap { case (status, output) =>
         status shouldBe StatusCodes.OK
         inside(decode1[domain.OkResponse, domain.PartyDetails](output)) { case \/-(response) =>
@@ -1642,22 +1656,29 @@ abstract class AbstractHttpServiceIntegrationTest
           Some(newParty.identifier) shouldBe request.identifierHint
           newParty.displayName shouldBe request.displayName
           newParty.isLocal shouldBe true
-
-          getRequest(uri = uri.withPath(Uri.Path("/v1/parties"))).flatMap { case (status, output) =>
-            status shouldBe StatusCodes.OK
-            inside(decode1[domain.OkResponse, List[domain.PartyDetails]](output)) {
-              case \/-(response) =>
-                response.status shouldBe StatusCodes.OK
-                response.result should contain(newParty)
+          getRequest(
+            uri = uri.withPath(Uri.Path("/v1/parties")),
+            headersWithAdminAuth,
+          )
+            .flatMap { case (status, output) =>
+              status shouldBe StatusCodes.OK
+              inside(decode1[domain.OkResponse, List[domain.PartyDetails]](output)) {
+                case \/-(response) =>
+                  response.status shouldBe StatusCodes.OK
+                  response.result should contain(newParty)
+              }
             }
-          }
         }
       }: Future[Assertion]
   }
 
   "parties/allocate should allocate a new party without any hints" in withHttpServiceAndClient {
     (uri, _, _, _, _) =>
-      postJsonRequest(uri = uri.withPath(Uri.Path("/v1/parties/allocate")), json = JsObject())
+      postJsonRequest(
+        uri = uri.withPath(Uri.Path("/v1/parties/allocate")),
+        json = JsObject(),
+        headers = headersWithAdminAuth,
+      )
         .flatMap { case (status, output) =>
           status shouldBe StatusCodes.OK
           inside(decode1[domain.OkResponse, domain.PartyDetails](output)) { case \/-(response) =>
@@ -1667,15 +1688,15 @@ abstract class AbstractHttpServiceIntegrationTest
             newParty.displayName shouldBe None
             newParty.isLocal shouldBe true
 
-            getRequest(uri = uri.withPath(Uri.Path("/v1/parties"))).flatMap {
-              case (status, output) =>
+            getRequest(uri = uri.withPath(Uri.Path("/v1/parties")), headers = headersWithAdminAuth)
+              .flatMap { case (status, output) =>
                 status shouldBe StatusCodes.OK
                 inside(decode1[domain.OkResponse, List[domain.PartyDetails]](output)) {
                   case \/-(response) =>
                     response.status shouldBe StatusCodes.OK
                     response.result should contain(newParty)
                 }
-            }
+              }
           }
         }: Future[Assertion]
   }
@@ -1688,7 +1709,11 @@ abstract class AbstractHttpServiceIntegrationTest
       )
       val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
 
-      postJsonRequest(uri = uri.withPath(Uri.Path("/v1/parties/allocate")), json = json)
+      postJsonRequest(
+        uri = uri.withPath(Uri.Path("/v1/parties/allocate")),
+        json = json,
+        headers = headersWithAdminAuth,
+      )
         .flatMap { case (status, output) =>
           status shouldBe StatusCodes.BadRequest
           inside(decode[domain.ErrorResponse](output)) { case \/-(response) =>
@@ -1943,16 +1968,13 @@ abstract class AbstractHttpServiceIntegrationTest
     (uri, _, _, _, _) =>
       getAllPackageIds(uri).flatMap { okResp =>
         inside(okResp.result.headOption) { case Some(packageId) =>
-          jwtAdminNoParty
-            .flatMap(jwt =>
-              Http()
-                .singleRequest(
-                  HttpRequest(
-                    method = HttpMethods.GET,
-                    uri = uri.withPath(Uri.Path(s"/v1/packages/$packageId")),
-                    headers = authorizationHeader(jwt),
-                  )
-                )
+          Http()
+            .singleRequest(
+              HttpRequest(
+                method = HttpMethods.GET,
+                uri = uri.withPath(Uri.Path(s"/v1/packages/$packageId")),
+                headers = headersWithAdminAuth,
+              )
             )
             .map { resp =>
               resp.status shouldBe StatusCodes.OK
@@ -1968,17 +1990,14 @@ abstract class AbstractHttpServiceIntegrationTest
 
     getAllPackageIds(uri).flatMap { okResp =>
       val existingPackageIds: Set[String] = okResp.result.toSet
-      jwtAdminNoParty
-        .flatMap(jwt =>
-          Http()
-            .singleRequest(
-              HttpRequest(
-                method = HttpMethods.POST,
-                uri = uri.withPath(Uri.Path("/v1/packages")),
-                headers = authorizationHeader(jwt),
-                entity = HttpEntity.fromFile(ContentTypes.`application/octet-stream`, newDar),
-              )
-            )
+      Http()
+        .singleRequest(
+          HttpRequest(
+            method = HttpMethods.POST,
+            uri = uri.withPath(Uri.Path("/v1/packages")),
+            headers = headersWithAdminAuth,
+            entity = HttpEntity.fromFile(ContentTypes.`application/octet-stream`, newDar),
+          )
         )
         .flatMap { resp =>
           resp.status shouldBe StatusCodes.OK
@@ -1999,6 +2018,7 @@ abstract class AbstractHttpServiceIntegrationTest
         staticContentConfig,
         useTls = useTls,
         wsConfig = wsConfig,
+        token = Some(jwtAdminNoParty),
       ) { case (uri, _, _, _) =>
         for {
           alicePartyAndAuthHeaders <- getUniquePartyAndAuthHeaders(uri)("Alice")

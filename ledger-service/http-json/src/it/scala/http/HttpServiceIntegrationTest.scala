@@ -17,7 +17,7 @@ import org.scalatest.{Assertion, BeforeAndAfterAll}
 import scala.concurrent.Future
 
 abstract class HttpServiceIntegrationTest
-    extends AbstractHttpServiceIntegrationTest
+    extends AbstractHttpServiceIntegrationTestTokenIndependent
     with BeforeAndAfterAll {
 
   private val staticContent: String = "static"
