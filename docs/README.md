@@ -60,16 +60,44 @@ If you’re not familiar, it’s really worth reading the [primer](http://www.sp
 - For bullet points (unordered lists), use `-` (dashes).
 - For code blocks, use the `literalinclude` directive if you can: it's best to source code from files that we test whether they compile.
 
+## Updating the table of contents
+
+The table of contents is generated automatically based on the titles
+and `:toctree:` entries in the Rst files. However, the root index
+files `docs/source/index.rst` and `docs/configs/pdf/index.rst` are
+special in two ways:
+
+First, there are different versions for the HTML and the PDF
+docs build. These should be kept in sync with the difference beeing
+that in the HTML guide we hide we use captions on `:toctree:` entries
+and mark them as `:hidden:` because the ToC shows up in the sidebar
+while in the PDF version we use section headers instead of captions
+and do not hide the `:toctree:` entries.
+
+The second the `index.rst` files in the Daml repository are only used
+ for preview in the Daml repository and have no effect on the the
+ published documentation. Instead, we replace them by the
+ [`index_html.rst`](https://github.com/DACH-NY/assembly/blob/main/docs/index/index_html.rst)
+ and
+ [`index_pdf.rst`](https://github.com/DACH-NY/assembly/blob/main/docs/index/index_pdf.rst)
+ files in the assembly repo which combine the documentation from the
+ Daml and the Canton repository. So if you change the root index files
+ in the Daml repository make sure that you apply the same change in
+ the assembly repository.
+
 ## How the docs get built
 
-The docs get built as part of the main `daml` repo CI, to make sure we don't break any links or do anything else that would cause Sphinx warnings.
+The final documentation gets built as part of the `assembly`
+repository but the `daml` repository builds the Daml part of the
+documentation and checks that the sphinx builds passes without
+warnings.
 
 ## Publishing docs
 
 Documentation is published automatically whenever a release is made
-public on Github. Note that there is a delay so you might have to wait
-up to an hour until the docs are published after making a release
-public.
+under `https://docs.daml.com/$version/`.  The documentation at
+`https://docs.daml.com` is updated by an hourly cron job to the latest
+version that has been marked as a non-prerelease on Github.
 
 ## Testing code in docs
 
