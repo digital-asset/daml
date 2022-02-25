@@ -46,7 +46,7 @@ already include such a setup script. Only users that have a primary
 party set will be displayed.
 
 After logging in, you will interact with the ledger as the primary
-party of that user meaning you can see contracts visible to that
+party of that user, meaning that you can see contracts visible to that
 party and submit commands (e.g. create a contract) as that party.
 
 The party you are logged in is not displayed directly. However,
