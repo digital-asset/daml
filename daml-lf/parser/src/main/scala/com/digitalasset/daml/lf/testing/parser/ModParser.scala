@@ -165,7 +165,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
             choices = choices,
             observers = observers,
             key = key,
-            implements = implements,
+            implements = implements.reverse, // we want insertion order here.
           ),
         )
     }

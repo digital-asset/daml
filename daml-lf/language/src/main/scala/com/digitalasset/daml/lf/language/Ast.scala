@@ -5,7 +5,7 @@ package com.daml.lf.language
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import scala.collection.immutable.ListMap
+import scala.collection.immutable.VectorMap
 
 object Ast {
   //
@@ -746,9 +746,9 @@ object Ast {
       choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
       observers: E, // Observers of the contract.
       key: Option[GenTemplateKey[E]],
-      implements: ListMap[TypeConName, GenTemplateImplements[
+      implements: VectorMap[TypeConName, GenTemplateImplements[
         E
-      ]], // We use a ListMap to preserve insertion order. The order of the implements determines the order in which to evaluate interface preconditions.
+      ]], // We use a VectorMap to preserve insertion order. The order of the implements determines the order in which to evaluate interface preconditions.
   ) {
     lazy val inheritedChoices: Map[ChoiceName, TypeConName] =
       implements.flatMap { case (iface, impl) =>
@@ -779,7 +779,7 @@ object Ast {
         ),
         observers = observers,
         key = key,
-        implements = toListMapWithoutDuplicate(
+        implements = toVectorMapWithoutDuplicate(
           implements.map(i => i.interfaceId -> i),
           (ifaceId: TypeConName) =>
             PackageError(s"repeated interface implementation ${ifaceId.toString}"),
@@ -794,7 +794,7 @@ object Ast {
         choices: Map[ChoiceName, GenTemplateChoice[E]],
         observers: E,
         key: Option[GenTemplateKey[E]],
-        implements: ListMap[TypeConName, GenTemplateImplements[E]],
+        implements: VectorMap[TypeConName, GenTemplateImplements[E]],
     ) = GenTemplate(
       param = param,
       precond = precond,
@@ -815,7 +815,7 @@ object Ast {
           Map[ChoiceName, GenTemplateChoice[E]],
           E,
           Option[GenTemplateKey[E]],
-          ListMap[TypeConName, GenTemplateImplements[E]],
+          VectorMap[TypeConName, GenTemplateImplements[E]],
       )
     ] = Some(
       (
@@ -1009,11 +1009,11 @@ object Ast {
         acc.updated(key, value)
     }
 
-  private[this] def toListMapWithoutDuplicate[Key, Value](
+  private[this] def toVectorMapWithoutDuplicate[Key, Value](
       xs: Iterable[(Key, Value)],
       error: Key => PackageError,
-  ): ListMap[Key, Value] =
-    xs.foldRight(ListMap.empty[Key, Value]) { case ((key, value), acc) =>
+  ): VectorMap[Key, Value] =
+    xs.foldRight(VectorMap.empty[Key, Value]) { case ((key, value), acc) =>
       if (acc.contains(key))
         throw error(key)
       else

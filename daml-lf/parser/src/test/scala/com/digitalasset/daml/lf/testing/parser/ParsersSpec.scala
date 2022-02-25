@@ -13,7 +13,7 @@ import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import scala.collection.immutable.ListMap
+import scala.collection.immutable.VectorMap
 
 import scala.language.implicitConversions
 
@@ -635,7 +635,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           ),
           observers = e"Cons @Party [Mod:Person {person} this] (Nil @Party)",
           key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p""")),
-          implements = ListMap(
+          implements = VectorMap(
             human ->
               TemplateImplements(
                 human,
