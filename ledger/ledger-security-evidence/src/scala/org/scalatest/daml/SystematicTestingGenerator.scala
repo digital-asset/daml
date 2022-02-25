@@ -43,20 +43,20 @@ trait TestEntry[T, TS] {
 }
 
 case class SecurityTestEntry(
-                              suiteName: String,
-                              description: String,
-                              tag: SecurityTest,
-                              ignored: Boolean,
-                              suite: Option[SecurityTestSuite],
-                            ) extends TestEntry[SecurityTest, SecurityTestSuite]
+    suiteName: String,
+    description: String,
+    tag: SecurityTest,
+    ignored: Boolean,
+    suite: Option[SecurityTestSuite],
+) extends TestEntry[SecurityTest, SecurityTestSuite]
 
 case class ReliabilityTestEntry(
-                                 suiteName: String,
-                                 description: String,
-                                 tag: ReliabilityTest,
-                                 ignored: Boolean,
-                                 suite: Option[ReliabilityTestSuite],
-                               ) extends TestEntry[ReliabilityTest, ReliabilityTestSuite]
+    suiteName: String,
+    description: String,
+    tag: ReliabilityTest,
+    ignored: Boolean,
+    suite: Option[ReliabilityTestSuite],
+) extends TestEntry[ReliabilityTest, ReliabilityTestSuite]
 
 object SystematicTestingGenerator {
 
@@ -72,9 +72,9 @@ object SystematicTestingGenerator {
     suite.tags.getOrElse(testName, Set()).contains(Suite.IgnoreTagName)
 
   private def testEntries[TT: ClassTag, TS: ClassTag, TE](
-                                                           suites: List[Suite],
-                                                           testEntry: (String, String, TT, Boolean, Option[TS]) => TE,
-                                                         ): List[TE] = {
+      suites: List[Suite],
+      testEntry: (String, String, TT, Boolean, Option[TS]) => TE,
+  ): List[TE] = {
     suites.flatMap { suite =>
       val testSuite = suite match {
         case testSuite: TS => Some(testSuite)
@@ -93,9 +93,12 @@ object SystematicTestingGenerator {
     Some(System.getProperty("java.class.path")).filter(!_.contains("sbt-launch.jar"))
 
   def main(args: Array[String]): Unit = {
-    val cp: Seq[String] = loadIntelliJClasspath().getOrElse(
-      sys.error("Currently I only support this to be run in Intellij")
-    ).split(":").toSeq
+    val cp: Seq[String] = loadIntelliJClasspath()
+      .getOrElse(
+        sys.error("Currently I only support this to be run in Intellij")
+      )
+      .split(":")
+      .toSeq
     println("cp: " + cp.mkString(","))
     val runpathList = cp.toList
     val loader = Runner.getRunpathClassLoader(runpathList)
