@@ -36,7 +36,7 @@ Navigator is included in the SDK. To launch it:
 Logging in
 **********
 
-By default, Navigator shows a drop down with the users that have been
+By default, Navigator shows a drop-down list with the users that have been
 created via the :ref:`user management service <user-service>`. During
 development, it is common to create these users in a
 :ref:`Daml script <script-ledger-initialization>`: that you specify in the
