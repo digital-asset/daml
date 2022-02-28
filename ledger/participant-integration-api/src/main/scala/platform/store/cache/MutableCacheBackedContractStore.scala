@@ -3,8 +3,6 @@
 
 package com.daml.platform.store.cache
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
 import com.daml.lf.data.Time.Timestamp
@@ -331,9 +329,6 @@ private[platform] object MutableCacheBackedContractStore {
   type EventSequentialId = Long
   // Signal externally that the cache has caught up until the provided ledger head offset
   type SignalNewLedgerHead = (Offset, Long) => Unit
-  // Subscribe to the contract state events stream starting at a specific event_offset and event_sequential_id
-  type SubscribeToContractStateEvents =
-    ((Offset, EventSequentialId)) => Source[ContractStateEvent, NotUsed]
 
   def apply(
       contractsReader: LedgerDaoContractsReader,

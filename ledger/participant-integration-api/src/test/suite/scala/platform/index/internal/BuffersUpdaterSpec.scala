@@ -1,21 +1,24 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.index
+package com.daml.platform.index.internal
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueText}
 import com.daml.logging.LoggingContext
-import com.daml.platform.index.BuffersUpdater.SubscribeToTransactionLogUpdates
-import com.daml.platform.index.BuffersUpdaterSpec._
+import com.daml.platform.index.internal.BuffersUpdater.{
+  BuffersIndex,
+  SubscribeToTransactionLogUpdates,
+}
 import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.appendonlydao.events.{Contract, ContractStateEvent, Key, Party}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -32,6 +35,8 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
+import BuffersUpdaterSpec._
+
 final class BuffersUpdaterSpec
     extends AsyncWordSpec
     with Matchers
@@ -40,25 +45,28 @@ final class BuffersUpdaterSpec
   private val actorSystem = ActorSystem("test")
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   private implicit val materializer: Materializer = Materializer(actorSystem)
+  private implicit val resourceContext: ResourceContext = ResourceContext(
+    scala.concurrent.ExecutionContext.global
+  )
 
   override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(2000, Millis)), interval = scaled(Span(50, Millis)))
 
-  private def readLog(): Seq[(Level, String)] = LogCollector.read[this.type, BuffersUpdater]
+  private def readLog(): Seq[(Level, String)] = LogCollector.read[this.type, BuffersUpdater.type]
 
   "event stream consumption" should {
     "populate the in-memory buffers using the transaction log updates subscription" in {
       val contractStateEventMocks = (1 to 3).map(_ => contractStateEventMock())
 
-      withBuffersUpdater(
+      assertWithBuffersUpdater(
         subscribeToTransactionLogUpdates = someUpdatesSourceSubscription,
         toContractStateEvents = Map(someUpdate -> contractStateEventMocks.iterator),
-      ) { (buffersUpdater, transactionsBuffer, contractState) =>
+      ) { (updaterIndex, transactionsBuffer, contractState) =>
         eventually {
           Future {
             transactionsBuffer should contain theSameElementsAs Seq(someOffset -> someUpdate)
             contractState should contain theSameElementsInOrderAs contractStateEventMocks
-            buffersUpdater.updaterIndex.get shouldBe Some(someOffset -> someEventSeqId)
+            updaterIndex.get shouldBe Some(someOffset -> someEventSeqId)
           }
         }
       }
@@ -85,17 +93,17 @@ final class BuffersUpdaterSpec
         case unexpected => fail(s"Unexpected re-subscription point $unexpected")
       }
 
-      withBuffersUpdater(
+      assertWithBuffersUpdater(
         subscribeToTransactionLogUpdates = sourceSubscriptionFixture,
         toContractStateEvents = Map.empty.withDefaultValue(Iterator.empty),
-      ) { (buffersUpdater, transactionsBuffer, _) =>
+      ) { (updaterIndex, transactionsBuffer, _) =>
         eventually {
           Future {
             transactionsBuffer should contain theSameElementsAs updates.map {
               case ((offset, _), update) => offset -> update
             }
 
-            buffersUpdater.updaterIndex.get shouldBe Some(updates.last._1)
+            updaterIndex.get shouldBe Some(updates.last._1)
           }
         }
       }
@@ -105,7 +113,7 @@ final class BuffersUpdaterSpec
       val shutdownCodeCapture = new AtomicInteger(Integer.MIN_VALUE)
       val failure = "Unrecoverable exception"
 
-      withBuffersUpdater(
+      assertWithBuffersUpdater(
         subscribeToTransactionLogUpdates = someUpdatesSourceSubscription,
         toContractStateEvents = { _ => throw new RuntimeException(failure) },
         sysExitWithCode = shutdownCodeCapture.set,
@@ -250,37 +258,35 @@ final class BuffersUpdaterSpec
     val _ = actorSystem.terminate()
   }
 
-  private def withBuffersUpdater(
+  private def assertWithBuffersUpdater(
       subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
       toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent],
       minBackoffStreamRestart: FiniteDuration = 1.millis,
       sysExitWithCode: Int => Unit = _ => fail("should not be triggered"),
   )(
       test: (
-          BuffersUpdater,
+          BuffersIndex,
           mutable.ArrayBuffer[(Offset, TransactionLogUpdate)],
           mutable.ArrayBuffer[ContractStateEvent],
       ) => Future[Assertion]
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
+      resourceContext: ResourceContext,
   ): Future[Assertion] = {
     val transactionsBufferMock = mutable.ArrayBuffer.empty[(Offset, TransactionLogUpdate)]
     val contractStateMock = mutable.ArrayBuffer.empty[ContractStateEvent]
 
-    val buffersUpdater = BuffersUpdater(
-      subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
-      updateTransactionsBuffer = (o, u) => transactionsBufferMock += o -> u,
-      updateMutableCache = contractStateMock += _,
-      toContractStateEvents = toContractStateEvents,
-      minBackoffStreamRestart = minBackoffStreamRestart,
-      sysExitWithCode = sysExitWithCode,
-    )(mat, loggingContext)
-
-    for {
-      _ <- test(buffersUpdater, transactionsBufferMock, contractStateMock)
-      _ <- buffersUpdater.release()
-    } yield succeed
+    BuffersUpdater
+      .owner(
+        subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
+        updateTransactionsBuffer = (o, u) => transactionsBufferMock += o -> u,
+        updateMutableCache = contractStateMock += _,
+        toContractStateEvents = toContractStateEvents,
+        minBackoffStreamRestart = minBackoffStreamRestart,
+        sysExitWithCode = sysExitWithCode,
+      )(mat, loggingContext)
+      .use(test(_, transactionsBufferMock, contractStateMock))
   }
 }
 

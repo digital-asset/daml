@@ -1,18 +1,18 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.index
+package com.daml.platform.index.internal
 
-import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{Materializer, RestartSettings}
+import akka.{Done, NotUsed}
 import com.daml.logging.LoggingContext
-import org.scalatest.{Assertion, BeforeAndAfterAll}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Span}
+import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
@@ -56,7 +56,6 @@ class RestartableManagedStreamSpec
       )
       _ <- restartableManagedSubscription.release()
     } yield succeed
-
   }
 
   it should "restart if the source fails" in {
@@ -128,9 +127,9 @@ class RestartableManagedStreamSpec
       teardown: Int => Unit = _ => fail("should not be triggered"),
   ): RestartableManagedStream[Out] =
     new RestartableManagedStream[Out](
-      streamBuilder = streamBuilder,
-      consumingSink = sinkConsume,
       "test stream",
+      sourceBuilder = streamBuilder,
+      sink = sinkConsume,
       restartSettings = restartSettings,
       teardown = teardown,
     )

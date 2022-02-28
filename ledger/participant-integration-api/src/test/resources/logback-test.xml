@@ -28,7 +28,7 @@
     </logger>
 
     <appender name="BuffersUpdaterLoggerCapture" class="com.daml.platform.testing.LogCollector">
-        <test>com.daml.platform.index.BuffersUpdaterSpec</test>
+        <test>com.daml.platform.index.internal.BuffersUpdaterSpec</test>
     </appender>
 
     <logger name="com.daml.platform.index.BuffersUpdater" level="INFO">

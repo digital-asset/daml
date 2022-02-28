@@ -1,69 +1,25 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.index
+package com.daml.platform.index.internal
 
-import akka.stream._
+import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import akka.{Done, NotUsed}
+import akka.stream.{Materializer, RestartSettings}
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext
-import com.daml.platform.index.BuffersUpdater.SubscribeToTransactionLogUpdates
 import com.daml.platform.store.appendonlydao.events.{Contract, ContractStateEvent, Key, Party}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.Future
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
-
-/** Creates and manages a subscription to a transaction log updates source
-  * (see [[com.daml.platform.store.appendonlydao.LedgerDaoTransactionsReader.getTransactionLogUpdates]]
-  * and uses it for updating:
-  *    * The transactions buffer used for in-memory Ledger API serving.
-  *    * The mutable contract state cache.
-  *
-  * @param subscribeToTransactionLogUpdates Subscribe to the transaction log updates stream starting at a specific
-  *                                         `(Offset, EventSequentialId)`.
-  * @param updateCaches Takes a `(Offset, TransactionLogUpdate)` pair and uses it to update the caches/buffers.
-  * @param minBackoffStreamRestart Minimum back-off before restarting the transaction log updates stream.
-  * @param teardown Triggers a system exit (i.e. `sys.exit`) with a specific exit code.
-  * @param mat The Akka materializer.
-  * @param loggingContext The logging context.
-  */
-private[index] class BuffersUpdater(
-    subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
-    updateCaches: (Offset, TransactionLogUpdate) => Unit,
-    minBackoffStreamRestart: FiniteDuration,
-    teardown: Int => Unit,
-)(implicit
-    mat: Materializer,
-    loggingContext: LoggingContext,
-) extends AbstractRestartableManagedSubscription[((Offset, Long), TransactionLogUpdate)](
-      name = "buffers updater",
-      restartSettings = RestartSettings(
-        minBackoff = minBackoffStreamRestart,
-        maxBackoff = 10.seconds,
-        randomFactor = 0.0,
-      ),
-      teardown = teardown,
-    ) {
-
-  private[index] lazy val updaterIndex: AtomicReference[Option[(Offset, Long)]] =
-    new AtomicReference(None)
-
-  override def streamBuilder: () => Source[((Offset, Long), TransactionLogUpdate), NotUsed] =
-    () => subscribeToTransactionLogUpdates(updaterIndex.get)
-
-  override def consumingSink: Sink[((Offset, Long), TransactionLogUpdate), Future[Done]] =
-    Sink.foreach { case ((offset: Offset, eventSequentialId: Long), update: TransactionLogUpdate) =>
-      updateCaches(offset, update)
-      updaterIndex.set(Some(offset -> eventSequentialId))
-    }
-}
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 private[index] object BuffersUpdater {
   type SubscribeToTransactionLogUpdates =
     Option[(Offset, Long)] => Source[((Offset, Long), TransactionLogUpdate), NotUsed]
+  type BuffersIndex = AtomicReference[Option[(Offset, Long)]]
 
   /** [[BuffersUpdater]] convenience builder.
     *
@@ -78,7 +34,7 @@ private[index] object BuffersUpdater {
     * @param mat The Akka materializer.
     * @param loggingContext The logging context.
     */
-  def apply(
+  def owner(
       subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
       updateTransactionsBuffer: (Offset, TransactionLogUpdate) => Unit,
       updateMutableCache: ContractStateEvent => Unit,
@@ -89,16 +45,31 @@ private[index] object BuffersUpdater {
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
-  ): BuffersUpdater =
-    new BuffersUpdater(
-      subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
-      updateCaches = (offset, transactionLogUpdate) => {
+  ): ResourceOwner[BuffersIndex] = {
+    def updateInternal(
+        updaterIndex: BuffersIndex
+    ): (((Offset, Long), TransactionLogUpdate)) => Unit = {
+      case ((offset, eventSequentialId), transactionLogUpdate) =>
         updateTransactionsBuffer(offset, transactionLogUpdate)
         toContractStateEvents(transactionLogUpdate).foreach(updateMutableCache)
-      },
-      minBackoffStreamRestart = minBackoffStreamRestart,
-      teardown = sysExitWithCode,
-    )(mat, loggingContext)
+        updaterIndex.set(Some(offset -> eventSequentialId))
+    }
+
+    for {
+      updaterIndex <- ResourceOwner.successful(new BuffersIndex(None))
+      _ <- RestartableManagedStream.owner(
+        name = "buffers updater",
+        streamBuilder = () => subscribeToTransactionLogUpdates(updaterIndex.get),
+        restartSettings = RestartSettings(
+          minBackoff = minBackoffStreamRestart,
+          maxBackoff = 10.seconds,
+          randomFactor = 0.0,
+        ),
+        teardown = sysExitWithCode,
+        sink = Sink.foreach(updateInternal(updaterIndex)),
+      )
+    } yield updaterIndex
+  }
 
   private[index] def convertToContractStateEvents(
       tx: TransactionLogUpdate

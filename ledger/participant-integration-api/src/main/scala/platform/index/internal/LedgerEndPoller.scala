@@ -1,11 +1,12 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.index
+package com.daml.platform.index.internal
 
 import akka.NotUsed
-import akka.stream._
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.{Materializer, RestartSettings}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.LedgerReadDao
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -17,14 +18,14 @@ import scala.concurrent.duration._
   * and provides it to a consuming function.
   */
 private[index] object LedgerEndPoller {
-  def apply(
+  def owner(
       ledgerReadDao: LedgerReadDao,
       consume: LedgerEnd => Future[Unit],
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
-  ): RestartableManagedStream[LedgerEnd] =
-    RestartableManagedStream.withAsyncConsumer(
+  ): ResourceOwner[RestartableManagedStream[LedgerEnd]] =
+    RestartableManagedStream.owner(
       name = "ledger end poller",
       streamBuilder = () =>
         Source
@@ -33,7 +34,7 @@ private[index] object LedgerEndPoller {
           .mapAsync(parallelism = 1)(_ => ledgerReadDao.lookupLedgerEnd()),
       restartSettings =
         RestartSettings(minBackoff = 1.second, maxBackoff = 10.seconds, randomFactor = 0.2),
-      consumeAsync = consume,
+      sink = Sink.foreachAsync(1)(consume),
       teardown = System.exit,
     )
 }

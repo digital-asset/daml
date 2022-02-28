@@ -16,6 +16,12 @@ import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
+import com.daml.platform.index.internal.{
+  BuffersUpdater,
+  InstrumentedSignalNewLedgerHead,
+  LedgerEndPoller,
+  MutableContractStateCacheUpdater,
+}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.{BufferedTransactionsReader, LfValueTranslation}
 import com.daml.platform.store.appendonlydao.{
@@ -122,21 +128,18 @@ private[platform] case class IndexServiceBuilder(
       instrumentedSignalNewLedgerHead: InstrumentedSignalNewLedgerHead,
       prefetchingDispatcher: Dispatcher[(Offset, Long)],
   ) =
-    ResourceOwner
-      .forReleasable(() =>
-        LedgerEndPoller(
-          ledgerDao,
-          newLedgerHead =>
-            for {
-              _ <- updatingStringInterningView.update(newLedgerHead.lastStringInterningId)
-            } yield {
-              instrumentedSignalNewLedgerHead.startTimer(newLedgerHead.lastOffset)
-              prefetchingDispatcher.signalNewHead(
-                newLedgerHead.lastOffset -> newLedgerHead.lastEventSeqId
-              )
-            },
-        )
-      )(_.release())
+    LedgerEndPoller.owner(
+      ledgerDao,
+      newLedgerHead =>
+        for {
+          _ <- updatingStringInterningView.update(newLedgerHead.lastStringInterningId)
+        } yield {
+          instrumentedSignalNewLedgerHead.startTimer(newLedgerHead.lastOffset)
+          prefetchingDispatcher.signalNewHead(
+            newLedgerHead.lastOffset -> newLedgerHead.lastEventSeqId
+          )
+        },
+    )
 
   private def buildInstrumentedSignalNewLedgerHead(
       ledgerEndCache: MutableLedgerEndCache,
@@ -208,43 +211,39 @@ private[platform] case class IndexServiceBuilder(
       )(loggingContext, servicesExecutionContext)
 
       for {
-        _ <- ResourceOwner.forReleasable(() =>
-          BuffersUpdater(
-            subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
-              val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
-                maybeOffsetSeqId.getOrElse(startExclusive)
-              logger.info(
-                s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
+        _ <- BuffersUpdater.owner(
+          subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
+            val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
+              maybeOffsetSeqId.getOrElse(startExclusive)
+            logger.info(
+              s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
+            )
+            cacheUpdatesDispatcher
+              .startingAt(
+                subscriptionStartExclusive,
+                RangeSource(
+                  ledgerReadDao.transactionsReader.getTransactionLogUpdates(_, _)
+                ),
               )
-              cacheUpdatesDispatcher
-                .startingAt(
-                  subscriptionStartExclusive,
-                  RangeSource(
-                    ledgerReadDao.transactionsReader.getTransactionLogUpdates(_, _)
-                  ),
-                )
-            },
-            updateTransactionsBuffer = transactionsBuffer.push,
-            updateMutableCache = contractStore.push,
-          )
-        )(_.release())
+          },
+          updateTransactionsBuffer = transactionsBuffer.push,
+          updateMutableCache = contractStore.push,
+        )
       } yield (bufferedTransactionsReader, transactionsBuffer.prune _)
     } else
-      ResourceOwner
-        .forReleasable { () =>
-          MutableContractStateCacheUpdater(
-            contractStore = contractStore,
-            subscribeToContractStateEvents = (cacheIndex: (Offset, Long)) =>
-              cacheUpdatesDispatcher
-                .startingAt(
-                  cacheIndex,
-                  RangeSource(
-                    ledgerReadDao.transactionsReader.getContractStateEvents(_, _)
-                  ),
-                )
-                .map(_._2),
-          )
-        }(_.release())
+      MutableContractStateCacheUpdater
+        .owner(
+          contractStore = contractStore,
+          subscribeToContractStateEvents = (cacheIndex: (Offset, Long)) =>
+            cacheUpdatesDispatcher
+              .startingAt(
+                cacheIndex,
+                RangeSource(
+                  ledgerReadDao.transactionsReader.getContractStateEvents(_, _)
+                ),
+              )
+              .map(_._2),
+        )
         .map(_ => (ledgerReadDao.transactionsReader, PruneBuffersNoOp))
 
   private def dispatcherOffsetSeqIdOwner(

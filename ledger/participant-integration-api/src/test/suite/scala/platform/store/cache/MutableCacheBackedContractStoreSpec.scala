@@ -11,7 +11,7 @@ import akka.stream.{BoundedSourceQueue, Materializer}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MaximumLedgerTime
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
@@ -20,7 +20,8 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.index.MutableContractStateCacheUpdater
+import com.daml.platform.index.internal.MutableContractStateCacheUpdater
+import com.daml.platform.index.internal.MutableContractStateCacheUpdater.SubscribeToContractStateEvents
 import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.appendonlydao.events.ContractStateEvent
 import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
@@ -28,7 +29,6 @@ import com.daml.platform.store.cache.ContractStateValue.{Active, Archived}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
   EventSequentialId,
   SignalNewLedgerHead,
-  SubscribeToContractStateEvents,
 }
 import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec.{ContractsReaderFixture, _}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
@@ -46,8 +46,8 @@ import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.math.BigInt.long2bigInt
 
 class MutableCacheBackedContractStoreSpec
@@ -458,22 +458,13 @@ class MutableCacheBackedContractStoreSpec
       cachesSize,
     )(scala.concurrent.ExecutionContext.global, loggingContext)
 
-    val contractStoreR = ResourceOwner
-      .forReleasable(() =>
-        MutableContractStateCacheUpdater(
-          contractStore = contractStore,
-          subscribeToContractStateEvents = sourceSubscriber,
-          minBackoffStreamRestart = 10.millis,
-        )
-      )(_.release())
-      .acquire()
-      .map(_ => contractStore)
-
-    for {
-      store <- contractStoreR.asFuture
-      _ <- test(store)
-      _ <- contractStoreR.release()
-    } yield succeed
+    MutableContractStateCacheUpdater
+      .owner(
+        contractStore = contractStore,
+        subscribeToContractStateEvents = sourceSubscriber,
+        minBackoffStreamRestart = 10.millis,
+      )
+      .use(_ => test(contractStore))
   }
 }
 
