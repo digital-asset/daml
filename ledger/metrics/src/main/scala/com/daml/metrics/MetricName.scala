@@ -10,7 +10,7 @@ final class MetricName(private val segments: Vector[String]) extends AnyVal {
     new MetricName(segments :+ segment)
 
   override def toString: String =
-    segments.mkString(".")
+    segments.mkString("_")
 }
 
 object MetricName {
