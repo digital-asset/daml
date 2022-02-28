@@ -4,7 +4,7 @@
 package com.daml.lf.validation
 
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{DottedName, ModuleName, Name, ChoiceName, TypeConName}
+import com.daml.lf.data.Ref.{DottedName, ModuleName, Name, ChoiceName, MethodName, TypeConName}
 import com.daml.lf.validation.Util._
 
 sealed trait NamedEntity extends Product with Serializable {
@@ -186,5 +186,33 @@ object NamedEntity {
     override def toString: String = s"NChoiceViaInterface($modName:$tplName:$choiceName, $iface)"
 
     def pretty: String = s"template choice $modName:$tplName:$choiceName (via interface $iface)"
+  }
+
+  final case class NInterfaceChoice(
+      module: NModDef,
+      ifaceName: DottedName,
+      choiceName: ChoiceName
+  ) extends NamedEntity {
+    def modName: ModuleName = module.name
+    val fullyResolvedName: DottedName =
+      module.fullyResolvedName ++ ifaceName.toUpperCase + Name.assertFromString(
+        choiceName.toUpperCase
+      )
+    override def toString: String = s"NInterfaceChoice($modName:$ifaceName:$choiceName)"
+    def pretty: String = s"interface choice $modName:$ifaceName:$choiceName"
+  }
+
+  final case class NInterfaceMethod(
+      module: NModDef,
+      ifaceName: DottedName,
+      methodName: MethodName
+  ) extends NamedEntity {
+    def modName: ModuleName = module.name
+    val fullyResolvedName: DottedName =
+      module.fullyResolvedName ++ ifaceName.toUpperCase + Name.assertFromString(
+        methodName.toUpperCase
+      )
+    override def toString: String = s"NInterfaceMethod($modName:$ifaceName:$methodName)"
+    def pretty: String = s"interface method $modName:$ifaceName:$methodName"
   }
 }
