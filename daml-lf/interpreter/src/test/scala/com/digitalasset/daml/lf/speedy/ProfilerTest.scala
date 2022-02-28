@@ -98,11 +98,23 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
           (true, LfDefRef(id("exp1"))),
           (false, LfDefRef(id("exp1"))),
           (true, CreateDefRef(id("T"))),
+          (true, SignatoriesDefRef(id("T"))),
+          (false, SignatoriesDefRef(id("T"))),
+          (true, ObserversDefRef(id("T"))),
+          (false, ObserversDefRef(id("T"))),
           (false, CreateDefRef(id("T"))),
           (true, ChoiceDefRef(id("T"), c("Ch1"))),
           (true, CreateDefRef(id("T"))),
+          (true, SignatoriesDefRef(id("T"))),
+          (false, SignatoriesDefRef(id("T"))),
+          (true, ObserversDefRef(id("T"))),
+          (false, ObserversDefRef(id("T"))),
           (false, CreateDefRef(id("T"))),
           (true, CreateDefRef(id("T"))),
+          (true, SignatoriesDefRef(id("T"))),
+          (false, SignatoriesDefRef(id("T"))),
+          (true, ObserversDefRef(id("T"))),
+          (false, ObserversDefRef(id("T"))),
           (false, CreateDefRef(id("T"))),
           (false, ChoiceDefRef(id("T"), c("Ch1"))),
         )
@@ -119,3 +131,7 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
     }
   }
 }
+
+/*
+
+ */
