@@ -109,6 +109,7 @@ def install_java_deps():
             "io.opentelemetry:opentelemetry-sdk-trace:1.1.0",
             "io.opentelemetry:opentelemetry-semconv:1.1.0-alpha",
             "io.prometheus:simpleclient:0.15.0",
+            "io.prometheus:simpleclient_caffeine:0.15.0",
             "io.prometheus:simpleclient_dropwizard:0.15.0",
             "io.prometheus:simpleclient_httpserver:0.15.0",
             "io.prometheus:simpleclient_servlet:0.15.0",

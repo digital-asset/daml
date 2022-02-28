@@ -20,7 +20,7 @@ class SurrogateTemplateIdCache(metrics: Metrics, maxEntries: Long) {
   private val underlying = {
     SizedCache.from[String, java.lang.Long](
       SizedCache.Configuration(maxEntries),
-      metrics.daml.HttpJsonApi.surrogateTemplateIdCache,
+      (metrics.daml.HttpJsonApi.surrogateTemplateIdCache, metrics),
     )
   }
 
@@ -44,9 +44,10 @@ class SurrogateTemplateIdCache(metrics: Metrics, maxEntries: Long) {
     underlying.put(key, SurrogateTpId.unwrap(tpId))
   }
 
-  //for testing purposes.
-  import metrics.daml.HttpJsonApi.{surrogateTemplateIdCache => cacheStats}
-  private[http] final def getHitCount = cacheStats.hitCount.getCount
-  private[http] final def getMissCount = cacheStats.missCount.getCount
+  // TODO Prometheus metrics: enable
+//  //for testing purposes.
+//  import metrics.daml.HttpJsonApi.{surrogateTemplateIdCache => cacheStats}
+//  private[http] final def getHitCount = cacheStats.hitCount.getCount
+//  private[http] final def getMissCount = cacheStats.missCount.getCount
 
 }

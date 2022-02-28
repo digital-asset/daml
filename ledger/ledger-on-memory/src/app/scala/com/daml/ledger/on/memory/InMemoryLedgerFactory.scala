@@ -48,7 +48,7 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       timeProvider = InMemoryLedgerWriter.DefaultTimeProvider,
       stateValueCache = caching.WeightedCache.from(
         configuration = config.stateValueCache,
-        metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
+        metrics = (metrics.daml.kvutils.submission.validator.stateValueCache, metrics),
       ),
       dispatcher = dispatcher,
       offsetBuilder = offsetBuilder,

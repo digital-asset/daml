@@ -7,7 +7,7 @@ import com.codahale.metrics.Timer
 import com.daml.error.definitions.IndexErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics._
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.ContractsReader._
 import com.daml.platform.store.backend.ContractStorageBackend
@@ -35,7 +35,7 @@ private[appendonlydao] sealed class ContractsReader(
   override def lookupKeyState(key: Key, validAt: Long)(implicit
       loggingContext: LoggingContext
   ): Future[KeyState] =
-    Timed.future(
+    TimedNative.future(
       metrics.daml.index.db.lookupKey,
       dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
         storageBackend.keyState(key, validAt)
@@ -47,7 +47,7 @@ private[appendonlydao] sealed class ContractsReader(
   ): Future[Option[ContractState]] = {
     implicit val errorLogger: ContextualizedErrorLogger =
       new DamlContextualizedErrorLogger(logger, loggingContext, None)
-    Timed.future(
+    TimedNative.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
@@ -91,7 +91,7 @@ private[appendonlydao] sealed class ContractsReader(
       contractId: ContractId,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] = {
 
-    Timed.future(
+    TimedNative.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
@@ -120,7 +120,7 @@ private[appendonlydao] sealed class ContractsReader(
       createArgument: Value,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] = {
 
-    Timed.future(
+    TimedNative.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(

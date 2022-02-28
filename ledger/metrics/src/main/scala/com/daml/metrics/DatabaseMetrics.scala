@@ -19,3 +19,5 @@ class DatabaseMetrics private[metrics] (
   val commitTimer: Timer = registry.timer(dbPrefix :+ "commit")
   val queryTimer: Timer = registry.timer(dbPrefix :+ "query")
 }
+
+

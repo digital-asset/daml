@@ -39,7 +39,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/interpreter",
+#        "//daml-lf/interpreter",
         "//daml-lf/kv-support",
         "//daml-lf/language",
         "//daml-lf/transaction",

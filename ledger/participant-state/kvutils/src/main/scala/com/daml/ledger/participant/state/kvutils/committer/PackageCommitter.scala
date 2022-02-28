@@ -318,9 +318,10 @@ final private[kvutils] class PackageCommitter(
           .consume(_ => None, packages.get, _ => None)
           .fold(err => List(err.message), _ => List.empty)
       }.toList
-      metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
-        engine.compiledPackages().packageIds.size
-      )
+      // TODO Prometheus metrics: enable
+//      metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
+//        engine.compiledPackages().packageIds.size
+//      )
       Either.cond(
         errors.isEmpty,
         (),

@@ -51,6 +51,7 @@ class CachedUserManagementStore(
           }
         ),
       metrics.daml.userManagement.cache,
+      metrics,
     )
 
   override def getUserInfo(id: UserId)(implicit

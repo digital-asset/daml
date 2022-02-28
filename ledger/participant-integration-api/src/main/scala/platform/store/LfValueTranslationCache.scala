@@ -53,7 +53,7 @@ object LfValueTranslationCache {
     ): EventCache =
       caching.SizedCache.from(
         configuration = configuration,
-        metrics = metrics.daml.index.db.translation.cache,
+        metrics = (metrics.daml.index.db.translation.cache, metrics),
       )
 
     final class UnexpectedTypeException(value: Value)
@@ -96,7 +96,7 @@ object LfValueTranslationCache {
     ): ContractCache =
       caching.SizedCache.from(
         configuration = configuration,
-        metrics = metrics.daml.index.db.translation.cache,
+        metrics = (metrics.daml.index.db.translation.cache, metrics),
       )
 
     final case class Key(contractId: ContractId)

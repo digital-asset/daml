@@ -3,24 +3,22 @@
 
 package com.daml.caching
 
-import com.daml.metrics.CacheMetrics
+import com.daml.metrics.{CacheMetrics, Metrics}
 import com.github.benmanes.caffeine.{cache => caffeine}
 
 import scala.jdk.FutureConverters.CompletionStageOps
-import scala.jdk.OptionConverters.{RichOptional, RichOptionalLong}
 import scala.concurrent.Future
 
 object CaffeineCache {
 
   def apply[Key <: AnyRef, Value <: AnyRef](
       builder: caffeine.Caffeine[_ >: Key, _ >: Value],
-      metrics: Option[CacheMetrics],
+      metrics: Option[(CacheMetrics, Metrics)],
   ): ConcurrentCache[Key, Value] =
     metrics match {
       case None => new SimpleCaffeineCache(builder.build[Key, Value])
-      case Some(metrics) =>
-        builder.recordStats(() => new DropwizardStatsCounter(metrics))
-        new InstrumentedCaffeineCache(builder.build[Key, Value], metrics)
+      case Some((cacheMetrics, metrics)) =>
+        new InstrumentedCaffeineCache(builder.build[Key, Value], cacheMetrics, metrics)
     }
 
   private final class SimpleCaffeineCache[Key <: AnyRef, Value <: AnyRef](
@@ -38,8 +36,9 @@ object CaffeineCache {
   final class AsyncLoadingCaffeineCache[Key <: AnyRef, Value <: AnyRef](
       cache: caffeine.AsyncLoadingCache[Key, Value],
       cacheMetrics: CacheMetrics,
+      metrics: Metrics,
   ) {
-    installMetrics(cacheMetrics, cache.synchronous())
+    installMetrics(cacheMetrics, metrics, cache.synchronous())
 
     def get(key: Key): Future[Value] = cache.get(key).asScala
 
@@ -48,9 +47,10 @@ object CaffeineCache {
 
   private final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef](
       cache: caffeine.Cache[Key, Value],
-      metrics: CacheMetrics,
+      cacheMetrics: CacheMetrics,
+      metrics: Metrics,
   ) extends ConcurrentCache[Key, Value] {
-    installMetrics(metrics, cache)
+    installMetrics(cacheMetrics, metrics, cache)
 
     private val delegate = new SimpleCaffeineCache(cache)
 
@@ -64,14 +64,10 @@ object CaffeineCache {
       delegate.getOrAcquire(key, acquire)
   }
 
-  private def installMetrics[Key <: AnyRef, Value <: AnyRef](
-      metrics: CacheMetrics,
-      cache: caffeine.Cache[Key, Value],
-  ): Unit = {
-    metrics.registerSizeGauge(() => cache.estimatedSize())
-    metrics.registerWeightGauge(() =>
-      cache.policy().eviction().toScala.flatMap(_.weightedSize.toScala).getOrElse(0)
-    )
-  }
-
+  private def installMetrics(
+      cacheMetrics: CacheMetrics,
+      metrics: Metrics,
+      cache: caffeine.Cache[_, _],
+  ): Unit =
+    metrics.registerCaffeineCache(cacheMetrics, cache)
 }

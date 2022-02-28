@@ -47,7 +47,7 @@ object SqlLedgerFactory extends LedgerFactory[ExtraConfig] {
       logEntryIdAllocator = RandomLogEntryIdAllocator,
       stateValueCache = caching.WeightedCache.from(
         configuration = config.stateValueCache,
-        metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
+        metrics = (metrics.daml.kvutils.submission.validator.stateValueCache, metrics),
       ),
     ).map(ledgerReaderWriter =>
       new KeyValueReadWriteFactory(metrics, ledgerReaderWriter, ledgerReaderWriter)

@@ -69,6 +69,7 @@ compile_deps = [
     "//libs-scala/nameof",
     "@maven//:com_google_guava_guava",
     "@maven//:com_zaxxer_HikariCP",
+    "@maven//:io_prometheus_simpleclient",
     "@maven//:io_dropwizard_metrics_metrics_core",
     "@maven//:io_grpc_grpc_context",
     "@maven//:io_grpc_grpc_netty",

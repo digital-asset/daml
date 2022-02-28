@@ -24,6 +24,7 @@ final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
     val basicMetricFamilySamples =
       super.fromSnapshotAndCount(dropwizardName, snapshot, count, factor, helpMessage)
 
+    // TODO Prometheus metrics: add this to summary builder
     val extendedMetrics = basicMetricFamilySamples.samples.asScala ++ List(
       sampleBuilder
         .createSample(

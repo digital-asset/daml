@@ -18,7 +18,7 @@ import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{Metrics, Timed, TimedNative}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
@@ -31,15 +31,15 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]] =
-    Timed.future(metrics.daml.index.db.lookupLedgerId, ledgerDao.lookupLedgerId())
+    TimedNative.future(metrics.daml.index.db.lookupLedgerId, ledgerDao.lookupLedgerId())
 
   override def lookupParticipantId()(implicit
       loggingContext: LoggingContext
   ): Future[Option[ParticipantId]] =
-    Timed.future(metrics.daml.index.db.lookupParticipantId, ledgerDao.lookupParticipantId())
+    TimedNative.future(metrics.daml.index.db.lookupParticipantId, ledgerDao.lookupParticipantId())
 
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerEnd] =
-    Timed.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupLedgerEnd())
+    TimedNative.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupLedgerEnd())
 
   override def transactionsReader: LedgerDaoTransactionsReader = ledgerDao.transactionsReader
 
@@ -48,12 +48,12 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
   override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[PartyDetails]] =
-    Timed.future(metrics.daml.index.db.getParties, ledgerDao.getParties(parties))
+    TimedNative.future(metrics.daml.index.db.getParties, ledgerDao.getParties(parties))
 
   override def listKnownParties()(implicit
       loggingContext: LoggingContext
   ): Future[List[PartyDetails]] =
-    Timed.future(metrics.daml.index.db.listKnownParties, ledgerDao.listKnownParties())
+    TimedNative.future(metrics.daml.index.db.listKnownParties, ledgerDao.listKnownParties())
 
   override def getPartyEntries(
       startExclusive: Offset,
@@ -64,12 +64,12 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
   ): Future[Map[Ref.PackageId, PackageDetails]] =
-    Timed.future(metrics.daml.index.db.listLfPackages, ledgerDao.listLfPackages())
+    TimedNative.future(metrics.daml.index.db.listLfPackages, ledgerDao.listLfPackages())
 
   override def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Archive]] =
-    Timed.future(metrics.daml.index.db.getLfArchive, ledgerDao.getLfArchive(packageId))
+    TimedNative.future(metrics.daml.index.db.getLfArchive, ledgerDao.getLfArchive(packageId))
 
   override def getPackageEntries(
       startExclusive: Offset,
@@ -98,7 +98,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
   override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
-    Timed.future(
+    TimedNative.future(
       metrics.daml.index.db.prune,
       ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
     )
@@ -109,7 +109,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
   )(implicit loggingContext: LoggingContext): Future[ReportData] = {
-    Timed.future(
+    TimedNative.future(
       metrics.daml.index.db.prune,
       ledgerDao.meteringReportData(from, to, applicationId),
     )
@@ -128,7 +128,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       offset: Offset,
       reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    Timed.future(
+    TimedNative.future(
       metrics.daml.index.db.storeRejection,
       ledgerDao.storeRejection(completionInfo, recordTime, offset, reason),
     )
@@ -143,7 +143,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       offset: Offset,
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    Timed.future(
+    TimedNative.future(
       metrics.daml.index.db.storePartyEntry,
       ledgerDao.storePartyEntry(offset, partyEntry),
     )
@@ -155,7 +155,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       configuration: Configuration,
       rejectionReason: Option[String],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    Timed.future(
+    TimedNative.future(
       metrics.daml.index.db.storeConfigurationEntry,
       ledgerDao.storeConfigurationEntry(
         offset,
@@ -171,7 +171,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       packages: List[(Archive, PackageDetails)],
       entry: Option[PackageLedgerEntry],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    Timed.future(
+    TimedNative.future(
       metrics.daml.index.db.storePackageEntry,
       ledgerDao.storePackageEntry(offset, packages, entry),
     )

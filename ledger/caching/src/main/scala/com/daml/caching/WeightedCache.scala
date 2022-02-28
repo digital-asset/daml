@@ -3,7 +3,7 @@
 
 package com.daml.caching
 
-import com.daml.metrics.CacheMetrics
+import com.daml.metrics.{CacheMetrics, Metrics}
 import com.github.benmanes.caffeine.{cache => caffeine}
 
 object WeightedCache {
@@ -15,13 +15,13 @@ object WeightedCache {
 
   def from[Key <: AnyRef: Weight, Value <: AnyRef: Weight](
       configuration: Configuration,
-      metrics: CacheMetrics,
+      metrics: (CacheMetrics, Metrics),
   ): ConcurrentCache[Key, Value] =
     from(configuration, Some(metrics))
 
   private def from[Key <: AnyRef: Weight, Value <: AnyRef: Weight](
-      configuration: Configuration,
-      metrics: Option[CacheMetrics],
+                                                                    configuration: Configuration,
+                                                                    metrics: Option[(CacheMetrics, Metrics)],
   ): ConcurrentCache[Key, Value] =
     configuration match {
       case Configuration(maximumWeight) if maximumWeight <= 0 =>
