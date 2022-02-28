@@ -2,14 +2,10 @@ sdk-version: __VERSION__
 name: __PROJECT_NAME__
 version: 0.1.0
 source: daml
-parties:
-- Alice
-- Bob
-- Charlie
 dependencies:
 - daml-prim
 - daml-stdlib
-- daml-trigger
+- daml-script
 start-navigator: false
 codegen:
   js:

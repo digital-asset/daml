@@ -120,6 +120,8 @@ html_scaled_image_link = False
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'DigitalAssetSDKdoc'
 
+html4_writer = True
+
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -181,6 +183,6 @@ rst_prolog = """
 # Import the Daml lexer
 def setup(sphinx):
     from pygments_daml_lexer import DAMLLexer
-    sphinx.add_lexer("daml", DAMLLexer())
+    sphinx.add_lexer("daml", DAMLLexer)
     from typescript import TypeScriptLexer
-    sphinx.add_lexer("tsx", TypeScriptLexer())
+    sphinx.add_lexer("tsx", TypeScriptLexer)

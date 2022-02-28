@@ -6,7 +6,7 @@ package com.daml.ledger.api.validation
 import java.time.{Duration, Instant}
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
-import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.daml.ledger.api.v1.commands
 import com.daml.ledger.api.v1.commands.Command.Command.{
@@ -28,19 +28,16 @@ import com.daml.platform.server.api.validation.{
   ErrorFactories,
   FieldValidations,
 }
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
 import scala.annotation.nowarn
 
-final class CommandsValidator(
-    ledgerId: LedgerId,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
-) {
+final class CommandsValidator(ledgerId: LedgerId) {
 
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories()
   private val fieldValidations = FieldValidations(errorFactories)
   private val valueValidator = new ValueValidator(errorFactories, fieldValidations)
   private val deduplicationValidator = new DeduplicationPeriodValidator(errorFactories)
@@ -53,7 +50,7 @@ final class CommandsValidator(
       commands: ProtoCommands,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationTime: Option[Duration],
+      maxDeduplicationDuration: Option[Duration],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.Commands] =
@@ -73,13 +70,13 @@ final class CommandsValidator(
         .fromInstant(ledgerEffectiveTime)
         .left
         .map(_ =>
-          invalidArgument(definiteAnswer = Some(false))(
+          invalidArgument(
             s"Can not represent command ledger time $ledgerEffectiveTime as a Daml timestamp"
           )
         )
       deduplicationPeriod <- validateDeduplicationPeriod(
         commands.deduplicationPeriod,
-        maxDeduplicationTime,
+        maxDeduplicationDuration,
       )
     } yield domain.Commands(
       ledgerId = ledgerId,
@@ -114,7 +111,7 @@ final class CommandsValidator(
       case (None, Some(minRel)) => Right(currentTime.plus(DurationConversion.fromProto(minRel)))
       case (Some(_), Some(_)) =>
         Left(
-          invalidArgument(definiteAnswer = Some(false))(
+          invalidArgument(
             "min_ledger_time_abs cannot be specified at the same time as min_ledger_time_rel"
           )
         )
@@ -201,7 +198,7 @@ final class CommandsValidator(
           choiceArgument = validatedChoiceArgument,
         )
       case ProtoEmpty =>
-        Left(missingField("command", definiteAnswer = Some(false)))
+        Left(missingField("command"))
     }
 
   private def validateSubmitters(
@@ -213,7 +210,7 @@ final class CommandsValidator(
       Either.cond(
         effectiveActAs.nonEmpty,
         (),
-        missingField("party or act_as", definiteAnswer = Some(false)),
+        missingField("party or act_as"),
       )
 
     val submitters = effectiveSubmitters(commands)
@@ -238,7 +235,7 @@ final class CommandsValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DeduplicationPeriod] =
     optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
-      Left(missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer = Some(false)))
+      Left(missingLedgerConfig())
     ) { maxDeduplicationDuration =>
       deduplicationPeriod match {
         case commands.Commands.DeduplicationPeriod.Empty =>
@@ -259,7 +256,7 @@ final class CommandsValidator(
             .fold(
               _ =>
                 Left(
-                  nonHexOffset(None)(
+                  nonHexOffset(
                     fieldName = "deduplication_period",
                     offsetValue = offset,
                     message =

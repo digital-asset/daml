@@ -55,6 +55,7 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/contextualized-logging",
     ],
 )
 
@@ -76,8 +77,14 @@ da_scala_binary(
     name = "daml-script-binary",
     main_class = "com.daml.lf.engine.script.ScriptMain",
     resources = glob(["src/main/resources/**/*"]),
+    scala_runtime_deps = [
+        "@maven//:com_typesafe_akka_akka_slf4j",
+    ],
     scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
     deps = [":script-runner-lib"],
 )
 

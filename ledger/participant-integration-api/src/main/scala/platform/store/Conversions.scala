@@ -369,6 +369,11 @@ private[platform] object Conversions {
 
   // Timestamp
 
+  implicit def TimestampParamMeta: ParameterMetaData[Timestamp] = new ParameterMetaData[Timestamp] {
+    val sqlType = "BIGINT"
+    def jdbcType: Int = java.sql.Types.BIGINT
+  }
+
   implicit object TimestampToStatement extends ToStatement[Timestamp] {
     override def set(s: PreparedStatement, index: Int, v: Timestamp): Unit =
       s.setLong(index, v.micros)

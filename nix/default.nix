@@ -1,4 +1,4 @@
-{ system ? builtins.currentSystem
+{ system ? import ./system.nix
 , pkgs ? import ./nixpkgs.nix { inherit system; }
 }:
 
@@ -125,10 +125,10 @@ in rec {
       python3 = python3;
     };
 
-    sphinx-build      = sphinx183;
-    sphinx-quickstart = sphinx183;
+    sphinx-build      = sphinx;
+    sphinx-quickstart = sphinx;
 
-    sphinx183 = bazel_dependencies.sphinx183-exts;
+    sphinx = bazel_dependencies.sphinx-exts;
 
     convert = bazel_dependencies.imagemagick;
 

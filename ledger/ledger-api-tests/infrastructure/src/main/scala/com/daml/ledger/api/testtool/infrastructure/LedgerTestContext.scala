@@ -5,7 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participant,
-  ParticipantAllocation,
+  PartyAllocation,
   Participants,
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
@@ -35,20 +35,22 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
     * )
     * }}}
     *
-    * Each test allocates participants, then deconstructs the result and uses the various ledgers
+    * Each execution of a test case allocates parties on participants,
+    * then deconstructs the result and uses the various participants
     * and parties throughout the test.
     */
-  def allocate(allocation: ParticipantAllocation): Future[Participants] = {
-    val participantAllocations = allocation.partyCounts.map(nextParticipant() -> _)
-    val participantsUnderTest = participantAllocations.map(_._1)
+  def allocateParties(allocation: PartyAllocation): Future[Participants] = {
+    val participantAllocations: Seq[(ParticipantTestContext, Allocation.PartyCount)] =
+      allocation.partyCounts.map(nextParticipant() -> _)
+    val participantsUnderTest: Seq[ParticipantTestContext] = participantAllocations.map(_._1)
     Future
       .sequence(participantAllocations.map {
-        case (participant: ParticipantTestContext, partyCount) =>
+        case (participant: ParticipantTestContext, partyCount: Allocation.PartyCount) =>
           participant
             .preallocateParties(partyCount.count, participantsUnderTest)
             .map(parties => Participant(participant, parties: _*))
       })
-      .map(allocatedParticipants => Participants(allocatedParticipants: _*))
+      .map(participants => Participants(participants: _*))
   }
 
   private[this] def nextParticipant(): ParticipantTestContext =

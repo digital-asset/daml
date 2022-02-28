@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.auth
 
-import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, ServerCall, Status}
@@ -29,16 +28,8 @@ class AuthorizationInterceptorSpec
 
   behavior of s"$className.interceptCall"
 
-  it should "close the ServerCall with a V1 status code on decoding failure" in {
-    testServerCloseError(usesSelfServiceErrorCodes = false) { case (actualStatus, actualMetadata) =>
-      actualStatus.getCode shouldBe Status.Code.INTERNAL
-      actualStatus.getDescription shouldBe "Failed to get claims from request metadata"
-      actualMetadata.keys() shouldBe empty
-    }
-  }
-
   it should "close the ServerCall with a V2 status code on decoding failure" in {
-    testServerCloseError(usesSelfServiceErrorCodes = true) { case (actualStatus, actualMetadata) =>
+    testServerCloseError { case (actualStatus, actualMetadata) =>
       actualStatus.getCode shouldBe Status.Code.INTERNAL
       actualStatus.getDescription shouldBe "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>"
 
@@ -47,9 +38,7 @@ class AuthorizationInterceptorSpec
     }
   }
 
-  private def testServerCloseError(
-      usesSelfServiceErrorCodes: Boolean
-  )(assertRpcStatus: (Status, Metadata) => Assertion) = {
+  private def testServerCloseError(assertRpcStatus: (Status, Metadata) => Assertion) = {
     val authService = mock[AuthService]
     val userManagementService = mock[UserManagementStore]
     val serverCall = mock[ServerCall[Nothing, Nothing]]
@@ -64,13 +53,11 @@ class AuthorizationInterceptorSpec
       ()
     }
 
-    val errorCodesStatusSwitcher = new ErrorCodesVersionSwitcher(usesSelfServiceErrorCodes)
     val authorizationInterceptor =
       AuthorizationInterceptor(
         authService,
         Some(userManagementService),
         global,
-        errorCodesStatusSwitcher,
       )
 
     val statusCaptor = ArgCaptor[Status]

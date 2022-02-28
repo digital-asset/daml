@@ -15,9 +15,7 @@ import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
 
 // Turn a stream of transactions into a stream of completions for a given application and set of parties
-// TODO Restrict the scope of this to com.daml.platform.store.dao when
-// TODO - the in-memory sandbox is gone
-private[platform] object CompletionFromTransaction {
+private[store] object CompletionFromTransaction {
   private val OkStatus = StatusProto.of(Status.Code.OK.value(), "", Seq.empty)
   private val RejectionTransactionId = ""
 

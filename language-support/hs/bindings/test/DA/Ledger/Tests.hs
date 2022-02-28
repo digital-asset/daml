@@ -327,7 +327,7 @@ tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run w
     xs <- getLedgerConfiguration lid
     Just (Right config) <- liftIO $ timeout 1 (takeStream xs)
     let expected = LedgerConfiguration {
-            maxDeduplicationTime = Duration {durationSeconds = 1800, durationNanos = 0}}
+            maxDeduplicationDuration = Duration {durationSeconds = 1800, durationNanos = 0}}
     liftIO $ assertEqual "config" expected config
 
 tUploadDarFileBad :: SandboxTest
@@ -546,9 +546,9 @@ tValueConversion withSandbox = testCase "tValueConversion" $ run withSandbox $ \
 
 tMeteringReport :: SandboxTest
 tMeteringReport withSandbox = testCase "tMeteringReport" $ run withSandbox $ \_ _testId -> do
-    let expected = Timestamp {seconds = 1, nanos = 2}
+    let expected = Timestamp {seconds = 3600, nanos = 0}  -- Must be rounded to hour
     report <- getMeteringReport expected Nothing Nothing
-    let MeteringReport{from=actual} = report
+    let MeteringReport{request=MeteringRequest{from=actual}} = report
     liftIO $ assertEqual "report from date" expected actual
 
 -- Strip the rid,vid,eid tags recusively from record, variant and enum values

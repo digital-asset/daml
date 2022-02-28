@@ -30,11 +30,11 @@ report-licenses: setup
 
 update-graphql-types: setup
 	yarn run apollo client:codegen -c ./apollo.config.js --passthroughCustomScalars --customScalarsPrefix=OpaqueTypes. --outputFlat --target typescript --includes="./src/ui-core/**/*.ts*" ./src/ui-core/src/api/QueriesBody.txt
-	echo "import * as OpaqueTypes from './OpaqueTypes'" > ./src/ui-core/src/api/Queries.ts
+	echo 'import * as OpaqueTypes from "./OpaqueTypes";' > ./src/ui-core/src/api/Queries.ts
 	cat ./src/ui-core/src/api/QueriesBody.txt >> ./src/ui-core/src/api/Queries.ts
 	rm ./src/ui-core/src/api/QueriesBody.txt
 
 	yarn run apollo client:codegen -c ./apollo.config.js --passthroughCustomScalars --customScalarsPrefix=OpaqueTypes. --outputFlat --target typescript --includes="./src/**/*.ts*" --excludes="./src/ui-core/**/*.ts*" ./src/api/QueriesBody.txt
-	echo "import * as OpaqueTypes from '@da/ui-core/lib/api/OpaqueTypes'" > ./src/api/Queries.ts
+	echo 'import * as OpaqueTypes from "@da/ui-core/lib/api/OpaqueTypes";' > ./src/api/Queries.ts
 	cat ./src/api/QueriesBody.txt >> ./src/api/Queries.ts
 	rm ./src/api/QueriesBody.txt

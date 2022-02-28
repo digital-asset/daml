@@ -426,9 +426,9 @@ object SExpr {
   final case class FetchByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class LookupByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ExceptionMessageDefRef(ref: DefinitionRef) extends SDefinitionRef
-  final case class KeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class SignatoriesDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class ToCachedContractDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class InterfacePrecondDefRef(ref: DefinitionRef) extends SDefinitionRef
 
   /** ImplementsDefRef(ref=templateId, ifaceId) points to a function that converts a

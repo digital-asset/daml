@@ -77,8 +77,9 @@ class Component extends React.Component<Props & ApolloProps, Local> {
             onChange={argument => this.setState({ argument })}
             onSubmit={onSubmit}
             error={error}
-            typeProvider={this.paramDataProvider}
+            partyIdProvider={this.paramDataProvider}
             contractIdProvider={this.paramDataProvider}
+            typeProvider={this.paramDataProvider}
           />
         </Content>
       </Wrapper>

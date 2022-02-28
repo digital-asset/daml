@@ -576,6 +576,15 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     "Query",
     fields[GraphQLContext, Unit](
       Field(
+        "parties",
+        ListType(PartyType),
+        arguments = SearchArg :: Nil,
+        resolve = context =>
+          (context.ctx.store ? GetParties(context.arg(SearchArg).getOrElse("")))
+            .mapTo[PartyList]
+            .map(response => Tag.unsubst(response.parties)),
+      ),
+      Field(
         "ledgerTime",
         LedgerTimeType,
         resolve = context =>

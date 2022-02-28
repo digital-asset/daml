@@ -43,8 +43,8 @@ object TriggerRunnerImpl {
       restartConfig: TriggerRestartConfig,
       readAs: Set[Party],
   ) {
-    private[trigger] def withLoggingContext[T](f: LoggingContextOf[Config with Trigger] => T): T =
-      trigger.withLoggingContext.labelled[Config]("triggerId" -> triggerInstance.toString)(f)
+    private[trigger] def withLoggingContext[T]: (LoggingContextOf[Trigger with Config] => T) => T =
+      Trigger.newLoggingContext(trigger.triggerDefinition, party, readAs, Some(triggerInstance))
   }
 
   sealed trait Message

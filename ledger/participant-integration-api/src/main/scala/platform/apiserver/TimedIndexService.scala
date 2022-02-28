@@ -20,7 +20,8 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime, MeteringStore}
+import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
+import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Party}
 import com.daml.lf.data.Time.Timestamp
@@ -213,14 +214,14 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
 
-  override def getTransactionMetering(
+  override def getMeteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
-  )(implicit loggingContext: LoggingContext): Future[Vector[MeteringStore.TransactionMetering]] = {
+  )(implicit loggingContext: LoggingContext): Future[ReportData] = {
     Timed.future(
       metrics.daml.services.index.getTransactionMetering,
-      delegate.getTransactionMetering(from, to, applicationId),
+      delegate.getMeteringReportData(from, to, applicationId),
     )
   }
 }

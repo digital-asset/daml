@@ -9,7 +9,7 @@ import java.nio.ByteBuffer
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.KVOffset._
 
-private[kvutils] final case class KVOffset(offset: Offset) {
+final case class KVOffset(offset: Offset) {
   lazy val (version, highest, middle, lowest) = {
     val stream = new DataInputStream(offset.toInputStream)
     val versionAndHighest = stream.readLong()

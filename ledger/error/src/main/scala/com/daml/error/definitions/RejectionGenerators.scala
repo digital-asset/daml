@@ -168,7 +168,7 @@ class RejectionGenerators(conformanceMode: Boolean) {
         detailMessage: Option[String],
     ): BaseError =
       err match {
-        case Interpretation.Internal(location, message) =>
+        case Interpretation.Internal(location, message, _) =>
           LedgerApiErrors.InternalError.Interpretation(location, message, detailMessage)
         case m @ Interpretation.DamlException(error) =>
           processDamlException(error, m.message, detailMessage)

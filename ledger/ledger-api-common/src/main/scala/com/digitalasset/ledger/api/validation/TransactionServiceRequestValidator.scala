@@ -188,7 +188,7 @@ class TransactionServiceRequestValidator(
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger) =
     transactionFilter.filtersByParty
       .collectFirst { case (party, Filters(Some(inclusive))) =>
-        invalidArgument(None)(
+        invalidArgument(
           s"$party attempted subscription for templates ${inclusive.templateIds.mkString("[", ", ", "]")}. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC."
         )
       }

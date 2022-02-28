@@ -64,26 +64,26 @@
 
 ## Functions
 
-<a name="function-interface-noopimpl-41891"></a>[noopImpl](#function-interface-noopimpl-41891)
+<a name="function-interface-getowner-36980"></a>[getOwner](#function-interface-getowner-36980)
 
-> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-interface-token-10651) =\> t -\> () -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ()
-
-<a name="function-interface-transferimpl-36342"></a>[transferImpl](#function-interface-transferimpl-36342)
-
-> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-interface-token-10651) =\> t -\> [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651))
-
-<a name="function-interface-splitimpl-93694"></a>[splitImpl](#function-interface-splitimpl-93694)
-
-> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-interface-token-10651) =\> t -\> [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651), [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651))
-
-<a name="function-interface-setamount-37812"></a>[setAmount](#function-interface-setamount-37812)
-
-> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-interface-token-10651) =\> t -\> [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) -\> [Token](#type-interface-token-10651)
+> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-interface-token-10651) =\> t -\> [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932)
 
 <a name="function-interface-getamount-416"></a>[getAmount](#function-interface-getamount-416)
 
 > : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-interface-token-10651) =\> t -\> [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
-<a name="function-interface-getowner-36980"></a>[getOwner](#function-interface-getowner-36980)
+<a name="function-interface-setamount-37812"></a>[setAmount](#function-interface-setamount-37812)
 
-> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-interface-token-10651) =\> t -\> [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932)
+> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-interface-token-10651) =\> t -\> [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) -\> [Token](#type-interface-token-10651)
+
+<a name="function-interface-splitimpl-93694"></a>[splitImpl](#function-interface-splitimpl-93694)
+
+> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-interface-token-10651) =\> t -\> [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651), [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651))
+
+<a name="function-interface-transferimpl-36342"></a>[transferImpl](#function-interface-transferimpl-36342)
+
+> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-interface-token-10651) =\> t -\> [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651))
+
+<a name="function-interface-noopimpl-41891"></a>[noopImpl](#function-interface-noopimpl-41891)
+
+> : [Implements](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077) t [Token](#type-interface-token-10651) =\> t -\> () -\> [Update](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072) ()

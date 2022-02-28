@@ -16,6 +16,7 @@ final class GroupContiguousSpec
     with ScalaCheckPropertyChecks
     with ScalaFutures
     with AkkaBeforeAndAfterAll {
+  import TransactionsReader.groupContiguous
 
   behavior of "groupContiguous"
 

@@ -19,6 +19,7 @@ import Control.Lens
 import Control.Monad
 import Data.Either
 import Data.List
+import Data.List.Extra (lower)
 import Data.Maybe
 import qualified Data.SemVer as SemVer
 import qualified Data.Text as T
@@ -37,6 +38,7 @@ import System.FilePath
 import System.IO.Extra
 import System.Process
 import WithPostgres (withPostgres)
+import WithOracle (withOracle)
 import qualified Bazel.Runfiles
 
 import qualified Migration.Divulgence as Divulgence
@@ -50,15 +52,26 @@ data Options = Options
   -- ^ Ordered list of assistant binaries that will be used to run sandbox.
   -- We run through migrations in the order of the list
   , appendOnly :: AppendOnly
+  , databaseType :: DatabaseType
   }
 
 newtype AppendOnly = AppendOnly Bool
+data DatabaseType = Postgres | Oracle
+    deriving (Eq, Ord, Show)
 
 optsParser :: Parser Options
 optsParser = Options
     <$> strOption (long "model-dar")
     <*> many (strArgument mempty)
     <*> fmap AppendOnly (switch (long "append-only"))
+    <*> option (eitherReader databaseTypeReader)(long "database" <> value Postgres)
+
+databaseTypeReader :: String -> Either String DatabaseType
+databaseTypeReader str =
+    case lower str of
+        "postgres" -> Right Postgres
+        "oracle" -> Right Oracle
+        _ -> Left "Unknown database type. Expected postgres or oracle."
 
 main :: IO ()
 main = do
@@ -69,7 +82,11 @@ main = do
     let step = Bazel.Runfiles.rlocation
             runfiles
             ("compatibility" </> "sandbox-migration" </> "migration-step")
-    withPostgres $ \jdbcUrl -> do
+    let withDatabase = case databaseType of
+            Postgres -> withPostgres
+            Oracle -> withOracle
+    withDatabase $ \jdbcUrl -> do
+        hPutStrLn stderr $ T.unpack $ "Using database " <> jdbcUrl
         initialPlatform : _ <- pure platformAssistants
         hPutStrLn stderr "--> Uploading model DAR"
         withSandbox appendOnly initialPlatform jdbcUrl $ \p ->
@@ -127,7 +144,7 @@ withSandbox (AppendOnly appendOnly) assistant jdbcUrl f =
     -- we spin it up directly.
     withSandboxOnX portFile f = do
           let args =
-                  [ "--contract-id-seeding=testing-weak", "--enable-conflict-checking", "--mutable-contract-state-cache"
+                  [ "--contract-id-seeding=testing-weak", "--mutable-contract-state-cache"
                   , "--ledger-id=" <> ledgerid
                   , "--participant=participant-id=sandbox-participant,port=0,port-file=" <> portFile <> ",server-jdbc-url=" <> T.unpack jdbcUrl <> ",ledgerid=" <> ledgerid
                   ]

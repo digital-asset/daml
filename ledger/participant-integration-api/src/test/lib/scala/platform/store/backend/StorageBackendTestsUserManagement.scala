@@ -164,6 +164,19 @@ private[backend] trait StorageBackendTestsUserManagement
     )
   }
 
+  it should "get all users (getUsers) ordered by id using binary collation" in {
+    val user1 = newUniqueUser(userId = "a")
+    val user2 = newUniqueUser(userId = "a!")
+    val user3 = newUniqueUser(userId = "b")
+    val user4 = newUniqueUser(userId = "a_")
+    val user5 = newUniqueUser(userId = "!a")
+    val user6 = newUniqueUser(userId = "_a")
+    val users = Seq(user1, user2, user3, user4, user5, user6)
+    users.foreach(user => executeSql(tested.createUser(user, createdAt = zeroMicros)))
+    executeSql(tested.getUsersOrderedById(fromExcl = None, maxResults = 10))
+      .map(_.id) shouldBe Seq("!a", "_a", "a", "a!", "a_", "b")
+  }
+
   it should "get a page of users (getUsers) ordered by id" in {
     val user1 = newUniqueUser(userId = "user_id_1")
     val user2 = newUniqueUser(userId = "user_id_2")

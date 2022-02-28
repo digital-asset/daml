@@ -40,7 +40,6 @@ final case class Config[Extra](
     configurationLoadTimeout: Duration,
     commandConfig: CommandConfiguration,
     enableInMemoryFanOutForLedgerApi: Boolean,
-    enableSelfServiceErrorCodes: Boolean,
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
     extra: Extra,
@@ -87,7 +86,6 @@ object Config {
       configurationLoadTimeout = Duration.ofSeconds(10),
       commandConfig = CommandConfiguration.default,
       enableInMemoryFanOutForLedgerApi = false,
-      enableSelfServiceErrorCodes = true,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
       extra = extra,
@@ -620,7 +618,7 @@ object Config {
           .text("Legacy flag with no effect")
           .action((_, config) => config)
 
-        opt[Unit]("buffered-ledger-api-streams-unsafe")
+        opt[Unit]("buffered-ledger-api-streams")
           .optional()
           .hidden()
           .text(
@@ -667,6 +665,15 @@ object Config {
           .action((value, config: Config[Extra]) =>
             config.withUserManagementConfig(_.copy(maxUsersPageSize = value))
           )
+        checkConfig(c => {
+          val v = c.userManagementConfig.maxUsersPageSize
+          if (v == 0 || v >= 100) {
+            success
+          } else {
+            failure(s"max-users-page-size must be either 0 or greater than 99, was: $v")
+          }
+        })
+
         opt[Unit]('s', "static-time")
           .optional()
           .hidden() // Only available for testing purposes

@@ -17,6 +17,7 @@ import java.nio.file.Files
 
 import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackages}
 import com.daml.lf.validation.Validation
+import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
@@ -97,7 +98,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
+  )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
     preprocessor
       .preprocessCommands(cmds.commands)
@@ -148,7 +149,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] =
+  )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       speedyCommand <- preprocessor.preprocessCommand(command)
       sexpr <- runCompilerSafely(
@@ -174,7 +175,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] =
+  )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       commands <- preprocessor.translateTransactionRoots(tx)
       result <- interpretCommands(
@@ -210,7 +211,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
-  ): Result[Unit] = {
+  )(implicit loggingContext: LoggingContext): Result[Unit] = {
     //reinterpret
     for {
       result <- replay(
@@ -255,10 +256,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           Error.Preprocessing.Internal(
             funcName,
             s"CompilationError: " + LookupError.MissingPackage.pretty(pkgId, context),
+            None,
           )
         )
-      case speedy.Compiler.CompilationError(error) =>
-        ResultError(Error.Preprocessing.Internal(funcName, s"CompilationError: $error"))
+      case err @ speedy.Compiler.CompilationError(msg) =>
+        ResultError(Error.Preprocessing.Internal(funcName, s"CompilationError: $msg", Some(err)))
     }
 
   // command-list compilation, followed by interpretation
@@ -270,7 +272,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] =
+  )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
@@ -303,7 +305,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
+  )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val machine = Machine(
       compiledPackages = compiledPackages,
       submissionTime = submissionTime,
@@ -336,8 +338,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           err match {
             case SError.SErrorDamlException(error) =>
               return ResultError(Error.Interpretation.DamlException(error), detailMsg)
-            case SError.SErrorCrash(where, reason) =>
-              return ResultError(Error.Interpretation.Internal(where, reason))
+            case err @ SError.SErrorCrash(where, reason) =>
+              return ResultError(Error.Interpretation.Internal(where, reason, Some(err)))
           }
         case SResultNeedPackage(pkgId, context, callback) =>
           return Result.needPackage(
@@ -378,6 +380,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             Error.Interpretation.Internal(
               NameOf.qualifiedNameOfCurrentFunc,
               s"unexpected ${err.getClass.getSimpleName}",
+              None,
             )
           )
       }
@@ -404,6 +407,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           Error.Interpretation.Internal(
             NameOf.qualifiedNameOfCurrentFunc,
             s"Interpretation error: ended with partial result: $ptx",
+            None,
           )
         )
     }

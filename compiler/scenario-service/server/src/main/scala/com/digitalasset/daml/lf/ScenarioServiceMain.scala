@@ -11,13 +11,13 @@ import java.util.logging.{Level, Logger}
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.traverse._
-
 import com.daml.lf.archive
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.scenario.api.v1.{Map => _, _}
+import com.daml.logging.LoggingContext
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.netty.NettyServerBuilder
@@ -75,36 +75,37 @@ object ScenarioServiceMain extends App {
         new AkkaExecutionSequencerPool("ScriptServicePool")(system)
       implicit val materializer: Materializer = Materializer(system)
       implicit val ec: ExecutionContext = system.dispatcher
+      LoggingContext.newLoggingContext { implicit lc: LoggingContext =>
+        val server =
+          NettyServerBuilder
+            .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
+            .addService(new ScenarioService(config.enableScenarios))
+            .maxInboundMessageSize(config.maxInboundMessageSize)
+            .build
+        server.start()
+        // Print the allocated port for the client
+        println("PORT=" + server.getPort.toString)
 
-      val server =
-        NettyServerBuilder
-          .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
-          .addService(new ScenarioService(config.enableScenarios))
-          .maxInboundMessageSize(config.maxInboundMessageSize)
-          .build
-      server.start()
-      // Print the allocated port for the client
-      println("PORT=" + server.getPort.toString)
+        // Bump up the log level
+        Logger.getLogger("io.grpc").setLevel(Level.ALL)
 
-      // Bump up the log level
-      Logger.getLogger("io.grpc").setLevel(Level.ALL)
+        // Start a thread to watch stdin and terminate
+        // if it closes. This makes sure we do not leave
+        // this process running if the parent exits.
+        new Thread(new Runnable {
+          def run(): Unit = {
+            while (System.in.read >= 0) {}
+            System.err.println("ScenarioService: stdin closed, terminating server.")
+            server.shutdown()
+            system.terminate()
+            ()
+          }
+        }).start()
 
-      // Start a thread to watch stdin and terminate
-      // if it closes. This makes sure we do not leave
-      // this process running if the parent exits.
-      new Thread(new Runnable {
-        def run(): Unit = {
-          while (System.in.read >= 0) {}
-          System.err.println("ScenarioService: stdin closed, terminating server.")
-          server.shutdown()
-          system.terminate()
-          ()
-        }
-      }).start()
+        println("Server started.")
+        server.awaitTermination()
 
-      println("Server started.")
-      server.awaitTermination()
-
+      }
   }
 }
 
@@ -119,6 +120,7 @@ class ScenarioService(
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     mat: Materializer,
+    lc: LoggingContext,
 ) extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
   import ScenarioService._

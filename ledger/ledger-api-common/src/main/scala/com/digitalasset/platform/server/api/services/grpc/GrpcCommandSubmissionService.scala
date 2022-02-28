@@ -3,7 +3,7 @@
 
 package com.daml.platform.server.api.services.grpc
 
-import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
@@ -32,10 +32,9 @@ class GrpcCommandSubmissionService(
     ledgerId: LedgerId,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
-    maxDeduplicationTime: () => Option[Duration],
+    maxDeduplicationDuration: () => Option[Duration],
     submissionIdGenerator: SubmissionIdGenerator,
     metrics: Metrics,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ApiCommandSubmissionService
     with ProxyCloseable
@@ -43,8 +42,8 @@ class GrpcCommandSubmissionService(
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private val validator = new SubmitRequestValidator(
-    new CommandsValidator(ledgerId, errorCodesVersionSwitcher),
-    FieldValidations(ErrorFactories(errorCodesVersionSwitcher)),
+    new CommandsValidator(ledgerId),
+    FieldValidations(ErrorFactories()),
   )
 
   override def submit(request: ApiSubmitRequest): Future[Empty] = {
@@ -72,7 +71,7 @@ class GrpcCommandSubmissionService(
             requestWithSubmissionId,
             currentLedgerTime(),
             currentUtcTime(),
-            maxDeduplicationTime(),
+            maxDeduplicationDuration(),
           )(errorLogger),
         )
         .fold(

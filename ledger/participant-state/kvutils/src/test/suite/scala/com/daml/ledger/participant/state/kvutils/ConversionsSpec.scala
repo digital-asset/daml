@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.error.{DamlContextualizedErrorLogger, ErrorResource, ValueSwitch}
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorResource}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.kvutils.Conversions._
@@ -17,13 +17,7 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlSubmitterInfo,
   DamlTransactionBlindingInfo,
   DamlTransactionRejectionEntry,
-  Disputed,
   Duplicate,
-  Inconsistent,
-  InvalidLedgerTime,
-  PartyNotKnownOnLedger,
-  ResourcesExhausted,
-  SubmitterCannotActViaParticipant,
 }
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.lf.crypto
@@ -38,8 +32,6 @@ import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, Tra
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueOuterClass
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.protobuf.{TextFormat, Timestamp}
 import com.google.rpc.error_details.{ErrorInfo, ResourceInfo}
 import io.grpc.Status.Code
 import org.scalatest.OptionValues
@@ -50,7 +42,6 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.time.Duration
 import scala.annotation.nowarn
 import scala.collection.immutable.{ListMap, ListSet}
-import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 @nowarn("msg=deprecated")
@@ -124,113 +115,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
     "encode/decode rejections" should {
 
       val submitterInfo = DamlSubmitterInfo.newBuilder().build()
-      val now = LfTimestamp.now()
-
-      "convert rejection to proto models and back to expected grpc v1 code" in {
-        forAll(
-          Table[Rejection, Code, Map[String, String]](
-            ("Rejection", "Expected Code", "Expected Additional Details"),
-            (
-              Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
-              Code.INVALID_ARGUMENT,
-              Map.empty,
-            ),
-            (
-              Rejection.InternallyInconsistentTransaction.InconsistentKeys,
-              Code.INVALID_ARGUMENT,
-              Map.empty,
-            ),
-            (
-              Rejection.InternallyInconsistentTransaction.DuplicateKeys,
-              Code.INVALID_ARGUMENT,
-              Map.empty,
-            ),
-            (
-              Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
-              Code.ABORTED,
-              Map.empty,
-            ),
-            (
-              Rejection.ExternallyInconsistentTransaction.InconsistentKeys,
-              Code.ABORTED,
-              Map.empty,
-            ),
-            (
-              Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
-              Code.ABORTED,
-              Map.empty,
-            ),
-            (
-              Rejection.MissingInputState(DamlStateKey.getDefaultInstance),
-              Code.ABORTED,
-              Map.empty,
-            ),
-            (
-              Rejection.InvalidParticipantState(Err.InternalError("error")),
-              Code.INVALID_ARGUMENT,
-              Map.empty,
-            ),
-            (
-              Rejection.InvalidParticipantState(
-                Err.ArchiveDecodingFailed(Ref.PackageId.assertFromString("id"), "reason")
-              ),
-              Code.INVALID_ARGUMENT,
-              Map("package_id" -> "id"),
-            ),
-            (
-              Rejection.InvalidParticipantState(Err.MissingDivulgedContractInstance("id")),
-              Code.INVALID_ARGUMENT,
-              Map("contract_id" -> "id"),
-            ),
-            (
-              Rejection.RecordTimeOutOfRange(LfTimestamp.Epoch, LfTimestamp.Epoch),
-              Code.ABORTED,
-              Map(
-                "minimum_record_time" -> LfTimestamp.Epoch.toString,
-                "maximum_record_time" -> LfTimestamp.Epoch.toString,
-              ),
-            ),
-            (
-              Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
-              Code.ABORTED,
-              Map.empty,
-            ),
-            (
-              Rejection.CausalMonotonicityViolated,
-              Code.ABORTED,
-              Map.empty,
-            ),
-            (
-              Rejection.PartiesNotKnownOnLedger(Seq.empty),
-              Code.INVALID_ARGUMENT,
-              Map.empty,
-            ),
-            (
-              Rejection.MissingInputState(partyStateKey("party")),
-              Code.ABORTED,
-              Map("key" -> "party: \"party\"\n"),
-            ),
-            (
-              Rejection.SubmittingPartyNotKnownOnLedger(party0),
-              Code.INVALID_ARGUMENT,
-              Map("submitter_party" -> party0),
-            ),
-            (
-              Rejection.PartiesNotKnownOnLedger(Iterable(party0, party1)),
-              Code.INVALID_ARGUMENT,
-              Map("parties" -> s"""[\"$party0\",\"$party1\"]"""),
-            ),
-          )
-        ) { (rejection, expectedCode, expectedAdditionalDetails) =>
-          checkErrors(
-            v1ErrorSwitch,
-            submitterInfo,
-            rejection,
-            expectedCode,
-            expectedAdditionalDetails,
-          )
-        }
-      }
 
       "convert rejection to proto models and back to expected grpc v2 code" in {
         forAll(
@@ -242,7 +126,9 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               "Expected Resources",
             ),
             (
-              Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
+              Rejection.ValidationFailure(
+                Error.Package(Error.Package.Internal("ERROR", "ERROR", None))
+              ),
               Code.FAILED_PRECONDITION,
               Map.empty,
               Map.empty,
@@ -357,141 +243,12 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           )
         ) { (rejection, expectedCode, expectedAdditionalDetails, expectedResources) =>
           checkErrors(
-            v2ErrorSwitch,
             submitterInfo,
             rejection,
             expectedCode,
             expectedAdditionalDetails,
             expectedResources,
           )
-        }
-      }
-
-      "produce metadata that can be easily parsed" in {
-        forAll(
-          Table[Rejection, String, String => Any, Any](
-            ("rejection", "metadata key", "metadata parser", "expected parsed metadata"),
-            (
-              Rejection.MissingInputState(partyStateKey("party")),
-              "key",
-              TextFormat.parse(_, classOf[DamlStateKey]),
-              partyStateKey("party"),
-            ),
-            (
-              Rejection.RecordTimeOutOfRange(LfTimestamp.Epoch, LfTimestamp.Epoch),
-              "minimum_record_time",
-              LfTimestamp.assertFromString,
-              LfTimestamp.Epoch,
-            ),
-            (
-              Rejection.RecordTimeOutOfRange(LfTimestamp.Epoch, LfTimestamp.Epoch),
-              "maximum_record_time",
-              LfTimestamp.assertFromString,
-              LfTimestamp.Epoch,
-            ),
-            (
-              Rejection.PartiesNotKnownOnLedger(Iterable(party0, party1)),
-              "parties",
-              jsonString => {
-                val objectMapper = new ObjectMapper
-                objectMapper.readValue(jsonString, classOf[java.util.List[_]]).asScala
-              },
-              mutable.Buffer(party0, party1),
-            ),
-          )
-        ) { (rejection, metadataKey, metadataParser, expectedParsedMetadata) =>
-          val encodedEntry = Conversions
-            .encodeTransactionRejectionEntry(
-              submitterInfo,
-              rejection,
-            )
-            .build()
-          val finalReason = Conversions
-            .decodeTransactionRejectionEntry(encodedEntry, v1ErrorSwitch)
-          finalReason.definiteAnswer shouldBe false
-          val actualDetails = finalReasonDetails(finalReason).toMap
-          metadataParser(actualDetails(metadataKey)) shouldBe expectedParsedMetadata
-        }
-      }
-
-      "convert v1 rejections" should {
-
-        "handle with expected status codes" in {
-          forAll(
-            Table[
-              DamlTransactionRejectionEntry.Builder => DamlTransactionRejectionEntry.Builder,
-              Code,
-              Map[String, String],
-            ](
-              ("rejection builder", "code", "expected additional details"),
-              (
-                _.setInconsistent(Inconsistent.newBuilder()),
-                Code.ABORTED,
-                Map.empty,
-              ),
-              (
-                _.setDisputed(Disputed.newBuilder()),
-                Code.INVALID_ARGUMENT,
-                Map.empty,
-              ),
-              (
-                _.setResourcesExhausted(ResourcesExhausted.newBuilder()),
-                Code.ABORTED,
-                Map.empty,
-              ),
-              (
-                _.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder()),
-                Code.INVALID_ARGUMENT,
-                Map.empty,
-              ),
-              (
-                _.setDuplicateCommand(Duplicate.newBuilder().setSubmissionId("not_used")),
-                Code.ALREADY_EXISTS,
-                Map(),
-              ),
-              (
-                _.setSubmitterCannotActViaParticipant(
-                  SubmitterCannotActViaParticipant
-                    .newBuilder()
-                    .setSubmitterParty("party")
-                    .setParticipantId("id")
-                ),
-                Code.PERMISSION_DENIED,
-                Map(
-                  "submitter_party" -> "party",
-                  "participant_id" -> "id",
-                ),
-              ),
-              (
-                _.setInvalidLedgerTime(
-                  InvalidLedgerTime
-                    .newBuilder()
-                    .setLowerBound(Timestamp.newBuilder().setSeconds(1L))
-                    .setLedgerTime(Timestamp.newBuilder().setSeconds(2L))
-                    .setUpperBound(Timestamp.newBuilder().setSeconds(3L))
-                ),
-                Code.ABORTED,
-                Map(
-                  "lower_bound" -> "seconds: 1\n",
-                  "ledger_time" -> "seconds: 2\n",
-                  "upper_bound" -> "seconds: 3\n",
-                ),
-              ),
-            )
-          ) { (rejectionBuilder, code, expectedAdditionalDetails) =>
-            {
-              val finalReason = Conversions
-                .decodeTransactionRejectionEntry(
-                  rejectionBuilder(DamlTransactionRejectionEntry.newBuilder())
-                    .build(),
-                  v1ErrorSwitch,
-                )
-              finalReason.code shouldBe code.value()
-              finalReason.definiteAnswer shouldBe false
-              val actualDetails = finalReasonDetails(finalReason)
-              actualDetails should contain allElementsOf expectedAdditionalDetails
-            }
-          }
         }
       }
     }
@@ -502,8 +259,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           DamlTransactionRejectionEntry
             .newBuilder()
             .setDuplicateCommand(Duplicate.newBuilder().setSubmissionId("submissionId"))
-            .build(),
-          v2ErrorSwitch,
+            .build()
         )
       finalReason.code shouldBe Code.ALREADY_EXISTS.value()
       finalReason.definiteAnswer shouldBe false
@@ -666,12 +422,11 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
   }
 
   private def checkErrors(
-      errorVersionSwitch: ValueSwitch,
       submitterInfo: DamlSubmitterInfo,
       rejection: Rejection,
       expectedCode: Code,
       expectedAdditionalDetails: Map[String, String],
-      expectedResources: Map[ErrorResource, String] = Map.empty,
+      expectedResources: Map[ErrorResource, String],
   ) = {
     val encodedEntry = Conversions
       .encodeTransactionRejectionEntry(
@@ -680,7 +435,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       )
       .build()
     val finalReason = Conversions
-      .decodeTransactionRejectionEntry(encodedEntry, errorVersionSwitch)
+      .decodeTransactionRejectionEntry(encodedEntry)
     finalReason.code shouldBe expectedCode.value()
     finalReason.definiteAnswer shouldBe false
     val actualDetails = finalReasonDetails(finalReason)
@@ -753,9 +508,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
         ).asJava
       )
       .build
-
-  private lazy val v1ErrorSwitch = new ValueSwitch(enableSelfServiceErrorCodes = false)
-  private lazy val v2ErrorSwitch = new ValueSwitch(enableSelfServiceErrorCodes = true)
 
   private[this] val txVersion = TransactionVersion.StableVersions.max
 

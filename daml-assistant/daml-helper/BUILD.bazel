@@ -44,6 +44,7 @@ da_haskell_library(
         "vector",
         "yaml",
         "aeson-pretty",
+        "time",
     ],
     visibility = ["//visibility:public"],
     deps = [

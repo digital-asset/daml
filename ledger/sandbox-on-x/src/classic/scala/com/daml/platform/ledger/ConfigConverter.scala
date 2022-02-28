@@ -67,7 +67,6 @@ object ConfigConverter {
       configurationLoadTimeout = sandboxConfig.configurationLoadTimeout,
       commandConfig = sandboxConfig.commandConfig,
       enableInMemoryFanOutForLedgerApi = false,
-      enableSelfServiceErrorCodes = sandboxConfig.enableSelfServiceErrorCodes,
       eventsPageSize = sandboxConfig.eventsPageSize,
       eventsProcessingParallelism = sandboxConfig.eventsProcessingParallelism,
       extra = extraBridgeConfig,

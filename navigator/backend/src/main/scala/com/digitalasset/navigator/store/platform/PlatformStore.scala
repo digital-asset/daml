@@ -258,6 +258,13 @@ class PlatformStore(
     case ExerciseChoice(party, contractId, choiceId, value) =>
       exerciseChoice(state.time.time.getCurrentTime, party, contractId, choiceId, value, sender())
 
+    case GetParties(search) =>
+      val lowerCaseSearch = search.toLowerCase
+      val result = state.parties.values.view.collect {
+        case party if party.name.unwrap.toLowerCase.contains(lowerCaseSearch) => party.name
+      }
+      sender() ! PartyList(result.toList)
+
     case ReportCurrentTime =>
       sender() ! Success(state.time)
 

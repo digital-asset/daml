@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Manually installing the SDK
+Manually Installing the SDK
 ***************************
 
 If you require a higher level of security, you can instead install the Daml SDK by manually downloading the compressed tarball, verifying its signature, extracting it and manually running the install script.
@@ -11,7 +11,7 @@ Note that the Windows installer is already signed (within the binary itself), an
 To do that:
 
 1. Go to https://github.com/digital-asset/daml/releases. Confirm your browser sees a valid certificate for the github.com domain.
-2. Download the artifact (*Assets* section, after the release notes) for your platform as well as the corresponding signature file. For example, if you are on macOS and want to install the latest release (1.4.0 at the time of writing), you would download the files ``daml-sdk-1.4.0-macos.tar.gz`` and ``daml-sdk-1.4.0-macos.tar.gz.asc``. Note that for Windows you can choose between the tarball (ends in ``.tar.gz``), which follows the same instructions as the Linux and macOS ones (but assumes you have a number of typical Unix tools installed), or the installer, which ends with ``.exe``. Regardless, the steps to verify the signature are the same.
+2. Download the artifact (*Assets* section, after the release notes) for your platform as well as the corresponding signature file. For example, if you are on macOS and want to install the latest release (2.0.0 at the time of writing), you would download the files ``daml-sdk-2.0.0-macos.tar.gz`` and ``daml-sdk-2.0.0-macos.tar.gz.asc``. Note that for Windows you can choose between the tarball (ends in ``.tar.gz``), which follows the same instructions as the Linux and macOS ones (but assumes you have a number of typical Unix tools installed), or the installer, which ends with ``.exe``. Regardless, the steps to verify the signature are the same.
 3. To verify the signature, you need to have ``gpg`` installed (see
    https://gnupg.org for more information on that) and the Digital Asset
    Security Public Key imported into your keychain. Once you have ``gpg``
@@ -27,13 +27,13 @@ To do that:
    Alternatively, if keyservers do not work for you (we are having a bit of
    trouble getting them to work reliably for us), you can find the full public
    key at the bottom of this page.
-4. Once the key is imported, you can ask ``gpg`` to verify that the file you have downloaded has indeed been signed by that key. Continuing with our example of 1.4.0 on macOS, you should have both files in the current directory and run::
+4. Once the key is imported, you can ask ``gpg`` to verify that the file you have downloaded has indeed been signed by that key. Continuing with our example of 2.0.0 on macOS, you should have both files in the current directory and run::
 
-     gpg --verify daml-sdk-1.4.0-macos.tar.gz.asc
+     gpg --verify daml-sdk-2.0.0-macos.tar.gz.asc
 
    and that should give you a result that looks like::
 
-     gpg: assuming signed data in 'daml-sdk-1.4.0-macos.tar.gz'
+     gpg: assuming signed data in 'daml-sdk-2.0.0-macos.tar.gz'
      gpg: Signature made Wed Aug 12 13:30:49 2020 CEST
      gpg:                using RSA key E8372C0C1C734C51
      gpg: Good signature from "Digital Asset Holdings, LLC <security@digitalasset.com>" [unknown]
@@ -45,8 +45,8 @@ To do that:
 
 5. The next step is to extract the tarball and run the install script (unless you chose the Windows installer, in which case the next step is to double-click it)::
 
-     tar xzf daml-sdk-1.4.0-macos.tar.gz
-     cd sdk-1.4.0
+     tar xzf daml-sdk-2.0.0-macos.tar.gz
+     cd sdk-2.0.0
      ./install.sh
 
 6. Just like for the more automated install procedure, you may want to add ``~/.daml/bin`` to your ``$PATH``.
@@ -89,4 +89,5 @@ copy-paste the following Bash command::
     =pVlb
     -----END PGP PUBLIC KEY BLOCK-----
     EOF
+    
     )

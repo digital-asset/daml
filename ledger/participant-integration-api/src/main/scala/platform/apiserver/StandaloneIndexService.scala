@@ -58,7 +58,6 @@ object StandaloneIndexService {
     }
 
     def loadDamlPackages(): InMemoryPackageStore = {
-      // TODO is it sensible to have all the initial packages to be known since the epoch?
       config.archiveFiles
         .foldLeft[Either[(String, File), InMemoryPackageStore]](Right(InMemoryPackageStore.empty)) {
           case (storeE, f) =>
@@ -92,7 +91,6 @@ object StandaloneIndexService {
           maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
           maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
           enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
-          enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
     } yield indexService

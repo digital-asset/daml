@@ -47,7 +47,7 @@ class StoreBackedCommandExecutorSpec
           any[com.daml.lf.command.Commands],
           any[ParticipantId],
           any[Hash],
-        )
+        )(any[LoggingContext])
       )
         .thenReturn(
           ResultDone[(SubmittedTransaction, Transaction.Metadata)](
@@ -79,7 +79,7 @@ class StoreBackedCommandExecutorSpec
           minSkew = Duration.ZERO,
           maxSkew = Duration.ZERO,
         ).get,
-        maxDeduplicationTime = Duration.ZERO,
+        maxDeduplicationDuration = Duration.ZERO,
       )
 
       val instance = new StoreBackedCommandExecutor(

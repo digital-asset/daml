@@ -17,14 +17,14 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHC_LIB_REV = "9508f965c77d227713b257a2786f52b8"
-GHC_LIB_SHA256 = "a2b846683769f5a4fde8aab0d3238c169225ab4357d7cfdfaaf96671e29d3c9c"
+GHC_LIB_REV = "00c5083b2ce26066cad19364d6d0c1fe"
+GHC_LIB_SHA256 = "6d6a92aa0de6287f33a2947951a3dd6b448d85f866afb7ae42602d8264f3791e"
 GHC_LIB_VERSION = "8.8.1"
-GHC_LIB_PARSER_REV = "9508f965c77d227713b257a2786f52b8"
-GHC_LIB_PARSER_SHA256 = "e1d29dcf3c579c7d81fc0fb2fc386987a69e0d2db40c44835140b7b8bcecbb60"
+GHC_LIB_PARSER_REV = "00c5083b2ce26066cad19364d6d0c1fe"
+GHC_LIB_PARSER_SHA256 = "515cddda730b39aa98809874105a1de967c8dcf482495df7b43c153394cd275d"
 GHC_LIB_PARSER_VERSION = "8.8.1"
-GHCIDE_REV = "4146f08b729e1f4e4a3ac789570e9c0b9010944e"
-GHCIDE_SHA256 = "bd16242397b67ac0d803c7e0452b03396133d9b7aaf2ba3bddd834260a78bd80"
+GHCIDE_REV = "0572146d4b792c6c67affe461e0bd07d49d9df72"
+GHCIDE_SHA256 = "7de56b15d08eab19d325a93c4f43d0ca3d634bb1a1fdc0d18fe4ab4a021cc697"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
@@ -32,6 +32,10 @@ SHAKE_VERSION = "0.19.6"
 ZIP_VERSION = "1.7.1"
 GRPC_HASKELL_REV = "641f0bab046f2f03e5350a7c5f2044af1e19a5b1"
 GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a1536f4ca81"
+GRPC_HASKELL_PATCHES = [
+    "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-cpp-options.patch",
+    "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-upgrade.patch",
+]
 XML_CONDUIT_VERSION = "1.9.1.1"
 LSP_TYPES_VERSION = "1.4.0.0"
 LSP_TYPES_SHA256 = "7ae8a3bad0e91d4a2af9b93e3ad207e3f4c3dace40d420e0592f6323ac93fb67"
@@ -58,8 +62,6 @@ haskell_cabal_library(
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:lsp-types-normalisation.patch",
-            # `mod` does not have `integer-simple` support so we swap it out for another dep.
-            "@com_github_digital_asset_daml//bazel_tools:lsp-types-modular-arithmetic.patch",
         ],
         sha256 = LSP_TYPES_SHA256,
         strip_prefix = "lsp-types-{}".format(LSP_TYPES_VERSION),
@@ -170,7 +172,6 @@ haskell_cabal_library(
     http_archive(
         name = "grpc_haskell_core",
         build_file_content = """
-load("@com_github_digital_asset_daml//bazel_tools:fat_cc_library.bzl", "fat_cc_library")
 load("@com_github_digital_asset_daml//bazel_tools:haskell.bzl", "c2hs_suite")
 load("@rules_haskell//haskell:defs.bzl", "haskell_library")
 c2hs_suite(
@@ -193,13 +194,32 @@ c2hs_suite(
     compiler_flags = ["-XCPP", "-Wno-unused-imports", "-Wno-unused-record-wildcards"],
     visibility = ["//visibility:public"],
     deps = [
-        ":fat_cbits",
+        "@grpc_haskell_core_cbits//:merged_cbits",
     ],
 )
+""",
+        patch_args = ["-p1"],
+        patches = GRPC_HASKELL_PATCHES,
+        sha256 = GRPC_HASKELL_SHA256,
+        strip_prefix = "gRPC-haskell-{}/core".format(GRPC_HASKELL_REV),
+        urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_REV)],
+    )
+
+    # We need to make sure that the cbits are in a different directory
+    # to get GHCi on MacOS to pick the dynamic library. Otherwise it first looks in the directory
+    # and it sees libfatcbits.so which has the wrong ending and libfatcbits.a and ends up loading
+    # the static library which breaks. The GHCi wrapper from rules_haskell actually sets up
+    # libfatcbits.dylib properly so moving it outside ensures that this is the only option
+    # for GHCi and things work properly.
+    http_archive(
+        name = "grpc_haskell_core_cbits",
+        build_file_content = """
+load("@com_github_digital_asset_daml//bazel_tools:fat_cc_library.bzl", "fat_cc_library")
 
 fat_cc_library(
-  name = "fat_cbits",
+  name = "merged_cbits",
   input_lib = "cbits",
+  visibility = ["//visibility:public"],
 )
 cc_library(
   name = "cbits",
@@ -212,10 +232,7 @@ cc_library(
 )
 """,
         patch_args = ["-p1"],
-        patches = [
-            "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-cpp-options.patch",
-            "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-upgrade.patch",
-        ],
+        patches = GRPC_HASKELL_PATCHES,
         sha256 = GRPC_HASKELL_SHA256,
         strip_prefix = "gRPC-haskell-{}/core".format(GRPC_HASKELL_REV),
         urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_REV)],

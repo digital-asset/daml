@@ -80,7 +80,7 @@ class WriteServiceWithDeduplicationSupportSpec
     when(
       mockDeduplicationPeriodSupport.supportedDeduplicationPeriod(
         eqTo(submitterInfo.deduplicationPeriod),
-        eqTo(Configuration.reasonableMaxDeduplicationTime),
+        eqTo(Configuration.reasonableMaxDeduplicationDuration),
         eqTo(LedgerTimeModel.reasonableDefault),
         eqTo(submitterInfo.applicationId),
         any[Set[Ref.Party]],

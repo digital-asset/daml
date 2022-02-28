@@ -770,11 +770,23 @@ goToDefinitionTests mbScenarioService mbScenarioServiceDev = Tasty.testGroup "Go
     ,    testCaseDev' "Interface goto definition" $ do
             foo <- makeModule "Foo"
                 [ "interface Iface where"
+                , "  getOwner : Party"
+                , "  nonconsuming choice Noop : ()"
+                , "    controller getOwner this"
+                , "    do pure ()"
                 , "type I = Iface"
+                , "type C = Noop"
+                , "meth : Implements t Iface => t -> Party"
+                , "meth = getOwner"
                 ]
             setFilesOfInterest [foo]
             expectNoErrors
-            expectGoToDefinition (foo, 2, [9..13]) (At (foo,1,10))
+            -- Iface
+            expectGoToDefinition (foo, 6, [9..13]) (At (foo,1,10))
+            -- Noop
+            expectGoToDefinition (foo, 7, [9..12]) (At (foo,3,22))
+            -- getOwner
+            expectGoToDefinition (foo, 9, [7..14]) (At (foo,2,2))
     ]
     where
         testCase' = testCase mbScenarioService

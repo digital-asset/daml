@@ -250,6 +250,18 @@ object SValue {
       }
   }
 
+  object SAnyInterface {
+    def apply(tyCon: Ref.TypeConName, record: SRecord): SAny = SAny(TTyCon(tyCon), record)
+
+    def unapply(any: SAny): Option[(TypeConName, SRecord)] =
+      any match {
+        case SAny(TTyCon(tyCon0), record @ SRecord(tyCon1, _, _)) if tyCon0 == tyCon1 =>
+          Some(tyCon0, record)
+        case _ =>
+          None
+      }
+  }
+
   object SArithmeticError {
     val fields: ImmArray[Ref.Name] = ImmArray(ValueArithmeticError.fieldName)
     def apply(builtinName: String, args: ImmArray[String]): SAny = {

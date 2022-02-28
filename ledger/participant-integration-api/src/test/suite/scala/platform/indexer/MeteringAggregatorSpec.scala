@@ -36,7 +36,6 @@ import scala.concurrent.Future
 final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar with Matchers {
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-//  private implicit val ec = scala.concurrent.ExecutionContext.global
   private val metrics = new Metrics(new MetricRegistry)
   private def toTS(t: OffsetDateTime): Timestamp = Timestamp.assertFromInstant(t.toInstant)
 
@@ -72,6 +71,9 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
           maybeLedgerEnd: Option[Offset] = None,
       ): Future[Unit] = {
 
+        val applicationCounts = transactionMetering
+          .groupMapReduce(_.applicationId)(_.actionCount)(_ + _)
+
         val ledgerEndOffset = (maybeLedgerEnd, transactionMetering.lastOption) match {
           case (Some(le), _) => le
           case (None, Some(t)) => t.ledgerOffset
@@ -88,8 +90,8 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
           .thenReturn(LedgerEnd(ledgerEndOffset, 0L, 0))
 
         transactionMetering.lastOption.map { last =>
-          when(meteringStore.transactionMetering(lastAggOffset, last.ledgerOffset)(conn))
-            .thenReturn(transactionMetering)
+          when(meteringStore.selectTransactionMetering(lastAggOffset, last.ledgerOffset)(conn))
+            .thenReturn(applicationCounts)
         }
 
         new MeteringAggregator(
@@ -129,6 +131,10 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
       verify(meteringStore).insertParticipantMetering(Vector(expected))(conn)
       verify(meteringParameterStore).updateLedgerMeteringEnd(
         LedgerMeteringEnd(expected.ledgerOffset, expected.to)
+      )(conn)
+      verify(meteringStore).deleteTransactionMetering(
+        lastAggOffset,
+        transactionMetering.last.ledgerOffset,
       )(conn)
 
     }
@@ -197,7 +203,8 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
     "fail if an attempt is made to run un-initialized" in new TestSetup {
       // Note this only works as we do not use a real future for testing
       intercept[IllegalStateException] {
-        when(meteringParameterStore.ledgerMeteringEnd(conn)).thenReturn(None)
+        when(meteringParameterStore.ledgerMeteringEnd(conn))
+          .thenThrow(new IllegalStateException("Blah"))
         val underTest =
           new MeteringAggregator(
             meteringStore,

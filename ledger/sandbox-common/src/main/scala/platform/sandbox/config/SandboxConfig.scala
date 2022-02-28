@@ -66,7 +66,6 @@ final case class SandboxConfig(
     managementServiceTimeout: Duration,
     sqlStartMode: Option[PostgresStartupMode],
     enableCompression: Boolean,
-    enableSelfServiceErrorCodes: Boolean,
     userManagementConfig: UserManagementConfig,
 ) {
 
@@ -82,8 +81,8 @@ final case class SandboxConfig(
     InitialLedgerConfiguration(
       Configuration.reasonableInitialConfiguration.copy(
         timeModel = timeModel,
-        maxDeduplicationTime = maxDeduplicationDuration.getOrElse(
-          Configuration.reasonableInitialConfiguration.maxDeduplicationTime
+        maxDeduplicationDuration = maxDeduplicationDuration.getOrElse(
+          Configuration.reasonableInitialConfiguration.maxDeduplicationDuration
         ),
       ),
       delayBeforeSubmittingLedgerConfiguration,
@@ -166,7 +165,6 @@ object SandboxConfig {
       managementServiceTimeout = DefaultManagementServiceTimeout,
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableCompression = false,
-      enableSelfServiceErrorCodes = true,
       userManagementConfig = UserManagementConfig.default(true),
     )
 

@@ -7,10 +7,7 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails, User, 
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.MeteringStore.{
-  ParticipantMetering,
-  TransactionMetering,
-}
+import com.daml.ledger.participant.state.index.v2.MeteringStore.{ParticipantMetering, ReportData}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, UserId}
@@ -452,11 +449,11 @@ object UserManagementStorageBackend {
 
 trait MeteringStorageReadBackend {
 
-  def transactionMetering(
+  def reportData(
       from: Timestamp,
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
-  )(connection: Connection): Vector[TransactionMetering]
+  )(connection: Connection): ReportData
 }
 
 trait MeteringStorageWriteBackend {
@@ -473,11 +470,16 @@ trait MeteringStorageWriteBackend {
   ): Option[Offset]
 
   /** This method will return all transaction metering records between the from offset (exclusive)
-    * and the to offset (inclusive).
+    * and the to offset (inclusive).  It is called prior to aggregation.
     */
-  def transactionMetering(from: Offset, to: Offset)(
+  def selectTransactionMetering(from: Offset, to: Offset)(
       connection: Connection
-  ): Vector[TransactionMetering]
+  ): Map[ApplicationId, Int]
+
+  /** This method will delete transaction metering records between the from offset (exclusive)
+    * and the to offset (inclusive).  It is called following aggregation.
+    */
+  def deleteTransactionMetering(from: Offset, to: Offset)(connection: Connection): Unit
 
   def insertParticipantMetering(metering: Vector[ParticipantMetering])(connection: Connection): Unit
 

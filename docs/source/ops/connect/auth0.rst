@@ -6,6 +6,13 @@
 Setting Up Auth0
 ================
 
+.. note::
+
+   This is an Early Access feature. Note that this feature does not currently
+   work with Daml 2.0. These docs refer to and use Daml 1.18. The feature is
+   under active development and it will soon be available for the 2.x major
+   release series.
+
 In this section, we will walk through a complete setup of an entire Daml
 system using Auth0 as its authentication provider.
 
@@ -58,15 +65,11 @@ In order to follow along this guide, you will need:
   requests from these IPs through.
 - To know the ``ledgerId`` your ledger self-identifies as. Refer to your
   specific driver's documentation for how to set the ``ledgerId`` value.
-- To be running SDK 1.17.0 or later. Before 1.17.0, the JSON API required an
-  extra token, the setup of which is not covered here. If you are somehow
-  unable to upgrade but still want to use Auth0, please contact us for
-  assistance.
 - An application you want to deploy on your Daml system. This is not, strictly
   speaking, required, but the whole experience is going to be a lot less
   satisfying if you don't end up with something actually running on your Daml
   system. In this guide, we'll use the `create-daml-app` template,
-  which as of Daml SDK 1.17.0 supports Auth0 out-of-the-box on its UI side.
+  which supports Auth0 out-of-the-box on its UI side.
 
 Generating Party Allocation Credentials
 ---------------------------------------
@@ -386,12 +389,6 @@ of illustration, here we're going to work with a modified version of
 
     daml new --template=gsg-trigger my-project
 
-If your app was based on the ``create-daml-app`` template using a Daml SDK
-version prior to 1.17.0, you may need to adapt your ``ui/src/config.ts`` and
-``ui/src/components/LoginScreen.tsx`` files. See
-`this commit <https://github.com/digital-asset/daml/commit/79080839c1ca299972038ba515b98e6176668783>`_
-for guidance.
-
 The next step is to build the Daml code:
 
 .. code-block:: bash
@@ -710,10 +707,6 @@ Next, you need to start a JSON API instance.
     daml json-api --ledger-port 6865 \
                   --ledger-host localhost \
                   --http-port 4000
-
-If you are using a Daml SDK version prior to 1.17.0, you'll need to find a way
-to supply the JSON API with a valid, refreshing token file. We recommend
-upgrading to 1.17.0 or later.
 
 Then, we want to start the Trigger Service and OAuth2 middleware, which we will
 put respectively under ``/trigger`` and ``/auth``. First, the middleware:

@@ -15,6 +15,7 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.google.protobuf.ByteString
 
 import java.time.{Duration, Instant}
@@ -49,6 +50,7 @@ private[backend] object StorageBackendTestValues {
   val someParty: Ref.Party = Ref.Party.assertFromString("party")
   val someApplicationId: Ref.ApplicationId = Ref.ApplicationId.assertFromString("application_id")
   val someSubmissionId: Ref.SubmissionId = Ref.SubmissionId.assertFromString("submission_id")
+  val someLedgerMeteringEnd: LedgerMeteringEnd = LedgerMeteringEnd(Offset.beforeBegin, someTime)
 
   val someArchive: DamlLf.Archive = DamlLf.Archive.newBuilder
     .setHash("00001")

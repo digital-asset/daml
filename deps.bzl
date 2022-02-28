@@ -217,12 +217,11 @@ def daml_deps():
         )
 
     if "com_github_grpc_grpc" not in native.existing_rules():
-        # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.43.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.43.0.tar.gz"],
-            sha256 = "9647220c699cea4dafa92ec0917c25c7812be51a18143af047e20f3fb05adddc",
+            strip_prefix = "grpc-1.44.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.44.0.tar.gz"],
+            sha256 = "8c05641b9f91cbc92f51cc4a5b3a226788d7a63f20af4ca7aaca50d92cc94a0d",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
@@ -356,7 +355,21 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "911b5673ac2568b74482713c91242ffecc5dcb11c2efad08960b762824137231",
+            sha256 = "5b77835398b5e3629f51bc97ad26f3ee01c54622311055954e9c5236d718c1b5",
             strip_prefix = "canton-community-1.0.0-SNAPSHOT",
-            urls = ["https://www.canton.io/releases/canton-community-20220209.tar.gz"],
+            urls = ["https://www.canton.io/releases/canton-community-20220224.tar.gz"],
+        )
+
+    if "freefont" not in native.existing_rules():
+        http_archive(
+            name = "freefont",
+            build_file_content = """
+filegroup(
+  name = "fonts",
+  srcs = glob(["**/*.otf"]),
+  visibility = ["//visibility:public"],
+)""",
+            sha256 = "3a6c51868c71b006c33c4bcde63d90927e6fcca8f51c965b8ad62d021614a860",
+            strip_prefix = "freefont-20120503",
+            urls = ["http://ftp.gnu.org/gnu/freefont/freefont-otf-20120503.tar.gz"],
         )

@@ -10,10 +10,8 @@ This section describes our recommended design of a full-stack Daml application.
 
 .. image:: ./recommended_architecture.svg
 
-The above image shows the recommended architecture. Of course there are many ways how you can change
-the architecture and technology stack to fit your needs, which we'll mention in the corresponding
-sections. Note that the Participant Node is integrated into the Daml drivers in some cases rather
-than being part of the Application Backend. See :doc:`/support/overview` for more details.
+The above image shows the recommended architecture. Of course there are many ways that the architecture and technology 
+stack can be changed to fit your needs which we'll mention in the corresponding sections.
 
 To get started quickly with the recommended application architecture, generate a new project using the ``create-daml-app`` template:
 
@@ -40,17 +38,16 @@ endpoints to interact with the ledger via GET/POST requests. However, if you pre
 use the :ref:`gRPC Ledger API <grpc>` directly.
 
 When you use the ``create-daml-app`` template application, you can start a Daml Sandbox together
-with a JSON API server by running
+with a JSON API server by running the following command in the root of the project.
 
 .. code-block:: bash
 
   daml start --start-navigator=no
 
-in the root of the project. Daml Sandbox exposes the same Daml Ledger API a Participant Node would
+Daml Sandbox exposes the same Daml Ledger API a Participant Node would
 expose without requiring a fully-fledged Daml network to back the application. Once your
 application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
-your frontend and Daml artifacts of your project to a production Daml network. See
-:ref:`Deploying to Daml Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
+your frontend and Daml artifacts of your project to a production Daml network.
 
 Frontend
 ********
@@ -136,7 +133,7 @@ If you want to make sure that a command is not executed twice, your application 
 Daml ledgers provide a mechanism for :doc:`command deduplication <command-deduplication>` to help deal with this problem.
 
 For each command the application provides a command ID and an optional parameter that specifies the deduplication period.
-If the latter parameter is not specified in the command submission itself, the ledger will use the configured maximum deduplication time.
+If the latter parameter is not specified in the command submission itself, the ledger will use the configured maximum deduplication duration.
 The ledger will then guarantee that commands with the same :ref:`change ID <change-id>` will generate a rejection within the effective deduplication period.
 
 For details on how to use command deduplication, see the :doc:`Command Deduplication Guide <command-deduplication>`.

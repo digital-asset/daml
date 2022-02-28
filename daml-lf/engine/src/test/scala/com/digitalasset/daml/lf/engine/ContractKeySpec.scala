@@ -23,6 +23,7 @@ import com.daml.lf.value.Value.{
   ValueContractId,
   ContractId,
 }
+import com.daml.logging.LoggingContext
 import java.io.File
 import org.scalatest.EitherValues
 import org.scalatest.Inside.inside
@@ -47,6 +48,8 @@ class ContractKeySpec
     with BazelRunfiles {
 
   import ContractKeySpec._
+
+  private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))

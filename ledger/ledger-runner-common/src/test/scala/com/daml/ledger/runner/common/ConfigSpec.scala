@@ -6,12 +6,11 @@ package com.daml.ledger.runner.common
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
-import org.scalatest.OptionValues
+import org.scalatest.{Assertion, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scopt.OptionParser
-
 import java.io.File
 import java.time.Duration
 
@@ -57,25 +56,19 @@ final class ConfigSpec
       getEnvVar = getEnvVar,
     )
 
-  private def configParserSimple(parameters: Seq[String] = Seq.empty): Option[Config[Unit]] =
+  private def configParserSimple(parameters: Iterable[String] = Seq.empty): Option[Config[Unit]] =
     configParser(
       Seq(
         dumpIndexMetadataCommand,
         "some-jdbc-url",
       ) ++ parameters
     )
-  behavior of "Runner"
 
-  it should "enable self-service error codes by default" in {
-    val actual = configParser(
-      Seq(
-        dumpIndexMetadataCommand,
-        "some-jdbc-url",
-      )
-    )
-
-    actual.value.enableSelfServiceErrorCodes shouldBe true
+  private def checkOptionFail(parameters: Iterable[String]): Assertion = {
+    configParserSimple(parameters) shouldBe None
   }
+
+  behavior of "Runner"
 
   it should "succeed when server's private key is encrypted and secret-url is provided" in {
     val actual = configParser(
@@ -336,6 +329,26 @@ final class ConfigSpec
         "123",
       )
     ).value.userManagementConfig.maxUsersPageSize shouldBe 123
+    // values in range [1, 99] are disallowed
+    checkOptionFail(
+      Array(
+        "--max-users-page-size",
+        "1",
+      )
+    )
+    checkOptionFail(
+      Array(
+        "--max-users-page-size",
+        "99",
+      )
+    )
+    // negative values are disallowed
+    checkOptionFail(
+      Array(
+        "--max-users-page-size",
+        "-1",
+      )
+    )
   }
 
   private def parsingFailure(): Nothing = fail("Config parsing failed.")

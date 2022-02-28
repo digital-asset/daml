@@ -89,6 +89,9 @@ grpc_error_code_breaking_change_exclusions_suites = [
     "ContractKeysIT",
 ]
 
+before_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7"
+after_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7.1"
+
 excluded_test_tool_tests = [
     {
         "start": "1.0.0",
@@ -746,9 +749,9 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        # Self-service error codes are deprecated as an experimental feature.
+        # Self-service error codes becomes the only supported option. They are deprecated as an experimental feature.
         # Switching to the legacy codes is no longer available.
-        "start": "2.0.0-snapshot.20220127.9042.0.4038d0a7.1",
+        "start": after_removing_legacy_error_codes,
         "platform_ranges": [
             {
                 "end": "1.17.1",
@@ -773,6 +776,33 @@ excluded_test_tool_tests = [
                     "TransactionServiceStreamsIT",
                     "TransactionServiceValidationIT",
                     "WronglyTypedContractIdIT",
+                ],
+            },
+        ],
+    },
+    {
+        "end": before_removing_legacy_error_codes,
+        "platform_ranges": [
+            {
+                "start": after_removing_legacy_error_codes,
+                "exclusions": [
+                    "CommandSubmissionCompletionIT",
+                    "ConfigManagementServiceIT",
+                    "ContractKeysIT",
+                    "SemanticTests",
+                    "TransactionService",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.16.0",
+        "end": before_removing_legacy_error_codes,
+        "platform_ranges": [
+            {
+                "start": after_removing_legacy_error_codes,
+                "exclusions": [
+                    "ExceptionsIT",
                 ],
             },
         ],
@@ -1041,7 +1071,7 @@ def sdk_platform_test(sdk_version, platform_version):
     sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
 
     sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
-    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--enable-conflict-checking", "--mutable-contract-state-cache"]
+    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache"]
 
     json_api_args = ["json-api"]
 
@@ -1064,10 +1094,11 @@ def sdk_platform_test(sdk_version, platform_version):
 
     # Error codes are enabled by default after 1.18.0-snapshot.20211117.8399.0.a05a40ae.
     # Before this SDK version, ledger-api-test-tool cannot correctly assert the self-service error codes.
-    # For this reason, all platforms newer than 1.18.0-snapshot.20211117.8399.0.a05a40ae will run against
-    # old ledger-api-test-tools in compatibility mode (i.e. `--use-pre-1.18-error-codes`)
+    # Turning on the compatibility mode with `--use-pre-1.18-error-codes` is available up to 2.0.0-snapshot.20220127.9042.0.4038d0a7 (inclusive).
+    # For this reason, all platforms newer than 1.18.0-snapshot.20211117.8399.0.a05a40ae up to 2.0.0-snapshot.20220127.9042.0.4038d0a7 (inclusive)
+    # will run against old ledger-api-test-tools in compatibility mode (i.e. `--use-pre-1.18-error-codes`)
     error_codes_version_enabled_by_default = "1.18.0-snapshot.20211117.8399.0.a05a40ae"
-    if versions.is_at_most(error_codes_version_enabled_by_default, sdk_version):
+    if versions.is_at_most(error_codes_version_enabled_by_default, platform_version) and versions.is_at_least(before_removing_legacy_error_codes, platform_version):
         extra_sandbox_next_args += ["--use-pre-1.18-error-codes"]
         extra_sandbox_classic_args += ["--use-pre-1.18-error-codes"]
         extra_sandbox_on_x_args += ["--use-pre-1.18-error-codes"]
@@ -1191,7 +1222,7 @@ def sdk_platform_test(sdk_version, platform_version):
         sdk_version = sdk_version,
         daml = daml_assistant,
         sandbox = sandbox_on_x if versions.is_at_least("2.0.0", platform_version) else sandbox,
-        sandbox_args = ["--contract-id-seeding=testing-weak", "--enable-conflict-checking", "--mutable-contract-state-cache", "--participant=participant-id=sandbox,port=0,port-file=__PORTFILE__"] if versions.is_at_least("2.0.0", platform_version) else ["sandbox", "--port=0", "--port-file=__PORTFILE__"],
+        sandbox_args = ["--contract-id-seeding=testing-weak", "--mutable-contract-state-cache", "--participant=participant-id=sandbox,port=0,port-file=__PORTFILE__"] if versions.is_at_least("2.0.0", platform_version) else ["sandbox", "--port=0", "--port-file=__PORTFILE__"],
         size = "large",
         # We see timeouts here fairly regularly so we
         # increase the number of CPUs.
@@ -1203,21 +1234,23 @@ def sdk_platform_test(sdk_version, platform_version):
     # However, the test setup is flexible enough, that we
     # can control them individually.
 
-    create_daml_app_test(
-        name = "create-daml-app-{sdk_version}-platform-{platform_version}".format(sdk_version = version_to_name(sdk_version), platform_version = version_to_name(platform_version)),
-        daml = daml_assistant,
-        sandbox = sandbox_on_x if versions.is_at_least("2.0.0", platform_version) else sandbox,
-        sandbox_version = platform_version,
-        json_api = json_api,
-        json_api_version = platform_version,
-        daml_types = "@daml-sdk-{}//:daml-types.tgz".format(sdk_version),
-        daml_react = "@daml-sdk-{}//:daml-react.tgz".format(sdk_version),
-        daml_ledger = "@daml-sdk-{}//:daml-ledger.tgz".format(sdk_version),
-        messaging_patch = "@daml-sdk-{}//:create_daml_app.patch".format(sdk_version),
-        codegen_output = "//:create-daml-app-codegen-{}.tar.gz".format(version_to_name(sdk_version)),
-        dar = "//:create-daml-app-{}.dar".format(version_to_name(sdk_version)),
-        size = "large",
-        # Yarn gets really unhappy if it is called in parallel
-        # so we mark this exclusive for now.
-        tags = extra_tags(sdk_version, platform_version) + ["exclusive"],
-    )
+    # We allocate parties via @daml/ledger which only supports this since SDK 1.8.0
+    if versions.is_at_least("1.8.0", sdk_version):
+        create_daml_app_test(
+            name = "create-daml-app-{sdk_version}-platform-{platform_version}".format(sdk_version = version_to_name(sdk_version), platform_version = version_to_name(platform_version)),
+            daml = daml_assistant,
+            sandbox = sandbox_on_x if versions.is_at_least("2.0.0", platform_version) else sandbox,
+            sandbox_version = platform_version,
+            json_api = json_api,
+            json_api_version = platform_version,
+            daml_types = "@daml-sdk-{}//:daml-types.tgz".format(sdk_version),
+            daml_react = "@daml-sdk-{}//:daml-react.tgz".format(sdk_version),
+            daml_ledger = "@daml-sdk-{}//:daml-ledger.tgz".format(sdk_version),
+            messaging_patch = "@daml-sdk-{}//:create_daml_app.patch".format(sdk_version),
+            codegen_output = "//:create-daml-app-codegen-{}.tar.gz".format(version_to_name(sdk_version)),
+            dar = "//:create-daml-app-{}.dar".format(version_to_name(sdk_version)),
+            size = "large",
+            # Yarn gets really unhappy if it is called in parallel
+            # so we mark this exclusive for now.
+            tags = extra_tags(sdk_version, platform_version) + ["exclusive"],
+        )

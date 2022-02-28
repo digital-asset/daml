@@ -451,7 +451,7 @@ final class CommandDeduplicationIT(
   testGivenAllParticipants(
     shortIdentifier = s"DeduplicateUsingDurations",
     description = "Deduplicate commands within the deduplication period defined by a duration",
-    participants = allocate(SingleParty),
+    partyAllocation = allocate(SingleParty),
     runConcurrently = false, // updates the time model
     disabledReason =
       "Most of the assertions run on async responses. Also, ledgers with the sync-only deduplication support use the wall clock for deduplication.",
@@ -669,17 +669,17 @@ final class CommandDeduplicationIT(
   private def submitRequestAndAssertSyncFailure(
       ledger: ParticipantTestContext,
       request: SubmitRequest,
-      code: Code,
-      selfServiceErrorCode: ErrorCode,
+      grpcCode: Code,
+      errorCode: ErrorCode,
       additionalErrorAssertions: Throwable => Unit = _ => (),
   )(implicit ec: ExecutionContext): Future[Unit] =
     ledger
       .submit(request)
-      .mustFail(s"Request expected to fail with code $code")
+      .mustFail(s"Request expected to fail with code $grpcCode")
       .map(
         assertGrpcError(
           _,
-          selfServiceErrorCode,
+          errorCode,
           exceptionMessageSubstring = None,
           checkDefiniteAnswerMetadata = true,
           additionalErrorAssertions,
@@ -698,7 +698,7 @@ final class CommandDeduplicationIT(
       .map(
         assertGrpcError(
           _,
-          selfServiceErrorCode = LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
+          errorCode = LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
           exceptionMessageSubstring = None,
           checkDefiniteAnswerMetadata = true,
           assertDeduplicatedSubmissionIdAndOffsetOnError(

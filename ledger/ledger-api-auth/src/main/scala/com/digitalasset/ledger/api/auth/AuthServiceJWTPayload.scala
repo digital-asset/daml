@@ -11,7 +11,7 @@ import spray.json._
 import scala.util.Try
 
 /** All the JWT payloads that can be used with the JWT auth service. */
-sealed trait AuthServiceJWTPayload
+sealed abstract class AuthServiceJWTPayload extends Product with Serializable
 
 /** A JWT token payload constructed from custom claims specific to Daml ledgers.
   *

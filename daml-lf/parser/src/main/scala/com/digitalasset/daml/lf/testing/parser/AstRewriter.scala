@@ -330,12 +330,6 @@ private[daml] class AstRewriter(
       case DefException(message) => DefException(apply(message))
     }
 
-  def apply(x: InterfaceChoice): InterfaceChoice =
-    x match {
-      case InterfaceChoice(name, consuming, argType, returnType) =>
-        InterfaceChoice(name, consuming, apply(argType), returnType = apply(returnType))
-    }
-
   def apply(x: InterfaceMethod): InterfaceMethod =
     x match {
       case InterfaceMethod(name, returnType) =>

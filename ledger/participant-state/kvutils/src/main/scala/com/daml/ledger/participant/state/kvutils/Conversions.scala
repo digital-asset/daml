@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import java.io.StringWriter
 import java.time.{Duration, Instant}
 
-import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
@@ -465,62 +465,61 @@ object Conversions {
 
   @nowarn("msg=deprecated")
   def decodeTransactionRejectionEntry(
-      entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch,
+      entry: DamlTransactionRejectionEntry
   )(implicit loggingContext: ContextualizedErrorLogger): FinalReason =
     FinalReason(entry.getReasonCase match {
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
         val rejection = entry.getInvalidLedgerTime
-        invalidLedgerTimeStatus(entry, rejection, errorVersionSwitch)
+        invalidLedgerTimeStatus(rejection)
       case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>
         val rejection = entry.getDisputed
-        disputedStatus(entry, rejection, errorVersionSwitch)
+        disputedStatus(rejection)
       case DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
         val rejection = entry.getSubmitterCannotActViaParticipant
-        submitterCannotActViaParticipantStatus(entry, rejection, errorVersionSwitch)
+        submitterCannotActViaParticipantStatus(rejection)
       case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
         val rejection = entry.getInconsistent
-        inconsistentStatus(entry, rejection, errorVersionSwitch)
+        inconsistentStatus(rejection)
       case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
         val rejection = entry.getResourcesExhausted
-        resourceExhaustedStatus(entry, rejection, errorVersionSwitch)
+        resourceExhaustedStatus(rejection)
       case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
-        duplicateCommandStatus(entry, errorVersionSwitch)
+        duplicateCommandStatus(entry)
       case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
         val rejection = entry.getPartyNotKnownOnLedger
-        partyNotKnownOnLedgerStatus(entry, rejection, errorVersionSwitch)
+        partyNotKnownOnLedgerStatus(rejection)
       case DamlTransactionRejectionEntry.ReasonCase.VALIDATION_FAILURE =>
         val rejection = entry.getValidationFailure
-        validationFailureStatus(entry, rejection, errorVersionSwitch)
+        validationFailureStatus(rejection)
       case DamlTransactionRejectionEntry.ReasonCase.INTERNALLY_DUPLICATE_KEYS =>
-        internallyDuplicateKeysStatus(entry, errorVersionSwitch)
+        internallyDuplicateKeysStatus()
       case DamlTransactionRejectionEntry.ReasonCase.INTERNALLY_INCONSISTENT_KEYS =>
-        internallyInconsistentKeysStatus(entry, errorVersionSwitch)
+        internallyInconsistentKeysStatus()
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_CONTRACTS =>
-        externallyInconsistentContractsStatus(entry, errorVersionSwitch)
+        externallyInconsistentContractsStatus()
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS =>
-        externallyDuplicateKeysStatus(entry, errorVersionSwitch)
+        externallyDuplicateKeysStatus()
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS =>
-        externallyInconsistentKeysStatus(entry, errorVersionSwitch)
+        externallyInconsistentKeysStatus()
       case DamlTransactionRejectionEntry.ReasonCase.MISSING_INPUT_STATE =>
         val rejection = entry.getMissingInputState
-        missingInputStateStatus(entry, rejection, errorVersionSwitch)
+        missingInputStateStatus(rejection)
       case DamlTransactionRejectionEntry.ReasonCase.RECORD_TIME_OUT_OF_RANGE =>
         val rejection = entry.getRecordTimeOutOfRange
-        recordTimeOutOfRangeStatus(entry, rejection, errorVersionSwitch)
+        recordTimeOutOfRangeStatus(rejection)
       case DamlTransactionRejectionEntry.ReasonCase.CAUSAL_MONOTONICITY_VIOLATED =>
-        causalMonotonicityViolatedStatus(entry, errorVersionSwitch)
+        causalMonotonicityViolatedStatus()
       case DamlTransactionRejectionEntry.ReasonCase.SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER =>
         val rejection = entry.getSubmittingPartyNotKnownOnLedger
-        submittingPartyNotKnownOnLedgerStatus(entry, rejection, errorVersionSwitch)
+        submittingPartyNotKnownOnLedgerStatus(rejection)
       case DamlTransactionRejectionEntry.ReasonCase.PARTIES_NOT_KNOWN_ON_LEDGER =>
         val rejection = entry.getPartiesNotKnownOnLedger
-        partiesNotKnownOnLedgerStatus(entry, rejection, errorVersionSwitch)
+        partiesNotKnownOnLedgerStatus(rejection)
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_PARTICIPANT_STATE =>
         val rejection = entry.getInvalidParticipantState
-        invalidParticipantStateStatus(entry, rejection, errorVersionSwitch)
+        invalidParticipantStateStatus(rejection)
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
-        rejectionReasonNotSetStatus(entry, errorVersionSwitch)
+        rejectionReasonNotSetStatus()
     })
 
   def objectToJsonString(obj: Object): String = {

@@ -32,6 +32,7 @@ import com.daml.lf.value.Value.{
   ValueRecord,
   VersionedContractInstance,
 }
+import com.daml.logging.LoggingContext
 
 import java.io.File
 import org.scalatest.Inside
@@ -41,6 +42,8 @@ import org.scalatest.matchers.should.Matchers
 import scala.language.implicitConversions
 
 class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with BazelRunfiles {
+
+  private[this] implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 
   implicit private def toName(s: String): Name = Name.assertFromString(s)
   implicit private def toParty(s: String): Party = Party.assertFromString(s)

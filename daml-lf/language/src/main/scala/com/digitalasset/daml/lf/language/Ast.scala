@@ -5,6 +5,7 @@ package com.daml.lf.language
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
+import scala.collection.immutable.VectorMap
 
 object Ast {
   //
@@ -732,14 +733,6 @@ object Ast {
   type DefInterfaceSignature = GenDefInterface[Unit]
   val DefInterfaceSignature = new GenDefInterfaceCompanion[Unit]
 
-  final case class InterfaceChoice(
-      name: ChoiceName,
-      consuming: Boolean,
-      argType: Type,
-      returnType: Type,
-      // TODO interfaces Should observers or controllers be part of the interface?
-  )
-
   final case class InterfaceMethod(
       name: MethodName,
       returnType: Type,
@@ -753,7 +746,9 @@ object Ast {
       choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
       observers: E, // Observers of the contract.
       key: Option[GenTemplateKey[E]],
-      implements: Map[TypeConName, GenTemplateImplements[E]],
+      implements: VectorMap[TypeConName, GenTemplateImplements[
+        E
+      ]], // We use a VectorMap to preserve insertion order. The order of the implements determines the order in which to evaluate interface preconditions.
   ) {
     lazy val inheritedChoices: Map[ChoiceName, TypeConName] =
       implements.flatMap { case (iface, impl) =>
@@ -784,7 +779,7 @@ object Ast {
         ),
         observers = observers,
         key = key,
-        implements = toMapWithoutDuplicate(
+        implements = toVectorMapWithoutDuplicate(
           implements.map(i => i.interfaceId -> i),
           (ifaceId: TypeConName) =>
             PackageError(s"repeated interface implementation ${ifaceId.toString}"),
@@ -799,7 +794,7 @@ object Ast {
         choices: Map[ChoiceName, GenTemplateChoice[E]],
         observers: E,
         key: Option[GenTemplateKey[E]],
-        implements: Map[TypeConName, GenTemplateImplements[E]],
+        implements: VectorMap[TypeConName, GenTemplateImplements[E]],
     ) = GenTemplate(
       param = param,
       precond = precond,
@@ -820,7 +815,7 @@ object Ast {
           Map[ChoiceName, GenTemplateChoice[E]],
           E,
           Option[GenTemplateKey[E]],
-          Map[TypeConName, GenTemplateImplements[E]],
+          VectorMap[TypeConName, GenTemplateImplements[E]],
       )
     ] = Some(
       (
@@ -1008,6 +1003,17 @@ object Ast {
       error: Key => PackageError,
   ): Map[Key, Value] =
     xs.foldLeft(Map.empty[Key, Value]) { case (acc, (key, value)) =>
+      if (acc.contains(key))
+        throw error(key)
+      else
+        acc.updated(key, value)
+    }
+
+  private[this] def toVectorMapWithoutDuplicate[Key, Value](
+      xs: Iterable[(Key, Value)],
+      error: Key => PackageError,
+  ): VectorMap[Key, Value] =
+    xs.foldRight(VectorMap.empty[Key, Value]) { case ((key, value), acc) =>
       if (acc.contains(key))
         throw error(key)
       else

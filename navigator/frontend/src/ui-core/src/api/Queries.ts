@@ -33,14 +33,7 @@ export interface advanceTimeVariables {
 // ====================================================
 
 export interface ContractsByIdQuery_nodes_CreateCommand {
-  __typename:
-    | "CreateCommand"
-    | "CreatedEvent"
-    | "DamlLfDefDataType"
-    | "ExerciseCommand"
-    | "ExercisedEvent"
-    | "Template"
-    | "Transaction";
+  __typename: "CreateCommand" | "CreatedEvent" | "DamlLfDefDataType" | "ExerciseCommand" | "ExercisedEvent" | "Template" | "Transaction";
   id: string;
 }
 
@@ -55,9 +48,7 @@ export interface ContractsByIdQuery_nodes_Contract {
   archiveEvent: ContractsByIdQuery_nodes_Contract_archiveEvent | null;
 }
 
-export type ContractsByIdQuery_nodes =
-  | ContractsByIdQuery_nodes_CreateCommand
-  | ContractsByIdQuery_nodes_Contract;
+export type ContractsByIdQuery_nodes = ContractsByIdQuery_nodes_CreateCommand | ContractsByIdQuery_nodes_Contract;
 
 export interface ContractsByIdQuery {
   nodes: ContractsByIdQuery_nodes[];
@@ -77,21 +68,12 @@ export interface ContractsByIdQueryVariables {
 // ====================================================
 
 export interface CommandResultsQuery_nodes_Contract {
-  __typename:
-    | "Contract"
-    | "CreatedEvent"
-    | "DamlLfDefDataType"
-    | "ExercisedEvent"
-    | "Template"
-    | "Transaction";
+  __typename: "Contract" | "CreatedEvent" | "DamlLfDefDataType" | "ExercisedEvent" | "Template" | "Transaction";
   id: string;
 }
 
 export interface CommandResultsQuery_nodes_CreateCommand_status_CommandStatusWaiting {
-  __typename:
-    | "CommandStatusWaiting"
-    | "CommandStatusSuccess"
-    | "CommandStatusUnknown";
+  __typename: "CommandStatusWaiting" | "CommandStatusSuccess" | "CommandStatusUnknown";
 }
 
 export interface CommandResultsQuery_nodes_CreateCommand_status_CommandStatusError {
@@ -100,9 +82,7 @@ export interface CommandResultsQuery_nodes_CreateCommand_status_CommandStatusErr
   details: string;
 }
 
-export type CommandResultsQuery_nodes_CreateCommand_status =
-  | CommandResultsQuery_nodes_CreateCommand_status_CommandStatusWaiting
-  | CommandResultsQuery_nodes_CreateCommand_status_CommandStatusError;
+export type CommandResultsQuery_nodes_CreateCommand_status = CommandResultsQuery_nodes_CreateCommand_status_CommandStatusWaiting | CommandResultsQuery_nodes_CreateCommand_status_CommandStatusError;
 
 export interface CommandResultsQuery_nodes_CreateCommand {
   __typename: "CreateCommand" | "ExerciseCommand";
@@ -110,9 +90,7 @@ export interface CommandResultsQuery_nodes_CreateCommand {
   status: CommandResultsQuery_nodes_CreateCommand_status;
 }
 
-export type CommandResultsQuery_nodes =
-  | CommandResultsQuery_nodes_Contract
-  | CommandResultsQuery_nodes_CreateCommand;
+export type CommandResultsQuery_nodes = CommandResultsQuery_nodes_Contract | CommandResultsQuery_nodes_CreateCommand;
 
 export interface CommandResultsQuery {
   nodes: CommandResultsQuery_nodes[];
@@ -120,6 +98,23 @@ export interface CommandResultsQuery {
 
 export interface CommandResultsQueryVariables {
   commandIds: string[];
+}
+
+/* tslint:disable */
+/* eslint-disable */
+// @generated
+// This file was automatically generated and should not be edited.
+
+// ====================================================
+// GraphQL query operation: ParameterFormPartyQuery
+// ====================================================
+
+export interface ParameterFormPartyQuery {
+  parties: OpaqueTypes.Party[];
+}
+
+export interface ParameterFormPartyQueryVariables {
+  filter: string;
 }
 
 /* tslint:disable */
@@ -197,14 +192,7 @@ export interface ParameterFormContractIdQueryVariables {
 // ====================================================
 
 export interface ParameterFormTypeQuery_node_Contract {
-  __typename:
-    | "Contract"
-    | "CreateCommand"
-    | "CreatedEvent"
-    | "ExerciseCommand"
-    | "ExercisedEvent"
-    | "Template"
-    | "Transaction";
+  __typename: "Contract" | "CreateCommand" | "CreatedEvent" | "ExerciseCommand" | "ExercisedEvent" | "Template" | "Transaction";
 }
 
 export interface ParameterFormTypeQuery_node_DamlLfDefDataType {
@@ -213,9 +201,7 @@ export interface ParameterFormTypeQuery_node_DamlLfDefDataType {
   typeVars: string[];
 }
 
-export type ParameterFormTypeQuery_node =
-  | ParameterFormTypeQuery_node_Contract
-  | ParameterFormTypeQuery_node_DamlLfDefDataType;
+export type ParameterFormTypeQuery_node = ParameterFormTypeQuery_node_Contract | ParameterFormTypeQuery_node_DamlLfDefDataType;
 
 export interface ParameterFormTypeQuery {
   node: ParameterFormTypeQuery_node | null;

@@ -70,6 +70,7 @@ trait TestFixture
   }
   lazy protected val middlewareClientRoutes: Client.Routes =
     middlewareClient.routes(middlewareClientCallbackUri)
+  protected def oauthYieldsUserTokens: Boolean = true
   override protected lazy val suiteResource: Resource[TestResources] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, TestResources](
@@ -81,6 +82,7 @@ trait TestFixture
             ledgerId = ledgerId,
             jwtSecret = jwtSecret,
             clock = Some(clock),
+            yieldUserTokens = oauthYieldsUserTokens,
           )
         )
         serverBinding <- Resources.authServerBinding(server)

@@ -4,12 +4,9 @@
 package com.daml.ledger.api.testtool.runner
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.performance.PerformanceTests
 
 trait AvailableTests {
   def defaultTests: Vector[LedgerTestSuite]
 
   def optionalTests: Vector[LedgerTestSuite]
-
-  def performanceTests: PerformanceTests
 }

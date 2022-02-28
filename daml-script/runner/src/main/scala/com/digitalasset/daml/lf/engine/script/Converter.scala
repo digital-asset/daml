@@ -303,7 +303,9 @@ object Converter {
       fun: SValue,
   ): Either[String, (SValue, SValue)] = {
     val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractToTuple)))
+      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractToTuple)))(
+        Script.DummyLoggingContext
+      )
     machine.run() match {
       case SResultFinalValue(v) =>
         v match {
@@ -505,13 +507,13 @@ object Converter {
     go(initialFreeAp, allEventResults, List())
   }
 
-  def toParty(v: SValue): Either[String, Ref.Party] =
+  def toParty(v: SValue): Either[String, Party] =
     v match {
       case SParty(p) => Right(p)
       case _ => Left(s"Expected SParty but got $v")
     }
 
-  def toParties(v: SValue): Either[String, OneAnd[Set, Ref.Party]] =
+  def toParties(v: SValue): Either[String, OneAnd[Set, Party]] =
     v match {
       case SList(FrontStackCons(x, xs)) =>
         OneAnd(x, xs).traverse(toParty(_)).map(toNonEmptySet(_))

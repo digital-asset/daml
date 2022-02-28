@@ -64,18 +64,16 @@ object Assertions {
     )
   }
 
-  //TODO error codes daml 2.0: remove this two-level function
-  /** Asserts GRPC error codes depending on the self-service error codes feature in the Ledger API. */
   def assertGrpcError(
       t: Throwable,
-      selfServiceErrorCode: ErrorCode,
+      errorCode: ErrorCode,
       exceptionMessageSubstring: Option[String],
       checkDefiniteAnswerMetadata: Boolean = false,
       additionalErrorAssertions: Throwable => Unit = _ => (),
   ): Unit =
     assertGrpcErrorRegex(
       t,
-      selfServiceErrorCode,
+      errorCode,
       exceptionMessageSubstring
         .map(msgSubstring => Pattern.compile(Pattern.quote(msgSubstring))),
       checkDefiniteAnswerMetadata,
@@ -90,7 +88,7 @@ object Assertions {
   @tailrec
   def assertGrpcErrorRegex(
       t: Throwable,
-      selfServiceErrorCode: ErrorCode, //TODO error codes daml 2.0: rename to errorCode
+      errorCode: ErrorCode,
       optPattern: Option[Pattern],
       checkDefiniteAnswerMetadata: Boolean = false,
       additionalErrorAssertions: Throwable => Unit = _ => (),
@@ -99,14 +97,14 @@ object Assertions {
       case RetryStrategy.FailedRetryException(cause) =>
         assertGrpcErrorRegex(
           cause,
-          selfServiceErrorCode,
+          errorCode,
           optPattern,
           checkDefiniteAnswerMetadata,
           additionalErrorAssertions,
         )
       case exception: StatusRuntimeException =>
         optPattern.foreach(assertMatches(exception.getMessage, _))
-        assertSelfServiceErrorCode(exception, selfServiceErrorCode)
+        assertErrorCode(exception, errorCode)
         if (checkDefiniteAnswerMetadata) assertDefiniteAnswer(exception)
         additionalErrorAssertions(exception)
       case _ =>
@@ -156,8 +154,7 @@ object Assertions {
       }
   }
 
-  //TODO error codes daml 2.0: rename this
-  def assertSelfServiceErrorCode(
+  def assertErrorCode(
       statusRuntimeException: StatusRuntimeException,
       expectedErrorCode: ErrorCode,
   ): Unit = {
@@ -176,7 +173,7 @@ object Assertions {
     val actualStatusCode = status.getCode
     val actualErrorDetails = ErrorDetails.from(status.getDetailsList.asScala.toSeq)
     val actualErrorId = actualErrorDetails
-      .collectFirst { case err: ErrorDetails.ErrorInfoDetail => err.reason }
+      .collectFirst { case err: ErrorDetails.ErrorInfoDetail => err.errorCodeId }
       .getOrElse(fail("Actual error id is not defined"))
     val actualRetryability = actualErrorDetails
       .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.duration }

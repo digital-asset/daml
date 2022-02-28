@@ -155,17 +155,18 @@ class IdeLedgerClient(
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
-      val result = ScenarioRunner.submit(
-        compiledPackages,
-        ledgerApi,
-        actAs.toSet,
-        readAs,
-        translated,
-        optLocation,
-        nextSeed(),
-        traceLog,
-        warningLog,
-      )
+      val result =
+        ScenarioRunner.submit(
+          compiledPackages,
+          ledgerApi,
+          actAs.toSet,
+          readAs,
+          translated,
+          optLocation,
+          nextSeed(),
+          traceLog,
+          warningLog,
+        )(Script.DummyLoggingContext)
       result match {
         case err: ScenarioRunner.SubmissionError => err
         case commit: ScenarioRunner.Commit[_] =>

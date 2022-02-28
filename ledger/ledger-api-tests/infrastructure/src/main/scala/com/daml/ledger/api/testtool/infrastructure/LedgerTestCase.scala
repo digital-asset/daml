@@ -3,18 +3,19 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import com.daml.ledger.api.testtool.infrastructure.Allocation.{ParticipantAllocation, Participants}
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{Participants, PartyAllocation}
 import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
 import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 /** @param suite          To which collection of tests this case belongs to
   * @param shortIdentifier A unique identifier used to generate party names, command identifiers, etc.
   * @param description     A human-readable description of what this case tests
   * @param timeoutScale    The factor applied to the default
   * @param runConcurrently True if the test is safe be ran concurrently with other tests without affecting their results
-  * @param participants    What parties need to be allocated on what participants as a setup for the test case
+  * @param partyAllocation    What parties need to be allocated on what participants as a setup for the test case
   * @param runTestCase     The body of the test to be executed
   */
 sealed class LedgerTestCase(
@@ -26,13 +27,24 @@ sealed class LedgerTestCase(
     val repeated: Int = 1,
     enabled: Features => Boolean,
     disabledReason: String,
-    participants: ParticipantAllocation,
+    partyAllocation: PartyAllocation,
     runTestCase: ExecutionContext => Seq[ParticipantTestContext] => Participants => Future[Unit],
 ) {
   val name: String = s"${suite.name}:$shortIdentifier"
 
-  def apply(context: LedgerTestContext)(implicit ec: ExecutionContext): Future[Unit] =
-    context.allocate(participants).flatMap(p => runTestCase(ec)(context.configuredParticipants)(p))
+  private def allocatePartiesAndRun(
+      context: LedgerTestContext
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    for {
+      participants: Participants <- context.allocateParties(partyAllocation)
+      result <- runTestCase(ec)(context.configuredParticipants)(participants)
+        .transformWith { result =>
+          cleanUpCreatedUsers(context, result)
+        }
+    } yield {
+      result
+    }
+  }
 
   def repetitions: Vector[LedgerTestCase.Repetition] =
     if (repeated == 1)
@@ -46,14 +58,32 @@ sealed class LedgerTestCase(
     for {
       _ <- Either.cond(enabled(features), (), disabledReason)
       _ <- Either.cond(
-        participants.minimumParticipantCount <= participantCount,
+        partyAllocation.minimumParticipantCount <= participantCount,
         (),
         "Not enough participants to run this test case.",
       )
     } yield ()
+
+  /** Deletes users created during this test case execution.
+    */
+  private def cleanUpCreatedUsers(context: LedgerTestContext, testCaseRunResult: Try[Unit])(implicit
+      ec: ExecutionContext
+  ): Future[Unit] = {
+    lazy val deleteCreatedUsersF =
+      Future.sequence(context.configuredParticipants.map(_.deleteCreatedUsers()))
+    testCaseRunResult match {
+      case Success(v) => deleteCreatedUsersF.map(_ => v)
+      case Failure(exception) =>
+        // Prioritizing a failure of users' clean-up over the original failure of the test case
+        // since clean-up failures can affect other test cases.
+        deleteCreatedUsersF.flatMap(_ => Future.failed(exception))
+    }
+  }
+
 }
 
 object LedgerTestCase {
+
   final class Repetition(val testCase: LedgerTestCase, val repetition: Option[(Int, Int)]) {
     def suite: LedgerTestSuite = testCase.suite
 
@@ -63,7 +93,10 @@ object LedgerTestCase {
 
     def timeoutScale: Double = testCase.timeoutScale
 
-    def apply(context: LedgerTestContext)(implicit ec: ExecutionContext): Future[Unit] =
-      testCase(context)
+    def allocatePartiesAndRun(context: LedgerTestContext)(implicit
+        ec: ExecutionContext
+    ): Future[Unit] =
+      testCase.allocatePartiesAndRun(context)
   }
+
 }

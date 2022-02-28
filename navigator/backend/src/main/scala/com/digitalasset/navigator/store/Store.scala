@@ -66,6 +66,12 @@ object Store {
   /** Request diagnostic information about the state of the application and respond with a [[ApplicationStateInfo]]. */
   case object GetApplicationStateInfo
 
+  /** Request a list of all parties that have an active actor on the system matching the provided search string */
+  final case class GetParties(search: String)
+
+  /** Response to a request for parties */
+  final case class PartyList(parties: List[ApiTypes.Party])
+
   /** Diagnostic information about the state of the application */
   sealed trait ApplicationStateInfo {
     def platformHost: String

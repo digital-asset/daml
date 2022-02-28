@@ -42,60 +42,60 @@ import io.grpc.health.v1.health.HealthGrpc.Health
 import scala.annotation.nowarn
 
 private[infrastructure] final class LedgerServices(
-    participant: Channel,
+    channel: Channel,
     commandInterceptors: Seq[ClientInterceptor],
 ) {
 
   val activeContracts: ActiveContractsService =
-    ActiveContractsServiceGrpc.stub(participant)
+    ActiveContractsServiceGrpc.stub(channel)
 
   val command: CommandService =
-    CommandServiceGrpc.stub(participant).withInterceptors(commandInterceptors: _*)
+    CommandServiceGrpc.stub(channel).withInterceptors(commandInterceptors: _*)
 
   val commandCompletion: CommandCompletionService =
-    CommandCompletionServiceGrpc.stub(participant)
+    CommandCompletionServiceGrpc.stub(channel)
 
   val commandSubmission: CommandSubmissionService =
-    CommandSubmissionServiceGrpc.stub(participant).withInterceptors(commandInterceptors: _*)
+    CommandSubmissionServiceGrpc.stub(channel).withInterceptors(commandInterceptors: _*)
 
   val configuration: LedgerConfigurationService =
-    LedgerConfigurationServiceGrpc.stub(participant)
+    LedgerConfigurationServiceGrpc.stub(channel)
 
   val health: Health =
-    HealthGrpc.stub(participant)
+    HealthGrpc.stub(channel)
 
   val identity: LedgerIdentityService =
-    LedgerIdentityServiceGrpc.stub(participant): @nowarn(
+    LedgerIdentityServiceGrpc.stub(channel): @nowarn(
       "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
     )
 
   val partyManagement: PartyManagementService =
-    PartyManagementServiceGrpc.stub(participant)
+    PartyManagementServiceGrpc.stub(channel)
 
   val meteringReport: MeteringReportService =
-    MeteringReportServiceGrpc.stub(participant)
+    MeteringReportServiceGrpc.stub(channel)
 
   val packageManagement: PackageManagementService =
-    PackageManagementServiceGrpc.stub(participant)
+    PackageManagementServiceGrpc.stub(channel)
 
   val configManagement: ConfigManagementService =
-    ConfigManagementServiceGrpc.stub(participant)
+    ConfigManagementServiceGrpc.stub(channel)
 
   val participantPruning: ParticipantPruningService =
-    ParticipantPruningServiceGrpc.stub(participant)
+    ParticipantPruningServiceGrpc.stub(channel)
 
   val packages: PackageService =
-    PackageServiceGrpc.stub(participant)
+    PackageServiceGrpc.stub(channel)
 
   val transaction: TransactionService =
-    TransactionServiceGrpc.stub(participant)
+    TransactionServiceGrpc.stub(channel)
 
   val time: TimeService =
-    TimeServiceGrpc.stub(participant)
+    TimeServiceGrpc.stub(channel)
 
   val version: VersionService =
-    VersionServiceGrpc.stub(participant)
+    VersionServiceGrpc.stub(channel)
 
   val userManagement: UserManagementService =
-    UserManagementServiceGrpc.stub(participant)
+    UserManagementServiceGrpc.stub(channel)
 }

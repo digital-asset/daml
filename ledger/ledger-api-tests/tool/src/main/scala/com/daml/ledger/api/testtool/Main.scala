@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.performance.{Envelope, PerformanceTests}
 import com.daml.ledger.api.testtool.runner.{AvailableTests, TestRunner}
 
 object Main {
@@ -16,9 +15,6 @@ object Main {
 
       override def optionalTests: Vector[LedgerTestSuite] =
         Tests.optional()
-
-      override def performanceTests: PerformanceTests =
-        PerformanceTests.from(Envelope.All, outputPath = config.performanceTestsReport)
     }
     new TestRunner(availableTests, config).runAndExit()
   }

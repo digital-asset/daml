@@ -18,10 +18,10 @@ Connect the Navigator to any Daml Ledger and use it to:
 - Exercise choices on contracts
 - Advance time (This option applies only when using Navigator with the Daml Sandbox ledger.)
 
-Installing and starting Navigator
+Starting Navigator
 *********************************
 
-Navigator ships with the SDK. To launch it:
+Navigator is included in the SDK. To launch it:
 
 1. Start Navigator via a terminal window running :doc:`Daml Assistant </tools/assistant>` by typing ``daml start``
 
@@ -33,27 +33,42 @@ Navigator ships with the SDK. To launch it:
 .. note:: Navigator is compatible with these browsers: Safari, Chrome, or
    Firefox.
 
-For information on how to launch and use Navigator outside of the SDK, see :ref:`navigator-manual-advanced-usage` below.
+Logging in
+**********
 
-Choosing a party / changing the party
-*************************************
+By default, Navigator shows a drop-down list with the users that have been
+created via the :ref:`user management service <user-service>`. During
+development, it is common to create these users in a
+:ref:`Daml script <script-ledger-initialization>`: that you specify in the
+``init-script`` section of your ``daml.yaml`` file so it is executed
+on ``daml start``. Most of the templates shipped with the Daml SDK
+already include such a setup script. Only users that have a primary
+party set will be displayed.
 
-The ledger is a record of transactions between authorized participants on the distributed network.
-Before you can interact with the ledger, you must assume the role of a particular party.
-This determines the contracts that you can access and the actions you are permitted to perform on the ledger.
+After logging in, you will interact with the ledger as the primary
+party of that user, meaning that you can see contracts visible to that
+party and submit commands (e.g. create a contract) as that party.
+
+The party you are logged in as is not displayed directly. However,
+Navigator provides autocompletion based on the party id which starts
+with the party id hint so a good option is to set the party id hint to
+the user id when you allocate the party in your setup script. You can
+see an example of that in the ``skeleton`` template:
+
+.. literalinclude:: /_templates/skeleton/daml/Main.daml
+  :language: daml
+  :start-after: -- user_setup_begin
+  :end-before: -- user_setup_end
+
 The first step in using Navigator is to use the drop-down list on the Navigator home screen to select from the available
-parties.
+users.
 
 .. image:: images/choose-party.png
   :width: 30%
   :align: center
 
-.. note:: The party choices are configured on startup. (Refer to
-   :doc:`/tools/assistant` or :ref:`navigator-manual-advanced-usage` for more instructions.)
-
-.. TODO: Consider repeating instructions instead of cross-referencing.
-
-The main Navigator screen will be displayed, with contracts that this party is entitled to view in the main pane and
+The main Navigator screen will be displayed, with contracts that the primary party of this user
+is entitled to view in the main pane and
 the  option to switch from contracts to templates in the pane at the left. Other options allow you to filter the
 display, include or exclude archived contracts, and exercise choices as described below.
 
@@ -61,27 +76,52 @@ display, include or exclude archived contracts, and exercise choices as describe
   :width: 85%
   :align: center
 
-To change the active party:
+To change the active user:
 
-#. Click the name of the current party in the top right corner of the screen.
+#. Click the name of the current user in the top right corner of the screen.
 
-#. On the home screen, select a different party.
+#. On the home screen, select a different user.
 
 .. image:: images/sign-out.png
   :width: 30%
   :align: center
 
-You can act as different parties in different
+You can act as different users in different
 browser windows. Use Chrome's profile feature
 https://support.google.com/chrome/answer/2364824 and sign in as
-a different party for each Chrome profile.
+a different user for each Chrome profile.
 
-Logging out
-***********
+Logging in as a Party
+=====================
 
-To log out, click the name of the current party in the top-right corner of the screen.
+Instead of logging in by specifying a user, you can also log in by
+specifying a party directly. This is useful if you do not want to or
+cannot (because your ledger does not support user management) create
+users.
 
-.. COMMENT: Why should I log out?? What if I don't?
+To do so, you can start Navigator with a flag to disable support for user management::
+
+   daml navigator --feature-user-management=false
+
+To use this via ``daml start``, you can specify it in your ``daml.yaml`` file::
+
+  navigator-options:
+    - --feature-user-management=false
+
+Instead of displaying a list of users on login, Navigator will
+display a list of parties where each party is identified by its
+display name.
+
+Alternatively you can specify a fixed list of parties in your
+``daml.yaml`` file. This will automatically disable user management
+and display those parties on log in. Note that you still need
+to allocate those parties before you can log in as them.
+
+.. code-block:: yaml
+
+   parties:
+     - Alice::12201d00faa0968d7ab81e63ad6ad4ee0d31b08a3581b1d8596e68a1356f27519ccb
+     - Bob::12201d00faa0968d7ab81e63ad6ad4ee0d31b08a3581b1d8596e68a1356f27519ccb
 
 Viewing templates or contracts
 ******************************

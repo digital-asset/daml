@@ -176,7 +176,14 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
             ]
     pkgIdToPkgName pId = maybe pId LF.unPackageName $ join $ M.lookup pId pkgMap
     templates = [(pidM, m, t) | (pidM, m) <- modules, t <- NM.toList $ LF.moduleTemplates m]
-    choices = [(pidM, m, t, n) | (pidM, m, t) <- templates, n <- NM.names $ LF.tplChoices t]
+    choices =
+        [ (pidM, m, t, n)
+        | (pidM, m, t) <- templates
+        , n <- concat
+            [ NM.names (LF.tplChoices t)
+            , S.toList . LF.tpiInheritedChoiceNames =<< NM.toList (LF.tplImplements t)
+            ]
+        ]
     percentage i j
       | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
       | otherwise = "100%"

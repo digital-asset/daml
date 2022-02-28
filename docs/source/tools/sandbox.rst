@@ -188,8 +188,8 @@ To start Sandbox, run: ``daml sandbox [options] [-c canton.config]``.
 
 To see all the available options, run ``daml sandbox --help``. Note
 that this will show you the options of the Sandbox wrapper around
-Canton. To see options of the underlying Canton runner, use ``daml
-sandbox -- -- --help``.
+Canton. To see options of the underlying Canton runner, use
+``daml sandbox --canton-help``.
 
 Metrics
 *******
