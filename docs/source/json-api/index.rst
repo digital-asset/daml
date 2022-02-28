@@ -279,8 +279,8 @@ Using User Tokens
 ^^^^^^^^^^^^^^^^^
 
 If the underlying ledger supports :ref:`user management <user-service>` (this includes Canton and the sandbox), you are
-recommended to use user tokens. For command submissions, the user id of the bearer should have ``actAs`` rights for at
-least one party and ``readAs`` rights for any number of parties. Queries require the bearer's user id to have at least
+recommended to use user tokens. For command submissions, the user of the bearer should have ``actAs`` rights for at
+least one party and ``readAs`` rights for any number of parties. Queries require the bearer's user to have at least
 one ``actAs`` or ``readAs`` user right. The application id of the Ledger API request will be the user id.
 
 Using Claim Tokens
