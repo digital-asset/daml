@@ -52,7 +52,7 @@ object IndexerConfig {
   val DefaultBatchingParallelism: Int = 4
   val DefaultIngestionParallelism: Int = 16
   val DefaultSubmissionBatchSize: Long = 50L
-  val DefaultBatchWithinMillis: Long = 20L
+  val DefaultBatchWithinMillis: Long = 10L
   val DefaultEnableCompression: Boolean = false
 
   val DefaultSchemaMigrationAttempts: Int = 30
