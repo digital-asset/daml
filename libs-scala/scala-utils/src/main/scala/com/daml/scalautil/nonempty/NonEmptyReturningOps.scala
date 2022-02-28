@@ -15,14 +15,14 @@ import NonEmptyCollCompat._
 object NonEmptyReturningOps {
   implicit final class `NE Iterable Ops`[A, CC[_], C](
       private val self: IterableOps[A, CC, C with imm.Iterable[A]]
-  ) {
+  ) extends AnyVal {
     def groupBy1[K](f: A => K): Map[K, NonEmpty[C]] =
       NonEmpty.subst[Lambda[f[_] => Map[K, f[C]]]](self groupBy f)
   }
 
   implicit final class `NE Seq Ops`[A, CC[X] <: imm.Seq[X], C](
       private val self: SeqOps[A, CC, C with imm.Seq[A]]
-  ) {
+  ) extends AnyVal {
     import NonEmpty.{unsafeNarrow => un}
 
     def +-:(elem: A): NonEmpty[CC[A]] = un(elem +: self)
