@@ -49,8 +49,7 @@ object EndpointsCompanion {
 
   object ServerError {
     // We want stack traces also in the case of simple error messages.
-    def apply(message: String): ServerError = ServerError(new Exception(message))
-    def apply(error: Throwable): ServerError = ServerError(error)
+    def fromMsg(message: String): ServerError = ServerError(new Exception(message))
   }
 
   object Error {

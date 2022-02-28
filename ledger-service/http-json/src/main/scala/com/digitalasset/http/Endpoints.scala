@@ -463,7 +463,7 @@ class Endpoints(
 
   private[this] def filterStreamErrors[E, A]: Flow[Error \/ A, Error \/ A, NotUsed] =
     Flow[Error \/ A].map {
-      case -\/(ServerError(_)) => -\/(ServerError("internal server error"))
+      case -\/(ServerError(_)) => -\/(ServerError.fromMsg("internal server error"))
       case o => o
     }
 
@@ -475,7 +475,7 @@ class Endpoints(
       metrics.daml.HttpJsonApi.responseCreationTimer,
       result
         .flatMap { x =>
-          either(SprayJson.encode1(x).map(y => (y, x.status)).liftErr(ServerError(_): Error))
+          either(SprayJson.encode1(x).map(y => (y, x.status)).liftErr(ServerError.fromMsg))
         }
         .run
         .map {
@@ -522,14 +522,14 @@ object Endpoints {
 
     implicit val fromContracts: IntoEndpointsError[ContractsService.Error] =
       new IntoEndpointsError({ case ContractsService.InternalError(id, msg) =>
-        ServerError(s"contracts service error, ${id.name}: $msg")
+        ServerError.fromMsg(s"contracts service error, ${id.name}: $msg")
       })
   }
 
   private final case class MkHttpResponse[-T](run: T => Future[HttpResponse])
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
-    \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError(_): Error)
+    \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError.fromMsg)
 
   private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
     for {
@@ -551,6 +551,6 @@ object Endpoints {
   }
 
   private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue = {
-    SprayJson.encode(a).liftErr(ServerError(_): Error)
+    SprayJson.encode(a).liftErr(ServerError.fromMsg)
   }
 }

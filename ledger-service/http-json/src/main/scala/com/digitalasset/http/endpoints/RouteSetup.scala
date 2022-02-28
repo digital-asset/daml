@@ -103,7 +103,7 @@ private[http] final class RouteSetup(
       resp <- withJwtPayloadLoggingContext(jwtPayload)(
         fn(jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx)
       )
-      jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError(_): Error)): ET[JsValue]
+      jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError.fromMsg)): ET[JsValue]
     } yield domain.OkResponse(jsVal)
 
   def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit

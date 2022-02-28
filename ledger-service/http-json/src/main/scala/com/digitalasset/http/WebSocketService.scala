@@ -950,12 +950,12 @@ class WebSocketService(
           ae =>
             domain.ArchivedContract
               .fromLedgerApi(ae)
-              .liftErr(ServerError(_)),
+              .liftErr(ServerError.fromMsg),
           ce =>
             domain.ActiveContract
               .fromLedgerApi(ce)
-              .liftErr(ServerError(_))
-              .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError(_))),
+              .liftErr(ServerError.fromMsg)
+              .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError.fromMsg)),
         )(Seq)
         StepAndErrors(
           errors ++ aerrors,
