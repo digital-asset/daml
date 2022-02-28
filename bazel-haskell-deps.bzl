@@ -194,7 +194,7 @@ c2hs_suite(
     compiler_flags = ["-XCPP", "-Wno-unused-imports", "-Wno-unused-record-wildcards"],
     visibility = ["//visibility:public"],
     deps = [
-        "@grpc_haskell_core_cbits//:fat_cbits",
+        "@grpc_haskell_core_cbits//:merged_cbits",
     ],
 )
 """,
@@ -217,7 +217,7 @@ c2hs_suite(
 load("@com_github_digital_asset_daml//bazel_tools:fat_cc_library.bzl", "fat_cc_library")
 
 fat_cc_library(
-  name = "fat_cbits",
+  name = "merged_cbits",
   input_lib = "cbits",
   visibility = ["//visibility:public"],
 )

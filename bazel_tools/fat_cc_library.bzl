@@ -56,7 +56,7 @@ def _fat_cc_library_impl(ctx):
             ["-lstdc++"] +
             (["-framework", "CoreFoundation"] if is_darwin else []) +
             # On Windows we have some extra deps.
-            (["-lbcrypt", "-lDbgHelp", "-lws2_32"] if is_windows else []),
+            (["-lws2_32"] if is_windows else []),
         inputs = static_libs,
         env = {"PATH": ""},
     )
