@@ -194,7 +194,7 @@ unitTests =
            , "  where"
            , "    signatory field1"
            , "    implements Bar where"
-           , "      let method = pure ()"
+           , "      method = pure ()"
            ]
            (\md -> assertBool
                    ("Expected interface implementation, got " <> show md)
