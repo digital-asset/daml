@@ -141,7 +141,6 @@ class BatchingParallelIngestionPipeSpec
           tailerHook()
           List((current.lastOption.orElse(prev.lastOption).get._1, ""))
         },
-        tailingRateLimitPerSecond = 100,
         ingestTail = dbBatch =>
           Future {
             ingestTailHook()

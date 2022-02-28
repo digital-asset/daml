@@ -248,10 +248,6 @@ object Config {
               .get("indexer-submission-batch-size")
               .map(_.toLong)
               .getOrElse(ParticipantIndexerConfig.DefaultSubmissionBatchSize)
-            val indexerTailingRateLimitPerSecond = kv
-              .get("indexer-tailing-rate-limit-per-second")
-              .map(_.toInt)
-              .getOrElse(ParticipantIndexerConfig.DefaultTailingRateLimitPerSecond)
             val indexerBatchWithinMillis = kv
               .get("indexer-batch-within-millis")
               .map(_.toLong)
@@ -295,7 +291,6 @@ object Config {
                 batchingParallelism = indexerBatchingParallelism,
                 ingestionParallelism = indexerIngestionParallelism,
                 submissionBatchSize = indexerSubmissionBatchSize,
-                tailingRateLimitPerSecond = indexerTailingRateLimitPerSecond,
                 batchWithinMillis = indexerBatchWithinMillis,
                 enableCompression = indexerEnableCompression,
               ),

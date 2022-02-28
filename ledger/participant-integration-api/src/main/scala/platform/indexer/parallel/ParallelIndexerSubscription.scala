@@ -34,7 +34,6 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     batchingParallelism: Int,
     ingestionParallelism: Int,
     submissionBatchSize: Long,
-    tailingRateLimitPerSecond: Int,
     batchWithinMillis: Long,
     metrics: Metrics,
 ) {
@@ -76,7 +75,6 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         ingestingParallelism = ingestionParallelism,
         ingester = ingester(ingestionStorageBackend.insertBatch, dbDispatcher, metrics),
         tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
-        tailingRateLimitPerSecond = tailingRateLimitPerSecond,
         ingestTail =
           ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
       )(

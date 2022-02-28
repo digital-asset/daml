@@ -43,7 +43,6 @@ trait ConfigProvider[ExtraConfig] {
       ingestionParallelism = participantConfig.indexerConfig.ingestionParallelism,
       batchingParallelism = participantConfig.indexerConfig.batchingParallelism,
       submissionBatchSize = participantConfig.indexerConfig.submissionBatchSize,
-      tailingRateLimitPerSecond = participantConfig.indexerConfig.tailingRateLimitPerSecond,
       batchWithinMillis = participantConfig.indexerConfig.batchWithinMillis,
       enableCompression = participantConfig.indexerConfig.enableCompression,
     )

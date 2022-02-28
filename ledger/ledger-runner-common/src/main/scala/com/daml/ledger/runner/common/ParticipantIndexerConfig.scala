@@ -22,7 +22,6 @@ final case class ParticipantIndexerConfig(
     batchingParallelism: Int = ParticipantIndexerConfig.DefaultBatchingParallelism,
     ingestionParallelism: Int = ParticipantIndexerConfig.DefaultIngestionParallelism,
     submissionBatchSize: Long = ParticipantIndexerConfig.DefaultSubmissionBatchSize,
-    tailingRateLimitPerSecond: Int = ParticipantIndexerConfig.DefaultTailingRateLimitPerSecond,
     batchWithinMillis: Long = ParticipantIndexerConfig.DefaultBatchWithinMillis,
     enableCompression: Boolean = ParticipantIndexerConfig.DefaultEnableCompression,
     haConfig: HaConfig = HaConfig(),
@@ -36,7 +35,6 @@ object ParticipantIndexerConfig {
   val DefaultBatchingParallelism: Int = IndexerConfig.DefaultBatchingParallelism
   val DefaultIngestionParallelism: Int = IndexerConfig.DefaultIngestionParallelism
   val DefaultSubmissionBatchSize: Long = IndexerConfig.DefaultSubmissionBatchSize
-  val DefaultTailingRateLimitPerSecond: Int = IndexerConfig.DefaultTailingRateLimitPerSecond
   val DefaultBatchWithinMillis: Long = IndexerConfig.DefaultBatchWithinMillis
   val DefaultEnableCompression: Boolean = IndexerConfig.DefaultEnableCompression
 }
