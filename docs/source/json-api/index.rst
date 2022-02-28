@@ -290,10 +290,12 @@ These tokens can be used if the underlying ledger does not support :ref:`user ma
 submissions, ``actAs`` must contain at least one party and ``readAs`` can contain 0 or more parties. Queries require at
 least one party in either ``actAs`` or ``readAs``. The application id is mandatory.
 
-.. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it,
-and all data contained within the request, on to the Ledger API's AuthService which will then determine if the token is
-valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id and party so
-it requires that you use :ref:`a valid Daml ledger access token format<access-token-formats>`.
+.. note::
+
+    While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it,
+    and all data contained within the request, on to the Ledger API's AuthService which will then determine if the
+    token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id
+    and party so it requires that you use :ref:`a valid Daml ledger access token format<access-token-formats>`.
 
 For a ledger without authorization, e.g., the default configuration of Daml Sandbox, you can use `https://jwt.io <https://jwt.io/#debugger-io?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.atGiYNc9HfBFbm8s9j5vvMv2sJUlVprFiRmLeoUpJeY>`_ (or the JWT library of your choice) to generate your
 token.  You can use an arbitrary secret here. The default "header" is fine.  Under "Payload", fill in:
