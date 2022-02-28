@@ -293,12 +293,15 @@ object WebSocketService {
         }
 
         def dbQueriesPlan(
-            q: Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), (Int, Int))]]
+            q: NonEmpty[
+              Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), (Int, Int))]]
+            ]
         )(implicit
             sjd: dbbackend.SupportedJdbcDriver.TC
-        ): (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
+        ): (NonEmpty[Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)]], Map[Int, Int]) = {
+          import com.daml.scalautil.nonempty.NonEmptyReturningOps._
           val annotated = q.toSeq.flatMap { case (tpid, nel) =>
-            nel.toVector.map { case ((vp, _), (_, pos)) => (tpid, vp.toSqlWhereClause, pos) }
+            nel.toVector1.map { case ((vp, _), (_, pos)) => (tpid, vp.toSqlWhereClause, pos) }
           }
           val posMap = annotated.iterator.zipWithIndex.map { case ((_, _, pos), ix) =>
             (ix, pos)
@@ -485,10 +488,10 @@ object WebSocketService {
         }
       }
       def dbQueries(
-          q: Map[domain.TemplateId.RequiredPkg, NonEmpty[Set[LfV]]]
+          q: NonEmpty[Map[domain.TemplateId.RequiredPkg, NonEmpty[Set[LfV]]]]
       )(implicit
           sjd: dbbackend.SupportedJdbcDriver.TC
-      ): Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
+      ): NonEmpty[Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)]] =
         q.toSeq map { case (t, lfvKeys) =>
           import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
           (
@@ -514,7 +517,8 @@ object WebSocketService {
           { (parties, dao) =>
             import dao.{logHandler, jdbcDriver}
             import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
-            selectContractsMultiTemplate(parties, dbQueries(q), MatchedQueryMarker.Unused)
+            val NonEmpty(neq) = q // TODO SC
+            selectContractsMultiTemplate(parties, dbQueries(neq), MatchedQueryMarker.Unused)
           },
         )
       request.toList

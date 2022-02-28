@@ -37,5 +37,6 @@ object NonEmptyReturningOps {
   implicit final class `NE Foldable1 Ops`[F[_], A](self: F[A])(implicit F: Foldable1[F]) {
     import NonEmpty.{unsafeNarrow => un}
     def toSet1: NonEmpty[Set[A]] = un(F toSet self)
+    def toVector1: NonEmpty[Vector[A]] = un(F toVector self)
   }
 }
