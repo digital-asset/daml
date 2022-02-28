@@ -28,12 +28,12 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json.{
-  DeserializationException,
   JsArray,
   JsNull,
   JsObject,
   JsString,
   JsValue,
+  DeserializationException,
   enrichAny => `sj enrichAny`,
 }
 
