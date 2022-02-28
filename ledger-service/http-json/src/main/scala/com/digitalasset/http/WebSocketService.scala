@@ -62,14 +62,19 @@ object WebSocketService {
   private type CompiledQueries =
     NonEmpty[Map[domain.TemplateId.RequiredPkg, (ValuePredicate, LfV => Boolean)]]
 
+  private sealed abstract class PredicateResult[+Positive] extends Product with Serializable
+
+  private final case class FailedResolution(unresolved: Set[domain.TemplateId.OptionalPkg])
+      extends PredicateResult[Nothing]
+
   private final case class StreamPredicate[+Positive](
-      resolved: Set[domain.TemplateId.RequiredPkg],
+      resolved: NonEmpty[Set[domain.TemplateId.RequiredPkg]],
       unresolved: Set[domain.TemplateId.OptionalPkg],
       fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive],
       dbQuery: (domain.PartySet, dbbackend.ContractDao) => ConnectionIO[
         _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
       ],
-  )
+  ) extends PredicateResult[Positive]
 
   /** If an element satisfies `prefix`, consume it and emit the result alongside
     * the next element (which is not similarly tested); otherwise, emit it.
@@ -201,7 +206,7 @@ object WebSocketService {
         ledgerId: LedgerApiDomain.LedgerId,
     )(implicit
         lc: LoggingContextOf[InstanceUUID]
-    ): Future[StreamPredicate[Positive]]
+    ): Future[PredicateResult[Positive]]
 
     def renderCreatedMetadata(p: Positive): Map[String, JsValue]
 
@@ -262,7 +267,7 @@ object WebSocketService {
           ledgerId: LedgerApiDomain.LedgerId,
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
-      ): Future[StreamPredicate[Positive]] = {
+      ): Future[PredicateResult[Positive]] = {
 
         import scalaz.syntax.foldable._
         import util.Collections._
@@ -464,7 +469,7 @@ object WebSocketService {
         ledgerId: LedgerApiDomain.LedgerId,
     )(implicit
         lc: LoggingContextOf[InstanceUUID]
-    ): Future[StreamPredicate[Positive]] = {
+    ): Future[PredicateResult[Positive]] = {
 
       def getQ(
           resolvedWithKey: Set[
