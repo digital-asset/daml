@@ -16,7 +16,6 @@ import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.lf.data.Ref
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.http.HttpServiceTestFixture.jsonCodecs
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
@@ -833,55 +832,6 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
             }
         }: Future[Assertion]
   }
-
-  "should be able to serialize and deserialize domain commands" in withHttpServiceAndClient {
-    (uri, _, _, client, ledgerId) =>
-      instanceUUIDLogCtx(implicit lc =>
-        jsonCodecs(client, ledgerId, None).flatMap { case (encoder, decoder) =>
-          testCreateCommandEncodingDecoding(uri)(encoder, decoder, ledgerId) *>
-            testExerciseCommandEncodingDecoding(uri)(
-              encoder,
-              decoder,
-              ledgerId,
-            )
-        }: Future[Assertion]
-      )
-  }
-
-  private def testCreateCommandEncodingDecoding(uri: Uri)(
-      encoder: DomainJsonEncoder,
-      decoder: DomainJsonDecoder,
-      ledgerId: LedgerId,
-  ): Future[Assertion] = instanceUUIDLogCtx { implicit lc =>
-    import json.JsonProtocol._
-    import util.ErrorOps._
-
-    val command0: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand("Alice")
-
-    type F[A] = EitherT[Future, JsonError, A]
-    val x: F[Assertion] = for {
-      jsVal <- EitherT.either(
-        encoder.encodeCreateCommand(command0).liftErr(JsonError)
-      ): F[JsValue]
-      command1 <- (EitherT.rightT(jwt(uri)): F[Jwt])
-        .flatMap(decoder.decodeCreateCommand(jsVal, _, ledgerId))
-    } yield command1.bimap(removeRecordId, removePackageId) should ===(command0)
-
-    (x.run: Future[JsonError \/ Assertion]).map(_.fold(e => fail(e.shows), identity))
-  }
-
-  private def testExerciseCommandEncodingDecoding(uri: Uri)(
-      encoder: DomainJsonEncoder,
-      decoder: DomainJsonDecoder,
-      ledgerId: LedgerId,
-  ): Future[Assertion] = {
-    val command0 = iouExerciseTransferCommand(lar.ContractId("#a-contract-ID"))
-    val jsVal: JsValue = encodeExercise(encoder)(command0)
-    val command1 =
-      jwt(uri).flatMap(decodeExercise(decoder, _, ledgerId)(jsVal))
-    command1.map(_.bimap(removeRecordId, identity) should ===(command0))
-  }
-
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -1504,6 +1454,54 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
           }
       }
     }
+  }
+
+  "should be able to serialize and deserialize domain commands" in withHttpServiceAndClient {
+    (uri, _, _, client, ledgerId) =>
+      instanceUUIDLogCtx(implicit lc =>
+        jsonCodecs(client, ledgerId, Some(jwtAdminNoParty)).flatMap { case (encoder, decoder) =>
+          testCreateCommandEncodingDecoding(uri)(encoder, decoder, ledgerId) *>
+            testExerciseCommandEncodingDecoding(uri)(
+              encoder,
+              decoder,
+              ledgerId,
+            )
+        }: Future[Assertion]
+      )
+  }
+
+  private def testCreateCommandEncodingDecoding(uri: Uri)(
+      encoder: DomainJsonEncoder,
+      decoder: DomainJsonDecoder,
+      ledgerId: LedgerId,
+  ): Future[Assertion] = instanceUUIDLogCtx { implicit lc =>
+    import json.JsonProtocol._
+    import util.ErrorOps._
+
+    val command0: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand("Alice")
+
+    type F[A] = EitherT[Future, JsonError, A]
+    val x: F[Assertion] = for {
+      jsVal <- EitherT.either(
+        encoder.encodeCreateCommand(command0).liftErr(JsonError)
+      ): F[JsValue]
+      command1 <- (EitherT.rightT(jwt(uri)): F[Jwt])
+        .flatMap(decoder.decodeCreateCommand(jsVal, _, ledgerId))
+    } yield command1.bimap(removeRecordId, removePackageId) should ===(command0)
+
+    (x.run: Future[JsonError \/ Assertion]).map(_.fold(e => fail(e.shows), identity))
+  }
+
+  private def testExerciseCommandEncodingDecoding(uri: Uri)(
+      encoder: DomainJsonEncoder,
+      decoder: DomainJsonDecoder,
+      ledgerId: LedgerId,
+  ): Future[Assertion] = {
+    val command0 = iouExerciseTransferCommand(lar.ContractId("#a-contract-ID"))
+    val jsVal: JsValue = encodeExercise(encoder)(command0)
+    val command1 =
+      jwt(uri).flatMap(decodeExercise(decoder, _, ledgerId)(jsVal))
+    command1.map(_.bimap(removeRecordId, identity) should ===(command0))
   }
 
   "request non-existent endpoint should return 404 with errors" in withHttpService {
